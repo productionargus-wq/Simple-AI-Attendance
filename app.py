@@ -47,6 +47,20 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+import traceback
+
+@app.errorhandler(500)
+def handle_500(e):
+    err = traceback.format_exc()
+    print("500 Internal Error:", err)
+    return f"<h1>Internal Server Error (500)</h1><pre>{err}</pre>", 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    err = traceback.format_exc()
+    print("Unhandled Exception:", err)
+    return f"<h1>Server Error</h1><pre>{err}</pre>", 500
+
 # ----------------- PAGE ROUTES ----------------- #
 
 @app.route('/')
