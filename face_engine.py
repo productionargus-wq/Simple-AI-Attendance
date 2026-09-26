@@ -16,8 +16,17 @@ Key Architecture:
 """
 
 import json
-import numpy as np
-import cv2
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
 import database
 
 RECOGNITION_THRESHOLD = 0.75

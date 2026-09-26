@@ -17,12 +17,24 @@ app = Flask(__name__)
 CORS(app)
 app.secret_key = 'argus-tech-secret-key-2026'
 
-app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+# Support writable temp directory in serverless environments like Vercel
+if os.environ.get('VERCEL'):
+    app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
+else:
+    app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-database.init_db()
+try:
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+except Exception as e:
+    print(f"Warning: Could not create upload directory: {e}")
+
+try:
+    database.init_db()
+except Exception as e:
+    print(f"Warning: database init error: {e}")
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -566,7 +578,10 @@ def api_manual_entries_export_pdf():
 # ----------------- PAYMENT MANAGEMENT API ROUTES ----------------- #
 
 RECEIPTS_FOLDER = os.path.join(app.config['UPLOAD_FOLDER'], 'receipts')
-os.makedirs(RECEIPTS_FOLDER, exist_ok=True)
+try:
+    os.makedirs(RECEIPTS_FOLDER, exist_ok=True)
+except Exception:
+    pass
 
 @app.route('/api/payments', methods=['GET'])
 def api_get_payments():
