@@ -10,8 +10,24 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 from functools import wraps
 from flask_cors import CORS
 import database
-import pdf_generator
-import face_engine
+
+try:
+    import pdf_generator
+except Exception as e:
+    pdf_generator = None
+    print(f"Warning: pdf_generator import failed: {e}")
+
+# Lazy import face_engine to avoid numpy/opencv crash on serverless
+face_engine = None
+def get_face_engine():
+    global face_engine
+    if face_engine is None:
+        try:
+            import face_engine as _fe
+            face_engine = _fe
+        except Exception as e:
+            print(f"Warning: face_engine import failed: {e}")
+    return face_engine
 
 app = Flask(__name__)
 CORS(app)
@@ -187,7 +203,7 @@ def api_create_employee():
         if file and file.filename and allowed_file(file.filename):
             file_bytes = file.read()
             # Extract 128-d face embedding immediately (Image is NOT stored)
-            embedding = face_engine.extract_face_embedding_from_image(file_bytes)
+            embedding = get_face_engine().extract_face_embedding_from_image(file_bytes)
             data['face_embedding'] = database.json.dumps(embedding)
             
             # Reset file pointer if saving thumbnail or legacy
@@ -223,7 +239,7 @@ def api_update_employee(emp_id):
         if file and file.filename and allowed_file(file.filename):
             file_bytes = file.read()
             # Extract face embedding
-            embedding = face_engine.extract_face_embedding_from_image(file_bytes)
+            embedding = get_face_engine().extract_face_embedding_from_image(file_bytes)
             data['face_embedding'] = database.json.dumps(embedding)
             
             filename = werkzeug.utils.secure_filename(file.filename)
@@ -351,7 +367,7 @@ def api_face_enroll():
     file_bytes = file.read()
     
     # Compute 128-d embedding
-    embedding = face_engine.extract_face_embedding_from_image(file_bytes)
+    embedding = get_face_engine().extract_face_embedding_from_image(file_bytes)
     database.save_face_embedding(emp_id, embedding)
     
     # Notice: file_bytes is NOT saved to disk! Image is discarded.
@@ -375,8 +391,8 @@ def api_face_recognize():
     file_bytes = file.read()
     
     # Extract query embedding
-    query_embedding = face_engine.extract_face_embedding_from_image(file_bytes)
-    result = face_engine.recognize_face(query_embedding)
+    query_embedding = get_face_engine().extract_face_embedding_from_image(file_bytes)
+    result = get_face_engine().recognize_face(query_embedding)
     
     if result.get('matched'):
         emp_id = result['employee_id']
