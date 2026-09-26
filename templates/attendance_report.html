@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Attendance Report Banner with Subtab Toggles -->
+<div class="content-banner-card">
+  <div class="content-banner-title" id="pageTitle">ALL ENTRIES</div>
+  <div class="tab-toggle-container">
+    <button class="btn-toggle-tab active" id="btnAllEntries" data-view="all">All Entries</button>
+    <button class="btn-toggle-tab inactive" id="btnProperEntries" data-view="proper">Proper Entries</button>
+    <button class="btn-toggle-tab inactive" id="btnImproperEntries" data-view="improper">Improper Entries</button>
+    <button class="btn-toggle-tab inactive" id="btnManualEntries" data-view="manual">Manual Entries</button>
+    <button class="btn-toggle-tab inactive" id="btnSimpleTable" data-view="simple">Simple table</button>
+    <button class="btn-update" id="btnUpdateData" title="Recalculate attendance records">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+      </svg>
+      Update
+    </button>
+  </div>
+</div>
+
+<!-- Dynamic Subtitle description -->
+<div class="report-subtitle" id="reportSubtitle">
+  Displays all attendance records, including Proper, Improper, and Manual entries.
+</div>
+
+<!-- Date and Employee Filter Bar -->
+<div class="filter-bar">
+  <div class="filter-group">
+    <label for="startDate">Start Date</label>
+    <input type="date" id="startDate" class="filter-input">
+  </div>
+  <div class="filter-group">
+    <label for="endDate">End Date</label>
+    <input type="date" id="endDate" class="filter-input">
+  </div>
+  <div class="filter-group">
+    <label for="employeeFilter">Employee</label>
+    <select id="employeeFilter" class="filter-input" style="min-width: 140px; padding: 5px 10px;">
+      <option value="All">All</option>
+      {% for emp in employees %}
+      <option value="{{ emp }}">{{ emp }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button class="btn-filter" id="btnFilter">Filter</button>
+  <button class="btn-clear" id="btnClear">Clear</button>
+</div>
+
+<!-- ================= VIEW 1: Standard Table View (All / Proper / Improper / Manual) ================= -->
+<div class="table-card" id="standardTableContainer">
+  <div class="table-toolbar">
+    <div class="table-toolbar-left">
+      <div class="entries-select-wrapper">
+        <span>Show</span>
+        <select id="entriesLimit" class="entries-select">
+          <option value="10" selected>10 rows</option>
+          <option value="25">25 rows</option>
+          <option value="50">50 rows</option>
+          <option value="100">100 rows</option>
+        </select>
+      </div>
+
+      <div class="export-btn-group">
+        <button class="btn-export" id="btnCopyTable" title="Copy to clipboard">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Copy
+        </button>
+        <button class="btn-export btn-excel" id="btnExportExcel" title="Export to Excel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="8" y1="13" x2="16" y2="13"></line>
+            <line x1="8" y1="17" x2="16" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          Excel
+        </button>
+        <button class="btn-export btn-pdf" id="btnExportPdf" title="Export to PDF">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          PDF
+        </button>
+        <button class="btn-export" id="btnPrintReport" title="Print table">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Print
+        </button>
+      </div>
+    </div>
+
+    <div class="search-box-wrapper">
+      <label for="tableSearch">Search:</label>
+      <input type="text" id="tableSearch" class="search-input">
+    </div>
+  </div>
+
+  <div class="table-responsive" id="printableStandardSection">
+    <table class="employee-table" id="attendanceStandardTable">
+      <thead>
+        <tr>
+          <th data-col="employee_name">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_time">ENTRY TIME <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_distance">ENTRY DISTANCE <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_location">ENTRY LOCATION <span class="sort-icon">⇅</span></th>
+          <th data-col="exit_time">EXIT TIME <span class="sort-icon">⇅</span></th>
+          <th data-col="exit_distance">EXIT DISTANCE <span class="sort-icon">⇅</span></th>
+          <th data-col="exit_location">EXIT LOCATION <span class="sort-icon">⇅</span></th>
+          <th data-col="working_hours">WORKING HOURS <span class="sort-icon">⇅</span></th>
+          <th data-col="shift_variance">SHIFT VARIANCE <span class="sort-icon">⇅</span></th>
+          <th data-col="working_salary">WORKING SALARY <span class="sort-icon">⇅</span></th>
+        </tr>
+      </thead>
+      <tbody id="attendanceStandardTableBody">
+        <!-- Rendered dynamically -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-footer">
+    <div id="tableInfoText">Showing 1 to 4 of 4 entries</div>
+    <div class="pagination-controls" id="standardPagination">
+      <button class="pagination-arrow-btn disabled" id="prevArrowBtn">&lt;</button>
+      <button class="pagination-btn active" id="currentPageBtn">1</button>
+      <button class="pagination-arrow-btn disabled" id="nextArrowBtn">&gt;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= VIEW 2: Simple Table View (Image 5) ================= -->
+<div class="table-card" id="simpleTableContainer" style="display: none;">
+  <div class="simple-table-header-bar">
+    <div class="employee-select-wrapper">
+      <span>Employee :</span>
+      <select id="simpleEmployeeSelect" class="employee-dropdown">
+        <option value="All Employees">All Employees</option>
+      </select>
+    </div>
+
+    <div class="simple-export-btns">
+      <button class="btn-simple-excel" id="btnSimpleExcel">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="8" y1="13" x2="16" y2="13"></line>
+          <line x1="8" y1="17" x2="16" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        Excel
+      </button>
+      <button class="btn-simple-pdf" id="btnSimplePdf">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+        PDF
+      </button>
+      <button class="btn-simple-print" id="btnSimplePrint">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        Print
+      </button>
+    </div>
+  </div>
+
+  <div class="table-responsive" id="printableSimpleSection">
+    <table class="employee-table employee-table-simple" id="attendanceSimpleTable">
+      <thead>
+        <tr>
+          <th>EMPLOYEE NAME</th>
+          <th>ENTRY TIME</th>
+          <th>EXIT TIME</th>
+          <th>WORKING HOURS</th>
+          <th>SHIFT VARIANCE</th>
+          <th>WORKING SALARY</th>
+          <th>STATUS</th>
+        </tr>
+      </thead>
+      <tbody id="attendanceSimpleTableBody">
+        <!-- Rendered dynamically -->
+      </tbody>
+      <tfoot>
+        <tr class="row-total">
+          <td colspan="3" style="text-align: right; padding-right: 25px;">TOTAL</td>
+          <td id="totalHoursVal">20:00</td>
+          <td>----</td>
+          <td id="totalSalaryVal">20.00</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/attendance_report.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Manual Entry Banner with Add Entry Button -->
+<div class="content-banner-card">
+  <div class="content-banner-title">MANUAL ENTRY</div>
+  <button class="btn-new-entry" id="btnOpenManualEntryModal">
+    Add Entry
+  </button>
+</div>
+
+<!-- Date and Status Filter Bar -->
+<div class="filter-bar" style="justify-content: flex-start; gap: 15px; margin-bottom: 20px;">
+  <div class="filter-group">
+    <label for="fromDateFilter">From Date</label>
+    <input type="date" id="fromDateFilter" class="filter-input" placeholder="mm/dd/yyyy">
+  </div>
+  <div class="filter-group">
+    <label for="toDateFilter">To Date</label>
+    <input type="date" id="toDateFilter" class="filter-input" placeholder="mm/dd/yyyy">
+  </div>
+  <div class="filter-group">
+    <label for="statusFilter">Status</label>
+    <select id="statusFilter" class="filter-input" style="width: 140px;">
+      <option value="All" selected>All</option>
+      <option value="Permission">Permission</option>
+      <option value="Improper">Improper</option>
+      <option value="Others">Others</option>
+    </select>
+  </div>
+  <button class="btn-filter" id="btnFilterManual">Filter</button>
+  <button class="btn-clear" id="btnClearManual">Clear</button>
+</div>
+
+<!-- Table Card -->
+<div class="table-card">
+  <div class="table-toolbar">
+    <div class="table-toolbar-left">
+      <div class="entries-select-wrapper">
+        <span>Show</span>
+        <select id="entriesLimit" class="entries-select">
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+        <span>entries</span>
+      </div>
+
+      <div class="export-btn-group">
+        <button class="btn-export" id="btnCopyTable" title="Copy">Copy</button>
+        <button class="btn-export" id="btnCsvTable" title="CSV">CSV</button>
+        <button class="btn-export btn-excel" id="btnExcelTable" title="Excel">Excel</button>
+        <button class="btn-export btn-pdf" id="btnPdfTable" title="PDF">PDF</button>
+        <button class="btn-export" id="btnPrintTable" title="Print">Print</button>
+      </div>
+    </div>
+
+    <div class="search-box-wrapper">
+      <label for="tableSearch">Search:</label>
+      <input type="text" id="tableSearch" class="search-input">
+    </div>
+  </div>
+
+  <div class="table-responsive" id="printableManualSection">
+    <table class="employee-table" id="manualEntryTable">
+      <thead>
+        <tr>
+          <th data-col="employee_name">NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_date">DATE <span class="sort-icon">⇅</span></th>
+          <th data-col="hours">HOURS <span class="sort-icon">⇅</span></th>
+          <th data-col="status">STATUS <span class="sort-icon">⇅</span></th>
+          <th data-col="submitted_at">SUBMITTED <span class="sort-icon">⇅</span></th>
+          <th data-col="hourly_rate">HOURLY <span class="sort-icon">⇅</span></th>
+          <th data-col="day_rate">DAY <span class="sort-icon">⇅</span></th>
+          <th data-col="half_rate">HALF <span class="sort-icon">⇅</span></th>
+          <th data-col="working_salary">WORKING SALARY <span class="sort-icon">⇅</span></th>
+          <th>ACTIONS <span class="sort-icon">⇅</span></th>
+        </tr>
+      </thead>
+      <tbody id="manualEntryTableBody">
+        <!-- Populated dynamically via JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-footer">
+    <div id="tableInfoText">Showing 1 to 3 of 3 entries</div>
+    <div class="pagination-controls">
+      <button class="pagination-btn disabled" id="prevPageBtn">Previous</button>
+      <button class="pagination-btn active" id="currentPageBtn">1</button>
+      <button class="pagination-btn disabled" id="nextPageBtn">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: Manual Entry (Images 2, 3, 4) ================= -->
+<div class="modal-overlay" id="manualEntryModal">
+  <div class="modal-box modal-box-manual">
+    <div class="modal-header">
+      <div class="modal-header-title" id="manualModalTitle">Manual Entry</div>
+      <button class="modal-close-btn" id="closeManualModal">&times;</button>
+    </div>
+    
+    <form id="manualEntryForm">
+      <input type="hidden" id="manualEntryId" name="id">
+      
+      <div class="modal-body">
+        <div class="modal-form-vertical">
+          <!-- Entry Type -->
+          <div class="form-group">
+            <label class="form-label">Entry Type</label>
+            <input type="text" class="form-input" id="inputEntryType" name="entry_type" value="Add" readonly>
+          </div>
+
+          <!-- Name -->
+          <div class="form-group">
+            <label class="form-label">Name</label>
+            <select class="form-input" id="inputEmployeeName" name="employee_name" required>
+              <option value="" disabled selected>Select</option>
+            </select>
+          </div>
+
+          <!-- Date -->
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" class="form-input" id="inputEntryDate" name="entry_date" required>
+          </div>
+
+          <!-- Mode (Hours / Salary - Image 3) -->
+          <div class="form-group">
+            <label class="form-label">Mode</label>
+            <select class="form-input" id="inputMode" name="mode">
+              <option value="Hours" selected>Hours</option>
+              <option value="Salary">Salary</option>
+            </select>
+          </div>
+
+          <!-- Hours (HH:MM) -->
+          <div class="form-group" id="hoursGroup">
+            <label class="form-label">Hours (HH:MM)</label>
+            <input type="text" class="form-input" id="inputHours" name="hours" placeholder="04:00" value="04:00">
+          </div>
+
+          <!-- Status (Permission / Improper / Others - Image 4) -->
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-input" id="inputStatus" name="status">
+              <option value="Permission" selected>Permission</option>
+              <option value="Improper">Improper</option>
+              <option value="Others">Others</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn-submit-full" id="btnSubmitManual">Submit</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/manual_entry.js') }}"></script>
+{% endblock %}

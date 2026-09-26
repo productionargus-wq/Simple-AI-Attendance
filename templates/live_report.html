@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Live Report Banner with Toggles -->
+<div class="content-banner-card">
+  <div class="content-banner-title" id="pageTitle">LIVE ENTRIES</div>
+  <div class="tab-toggle-container">
+    <button class="btn-toggle-tab active" id="btnLiveEntries">Live Entries</button>
+    <button class="btn-toggle-tab inactive" id="btnTimeoutEntries">Timeout Entries</button>
+  </div>
+</div>
+
+<!-- Subtitle description -->
+<div class="report-subtitle" id="reportSubtitle">
+  Displays employees currently working in the company.
+</div>
+
+<!-- Date Filter Bar -->
+<div class="filter-bar">
+  <div class="filter-group">
+    <label for="startDate">Start Date</label>
+    <input type="date" id="startDate" class="filter-input">
+  </div>
+  <div class="filter-group">
+    <label for="endDate">End Date</label>
+    <input type="date" id="endDate" class="filter-input">
+  </div>
+  <button class="btn-filter" id="btnFilter">Filter</button>
+  <button class="btn-clear" id="btnClear">Clear</button>
+</div>
+
+<!-- Table Card -->
+<div class="table-card">
+  <div class="table-toolbar">
+    <div class="table-toolbar-left">
+      <div class="entries-select-wrapper">
+        <span>Show</span>
+        <select id="entriesLimit" class="entries-select">
+          <option value="10" selected>10 rows</option>
+          <option value="25">25 rows</option>
+          <option value="50">50 rows</option>
+          <option value="100">100 rows</option>
+        </select>
+      </div>
+
+      <div class="export-btn-group">
+        <button class="btn-export" id="btnCopyTable" title="Copy to clipboard">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Copy
+        </button>
+        <button class="btn-export btn-excel" id="btnExportExcel" title="Export to Excel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="8" y1="13" x2="16" y2="13"></line>
+            <line x1="8" y1="17" x2="16" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          Excel
+        </button>
+        <button class="btn-export btn-pdf" id="btnExportPdf" title="Export to PDF">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          PDF
+        </button>
+        <button class="btn-export" id="btnPrintReport" title="Print table">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Print
+        </button>
+      </div>
+    </div>
+
+    <div class="search-box-wrapper">
+      <label for="tableSearch">Search:</label>
+      <input type="text" id="tableSearch" class="search-input">
+    </div>
+  </div>
+
+  <div class="table-responsive" id="printableTableSection">
+    <table class="employee-table" id="liveReportTable">
+      <thead>
+        <tr>
+          <th data-col="employee_name">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_time">ENTRY TIME <span class="sort-icon">⇅</span></th>
+          <th data-col="site_name">SITE NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_location">ENTRY LOCATION <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_distance">ENTRY DISTANCE <span class="sort-icon">⇅</span></th>
+        </tr>
+      </thead>
+      <tbody id="liveReportTableBody">
+        <!-- Rendered dynamically -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-footer">
+    <div id="tableInfoText">Showing 0 to 0 of 0 entries</div>
+    <div class="pagination-controls">
+      <button class="pagination-arrow-btn disabled" id="prevArrowBtn" title="Previous page">&lt;</button>
+      <button class="pagination-arrow-btn disabled" id="nextArrowBtn" title="Next page">&gt;</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/live_report.js') }}"></script>
+{% endblock %}

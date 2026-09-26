@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARGUS TECHNOLOGIES - Attendance System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- Chart.js CDN for interactive charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- Top Navbar -->
+  <header class="top-navbar">
+    <div class="nav-left">
+      <button class="hamburger-btn" id="sidebarToggle" title="Toggle Navigation">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    
+    <div class="nav-center">
+      <div class="nav-title">ARGUS TECHNOLOGIES</div>
+    </div>
+    
+    <div class="nav-right">
+      <a href="/logout" class="btn-logout" title="Logout">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        Logout
+      </a>
+      <button class="btn-fullscreen" id="pageRefreshBtn" title="Refresh / Reload">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="app-container">
+    <!-- Left Sidebar -->
+    <aside class="sidebar" id="appSidebar">
+      <!-- Top Left Hamburger Inside Sidebar -->
+      <div class="sidebar-top-bar">
+        <button class="sidebar-hamburger-btn" id="sidebarCollapseBtn" title="Expand Main Content">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <div class="sidebar-header">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Argus" class="sidebar-logo">
+        <div class="admin-subtitle">WELCOME ADMIN!</div>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <a href="{{ url_for('dashboard') }}" class="nav-item-btn {% if active_tab == 'DASHBOARD' %}active{% endif %}">DASHBOARD</a>
+        <a href="{{ url_for('employee_details') }}" class="nav-item-btn {% if active_tab == 'EMPLOYEE DETAILS' %}active{% endif %}">EMPLOYEE DETAILS</a>
+        <a href="{{ url_for('live_report') }}" class="nav-item-btn {% if active_tab == 'LIVE REPORT' %}active{% endif %}">LIVE REPORT</a>
+        <a href="{{ url_for('attendance_report') }}" class="nav-item-btn {% if active_tab == 'ATTENDANCE REPORT' %}active{% endif %}">ATTENDANCE REPORT</a>
+        <a href="{{ url_for('manual_entry') }}" class="nav-item-btn {% if active_tab == 'MANUAL ENTRY' %}active{% endif %}">MANUAL ENTRY</a>
+        <a href="{{ url_for('payment_entry') }}" class="nav-item-btn {% if active_tab == 'PAYMENT ENTRY' %}active{% endif %}">PAYMENT ENTRY</a>
+        <a href="{{ url_for('monthly_payslip') }}" class="nav-item-btn {% if active_tab == 'MONTHLY PAYSLIP' %}active{% endif %}">MONTHLY PAYSLIP</a>
+        <a href="{{ url_for('salary_report') }}" class="nav-item-btn {% if active_tab == 'SALARY REPORT' %}active{% endif %}">SALARY REPORT</a>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <a href="javascript:history.back()" class="btn-back">← Back</a>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="main-wrapper">
+      <main class="main-content">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <!-- Bottom Yellow Footer -->
+  <footer class="bottom-footer">
+    © Argus Technologies | version 4.5
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

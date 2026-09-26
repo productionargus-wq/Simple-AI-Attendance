@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Employee Details Banner -->
+<div class="content-banner-card">
+  <div class="content-banner-title">EMPLOYEE DETAILS</div>
+  <button class="btn-new-entry" id="btnOpenNewEntryModal">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+      <circle cx="8.5" cy="7" r="4"></circle>
+      <line x1="20" y1="8" x2="20" y2="14"></line>
+      <line x1="23" y1="11" x2="17" y2="11"></line>
+    </svg>
+    + New Entry
+  </button>
+</div>
+
+<!-- Employee Data Table Card -->
+<div class="table-card">
+  <div class="table-toolbar">
+    <div class="entries-select-wrapper">
+      <span>Show</span>
+      <select id="entriesLimit" class="entries-select">
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+      <span>entries</span>
+    </div>
+
+    <div class="search-box-wrapper">
+      <label for="tableSearch">Search:</label>
+      <input type="text" id="tableSearch" class="search-input">
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="employee-table" id="employeeDataTable">
+      <thead>
+        <tr>
+          <th data-col="id">ID <span class="sort-icon">⇅</span></th>
+          <th data-col="employee_name">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="designation">DESIGNATION <span class="sort-icon">⇅</span></th>
+          <th data-col="hourly_salary">HOURLY SALARY <span class="sort-icon">⇅</span></th>
+          <th data-col="day_salary">DAY SALARY <span class="sort-icon">⇅</span></th>
+          <th data-col="half_day_salary">HALF DAY SALARY <span class="sort-icon">⇅</span></th>
+          <th data-col="mobile_number">MOBILE NUMBER <span class="sort-icon">⇅</span></th>
+          <th data-col="email_id">EMAIL ID <span class="sort-icon">⇅</span></th>
+          <th>PHOTO <span class="sort-icon">⇅</span></th>
+          <th data-col="shift_hours">SHIFT HOURS <span class="sort-icon">⇅</span></th>
+          <th>VIEW <span class="sort-icon">⇅</span></th>
+          <th>EDIT <span class="sort-icon">⇅</span></th>
+          <th>DELETE <span class="sort-icon">⇅</span></th>
+        </tr>
+      </thead>
+      <tbody id="employeeTableBody">
+        <!-- Rendered dynamically via JavaScript -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-footer">
+    <div id="tableInfoText">Showing 1 to 3 of 3 entries</div>
+    <div class="pagination-controls" id="tablePagination">
+      <button class="pagination-btn" id="prevPageBtn">Previous</button>
+      <button class="pagination-btn active" id="currentPageBtn">1</button>
+      <button class="pagination-btn" id="nextPageBtn">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL 1: Employee Detail Entry (Add/Edit) ================= -->
+<div class="modal-overlay" id="entryModal">
+  <div class="modal-box modal-box-large">
+    <div class="modal-header">
+      <div class="modal-header-title" id="entryModalTitle">Employee Detail Entry</div>
+      <button class="modal-close-btn" id="closeEntryModal">&times;</button>
+    </div>
+    
+    <form id="employeeForm" enctype="multipart/form-data">
+      <input type="hidden" id="formEmployeeId" name="id">
+      
+      <div class="modal-body">
+        <div class="form-grid">
+          <!-- Row 1 -->
+          <div class="form-group">
+            <label class="form-label">Employee Name<span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputName" name="employee_name" placeholder="Name" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Designation<span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputDesignation" name="designation" placeholder="Type/Select Designation" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mobile Number<span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputMobile" name="mobile_number" placeholder="Number" required>
+          </div>
+
+          <!-- Row 2 -->
+          <div class="form-group">
+            <label class="form-label">Hourly Salary<span class="required">*</span></label>
+            <input type="number" step="0.01" class="form-input" id="inputHourlySalary" name="hourly_salary" placeholder="Amount" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Day Salary<span class="required">*</span></label>
+            <input type="number" step="0.01" class="form-input" id="inputDaySalary" name="day_salary" placeholder="Amount" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Half Day Salary<span class="required">*</span></label>
+            <input type="number" step="0.01" class="form-input" id="inputHalfDaySalary" name="half_day_salary" placeholder="Amount" required>
+          </div>
+
+          <!-- Row 3 -->
+          <div class="form-group">
+            <label class="form-label">Email ID</label>
+            <input type="email" class="form-input" id="inputEmail" name="email_id" placeholder="Email ID">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Aadhar Number</label>
+            <input type="text" class="form-input" id="inputAadhar" name="aadhar_number" placeholder="Number">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Emergency Contact</label>
+            <input type="text" class="form-input" id="inputEmergency" name="emergency_contact" placeholder="Number">
+          </div>
+
+          <!-- Row 4 -->
+          <div class="form-group">
+            <label class="form-label">Joining Date</label>
+            <input type="date" class="form-input" id="inputJoiningDate" name="joining_date" placeholder="mm/dd/yyyy">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Account Holder Name</label>
+            <input type="text" class="form-input" id="inputAccountHolder" name="account_holder_name" placeholder="Account Holder Name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">UPI Number</label>
+            <input type="text" class="form-input" id="inputUpi" name="upi_number" placeholder="UPI Number">
+          </div>
+
+          <!-- Row 5 -->
+          <div class="form-group">
+            <label class="form-label">Bank Name</label>
+            <input type="text" class="form-input" id="inputBankName" name="bank_name" placeholder="Bank Name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Account Number</label>
+            <input type="text" class="form-input" id="inputAccountNumber" name="account_number" placeholder="Account Number">
+          </div>
+          <div class="form-group">
+            <label class="form-label">IFSC Code</label>
+            <input type="text" class="form-input" id="inputIfsc" name="ifsc_code" placeholder="IFSC Code">
+          </div>
+
+          <!-- Row 6 -->
+          <div class="form-group">
+            <label class="form-label">Shift Hours</label>
+            <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="Example 09:00">
+          </div>
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label">Register Face<span class="required" id="photoRequiredIndicator">*</span></label>
+            <div style="display: flex; gap: 8px; align-items: flex-start;">
+              <input type="file" class="form-input form-file-input" id="inputPhoto" name="photo" accept="image/*" style="flex: 1;">
+              <button type="button" id="btnCaptureface" class="btn-submit" style="padding: 6px 12px; font-size: 11px; white-space: nowrap; background-color: #3d6078;">📷 Capture Face</button>
+            </div>
+            <!-- Inline Camera Preview -->
+            <div id="faceCaptureArea" style="display: none; margin-top: 8px;">
+              <div style="position: relative; width: 220px; height: 165px; background-color: #1a1a2e; border-radius: 4px; overflow: hidden; border: 1px solid #ced4da;">
+                <video id="faceRegVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+                <canvas id="faceRegCanvas" style="display: none;"></canvas>
+              </div>
+              <div style="margin-top: 6px; display: flex; gap: 6px;">
+                <button type="button" id="btnTakeSnapshot" class="btn-submit" style="padding: 5px 14px; font-size: 11px; background-color: #198754;">Capture</button>
+                <button type="button" id="btnCancelCapture" class="btn-reset" style="padding: 5px 14px; font-size: 11px;">Cancel</button>
+              </div>
+              <div id="captureStatus" style="font-size: 11px; color: #198754; margin-top: 4px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer modal-footer-left">
+        <button type="submit" class="btn-submit" id="btnSubmitForm">Submit</button>
+        <button type="button" class="btn-reset" id="btnResetForm">Reset</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL 2: View Employee Detail ================= -->
+<div class="modal-overlay" id="viewModal">
+  <div class="modal-box modal-box-large">
+    <div class="modal-header">
+      <div class="modal-header-title">EMPLOYEE DETAIL</div>
+      <button class="modal-close-btn" id="closeViewModal">&times;</button>
+    </div>
+    
+    <div class="modal-body" id="printSection">
+      <div class="view-emp-heading">EMPLOYEE DETAILS</div>
+      
+      <table class="info-table">
+        <thead>
+          <tr>
+            <th>INFORMATION</th>
+            <th>INFORMATION VALUE</th>
+          </tr>
+        </thead>
+        <tbody id="viewInfoTableBody">
+          <!-- Populated dynamically -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-footer modal-footer-right">
+      <button type="button" class="btn-print" id="btnPrintDetail">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        Print
+      </button>
+      <button type="button" class="btn-pdf" id="btnDownloadPdf">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL 3: Photo Preview ================= -->
+<div class="modal-overlay" id="photoModal">
+  <div class="modal-box" style="max-width: 450px;">
+    <div class="modal-header">
+      <div class="modal-header-title" id="photoModalTitle">Employee Photo</div>
+      <button class="modal-close-btn" id="closePhotoModal">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center;">
+      <img id="photoModalImg" src="" alt="Employee Photo" class="photo-preview-img">
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/employees.js') }}"></script>
+{% endblock %}

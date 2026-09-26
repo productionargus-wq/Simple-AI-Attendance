@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Dashboard Banner -->
+<div class="content-banner-card">
+  <div class="content-banner-title">DASHBOARD</div>
+  <div class="live-clock" id="currentDateTime">26/09/2026 11:01:12</div>
+</div>
+
+<!-- 5 Stat Cards Row -->
+<div class="stats-cards-row">
+  <div class="stat-card stat-card-total">
+    <div class="stat-card-title">Total</div>
+    <div class="stat-card-value" id="statTotal">{{ stats.total }}</div>
+  </div>
+  <div class="stat-card stat-card-present">
+    <div class="stat-card-title">Present</div>
+    <div class="stat-card-value" id="statPresent">{{ stats.present }}</div>
+  </div>
+  <div class="stat-card stat-card-absent">
+    <div class="stat-card-title">Absent</div>
+    <div class="stat-card-value" id="statAbsent">{{ stats.absent }}</div>
+  </div>
+  <div class="stat-card stat-card-pct">
+    <div class="stat-card-title">Present %</div>
+    <div class="stat-card-value" id="statPct">{{ stats.present_percent }}</div>
+  </div>
+  <div class="stat-card stat-card-timeout">
+    <div class="stat-card-title">Timeout</div>
+    <div class="stat-card-value" id="statTimeout">{{ stats.timeout }}</div>
+  </div>
+</div>
+
+<!-- Attendance Charts Row -->
+<div class="charts-grid">
+  <!-- Left: Last 7 Days Attendance -->
+  <div class="chart-card">
+    <div class="chart-header-title">Last 7 Days Attendance</div>
+    <div class="chart-container">
+      <canvas id="last7DaysChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Right: Monthly Attendance -->
+  <div class="chart-card">
+    <div class="chart-header-title">Monthly Attendance</div>
+    <div class="chart-container">
+      <canvas id="monthlyAttendanceChart"></canvas>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="statsData" type="application/json">
+  {{ stats | tojson }}
+</script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARGUS TECHNOLOGIES - Admin Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body style="background-color: #3d6078; margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+
+  <div style="background-color: #ffffff; border-radius: 10px; padding: 40px 36px; width: 340px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); text-align: center;">
+    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Argus" style="max-width: 100px; margin-bottom: 8px;">
+    <div style="font-size: 16px; font-weight: 800; color: #2c3e50; letter-spacing: 0.5px; margin-bottom: 6px;">ARGUS TECHNOLOGIES</div>
+    <div style="font-size: 12px; color: #ffd166; font-weight: 700; margin-bottom: 24px;">ADMIN LOGIN</div>
+
+    {% if error %}
+    <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 4px; padding: 8px 12px; font-size: 12px; margin-bottom: 16px;">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/login">
+      <div style="margin-bottom: 16px; text-align: left;">
+        <label style="font-size: 12px; font-weight: 700; color: #333333; display: block; margin-bottom: 5px;">Username</label>
+        <input type="text" name="username" required placeholder="Enter username" style="width: 100%; padding: 9px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; outline: none; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 24px; text-align: left;">
+        <label style="font-size: 12px; font-weight: 700; color: #333333; display: block; margin-bottom: 5px;">Password</label>
+        <input type="password" name="password" required placeholder="Enter password" style="width: 100%; padding: 9px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; outline: none; box-sizing: border-box;">
+      </div>
+      <button type="submit" style="width: 100%; background-color: #3d6078; color: #ffffff; border: none; border-radius: 4px; padding: 10px; font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px;">LOGIN</button>
+    </form>
+  </div>
+
+</body>
+</html>

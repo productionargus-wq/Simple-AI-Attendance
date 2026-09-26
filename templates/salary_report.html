@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Banner Card Matching Image 5 -->
+<div class="content-banner-card">
+  <div class="content-banner-title">
+    <i class="fa fa-credit-card" style="color: #0d6efd; margin-right: 6px;"></i> SALARY REPORT
+  </div>
+  <button class="btn-toggle-tab" style="background-color: #f59e0b; color: #ffffff; font-weight: 700; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">
+    Monthly Report
+  </button>
+</div>
+
+<!-- Subtitle Matching Image 5 -->
+<div style="font-size: 11.5px; color: #555555; margin-top: -10px; margin-bottom: 16px;">
+  Salary report includes data from proper entries, manual updates, and payment records for accurate payroll tracking.
+</div>
+
+<!-- Month Range Filter Bar Matching Image 5 -->
+<div style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap;">
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <label for="salaryStartMonth" style="font-size: 13px; color: #333333; text-align: right; width: 45px; line-height: 1.1;">Start<br>Month</label>
+    <input type="month" id="salaryStartMonth" class="table-filter-date" style="padding: 5px 10px; font-size: 12px; width: 150px; background-color: #ffffff; border: 1px solid #ced4da; border-radius: 4px;">
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <label for="salaryEndMonth" style="font-size: 13px; color: #333333; text-align: right; width: 45px; line-height: 1.1;">End<br>Month</label>
+    <input type="month" id="salaryEndMonth" class="table-filter-date" style="padding: 5px 10px; font-size: 12px; width: 150px; background-color: #ffffff; border: 1px solid #ced4da; border-radius: 4px;">
+  </div>
+
+  <div style="display: flex; gap: 6px;">
+    <button type="button" id="btnFilterSalary" class="btn-filter" style="padding: 5px 16px; font-size: 12px; border-radius: 4px;">
+      Filter
+    </button>
+    <button type="button" id="btnClearSalary" class="btn-clear" style="padding: 5px 16px; font-size: 12px; border-radius: 4px;">
+      Clear
+    </button>
+  </div>
+</div>
+
+<!-- Salary Report Table Card Matching Image 5 -->
+<div class="table-card">
+  <div class="table-toolbar">
+    <div class="table-toolbar-left">
+      <div class="entries-select-wrapper">
+        <span>Show</span>
+        <select id="salaryEntriesLimit" class="entries-select">
+          <option value="10" selected>10 rows</option>
+          <option value="25">25 rows</option>
+          <option value="50">50 rows</option>
+          <option value="100">100 rows</option>
+        </select>
+      </div>
+
+      <div class="export-btn-group">
+        <button class="btn-export" id="btnSalaryCopy" title="Copy">
+          <i class="fa fa-files-o"></i> Copy
+        </button>
+        <button class="btn-export btn-excel" id="btnSalaryExcel" title="Excel">
+          <i class="fa fa-file-excel-o"></i> Excel
+        </button>
+        <button class="btn-export btn-pdf" id="btnSalaryPdf" title="PDF">
+          <i class="fa fa-file-pdf-o"></i> PDF
+        </button>
+        <button class="btn-export" id="btnSalaryPrint" title="Print">
+          <i class="fa fa-print"></i> Print
+        </button>
+      </div>
+    </div>
+
+    <div class="search-box-wrapper">
+      <label for="salarySearch">Search:</label>
+      <input type="text" id="salarySearch" class="search-input">
+    </div>
+  </div>
+
+  <div class="table-responsive" id="printableSalarySection">
+    <table class="employee-table" id="salaryReportTable">
+      <thead>
+        <tr>
+          <th data-col="employee_name">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="pay_period">PAY PERIOD <span class="sort-icon">⇅</span></th>
+          <th data-col="working_days">WORKING DAYS <span class="sort-icon">⇅</span></th>
+          <th data-col="working_hours">WORKING HOURS <span class="sort-icon">⇅</span></th>
+          <th data-col="allowance">ALLOWANCE <span class="sort-icon">⇅</span></th>
+          <th data-col="incentive">INCENTIVE <span class="sort-icon">⇅</span></th>
+          <th data-col="other_earnings">OTHER EARNINGS <span class="sort-icon">⇅</span></th>
+          <th data-col="basic_earnings">BASIC EARNINGS <span class="sort-icon">⇅</span></th>
+          <th data-col="total_earnings" style="background-color: #e8f5e9 !important; color: #198754 !important;">TOTAL EARNINGS <span class="sort-icon">⇅</span></th>
+          <th data-col="paid_salary">PAID SALARY <span class="sort-icon">⇅</span></th>
+          <th data-col="advance_repayment">ADVANCE REPAYMENT <span class="sort-icon">⇅</span></th>
+          <th data-col="other_deductions">OTHER DEDUCTIONS <span class="sort-icon">⇅</span></th>
+          <th data-col="total_deductions" style="color: #dc3545 !important;">TOTAL DEDUCTIONS <span class="sort-icon">⇅</span></th>
+          <th data-col="net_salary" style="background-color: #e3f2fd !important; color: #0d6efd !important;">NET SALARY <span class="sort-icon">⇅</span></th>
+        </tr>
+      </thead>
+      <tbody id="salaryTableBody">
+        <tr>
+          <td colspan="14" class="table-empty-message">No data available in table</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-footer">
+    <div id="salaryTableInfo">Showing 0 to 0 of 0 entries</div>
+    <div class="pagination-controls">
+      <button class="pagination-btn disabled" id="prevSalaryPageBtn">Previous</button>
+      <button class="pagination-btn disabled" id="nextSalaryPageBtn">Next</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  let salaryPage = 1;
+  let salaryLimit = 10;
+  let salaryTotal = 0;
+
+  function loadSalaryReports() {
+    const startMonth = document.getElementById('salaryStartMonth').value;
+    const endMonth = document.getElementById('salaryEndMonth').value;
+    const search = document.getElementById('salarySearch').value.trim();
+
+    const params = new URLSearchParams({
+      start_month: startMonth,
+      end_month: endMonth,
+      search: search,
+      page: salaryPage,
+      limit: salaryLimit
+    });
+
+    fetch(`/api/salary-reports?${params.toString()}`)
+      .then(res => res.json())
+      .then(res => {
+        renderSalaryTable(res);
+      })
+      .catch(err => {
+        console.error('Error fetching salary reports:', err);
+      });
+  }
+
+  function renderSalaryTable(res) {
+    const tbody = document.getElementById('salaryTableBody');
+    const infoText = document.getElementById('salaryTableInfo');
+    const prevBtn = document.getElementById('prevSalaryPageBtn');
+    const nextBtn = document.getElementById('nextSalaryPageBtn');
+
+    salaryTotal = res.total;
+    const data = res.data;
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="14" class="table-empty-message">No data available in table</td></tr>';
+      infoText.innerText = 'Showing 0 to 0 of 0 entries';
+      prevBtn.classList.add('disabled');
+      nextBtn.classList.add('disabled');
+      return;
+    }
+
+    const startIdx = (salaryPage - 1) * salaryLimit + 1;
+    const endIdx = Math.min(salaryPage * salaryLimit, salaryTotal);
+    infoText.innerText = `Showing ${startIdx} to ${endIdx} of ${salaryTotal} entries`;
+
+    if (salaryPage <= 1) {
+      prevBtn.classList.add('disabled');
+    } else {
+      prevBtn.classList.remove('disabled');
+    }
+
+    if (endIdx >= salaryTotal) {
+      nextBtn.classList.add('disabled');
+    } else {
+      nextBtn.classList.remove('disabled');
+    }
+
+    let rowsHtml = '';
+    data.forEach(r => {
+      rowsHtml += `
+        <tr>
+          <td style="font-weight: 600;">${r.employee_name}</td>
+          <td>${r.pay_period}</td>
+          <td>${r.working_days}</td>
+          <td>${r.working_hours}</td>
+          <td>₹ ${parseInt(r.allowance)}</td>
+          <td>₹ ${parseInt(r.incentive)}</td>
+          <td>₹ ${parseInt(r.other_earnings)}</td>
+          <td>₹ ${parseInt(r.basic_earnings)}</td>
+          <td style="background-color: #e8f5e9; color: #198754; font-weight: 700;">₹ ${parseInt(r.total_earnings)}</td>
+          <td>₹ ${parseInt(r.paid_salary)}</td>
+          <td>₹ ${parseInt(r.advance_repayment)}</td>
+          <td>₹ ${parseInt(r.other_deductions)}</td>
+          <td style="color: #dc3545; font-weight: 700;">₹ ${parseInt(r.total_deductions)}</td>
+          <td style="background-color: #e3f2fd; color: #0d6efd; font-weight: 700;">₹ ${parseInt(r.net_salary)}</td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = rowsHtml;
+  }
+
+  // Filter & Clear buttons
+  document.getElementById('btnFilterSalary').addEventListener('click', function () {
+    salaryPage = 1;
+    loadSalaryReports();
+  });
+
+  document.getElementById('btnClearSalary').addEventListener('click', function () {
+    document.getElementById('salaryStartMonth').value = '';
+    document.getElementById('salaryEndMonth').value = '';
+    document.getElementById('salarySearch').value = '';
+    salaryPage = 1;
+    loadSalaryReports();
+  });
+
+  // Search input
+  const salarySearch = document.getElementById('salarySearch');
+  let salarySearchTimer = null;
+  salarySearch.addEventListener('input', function () {
+    clearTimeout(salarySearchTimer);
+    salarySearchTimer = setTimeout(() => {
+      salaryPage = 1;
+      loadSalaryReports();
+    }, 300);
+  });
+
+  document.getElementById('salaryEntriesLimit').addEventListener('change', function () {
+    salaryLimit = parseInt(this.value);
+    salaryPage = 1;
+    loadSalaryReports();
+  });
+
+  document.getElementById('prevSalaryPageBtn').addEventListener('click', function () {
+    if (salaryPage > 1) {
+      salaryPage--;
+      loadSalaryReports();
+    }
+  });
+
+  document.getElementById('nextSalaryPageBtn').addEventListener('click', function () {
+    if (salaryPage * salaryLimit < salaryTotal) {
+      salaryPage++;
+      loadSalaryReports();
+    }
+  });
+
+  // Export buttons
+  document.getElementById('btnSalaryExcel').addEventListener('click', function () {
+    const startMonth = document.getElementById('salaryStartMonth').value;
+    const endMonth = document.getElementById('salaryEndMonth').value;
+    window.location.href = `/api/salary-reports/export/excel?start_month=${encodeURIComponent(startMonth)}&end_month=${encodeURIComponent(endMonth)}`;
+  });
+
+  document.getElementById('btnSalaryPdf').addEventListener('click', function () {
+    const startMonth = document.getElementById('salaryStartMonth').value;
+    const endMonth = document.getElementById('salaryEndMonth').value;
+    window.location.href = `/api/salary-reports/export/pdf?start_month=${encodeURIComponent(startMonth)}&end_month=${encodeURIComponent(endMonth)}`;
+  });
+
+  document.getElementById('btnSalaryPrint').addEventListener('click', function () {
+    window.print();
+  });
+
+  document.getElementById('btnSalaryCopy').addEventListener('click', function () {
+    const table = document.getElementById('salaryReportTable');
+    let text = '';
+    for (let row of table.rows) {
+      let rowData = [];
+      for (let cell of row.cells) {
+        rowData.push(cell.innerText.trim());
+      }
+      text += rowData.join('\t') + '\n';
+    }
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Salary Report table copied to clipboard!');
+    }).catch(err => {
+      console.error('Clipboard copy failed:', err);
+    });
+  });
+
+  // Initial load
+  loadSalaryReports();
+});
+</script>
+{% endblock %}

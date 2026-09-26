@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARGUS TECHNOLOGIES - Mark Attendance</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body style="background-color: #f4f6f9; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; overflow-x: hidden;">
+
+  <!-- Top Navy Banner Matching Image 4 -->
+  <header style="width: 100%; background-color: #3d6078; padding: 14px 20px; display: flex; align-items: center; justify-content: center; gap: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+    <div style="width: 44px; height: 44px; border-radius: 50%; background-color: #ffffff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); overflow: hidden; flex-shrink: 0;">
+      <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Argus" style="width: 28px; height: auto;">
+    </div>
+    <div style="font-size: 20px; font-weight: 900; color: #ffffff; letter-spacing: 1.5px; text-transform: uppercase;">
+      ARGUS ATTENDANCE
+    </div>
+  </header>
+
+  <!-- Sub-Header With Live Clock Matching Image 4 -->
+  <div style="display: flex; flex-direction: column; align-items: center; margin-top: 20px; margin-bottom: 20px; gap: 8px;">
+    <div style="font-size: 13px; font-weight: 800; color: #3d6078; letter-spacing: 1.5px; text-transform: uppercase;">
+      ARGUS TECHNOLOGIES
+    </div>
+    <div id="liveClockPill" style="background-color: #000000; color: #00e676; font-family: 'Courier New', Courier, monospace; font-size: 18px; font-weight: 800; padding: 6px 36px; border-radius: 20px; letter-spacing: 1px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
+      --/--/---- --:--:--
+    </div>
+  </div>
+
+  <!-- Main Camera & Attendance Area -->
+  <main style="flex: 1; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 680px; padding: 0 16px 40px;">
+
+    <!-- Camera Preview (Enlarged Responsive Rectangle with Mirroring) -->
+    <div id="cameraContainer" style="width: 100%; max-width: 520px; aspect-ratio: 4 / 3; background-color: #1a1a2e; border-radius: 10px; overflow: hidden; position: relative; margin-bottom: 18px; border: 2.5px solid #3d6078; box-shadow: 0 8px 24px rgba(0,0,0,0.12);">
+      <video id="cameraFeed" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+      <canvas id="captureCanvas" style="display: none;"></canvas>
+      <div id="cameraPlaceholder" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-size: 14px; font-weight: 600;">
+        Starting camera...
+      </div>
+    </div>
+
+    <!-- Mark Attendance Button -->
+    <button id="btnMarkAttendance" style="background-color: #198754; color: #ffffff; border: none; border-radius: 6px; padding: 12px 42px; font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px; margin-bottom: 16px; transition: all 0.2s ease; box-shadow: 0 3px 8px rgba(25,135,84,0.3);" disabled>
+      Mark Attendance
+    </button>
+
+    <!-- Result / Status Feedback Area -->
+    <div id="resultArea" style="width: 100%; max-width: 520px; min-height: 48px; text-align: center;"></div>
+
+  </main>
+
+  <!-- Admin Link Button (Far Bottom Right) -->
+  <a href="/login" id="btnAdmin" style="position: fixed; bottom: 18px; right: 18px; background-color: #3d6078; color: #ffffff; border: none; border-radius: 4px; padding: 7px 18px; font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none; letter-spacing: 0.5px; z-index: 50; opacity: 0.85; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.85'">
+    Admin
+  </a>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // 1. Live Clock Ticker (12-hour format with AM/PM)
+    const clockPill = document.getElementById('liveClockPill');
+    function updateLiveClock() {
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      let rawHours = now.getHours();
+      const ampm = rawHours >= 12 ? 'PM' : 'AM';
+      let hours = rawHours % 12;
+      hours = hours ? hours : 12; // 0 becomes 12
+      const hoursStr = String(hours).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      clockPill.textContent = `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
+    }
+    updateLiveClock();
+    setInterval(updateLiveClock, 1000);
+
+    // 2. Camera Stream Setup
+    const video = document.getElementById('cameraFeed');
+    const canvas = document.getElementById('captureCanvas');
+    const placeholder = document.getElementById('cameraPlaceholder');
+    const btnMark = document.getElementById('btnMarkAttendance');
+    const resultArea = document.getElementById('resultArea');
+    let stream = null;
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          }
+        });
+        video.srcObject = stream;
+        video.onloadedmetadata = function () {
+          placeholder.style.display = 'none';
+          btnMark.disabled = false;
+        };
+      } catch (err) {
+        console.warn('Camera access issue:', err);
+        placeholder.textContent = 'Camera access denied or unavailable';
+        placeholder.style.color = '#dc3545';
+      }
+    }
+
+    startCamera();
+
+    // Helper: Obtain user geolocation with fallback
+    function getUserLocation() {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          resolve({ latitude: 11.02980, longitude: 76.97400 });
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            resolve({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude
+            });
+          },
+          (err) => {
+            console.log('Geolocation prompt skipped/fallback used:', err.message);
+            // Default to office premises coordinates
+            resolve({ latitude: 11.02980, longitude: 76.97400 });
+          },
+          { enableHighAccuracy: true, timeout: 4000, maximumAge: 0 }
+        );
+      });
+    }
+
+    // 3. Mark Attendance Recognition Click Handler
+    btnMark.addEventListener('click', async function () {
+      if (!stream) return;
+
+      btnMark.disabled = true;
+      btnMark.textContent = 'Processing...';
+      resultArea.innerHTML = '';
+
+      // Obtain GPS coordinates
+      const coords = await getUserLocation();
+
+      // Draw high-resolution frame on canvas (mirrored to match preview)
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(async function (blob) {
+        if (!blob) {
+          btnMark.disabled = false;
+          btnMark.textContent = 'Mark Attendance';
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('photo', blob, 'attendance_frame.jpg');
+        formData.append('latitude', coords.latitude);
+        formData.append('longitude', coords.longitude);
+
+        try {
+          const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
+          const data = await res.json();
+
+          if (data.matched) {
+            const punchLabel = data.punch_status === 'punch_out' ? '✓ Punch Out Marked' : '✓ Attendance Marked (Punch In)';
+            const distInfo = data.formatted_distance ? `<div style="font-size: 11px; margin-top: 3px; color: #0d6efd; font-weight: 700;">${data.formatted_distance}</div>` : '';
+            const hoursInfo = data.working_hours ? `<div style="font-size: 12px; margin-top: 3px; color: #198754; font-weight: 700;">Working Hours: ${data.working_hours}</div>` : '';
+            resultArea.innerHTML = `
+              <div style="background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; border-radius: 6px; padding: 14px; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
+                <div style="font-weight: 800; font-size: 16px; margin-bottom: 4px;">${punchLabel}</div>
+                <div style="font-size: 15px;"><strong>${data.employee_name}</strong></div>
+                ${distInfo}
+                ${hoursInfo}
+                <div style="font-size: 11px; margin-top: 4px; color: #555;">Confidence: ${data.confidence}%</div>
+              </div>
+            `;
+          } else {
+            resultArea.innerHTML = `
+              <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 14px; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
+                <div style="font-weight: 700; font-size: 15px;">Face not recognized</div>
+                <div style="font-size: 12px; margin-top: 4px;">Please face the camera directly and try again.</div>
+              </div>
+            `;
+          }
+        } catch (err) {
+          resultArea.innerHTML = `
+            <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 14px; font-size: 13px;">
+              Connection error. Please try again.
+            </div>
+          `;
+        }
+
+        btnMark.disabled = false;
+        btnMark.textContent = 'Mark Attendance';
+
+        // Auto-clear message after 5 seconds
+        setTimeout(() => { resultArea.innerHTML = ''; }, 5000);
+      }, 'image/jpeg', 0.85);
+    });
+  });
+  </script>
+
+</body>
+</html>

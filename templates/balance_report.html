@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Banner Card Matching Image 2 -->
+<div class="content-banner-card">
+  <div class="content-banner-title">BALANCE REPORT</div>
+  <a href="/payment-entry" class="btn-yellow-action">
+    ← Back to Payment
+  </a>
+</div>
+
+<!-- Employee Selector Matching Image 2 -->
+<div style="margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+  <label for="filterBalanceEmployee" style="font-size: 13px; font-weight: 600; color: #212529;">Employee:</label>
+  <select id="filterBalanceEmployee" class="table-filter-select" style="width: 150px; padding: 4px 8px;">
+    <option value="All" selected>All</option>
+    {% for emp in employees %}
+    <option value="{{ emp }}">{{ emp }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+<!-- Balance Table Card Matching Image 2 -->
+<div class="table-card">
+  <div class="table-toolbar">
+    <div class="table-toolbar-left">
+      <div class="entries-select-wrapper">
+        <span>Show</span>
+        <select id="balanceEntriesLimit" class="entries-select">
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+        <span>entries</span>
+      </div>
+
+      <div class="export-btn-group">
+        <button class="btn-export btn-excel" id="btnBalanceExcel" title="Excel">Excel</button>
+        <button class="btn-export btn-pdf" id="btnBalancePdf" title="PDF">PDF</button>
+        <button class="btn-export" id="btnBalancePrint" title="Print">Print</button>
+      </div>
+    </div>
+
+    <div class="search-box-wrapper">
+      <label for="balanceSearch">Search:</label>
+      <input type="text" id="balanceSearch" class="search-input">
+    </div>
+  </div>
+
+  <div class="table-responsive" id="printableBalanceSection">
+    <table class="employee-table" id="balanceTable">
+      <thead>
+        <tr>
+          <th data-col="timestamp" style="width: 18%;">Timestamp <span class="sort-icon">⇅</span></th>
+          <th data-col="name" style="width: 18%;">Name <span class="sort-icon">⇅</span></th>
+          <th data-col="date" style="width: 14%;">Date <span class="sort-icon">⇅</span></th>
+          <th data-col="advance_amount" style="width: 16%;">Advance Amount <span class="sort-icon">⇅</span></th>
+          <th data-col="advance_repayment_amount" style="width: 18%;">Advance Repayment Amount <span class="sort-icon">⇅</span></th>
+          <th data-col="balance_amount" style="width: 16%;">Balance Amount <span class="sort-icon">⇅</span></th>
+        </tr>
+      </thead>
+      <tbody id="balanceTableBody">
+        <tr>
+          <td colspan="6" class="table-empty-message">No data available in table</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-footer">
+    <div id="balanceTableInfo">Showing 0 to 0 of 0 entries</div>
+    <div class="pagination-controls">
+      <button class="pagination-btn disabled" id="prevBalancePageBtn">Previous</button>
+      <button class="pagination-btn disabled" id="nextBalancePageBtn">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Balance Summary Bar Matching Image 2 -->
+<div class="balance-summary-bar" style="margin-top: 14px; font-size: 13px; font-weight: 700; color: #111111; display: flex; gap: 30px;">
+  <div>Total Advance: <span id="summaryTotalAdvance" style="color: #0d6efd;">0.00</span></div>
+  <div>Total Advance Repayment: <span id="summaryTotalRepayment" style="color: #0d6efd;">0.00</span></div>
+  <div>Balance Amount: <span id="summaryBalanceAmount" style="color: #0d6efd;">0.00</span></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  let balancePage = 1;
+  let balanceLimit = 10;
+  let balanceTotal = 0;
+
+  function loadBalanceReport() {
+    const employee = document.getElementById('filterBalanceEmployee').value;
+    const search = document.getElementById('balanceSearch').value.trim();
+
+    const params = new URLSearchParams({
+      employee: employee,
+      search: search,
+      page: balancePage,
+      limit: balanceLimit
+    });
+
+    fetch(`/api/balance-report?${params.toString()}`)
+      .then(res => res.json())
+      .then(res => {
+        renderBalanceTable(res);
+      })
+      .catch(err => console.error('Error fetching balance report:', err));
+  }
+
+  function renderBalanceTable(res) {
+    const tbody = document.getElementById('balanceTableBody');
+    const infoText = document.getElementById('balanceTableInfo');
+    const prevBtn = document.getElementById('prevBalancePageBtn');
+    const nextBtn = document.getElementById('nextBalancePageBtn');
+
+    balanceTotal = res.total;
+    const data = res.data;
+
+    // Update bottom summary bar
+    document.getElementById('summaryTotalAdvance').innerText = parseFloat(res.total_advance || 0).toFixed(2);
+    document.getElementById('summaryTotalRepayment').innerText = parseFloat(res.total_repayment || 0).toFixed(2);
+    document.getElementById('summaryBalanceAmount').innerText = parseFloat(res.balance_amount || 0).toFixed(2);
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="table-empty-message">No data available in table</td></tr>';
+      infoText.innerText = 'Showing 0 to 0 of 0 entries';
+      prevBtn.classList.add('disabled');
+      nextBtn.classList.add('disabled');
+      return;
+    }
+
+    const startIdx = (balancePage - 1) * balanceLimit + 1;
+    const endIdx = Math.min(balancePage * balanceLimit, balanceTotal);
+    infoText.innerText = `Showing ${startIdx} to ${endIdx} of ${balanceTotal} entries`;
+
+    if (balancePage <= 1) {
+      prevBtn.classList.add('disabled');
+    } else {
+      prevBtn.classList.remove('disabled');
+    }
+
+    if (endIdx >= balanceTotal) {
+      nextBtn.classList.add('disabled');
+    } else {
+      nextBtn.classList.remove('disabled');
+    }
+
+    let rowsHtml = '';
+    data.forEach(r => {
+      rowsHtml += `
+        <tr>
+          <td>${r.timestamp}</td>
+          <td style="font-weight: 600;">${r.name}</td>
+          <td>${r.date}</td>
+          <td>₹ ${parseFloat(r.advance_amount).toFixed(2)}</td>
+          <td>₹ ${parseFloat(r.advance_repayment_amount).toFixed(2)}</td>
+          <td style="font-weight: 700; color: #0d6efd;">₹ ${parseFloat(r.balance_amount).toFixed(2)}</td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = rowsHtml;
+  }
+
+  document.getElementById('filterBalanceEmployee').addEventListener('change', function () {
+    balancePage = 1;
+    loadBalanceReport();
+  });
+
+  const balanceSearch = document.getElementById('balanceSearch');
+  let balanceSearchTimer = null;
+  balanceSearch.addEventListener('input', function () {
+    clearTimeout(balanceSearchTimer);
+    balanceSearchTimer = setTimeout(() => {
+      balancePage = 1;
+      loadBalanceReport();
+    }, 300);
+  });
+
+  document.getElementById('balanceEntriesLimit').addEventListener('change', function () {
+    balanceLimit = parseInt(this.value);
+    balancePage = 1;
+    loadBalanceReport();
+  });
+
+  document.getElementById('prevBalancePageBtn').addEventListener('click', function () {
+    if (balancePage > 1) {
+      balancePage--;
+      loadBalanceReport();
+    }
+  });
+
+  document.getElementById('nextBalancePageBtn').addEventListener('click', function () {
+    if (balancePage * balanceLimit < balanceTotal) {
+      balancePage++;
+      loadBalanceReport();
+    }
+  });
+
+  document.getElementById('btnBalanceExcel').addEventListener('click', function () {
+    const employee = document.getElementById('filterBalanceEmployee').value;
+    window.location.href = `/api/balance-report/export/excel?employee=${encodeURIComponent(employee)}`;
+  });
+
+  document.getElementById('btnBalancePdf').addEventListener('click', function () {
+    const employee = document.getElementById('filterBalanceEmployee').value;
+    window.location.href = `/api/balance-report/export/pdf?employee=${encodeURIComponent(employee)}`;
+  });
+
+  document.getElementById('btnBalancePrint').addEventListener('click', function () {
+    window.print();
+  });
+
+  loadBalanceReport();
+});
+</script>
+{% endblock %}

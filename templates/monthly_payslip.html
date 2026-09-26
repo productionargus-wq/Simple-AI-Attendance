@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Banner Card Matching Image 3 -->
+<div class="content-banner-card">
+  <div class="content-banner-title">MONTHLY PAYSLIP</div>
+  <button class="btn-update" id="btnUpdatePayslip" title="Update">
+    <i class="fa fa-refresh"></i> Update
+  </button>
+</div>
+
+<!-- ================= 1. SELECTION FORM (IMAGE 3) ================= -->
+<div class="table-card" id="payslipSelectionCard" style="padding: 30px 20px;">
+  <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <label for="selectPayslipEmployee" style="font-size: 13px; font-weight: 700; color: #212529;">Select Employee Name:</label>
+      <select id="selectPayslipEmployee" class="table-filter-select" style="min-width: 170px; padding: 6px 12px; font-size: 13px;">
+        {% for emp in employees %}
+        <option value="{{ emp }}" {% if emp == 'Ruban' %}selected{% endif %}>{{ emp }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <label for="selectPayslipMonth" style="font-size: 13px; font-weight: 700; color: #212529;">Month & Year:</label>
+      <input type="month" id="selectPayslipMonth" class="table-filter-date" style="padding: 5px 10px; font-size: 13px; width: 160px;">
+    </div>
+
+    <div>
+      <button type="button" id="btnGeneratePayslip" class="btn-submit" style="background-color: #0d6efd; color: #ffffff; padding: 7px 22px; font-weight: 700; font-size: 13px; border-radius: 4px; text-transform: uppercase;">
+        GENERATE
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 2. GENERATED PAYSLIP DOCUMENT (IMAGE 4) ================= -->
+<div id="payslipDocumentCard" class="d-none" style="margin-top: 20px; margin-bottom: 30px;">
+  <div class="payslip-document-wrapper" id="printablePayslipDoc" style="background-color: #ffffff; border: 1.5px solid #212529; border-radius: 2px; max-width: 820px; margin: 0 auto; padding: 20px 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+    
+    <!-- Company Header -->
+    <div style="text-align: center; margin-bottom: 12px;">
+      <div style="font-size: 18px; font-weight: 800; color: #003366; letter-spacing: 0.5px;">ARGUS TECHNOLOGIES</div>
+      <div style="font-size: 10.5px; color: #0056b3; margin-top: 3px; font-weight: 500;">
+        SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006
+      </div>
+      <div style="font-size: 13px; font-weight: 700; color: #111111; margin-top: 6px;">Monthly Payslip</div>
+    </div>
+
+    <!-- Section Bar: PAYSLIP -->
+    <div style="background-color: #1565c0; color: #ffffff; font-weight: 700; font-size: 13px; text-align: center; padding: 5px 0; border: 1px solid #767676; letter-spacing: 0.5px;">
+      PAYSLIP
+    </div>
+
+    <!-- 4-Column Info Table -->
+    <table class="payslip-info-table" style="width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #767676; border-top: none;">
+      <tbody>
+        <tr>
+          <td class="ps-cell-lbl" style="width: 25%; font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Employee Name</td>
+          <td class="ps-cell-val" id="dispEmpName" style="width: 25%; border: 1px solid #767676; padding: 5px 8px;">Ruban</td>
+          <td class="ps-cell-lbl" style="width: 25%; font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Hours Salary</td>
+          <td class="ps-cell-val" id="dispHoursSalary" style="width: 25%; border: 1px solid #767676; padding: 5px 8px;">₹1</td>
+        </tr>
+        <tr>
+          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Employee ID</td>
+          <td class="ps-cell-val" id="dispEmpId" style="border: 1px solid #767676; padding: 5px 8px;">1782466963517</td>
+          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Day Salary</td>
+          <td class="ps-cell-val" id="dispDaySalary" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
+        </tr>
+        <tr>
+          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Designation</td>
+          <td class="ps-cell-val" id="dispDesignation" style="border: 1px solid #767676; padding: 5px 8px;">Production</td>
+          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Half Day Salary</td>
+          <td class="ps-cell-val" id="dispHalfSalary" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
+        </tr>
+        <tr>
+          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Phone Number</td>
+          <td class="ps-cell-val" id="dispPhone" style="border: 1px solid #767676; padding: 5px 8px;">8220394753</td>
+          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Working Days</td>
+          <td class="ps-cell-val" id="dispWorkingDays" style="border: 1px solid #767676; padding: 5px 8px;">4</td>
+        </tr>
+        <tr>
+          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Year & Month</td>
+          <td class="ps-cell-val" id="dispYearMonth" style="border: 1px solid #767676; padding: 5px 8px;">2026-06</td>
+          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Leave Days</td>
+          <td class="ps-cell-val" id="dispLeaveDays" style="border: 1px solid #767676; padding: 5px 8px;">26</td>
+        </tr>
+        <tr>
+          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Total Working Hours</td>
+          <td class="ps-cell-val" id="dispWorkingHours" style="border: 1px solid #767676; padding: 5px 8px;">17:11</td>
+          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Total Days of this Month</td>
+          <td class="ps-cell-val" id="dispTotalDays" style="border: 1px solid #767676; padding: 5px 8px;">30</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Earnings & Deductions Header Bar -->
+    <div style="display: flex; margin-top: 10px; border: 1px solid #767676; border-bottom: none;">
+      <div style="width: 50%; background-color: #0d47a1; color: #ffffff; font-weight: 700; font-size: 12px; text-align: center; padding: 5px 0; border-right: 1px solid #767676;">
+        EARNINGS
+      </div>
+      <div style="width: 50%; background-color: #0d47a1; color: #ffffff; font-weight: 700; font-size: 12px; text-align: center; padding: 5px 0;">
+        DEDUCTION
+      </div>
+    </div>
+
+    <!-- Earnings & Deductions Table -->
+    <table style="width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #767676;">
+      <tbody>
+        <tr>
+          <td style="width: 30%; border: 1px solid #767676; padding: 5px 8px;">Basic Salary</td>
+          <td id="dispBasicSalary" style="width: 20%; border: 1px solid #767676; padding: 5px 8px;">₹17</td>
+          <td style="width: 30%; border: 1px solid #767676; padding: 5px 8px;">Paid Salary</td>
+          <td id="dispPaidSalary" style="width: 20%; border: 1px solid #767676; padding: 5px 8px;">₹0</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #767676; padding: 5px 8px;">Allowance</td>
+          <td id="dispAllowance" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
+          <td style="border: 1px solid #767676; padding: 5px 8px;">Advance Repayment</td>
+          <td id="dispAdvRepayment" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #767676; padding: 5px 8px;">Incentive</td>
+          <td id="dispIncentive" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
+          <td style="border: 1px solid #767676; padding: 5px 8px;">Other Deductions</td>
+          <td id="dispOtherDeductions" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #767676; padding: 5px 8px;">Others Earnings</td>
+          <td id="dispOtherEarnings" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
+          <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
+          <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #767676; padding: 5px 8px; font-weight: 700;">TOTAL EARNINGS</td>
+          <td id="dispTotalEarnings" style="border: 1px solid #767676; padding: 5px 8px; font-weight: 700;">₹17</td>
+          <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
+          <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #767676; padding: 5px 8px; font-weight: 700;">TOTAL DEDUCTION</td>
+          <td id="dispTotalDeductions" style="border: 1px solid #767676; padding: 5px 8px; font-weight: 700;">₹0</td>
+          <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
+          <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- NET PAY BAR -->
+    <div style="background-color: #f1f3f5; border: 1px solid #767676; border-top: none; text-align: center; padding: 10px 0; font-size: 16px; font-weight: 800; color: #111111;">
+      NET PAY : ₹<span id="dispNetPay">17</span>
+    </div>
+
+    <!-- NET PAY IN WORDS BAR -->
+    <div style="background-color: #fef9e7; border: 1px solid #767676; border-top: none; text-align: center; padding: 7px 0; font-size: 13px; font-weight: 700; color: #003366;">
+      NET PAY IN WORDS: <span id="dispNetWords">Seventeen Rupees Only</span>
+    </div>
+
+    <!-- Footnotes -->
+    <div style="text-align: center; font-size: 10px; color: #475569; padding: 8px 0; font-style: italic; border: 1px solid #767676; border-top: none;">
+      <div>** Net Pay = Total Earnings - Total Deduction</div>
+      <div style="margin-top: 2px;">* Payslip is auto-generated and valid without the need for a signature. *</div>
+    </div>
+
+    <!-- Bottom Dark Banner -->
+    <div style="background-color: #37474f; color: #ffffff; text-align: center; padding: 6px 0; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">
+      ** This document has been automatically generated by ARGUS **
+    </div>
+  </div>
+
+  <!-- Action Buttons below Payslip Matching Image 4 -->
+  <div style="display: flex; justify-content: center; gap: 14px; margin-top: 18px;">
+    <button type="button" id="btnPrintPayslip" class="btn-action-view" style="background-color: #0d6efd; color: #ffffff; border: none; padding: 7px 18px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+      <i class="fa fa-print"></i> Print
+    </button>
+    <button type="button" id="btnPdfPayslip" class="btn-action-view" style="background-color: #0d6efd; color: #ffffff; border: none; padding: 7px 18px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+      <i class="fa fa-file-pdf-o"></i> PDF
+    </button>
+    <button type="button" id="btnBackToGenerate" class="btn-action-view" style="background-color: #0d6efd; color: #ffffff; border: none; padding: 7px 18px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+      ← Back
+    </button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const btnGeneratePayslip = document.getElementById('btnGeneratePayslip');
+  const payslipSelectionCard = document.getElementById('payslipSelectionCard');
+  const payslipDocumentCard = document.getElementById('payslipDocumentCard');
+  const btnBackToGenerate = document.getElementById('btnBackToGenerate');
+  const btnPrintPayslip = document.getElementById('btnPrintPayslip');
+  const btnPdfPayslip = document.getElementById('btnPdfPayslip');
+  const btnUpdatePayslip = document.getElementById('btnUpdatePayslip');
+  const selectPayslipMonth = document.getElementById('selectPayslipMonth');
+
+  // Set default month to current year and month dynamically
+  if (selectPayslipMonth && !selectPayslipMonth.value) {
+    const today = new Date();
+    const curY = today.getFullYear();
+    const curM = String(today.getMonth() + 1).padStart(2, '0');
+    selectPayslipMonth.value = `${curY}-${curM}`;
+  }
+
+  btnUpdatePayslip.addEventListener('click', function () {
+    generatePayslip();
+  });
+
+  btnGeneratePayslip.addEventListener('click', function () {
+    generatePayslip();
+  });
+
+  btnBackToGenerate.addEventListener('click', function () {
+    payslipDocumentCard.classList.add('d-none');
+    payslipSelectionCard.classList.remove('d-none');
+  });
+
+  function generatePayslip() {
+    const employee = document.getElementById('selectPayslipEmployee').value;
+    const month = document.getElementById('selectPayslipMonth').value;
+
+    if (!employee) {
+      alert('Please select an employee.');
+      return;
+    }
+
+    fetch(`/api/payslip/generate?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}`)
+      .then(res => res.json())
+      .then(p => {
+        // Populate document
+        document.getElementById('dispEmpName').innerText = p.employee_name;
+        document.getElementById('dispEmpId').innerText = p.employee_id;
+        document.getElementById('dispDesignation').innerText = p.designation;
+        document.getElementById('dispPhone').innerText = p.phone_number;
+        document.getElementById('dispYearMonth').innerText = p.year_month;
+        document.getElementById('dispHoursSalary').innerText = `₹${p.hours_salary}`;
+        document.getElementById('dispDaySalary').innerText = `₹${p.day_salary}`;
+        document.getElementById('dispHalfSalary').innerText = `₹${p.half_day_salary}`;
+        document.getElementById('dispWorkingDays').innerText = p.working_days;
+        document.getElementById('dispLeaveDays').innerText = p.leave_days;
+        document.getElementById('dispTotalDays').innerText = p.total_days_of_month;
+        document.getElementById('dispWorkingHours').innerText = p.total_working_hours;
+
+        document.getElementById('dispBasicSalary').innerText = `₹${p.basic_salary}`;
+        document.getElementById('dispAllowance').innerText = `₹${p.allowance}`;
+        document.getElementById('dispIncentive').innerText = `₹${p.incentive}`;
+        document.getElementById('dispOtherEarnings').innerText = `₹${p.other_earnings}`;
+        document.getElementById('dispTotalEarnings').innerText = `₹${p.total_earnings}`;
+
+        document.getElementById('dispPaidSalary').innerText = `₹${p.paid_salary}`;
+        document.getElementById('dispAdvRepayment').innerText = `₹${p.advance_repayment}`;
+        document.getElementById('dispOtherDeductions').innerText = `₹${p.other_deductions}`;
+        document.getElementById('dispTotalDeductions').innerText = `₹${p.total_deduction}`;
+
+        document.getElementById('dispNetPay').innerText = p.net_pay;
+        document.getElementById('dispNetWords').innerText = p.net_pay_in_words;
+
+        // Show document card
+        payslipDocumentCard.classList.remove('d-none');
+        payslipDocumentCard.scrollIntoView({ behavior: 'smooth' });
+      })
+      .catch(err => {
+        console.error('Error generating payslip:', err);
+        alert('Failed to generate payslip.');
+      });
+  }
+
+  btnPrintPayslip.addEventListener('click', function () {
+    window.print();
+  });
+
+  btnPdfPayslip.addEventListener('click', function () {
+    const employee = document.getElementById('selectPayslipEmployee').value;
+    const month = document.getElementById('selectPayslipMonth').value;
+    window.location.href = `/api/payslip/export/pdf?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}`;
+  });
+});
+</script>
+{% endblock %}
