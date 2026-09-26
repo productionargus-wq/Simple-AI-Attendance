@@ -45,8 +45,12 @@ except Exception as e:
 
 try:
     database.init_db()
+    fe = get_face_engine()
+    if fe:
+        fe.ensure_models_available()
+        fe.auto_sync_stored_employee_embeddings()
 except Exception as e:
-    print(f"Warning: database init error: {e}")
+    print(f"Warning: database/face init error: {e}")
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -362,14 +366,17 @@ def api_face_enroll():
     file = request.files['photo']
     file_bytes = file.read()
     
-    # Compute 128-d embedding
+    # Compute 128-d deep embedding
     embedding = get_face_engine().extract_face_embedding_from_image(file_bytes)
+    if not embedding:
+        return jsonify({'error': 'No face detected in photo. Please ensure your face is clearly visible in good lighting.'}), 400
+
     database.save_face_embedding(emp_id, embedding)
     
     # Notice: file_bytes is NOT saved to disk! Image is discarded.
     return jsonify({
         'success': True,
-        'message': 'Face embedding enrolled successfully. Image discarded for privacy.',
+        'message': 'Face biometrics enrolled successfully. Image discarded for privacy.',
         'vector_dimensions': len(embedding)
     })
 
@@ -377,7 +384,7 @@ def api_face_enroll():
 def api_face_recognize():
     """
     Recognizes employee face from live camera frame:
-    Compares 128-d live vector with stored embeddings using Cosine Similarity.
+    Compares 128-d deep vector with stored embeddings using Cosine Similarity.
     Marks attendance & creates live entry.
     """
     if 'photo' not in request.files:
@@ -386,8 +393,15 @@ def api_face_recognize():
     file = request.files['photo']
     file_bytes = file.read()
     
-    # Extract query embedding
+    # Extract query embedding using deep learning engine
     query_embedding = get_face_engine().extract_face_embedding_from_image(file_bytes)
+    if not query_embedding:
+        return jsonify({
+            'matched': False,
+            'confidence': 0.0,
+            'message': 'No face detected in camera frame. Please face the camera directly in good lighting.'
+        })
+
     result = get_face_engine().recognize_face(query_embedding)
     
     if result.get('matched'):
