@@ -302,9 +302,10 @@ def calculate_confidence_percentage(similarity_score):
         return round(min(99.9, max(70.0, mapped)), 1)
 
 
-def recognize_face(query_embedding):
+def recognize_face(query_embedding, company_id=None):
     """
-    Compares query embedding with all registered employee embeddings in the database.
+    Compares query embedding with registered employee embeddings in the database.
+    If company_id is provided, compares only within that company.
     Returns best match if similarity >= RECOGNITION_THRESHOLD.
     """
     if not query_embedding:
@@ -314,7 +315,7 @@ def recognize_face(query_embedding):
             'message': 'No face detected in camera frame. Please face the camera directly in good lighting.'
         }
 
-    stored_embeddings = database.get_all_face_embeddings()
+    stored_embeddings = database.get_all_face_embeddings(company_id=company_id)
     if not stored_embeddings:
         return {
             'matched': False,

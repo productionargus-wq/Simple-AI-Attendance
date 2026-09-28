@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Manage Companies Banner -->
+<div class="content-banner-card" style="background-color: #3d6078; color: #ffffff; padding: 12px 20px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+  <div class="content-banner-title" style="font-size: 15px; font-weight: 800; letter-spacing: 0.8px;">MANAGE COMPANIES</div>
+  <div style="display: flex; gap: 10px; align-items: center;">
+    <button class="btn-reports" id="btnOpenReportsModal" style="background-color: #ffffff; color: #3d6078; border: none; border-radius: 4px; padding: 7px 16px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.15s;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"></line>
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="14"></line>
+      </svg>
+      Reports
+    </button>
+    <button class="btn-new-entry" id="btnOpenAddCompanyModal" style="background-color: #ffd166; color: #111111; border: none; border-radius: 4px; padding: 7px 16px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.15s;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      + Add Company
+    </button>
+  </div>
+</div>
+
+<!-- Companies Table Card -->
+<div class="table-card">
+  <div class="table-toolbar">
+    <div class="entries-select-wrapper">
+      <span>Show</span>
+      <select id="companyEntriesLimit" class="entries-select">
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+      <span>entries</span>
+    </div>
+
+    <div class="search-box-wrapper">
+      <label for="companyTableSearch">Search:</label>
+      <input type="text" id="companyTableSearch" class="search-input" placeholder="Search company, GSTIN, email...">
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="employee-table" id="companyDataTable">
+      <thead>
+        <tr>
+          <th style="width: 50px;">SL NO</th>
+          <th>COMPANY NAME</th>
+          <th>GSTIN NUMBER</th>
+          <th>REGISTERED EMAIL</th>
+          <th>PHONE NUMBER</th>
+          <th>OFFICE LOCATION (LAT, LNG)</th>
+          <th style="text-align: center;">EMPLOYEES</th>
+          <th style="text-align: center;">STATUS</th>
+          <th style="text-align: center; width: 70px;">DELETE</th>
+        </tr>
+      </thead>
+      <tbody id="companyTableBody">
+        <tr>
+          <td colspan="9" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-footer">
+    <div id="companyTableInfo">Showing 0 to 0 of 0 entries</div>
+    <div class="pagination-controls" id="companyPagination">
+      <button class="pagination-btn disabled" id="companyPrevBtn">Previous</button>
+      <button class="pagination-btn active" id="companyCurrentBtn">1</button>
+      <button class="pagination-btn disabled" id="companyNextBtn">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL 1: Add Company Modal ================= -->
+<div class="modal-overlay" id="companyModal">
+  <div class="modal-box modal-box-large" style="max-width: 620px;">
+    <div class="modal-header">
+      <div class="modal-header-title" id="companyModalTitle">Register New Company</div>
+      <button class="modal-close-btn" id="closeCompanyModal">&times;</button>
+    </div>
+
+    <form id="companyForm">
+      <div class="modal-body">
+        <div id="companyFormAlert" style="display: none; padding: 10px 14px; border-radius: 4px; font-size: 12px; margin-bottom: 14px;"></div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <!-- Field 1: Company Name -->
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label">Company Name <span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputCompanyName" name="company_name" placeholder="e.g. Acme Innovations Pvt Ltd" required>
+          </div>
+
+          <!-- Field 2: GSTIN Number -->
+          <div class="form-group">
+            <label class="form-label">GSTIN Number <span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputGstin" name="gstin" placeholder="15-digit GSTIN (e.g. 33AAAAA0000A1Z5)" required style="text-transform: uppercase;">
+          </div>
+
+          <!-- Field 3: Phone Number -->
+          <div class="form-group">
+            <label class="form-label">Phone Number <span class="required">*</span></label>
+            <input type="tel" class="form-input" id="inputPhone" name="phone" placeholder="e.g. +91 9876543210" required>
+          </div>
+
+          <!-- Field 4: Registered Corporate Email -->
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label">Registered Corporate Email ID <span class="required">*</span></label>
+            <input type="email" class="form-input" id="inputEmail" name="email" placeholder="admin@acme.com" required>
+            <span style="font-size: 11px; color: #3d6078; font-weight: 600; margin-top: 3px;">
+              ℹ️ Crucial: This email will be used as the exclusive Company Admin Login ID on <code>/company-login</code>.
+            </span>
+          </div>
+
+          <!-- Field 5: Geolocation -->
+          <div class="form-group">
+            <label class="form-label">Office Latitude <span class="required">*</span></label>
+            <input type="number" step="0.000001" class="form-input" id="inputLatitude" name="latitude" placeholder="e.g. 11.029800" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Office Longitude <span class="required">*</span></label>
+            <input type="number" step="0.000001" class="form-input" id="inputLongitude" name="longitude" placeholder="e.g. 76.974000" required>
+          </div>
+
+          <!-- Auto Geolocation Trigger -->
+          <div style="grid-column: span 2; display: flex; align-items: center; justify-content: space-between; background-color: #f1f5f9; padding: 8px 12px; border-radius: 4px;">
+            <span style="font-size: 11px; color: #475569;">Used to calculate proximity when employees punch attendance.</span>
+            <button type="button" id="btnDetectLocation" style="background-color: #3d6078; color: #ffffff; border: none; border-radius: 4px; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer;">
+              📍 Get Current Location
+            </button>
+          </div>
+
+          <!-- Field 6: Status -->
+          <div class="form-group">
+            <label class="form-label">Company Status</label>
+            <select class="form-input" id="inputStatus" name="status">
+              <option value="Active" selected>Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer modal-footer-right">
+        <button type="button" class="btn-reset" id="btnCancelCompany">Cancel</button>
+        <button type="submit" class="btn-submit" id="btnSaveCompany" style="background-color: #198754;">Save Company</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL 2: Reports Summary Modal ================= -->
+<div class="modal-overlay" id="reportsModal">
+  <div class="modal-box modal-box-large" style="max-width: 700px;">
+    <div class="modal-header" style="background-color: #3d6078; color: #ffffff;">
+      <div class="modal-header-title" style="color: #ffffff;">🏢 Multi-Tenant Companies & Headcount Report</div>
+      <button class="modal-close-btn" id="closeReportsModal" style="color: #ffffff;">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- 4 Quick Stat Cards -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
+        <div style="background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="font-size: 11px; font-weight: 700; color: #0d47a1;">TOTAL COMPANIES</div>
+          <div id="statTotalCompanies" style="font-size: 24px; font-weight: 800; color: #0d47a1; margin-top: 4px;">0</div>
+        </div>
+        <div style="background-color: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="font-size: 11px; font-weight: 700; color: #1b5e20;">ACTIVE CLIENTS</div>
+          <div id="statActiveCompanies" style="font-size: 24px; font-weight: 800; color: #1b5e20; margin-top: 4px;">0</div>
+        </div>
+        <div style="background-color: #fff8e1; border: 1px solid #ffecb3; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="font-size: 11px; font-weight: 700; color: #b78103;">CLIENT EMPLOYEES</div>
+          <div id="statTenantEmployees" style="font-size: 24px; font-weight: 800; color: #b78103; margin-top: 4px;">0</div>
+        </div>
+        <div style="background-color: #f3e5f5; border: 1px solid #e1bee7; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="font-size: 11px; font-weight: 700; color: #4a148c;">MASTER EMPLOYEES</div>
+          <div id="statArgusEmployees" style="font-size: 24px; font-weight: 800; color: #4a148c; margin-top: 4px;">0</div>
+        </div>
+      </div>
+
+      <!-- Companies Headcount Breakdown Table -->
+      <div style="font-size: 13px; font-weight: 700; color: #2c3e50; margin-bottom: 8px;">Registered Tenants Breakdown</div>
+      <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+        <table class="employee-table">
+          <thead>
+            <tr>
+              <th>COMPANY NAME</th>
+              <th>REGISTERED EMAIL</th>
+              <th style="text-align: center;">ENROLLED EMPLOYEES</th>
+              <th style="text-align: center;">STATUS</th>
+            </tr>
+          </thead>
+          <tbody id="reportsBreakdownBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="modal-footer modal-footer-right">
+      <button type="button" class="btn-reset" id="btnCloseReportsFooter">Close</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/manage_companies.js') }}"></script>
+{% endblock %}

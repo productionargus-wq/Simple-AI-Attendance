@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARGUS TECHNOLOGIES - Employee Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body style="background-color: #3d6078; margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+
+  <div style="background-color: #ffffff; border-radius: 10px; padding: 40px 36px; width: 350px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); text-align: center;">
+    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Argus" style="max-width: 90px; margin-bottom: 8px;">
+    <div style="font-size: 16px; font-weight: 800; color: #2c3e50; letter-spacing: 0.5px; margin-bottom: 4px;">ARGUS TECHNOLOGIES</div>
+    <div style="font-size: 12px; color: #ffd166; font-weight: 800; letter-spacing: 1px; margin-bottom: 22px;">EMPLOYEE LOGIN</div>
+
+    {% if error %}
+    <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 4px; padding: 10px 12px; font-size: 12px; line-height: 1.4; margin-bottom: 18px; text-align: left;">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/employee-login">
+      <div style="margin-bottom: 22px; text-align: left;">
+        <label style="font-size: 12px; font-weight: 700; color: #333333; display: block; margin-bottom: 6px;">Registered Email ID</label>
+        <input type="email" name="email" required placeholder="e.g. employee@company.com" style="width: 100%; padding: 10px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; outline: none; box-sizing: border-box;">
+        <div style="font-size: 11px; color: #6c757d; margin-top: 4px;">Enter the email provided during employee enrollment.</div>
+      </div>
+      <button type="submit" style="width: 100%; background-color: #198754; color: #ffffff; border: none; border-radius: 4px; padding: 11px; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 0.8px; transition: background 0.2s;">
+        ACCESS EMPLOYEE PORTAL
+      </button>
+    </form>
+
+    <div style="margin-top: 20px; font-size: 12px;">
+      <a href="/" style="color: #6c757d; text-decoration: none; font-weight: 600;">← Back to Attendance</a>
+    </div>
+  </div>
+
+</body>
+</html>

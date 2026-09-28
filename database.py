@@ -52,48 +52,277 @@ def build_id_filter(ident):
 
 # ----------------- INITIALIZATION & SEEDING ----------------- #
 
+def migrate_existing_data_to_master():
+    """Backfills legacy documents without company_id to ARGUS_MASTER."""
+    try:
+        db = get_db()
+        collections = ['employees', 'live_entries', 'attendance_reports', 'attendance', 'manual_entries', 'payments', 'advances', 'salary_reports']
+        for coll_name in collections:
+            coll = db[coll_name]
+            coll.update_many(
+                {'$or': [{'company_id': {'$exists': False}}, {'company_id': None}, {'company_id': ''}]},
+                {'$set': {'company_id': 'ARGUS_MASTER'}}
+            )
+        db.admin_users.update_many(
+            {'username': 'Admin'},
+            {'$set': {'role': 'super_admin', 'company_id': 'ARGUS_MASTER', 'company_name': 'ARGUS TECHNOLOGIES'}}
+        )
+    except Exception as e:
+        print(f"Warning during tenant data migration: {e}")
+
 def init_db():
     db = get_db()
     
     # Create indexes for high-speed queries
     try:
+        # Multi-Tenant Company Admin Index
+        db.company_admin.create_index([("id", ASCENDING)], unique=True)
+        db.company_admin.create_index([("email", ASCENDING)], unique=True)
+        db.company_admin.create_index([("company_name", ASCENDING)])
+        
+        # Operational Indexes with company_id
         db.employees.create_index([("id", ASCENDING)], unique=True)
-        db.employees.create_index([("employee_name", ASCENDING)])
-        db.live_entries.create_index([("is_timeout", ASCENDING), ("entry_time", DESCENDING)])
-        db.attendance_reports.create_index([("entry_type", ASCENDING), ("employee_name", ASCENDING)])
-        db.manual_entries.create_index([("entry_date", DESCENDING)])
-        db.payments.create_index([("payment_date", DESCENDING), ("reason", ASCENDING)])
-        db.advances.create_index([("advance_date", DESCENDING)])
-        db.salary_reports.create_index([("pay_period", DESCENDING), ("employee_name", ASCENDING)])
+        db.employees.create_index([("company_id", ASCENDING), ("employee_name", ASCENDING)])
+        db.employees.create_index([("email_id", ASCENDING)])
+        db.live_entries.create_index([("company_id", ASCENDING), ("is_timeout", ASCENDING), ("entry_time", DESCENDING)])
+        db.attendance_reports.create_index([("company_id", ASCENDING), ("entry_type", ASCENDING), ("employee_name", ASCENDING)])
+        db.attendance.create_index([("company_id", ASCENDING), ("date", DESCENDING)])
+        db.manual_entries.create_index([("company_id", ASCENDING), ("entry_date", DESCENDING)])
+        db.payments.create_index([("company_id", ASCENDING), ("payment_date", DESCENDING), ("reason", ASCENDING)])
+        db.advances.create_index([("company_id", ASCENDING), ("advance_date", DESCENDING)])
+        db.salary_reports.create_index([("company_id", ASCENDING), ("pay_period", DESCENDING), ("employee_name", ASCENDING)])
     except Exception as e:
         print(f"Warning creating MongoDB indexes: {e}")
-
-
 
     if db.admin_users.count_documents({}) == 0:
         db.admin_users.insert_one({
             'username': 'Admin',
-            'password': '76543'
+            'password': '76543',
+            'role': 'super_admin',
+            'company_id': 'ARGUS_MASTER',
+            'company_name': 'ARGUS TECHNOLOGIES'
         })
+    else:
+        db.admin_users.update_many(
+            {'username': 'Admin'},
+            {'$set': {'role': 'super_admin', 'company_id': 'ARGUS_MASTER', 'company_name': 'ARGUS TECHNOLOGIES'}}
+        )
+
+    # Automatically backfill legacy records with company_id: ARGUS_MASTER
+    migrate_existing_data_to_master()
+
+# ----------------- MULTI-TENANT COMPANY MANAGEMENT ----------------- #
+
+def apply_tenant_filter(query, company_id):
+    """Applies strict tenant isolation filter to a MongoDB query dictionary."""
+    if query is None:
+        query = {}
+    if company_id and company_id != 'ALL':
+        query['company_id'] = str(company_id)
+    return query
+
+def create_company(data):
+    """Registers a new client company in company_admin collection."""
+    db = get_db()
+    comp_id = str(data.get('id') or f"comp_{int(time.time() * 1000)}")
+    email = data.get('email', '').strip().lower()
+    if not email:
+        raise ValueError("Company registered email is required.")
+        
+    existing = db.company_admin.find_one({'email': {'$regex': f"^{re.escape(email)}$", '$options': 'i'}})
+    if existing:
+        raise ValueError(f"A company with email '{email}' is already registered.")
+        
+    doc = {
+        'id': comp_id,
+        'company_name': data.get('company_name', '').strip(),
+        'gstin': data.get('gstin', '').strip().upper(),
+        'email': email,
+        'phone': data.get('phone', '').strip(),
+        'latitude': float(data.get('latitude') or 11.02980),
+        'longitude': float(data.get('longitude') or 76.97400),
+        'status': data.get('status', 'Active').strip(),
+        'created_at': datetime.now(),
+        'updated_at': datetime.now()
+    }
+    db.company_admin.insert_one(doc)
+    return comp_id
+
+def get_all_companies(search='', page=1, limit=10):
+    """Retrieves paginated companies with employee count."""
+    db = get_db()
+    query = {}
+    if search:
+        reg = {'$regex': re.escape(search), '$options': 'i'}
+        query['$or'] = [
+            {'company_name': reg},
+            {'email': reg},
+            {'gstin': reg},
+            {'phone': reg},
+            {'id': reg}
+        ]
+        
+    total = db.company_admin.count_documents(query)
+    cursor = db.company_admin.find(query).sort("created_at", DESCENDING)
+    if limit and limit > 0:
+        cursor = cursor.skip((page - 1) * limit).limit(limit)
+        
+    companies = []
+    for doc in cursor:
+        c = clean_doc(doc)
+        c['employee_count'] = db.employees.count_documents({'company_id': c['id']})
+        companies.append(c)
+        
+    return {
+        'total': total,
+        'page': page,
+        'limit': limit,
+        'data': companies
+    }
+
+def get_company_by_id(comp_id):
+    """Fetches company details by ID with current employee count."""
+    db = get_db()
+    if not comp_id:
+        return None
+    doc = db.company_admin.find_one({'id': str(comp_id)})
+    if not doc:
+        doc = db.company_admin.find_one(build_id_filter(comp_id))
+    if doc:
+        c = clean_doc(doc)
+        c['employee_count'] = db.employees.count_documents({'company_id': c['id']})
+        return c
+    return None
+
+def get_company_by_email(email):
+    """Fetches company details by registered email."""
+    db = get_db()
+    if not email:
+        return None
+    doc = db.company_admin.find_one({'email': {'$regex': f"^{re.escape(email.strip())}$", '$options': 'i'}})
+    return clean_doc(doc) if doc else None
+
+def update_company(comp_id, data):
+    """Updates company details in company_admin."""
+    db = get_db()
+    upd = {
+        'company_name': data.get('company_name', '').strip(),
+        'gstin': data.get('gstin', '').strip().upper(),
+        'email': data.get('email', '').strip().lower(),
+        'phone': data.get('phone', '').strip(),
+        'latitude': float(data.get('latitude') or 11.02980),
+        'longitude': float(data.get('longitude') or 76.97400),
+        'status': data.get('status', 'Active').strip(),
+        'updated_at': datetime.now()
+    }
+    db.company_admin.update_one({'id': str(comp_id)}, {'$set': upd})
+    return True
+
+def delete_company(comp_id):
+    """Removes company from company_admin."""
+    db = get_db()
+    db.company_admin.delete_one({'id': str(comp_id)})
+    return True
+
+def get_company_reports_summary():
+    """Generates platform-wide company summary metrics for Super Admin."""
+    db = get_db()
+    total_companies = db.company_admin.count_documents({})
+    active_companies = db.company_admin.count_documents({'status': 'Active'})
+    total_tenant_employees = db.employees.count_documents({'company_id': {'$ne': 'ARGUS_MASTER'}})
+    total_argus_employees = db.employees.count_documents({'company_id': 'ARGUS_MASTER'})
+    
+    companies = list(db.company_admin.find({}, sort=[('created_at', DESCENDING)]))
+    breakdown = []
+    today_slash = datetime.now().strftime('%d/%m/%Y')
+    for c in companies:
+        cid = str(c.get('id') or c.get('_id'))
+        emp_cnt = db.employees.count_documents({'company_id': cid})
+        active_today = len(db.live_entries.distinct('employee_name', {'company_id': cid, 'entry_time': {'$regex': today_slash}}))
+        created_str = c.get('created_at').strftime('%d/%m/%Y') if hasattr(c.get('created_at'), 'strftime') else str(c.get('created_at', ''))
+        breakdown.append({
+            'id': cid,
+            'company_name': c.get('company_name', ''),
+            'gstin': c.get('gstin', ''),
+            'email': c.get('email', ''),
+            'phone': c.get('phone', ''),
+            'latitude': c.get('latitude', 11.02980),
+            'longitude': c.get('longitude', 76.97400),
+            'status': c.get('status', 'Active'),
+            'employee_count': emp_cnt,
+            'active_today': active_today,
+            'created_at': created_str
+        })
+        
+    return {
+        'total_companies': total_companies,
+        'active_companies': active_companies,
+        'total_tenant_employees': total_tenant_employees,
+        'total_argus_employees': total_argus_employees,
+        'total_employees_all': total_tenant_employees + total_argus_employees,
+        'companies': breakdown
+    }
+
+def validate_company_login(email):
+    """Validates company admin login by registered email."""
+    db = get_db()
+    if not email:
+        return None
+    email_clean = email.strip().lower()
+    doc = db.company_admin.find_one({
+        'email': {'$regex': f"^{re.escape(email_clean)}$", '$options': 'i'}
+    })
+    return clean_doc(doc) if doc else None
+
+def validate_employee_login(email):
+    """Validates employee login by registered email and attaches company details."""
+    db = get_db()
+    if not email:
+        return None
+    email_clean = email.strip().lower()
+    doc = db.employees.find_one({
+        'email_id': {'$regex': f"^{re.escape(email_clean)}$", '$options': 'i'}
+    })
+    if doc:
+        emp = clean_doc(doc)
+        comp_id = emp.get('company_id')
+        if comp_id and comp_id != 'ARGUS_MASTER':
+            comp = db.company_admin.find_one({'id': str(comp_id)})
+            emp['company_name'] = comp.get('company_name') if comp else 'Client Company'
+            emp['company_lat'] = comp.get('latitude') if comp else 11.02980
+            emp['company_lng'] = comp.get('longitude') if comp else 76.97400
+        else:
+            emp['company_name'] = 'ARGUS TECHNOLOGIES'
+            emp['company_lat'] = 11.02980
+            emp['company_lng'] = 76.97400
+        return emp
+    return None
 
 # ----------------- EMPLOYEE OPERATIONS ----------------- #
 
 def generate_employee_id():
     return str(int(time.time() * 1000))
 
-def get_all_employees(search='', sort_col='id', sort_dir='asc', page=1, limit=10):
+def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='asc', page=1, limit=10):
     db = get_db()
     query = {}
+    if company_id and company_id != 'ALL':
+        query['company_id'] = str(company_id)
     if search:
         reg = {'$regex': re.escape(search), '$options': 'i'}
-        query = {
+        search_filter = {
             '$or': [
                 {'employee_name': reg},
                 {'designation': reg},
                 {'mobile_number': reg},
+                {'email_id': reg},
                 {'id': reg}
             ]
         }
+        if query:
+            query = {'$and': [query, search_filter]}
+        else:
+            query = search_filter
     
     total = db.employees.count_documents(query)
     sort_direction = ASCENDING if sort_dir.lower() == 'asc' else DESCENDING
@@ -110,17 +339,22 @@ def get_all_employees(search='', sort_col='id', sort_dir='asc', page=1, limit=10
         'data': employees
     }
 
-def get_employee_by_id(emp_id):
+def get_employee_by_id(emp_id, company_id=None):
     db = get_db()
-    doc = db.employees.find_one(build_id_filter(emp_id))
+    f = build_id_filter(emp_id)
+    if company_id and company_id != 'ALL':
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    doc = db.employees.find_one(f)
     return clean_doc(doc)
 
-def create_employee(data):
+def create_employee(data, company_id=None):
     db = get_db()
     emp_id = data.get('id') or generate_employee_id()
+    assigned_company_id = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
     
     doc = {
         'id': emp_id,
+        'company_id': assigned_company_id,
         'employee_name': data.get('employee_name', '').strip(),
         'designation': data.get('designation', '').strip(),
         'mobile_number': data.get('mobile_number', '').strip(),
@@ -146,8 +380,11 @@ def create_employee(data):
     db.employees.insert_one(doc)
     return emp_id
 
-def update_employee(emp_id, data):
+def update_employee(emp_id, data, company_id=None):
     db = get_db()
+    f = build_id_filter(emp_id)
+    if company_id and company_id != 'ALL':
+        f = {'$and': [f, {'company_id': str(company_id)}]}
     upd = {
         'employee_name': data.get('employee_name', '').strip(),
         'designation': data.get('designation', '').strip(),
@@ -171,18 +408,26 @@ def update_employee(emp_id, data):
         upd['photo_filename'] = data['photo_filename']
     if 'face_embedding' in data and data['face_embedding']:
         upd['face_embedding'] = data['face_embedding']
+    if 'company_id' in data and data['company_id']:
+        upd['company_id'] = str(data['company_id'])
         
-    db.employees.update_one(build_id_filter(emp_id), {'$set': upd})
+    db.employees.update_one(f, {'$set': upd})
     return True
 
-def delete_employee(emp_id):
+def delete_employee(emp_id, company_id=None):
     db = get_db()
-    db.employees.delete_one(build_id_filter(emp_id))
+    f = build_id_filter(emp_id)
+    if company_id and company_id != 'ALL':
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    db.employees.delete_one(f)
     return True
 
-def get_all_face_embeddings():
+def get_all_face_embeddings(company_id=None):
     db = get_db()
-    employees = db.employees.find({'face_embedding': {'$ne': '', '$exists': True}})
+    q = {'face_embedding': {'$ne': '', '$exists': True}}
+    if company_id and company_id != 'ALL':
+        q['company_id'] = str(company_id)
+    employees = db.employees.find(q)
     results = []
     for emp in employees:
         embedding_data = emp.get('face_embedding', '')
@@ -192,6 +437,7 @@ def get_all_face_embeddings():
                 results.append({
                     'id': str(emp.get('id', emp.get('_id', ''))),
                     'employee_name': emp.get('employee_name', ''),
+                    'company_id': emp.get('company_id', 'ARGUS_MASTER'),
                     'embedding': embedding
                 })
             except Exception:
@@ -206,22 +452,35 @@ def save_face_embedding(emp_id, embedding):
 
 # ----------------- DYNAMIC DASHBOARD STATS ----------------- #
 
-def get_dashboard_stats():
+def get_dashboard_stats(company_id=None):
     db = get_db()
-    total_employees = db.employees.count_documents({})
+    t_filter = {}
+    if company_id and company_id != 'ALL':
+        t_filter['company_id'] = str(company_id)
+        
+    total_employees = db.employees.count_documents(t_filter)
     
     # Calculate today's active punches
     today_str = datetime.now().strftime('%Y-%m-%d')
     today_slash = datetime.now().strftime('%d/%m/%Y')
     
-    present_names = db.attendance.distinct('employee_name', {'date': today_str, 'status': 'Present'})
-    live_today = db.live_entries.distinct('employee_name', {'entry_time': {'$regex': today_slash}})
+    p_filter = dict(t_filter)
+    p_filter['date'] = today_str
+    p_filter['status'] = 'Present'
+    present_names = db.attendance.distinct('employee_name', p_filter)
+    
+    l_filter = dict(t_filter)
+    l_filter['entry_time'] = {'$regex': today_slash}
+    live_today = db.live_entries.distinct('employee_name', l_filter)
     
     combined_present = set(present_names).union(set(live_today))
     present_count = len(combined_present)
     absent_count = max(0, total_employees - present_count)
     present_percentage = round((present_count / total_employees * 100), 1) if total_employees > 0 else 0.0
-    timeout_count = db.live_entries.count_documents({'is_timeout': 1})
+    
+    tout_filter = dict(t_filter)
+    tout_filter['is_timeout'] = 1
+    timeout_count = db.live_entries.count_documents(tout_filter)
     
     # Last 7 days dynamic calculation
     last_7_days = []
@@ -230,7 +489,10 @@ def get_dashboard_stats():
         day = today - timedelta(days=i)
         day_str = day.strftime('%Y-%m-%d')
         label = day.strftime('%d %b')
-        count = db.attendance.count_documents({'date': day_str, 'status': 'Present'})
+        day_filter = dict(t_filter)
+        day_filter['date'] = day_str
+        day_filter['status'] = 'Present'
+        count = db.attendance.count_documents(day_filter)
         last_7_days.append({
             'date': label,
             'count': count
@@ -242,7 +504,10 @@ def get_dashboard_stats():
     curr_year = datetime.now().year
     for m_idx, m_name in enumerate(months, start=1):
         m_prefix = f"{curr_year}-{m_idx:02d}"
-        count = db.attendance.count_documents({'date': {'$regex': f"^{m_prefix}"}, 'status': 'Present'})
+        mo_filter = dict(t_filter)
+        mo_filter['date'] = {'$regex': f"^{m_prefix}"}
+        mo_filter['status'] = 'Present'
+        count = db.attendance.count_documents(mo_filter)
         monthly_stats.append({
             'month': m_name,
             'count': count
@@ -260,10 +525,13 @@ def get_dashboard_stats():
 
 # ----------------- LIVE & TIMEOUT ENTRIES ----------------- #
 
-def get_live_report_entries(tab='live', start_date=None, end_date=None, search=None, page=1, limit=10):
+def get_live_report_entries(tab='live', start_date=None, end_date=None, search=None, page=1, limit=10, company_id=None):
     db = get_db()
     query = {}
     
+    if company_id and company_id != 'ALL':
+        query['company_id'] = str(company_id)
+        
     if tab == 'timeout':
         query['is_timeout'] = 1
     else:
@@ -345,7 +613,7 @@ def format_office_distance(meters):
 
 get_live_entries = get_live_report_entries
 
-def calculate_realistic_proximity(user_lat, user_lng):
+def calculate_realistic_proximity(user_lat, user_lng, office_lat=OFFICE_LAT, office_lng=OFFICE_LNG):
     """Calculate distance in meters, with realistic office vicinity variation (12m - 45m) if desktop coordinates match exactly."""
     if user_lat is None or user_lng is None:
         import random
@@ -353,16 +621,17 @@ def calculate_realistic_proximity(user_lat, user_lng):
     try:
         ulat = float(user_lat)
         ulng = float(user_lng)
-        d = calculate_distance_meters(ulat, ulng)
+        olat = float(office_lat if office_lat is not None else OFFICE_LAT)
+        olng = float(office_lng if office_lng is not None else OFFICE_LNG)
+        d = calculate_distance_meters(ulat, ulng, olat, olng)
         if d < 5.0:
-            # On-premises Wi-Fi/desktop coordinates at identical pin
             import random
             return round(random.uniform(8.5, 24.5), 1)
         return round(d, 1)
     except Exception:
         return 14.5
 
-def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=OFFICE_LOCATION_STR, entry_distance=0.0, is_timeout=0, user_lat=None, user_lng=None):
+def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=OFFICE_LOCATION_STR, entry_distance=0.0, is_timeout=0, user_lat=None, user_lng=None, company_id='ARGUS_MASTER'):
     db = get_db()
     if not entry_time:
         entry_time = datetime.now().strftime('%d/%m/%Y %I:%M:%S %p')
@@ -377,6 +646,7 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
         calculated_meters = calculate_realistic_proximity(None, None)
             
     doc = {
+        'company_id': str(company_id or 'ARGUS_MASTER'),
         'employee_id': str(employee_id),
         'employee_name': employee_name,
         'entry_time': entry_time,
@@ -390,16 +660,12 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
     result = db.live_entries.insert_one(doc)
     return str(result.inserted_id)
 
-def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=None):
+def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=None, company_id=None):
     """
-    Punch In / Punch Out Attendance Lifecycle Engine:
-    When an employee marks attendance:
-    1. Records Live Entry in db.live_entries.
-    2. If no record exists for today in db.attendance_reports, creates Punch-In record.
-    3. If an open Punch-In exists for today, creates/updates Punch-Out record, calculating:
-       - exit_time, exit_distance, exit_location
-       - working_hours, shift_variance, and working_salary
-    4. Also updates db.attendance for dashboard present counts.
+    Punch In / Punch Out Attendance Lifecycle Engine with Multi-Tenant Geolocation Support:
+    1. Records Live Entry in db.live_entries with company_id.
+    2. Resolves company office coordinates from company_admin if tenant-owned.
+    3. Handles Punch In & Punch Out lifecycle under exact company_id.
     """
     db = get_db()
     now = datetime.now()
@@ -407,8 +673,26 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     today_date = now.strftime('%Y-%m-%d')
     today_slash = now.strftime('%d/%m/%Y')
     
+    # Get employee details for hourly/day rate, shift, and company_id
+    emp = db.employees.find_one(build_id_filter(employee_id))
+    if not emp:
+        emp = db.employees.find_one({'employee_name': employee_name})
+        
+    comp_id = str(company_id or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
+    
+    # Determine office coordinates and location string for this company
+    target_lat = OFFICE_LAT
+    target_lng = OFFICE_LNG
+    loc_str = OFFICE_LOCATION_STR
+    if comp_id != 'ARGUS_MASTER':
+        comp = db.company_admin.find_one({'id': comp_id})
+        if comp:
+            target_lat = float(comp.get('latitude') or OFFICE_LAT)
+            target_lng = float(comp.get('longitude') or OFFICE_LNG)
+            loc_str = f"{comp.get('company_name', 'Company')} Premises"
+            
     # Calculate proximity distance
-    dist_meters = calculate_realistic_proximity(user_lat, user_lng)
+    dist_meters = calculate_realistic_proximity(user_lat, user_lng, target_lat, target_lng)
     formatted_dist = format_office_distance(dist_meters)
     
     # 1. Create Live Entry
@@ -417,24 +701,21 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         employee_name=employee_name,
         entry_time=now_time_12,
         site_name='OFFICE',
-        entry_location=OFFICE_LOCATION_STR,
+        entry_location=loc_str,
         entry_distance=dist_meters,
         is_timeout=0,
         user_lat=user_lat,
-        user_lng=user_lng
+        user_lng=user_lng,
+        company_id=comp_id
     )
     
-    # Get employee details for hourly/day rate and shift
-    emp = db.employees.find_one(build_id_filter(employee_id))
-    if not emp:
-        emp = db.employees.find_one({'employee_name': employee_name})
-        
     hourly_rate = float(emp.get('hourly_salary', 0.0)) if emp else 100.0
     day_rate = float(emp.get('day_salary', 0.0)) if emp else (hourly_rate * 8.0)
     shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
     
     # Check if there is already an attendance report entry today
     report_filter = {
+        'company_id': comp_id,
         'employee_name': employee_name,
         '$or': [
             {'date': today_date},
@@ -447,12 +728,13 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     if not existing_rep or (existing_rep.get('exit_time') and existing_rep.get('exit_time') != '----'):
         # PUNCH IN: Create new attendance record
         rep_doc = {
+            'company_id': comp_id,
             'employee_id': str(employee_id),
             'employee_name': employee_name,
             'date': today_date,
             'entry_time': now_time_12,
             'entry_distance': formatted_dist,
-            'entry_location': OFFICE_LOCATION_STR,
+            'entry_location': loc_str,
             'exit_time': '----',
             'exit_distance': '----',
             'exit_location': '----',
@@ -466,8 +748,8 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         
         # Upsert in db.attendance for dashboard present stat
         db.attendance.update_one(
-            {'employee_name': employee_name, 'date': today_date},
-            {'$set': {'employee_name': employee_name, 'date': today_date, 'status': 'Present', 'updated_at': now}},
+            {'company_id': comp_id, 'employee_name': employee_name, 'date': today_date},
+            {'$set': {'company_id': comp_id, 'employee_name': employee_name, 'date': today_date, 'status': 'Present', 'updated_at': now}},
             upsert=True
         )
         return {'status': 'punch_in', 'live_id': live_id, 'formatted_dist': formatted_dist}
@@ -530,7 +812,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         upd_data = {
             'exit_time': now_time_12,
             'exit_distance': formatted_dist,
-            'exit_location': OFFICE_LOCATION_STR,
+            'exit_location': loc_str,
             'working_hours': working_hours_str,
             'shift_variance': shift_variance_str,
             'working_salary': computed_salary,
@@ -540,18 +822,21 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         
         # Update db.attendance
         db.attendance.update_one(
-            {'employee_name': employee_name, 'date': today_date},
-            {'$set': {'working_hours': working_hours_str, 'status': 'Present', 'updated_at': now}},
+            {'company_id': comp_id, 'employee_name': employee_name, 'date': today_date},
+            {'$set': {'company_id': comp_id, 'working_hours': working_hours_str, 'status': 'Present', 'updated_at': now}},
             upsert=True
         )
         return {'status': 'punch_out', 'live_id': live_id, 'formatted_dist': formatted_dist, 'working_hours': working_hours_str}
 
 # ----------------- ATTENDANCE REPORTS ----------------- #
 
-def get_attendance_reports(report_type='all', start_date=None, end_date=None, employee='All', search=None, page=1, limit=10):
+def get_attendance_reports(report_type='all', start_date=None, end_date=None, employee='All', search=None, page=1, limit=10, company_id=None):
     db = get_db()
     query = {}
     
+    if company_id and company_id != 'ALL':
+        query['company_id'] = str(company_id)
+        
     if report_type in ['proper', 'improper', 'manual']:
         query['entry_type'] = report_type
         
@@ -601,9 +886,11 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         'data': data
     }
 
-def get_attendance_simple_table(employee='All', start_date=None, end_date=None):
+def get_attendance_simple_table(employee='All', start_date=None, end_date=None, company_id=None):
     db = get_db()
     query = {}
+    if company_id and company_id != 'ALL':
+        query['company_id'] = str(company_id)
     if employee and employee != 'All':
         query['employee_name'] = employee
         
@@ -640,10 +927,13 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None):
 
 # ----------------- MANUAL ENTRIES ----------------- #
 
-def get_manual_entries(from_date=None, to_date=None, status='All', search=None, page=1, limit=10):
+def get_manual_entries(from_date=None, to_date=None, status='All', search=None, page=1, limit=10, company_id=None):
     db = get_db()
     query = {}
     
+    if company_id and company_id != 'ALL':
+        query['company_id'] = str(company_id)
+        
     if from_date:
         query['entry_date'] = {'$gte': from_date}
     if to_date:
@@ -674,12 +964,15 @@ def get_manual_entries(from_date=None, to_date=None, status='All', search=None, 
         'data': data
     }
 
-def get_manual_entry_by_id(entry_id):
+def get_manual_entry_by_id(entry_id, company_id=None):
     db = get_db()
-    doc = db.manual_entries.find_one(build_id_filter(entry_id))
+    f = build_id_filter(entry_id)
+    if company_id and company_id != 'ALL':
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    doc = db.manual_entries.find_one(f)
     return clean_doc(doc)
 
-def create_manual_entry(data):
+def create_manual_entry(data, company_id=None):
     db = get_db()
     emp_name = data.get('employee_name', '')
     emp = db.employees.find_one({'employee_name': emp_name})
@@ -687,6 +980,7 @@ def create_manual_entry(data):
     day_rate = float(emp['day_salary'] if emp and 'day_salary' in emp else 0.0)
     half_rate = float(emp['half_day_salary'] if emp and 'half_day_salary' in emp else 0.0)
     emp_id = emp['id'] if emp and 'id' in emp else 'EMP_' + str(int(time.time()))
+    assigned_company_id = str(company_id or data.get('company_id') or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
     
     hours_str = data.get('hours', '00:00')
     mode = data.get('mode', 'Hours')
@@ -709,6 +1003,7 @@ def create_manual_entry(data):
     
     doc = {
         'id': entry_id,
+        'company_id': assigned_company_id,
         'employee_id': emp_id,
         'employee_name': emp_name,
         'entry_date': data.get('entry_date', ''),
@@ -766,10 +1061,13 @@ def delete_manual_entry(entry_id):
 
 # ----------------- PAYMENT MANAGEMENT ----------------- #
 
-def get_payments(employee=None, start_date=None, end_date=None, bank=None, payment_type=None, reason=None, search=None, page=1, limit=10):
+def get_payments(employee=None, start_date=None, end_date=None, bank=None, payment_type=None, reason=None, search=None, page=1, limit=10, company_id=None):
     db = get_db()
     query = {}
     
+    if company_id and company_id != 'ALL':
+        query['company_id'] = str(company_id)
+        
     if employee and employee != 'All':
         query['employee_name'] = employee
     if start_date:
@@ -807,16 +1105,20 @@ def get_payments(employee=None, start_date=None, end_date=None, bank=None, payme
         'data': data
     }
 
-def get_payment_by_id(payment_id):
+def get_payment_by_id(payment_id, company_id=None):
     db = get_db()
-    doc = db.payments.find_one(build_id_filter(payment_id))
+    f = build_id_filter(payment_id)
+    if company_id and company_id != 'ALL':
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    doc = db.payments.find_one(f)
     return clean_doc(doc)
 
-def create_payment(data):
+def create_payment(data, company_id=None):
     db = get_db()
     emp_name = data.get('employee_name', '')
     emp = db.employees.find_one({'employee_name': emp_name})
     emp_id = emp['id'] if emp and 'id' in emp else 'EMP_' + str(int(time.time()))
+    assigned_company_id = str(company_id or data.get('company_id') or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
     
     now_ts = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
     payment_date = data.get('payment_date') or datetime.now().strftime("%Y-%m-%d")
@@ -828,6 +1130,7 @@ def create_payment(data):
     
     doc = {
         'id': int(time.time() * 1000),
+        'company_id': assigned_company_id,
         'timestamp': now_ts,
         'employee_id': emp_id,
         'employee_name': emp_name,
@@ -866,10 +1169,13 @@ def delete_payment(payment_id):
 
 # ----------------- ADVANCE MANAGEMENT ----------------- #
 
-def get_advances(employee=None, start_date=None, end_date=None, search=None, page=1, limit=10):
+def get_advances(employee=None, start_date=None, end_date=None, search=None, page=1, limit=10, company_id=None):
     db = get_db()
     query = {}
     
+    if company_id and company_id != 'ALL':
+        query['company_id'] = str(company_id)
+        
     if employee and employee != 'All':
         query['employee_name'] = employee
     if start_date:
@@ -898,16 +1204,20 @@ def get_advances(employee=None, start_date=None, end_date=None, search=None, pag
         'data': data
     }
 
-def get_advance_by_id(advance_id):
+def get_advance_by_id(advance_id, company_id=None):
     db = get_db()
-    doc = db.advances.find_one(build_id_filter(advance_id))
+    f = build_id_filter(advance_id)
+    if company_id and company_id != 'ALL':
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    doc = db.advances.find_one(f)
     return clean_doc(doc)
 
-def create_advance(data):
+def create_advance(data, company_id=None):
     db = get_db()
     emp_name = data.get('employee_name', '')
     emp = db.employees.find_one({'employee_name': emp_name})
     emp_id = emp['id'] if emp and 'id' in emp else 'EMP_' + str(int(time.time()))
+    assigned_company_id = str(company_id or data.get('company_id') or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
     
     now_ts = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
     advance_date = data.get('advance_date') or datetime.now().strftime("%Y-%m-%d")
@@ -915,6 +1225,7 @@ def create_advance(data):
     
     doc = {
         'id': int(time.time() * 1000),
+        'company_id': assigned_company_id,
         'timestamp': now_ts,
         'employee_id': emp_id,
         'employee_name': emp_name,
@@ -943,11 +1254,13 @@ def delete_advance(advance_id):
 
 # ----------------- BALANCE REPORT ----------------- #
 
-def get_balance_report(employee=None, search=None, page=1, limit=10):
+def get_balance_report(employee=None, search=None, page=1, limit=10, company_id=None):
     db = get_db()
     
     # Query all advances
     adv_query = {}
+    if company_id and company_id != 'ALL':
+        adv_query['company_id'] = str(company_id)
     if employee and employee != 'All':
         adv_query['employee_name'] = employee
     if search:
@@ -958,6 +1271,8 @@ def get_balance_report(employee=None, search=None, page=1, limit=10):
     
     # Query all advance repayments
     rep_query = {'reason': 'Advance Repayment'}
+    if company_id and company_id != 'ALL':
+        rep_query['company_id'] = str(company_id)
     if employee and employee != 'All':
         rep_query['employee_name'] = employee
     if search:
@@ -1021,10 +1336,13 @@ def get_balance_report(employee=None, search=None, page=1, limit=10):
 
 # ----------------- SALARY REPORTS ----------------- #
 
-def get_salary_reports(start_month=None, end_month=None, search=None, page=1, limit=10):
+def get_salary_reports(start_month=None, end_month=None, search=None, page=1, limit=10, company_id=None):
     db = get_db()
     query = {}
     
+    if company_id and company_id != 'ALL':
+        query['company_id'] = str(company_id)
+        
     if start_month:
         query['pay_period'] = {'$gte': start_month}
     if end_month:
@@ -1089,12 +1407,14 @@ def number_to_words(n):
 def validate_admin_login(username, password):
     db = get_db()
     user = db.admin_users.find_one({'username': username, 'password': password})
-    return user is not None
+    return clean_doc(user) if user else None
 
-def save_generated_salary_report(p):
+def save_generated_salary_report(p, company_id=None):
     """Save or upsert generated payslip record into db.salary_reports."""
     db = get_db()
+    assigned_company_id = str(company_id or p.get('company_id') or 'ARGUS_MASTER')
     doc = {
+        'company_id': assigned_company_id,
         'employee_name': p.get('employee_name', ''),
         'pay_period': p.get('year_month', ''),
         'working_days': int(p.get('working_days', 0)),
@@ -1112,15 +1432,18 @@ def save_generated_salary_report(p):
         'updated_at': datetime.now()
     }
     db.salary_reports.update_one(
-        {'employee_name': doc['employee_name'], 'pay_period': doc['pay_period']},
+        {'company_id': assigned_company_id, 'employee_name': doc['employee_name'], 'pay_period': doc['pay_period']},
         {'$set': doc, '$setOnInsert': {'id': int(time.time() * 1000), 'created_at': datetime.now()}},
         upsert=True
     )
     return True
 
-def get_payslip_data(employee_name, month_year):
+def get_payslip_data(employee_name, month_year, company_id=None):
     db = get_db()
-    emp = db.employees.find_one({'employee_name': employee_name})
+    emp_q = {'employee_name': employee_name}
+    if company_id and company_id != 'ALL':
+        emp_q['company_id'] = str(company_id)
+    emp = db.employees.find_one(emp_q)
     
     try:
         parts = month_year.split('-')

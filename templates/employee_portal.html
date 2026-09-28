@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARGUS - Employee Portal | {{ employee.employee_name if employee else 'Employee' }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    .portal-nav {
+      background-color: #3d6078;
+      color: #ffffff;
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .portal-container {
+      max-width: 1100px;
+      margin: 20px auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .portal-card {
+      background-color: #ffffff;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+    .portal-card-header {
+      font-size: 15px;
+      font-weight: 800;
+      color: #2c3e50;
+      border-bottom: 2px solid #edf2f7;
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .emp-profile-pill {
+      background-color: #f1f5f9;
+      border-radius: 6px;
+      padding: 10px 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 12px;
+      color: #334155;
+    }
+    .emp-profile-pill strong {
+      color: #0f172a;
+    }
+    .btn-portal-primary {
+      background-color: #198754;
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      padding: 9px 22px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: background 0.15s;
+    }
+    .btn-portal-primary:hover {
+      background-color: #157347;
+    }
+    .btn-portal-primary:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body style="background-color: #f4f6f9; margin: 0; min-height: 100vh; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+  <!-- Portal Navigation Header -->
+  <header class="portal-nav">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Argus" style="width: 32px; height: auto;">
+      <div>
+        <div style="font-size: 16px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">ARGUS ATTENDANCE</div>
+        <div style="font-size: 10px; color: #ffd166; font-weight: 700; letter-spacing: 0.8px;">EMPLOYEE SELF-SERVICE PORTAL</div>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <div style="text-align: right; font-size: 12px;">
+        <div style="font-weight: 800; color: #ffffff;">{{ employee.employee_name if employee else 'Employee' }}</div>
+        <div style="color: #ffd166; font-size: 11px;">{{ company.company_name if company else 'Argus Technologies' }}</div>
+      </div>
+      <a href="/logout" style="background-color: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 6px 14px; font-size: 11px; font-weight: 700; text-decoration: none;">
+        Logout
+      </a>
+    </div>
+  </header>
+
+  <!-- Live Clock Ticker -->
+  <div style="display: flex; justify-content: center; margin-top: 14px; margin-bottom: 4px;">
+    <div id="portalLiveClock" style="background-color: #000000; color: #00e676; font-family: 'Courier New', Courier, monospace; font-size: 15px; font-weight: 800; padding: 5px 24px; border-radius: 20px; letter-spacing: 1px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+      --/--/---- --:--:--
+    </div>
+  </div>
+
+  <main class="portal-container">
+
+    <!-- Profile Overview -->
+    <div class="emp-profile-pill">
+      <div><strong>Employee ID:</strong> {{ employee.id if employee else '-' }}</div>
+      <div><strong>Designation:</strong> {{ employee.designation if employee else '-' }}</div>
+      <div><strong>Mobile:</strong> {{ employee.mobile_number if employee else '-' }}</div>
+      <div><strong>Email:</strong> {{ employee.email_id if employee else '-' }}</div>
+      <div><strong>Shift Hours:</strong> {{ employee.shift_hours if employee else '09:00' }}</div>
+      <div><strong>Company:</strong> {{ company.company_name if company else 'Argus Technologies' }}</div>
+    </div>
+
+    <!-- Section 1: Camera Face Attendance Marking -->
+    <div class="portal-card">
+      <div class="portal-card-header">
+        <span>📸 Punch Attendance (AI Face Recognition)</span>
+        <span style="font-size: 11px; font-weight: 600; color: #198754;">✓ Office Geofencing Active</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; align-items: center;">
+        <div style="width: 100%; max-width: 420px; aspect-ratio: 4 / 3; background-color: #1a1a2e; border-radius: 8px; overflow: hidden; position: relative; margin-bottom: 14px; border: 2px solid #3d6078;">
+          <video id="portalCameraFeed" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+          <canvas id="portalCanvas" style="display: none;"></canvas>
+          <div id="portalCamPlaceholder" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-size: 13px;">
+            Starting camera...
+          </div>
+        </div>
+
+        <button id="btnPortalPunch" class="btn-portal-primary" disabled>
+          Mark My Attendance
+        </button>
+
+        <div id="portalPunchResult" style="width: 100%; max-width: 420px; min-height: 40px; margin-top: 14px; text-align: center;"></div>
+      </div>
+    </div>
+
+    <!-- Section 2: Attendance History -->
+    <div class="portal-card">
+      <div class="portal-card-header">
+        <span>📋 My Attendance History</span>
+        <div style="display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: normal;">
+          <label>From: <input type="date" id="historyFromDate" class="form-input" style="padding: 4px 8px; font-size: 11px; width: auto;"></label>
+          <label>To: <input type="date" id="historyToDate" class="form-input" style="padding: 4px 8px; font-size: 11px; width: auto;"></label>
+          <button id="btnFilterHistory" class="btn-portal-primary" style="padding: 5px 12px; font-size: 11px;">Filter</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="employee-table" id="portalAttendanceTable">
+          <thead>
+            <tr>
+              <th>ENTRY TIME</th>
+              <th>ENTRY SITE / LOCATION</th>
+              <th>ENTRY DISTANCE</th>
+              <th>EXIT TIME</th>
+              <th>EXIT DISTANCE</th>
+              <th>WORKING HOURS</th>
+              <th>SHIFT VARIANCE</th>
+              <th style="text-align: center;">STATUS</th>
+            </tr>
+          </thead>
+          <tbody id="portalHistoryBody">
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 20px; color: #6c757d;">Loading attendance history...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 3: Monthly Payslip & Salary -->
+    <div class="portal-card">
+      <div class="portal-card-header">
+        <span>💰 My Monthly Payslip</span>
+        <div style="display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: normal;">
+          <input type="month" id="payslipMonth" class="form-input" style="padding: 4px 8px; font-size: 11px; width: auto;">
+          <button id="btnLoadPayslip" class="btn-portal-primary" style="padding: 5px 12px; font-size: 11px; background-color: #3d6078;">View Payslip</button>
+          <button id="btnDownloadPayslip" class="btn-portal-primary" style="padding: 5px 12px; font-size: 11px; background-color: #ffd166; color: #111111; font-weight: 800;">Download PDF</button>
+        </div>
+      </div>
+
+      <div id="payslipContent" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; background-color: #f8fafc; padding: 16px; border-radius: 6px;">
+        <div style="background-color: #ffffff; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b;">EARNINGS BREAKDOWN</div>
+          <div style="margin-top: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; justify-content: space-between;"><span>Basic Salary:</span> <strong id="psBasic">₹0</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>Allowances:</span> <strong id="psAllowance">₹0</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>Incentives:</span> <strong id="psIncentive">₹0</strong></div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid #eee; padding-top: 4px; font-weight: 800; color: #198754;">
+              <span>Total Earnings:</span> <span id="psTotalEarnings">₹0</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="background-color: #ffffff; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b;">DEDUCTIONS BREAKDOWN</div>
+          <div style="margin-top: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; justify-content: space-between;"><span>Advance Repayment:</span> <strong id="psAdvanceRepay">₹0</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>Other Deductions:</span> <strong id="psOtherDeduct">₹0</strong></div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid #eee; padding-top: 4px; font-weight: 800; color: #dc3545;">
+              <span>Total Deductions:</span> <span id="psTotalDeduct">₹0</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="background-color: #198754; color: #ffffff; padding: 16px; border-radius: 6px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+          <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.8px; opacity: 0.9;">NET TAKE-HOME SALARY</div>
+          <div id="psNetSalary" style="font-size: 28px; font-weight: 900; margin-top: 6px; letter-spacing: 0.5px;">₹0</div>
+          <div id="psWorkingDays" style="font-size: 11px; opacity: 0.85; margin-top: 4px;">Working Days: 0 | Hours: 00:00:00</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer style="text-align: center; padding: 16px; font-size: 11px; color: #6c757d; margin-top: auto;">
+    © Argus Technologies | Multi-Tenant AI Attendance System
+  </footer>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // 1. Live Clock
+    const clockEl = document.getElementById('portalLiveClock');
+    function updateClock() {
+      const now = new Date();
+      const d = String(now.getDate()).padStart(2, '0');
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const y = now.getFullYear();
+      let h = now.getHours();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      const hStr = String(h).padStart(2, '0');
+      const minStr = String(now.getMinutes()).padStart(2, '0');
+      const secStr = String(now.getSeconds()).padStart(2, '0');
+      clockEl.textContent = `${d}/${m}/${y} ${hStr}:${minStr}:${secStr} ${ampm}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // 2. Camera setup for face attendance
+    const video = document.getElementById('portalCameraFeed');
+    const canvas = document.getElementById('portalCanvas');
+    const placeholder = document.getElementById('portalCamPlaceholder');
+    const btnPunch = document.getElementById('btnPortalPunch');
+    const punchResult = document.getElementById('portalPunchResult');
+    let stream = null;
+    let userLat = null;
+    let userLng = null;
+
+    // Detect user coordinates
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; },
+        (err) => { console.warn('Geolocation warning:', err.message); },
+        { enableHighAccuracy: true, timeout: 6000 }
+      );
+    }
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        video.srcObject = stream;
+        video.onloadedmetadata = function () {
+          placeholder.style.display = 'none';
+          btnPunch.disabled = false;
+        };
+      } catch (err) {
+        placeholder.textContent = 'Camera access denied';
+        placeholder.style.color = '#dc3545';
+      }
+    }
+    startCamera();
+
+    // Attendance punch
+    btnPunch.addEventListener('click', function () {
+      if (!stream) return;
+      btnPunch.disabled = true;
+      btnPunch.textContent = 'Verifying Face...';
+      punchResult.innerHTML = '';
+
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(async function (blob) {
+        const formData = new FormData();
+        formData.append('photo', blob, 'punch_frame.jpg');
+        if (userLat && userLng) {
+          formData.append('latitude', userLat);
+          formData.append('longitude', userLng);
+        }
+
+        try {
+          const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
+          const data = await res.json();
+
+          if (data.matched) {
+            const punchType = data.punch_status === 'EXIT' ? 'Punch Out' : 'Punch In';
+            const hoursInfo = data.working_hours ? `<div style="font-size: 12px; margin-top: 2px;">Working Hours: <strong>${data.working_hours}</strong></div>` : '';
+            punchResult.innerHTML = `
+              <div style="background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; border-radius: 6px; padding: 12px; font-size: 13px;">
+                <div style="font-weight: 800; font-size: 15px;">✓ ${punchType} Successful!</div>
+                <div style="margin-top: 4px;"><strong>${data.employee_name}</strong></div>
+                <div style="font-size: 11px; color: #555; margin-top: 2px;">Distance: ${data.formatted_distance || '0m'} | Confidence: ${data.confidence}%</div>
+                ${hoursInfo}
+              </div>
+            `;
+            // Refresh history
+            loadHistory();
+          } else {
+            punchResult.innerHTML = `
+              <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 12px; font-size: 13px;">
+                <div style="font-weight: 700;">Face Not Recognized</div>
+                <div style="font-size: 11px; margin-top: 2px;">${data.message || 'Please face the camera directly in good lighting.'}</div>
+              </div>
+            `;
+          }
+        } catch (err) {
+          punchResult.innerHTML = `
+            <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 12px; font-size: 12px;">
+              Connection error. Please try again.
+            </div>
+          `;
+        }
+
+        btnPunch.disabled = false;
+        btnPunch.textContent = 'Mark My Attendance';
+        setTimeout(() => { punchResult.innerHTML = ''; }, 6000);
+      }, 'image/jpeg', 0.9);
+    });
+
+    // 3. Load attendance history
+    const historyBody = document.getElementById('portalHistoryBody');
+    const fromDateInput = document.getElementById('historyFromDate');
+    const toDateInput = document.getElementById('historyToDate');
+    const btnFilterHistory = document.getElementById('btnFilterHistory');
+
+    // Default current month
+    const today = new Date();
+    const curYear = today.getFullYear();
+    const curMonth = String(today.getMonth() + 1).padStart(2, '0');
+    fromDateInput.value = `${curYear}-${curMonth}-01`;
+    toDateInput.value = today.toISOString().split('T')[0];
+
+    async function loadHistory() {
+      historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+      try {
+        const params = new URLSearchParams({
+          from_date: fromDateInput.value,
+          to_date: toDateInput.value
+        });
+        const res = await fetch(`/api/employee/my-attendance?${params.toString()}`);
+        const data = await res.json();
+
+        if (!data.data || data.data.length === 0) {
+          historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 24px; color: #6c757d;">No attendance records found for this period.</td></tr>';
+          return;
+        }
+
+        historyBody.innerHTML = '';
+        data.data.forEach(r => {
+          const row = document.createElement('tr');
+          const statusBadge = r.exit_time && r.exit_time !== '----'
+            ? '<span style="background-color: #d1e7dd; color: #0f5132; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 700;">Completed</span>'
+            : '<span style="background-color: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 700;">Punched In</span>';
+
+          row.innerHTML = `
+            <td style="font-weight: 700;">${r.entry_time || '-'}</td>
+            <td>${r.entry_location || '-'}</td>
+            <td>${r.entry_distance || '0m'}</td>
+            <td>${r.exit_time || '----'}</td>
+            <td>${r.exit_distance || '----'}</td>
+            <td style="font-weight: 700;">${r.working_hours || '00:00:00'}</td>
+            <td>${r.shift_variance || '00:00:00'}</td>
+            <td style="text-align: center;">${statusBadge}</td>
+          `;
+          historyBody.appendChild(row);
+        });
+      } catch (err) {
+        historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #dc3545;">Failed to load attendance history.</td></tr>';
+      }
+    }
+
+    btnFilterHistory.addEventListener('click', loadHistory);
+    loadHistory();
+
+    // 4. Monthly Payslip
+    const payslipMonthInput = document.getElementById('payslipMonth');
+    const btnLoadPayslip = document.getElementById('btnLoadPayslip');
+    const btnDownloadPayslip = document.getElementById('btnDownloadPayslip');
+    payslipMonthInput.value = `${curYear}-${curMonth}`;
+
+    async function loadPayslip() {
+      const month = payslipMonthInput.value || `${curYear}-${curMonth}`;
+      try {
+        const res = await fetch(`/api/employee/my-payslip?month=${month}`);
+        const p = await res.json();
+
+        document.getElementById('psBasic').textContent = `₹${Number(p.basic_earnings || 0).toLocaleString()}`;
+        document.getElementById('psAllowance').textContent = `₹${Number(p.allowance || 0).toLocaleString()}`;
+        document.getElementById('psIncentive').textContent = `₹${Number(p.incentive || 0).toLocaleString()}`;
+        document.getElementById('psTotalEarnings').textContent = `₹${Number(p.total_earnings || 0).toLocaleString()}`;
+
+        document.getElementById('psAdvanceRepay').textContent = `₹${Number(p.advance_repayment || 0).toLocaleString()}`;
+        document.getElementById('psOtherDeduct').textContent = `₹${Number(p.other_deductions || 0).toLocaleString()}`;
+        document.getElementById('psTotalDeduct').textContent = `₹${Number(p.total_deductions || 0).toLocaleString()}`;
+
+        document.getElementById('psNetSalary').textContent = `₹${Number(p.net_salary || 0).toLocaleString()}`;
+        document.getElementById('psWorkingDays').textContent = `Working Days: ${p.working_days || 0} | Hours: ${p.working_hours || '00:00:00'}`;
+      } catch (err) {
+        console.warn('Error loading payslip:', err);
+      }
+    }
+
+    btnLoadPayslip.addEventListener('click', loadPayslip);
+    loadPayslip();
+
+    // Download PDF
+    btnDownloadPayslip.addEventListener('click', function () {
+      const month = payslipMonthInput.value || `${curYear}-${curMonth}`;
+      window.open(`/api/payslip/export/pdf?month=${month}`, '_blank');
+    });
+  });
+  </script>
+
+</body>
+</html>

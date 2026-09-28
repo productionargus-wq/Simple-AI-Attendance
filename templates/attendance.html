@@ -50,9 +50,20 @@
 
   </main>
 
-  <!-- Admin Link Button (Far Bottom Right) -->
+  <!-- Navigation Action Buttons (Bottom Row) -->
+  <!-- 1. Company Login Button (Bottom Left Corner) -->
+  <a href="/company-login" id="btnCompanyLogin" style="position: fixed; bottom: 18px; left: 18px; background-color: #3d6078; color: #ffffff; border: none; border-radius: 4px; padding: 7px 18px; font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none; letter-spacing: 0.5px; z-index: 50; opacity: 0.85; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.85'">
+    🏢 Company Login
+  </a>
+
+  <!-- 2. Employee Login Button (Bottom Center) -->
+  <a href="/employee-login" id="btnEmployeeLogin" style="position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background-color: #198754; color: #ffffff; border: none; border-radius: 4px; padding: 7px 22px; font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none; letter-spacing: 0.5px; z-index: 50; opacity: 0.9; transition: opacity 0.2s; box-shadow: 0 2px 8px rgba(25,135,84,0.3);" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.9'">
+    👤 Employee Login
+  </a>
+
+  <!-- 3. Admin Link Button (Bottom Right Corner) -->
   <a href="/login" id="btnAdmin" style="position: fixed; bottom: 18px; right: 18px; background-color: #3d6078; color: #ffffff; border: none; border-radius: 4px; padding: 7px 18px; font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none; letter-spacing: 0.5px; z-index: 50; opacity: 0.85; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.85'">
-    Admin
+    🔒 Admin
   </a>
 
   <script>

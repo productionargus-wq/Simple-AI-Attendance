@@ -56,10 +56,21 @@
 
       <div class="sidebar-header">
         <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Argus" class="sidebar-logo">
-        <div class="admin-subtitle">WELCOME ADMIN!</div>
+        <div class="admin-subtitle">
+          {% if session.get('role') == 'super_admin' %}
+            SUPER ADMIN
+          {% elif session.get('company_name') %}
+            {{ session.get('company_name') | upper }}
+          {% else %}
+            WELCOME ADMIN!
+          {% endif %}
+        </div>
       </div>
       
       <nav class="sidebar-nav">
+        {% if session.get('role') == 'super_admin' %}
+        <a href="{{ url_for('manage_companies') }}" class="nav-item-btn {% if active_tab == 'MANAGE COMPANIES' %}active{% endif %}" style="background-color: #ffd166; color: #111111; font-weight: 800; border-left: 4px solid #3d6078;">🏢 MANAGE COMPANIES</a>
+        {% endif %}
         <a href="{{ url_for('dashboard') }}" class="nav-item-btn {% if active_tab == 'DASHBOARD' %}active{% endif %}">DASHBOARD</a>
         <a href="{{ url_for('employee_details') }}" class="nav-item-btn {% if active_tab == 'EMPLOYEE DETAILS' %}active{% endif %}">EMPLOYEE DETAILS</a>
         <a href="{{ url_for('live_report') }}" class="nav-item-btn {% if active_tab == 'LIVE REPORT' %}active{% endif %}">LIVE REPORT</a>
