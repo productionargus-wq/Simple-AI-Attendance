@@ -858,21 +858,21 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
 
         if salary_type == 'hourly':
             computed_salary = int(round((working_minutes / 60.0) * hourly_rate))
-            if working_minutes >= (shift_target_minutes - 30):
+            if working_minutes >= shift_target_minutes:
                 day_credit_type = 'Full Day'
-            elif working_minutes >= (half_shift_target - 15):
+            elif working_minutes >= half_shift_target:
                 day_credit_type = 'Half Day'
             else:
                 day_credit_type = 'Partial'
 
         elif salary_type == 'daily':
             # Day-Based Employee:
-            # Full Day if worked >= shift_target - 30 minutes grace
-            if working_minutes >= (shift_target_minutes - 30):
+            # Full Day if worked >= shift_target_minutes (strict, no grace)
+            if working_minutes >= shift_target_minutes:
                 computed_salary = int(round(day_rate))
                 day_credit_type = 'Full Day'
-            # Half Day if worked >= half_shift - 15 minutes grace
-            elif working_minutes >= (half_shift_target - 15):
+            # Half Day if worked >= half_shift_target (strict, no grace)
+            elif working_minutes >= half_shift_target:
                 effective_half = half_rate if half_rate > 0 else (day_rate / 2.0)
                 computed_salary = int(round(effective_half))
                 day_credit_type = 'Half Day'
@@ -883,10 +883,10 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
 
         elif salary_type == 'half_day':
             effective_half = half_rate if half_rate > 0 else (day_rate / 2.0 if day_rate > 0 else (hourly_rate * 4.0))
-            if working_minutes >= (shift_target_minutes - 30):
+            if working_minutes >= shift_target_minutes:
                 computed_salary = int(round(effective_half * 2.0))
                 day_credit_type = 'Full Day (2x Half)'
-            elif working_minutes >= (half_shift_target - 15):
+            elif working_minutes >= half_shift_target:
                 computed_salary = int(round(effective_half))
                 day_credit_type = 'Half Day'
             else:
@@ -1105,18 +1105,18 @@ def create_manual_entry(data, company_id=None):
         if salary_type == 'hourly':
             working_salary = round((total_mins / 60.0) * hourly_rate, 2)
         elif salary_type == 'daily':
-            if total_mins >= (shift_target_minutes - 30):
+            if total_mins >= shift_target_minutes:
                 working_salary = day_rate
-            elif total_mins >= (half_shift_target - 15):
+            elif total_mins >= half_shift_target:
                 working_salary = half_rate if half_rate > 0 else (day_rate / 2.0)
             else:
                 effective_hour = hourly_rate if hourly_rate > 0 else (day_rate / (shift_target_minutes / 60.0))
                 working_salary = round((total_mins / 60.0) * effective_hour, 2)
         elif salary_type == 'half_day':
             effective_half = half_rate if half_rate > 0 else (day_rate / 2.0)
-            if total_mins >= (shift_target_minutes - 30):
+            if total_mins >= shift_target_minutes:
                 working_salary = effective_half * 2.0
-            elif total_mins >= (half_shift_target - 15):
+            elif total_mins >= half_shift_target:
                 working_salary = effective_half
             else:
                 working_salary = round((total_mins / float(half_shift_target)) * effective_half, 2)
@@ -1190,18 +1190,18 @@ def update_manual_entry(entry_id, data):
         if salary_type == 'hourly':
             working_salary = round((total_mins / 60.0) * hourly_rate, 2)
         elif salary_type == 'daily':
-            if total_mins >= (shift_target_minutes - 30):
+            if total_mins >= shift_target_minutes:
                 working_salary = day_rate
-            elif total_mins >= (half_shift_target - 15):
+            elif total_mins >= half_shift_target:
                 working_salary = half_rate if half_rate > 0 else (day_rate / 2.0)
             else:
                 effective_hour = hourly_rate if hourly_rate > 0 else (day_rate / (shift_target_minutes / 60.0))
                 working_salary = round((total_mins / 60.0) * effective_hour, 2)
         elif salary_type == 'half_day':
             effective_half = half_rate if half_rate > 0 else (day_rate / 2.0)
-            if total_mins >= (shift_target_minutes - 30):
+            if total_mins >= shift_target_minutes:
                 working_salary = effective_half * 2.0
-            elif total_mins >= (half_shift_target - 15):
+            elif total_mins >= half_shift_target:
                 working_salary = effective_half
             else:
                 working_salary = round((total_mins / float(half_shift_target)) * effective_half, 2)
@@ -1742,9 +1742,9 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     partial_minutes = 0
 
     for d, mins in daily_minutes.items():
-        if mins >= (shift_target_minutes - 30):
+        if mins >= shift_target_minutes:
             full_days += 1
-        elif mins >= (half_shift_target - 15):
+        elif mins >= half_shift_target:
             half_days += 1
         elif mins > 0:
             partial_days += 1
