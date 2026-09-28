@@ -1411,10 +1411,10 @@ def api_balance_report_export_pdf():
 def api_generate_payslip():
     if request.method == 'POST':
         data = request.get_json() if request.is_json else request.form.to_dict()
-        employee = data.get('employee_name', '').strip()
+        employee = (data.get('employee_name') or data.get('employee') or '').strip()
         month = data.get('month', '').strip()
     else:
-        employee = request.args.get('employee_name', '').strip()
+        employee = (request.args.get('employee_name') or request.args.get('employee') or '').strip()
         month = request.args.get('month', '').strip()
         
     if not employee:
@@ -1430,7 +1430,7 @@ def api_generate_payslip():
 @app.route('/api/payslip/export/pdf', methods=['GET'])
 def api_export_payslip_pdf():
     """Generates and downloads payslip PDF. Available to Admins and Employees."""
-    employee = request.args.get('employee_name', '').strip()
+    employee = (request.args.get('employee_name') or request.args.get('employee') or '').strip()
     month = request.args.get('month', '').strip()
     
     if not month:

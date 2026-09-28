@@ -1663,6 +1663,22 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     hours_salary = float(emp.get('hourly_salary', 0.0)) if emp else 0.0
     day_salary = float(emp.get('day_salary', 0.0)) if emp else 0.0
     half_salary = float(emp.get('half_day_salary', 0.0)) if emp else 0.0
+    assigned_company_id = str(company_id or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
+    company_name = 'ARGUS TECHNOLOGIES'
+    company_address = 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'
+    if assigned_company_id and assigned_company_id != 'ARGUS_MASTER':
+        comp_doc = db.company_admin.find_one({'id': assigned_company_id})
+        if comp_doc:
+            company_name = comp_doc.get('company_name', company_name)
+            loc = comp_doc.get('location') or comp_doc.get('address') or ''
+            if loc:
+                company_address = loc
+            else:
+                lat = comp_doc.get('latitude')
+                lng = comp_doc.get('longitude')
+                if lat and lng:
+                    company_address = f"Location: Lat {lat}, Lng {lng}"
+
     shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
 
     shift_target_minutes = 480
@@ -1863,24 +1879,28 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     working_days_breakdown = f"{working_days} ({full_days} Full, {half_days} Half)" if (full_days > 0 or half_days > 0) else str(working_days)
 
     return {
-        'company_name': 'ARGUS TECHNOLOGIES',
-        'company_address': 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006',
+        'company_id': assigned_company_id,
+        'company_name': company_name,
+        'company_address': company_address,
         'employee_name': employee_name,
         'employee_id': emp_id,
         'designation': designation,
         'phone_number': phone,
         'salary_type': salary_type,
+        'salary_basis': salary_basis_label,
         'salary_basis_label': salary_basis_label,
         'full_days': full_days,
         'half_days': half_days,
         'partial_days': partial_days,
         'working_days_breakdown': working_days_breakdown,
+        'pay_period': month_year,
         'year_month': month_year,
         'hours_salary': int(round(hours_salary)),
         'day_salary': int(round(day_salary)),
         'half_day_salary': int(round(half_salary)),
         'working_days': working_days,
         'leave_days': leave_days,
+        'total_days': total_days,
         'total_days_of_month': total_days,
         'total_working_hours': working_hours,
         'basic_salary': int(round(basic_salary)),
