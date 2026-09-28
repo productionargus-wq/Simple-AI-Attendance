@@ -28,6 +28,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  // Auto-collapse sidebar on initial mobile load
+  if (isMobile() && sidebar) {
+    sidebar.classList.add('collapsed');
+  }
+
   // Navbar hamburger toggle (open / close)
   if (sidebarToggle) {
     sidebarToggle.addEventListener('click', function (e) {
@@ -43,6 +48,15 @@ document.addEventListener('DOMContentLoaded', function () {
       toggleSidebar(false); // Collapses sidebar -> Expands main content!
     });
   }
+
+  // Close sidebar when clicking outside on mobile screens
+  document.addEventListener('click', function (e) {
+    if (isMobile() && sidebar && !sidebar.classList.contains('collapsed')) {
+      if (!sidebar.contains(e.target) && (!sidebarToggle || !sidebarToggle.contains(e.target))) {
+        toggleSidebar(false);
+      }
+    }
+  });
 
   // Top-right Refresh / Reload button
   if (pageRefreshBtn) {
@@ -61,3 +75,4 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 });
+

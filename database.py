@@ -2,12 +2,19 @@ import os
 import time
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta, timezone
 from dotenv import load_dotenv
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from bson import ObjectId
 
 load_dotenv()
+
+# Indian Standard Time (IST, UTC+5:30)
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def get_ist_now():
+    """Returns the current timezone-aware datetime in Indian Standard Time (IST)."""
+    return datetime.now(IST)
 
 MONGODB_URI = os.environ.get(
     "MONGODB_URI",
@@ -27,10 +34,24 @@ def get_db():
     return get_mongo_client()[DB_NAME]
 
 def clean_doc(doc):
-    """Clean MongoDB document for JSON serialization."""
+    """Clean MongoDB document for JSON serialization recursively."""
     if not doc:
         return None
     d = dict(doc)
+    for k, v in list(d.items()):
+        if isinstance(v, ObjectId):
+            d[k] = str(v)
+        elif isinstance(v, (datetime, date)):
+            d[k] = v.isoformat()
+        elif isinstance(v, dict):
+            d[k] = clean_doc(v)
+        elif isinstance(v, list):
+            d[k] = [
+                clean_doc(item) if isinstance(item, dict)
+                else (item.isoformat() if isinstance(item, (datetime, date))
+                      else (str(item) if isinstance(item, ObjectId) else item))
+                for item in v
+            ]
     if '_id' in d:
         if 'id' not in d or not d['id']:
             d['id'] = str(d['_id'])
@@ -234,7 +255,7 @@ def get_company_reports_summary():
     
     companies = list(db.company_admin.find({}, sort=[('created_at', DESCENDING)]))
     breakdown = []
-    today_slash = datetime.now().strftime('%d/%m/%Y')
+    today_slash = get_ist_now().strftime('%d/%m/%Y')
     for c in companies:
         cid = str(c.get('id') or c.get('_id'))
         emp_cnt = db.employees.count_documents({'company_id': cid})
@@ -461,8 +482,8 @@ def get_dashboard_stats(company_id=None):
     total_employees = db.employees.count_documents(t_filter)
     
     # Calculate today's active punches
-    today_str = datetime.now().strftime('%Y-%m-%d')
-    today_slash = datetime.now().strftime('%d/%m/%Y')
+    today_str = get_ist_now().strftime('%Y-%m-%d')
+    today_slash = get_ist_now().strftime('%d/%m/%Y')
     
     p_filter = dict(t_filter)
     p_filter['date'] = today_str
@@ -484,7 +505,7 @@ def get_dashboard_stats(company_id=None):
     
     # Last 7 days dynamic calculation
     last_7_days = []
-    today = datetime.now().date()
+    today = get_ist_now().date()
     for i in range(6, -1, -1):
         day = today - timedelta(days=i)
         day_str = day.strftime('%Y-%m-%d')
@@ -501,7 +522,7 @@ def get_dashboard_stats(company_id=None):
     # Monthly stats dynamic calculation
     monthly_stats = []
     months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    curr_year = datetime.now().year
+    curr_year = get_ist_now().year
     for m_idx, m_name in enumerate(months, start=1):
         m_prefix = f"{curr_year}-{m_idx:02d}"
         mo_filter = dict(t_filter)
@@ -634,7 +655,7 @@ def calculate_realistic_proximity(user_lat, user_lng, office_lat=OFFICE_LAT, off
 def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=OFFICE_LOCATION_STR, entry_distance=0.0, is_timeout=0, user_lat=None, user_lng=None, company_id='ARGUS_MASTER'):
     db = get_db()
     if not entry_time:
-        entry_time = datetime.now().strftime('%d/%m/%Y %I:%M:%S %p')
+        entry_time = get_ist_now().strftime('%d/%m/%Y %I:%M:%S %p')
         
     calculated_meters = float(entry_distance)
     if user_lat is not None and user_lng is not None:
@@ -655,21 +676,21 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
         'entry_distance': round(calculated_meters, 2),
         'formatted_distance': format_office_distance(calculated_meters),
         'is_timeout': int(is_timeout),
-        'created_at': datetime.now().isoformat()
+        'created_at': get_ist_now().isoformat()
     }
     result = db.live_entries.insert_one(doc)
     return str(result.inserted_id)
 
-def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=None, company_id=None):
+def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=None, company_id=None, client_time=None):
     """
     Punch In / Punch Out Attendance Lifecycle Engine with Multi-Tenant Geolocation Support:
-    1. Records Live Entry in db.live_entries with company_id.
+    1. Records Live Entry in db.live_entries with company_id in 12-hour format (IST).
     2. Resolves company office coordinates from company_admin if tenant-owned.
     3. Handles Punch In & Punch Out lifecycle under exact company_id.
     """
     db = get_db()
-    now = datetime.now()
-    now_time_12 = now.strftime('%d/%m/%Y %I:%M:%S %p')
+    now = get_ist_now()
+    now_time_12 = client_time.strip() if client_time and client_time.strip() else now.strftime('%d/%m/%Y %I:%M:%S %p')
     today_date = now.strftime('%Y-%m-%d')
     today_slash = now.strftime('%d/%m/%Y')
     
@@ -771,12 +792,15 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
                 except Exception:
                     pass
             if entry_dt:
+                if entry_dt.tzinfo is None:
+                    entry_dt = entry_dt.replace(tzinfo=IST)
                 diff_sec = max(0, (now - entry_dt).total_seconds())
                 working_minutes = int(diff_sec // 60)
             else:
                 working_minutes = 480  # Default 8 hours if unparseable
         except Exception:
             working_minutes = 480
+
             
         w_hrs = working_minutes // 60
         w_mins = working_minutes % 60
@@ -998,7 +1022,7 @@ def create_manual_entry(data, company_id=None):
     else:
         working_salary = float(data.get('working_salary') or 0.0)
         
-    now_ts = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
+    now_ts = get_ist_now().strftime("%d-%m-%Y %I:%M:%S %p")
     entry_id = int(time.time() * 1000)
     
     doc = {
@@ -1016,7 +1040,7 @@ def create_manual_entry(data, company_id=None):
         'working_salary': working_salary,
         'entry_type': data.get('entry_type', 'Add'),
         'mode': mode,
-        'created_at': datetime.now()
+        'created_at': get_ist_now().isoformat()
     }
     db.manual_entries.insert_one(doc)
     return entry_id

@@ -93,6 +93,20 @@ def employee_required(f):
     return decorated_function
 
 import traceback
+from werkzeug.exceptions import HTTPException
+
+DEFAULT_AVATAR_SVG = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <rect width="120" height="120" fill="#e2e8f0" rx="8"/>
+  <circle cx="60" cy="46" r="22" fill="#94a3b8"/>
+  <path d="M26 104c0-18.8 15.2-34 34-34s34 15.2 34 34" fill="#94a3b8"/>
+</svg>'''
+
+@app.route('/favicon.ico')
+def favicon():
+    icon_dir = os.path.join(app.root_path, 'static', 'images')
+    if os.path.exists(os.path.join(icon_dir, 'logo.png')):
+        return send_from_directory(icon_dir, 'logo.png', mimetype='image/png')
+    return Response(status=204)
 
 @app.errorhandler(500)
 def handle_500(e):
@@ -102,6 +116,8 @@ def handle_500(e):
 
 @app.errorhandler(Exception)
 def handle_exception(e):
+    if isinstance(e, HTTPException):
+        return e
     err = traceback.format_exc()
     print("Unhandled Exception:", err)
     return f"<h1>Server Error</h1><pre>{err}</pre>", 500
@@ -469,6 +485,9 @@ def api_employee_pdf(emp_id):
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    if not os.path.isfile(file_path):
+        return Response(DEFAULT_AVATAR_SVG, mimetype='image/svg+xml')
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # ----------------- LIVE & TIMEOUT REPORT API ROUTES ----------------- #
@@ -629,14 +648,16 @@ def api_face_recognize():
         
         user_lat = request.form.get('latitude')
         user_lng = request.form.get('longitude')
+        client_time = request.form.get('client_time')
         
-        # Mark Attendance Punch In / Punch Out Lifecycle & Live Entry (Company-aware)
+        # Mark Attendance Punch In / Punch Out Lifecycle & Live Entry (Company-aware, 12-hour format)
         punch_res = database.record_face_attendance(
             employee_id=emp_id,
             employee_name=emp_name,
             user_lat=user_lat,
             user_lng=user_lng,
-            company_id=portal_company_id
+            company_id=portal_company_id,
+            client_time=client_time
         )
         result['live_entry_id'] = punch_res.get('live_id')
         result['punch_status'] = punch_res.get('status')

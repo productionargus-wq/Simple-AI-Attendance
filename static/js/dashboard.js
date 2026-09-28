@@ -1,6 +1,6 @@
-// Dashboard script: Live clock & attendance charts
+// Dashboard script: Live clock (12-hour format) & fully dynamic attendance charts
 document.addEventListener('DOMContentLoaded', function () {
-  // 1. Live Clock
+  // 1. Live Clock (12-hour format with AM/PM)
   const clockEl = document.getElementById('currentDateTime');
   function updateClock() {
     if (!clockEl) return;
@@ -8,23 +8,27 @@ document.addEventListener('DOMContentLoaded', function () {
     const day = String(now.getDate()).padStart(2, '0');
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const year = now.getFullYear();
-    const hours = String(now.getHours()).padStart(2, '0');
+    let rawHours = now.getHours();
+    const ampm = rawHours >= 12 ? 'PM' : 'AM';
+    let hours = rawHours % 12;
+    hours = hours ? hours : 12;
+    const hoursStr = String(hours).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
-    clockEl.textContent = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    clockEl.textContent = `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
   }
   updateClock();
   setInterval(updateClock, 1000);
 
-  // 2. Parse Stats Data
+  // 2. Parse Dynamic Stats Data from Server
   let stats = {
-    total: 3,
+    total: 0,
     present: 0,
-    absent: 3,
-    present_percent: "0.0%",
+    absent: 0,
+    present_percentage: 0.0,
     timeout: 0,
     last_7_days: [],
-    monthly_attendance: 14
+    monthly_stats: []
   };
 
   const dataScript = document.getElementById('statsData');
@@ -32,31 +36,47 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       stats = JSON.parse(dataScript.textContent);
     } catch (e) {
-      console.error('Failed to parse stats:', e);
+      console.error('Failed to parse dynamic stats:', e);
     }
   }
 
-  // 3. Render Last 7 Days Attendance Line Chart
+  // 3. Render Dynamic Last 7 Days Attendance Line Chart
   const lineCtx = document.getElementById('last7DaysChart');
   if (lineCtx && typeof Chart !== 'undefined') {
-    const lineLabels = stats.last_7_days.map(d => d.date);
-    const lineData = stats.last_7_days.map(d => d.present);
+    let lineLabels = [];
+    let lineData = [];
+
+    if (stats.last_7_days && stats.last_7_days.length > 0) {
+      lineLabels = stats.last_7_days.map(d => d.date);
+      lineData = stats.last_7_days.map(d => (d.count !== undefined ? d.count : (d.present !== undefined ? d.present : 0)));
+    } else {
+      // Default dates if empty
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        lineLabels.push(d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }));
+        lineData.push(0);
+      }
+    }
+
+    const maxLineVal = Math.max(...lineData, stats.total || 1);
 
     new Chart(lineCtx, {
       type: 'line',
       data: {
-        labels: lineLabels.length ? lineLabels : ['2026-09-21', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25'],
+        labels: lineLabels,
         datasets: [{
           label: 'Employees Present',
-          data: lineData.length ? lineData : [1.0, 1.0, 1.0, 1.0, 1.0],
+          data: lineData,
           borderColor: '#00a8ff',
-          backgroundColor: '#38bdf8',
+          backgroundColor: 'rgba(56, 189, 248, 0.15)',
           pointBackgroundColor: '#00a8ff',
-          pointBorderColor: '#00a8ff',
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          fill: false,
-          tension: 0
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          fill: true,
+          tension: 0.25
         }]
       },
       options: {
@@ -67,33 +87,37 @@ document.addEventListener('DOMContentLoaded', function () {
             position: 'top',
             align: 'center',
             labels: {
-              boxWidth: 28,
-              boxHeight: 12,
-              color: '#555555',
-              font: { size: 12 }
+              boxWidth: 18,
+              boxHeight: 10,
+              color: '#334155',
+              font: { size: 11, weight: '600' }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                return `Present: ${ctx.parsed.y} employee(s)`;
+              }
             }
           }
         },
         scales: {
           y: {
-            beginAtZero: false,
-            suggestedMin: 0.84,
-            suggestedMax: 1.06,
+            beginAtZero: true,
+            suggestedMax: Math.max(2, maxLineVal + 1),
             ticks: {
-              stepSize: 0.02,
-              callback: function (val) {
-                return Number(val).toFixed(2);
-              },
-              color: '#888888',
+              stepSize: 1,
+              precision: 0,
+              color: '#64748b',
               font: { size: 10 }
             },
             grid: {
-              color: '#e9ecef'
+              color: '#f1f5f9'
             }
           },
           x: {
             ticks: {
-              color: '#888888',
+              color: '#64748b',
               font: { size: 10 }
             },
             grid: {
@@ -105,20 +129,31 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // 4. Render Monthly Attendance Bar Chart
+  // 4. Render Dynamic Monthly Attendance Bar Chart
   const barCtx = document.getElementById('monthlyAttendanceChart');
   if (barCtx && typeof Chart !== 'undefined') {
+    let monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    let monthData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+    if (stats.monthly_stats && stats.monthly_stats.length > 0) {
+      monthLabels = stats.monthly_stats.map(m => m.month);
+      monthData = stats.monthly_stats.map(m => (m.count !== undefined ? m.count : 0));
+    }
+
+    const maxMonthVal = Math.max(...monthData, 5);
+
     new Chart(barCtx, {
       type: 'bar',
       data: {
-        labels: ['Monthly Attendance'],
+        labels: monthLabels,
         datasets: [{
-          label: 'Unique Daily Entries',
-          data: [stats.monthly_attendance || 14],
-          backgroundColor: '#93c5fd',
-          borderColor: '#93c5fd',
-          borderWidth: 1,
-          barPercentage: 0.7
+          label: 'Total Attendance Punches',
+          data: monthData,
+          backgroundColor: '#38bdf8',
+          hoverBackgroundColor: '#0284c7',
+          borderRadius: 4,
+          borderWidth: 0,
+          barPercentage: 0.65
         }]
       },
       options: {
@@ -129,30 +164,38 @@ document.addEventListener('DOMContentLoaded', function () {
             position: 'top',
             align: 'center',
             labels: {
-              boxWidth: 28,
-              boxHeight: 12,
-              color: '#555555',
-              font: { size: 12 }
+              boxWidth: 18,
+              boxHeight: 10,
+              color: '#334155',
+              font: { size: 11, weight: '600' }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                return `Attendance: ${ctx.parsed.y} punches`;
+              }
             }
           }
         },
         scales: {
           y: {
             beginAtZero: true,
-            max: 14,
+            suggestedMax: Math.max(5, maxMonthVal + 2),
             ticks: {
-              stepSize: 2,
-              color: '#888888',
+              stepSize: 1,
+              precision: 0,
+              color: '#64748b',
               font: { size: 10 }
             },
             grid: {
-              color: '#e9ecef'
+              color: '#f1f5f9'
             }
           },
           x: {
             ticks: {
-              color: '#888888',
-              font: { size: 11 }
+              color: '#64748b',
+              font: { size: 10 }
             },
             grid: {
               display: false

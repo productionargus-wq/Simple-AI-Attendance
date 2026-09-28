@@ -6,6 +6,17 @@
   <title>ARGUS - Employee Portal | {{ employee.employee_name if employee else 'Employee' }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <style>
+    /* Ensure page is fully scrollable and not locked by global style.css */
+    html, body {
+      height: auto !important;
+      min-height: 100vh !important;
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
+      background-color: #f4f6f9 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
     .portal-nav {
       background-color: #3d6078;
       color: #ffffff;
@@ -14,20 +25,27 @@
       justify-content: space-between;
       align-items: center;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
     .portal-container {
       max-width: 1100px;
-      margin: 20px auto;
-      padding: 0 16px;
+      margin: 16px auto;
+      padding: 0 16px 40px;
       display: flex;
       flex-direction: column;
       gap: 20px;
+      width: 100%;
+      box-sizing: border-box;
     }
     .portal-card {
       background-color: #ffffff;
       border-radius: 8px;
       padding: 20px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      width: 100%;
+      box-sizing: border-box;
     }
     .portal-card-header {
       font-size: 15px;
@@ -39,11 +57,13 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
     }
     .emp-profile-pill {
       background-color: #f1f5f9;
       border-radius: 6px;
-      padding: 10px 14px;
+      padding: 12px 16px;
       display: flex;
       flex-wrap: wrap;
       gap: 16px;
@@ -58,23 +78,84 @@
       color: #ffffff;
       border: none;
       border-radius: 4px;
-      padding: 9px 22px;
+      padding: 10px 24px;
       font-size: 13px;
       font-weight: 700;
       cursor: pointer;
       letter-spacing: 0.5px;
-      transition: background 0.15s;
+      transition: background 0.15s, opacity 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
     .btn-portal-primary:hover {
       background-color: #157347;
     }
     .btn-portal-primary:disabled {
-      background-color: #6c757d;
+      background-color: #6c757d !important;
       cursor: not-allowed;
+      opacity: 0.65;
+    }
+    .btn-portal-cam {
+      background-color: #3d6078;
+    }
+    .btn-portal-cam:hover {
+      background-color: #314b5e;
+    }
+
+    /* Mobile Responsiveness */
+    @media (max-width: 768px) {
+      .portal-nav {
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px 14px;
+        text-align: center;
+      }
+      .portal-nav > div:last-child {
+        width: 100%;
+        justify-content: space-between;
+        display: flex;
+        align-items: center;
+      }
+      .portal-container {
+        padding: 0 10px 40px;
+        margin: 10px auto;
+        gap: 14px;
+      }
+      .portal-card {
+        padding: 14px;
+      }
+      .portal-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .portal-card-header > div {
+        flex-wrap: wrap;
+        width: 100%;
+      }
+      #payslipContent {
+        grid-template-columns: 1fr !important;
+      }
+      .emp-profile-pill {
+        flex-direction: column;
+        gap: 6px;
+      }
+      .portal-camera-wrapper {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .btn-portal-primary {
+        width: 100%;
+      }
+      .portal-cam-buttons {
+        width: 100%;
+        flex-direction: column;
+      }
     }
   </style>
 </head>
-<body style="background-color: #f4f6f9; margin: 0; min-height: 100vh; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<body>
 
   <!-- Portal Navigation Header -->
   <header class="portal-nav">
@@ -98,8 +179,8 @@
   </header>
 
   <!-- Live Clock Ticker -->
-  <div style="display: flex; justify-content: center; margin-top: 14px; margin-bottom: 4px;">
-    <div id="portalLiveClock" style="background-color: #000000; color: #00e676; font-family: 'Courier New', Courier, monospace; font-size: 15px; font-weight: 800; padding: 5px 24px; border-radius: 20px; letter-spacing: 1px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+  <div style="display: flex; justify-content: center; margin-top: 14px; margin-bottom: 4px; padding: 0 10px;">
+    <div id="portalLiveClock" style="background-color: #000000; color: #00e676; font-family: 'Courier New', Courier, monospace; font-size: 15px; font-weight: 800; padding: 6px 24px; border-radius: 20px; letter-spacing: 1px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
       --/--/---- --:--:--
     </div>
   </div>
@@ -123,20 +204,25 @@
         <span style="font-size: 11px; font-weight: 600; color: #198754;">✓ Office Geofencing Active</span>
       </div>
 
-      <div style="display: flex; flex-direction: column; align-items: center;">
-        <div style="width: 100%; max-width: 420px; aspect-ratio: 4 / 3; background-color: #1a1a2e; border-radius: 8px; overflow: hidden; position: relative; margin-bottom: 14px; border: 2px solid #3d6078;">
+      <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+        <div class="portal-camera-wrapper" style="width: 100%; max-width: 440px; aspect-ratio: 4 / 3; background-color: #1a1a2e; border-radius: 8px; overflow: hidden; position: relative; margin-bottom: 14px; border: 2px solid #3d6078;">
           <video id="portalCameraFeed" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
           <canvas id="portalCanvas" style="display: none;"></canvas>
-          <div id="portalCamPlaceholder" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-size: 13px;">
+          <div id="portalCamPlaceholder" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-size: 13px; text-align: center; padding: 20px;">
             Starting camera...
           </div>
         </div>
 
-        <button id="btnPortalPunch" class="btn-portal-primary" disabled>
-          Mark My Attendance
-        </button>
+        <div class="portal-cam-buttons" style="display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;">
+          <button id="btnPortalPunch" class="btn-portal-primary" disabled>
+            Mark My Attendance
+          </button>
+          <button id="btnPortalToggleCam" type="button" class="btn-portal-primary btn-portal-cam">
+            📷 Turn Camera Off
+          </button>
+        </div>
 
-        <div id="portalPunchResult" style="width: 100%; max-width: 420px; min-height: 40px; margin-top: 14px; text-align: center;"></div>
+        <div id="portalPunchResult" style="width: 100%; max-width: 440px; min-height: 40px; margin-top: 14px; text-align: center;"></div>
       </div>
     </div>
 
@@ -144,15 +230,15 @@
     <div class="portal-card">
       <div class="portal-card-header">
         <span>📋 My Attendance History</span>
-        <div style="display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: normal;">
+        <div style="display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: normal; flex-wrap: wrap;">
           <label>From: <input type="date" id="historyFromDate" class="form-input" style="padding: 4px 8px; font-size: 11px; width: auto;"></label>
           <label>To: <input type="date" id="historyToDate" class="form-input" style="padding: 4px 8px; font-size: 11px; width: auto;"></label>
-          <button id="btnFilterHistory" class="btn-portal-primary" style="padding: 5px 12px; font-size: 11px;">Filter</button>
+          <button id="btnFilterHistory" class="btn-portal-primary" style="padding: 5px 14px; font-size: 11px; width: auto;">Filter</button>
         </div>
       </div>
 
-      <div class="table-responsive">
-        <table class="employee-table" id="portalAttendanceTable">
+      <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+        <table class="employee-table" id="portalAttendanceTable" style="width: 100%; min-width: 650px;">
           <thead>
             <tr>
               <th>ENTRY TIME</th>
@@ -178,15 +264,15 @@
     <div class="portal-card">
       <div class="portal-card-header">
         <span>💰 My Monthly Payslip</span>
-        <div style="display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: normal;">
+        <div style="display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: normal; flex-wrap: wrap;">
           <input type="month" id="payslipMonth" class="form-input" style="padding: 4px 8px; font-size: 11px; width: auto;">
-          <button id="btnLoadPayslip" class="btn-portal-primary" style="padding: 5px 12px; font-size: 11px; background-color: #3d6078;">View Payslip</button>
-          <button id="btnDownloadPayslip" class="btn-portal-primary" style="padding: 5px 12px; font-size: 11px; background-color: #ffd166; color: #111111; font-weight: 800;">Download PDF</button>
+          <button id="btnLoadPayslip" class="btn-portal-primary" style="padding: 5px 14px; font-size: 11px; background-color: #3d6078; width: auto;">View Payslip</button>
+          <button id="btnDownloadPayslip" class="btn-portal-primary" style="padding: 5px 14px; font-size: 11px; background-color: #ffd166; color: #111111; font-weight: 800; width: auto;">Download PDF</button>
         </div>
       </div>
 
       <div id="payslipContent" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; background-color: #f8fafc; padding: 16px; border-radius: 6px;">
-        <div style="background-color: #ffffff; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <div style="background-color: #ffffff; padding: 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
           <div style="font-size: 11px; font-weight: 700; color: #64748b;">EARNINGS BREAKDOWN</div>
           <div style="margin-top: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
             <div style="display: flex; justify-content: space-between;"><span>Basic Salary:</span> <strong id="psBasic">₹0</strong></div>
@@ -198,7 +284,7 @@
           </div>
         </div>
 
-        <div style="background-color: #ffffff; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <div style="background-color: #ffffff; padding: 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
           <div style="font-size: 11px; font-weight: 700; color: #64748b;">DEDUCTIONS BREAKDOWN</div>
           <div style="margin-top: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
             <div style="display: flex; justify-content: space-between;"><span>Advance Repayment:</span> <strong id="psAdvanceRepay">₹0</strong></div>
@@ -209,7 +295,7 @@
           </div>
         </div>
 
-        <div style="background-color: #198754; color: #ffffff; padding: 16px; border-radius: 6px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+        <div style="background-color: #198754; color: #ffffff; padding: 18px; border-radius: 6px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
           <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.8px; opacity: 0.9;">NET TAKE-HOME SALARY</div>
           <div id="psNetSalary" style="font-size: 28px; font-weight: 900; margin-top: 6px; letter-spacing: 0.5px;">₹0</div>
           <div id="psWorkingDays" style="font-size: 11px; opacity: 0.85; margin-top: 4px;">Working Days: 0 | Hours: 00:00:00</div>
@@ -219,13 +305,13 @@
 
   </main>
 
-  <footer style="text-align: center; padding: 16px; font-size: 11px; color: #6c757d; margin-top: auto;">
+  <footer style="text-align: center; padding: 20px; font-size: 11px; color: #6c757d; margin-top: auto; border-top: 1px solid #e2e8f0; background-color: #ffffff;">
     © Argus Technologies | Multi-Tenant AI Attendance System
   </footer>
 
   <script>
   document.addEventListener('DOMContentLoaded', function () {
-    // 1. Live Clock
+    // 1. Live Clock (12-hour format with AM/PM)
     const clockEl = document.getElementById('portalLiveClock');
     function updateClock() {
       const now = new Date();
@@ -248,8 +334,10 @@
     const canvas = document.getElementById('portalCanvas');
     const placeholder = document.getElementById('portalCamPlaceholder');
     const btnPunch = document.getElementById('btnPortalPunch');
+    const btnPortalToggleCam = document.getElementById('btnPortalToggleCam');
     const punchResult = document.getElementById('portalPunchResult');
     let stream = null;
+    let cameraActive = true;
     let userLat = null;
     let userLng = null;
 
@@ -272,11 +360,52 @@
           placeholder.style.display = 'none';
           btnPunch.disabled = false;
         };
+        cameraActive = true;
+        if (btnPortalToggleCam) {
+          btnPortalToggleCam.textContent = '📷 Turn Camera Off';
+          btnPortalToggleCam.style.backgroundColor = '#3d6078';
+        }
       } catch (err) {
-        placeholder.textContent = 'Camera access denied';
+        placeholder.textContent = 'Camera access denied or unavailable';
         placeholder.style.color = '#dc3545';
+        placeholder.style.display = 'flex';
+        btnPunch.disabled = true;
+        cameraActive = false;
+        if (btnPortalToggleCam) {
+          btnPortalToggleCam.textContent = '📷 Turn Camera On';
+          btnPortalToggleCam.style.backgroundColor = '#198754';
+        }
       }
     }
+
+    function stopCamera() {
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      video.srcObject = null;
+      placeholder.textContent = 'Camera is turned off. Click "Turn Camera On" to enable.';
+      placeholder.style.color = '#a0aec0';
+      placeholder.style.display = 'flex';
+      btnPunch.disabled = true;
+      cameraActive = false;
+      if (btnPortalToggleCam) {
+        btnPortalToggleCam.textContent = '📷 Turn Camera On';
+        btnPortalToggleCam.style.backgroundColor = '#198754';
+      }
+    }
+
+    if (btnPortalToggleCam) {
+      btnPortalToggleCam.addEventListener('click', function () {
+        if (cameraActive) {
+          stopCamera();
+        } else {
+          btnPortalToggleCam.textContent = '⏳ Starting...';
+          startCamera();
+        }
+      });
+    }
+
     startCamera();
 
     // Attendance punch
@@ -292,8 +421,22 @@
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
       canvas.toBlob(async function (blob) {
+        // Generate 12-hour client timestamp
+        const now = new Date();
+        const d = String(now.getDate()).padStart(2, '0');
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const y = now.getFullYear();
+        let h = now.getHours();
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        const hStr = String(h).padStart(2, '0');
+        const minStr = String(now.getMinutes()).padStart(2, '0');
+        const secStr = String(now.getSeconds()).padStart(2, '0');
+        const clientTime12 = `${d}/${m}/${y} ${hStr}:${minStr}:${secStr} ${ampm}`;
+
         const formData = new FormData();
         formData.append('photo', blob, 'punch_frame.jpg');
+        formData.append('client_time', clientTime12);
         if (userLat && userLng) {
           formData.append('latitude', userLat);
           formData.append('longitude', userLng);
@@ -304,7 +447,7 @@
           const data = await res.json();
 
           if (data.matched) {
-            const punchType = data.punch_status === 'EXIT' ? 'Punch Out' : 'Punch In';
+            const punchType = data.punch_status === 'punch_out' ? 'Punch Out' : 'Punch In';
             const hoursInfo = data.working_hours ? `<div style="font-size: 12px; margin-top: 2px;">Working Hours: <strong>${data.working_hours}</strong></div>` : '';
             punchResult.innerHTML = `
               <div style="background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; border-radius: 6px; padding: 12px; font-size: 13px;">
@@ -369,7 +512,8 @@
         historyBody.innerHTML = '';
         data.data.forEach(r => {
           const row = document.createElement('tr');
-          const statusBadge = r.exit_time && r.exit_time !== '----'
+          const isDone = r.exit_time && r.exit_time !== '----';
+          const statusBadge = isDone
             ? '<span style="background-color: #d1e7dd; color: #0f5132; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 700;">Completed</span>'
             : '<span style="background-color: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 700;">Punched In</span>';
 
@@ -379,8 +523,8 @@
             <td>${r.entry_distance || '0m'}</td>
             <td>${r.exit_time || '----'}</td>
             <td>${r.exit_distance || '----'}</td>
-            <td style="font-weight: 700;">${r.working_hours || '00:00:00'}</td>
-            <td>${r.shift_variance || '00:00:00'}</td>
+            <td style="font-weight: 700;">${r.working_hours || '00:00'}</td>
+            <td>${r.shift_variance || '----'}</td>
             <td style="text-align: center;">${statusBadge}</td>
           `;
           historyBody.appendChild(row);
