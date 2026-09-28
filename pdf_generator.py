@@ -79,6 +79,7 @@ def generate_employee_pdf(emp):
         ("ID", str(emp.get('id', ''))),
         ("EMPLOYEE NAME", str(emp.get('employee_name', ''))),
         ("DESIGNATION", str(emp.get('designation', ''))),
+        ("SALARY BASIS", str(emp.get('salary_type', 'hourly')).replace('_', '-').title() + "-Based"),
         ("HOURLY SALARY", str(emp.get('hourly_salary', '0'))),
         ("DAY SALARY", str(emp.get('day_salary', '0'))),
         ("HALF DAY SALARY", str(emp.get('half_day_salary', '0'))),
@@ -887,12 +888,12 @@ def generate_payslip_pdf(p):
     # 4-column Employee Info Table
     info_data = [
         [Paragraph("PAYSLIP", ParagraphStyle('SectionHdr', fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=TA_CENTER, textColor=colors.white)), "", "", ""],
-        [Paragraph("Employee Name", cell_lbl_style), Paragraph(str(p.get('employee_name', '')), cell_val_style), Paragraph("Hours Salary", cell_lbl_style), Paragraph(f"Rs. {p.get('hours_salary', 0)}", cell_val_style)],
+        [Paragraph("Employee Name", cell_lbl_style), Paragraph(str(p.get('employee_name', '')), cell_val_style), Paragraph("Salary Basis", cell_lbl_style), Paragraph(str(p.get('salary_basis_label', 'Day-Based')), cell_val_style)],
         [Paragraph("Employee ID", cell_lbl_style), Paragraph(str(p.get('employee_id', '')), cell_val_style), Paragraph("Day Salary", cell_lbl_style), Paragraph(f"Rs. {p.get('day_salary', 0)}", cell_val_style)],
         [Paragraph("Designation", cell_lbl_style), Paragraph(str(p.get('designation', '')), cell_val_style), Paragraph("Half Day Salary", cell_lbl_style), Paragraph(f"Rs. {p.get('half_day_salary', 0)}", cell_val_style)],
-        [Paragraph("Phone Number", cell_lbl_style), Paragraph(str(p.get('phone_number', '')), cell_val_style), Paragraph("Working Days", cell_lbl_style), Paragraph(str(p.get('working_days', 0)), cell_val_style)],
-        [Paragraph("Year & Month", cell_lbl_style), Paragraph(str(p.get('year_month', '')), cell_val_style), Paragraph("Leave Days", cell_lbl_style), Paragraph(str(p.get('leave_days', 0)), cell_val_style)],
-        [Paragraph("Total Working Hours", cell_lbl_style), Paragraph(str(p.get('total_working_hours', '00:00')), cell_val_style), Paragraph("Total Days of this Month", cell_lbl_style), Paragraph(str(p.get('total_days_of_month', 30)), cell_val_style)],
+        [Paragraph("Phone Number", cell_lbl_style), Paragraph(str(p.get('phone_number', '')), cell_val_style), Paragraph("Hours Salary", cell_lbl_style), Paragraph(f"Rs. {p.get('hours_salary', 0)}", cell_val_style)],
+        [Paragraph("Year & Month", cell_lbl_style), Paragraph(str(p.get('year_month', '')), cell_val_style), Paragraph("Working Days", cell_lbl_style), Paragraph(str(p.get('working_days_breakdown', p.get('working_days', 0))), cell_val_style)],
+        [Paragraph("Total Working Hours", cell_lbl_style), Paragraph(str(p.get('total_working_hours', '00:00')), cell_val_style), Paragraph("Total Days / Leave", cell_lbl_style), Paragraph(f"{p.get('total_days_of_month', 30)} Days ({p.get('leave_days', 0)} Leave)", cell_val_style)],
     ]
     
     t_info = Table(info_data, colWidths=[120, 150, 130, 140])

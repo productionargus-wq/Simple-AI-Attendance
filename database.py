@@ -88,6 +88,19 @@ def migrate_existing_data_to_master():
             {'username': 'Admin'},
             {'$set': {'role': 'super_admin', 'company_id': 'ARGUS_MASTER', 'company_name': 'ARGUS TECHNOLOGIES'}}
         )
+        # Backfill salary_type if missing
+        for emp in db.employees.find({'$or': [{'salary_type': {'$exists': False}}, {'salary_type': None}, {'salary_type': ''}]}):
+            st = 'hourly'
+            d_sal = float(emp.get('day_salary', 0.0) or 0.0)
+            h_sal = float(emp.get('hourly_salary', 0.0) or 0.0)
+            hd_sal = float(emp.get('half_day_salary', 0.0) or 0.0)
+            if d_sal > 0 and h_sal == 0:
+                st = 'daily'
+            elif hd_sal > 0 and d_sal == 0 and h_sal == 0:
+                st = 'half_day'
+            else:
+                st = 'hourly'
+            db.employees.update_one({'_id': emp['_id']}, {'$set': {'salary_type': st}})
     except Exception as e:
         print(f"Warning during tenant data migration: {e}")
 
@@ -372,12 +385,15 @@ def create_employee(data, company_id=None):
     db = get_db()
     emp_id = data.get('id') or generate_employee_id()
     assigned_company_id = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
+    raw_st = str(data.get('salary_type') or 'hourly').strip().lower()
+    salary_type = raw_st if raw_st in ['hourly', 'daily', 'half_day'] else 'hourly'
     
     doc = {
         'id': emp_id,
         'company_id': assigned_company_id,
         'employee_name': data.get('employee_name', '').strip(),
         'designation': data.get('designation', '').strip(),
+        'salary_type': salary_type,
         'mobile_number': data.get('mobile_number', '').strip(),
         'hourly_salary': float(data.get('hourly_salary') or 0.0),
         'day_salary': float(data.get('day_salary') or 0.0),
@@ -425,6 +441,10 @@ def update_employee(emp_id, data, company_id=None):
         'shift_hours': data.get('shift_hours', '').strip(),
         'updated_at': datetime.now()
     }
+    if 'salary_type' in data and data['salary_type']:
+        st = str(data['salary_type']).strip().lower()
+        if st in ['hourly', 'daily', 'half_day']:
+            upd['salary_type'] = st
     if 'photo_filename' in data and data['photo_filename']:
         upd['photo_filename'] = data['photo_filename']
     if 'face_embedding' in data and data['face_embedding']:
@@ -730,8 +750,10 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         company_id=comp_id
     )
     
+    salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
     hourly_rate = float(emp.get('hourly_salary', 0.0)) if emp else 100.0
     day_rate = float(emp.get('day_salary', 0.0)) if emp else (hourly_rate * 8.0)
+    half_rate = float(emp.get('half_day_salary', 0.0)) if emp else (day_rate / 2.0)
     shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
     
     # Check if there is already an attendance report entry today
@@ -761,6 +783,8 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'exit_location': '----',
             'working_hours': '00:00',
             'shift_variance': '----',
+            'salary_type': salary_type,
+            'day_credit_type': 'Pending',
             'working_salary': 0,
             'entry_type': 'proper',
             'created_at': now.isoformat()
@@ -813,6 +837,8 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             shift_target_minutes = int(sparts[0]) * 60 + int(sparts[1])
         except Exception:
             pass
+        if shift_target_minutes <= 0:
+            shift_target_minutes = 480
             
         variance_minutes = working_minutes - shift_target_minutes
         if variance_minutes >= 0:
@@ -825,13 +851,49 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             v_m = abs_vm % 60
             shift_variance_str = f"-{v_h:02d}:{v_m:02d}"
             
-        # Calculate Working Salary
-        if hourly_rate > 0:
+        # Calculate Working Salary accurately based on employee salary_type
+        half_shift_target = max(1, shift_target_minutes // 2)
+        computed_salary = 0
+        day_credit_type = 'Full Day'
+
+        if salary_type == 'hourly':
             computed_salary = int(round((working_minutes / 60.0) * hourly_rate))
-        elif day_rate > 0:
-            computed_salary = int(round(day_rate))
+            if working_minutes >= (shift_target_minutes - 30):
+                day_credit_type = 'Full Day'
+            elif working_minutes >= (half_shift_target - 15):
+                day_credit_type = 'Half Day'
+            else:
+                day_credit_type = 'Partial'
+
+        elif salary_type == 'daily':
+            # Day-Based Employee:
+            # Full Day if worked >= shift_target - 30 minutes grace
+            if working_minutes >= (shift_target_minutes - 30):
+                computed_salary = int(round(day_rate))
+                day_credit_type = 'Full Day'
+            # Half Day if worked >= half_shift - 15 minutes grace
+            elif working_minutes >= (half_shift_target - 15):
+                effective_half = half_rate if half_rate > 0 else (day_rate / 2.0)
+                computed_salary = int(round(effective_half))
+                day_credit_type = 'Half Day'
+            else:
+                effective_hourly = hourly_rate if hourly_rate > 0 else (day_rate / (shift_target_minutes / 60.0))
+                computed_salary = int(round((working_minutes / 60.0) * effective_hourly))
+                day_credit_type = 'Partial'
+
+        elif salary_type == 'half_day':
+            effective_half = half_rate if half_rate > 0 else (day_rate / 2.0 if day_rate > 0 else (hourly_rate * 4.0))
+            if working_minutes >= (shift_target_minutes - 30):
+                computed_salary = int(round(effective_half * 2.0))
+                day_credit_type = 'Full Day (2x Half)'
+            elif working_minutes >= (half_shift_target - 15):
+                computed_salary = int(round(effective_half))
+                day_credit_type = 'Half Day'
+            else:
+                computed_salary = int(round((working_minutes / float(half_shift_target)) * effective_half))
+                day_credit_type = 'Partial'
         else:
-            computed_salary = 0
+            computed_salary = int(round((working_minutes / 60.0) * hourly_rate))
             
         upd_data = {
             'exit_time': now_time_12,
@@ -839,6 +901,8 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'exit_location': loc_str,
             'working_hours': working_hours_str,
             'shift_variance': shift_variance_str,
+            'salary_type': salary_type,
+            'day_credit_type': day_credit_type,
             'working_salary': computed_salary,
             'updated_at': now.isoformat()
         }
@@ -1008,19 +1072,56 @@ def create_manual_entry(data, company_id=None):
     
     hours_str = data.get('hours', '00:00')
     mode = data.get('mode', 'Hours')
-    
+    status = data.get('status', 'Permission')
+    salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
+    shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
+    shift_target_minutes = 480
+    try:
+        sp = shift_hours_str.split(':')
+        shift_target_minutes = int(sp[0]) * 60 + int(sp[1])
+    except Exception:
+        shift_target_minutes = 480
+    if shift_target_minutes <= 0:
+        shift_target_minutes = 480
+    half_shift_target = max(1, shift_target_minutes // 2)
+
     working_salary = 0.0
-    if mode == 'Hours':
+    if mode == 'Salary':
+        working_salary = float(data.get('working_salary') or 0.0)
+    elif mode == 'Full Day' or status == 'Full Day':
+        working_salary = day_rate if day_rate > 0 else (hourly_rate * (shift_target_minutes / 60.0))
+    elif mode == 'Half Day' or status == 'Half Day':
+        working_salary = half_rate if half_rate > 0 else (day_rate / 2.0 if day_rate > 0 else (hourly_rate * 4.0))
+    else:
         parts = hours_str.split(':')
+        total_mins = 0
         if len(parts) >= 2:
             try:
                 hrs = int(parts[0])
                 mins = int(parts[1])
-                working_salary = round((hrs + mins / 60.0) * hourly_rate, 2)
+                total_mins = hrs * 60 + mins
             except ValueError:
-                working_salary = 0.0
-    else:
-        working_salary = float(data.get('working_salary') or 0.0)
+                total_mins = 0
+        if salary_type == 'hourly':
+            working_salary = round((total_mins / 60.0) * hourly_rate, 2)
+        elif salary_type == 'daily':
+            if total_mins >= (shift_target_minutes - 30):
+                working_salary = day_rate
+            elif total_mins >= (half_shift_target - 15):
+                working_salary = half_rate if half_rate > 0 else (day_rate / 2.0)
+            else:
+                effective_hour = hourly_rate if hourly_rate > 0 else (day_rate / (shift_target_minutes / 60.0))
+                working_salary = round((total_mins / 60.0) * effective_hour, 2)
+        elif salary_type == 'half_day':
+            effective_half = half_rate if half_rate > 0 else (day_rate / 2.0)
+            if total_mins >= (shift_target_minutes - 30):
+                working_salary = effective_half * 2.0
+            elif total_mins >= (half_shift_target - 15):
+                working_salary = effective_half
+            else:
+                working_salary = round((total_mins / float(half_shift_target)) * effective_half, 2)
+        else:
+            working_salary = round((total_mins / 60.0) * hourly_rate, 2)
         
     now_ts = get_ist_now().strftime("%d-%m-%Y %I:%M:%S %p")
     entry_id = int(time.time() * 1000)
@@ -1032,11 +1133,12 @@ def create_manual_entry(data, company_id=None):
         'employee_name': emp_name,
         'entry_date': data.get('entry_date', ''),
         'hours': hours_str,
-        'status': data.get('status', 'Permission'),
+        'status': status,
         'submitted_at': now_ts,
         'hourly_rate': hourly_rate,
         'day_rate': day_rate,
         'half_rate': half_rate,
+        'salary_type': salary_type,
         'working_salary': working_salary,
         'entry_type': data.get('entry_type', 'Add'),
         'mode': mode,
@@ -1050,29 +1152,72 @@ def update_manual_entry(entry_id, data):
     emp_name = data.get('employee_name', '')
     emp = db.employees.find_one({'employee_name': emp_name})
     hourly_rate = float(emp['hourly_salary'] if emp and 'hourly_salary' in emp else 1.0)
-    
+    day_rate = float(emp['day_salary'] if emp and 'day_salary' in emp else 0.0)
+    half_rate = float(emp['half_day_salary'] if emp and 'half_day_salary' in emp else 0.0)
+    salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
+    shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
+    shift_target_minutes = 480
+    try:
+        sp = shift_hours_str.split(':')
+        shift_target_minutes = int(sp[0]) * 60 + int(sp[1])
+    except Exception:
+        shift_target_minutes = 480
+    if shift_target_minutes <= 0:
+        shift_target_minutes = 480
+    half_shift_target = max(1, shift_target_minutes // 2)
+
     hours_str = data.get('hours', '00:00')
     mode = data.get('mode', 'Hours')
+    status = data.get('status', 'Permission')
     
     working_salary = 0.0
-    if mode == 'Hours':
+    if mode == 'Salary':
+        working_salary = float(data.get('working_salary') or 0.0)
+    elif mode == 'Full Day' or status == 'Full Day':
+        working_salary = day_rate if day_rate > 0 else (hourly_rate * (shift_target_minutes / 60.0))
+    elif mode == 'Half Day' or status == 'Half Day':
+        working_salary = half_rate if half_rate > 0 else (day_rate / 2.0 if day_rate > 0 else (hourly_rate * 4.0))
+    else:
         parts = hours_str.split(':')
+        total_mins = 0
         if len(parts) >= 2:
             try:
                 hrs = int(parts[0])
                 mins = int(parts[1])
-                working_salary = round((hrs + mins / 60.0) * hourly_rate, 2)
+                total_mins = hrs * 60 + mins
             except ValueError:
-                working_salary = 0.0
-    else:
-        working_salary = float(data.get('working_salary') or 0.0)
+                total_mins = 0
+        if salary_type == 'hourly':
+            working_salary = round((total_mins / 60.0) * hourly_rate, 2)
+        elif salary_type == 'daily':
+            if total_mins >= (shift_target_minutes - 30):
+                working_salary = day_rate
+            elif total_mins >= (half_shift_target - 15):
+                working_salary = half_rate if half_rate > 0 else (day_rate / 2.0)
+            else:
+                effective_hour = hourly_rate if hourly_rate > 0 else (day_rate / (shift_target_minutes / 60.0))
+                working_salary = round((total_mins / 60.0) * effective_hour, 2)
+        elif salary_type == 'half_day':
+            effective_half = half_rate if half_rate > 0 else (day_rate / 2.0)
+            if total_mins >= (shift_target_minutes - 30):
+                working_salary = effective_half * 2.0
+            elif total_mins >= (half_shift_target - 15):
+                working_salary = effective_half
+            else:
+                working_salary = round((total_mins / float(half_shift_target)) * effective_half, 2)
+        else:
+            working_salary = round((total_mins / 60.0) * hourly_rate, 2)
         
     upd = {
         'employee_name': emp_name,
         'entry_date': data.get('entry_date', ''),
         'hours': hours_str,
-        'status': data.get('status', 'Permission'),
+        'status': status,
         'mode': mode,
+        'hourly_rate': hourly_rate,
+        'day_rate': day_rate,
+        'half_rate': half_rate,
+        'salary_type': salary_type,
         'working_salary': working_salary
     }
     db.manual_entries.update_one(build_id_filter(entry_id), {'$set': upd})
@@ -1485,9 +1630,21 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     emp_id = emp.get('id', '') if emp else ''
     designation = emp.get('designation', '') if emp else ''
     phone = emp.get('mobile_number', '') if emp else ''
+    salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
     hours_salary = float(emp.get('hourly_salary', 0.0)) if emp else 0.0
     day_salary = float(emp.get('day_salary', 0.0)) if emp else 0.0
     half_salary = float(emp.get('half_day_salary', 0.0)) if emp else 0.0
+    shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
+
+    shift_target_minutes = 480
+    try:
+        sp = shift_hours_str.split(':')
+        shift_target_minutes = int(sp[0]) * 60 + int(sp[1])
+    except Exception:
+        shift_target_minutes = 480
+    if shift_target_minutes <= 0:
+        shift_target_minutes = 480
+    half_shift_target = max(1, shift_target_minutes // 2)
     
     # 1. Query attendance & attendance_reports for this employee & month
     att_query = {
@@ -1510,26 +1667,28 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     if not records:
         records = list(db.attendance.find(att_query))
 
-    total_minutes = 0
-    distinct_dates = set()
+    daily_minutes = {}
+    daily_manual_salary = {}
 
     for rec in records:
         d_val = rec.get('date') or (rec.get('entry_time', '').split(' ')[0] if rec.get('entry_time') else '')
-        if d_val:
-            distinct_dates.add(d_val)
+        if not d_val:
+            continue
 
         wh = rec.get('working_hours', '00:00')
+        mins = 0
         if wh and ':' in wh:
             try:
                 h, m = wh.split(':')[:2]
-                total_minutes += int(h) * 60 + int(m)
+                mins = int(h) * 60 + int(m)
             except Exception:
                 pass
         elif rec.get('working_hours'):
             try:
-                total_minutes += int(float(rec.get('working_hours')) * 60)
+                mins = int(float(rec.get('working_hours')) * 60)
             except Exception:
                 pass
+        daily_minutes[d_val] = daily_minutes.get(d_val, 0) + mins
 
     # 2. Query manual_entries for this employee & month
     manual_query = {
@@ -1547,36 +1706,71 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         pass
 
     manual_entries = list(db.manual_entries.find(manual_query))
-    manual_salary_sum = 0.0
 
     for m_entry in manual_entries:
         ed = m_entry.get('entry_date') or (m_entry.get('submitted_at', '').split(' ')[0] if m_entry.get('submitted_at') else '')
-        if ed:
-            distinct_dates.add(ed)
+        if not ed:
+            continue
             
         hrs_str = m_entry.get('hours', '00:00')
+        mins = 0
         if hrs_str and ':' in hrs_str:
             try:
                 h, m = hrs_str.split(':')[:2]
-                total_minutes += int(h) * 60 + int(m)
+                mins = int(h) * 60 + int(m)
             except Exception:
                 pass
+        st = str(m_entry.get('status', '')).lower()
+        if 'full' in st:
+            mins = max(mins, shift_target_minutes)
+        elif 'half' in st:
+            mins = max(mins, half_shift_target)
+        daily_minutes[ed] = daily_minutes.get(ed, 0) + mins
                 
         msal = float(m_entry.get('working_salary', 0.0))
-        manual_salary_sum += msal
+        daily_manual_salary[ed] = daily_manual_salary.get(ed, 0.0) + msal
 
-    working_days = len(distinct_dates)
+    total_minutes = sum(daily_minutes.values())
+    working_days = len(daily_minutes)
     tot_hrs = total_minutes // 60
     tot_mins = total_minutes % 60
     working_hours = f"{tot_hrs:02d}:{tot_mins:02d}"
 
-    # Calculate basic salary
-    if hours_salary > 0:
+    full_days = 0
+    half_days = 0
+    partial_days = 0
+    partial_minutes = 0
+
+    for d, mins in daily_minutes.items():
+        if mins >= (shift_target_minutes - 30):
+            full_days += 1
+        elif mins >= (half_shift_target - 15):
+            half_days += 1
+        elif mins > 0:
+            partial_days += 1
+            partial_minutes += mins
+
+    effective_half = half_salary if half_salary > 0 else (day_salary / 2.0 if day_salary > 0 else (hours_salary * 4.0))
+    effective_hour = hours_salary if hours_salary > 0 else (day_salary / (shift_target_minutes / 60.0) if day_salary > 0 else 0.0)
+    manual_salary_sum = sum(daily_manual_salary.values())
+
+    # Calculate basic salary accurately based on salary_type
+    if salary_type == 'hourly':
         basic_salary = round((total_minutes / 60.0) * hours_salary, 2)
-    elif day_salary > 0:
-        basic_salary = round(working_days * day_salary, 2)
+    elif salary_type == 'daily':
+        part_sal = (partial_minutes / 60.0) * effective_hour
+        basic_salary = round((full_days * day_salary) + (half_days * effective_half) + part_sal, 2)
+    elif salary_type == 'half_day':
+        total_half_units = (full_days * 2) + half_days
+        part_sal = (partial_minutes / float(half_shift_target)) * effective_half
+        basic_salary = round((total_half_units * effective_half) + part_sal, 2)
     else:
-        basic_salary = manual_salary_sum
+        if hours_salary > 0:
+            basic_salary = round((total_minutes / 60.0) * hours_salary, 2)
+        elif day_salary > 0:
+            basic_salary = round((full_days * day_salary) + (half_days * effective_half), 2)
+        else:
+            basic_salary = manual_salary_sum
 
     if basic_salary == 0.0 and manual_salary_sum > 0.0:
         basic_salary = manual_salary_sum
@@ -1631,6 +1825,14 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     leave_days = max(0, total_days - working_days)
     net_pay_in_words = number_to_words(net_pay)
     
+    basis_labels = {
+        'hourly': 'Hourly-Based',
+        'daily': 'Day-Based',
+        'half_day': 'Half-Day-Based'
+    }
+    salary_basis_label = basis_labels.get(salary_type, 'Day-Based')
+    working_days_breakdown = f"{working_days} ({full_days} Full, {half_days} Half)" if (full_days > 0 or half_days > 0) else str(working_days)
+
     return {
         'company_name': 'ARGUS TECHNOLOGIES',
         'company_address': 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006',
@@ -1638,6 +1840,12 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         'employee_id': emp_id,
         'designation': designation,
         'phone_number': phone,
+        'salary_type': salary_type,
+        'salary_basis_label': salary_basis_label,
+        'full_days': full_days,
+        'half_days': half_days,
+        'partial_days': partial_days,
+        'working_days_breakdown': working_days_breakdown,
         'year_month': month_year,
         'hours_salary': int(round(hours_salary)),
         'day_salary': int(round(day_salary)),

@@ -61,10 +61,23 @@ document.addEventListener('DOMContentLoaded', function () {
         ? `<span class="photo-link" onclick="openPhotoModal('${emp.photo_filename}', '${escapeHtml(emp.employee_name)}')">View Image</span>`
         : `<span style="color: #999;">No Image</span>`;
 
+      const st = emp.salary_type || 'hourly';
+      let badgeHtml = '';
+      if (st === 'hourly') {
+        badgeHtml = '<span style="background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">Hourly</span>';
+      } else if (st === 'daily') {
+        badgeHtml = '<span style="background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">Day-Based</span>';
+      } else if (st === 'half_day') {
+        badgeHtml = '<span style="background:#fef3c7; color:#b45309; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">Half-Day</span>';
+      } else {
+        badgeHtml = '<span style="background:#f1f5f9; color:#475569; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">Hourly</span>';
+      }
+
       tr.innerHTML = `
         <td>${escapeHtml(emp.id)}</td>
         <td>${escapeHtml(emp.employee_name)}</td>
         <td>${escapeHtml(emp.designation || '')}</td>
+        <td>${badgeHtml}</td>
         <td>${Number(emp.hourly_salary || 0).toFixed(2)}</td>
         <td>${Number(emp.day_salary || 0).toFixed(0)}</td>
         <td>${Number(emp.half_day_salary || 0).toFixed(0)}</td>
@@ -194,6 +207,7 @@ document.addEventListener('DOMContentLoaded', function () {
     employeeForm.reset();
     document.getElementById('formEmployeeId').value = '';
     document.getElementById('entryModalTitle').textContent = 'Employee Detail Entry';
+    document.getElementById('inputSalaryType').value = 'daily';
     document.getElementById('inputPhoto').required = true;
     document.getElementById('photoRequiredIndicator').style.display = 'inline';
     entryModal.classList.add('active');
@@ -209,6 +223,7 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('entryModalTitle').textContent = 'Employee Detail Entry';
       document.getElementById('inputName').value = emp.employee_name || '';
       document.getElementById('inputDesignation').value = emp.designation || '';
+      document.getElementById('inputSalaryType').value = emp.salary_type || 'hourly';
       document.getElementById('inputMobile').value = emp.mobile_number || '';
       document.getElementById('inputHourlySalary').value = emp.hourly_salary || '';
       document.getElementById('inputDaySalary').value = emp.day_salary || '';
@@ -246,7 +261,8 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Auto-calculate Day Salary and Half Day Salary from Hourly Salary
+  // Auto-calculate and synchronize Day Salary, Half Day Salary, and Hourly Salary
+  const inputSalaryType = document.getElementById('inputSalaryType');
   const inputHourly = document.getElementById('inputHourlySalary');
   const inputDay = document.getElementById('inputDaySalary');
   const inputHalfDay = document.getElementById('inputHalfDaySalary');
@@ -275,52 +291,78 @@ document.addEventListener('DOMContentLoaded', function () {
     return val;
   }
 
-  function calculateSalaries() {
-    const hourly = parseFloat(inputHourly.value) || 0;
-    if (hourly <= 0) return;
-
+  function getShiftDuration() {
     let shiftDuration = 8.0;
     if (inputShift && inputShift.value.trim()) {
       const val = inputShift.value.trim();
       const parts = val.split(':');
       if (parts.length >= 2) {
         shiftDuration = (parseFloat(parts[0]) || 0) + (parseFloat(parts[1]) || 0) / 60;
-      } else if (val.includes('.')) {
-        const dparts = val.split('.');
-        const dh = parseFloat(dparts[0]) || 0;
-        let dm = dparts[1] || '0';
-        if (dm.length === 1) dm = dm + '0';
-        shiftDuration = dh + (parseFloat(dm.substring(0, 2)) || 0) / 60;
       } else if (!isNaN(parseFloat(val))) {
         shiftDuration = parseFloat(val);
       }
     }
-    if (shiftDuration <= 0) shiftDuration = 8.0;
+    return shiftDuration > 0 ? shiftDuration : 8.0;
+  }
 
-    const daySalary = hourly * shiftDuration;
-    const halfDaySalary = daySalary / 2;
+  // When Hourly changes
+  function onHourlyInput() {
+    const hourly = parseFloat(inputHourly.value) || 0;
+    if (hourly <= 0) return;
+    const dur = getShiftDuration();
+    const day = hourly * dur;
+    inputDay.value = day.toFixed(2);
+    inputHalfDay.value = (day / 2).toFixed(2);
+  }
 
-    inputDay.value = daySalary.toFixed(2);
-    inputHalfDay.value = halfDaySalary.toFixed(2);
+  // When Day changes
+  function onDayInput() {
+    const day = parseFloat(inputDay.value) || 0;
+    if (day <= 0) return;
+    const dur = getShiftDuration();
+    inputHourly.value = (day / dur).toFixed(2);
+    inputHalfDay.value = (day / 2).toFixed(2);
+  }
+
+  // When Half-Day changes
+  function onHalfDayInput() {
+    const half = parseFloat(inputHalfDay.value) || 0;
+    if (half <= 0) return;
+    const dur = getShiftDuration();
+    const day = half * 2;
+    inputDay.value = day.toFixed(2);
+    inputHourly.value = (day / dur).toFixed(2);
+  }
+
+  if (inputSalaryType) {
+    inputSalaryType.addEventListener('change', function () {
+      const st = this.value;
+      if (st === 'hourly' && inputHourly) inputHourly.focus();
+      else if (st === 'daily' && inputDay) inputDay.focus();
+      else if (st === 'half_day' && inputHalfDay) inputHalfDay.focus();
+    });
   }
 
   if (inputHourly) {
-    inputHourly.addEventListener('input', calculateSalaries);
-    inputHourly.addEventListener('change', calculateSalaries);
+    inputHourly.addEventListener('input', onHourlyInput);
   }
+  if (inputDay) {
+    inputDay.addEventListener('input', onDayInput);
+  }
+  if (inputHalfDay) {
+    inputHalfDay.addEventListener('input', onHalfDayInput);
+  }
+
   if (inputShift) {
-    inputShift.addEventListener('input', calculateSalaries);
     inputShift.addEventListener('change', function () {
-      if (this.value) {
-        this.value = normalizeTimeInput(this.value);
-      }
-      calculateSalaries();
+      if (this.value) this.value = normalizeTimeInput(this.value);
+      const st = inputSalaryType ? inputSalaryType.value : 'daily';
+      if (st === 'hourly') onHourlyInput();
+      else if (st === 'daily') onDayInput();
+      else onHalfDayInput();
     });
     inputShift.addEventListener('blur', function () {
-      if (this.value) {
-        this.value = normalizeTimeInput(this.value);
-      }
-      calculateSalaries();
+      if (this.value) this.value = normalizeTimeInput(this.value);
     });
   }
 
@@ -363,10 +405,12 @@ document.addEventListener('DOMContentLoaded', function () {
       const tbody = document.getElementById('viewInfoTableBody');
       tbody.innerHTML = '';
 
+      const stLabels = { hourly: 'Hourly-Based', daily: 'Day-Based', half_day: 'Half-Day-Based' };
       const fields = [
         ['ID', emp.id],
         ['EMPLOYEE NAME', emp.employee_name],
         ['DESIGNATION', emp.designation],
+        ['SALARY BASIS', stLabels[emp.salary_type] || 'Hourly-Based'],
         ['HOURLY SALARY', emp.hourly_salary],
         ['DAY SALARY', emp.day_salary],
         ['HALF DAY SALARY', emp.half_day_salary],

@@ -191,8 +191,16 @@
     <div class="emp-profile-pill">
       <div><strong>Employee ID:</strong> {{ employee.id if employee else '-' }}</div>
       <div><strong>Designation:</strong> {{ employee.designation if employee else '-' }}</div>
+      <div><strong>Salary Basis:</strong> 
+        {% if employee and employee.salary_type == 'daily' %}
+          <span style="color: #15803d; font-weight: 700;">Day-Based (₹{{ employee.day_salary }}/day)</span>
+        {% elif employee and employee.salary_type == 'half_day' %}
+          <span style="color: #b45309; font-weight: 700;">Half-Day-Based (₹{{ employee.half_day_salary }}/half-day)</span>
+        {% else %}
+          <span style="color: #0369a1; font-weight: 700;">Hourly-Based (₹{{ employee.hourly_salary }}/hr)</span>
+        {% endif %}
+      </div>
       <div><strong>Mobile:</strong> {{ employee.mobile_number if employee else '-' }}</div>
-      <div><strong>Email:</strong> {{ employee.email_id if employee else '-' }}</div>
       <div><strong>Shift Hours:</strong> {{ employee.shift_hours if employee else '09:00' }}</div>
       <div><strong>Company:</strong> {{ company.company_name if company else 'Argus Technologies' }}</div>
     </div>
@@ -547,19 +555,23 @@
       const month = payslipMonthInput.value || `${curYear}-${curMonth}`;
       try {
         const res = await fetch(`/api/employee/my-payslip?month=${month}`);
-        const p = await res.json();
+        const basic = p.basic_salary !== undefined ? p.basic_salary : (p.basic_earnings || 0);
+        const deduct = p.total_deduction !== undefined ? p.total_deduction : (p.total_deductions || 0);
+        const net = p.net_pay !== undefined ? p.net_pay : (p.net_salary || 0);
+        const hrs = p.total_working_hours || p.working_hours || '00:00';
+        const daysLabel = p.working_days_breakdown || `${p.working_days || 0} Days`;
 
-        document.getElementById('psBasic').textContent = `₹${Number(p.basic_earnings || 0).toLocaleString()}`;
+        document.getElementById('psBasic').textContent = `₹${Number(basic).toLocaleString()}`;
         document.getElementById('psAllowance').textContent = `₹${Number(p.allowance || 0).toLocaleString()}`;
         document.getElementById('psIncentive').textContent = `₹${Number(p.incentive || 0).toLocaleString()}`;
         document.getElementById('psTotalEarnings').textContent = `₹${Number(p.total_earnings || 0).toLocaleString()}`;
 
         document.getElementById('psAdvanceRepay').textContent = `₹${Number(p.advance_repayment || 0).toLocaleString()}`;
         document.getElementById('psOtherDeduct').textContent = `₹${Number(p.other_deductions || 0).toLocaleString()}`;
-        document.getElementById('psTotalDeduct').textContent = `₹${Number(p.total_deductions || 0).toLocaleString()}`;
+        document.getElementById('psTotalDeduct').textContent = `₹${Number(deduct).toLocaleString()}`;
 
-        document.getElementById('psNetSalary').textContent = `₹${Number(p.net_salary || 0).toLocaleString()}`;
-        document.getElementById('psWorkingDays').textContent = `Working Days: ${p.working_days || 0} | Hours: ${p.working_hours || '00:00:00'}`;
+        document.getElementById('psNetSalary').textContent = `₹${Number(net).toLocaleString()}`;
+        document.getElementById('psWorkingDays').textContent = `Working Days: ${daysLabel} | Hours: ${hrs}`;
       } catch (err) {
         console.warn('Error loading payslip:', err);
       }
