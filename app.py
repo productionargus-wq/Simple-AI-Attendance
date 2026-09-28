@@ -1,6 +1,9 @@
 import os
 import io
 import csv
+import secrets
+import urllib.parse
+import requests
 import werkzeug.utils
 from datetime import datetime
 from dotenv import load_dotenv
@@ -11,6 +14,9 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 from functools import wraps
 from flask_cors import CORS
 import database
+
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '').strip()
 
 try:
     import pdf_generator
@@ -130,21 +136,167 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Super Admin Login (Admin / 76543)."""
+    """Super Admin Login (Registered Email: productionargus@gmail.com)."""
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '').strip()
-        if database.validate_admin_login(username, password):
+        email = (request.form.get('email') or request.form.get('username') or '').strip()
+        admin_user = database.validate_admin_login(email)
+        if admin_user:
             session.clear()
             session['admin_logged_in'] = True
-            session['admin_username'] = username
+            session['admin_username'] = admin_user.get('username', 'Admin')
+            session['admin_email'] = admin_user.get('email', 'productionargus@gmail.com')
             session['role'] = 'super_admin'
             session['company_id'] = 'ARGUS_MASTER'
             session['company_name'] = 'ARGUS TECHNOLOGIES'
             return redirect(url_for('dashboard'))
         else:
-            return render_template('login.html', error='Invalid username or password')
+            return render_template(
+                'login.html',
+                error='Access Denied: Email not authorized as Super Admin. Please use productionargus@gmail.com.'
+            )
     return render_template('login.html')
+
+@app.route('/auth/google/login')
+def google_login():
+    """Initiates Google OAuth 2.0 Authorization Flow."""
+    login_type = request.args.get('type', 'admin').strip().lower()
+    if login_type not in ['admin', 'company', 'employee']:
+        login_type = 'admin'
+
+    state = secrets.token_urlsafe(32)
+    session['oauth_state'] = state
+    session['oauth_login_type'] = login_type
+
+    redirect_uri = url_for('google_callback', _external=True)
+    if request.headers.get('X-Forwarded-Proto') == 'https' and redirect_uri.startswith('http://'):
+        redirect_uri = redirect_uri.replace('http://', 'https://', 1)
+
+    session['oauth_redirect_uri'] = redirect_uri
+
+    params = {
+        'client_id': GOOGLE_CLIENT_ID,
+        'redirect_uri': redirect_uri,
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'state': state,
+        'access_type': 'online',
+        'prompt': 'select_account'
+    }
+    auth_url = 'https://accounts.google.com/o/oauth2/v2/auth?' + urllib.parse.urlencode(params)
+    return redirect(auth_url)
+
+@app.route('/auth/google/callback')
+def google_callback():
+    """Handles Google OAuth 2.0 Callback and role-based authorization."""
+    error = request.args.get('error')
+    login_type = session.get('oauth_login_type', 'admin')
+
+    def render_oauth_error(msg):
+        if login_type == 'company':
+            return render_template('company_login.html', error=msg)
+        elif login_type == 'employee':
+            return render_template('employee_login.html', error=msg)
+        else:
+            return render_template('login.html', error=msg)
+
+    if error:
+        return render_oauth_error(f"Google sign-in was cancelled or failed ({error}).")
+
+    code = request.args.get('code')
+    state = request.args.get('state')
+    expected_state = session.get('oauth_state')
+
+    if not code or not state or state != expected_state:
+        return render_oauth_error("Invalid or expired OAuth state. Please try logging in again.")
+
+    redirect_uri = session.get('oauth_redirect_uri') or url_for('google_callback', _external=True)
+    if request.headers.get('X-Forwarded-Proto') == 'https' and redirect_uri.startswith('http://'):
+        redirect_uri = redirect_uri.replace('http://', 'https://', 1)
+
+    token_url = 'https://oauth2.googleapis.com/token'
+    token_payload = {
+        'code': code,
+        'client_id': GOOGLE_CLIENT_ID,
+        'client_secret': GOOGLE_CLIENT_SECRET,
+        'redirect_uri': redirect_uri,
+        'grant_type': 'authorization_code'
+    }
+
+    try:
+        token_resp = requests.post(token_url, data=token_payload, timeout=12)
+        token_data = token_resp.json()
+        if 'error' in token_data:
+            err_desc = token_data.get('error_description') or token_data.get('error')
+            return render_oauth_error(f"Google authorization error: {err_desc}")
+
+        access_token = token_data.get('access_token')
+        userinfo_resp = requests.get(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            headers={'Authorization': f"Bearer {access_token}"},
+            timeout=12
+        )
+        user_info = userinfo_resp.json()
+        google_email = (user_info.get('email') or '').strip().lower()
+        if not google_email:
+            return render_oauth_error("Unable to obtain verified email address from Google.")
+    except Exception as exc:
+        return render_oauth_error(f"Communication error with Google services: {str(exc)}")
+
+    # Clear OAuth temporary session tokens
+    session.pop('oauth_state', None)
+    session.pop('oauth_redirect_uri', None)
+    session.pop('oauth_login_type', None)
+
+    # Authorized Role Verification
+    if login_type == 'admin':
+        admin_user = database.validate_admin_login(google_email)
+        if admin_user:
+            session.clear()
+            session['admin_logged_in'] = True
+            session['admin_username'] = admin_user.get('username', 'Admin')
+            session['admin_email'] = admin_user.get('email', 'productionargus@gmail.com')
+            session['role'] = 'super_admin'
+            session['company_id'] = 'ARGUS_MASTER'
+            session['company_name'] = 'ARGUS TECHNOLOGIES'
+            return redirect(url_for('dashboard'))
+        else:
+            return render_oauth_error(
+                f"Access Denied: The Google account '{google_email}' is not authorized as Super Admin. Please use productionargus@gmail.com."
+            )
+
+    elif login_type == 'company':
+        company = database.validate_company_login(google_email)
+        if company:
+            session.clear()
+            session['admin_logged_in'] = True
+            session['admin_username'] = company.get('company_name', 'Company Admin')
+            session['role'] = 'company_admin'
+            session['company_id'] = company['id']
+            session['company_name'] = company.get('company_name', '')
+            session['company_email'] = company.get('email', '')
+            return redirect(url_for('dashboard'))
+        else:
+            return render_oauth_error(
+                f"Access Denied: The Google account '{google_email}' is not registered as a company administrator. Please contact Argus Support."
+            )
+
+    elif login_type == 'employee':
+        employee = database.validate_employee_login(google_email)
+        if employee:
+            session.clear()
+            session['employee_logged_in'] = True
+            session['role'] = 'employee'
+            session['employee_id'] = str(employee.get('id', employee.get('_id', '')))
+            session['employee_name'] = employee.get('employee_name', '')
+            session['employee_email'] = employee.get('email_id', '')
+            session['company_id'] = employee.get('company_id', 'ARGUS_MASTER')
+            return redirect(url_for('employee_portal'))
+        else:
+            return render_oauth_error(
+                f"Access Denied: The Google account '{google_email}' is not registered with any organisation. Please contact your company HR."
+            )
+
+    return redirect(url_for('login'))
 
 @app.route('/company-login', methods=['GET', 'POST'])
 def company_login():

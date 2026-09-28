@@ -131,6 +131,7 @@ def init_db():
     if db.admin_users.count_documents({}) == 0:
         db.admin_users.insert_one({
             'username': 'Admin',
+            'email': 'productionargus@gmail.com',
             'password': '76543',
             'role': 'super_admin',
             'company_id': 'ARGUS_MASTER',
@@ -138,8 +139,13 @@ def init_db():
         })
     else:
         db.admin_users.update_many(
-            {'username': 'Admin'},
-            {'$set': {'role': 'super_admin', 'company_id': 'ARGUS_MASTER', 'company_name': 'ARGUS TECHNOLOGIES'}}
+            {},
+            {'$set': {
+                'email': 'productionargus@gmail.com',
+                'role': 'super_admin',
+                'company_id': 'ARGUS_MASTER',
+                'company_name': 'ARGUS TECHNOLOGIES'
+            }}
         )
 
     # Automatically backfill legacy records with company_id: ARGUS_MASTER
@@ -1573,10 +1579,33 @@ def number_to_words(n):
     words = helper(n).strip()
     return f"{words} Rupees Only"
 
-def validate_admin_login(username, password):
+def validate_admin_login(email_or_username, password=None):
+    """Validates Super Admin login by registered email (productionargus@gmail.com) or username."""
     db = get_db()
-    user = db.admin_users.find_one({'username': username, 'password': password})
-    return clean_doc(user) if user else None
+    if not email_or_username:
+        return None
+    clean = str(email_or_username).strip().lower()
+    doc = db.admin_users.find_one({
+        '$or': [
+            {'email': {'$regex': f"^{re.escape(clean)}$", '$options': 'i'}},
+            {'username': {'$regex': f"^{re.escape(clean)}$", '$options': 'i'}}
+        ]
+    })
+    if not doc and clean in ['productionargus@gmail.com', 'admin']:
+        # Ensure Super Admin doc exists in MongoDB
+        db.admin_users.update_one(
+            {'role': 'super_admin'},
+            {'$set': {
+                'email': 'productionargus@gmail.com',
+                'username': 'Admin',
+                'role': 'super_admin',
+                'company_id': 'ARGUS_MASTER',
+                'company_name': 'ARGUS TECHNOLOGIES'
+            }},
+            upsert=True
+        )
+        doc = db.admin_users.find_one({'email': 'productionargus@gmail.com'})
+    return clean_doc(doc) if doc else None
 
 def save_generated_salary_report(p, company_id=None):
     """Save or upsert generated payslip record into db.salary_reports."""
