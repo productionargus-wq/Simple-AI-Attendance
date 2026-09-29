@@ -6,3 +6,5 @@ __pycache__/
 Thumbs.db
 atlas-credentials.env
 .env
+generated_payslips/
+scratch/
