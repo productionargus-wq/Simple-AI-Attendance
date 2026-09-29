@@ -596,8 +596,13 @@ def api_create_employee():
     if not data.get('employee_name'):
         return jsonify({'error': 'Employee name is required'}), 400
         
-    emp_id = database.create_employee(data, company_id=get_current_company_id())
-    return jsonify({'success': True, 'id': emp_id, 'message': 'Employee created successfully'})
+    try:
+        emp_id = database.create_employee(data, company_id=get_current_company_id())
+        return jsonify({'success': True, 'id': emp_id, 'message': 'Employee created successfully'})
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        return jsonify({'error': f'Failed to create employee: {e}'}), 500
 
 @app.route('/api/employees/<emp_id>', methods=['PUT', 'POST'])
 @login_required

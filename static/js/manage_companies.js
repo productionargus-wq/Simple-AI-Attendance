@@ -14,12 +14,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Modal elements
   const companyModal = document.getElementById('companyModal');
+  const companyModalTitle = document.getElementById('companyModalTitle');
+  const btnSaveCompany = document.getElementById('btnSaveCompany');
   const btnOpenAddCompanyModal = document.getElementById('btnOpenAddCompanyModal');
   const closeCompanyModal = document.getElementById('closeCompanyModal');
   const btnCancelCompany = document.getElementById('btnCancelCompany');
   const companyForm = document.getElementById('companyForm');
   const companyFormAlert = document.getElementById('companyFormAlert');
   const btnDetectLocation = document.getElementById('btnDetectLocation');
+
+  const inputCompanyName = document.getElementById('inputCompanyName');
+  const inputGstin = document.getElementById('inputGstin');
+  const inputPhone = document.getElementById('inputPhone');
+  const inputEmail = document.getElementById('inputEmail');
+  const inputLatitude = document.getElementById('inputLatitude');
+  const inputLongitude = document.getElementById('inputLongitude');
+  const inputStatus = document.getElementById('inputStatus');
+  const inputEmployeeLimit = document.getElementById('inputEmployeeLimit');
+  const inputAutoEmailReports = document.getElementById('inputAutoEmailReports');
+
+  let loadedCompanies = [];
+  let editingCompanyId = null;
 
   // Reports modal elements
   const reportsModal = document.getElementById('reportsModal');
@@ -45,6 +60,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const res = await fetch(`/api/companies?${params.toString()}`);
       const data = await res.json();
+      loadedCompanies = data.companies || [];
 
       if (!data.companies || data.companies.length === 0) {
         companyTableBody.innerHTML = `
@@ -105,19 +121,27 @@ document.addEventListener('DOMContentLoaded', function () {
             <div style="font-size: 11px; color: #3d6078; font-weight: 600;">📍 ${lat}, ${lng}</div>
           </td>
           <td style="text-align: center;">
-            <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 3px 10px; border-radius: 10px; font-weight: 800; font-size: 11px;">
-              ${comp.employee_count || 0}
+            <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 4px 12px; border-radius: 12px; font-weight: 800; font-size: 11px;">
+              ${comp.employee_limit || 50}
             </span>
           </td>
           <td style="text-align: center;">${statusBadge}</td>
           <td style="text-align: center;">${autoReportsBadge}</td>
           <td style="text-align: center;">
-            <button class="btn-action btn-action-delete" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Delete Company">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-            </button>
+            <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+              <button class="btn-action btn-action-edit" data-id="${comp.id}" title="Edit Company" style="background-color: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; border-radius: 4px; padding: 5px 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s ease;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </button>
+              <button class="btn-action btn-action-delete" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Delete Company">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+            </div>
           </td>
         `;
         companyTableBody.appendChild(row);
@@ -159,6 +183,34 @@ document.addEventListener('DOMContentLoaded', function () {
             this.disabled = false;
             this.style.opacity = '1';
           }
+        });
+      });
+
+      // Attach edit handlers
+      document.querySelectorAll('.btn-action-edit').forEach(btn => {
+        btn.addEventListener('click', function () {
+          const compId = this.getAttribute('data-id');
+          const comp = loadedCompanies.find(c => String(c.id) === String(compId));
+          if (!comp) return;
+
+          editingCompanyId = comp.id;
+          companyForm.reset();
+          companyFormAlert.style.display = 'none';
+
+          if (companyModalTitle) companyModalTitle.textContent = `Edit Company - ${comp.company_name}`;
+          if (btnSaveCompany) btnSaveCompany.textContent = 'Update Company';
+
+          inputCompanyName.value = comp.company_name || '';
+          inputGstin.value = comp.gstin || '';
+          inputPhone.value = comp.phone || '';
+          inputEmail.value = comp.email || '';
+          inputLatitude.value = comp.latitude || 11.02980;
+          inputLongitude.value = comp.longitude || 76.97400;
+          inputStatus.value = comp.status || 'Active';
+          if (inputEmployeeLimit) inputEmployeeLimit.value = comp.employee_limit || 50;
+          if (inputAutoEmailReports) inputAutoEmailReports.value = (comp.auto_email_reports !== false) ? 'true' : 'false';
+
+          companyModal.classList.add('active');
         });
       });
 
@@ -239,8 +291,13 @@ document.addEventListener('DOMContentLoaded', function () {
   // Modal 1: Add Company Modal
   if (btnOpenAddCompanyModal) {
     btnOpenAddCompanyModal.addEventListener('click', function () {
+      editingCompanyId = null;
       companyForm.reset();
       companyFormAlert.style.display = 'none';
+      if (companyModalTitle) companyModalTitle.textContent = 'Register New Company';
+      if (btnSaveCompany) btnSaveCompany.textContent = 'Save Company';
+      if (inputEmployeeLimit) inputEmployeeLimit.value = 25;
+      if (inputAutoEmailReports) inputAutoEmailReports.value = 'true';
       companyModal.classList.add('active');
     });
   }
@@ -291,27 +348,35 @@ document.addEventListener('DOMContentLoaded', function () {
         latitude: parseFloat(formData.get('latitude')) || 11.02980,
         longitude: parseFloat(formData.get('longitude')) || 76.97400,
         status: formData.get('status') || 'Active',
+        employee_limit: parseInt(formData.get('employee_limit'), 10) || 50,
         auto_email_reports: formData.get('auto_email_reports') === 'true'
       };
 
+      const btnSave = btnSaveCompany || document.getElementById('btnSaveCompany');
       try {
-        const btnSave = document.getElementById('btnSaveCompany');
-        btnSave.disabled = true;
-        btnSave.textContent = 'Saving...';
+        if (btnSave) {
+          btnSave.disabled = true;
+          btnSave.textContent = editingCompanyId ? 'Updating...' : 'Saving...';
+        }
 
-        const res = await fetch('/api/companies', {
-          method: 'POST',
+        const url = editingCompanyId ? `/api/companies/${editingCompanyId}` : '/api/companies';
+        const method = editingCompanyId ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+          method: method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
 
         const resp = await res.json();
-        btnSave.disabled = false;
-        btnSave.textContent = 'Save Company';
+        if (btnSave) {
+          btnSave.disabled = false;
+          btnSave.textContent = editingCompanyId ? 'Update Company' : 'Save Company';
+        }
 
         if (resp.success) {
           closeCompanyModalFunc();
-          loadCompanies(1);
+          loadCompanies(currentPage);
         } else {
           companyFormAlert.textContent = resp.error || 'Failed to save company.';
           companyFormAlert.style.backgroundColor = '#f8d7da';
@@ -319,6 +384,10 @@ document.addEventListener('DOMContentLoaded', function () {
           companyFormAlert.style.display = 'block';
         }
       } catch (err) {
+        if (btnSave) {
+          btnSave.disabled = false;
+          btnSave.textContent = editingCompanyId ? 'Update Company' : 'Save Company';
+        }
         companyFormAlert.textContent = 'Connection error. Please try again.';
         companyFormAlert.style.backgroundColor = '#f8d7da';
         companyFormAlert.style.color = '#842029';

@@ -184,6 +184,7 @@ def create_company(data):
         'latitude': float(data.get('latitude') or 11.02980),
         'longitude': float(data.get('longitude') or 76.97400),
         'status': data.get('status', 'Active').strip(),
+        'employee_limit': int(data.get('employee_limit') or data.get('employee_count') or 50),
         'auto_email_reports': bool(data.get('auto_email_reports', True)),
         'created_at': datetime.now(),
         'updated_at': datetime.now()
@@ -192,7 +193,7 @@ def create_company(data):
     return comp_id
 
 def get_all_companies(search='', page=1, limit=10):
-    """Retrieves paginated companies with employee count."""
+    """Retrieves paginated companies with employee count and limit."""
     db = get_db()
     query = {}
     if search:
@@ -214,6 +215,7 @@ def get_all_companies(search='', page=1, limit=10):
     for doc in cursor:
         c = clean_doc(doc)
         c['employee_count'] = db.employees.count_documents({'company_id': c['id']})
+        c['employee_limit'] = int(c.get('employee_limit') or c.get('employee_count') or 50)
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
         companies.append(c)
@@ -226,7 +228,7 @@ def get_all_companies(search='', page=1, limit=10):
     }
 
 def get_company_by_id(comp_id):
-    """Fetches company details by ID with current employee count."""
+    """Fetches company details by ID with current employee count and limit."""
     db = get_db()
     if not comp_id:
         return None
@@ -236,6 +238,9 @@ def get_company_by_id(comp_id):
     if doc:
         c = clean_doc(doc)
         c['employee_count'] = db.employees.count_documents({'company_id': c['id']})
+        c['employee_limit'] = int(c.get('employee_limit') or c.get('employee_count') or 50)
+        if 'auto_email_reports' not in c:
+            c['auto_email_reports'] = True
         return c
     return None
 
@@ -260,6 +265,8 @@ def update_company(comp_id, data):
         'status': data.get('status', 'Active').strip(),
         'updated_at': datetime.now()
     }
+    if 'employee_limit' in data or 'employee_count' in data:
+        upd['employee_limit'] = int(data.get('employee_limit') or data.get('employee_count') or 50)
     if 'auto_email_reports' in data:
         upd['auto_email_reports'] = bool(data['auto_email_reports'])
     db.company_admin.update_one({'id': str(comp_id)}, {'$set': upd})
@@ -413,6 +420,19 @@ def create_employee(data, company_id=None):
     db = get_db()
     emp_id = data.get('id') or generate_employee_id()
     assigned_company_id = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
+
+    # Enforce Employee Count registration limit for tenant companies
+    if assigned_company_id != 'ARGUS_MASTER':
+        comp = db.company_admin.find_one({'id': assigned_company_id})
+        if comp:
+            limit = int(comp.get('employee_limit') or comp.get('employee_count') or 50)
+            current_count = db.employees.count_documents({'company_id': assigned_company_id})
+            if current_count >= limit:
+                comp_name = comp.get('company_name', assigned_company_id)
+                raise ValueError(
+                    f"Employee registration limit reached: Company '{comp_name}' allows a maximum of {limit} employees ({current_count}/{limit} currently registered). Please contact Super Admin to increase the employee limit."
+                )
+
     raw_st = str(data.get('salary_type') or 'hourly').strip().lower()
     salary_type = raw_st if raw_st in ['hourly', 'daily', 'half_day'] else 'hourly'
     
