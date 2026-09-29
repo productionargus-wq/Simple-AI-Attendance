@@ -73,9 +73,9 @@ def send_email(to_email, subject, html_content, attachments=None, company_id=Non
             payload['from'] = DEFAULT_FALLBACK_FROM
             resp = requests.post(RESEND_API_URL, headers=headers, json=payload, timeout=15)
 
-        # If Resend sandbox restricts to own email address, redirect to productionargus@gmail.com for preview
+        # If Resend sandbox restricts to own email address, redirect to technologiesargus@gmail.com for preview
         if resp.status_code == 403 and ("own email address" in resp.text.lower() or "only send testing" in resp.text.lower()):
-            sandbox_dest = "productionargus@gmail.com"
+            sandbox_dest = "technologiesargus@gmail.com"
             print(f"[EmailService Sandbox] External recipient '{to_email}' requires verified domain on Resend. Delivering preview to '{sandbox_dest}'...")
             payload['to'] = [sandbox_dest]
             payload['subject'] = f"[Preview for {to_email}] " + subject

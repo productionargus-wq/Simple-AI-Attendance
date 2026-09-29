@@ -138,7 +138,7 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Super Admin Login (Registered Email: productionargus@gmail.com)."""
+    """Super Admin Login (Registered Email: technologiesargus@gmail.com)."""
     if request.method == 'POST':
         email = (request.form.get('email') or request.form.get('username') or '').strip()
         admin_user = database.validate_admin_login(email)
@@ -146,7 +146,7 @@ def login():
             session.clear()
             session['admin_logged_in'] = True
             session['admin_username'] = admin_user.get('username', 'Admin')
-            session['admin_email'] = admin_user.get('email', 'productionargus@gmail.com')
+            session['admin_email'] = admin_user.get('email', 'technologiesargus@gmail.com')
             session['role'] = 'super_admin'
             session['company_id'] = 'ARGUS_MASTER'
             session['company_name'] = 'ARGUS TECHNOLOGIES'
@@ -154,7 +154,7 @@ def login():
         else:
             return render_template(
                 'login.html',
-                error='Access Denied: Email not authorized as Super Admin. Please use productionargus@gmail.com.'
+                error='Access Denied: Email not authorized as Super Admin. Please use technologiesargus@gmail.com.'
             )
     return render_template('login.html')
 
@@ -256,14 +256,14 @@ def google_callback():
             session.clear()
             session['admin_logged_in'] = True
             session['admin_username'] = admin_user.get('username', 'Admin')
-            session['admin_email'] = admin_user.get('email', 'productionargus@gmail.com')
+            session['admin_email'] = admin_user.get('email', 'technologiesargus@gmail.com')
             session['role'] = 'super_admin'
             session['company_id'] = 'ARGUS_MASTER'
             session['company_name'] = 'ARGUS TECHNOLOGIES'
             return redirect(url_for('dashboard'))
         else:
             return render_oauth_error(
-                f"Access Denied: The Google account '{google_email}' is not authorized as Super Admin. Please use productionargus@gmail.com."
+                f"Access Denied: The Google account '{google_email}' is not authorized as Super Admin. Please use technologiesargus@gmail.com."
             )
 
     elif login_type == 'company':
@@ -804,6 +804,21 @@ def api_face_recognize():
         user_lng = request.form.get('longitude')
         client_time = request.form.get('client_time')
         
+        # Enrich with employee details for dynamic punch card
+        db = database.get_db()
+        emp_doc = db.employees.find_one(database.build_id_filter(emp_id)) or db.employees.find_one({'employee_name': emp_name})
+        if emp_doc:
+            result['employee_code'] = emp_doc.get('employee_id', emp_id)
+            result['designation'] = emp_doc.get('designation', '') or 'Staff'
+            result['department'] = emp_doc.get('department', '') or 'General'
+            result['company_name'] = emp_doc.get('company_name', 'Argus Technologies')
+            result['shift_hours'] = emp_doc.get('shift_hours', '08:00')
+        else:
+            result['employee_code'] = emp_id
+            result['designation'] = 'Staff'
+            result['department'] = 'General'
+            result['company_name'] = 'Argus Technologies'
+
         # Mark Attendance Punch In / Punch Out Lifecycle & Live Entry (Company-aware, 12-hour format)
         punch_res = database.record_face_attendance(
             employee_id=emp_id,
@@ -816,6 +831,7 @@ def api_face_recognize():
         result['live_entry_id'] = punch_res.get('live_id')
         result['punch_status'] = punch_res.get('status')
         result['formatted_distance'] = punch_res.get('formatted_dist')
+        result['punch_time'] = client_time or datetime.now().strftime('%d %b %Y, %I:%M:%S %p')
         if punch_res.get('working_hours'):
             result['working_hours'] = punch_res.get('working_hours')
         

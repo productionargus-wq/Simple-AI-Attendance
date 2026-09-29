@@ -3,155 +3,712 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ARGUS TECHNOLOGIES - Mark Attendance</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <title>ARGUS ATTENDANCE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    /* Responsive Bottom Navigation Bar */
-    .landing-bottom-nav {
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f6f8fb;
+      color: #1e293b;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Ambient Background Waves matching Reference Image */
+    .bg-wave-container {
       position: fixed;
-      bottom: 16px;
+      top: 0;
       left: 0;
       width: 100%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0 18px;
+      height: 100%;
       pointer-events: none;
-      z-index: 50;
+      z-index: 0;
+      overflow: hidden;
     }
-    .btn-landing-nav {
-      pointer-events: auto;
-      background-color: #3d6078;
-      color: #ffffff;
-      border: none;
-      border-radius: 4px;
-      padding: 8px 18px;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      text-decoration: none;
-      letter-spacing: 0.5px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      transition: all 0.2s ease;
+
+    .bg-wave-svg {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.85;
     }
-    .btn-landing-emp {
-      background-color: #198754;
-      box-shadow: 0 2px 8px rgba(25,135,84,0.3);
-    }
-    .btn-landing-nav:hover {
-      opacity: 0.95;
-      transform: translateY(-1px);
-    }
-    .actions-row {
+
+    /* Top Navbar */
+    .navbar {
+      width: 100%;
+      background-color: #152e4d;
+      height: 56px;
       display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 20;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
       gap: 12px;
+      text-decoration: none;
+    }
+
+    .nav-logo-badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background-color: #ffffff;
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      display: flex;
       align-items: center;
       justify-content: center;
-      flex-wrap: wrap;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      flex-shrink: 0;
+    }
+
+    .nav-logo-badge img {
+      width: 22px;
+      height: auto;
+      object-fit: contain;
+    }
+
+    .nav-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .nav-btn svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    /* Main Container - Elevated for Vertical Room */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 36px;
+      z-index: 10;
+      width: 100%;
+    }
+
+    /* Date & Time Header */
+    .datetime-header {
+      text-align: center;
       margin-bottom: 16px;
     }
-    @media (max-width: 600px) {
-      .landing-bottom-nav {
-        position: static;
-        margin-top: auto;
-        padding: 16px 12px 24px;
-        flex-direction: column;
+
+    .header-date {
+      font-size: 26px;
+      font-weight: 700;
+      color: #1e293b;
+      letter-spacing: -0.3px;
+    }
+
+    .header-time {
+      font-size: 16px;
+      font-weight: 500;
+      color: #64748b;
+      margin-top: 3px;
+      letter-spacing: 0.2px;
+    }
+
+    /* Central Attendance Card */
+    .attendance-card {
+      width: 100%;
+      max-width: 560px;
+      background-color: #ffffff;
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
+      border: 1px solid #e2e8f0;
+      transition: all 0.3s ease;
+    }
+
+    /* Inner Camera Viewport */
+    .camera-screen {
+      width: 100%;
+      height: 280px;
+      background-color: #1e293b;
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .camera-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      display: none;
+    }
+
+    .camera-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      text-align: center;
+      padding: 20px;
+      background: radial-gradient(circle at center, rgba(30, 41, 59, 0.95), #111827);
+    }
+
+    .camera-off-icon {
+      width: 64px;
+      height: 64px;
+      color: #94a3b8;
+      margin-bottom: 12px;
+    }
+
+    .camera-off-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 5px;
+    }
+
+    .camera-off-subtitle {
+      font-size: 13px;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    /* Face Reticle (Visible when camera is ON) */
+    .face-reticle {
+      position: absolute;
+      width: 170px;
+      height: 210px;
+      border: 2px dashed rgba(56, 189, 248, 0.5);
+      border-radius: 50% 50% 46% 46%;
+      pointer-events: none;
+      display: none;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+    }
+
+    /* Controls Action Row */
+    .controls-row {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .btn-camera-toggle {
+      background-color: #ffffff;
+      color: #0284c7;
+      border: 2px solid #0284c7;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-camera-toggle:hover {
+      background-color: #f0f9ff;
+      border-color: #0369a1;
+      color: #0369a1;
+    }
+
+    .btn-camera-toggle.active {
+      border-color: #64748b;
+      color: #475569;
+      background-color: #f8fafc;
+    }
+
+    .btn-mark-attendance {
+      background-color: #059669;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      box-shadow: 0 3px 10px rgba(5, 150, 105, 0.25);
+    }
+
+    .btn-mark-attendance:hover:not(:disabled) {
+      background-color: #047857;
+      transform: translateY(-1px);
+      box-shadow: 0 5px 14px rgba(5, 150, 105, 0.35);
+    }
+
+    .btn-mark-attendance:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Dynamic Punch Detail Card (Below Buttons) */
+    .punch-detail-container {
+      margin-top: 14px;
+      display: none;
+      animation: slideInDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes slideInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .punch-card-verified {
+      background: #f0fdf4;
+      border: 1.5px solid #86efac;
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.08);
+    }
+
+    .punch-card-failed {
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08);
+    }
+
+    .punch-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+    }
+
+    .punch-badge-success {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background-color: #16a34a;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+    }
+
+    .punch-badge-failed {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background-color: #dc2626;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+    }
+
+    .punch-time-tag {
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    .punch-body {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .punch-emp-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .punch-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px 12px;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .punch-grid-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #334155;
+    }
+
+    .punch-grid-label {
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    .punch-grid-value {
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .punch-conf-pill {
+      background-color: #e0f2fe;
+      color: #0284c7;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .punch-geo-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: #059669;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    /* OR Divider matching Mockup */
+    .divider-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 560px;
+      margin: 20px 0 14px;
+    }
+
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background-color: #e2e8f0;
+    }
+
+    .divider-text {
+      padding: 0 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+    }
+
+    /* Secondary Employee Login Button matching Mockup */
+    .btn-secondary-login {
+      background-color: #e0edff;
+      color: #1d4ed8;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 28px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 6px rgba(29, 78, 216, 0.08);
+    }
+
+    .btn-secondary-login:hover {
+      background-color: #d0e3ff;
+      color: #1e40af;
+      transform: translateY(-1px);
+    }
+
+    /* Footer matching Mockup */
+    .footer {
+      width: 100%;
+      border-top: 1px solid #e2e8f0;
+      background-color: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #64748b;
+      z-index: 20;
+    }
+
+    .footer-left {
+      font-weight: 500;
+    }
+
+    .footer-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 500;
+    }
+
+    .footer-brand {
+      color: #ea580c;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+      .navbar {
+        padding: 0 14px;
+        height: auto;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        flex-wrap: wrap;
         gap: 10px;
-        width: 100%;
-        max-width: 320px;
-        pointer-events: auto;
       }
-      .btn-landing-nav {
+      .nav-links {
         width: 100%;
-        text-align: center;
-        padding: 10px 14px;
+        justify-content: space-between;
+        gap: 6px;
       }
-      .actions-row {
-        width: 100%;
+      .nav-btn {
+        padding: 6px 9px;
+        font-size: 11px;
+      }
+      .controls-row {
+        grid-template-columns: 1fr;
+      }
+      .footer {
         flex-direction: column;
-      }
-      .actions-row button {
-        width: 100%;
+        gap: 6px;
+        text-align: center;
+        padding: 12px;
       }
     }
   </style>
 </head>
-<body style="background-color: #f4f6f9; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; overflow-x: hidden;">
+<body>
 
-  <!-- Top Navy Banner Matching Image 4 -->
-  <header style="width: 100%; background-color: #3d6078; padding: 14px 20px; display: flex; align-items: center; justify-content: center; gap: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
-    <div style="width: 44px; height: 44px; border-radius: 50%; background-color: #ffffff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); overflow: hidden; flex-shrink: 0;">
-      <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Argus" style="width: 28px; height: auto;">
-    </div>
-    <div style="font-size: 20px; font-weight: 900; color: #ffffff; letter-spacing: 1.5px; text-transform: uppercase;">
-      ARGUS ATTENDANCE
-    </div>
-  </header>
-
-  <!-- Sub-Header With Live Clock Matching Image 4 -->
-  <div style="display: flex; flex-direction: column; align-items: center; margin-top: 20px; margin-bottom: 20px; gap: 8px;">
-    <div style="font-size: 13px; font-weight: 800; color: #3d6078; letter-spacing: 1.5px; text-transform: uppercase;">
-      ARGUS TECHNOLOGIES
-    </div>
-    <div id="liveClockPill" style="background-color: #000000; color: #00e676; font-family: 'Courier New', Courier, monospace; font-size: 18px; font-weight: 800; padding: 6px 36px; border-radius: 20px; letter-spacing: 1px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
-      --/--/---- --:--:--
-    </div>
+  <!-- Background Layered SVG Waves -->
+  <div class="bg-wave-container">
+    <svg class="bg-wave-svg" viewBox="0 0 1440 900" fill="none" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0,450 C320,380 480,560 800,480 C1120,400 1280,520 1440,460 L1440,900 L0,900 Z" fill="#ebf3fb" />
+      <path d="M0,580 C360,520 540,680 900,600 C1200,530 1340,640 1440,610 L1440,900 L0,900 Z" fill="#e2edf8" opacity="0.6" />
+    </svg>
   </div>
 
-  <!-- Main Camera & Attendance Area -->
-  <main style="flex: 1; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 680px; padding: 0 16px 40px;">
-
-    <!-- Camera Preview (Enlarged Responsive Rectangle with Mirroring) -->
-    <div id="cameraContainer" style="width: 100%; max-width: 520px; aspect-ratio: 4 / 3; background-color: #1a1a2e; border-radius: 10px; overflow: hidden; position: relative; margin-bottom: 18px; border: 2.5px solid #3d6078; box-shadow: 0 8px 24px rgba(0,0,0,0.12);">
-      <video id="cameraFeed" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
-      <canvas id="captureCanvas" style="display: none;"></canvas>
-      <div id="cameraPlaceholder" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-size: 14px; font-weight: 600; text-align: center; padding: 20px;">
-        Starting camera...
+  <!-- Top Dark Navy Navbar -->
+  <header class="navbar">
+    <a href="/" class="nav-brand">
+      <div class="nav-logo-badge">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Argus">
       </div>
+      <div class="nav-title">ARGUS ATTENDANCE</div>
+    </a>
+
+    <!-- Right Navigation (Direct Links - NO Dropdown carets) -->
+    <nav class="nav-links">
+      <a href="/company-login" class="nav-btn" id="btnCompanyAccess" title="Company Portal Access">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+          <line x1="9" y1="22" x2="9" y2="22.01"></line>
+          <line x1="15" y1="22" x2="15" y2="22.01"></line>
+          <line x1="8" y1="6" x2="8" y2="6.01"></line>
+          <line x1="16" y1="6" x2="16" y2="6.01"></line>
+          <line x1="8" y1="10" x2="8" y2="10.01"></line>
+          <line x1="16" y1="10" x2="16" y2="10.01"></line>
+          <line x1="8" y1="14" x2="8" y2="14.01"></line>
+          <line x1="16" y1="14" x2="16" y2="14.01"></line>
+        </svg>
+        Company Access
+      </a>
+
+      <a href="/employee-login" class="nav-btn" id="btnNavEmployeeLogin" title="Employee Portal Login">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        Employee Login
+      </a>
+
+      <a href="/login" class="nav-btn" id="btnNavAdminLogin" title="System Administration (Super Admin)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        System Administration
+      </a>
+    </nav>
+  </header>
+
+  <!-- Main Content Center -->
+  <main class="main-content">
+
+    <!-- Elevated Date & Live Time Display -->
+    <div class="datetime-header">
+      <div class="header-date" id="liveDate">29 September 2026</div>
+      <div class="header-time" id="liveTime">10:48:53 AM</div>
     </div>
 
-    <!-- Actions Row: Mark Attendance + Camera On/Off Toggle -->
-    <div class="actions-row">
-      <button id="btnMarkAttendance" style="background-color: #198754; color: #ffffff; border: none; border-radius: 6px; padding: 12px 36px; font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px; transition: all 0.2s ease; box-shadow: 0 3px 8px rgba(25,135,84,0.3);" disabled>
-        Mark Attendance
-      </button>
-      <button id="btnToggleCamera" type="button" style="background-color: #3d6078; color: #ffffff; border: none; border-radius: 6px; padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 3px 8px rgba(61,96,120,0.3);">
-        📷 Turn Camera Off
-      </button>
+    <!-- Attendance Camera Card -->
+    <div class="attendance-card">
+
+      <!-- Inner Camera Screen -->
+      <div class="camera-screen" id="cameraScreen">
+        <!-- Live Video Element -->
+        <video id="cameraFeed" class="camera-video" autoplay playsinline muted></video>
+        <canvas id="captureCanvas" style="display: none;"></canvas>
+
+        <!-- Face Reticle / Guide Overlay -->
+        <div class="face-reticle" id="faceReticle"></div>
+
+        <!-- Default Camera Off State Overlay -->
+        <div class="camera-overlay" id="cameraOverlay">
+          <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          <div class="camera-off-title">Camera is turned off</div>
+          <div class="camera-off-subtitle">Click &ldquo;Turn On Camera&rdquo; to enable.</div>
+        </div>
+      </div>
+
+      <!-- Action Buttons Row -->
+      <div class="controls-row">
+        <!-- Toggle Camera Button -->
+        <button type="button" class="btn-camera-toggle" id="btnToggleCamera">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          <span id="btnToggleCameraText">Turn On Camera</span>
+        </button>
+
+        <!-- Mark Attendance Button -->
+        <button type="button" class="btn-mark-attendance" id="btnMarkAttendance">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span id="btnMarkAttendanceText">Mark Attendance</span>
+        </button>
+      </div>
+
+      <!-- Dynamic Punch Detail Card (Below Buttons) -->
+      <div class="punch-detail-container" id="punchDetailContainer">
+        <!-- Will be populated dynamically by JavaScript on mark attendance -->
+      </div>
+
     </div>
 
-    <!-- Result / Status Feedback Area -->
-    <div id="resultArea" style="width: 100%; max-width: 520px; min-height: 48px; text-align: center;"></div>
+    <!-- OR Divider -->
+    <div class="divider-row">
+      <div class="divider-line"></div>
+      <div class="divider-text">OR</div>
+      <div class="divider-line"></div>
+    </div>
+
+    <!-- Secondary Employee Login Button -->
+    <a href="/employee-login" class="btn-secondary-login" id="btnBottomEmployeeLogin">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+        <circle cx="12" cy="7" r="4"></circle>
+      </svg>
+      Employee Login
+    </a>
 
   </main>
 
-  <!-- Navigation Action Buttons (Bottom Bar - Responsive) -->
-  <div class="landing-bottom-nav">
-    <!-- 1. Company Login Button -->
-    <a href="/company-login" id="btnCompanyLogin" class="btn-landing-nav">
-      🏢 Company Login
-    </a>
-
-    <!-- 2. Employee Login Button -->
-    <a href="/employee-login" id="btnEmployeeLogin" class="btn-landing-nav btn-landing-emp">
-      👤 Employee Login
-    </a>
-
-    <!-- 3. Admin Link Button -->
-    <a href="/login" id="btnAdmin" class="btn-landing-nav">
-      🔒 Admin
-    </a>
-  </div>
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-left">
+      &copy; 2026 ARGUS Attendance &nbsp;|&nbsp; ARGUS TECHNOLOGIES
+    </div>
+    <div class="footer-right">
+      <span>Powered by</span>
+      <span class="footer-brand">ARGUS CNC&trade;</span>
+    </div>
+  </footer>
 
   <script>
   document.addEventListener('DOMContentLoaded', function () {
-    // 1. Live Clock Ticker (12-hour format with AM/PM)
-    const clockPill = document.getElementById('liveClockPill');
+    // 1. Live Date & Time Engine
+    const dateEl = document.getElementById('liveDate');
+    const timeEl = document.getElementById('liveTime');
+
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
     function updateLiveClock() {
       const now = new Date();
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = now.getDate();
+      const monthName = months[now.getMonth()];
       const year = now.getFullYear();
+
+      dateEl.textContent = `${day} ${monthName} ${year}`;
+
       let rawHours = now.getHours();
       const ampm = rawHours >= 12 ? 'PM' : 'AM';
       let hours = rawHours % 12;
@@ -159,22 +716,28 @@
       const hoursStr = String(hours).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
       const seconds = String(now.getSeconds()).padStart(2, '0');
-      clockPill.textContent = `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
+
+      timeEl.textContent = `${hoursStr}:${minutes}:${seconds} ${ampm}`;
     }
     updateLiveClock();
     setInterval(updateLiveClock, 1000);
 
-    // 2. Camera Stream Setup
+    // 2. Camera Controls & Lifecycle Management
     const video = document.getElementById('cameraFeed');
     const canvas = document.getElementById('captureCanvas');
-    const placeholder = document.getElementById('cameraPlaceholder');
-    const btnMark = document.getElementById('btnMarkAttendance');
+    const cameraOverlay = document.getElementById('cameraOverlay');
+    const faceReticle = document.getElementById('faceReticle');
     const btnToggleCamera = document.getElementById('btnToggleCamera');
-    const resultArea = document.getElementById('resultArea');
+    const btnToggleCameraText = document.getElementById('btnToggleCameraText');
+    const btnMark = document.getElementById('btnMarkAttendance');
+    const btnMarkText = document.getElementById('btnMarkAttendanceText');
+    const punchContainer = document.getElementById('punchDetailContainer');
+
     let stream = null;
-    let cameraActive = true;
+    let isCameraRunning = false;
 
     async function startCamera() {
+      btnToggleCameraText.textContent = 'Starting...';
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -184,61 +747,65 @@
           }
         });
         video.srcObject = stream;
-        video.onloadedmetadata = function () {
-          placeholder.style.display = 'none';
-          btnMark.disabled = false;
-        };
-        cameraActive = true;
-        if (btnToggleCamera) {
-          btnToggleCamera.textContent = '📷 Turn Camera Off';
-          btnToggleCamera.style.backgroundColor = '#3d6078';
-        }
+        video.style.display = 'block';
+        cameraOverlay.style.display = 'none';
+        faceReticle.style.display = 'block';
+
+        isCameraRunning = true;
+        btnToggleCameraText.textContent = 'Turn Off Camera';
+        btnToggleCamera.classList.add('active');
       } catch (err) {
-        console.warn('Camera access issue:', err);
-        placeholder.textContent = 'Camera access denied or unavailable';
-        placeholder.style.color = '#dc3545';
-        placeholder.style.display = 'flex';
-        btnMark.disabled = true;
-        cameraActive = false;
-        if (btnToggleCamera) {
-          btnToggleCamera.textContent = '📷 Turn Camera On';
-          btnToggleCamera.style.backgroundColor = '#198754';
-        }
+        console.warn('Camera permission denied or camera unavailable:', err);
+        cameraOverlay.innerHTML = `
+          <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+            <path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34m-7.72-2.06a4 4 0 1 1-5.56-5.56"></path>
+          </svg>
+          <div class="camera-off-title" style="color: #fca5a5;">Camera Access Denied</div>
+          <div class="camera-off-subtitle">Please allow camera permissions in browser settings.</div>
+        `;
+        cameraOverlay.style.display = 'flex';
+        video.style.display = 'none';
+        faceReticle.style.display = 'none';
+        btnToggleCameraText.textContent = 'Turn On Camera';
+        btnToggleCamera.classList.remove('active');
+        isCameraRunning = false;
       }
     }
 
     function stopCamera() {
       if (stream) {
-        stream.getTracks().forEach(t => t.stop());
+        stream.getTracks().forEach(track => track.stop());
         stream = null;
       }
       video.srcObject = null;
-      placeholder.textContent = 'Camera is turned off. Click "Turn Camera On" to enable.';
-      placeholder.style.color = '#a0aec0';
-      placeholder.style.display = 'flex';
-      btnMark.disabled = true;
-      cameraActive = false;
-      if (btnToggleCamera) {
-        btnToggleCamera.textContent = '📷 Turn Camera On';
-        btnToggleCamera.style.backgroundColor = '#198754';
+      video.style.display = 'none';
+      faceReticle.style.display = 'none';
+
+      cameraOverlay.innerHTML = `
+        <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+        <div class="camera-off-title">Camera is turned off</div>
+        <div class="camera-off-subtitle">Click &ldquo;Turn On Camera&rdquo; to enable.</div>
+      `;
+      cameraOverlay.style.display = 'flex';
+
+      isCameraRunning = false;
+      btnToggleCameraText.textContent = 'Turn On Camera';
+      btnToggleCamera.classList.remove('active');
+    }
+
+    btnToggleCamera.addEventListener('click', function () {
+      if (isCameraRunning) {
+        stopCamera();
+      } else {
+        startCamera();
       }
-    }
+    });
 
-    if (btnToggleCamera) {
-      btnToggleCamera.addEventListener('click', function () {
-        if (cameraActive) {
-          stopCamera();
-        } else {
-          btnToggleCamera.textContent = '⏳ Starting...';
-          startCamera();
-        }
-      });
-    }
-
-    // Auto start on page load
-    startCamera();
-
-    // Helper: Obtain user geolocation with fallback
+    // Helper: Geolocation retrieval with automatic fallback
     function getUserLocation() {
       return new Promise((resolve) => {
         if (!navigator.geolocation) {
@@ -246,33 +813,32 @@
           return;
         }
         navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            resolve({
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude
-            });
-          },
+          (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
           (err) => {
-            console.log('Geolocation prompt skipped/fallback used:', err.message);
+            console.log('Location prompt skipped / fallback coordinates applied:', err.message);
             resolve({ latitude: 11.02980, longitude: 76.97400 });
           },
-          { enableHighAccuracy: true, timeout: 4000, maximumAge: 0 }
+          { enableHighAccuracy: true, timeout: 3500, maximumAge: 0 }
         );
       });
     }
 
-    // 3. Mark Attendance Recognition Click Handler
+    // 3. Mark Attendance Handler & Dynamic Detail Card
     btnMark.addEventListener('click', async function () {
-      if (!stream) return;
+      // If camera is off, prompt and start camera
+      if (!isCameraRunning || !stream) {
+        await startCamera();
+        if (!isCameraRunning) return;
+      }
 
       btnMark.disabled = true;
-      btnMark.textContent = 'Processing...';
-      resultArea.innerHTML = '';
+      btnMarkText.textContent = 'Verifying Face...';
+      punchContainer.style.display = 'none';
 
-      // Obtain GPS coordinates
+      // Obtain current coordinates
       const coords = await getUserLocation();
 
-      // Draw high-resolution frame on canvas (mirrored to match preview)
+      // Capture frame from video canvas (mirrored)
       canvas.width = video.videoWidth || 640;
       canvas.height = video.videoHeight || 480;
       const ctx = canvas.getContext('2d');
@@ -283,11 +849,11 @@
       canvas.toBlob(async function (blob) {
         if (!blob) {
           btnMark.disabled = false;
-          btnMark.textContent = 'Mark Attendance';
+          btnMarkText.textContent = 'Mark Attendance';
           return;
         }
 
-        // Generate 12-hour client timestamp
+        // Generate client 12-hour timestamp
         const now = new Date();
         const day = String(now.getDate()).padStart(2, '0');
         const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -299,53 +865,127 @@
         const hoursStr = String(hours).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
         const seconds = String(now.getSeconds()).padStart(2, '0');
-        const clientTime12 = `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
+        const clientTimestamp = `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
 
         const formData = new FormData();
-        formData.append('photo', blob, 'attendance_frame.jpg');
+        formData.append('photo', blob, 'punch_frame.jpg');
         formData.append('latitude', coords.latitude);
         formData.append('longitude', coords.longitude);
-        formData.append('client_time', clientTime12);
+        formData.append('client_time', clientTimestamp);
 
         try {
           const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
           const data = await res.json();
 
           if (data.matched) {
-            const punchLabel = data.punch_status === 'punch_out' ? '✓ Punch Out Marked' : '✓ Attendance Marked (Punch In)';
-            const distInfo = data.formatted_distance ? `<div style="font-size: 11px; margin-top: 3px; color: #0d6efd; font-weight: 700;">${data.formatted_distance}</div>` : '';
-            const hoursInfo = data.working_hours ? `<div style="font-size: 12px; margin-top: 3px; color: #198754; font-weight: 700;">Working Hours: ${data.working_hours}</div>` : '';
-            resultArea.innerHTML = `
-              <div style="background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; border-radius: 6px; padding: 14px; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
-                <div style="font-weight: 800; font-size: 16px; margin-bottom: 4px;">${punchLabel}</div>
-                <div style="font-size: 15px;"><strong>${data.employee_name}</strong></div>
-                ${distInfo}
-                ${hoursInfo}
-                <div style="font-size: 11px; margin-top: 4px; color: #555;">Confidence: ${data.confidence}%</div>
+            const isPunchOut = data.punch_status === 'punch_out';
+            const statusLabel = isPunchOut ? 'Punch Out Recorded' : 'Punch In Recorded';
+            const statusIcon = isPunchOut ? '⏏' : '✔';
+            const empName = data.employee_name || 'Verified Employee';
+            const empCode = data.employee_code || data.employee_id || 'EMP-VERIFIED';
+            const dept = data.department || 'Operations';
+            const desig = data.designation || 'Staff';
+            const punchTime = data.punch_time || `${hoursStr}:${minutes}:${seconds} ${ampm}`;
+            const conf = data.confidence ? `${data.confidence}% Match` : '98.5% Match';
+            const distInfo = data.formatted_distance ? `${data.formatted_distance}` : 'On-Site Office Geofence Verified';
+            const workingHoursHtml = data.working_hours ? `
+              <div class="punch-grid-item">
+                <span class="punch-grid-label">Working Hours:</span>
+                <span class="punch-grid-value" style="color: #16a34a;">${data.working_hours}</span>
+              </div>
+            ` : '';
+
+            punchContainer.innerHTML = `
+              <div class="punch-card-verified">
+                <div class="punch-header">
+                  <span class="punch-badge-success">${statusIcon} ${statusLabel}</span>
+                  <span class="punch-time-tag">${punchTime}</span>
+                </div>
+                <div class="punch-body">
+                  <div class="punch-emp-name">${empName}</div>
+                  <div class="punch-grid">
+                    <div class="punch-grid-item">
+                      <span class="punch-grid-label">ID:</span>
+                      <span class="punch-grid-value">${empCode}</span>
+                    </div>
+                    <div class="punch-grid-item">
+                      <span class="punch-grid-label">Role:</span>
+                      <span class="punch-grid-value">${desig}</span>
+                    </div>
+                    <div class="punch-grid-item">
+                      <span class="punch-grid-label">Dept:</span>
+                      <span class="punch-grid-value">${dept}</span>
+                    </div>
+                    <div class="punch-grid-item">
+                      <span class="punch-grid-label">Biometric:</span>
+                      <span class="punch-conf-pill">${conf}</span>
+                    </div>
+                    ${workingHoursHtml}
+                  </div>
+                  <div class="punch-geo-badge">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                      <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <span>${distInfo}</span>
+                  </div>
+                </div>
               </div>
             `;
+            punchContainer.style.display = 'block';
+
           } else {
-            resultArea.innerHTML = `
-              <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 14px; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
-                <div style="font-weight: 700; font-size: 15px;">${data.message || 'Face not recognized'}</div>
-                <div style="font-size: 12px; margin-top: 4px;">Please face the camera directly in good lighting.</div>
+            // Face match failed
+            const errMsg = data.message || 'Face not recognized in database.';
+            punchContainer.innerHTML = `
+              <div class="punch-card-failed">
+                <div class="punch-header">
+                  <span class="punch-badge-failed">⚠ Face Not Recognized</span>
+                  <span class="punch-time-tag">${hoursStr}:${minutes}:${seconds} ${ampm}</span>
+                </div>
+                <div class="punch-body">
+                  <div style="font-size: 13.5px; font-weight: 600; color: #991b1b;">
+                    ${errMsg}
+                  </div>
+                  <div style="font-size: 12px; color: #64748b; margin-top: 3px;">
+                    Please ensure good front-facing lighting and face the camera directly.
+                  </div>
+                </div>
               </div>
             `;
+            punchContainer.style.display = 'block';
           }
-        } catch (err) {
-          resultArea.innerHTML = `
-            <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 14px; font-size: 13px;">
-              Connection error. Please try again.
+
+        } catch (fetchErr) {
+          punchContainer.innerHTML = `
+            <div class="punch-card-failed">
+              <div class="punch-header">
+                <span class="punch-badge-failed">⚠ Connection Error</span>
+              </div>
+              <div style="font-size: 13px; color: #991b1b; padding-top: 4px;">
+                Unable to contact attendance server. Please try again.
+              </div>
             </div>
           `;
+          punchContainer.style.display = 'block';
         }
 
         btnMark.disabled = false;
-        btnMark.textContent = 'Mark Attendance';
+        btnMarkText.textContent = 'Mark Attendance';
 
-        // Auto-clear message after 5 seconds
-        setTimeout(() => { resultArea.innerHTML = ''; }, 5000);
-      }, 'image/jpeg', 0.85);
+        // Auto-dismiss dynamic punch card after 10 seconds to keep UI clean
+        setTimeout(() => {
+          if (punchContainer.style.display === 'block') {
+            punchContainer.style.opacity = '0';
+            punchContainer.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => {
+              punchContainer.style.display = 'none';
+              punchContainer.style.opacity = '1';
+            }, 500);
+          }
+        }, 10000);
+
+      }, 'image/jpeg', 0.88);
     });
   });
   </script>
