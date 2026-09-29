@@ -48,7 +48,6 @@
           <th data-col="half_day_salary">HALF DAY SALARY <span class="sort-icon">⇅</span></th>
           <th data-col="mobile_number">MOBILE NUMBER <span class="sort-icon">⇅</span></th>
           <th data-col="email_id">EMAIL ID <span class="sort-icon">⇅</span></th>
-          <th>PHOTO <span class="sort-icon">⇅</span></th>
           <th data-col="shift_hours">SHIFT HOURS <span class="sort-icon">⇅</span></th>
           <th>VIEW <span class="sort-icon">⇅</span></th>
           <th>EDIT <span class="sort-icon">⇅</span></th>
@@ -163,28 +162,9 @@
           </div>
 
           <!-- Row 6 -->
-          <div class="form-group">
+          <div class="form-group" style="grid-column: span 3;">
             <label class="form-label">Shift Hours</label>
             <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="Example 09:00">
-          </div>
-          <div class="form-group" style="grid-column: span 2;">
-            <label class="form-label">Register Face<span class="required" id="photoRequiredIndicator">*</span></label>
-            <div style="display: flex; gap: 8px; align-items: flex-start;">
-              <input type="file" class="form-input form-file-input" id="inputPhoto" name="photo" accept="image/*" style="flex: 1;">
-              <button type="button" id="btnCaptureface" class="btn-submit" style="padding: 6px 12px; font-size: 11px; white-space: nowrap; background-color: #3d6078;">📷 Capture Face</button>
-            </div>
-            <!-- Inline Camera Preview -->
-            <div id="faceCaptureArea" style="display: none; margin-top: 8px;">
-              <div style="position: relative; width: 220px; height: 165px; background-color: #1a1a2e; border-radius: 4px; overflow: hidden; border: 1px solid #ced4da;">
-                <video id="faceRegVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
-                <canvas id="faceRegCanvas" style="display: none;"></canvas>
-              </div>
-              <div style="margin-top: 6px; display: flex; gap: 6px;">
-                <button type="button" id="btnTakeSnapshot" class="btn-submit" style="padding: 5px 14px; font-size: 11px; background-color: #198754;">Capture</button>
-                <button type="button" id="btnCancelCapture" class="btn-reset" style="padding: 5px 14px; font-size: 11px;">Cancel</button>
-              </div>
-              <div id="captureStatus" style="font-size: 11px; color: #198754; margin-top: 4px;"></div>
-            </div>
           </div>
         </div>
       </div>

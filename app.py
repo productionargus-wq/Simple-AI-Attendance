@@ -528,7 +528,7 @@ def api_dashboard_stats():
 def api_get_employees():
     search = request.args.get('search', '').strip()
     sort_col = request.args.get('sort_col', 'id')
-    sort_dir = request.args.get('sort_dir', 'asc')
+    sort_dir = request.args.get('sort_dir', 'desc')
     page = int(request.args.get('page', 1))
     limit = int(request.args.get('limit', 10))
     

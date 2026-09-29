@@ -205,7 +205,7 @@ def get_all_companies(search='', page=1, limit=10):
         ]
         
     total = db.company_admin.count_documents(query)
-    cursor = db.company_admin.find(query).sort("created_at", DESCENDING)
+    cursor = db.company_admin.find(query).sort([("created_at", DESCENDING), ("_id", DESCENDING)])
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
@@ -345,7 +345,7 @@ def validate_employee_login(email):
 def generate_employee_id():
     return str(int(time.time() * 1000))
 
-def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='asc', page=1, limit=10):
+def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc', page=1, limit=10):
     db = get_db()
     query = {}
     if company_id and company_id != 'ALL':
@@ -369,7 +369,11 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='asc',
     total = db.employees.count_documents(query)
     sort_direction = ASCENDING if sort_dir.lower() == 'asc' else DESCENDING
     
-    cursor = db.employees.find(query).sort(sort_col, sort_direction)
+    # Ensure newest records appear at the top
+    if sort_col in ['id', 'created_at', '']:
+        cursor = db.employees.find(query).sort([('created_at', sort_direction), ('id', sort_direction), ('_id', sort_direction)])
+    else:
+        cursor = db.employees.find(query).sort([(sort_col, sort_direction), ('created_at', DESCENDING), ('id', DESCENDING)])
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
@@ -509,20 +513,31 @@ def get_dashboard_stats(company_id=None):
         
     total_employees = db.employees.count_documents(t_filter)
     
-    # Calculate today's active punches
+    # Calculate today's active punches across live punches, attendance, reports, and manual entries
     today_str = get_ist_now().strftime('%Y-%m-%d')
     today_slash = get_ist_now().strftime('%d/%m/%Y')
     
     p_filter = dict(t_filter)
     p_filter['date'] = today_str
-    p_filter['status'] = 'Present'
     present_names = db.attendance.distinct('employee_name', p_filter)
+    
+    ar_today_filter = dict(t_filter)
+    ar_today_filter['date'] = today_str
+    ar_today = db.attendance_reports.distinct('employee_name', ar_today_filter)
     
     l_filter = dict(t_filter)
     l_filter['entry_time'] = {'$regex': today_slash}
     live_today = db.live_entries.distinct('employee_name', l_filter)
     
-    combined_present = set(present_names).union(set(live_today))
+    m_filter = dict(t_filter)
+    m_filter['$or'] = [
+        {'entry_date': today_str},
+        {'submitted_at': {'$regex': today_str}},
+        {'submitted_at': {'$regex': today_slash}}
+    ]
+    manual_today = db.manual_entries.distinct('employee_name', m_filter)
+    
+    combined_present = set(present_names).union(set(live_today)).union(set(ar_today)).union(set(manual_today))
     present_count = len(combined_present)
     absent_count = max(0, total_employees - present_count)
     present_percentage = round((present_count / total_employees * 100), 1) if total_employees > 0 else 0.0
@@ -531,35 +546,66 @@ def get_dashboard_stats(company_id=None):
     tout_filter['is_timeout'] = 1
     timeout_count = db.live_entries.count_documents(tout_filter)
     
-    # Last 7 days dynamic calculation
+    # Last 7 days dynamic calculation including manual entries
     last_7_days = []
     today = get_ist_now().date()
     for i in range(6, -1, -1):
         day = today - timedelta(days=i)
         day_str = day.strftime('%Y-%m-%d')
+        day_slash = day.strftime('%d/%m/%Y')
         label = day.strftime('%d %b')
-        day_filter = dict(t_filter)
-        day_filter['date'] = day_str
-        day_filter['status'] = 'Present'
-        count = db.attendance.count_documents(day_filter)
+        
+        d_att = dict(t_filter)
+        d_att['date'] = day_str
+        d_att_names = db.attendance.distinct('employee_name', d_att)
+        
+        d_ar = dict(t_filter)
+        d_ar['date'] = day_str
+        d_ar_names = db.attendance_reports.distinct('employee_name', d_ar)
+        
+        d_me = dict(t_filter)
+        d_me['$or'] = [
+            {'entry_date': day_str},
+            {'submitted_at': {'$regex': day_str}},
+            {'submitted_at': {'$regex': day_slash}}
+        ]
+        d_me_names = db.manual_entries.distinct('employee_name', d_me)
+        
+        unique_day_present = set(d_att_names).union(set(d_ar_names)).union(set(d_me_names))
+        
         last_7_days.append({
             'date': label,
-            'count': count
+            'count': len(unique_day_present)
         })
         
-    # Monthly stats dynamic calculation
+    # Monthly stats dynamic calculation across attendance punches and manual entries
     monthly_stats = []
     months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     curr_year = get_ist_now().year
     for m_idx, m_name in enumerate(months, start=1):
         m_prefix = f"{curr_year}-{m_idx:02d}"
-        mo_filter = dict(t_filter)
-        mo_filter['date'] = {'$regex': f"^{m_prefix}"}
-        mo_filter['status'] = 'Present'
-        count = db.attendance.count_documents(mo_filter)
+        m_hyphen = f"-{m_idx:02d}-{curr_year}"
+        
+        mo_att = dict(t_filter)
+        mo_att['date'] = {'$regex': f"^{m_prefix}"}
+        att_cnt = db.attendance.count_documents(mo_att)
+        
+        mo_ar = dict(t_filter)
+        mo_ar['date'] = {'$regex': f"^{m_prefix}"}
+        ar_cnt = db.attendance_reports.count_documents(mo_ar)
+        
+        mo_me = dict(t_filter)
+        mo_me['$or'] = [
+            {'entry_date': {'$regex': f"^{m_prefix}"}},
+            {'submitted_at': {'$regex': f"^{m_prefix}"}},
+            {'submitted_at': {'$regex': m_hyphen}}
+        ]
+        me_cnt = db.manual_entries.count_documents(mo_me)
+        
+        total_monthly_punches = att_cnt + ar_cnt + me_cnt
         monthly_stats.append({
             'month': m_name,
-            'count': count
+            'count': total_monthly_punches
         })
         
     return {
@@ -567,6 +613,7 @@ def get_dashboard_stats(company_id=None):
         'present': present_count,
         'absent': absent_count,
         'present_percentage': present_percentage,
+        'present_percent': f"{present_percentage}%",
         'timeout': timeout_count,
         'last_7_days': last_7_days,
         'monthly_stats': monthly_stats
@@ -970,7 +1017,7 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         ]
         
     total = db.attendance_reports.count_documents(query)
-    cursor = db.attendance_reports.find(query).sort("created_at", DESCENDING)
+    cursor = db.attendance_reports.find(query).sort([("date", DESCENDING), ("created_at", DESCENDING), ("_id", DESCENDING)])
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
@@ -990,7 +1037,7 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
     if employee and employee != 'All':
         query['employee_name'] = employee
         
-    cursor = db.attendance_reports.find(query).sort("created_at", DESCENDING)
+    cursor = db.attendance_reports.find(query).sort([("date", DESCENDING), ("created_at", DESCENDING), ("_id", DESCENDING)])
     rows = [clean_doc(doc) for doc in cursor]
     
     total_minutes = 0
@@ -1048,7 +1095,7 @@ def get_manual_entries(from_date=None, to_date=None, status='All', search=None, 
         ]
         
     total = db.manual_entries.count_documents(query)
-    cursor = db.manual_entries.find(query).sort("entry_date", DESCENDING)
+    cursor = db.manual_entries.find(query).sort([("entry_date", DESCENDING), ("created_at", DESCENDING), ("id", DESCENDING), ("_id", DESCENDING)])
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
@@ -1270,7 +1317,7 @@ def get_payments(employee=None, start_date=None, end_date=None, bank=None, payme
         ]
         
     total = db.payments.count_documents(query)
-    cursor = db.payments.find(query).sort("timestamp", DESCENDING)
+    cursor = db.payments.find(query).sort([("payment_date", DESCENDING), ("created_at", DESCENDING), ("id", DESCENDING), ("_id", DESCENDING)])
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
@@ -1369,7 +1416,7 @@ def get_advances(employee=None, start_date=None, end_date=None, search=None, pag
         ]
         
     total = db.advances.count_documents(query)
-    cursor = db.advances.find(query).sort("timestamp", DESCENDING)
+    cursor = db.advances.find(query).sort([("advance_date", DESCENDING), ("created_at", DESCENDING), ("id", DESCENDING), ("_id", DESCENDING)])
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
@@ -1486,7 +1533,7 @@ def get_balance_report(employee=None, search=None, page=1, limit=10, company_id=
             'balance_amount': -amt
         })
         
-    combined.sort(key=lambda x: x['timestamp'], reverse=True)
+    combined.sort(key=lambda x: (x.get('date', '') or x.get('timestamp', ''), str(x.get('id', ''))), reverse=True)
     total = len(combined)
     balance_amount = total_advance - total_repayment
     
@@ -1534,7 +1581,7 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
         ]
         
     total = db.salary_reports.count_documents(query)
-    cursor = db.salary_reports.find(query).sort([("pay_period", DESCENDING), ("id", ASCENDING)])
+    cursor = db.salary_reports.find(query).sort([("pay_period", DESCENDING), ("created_at", DESCENDING), ("id", DESCENDING), ("_id", DESCENDING)])
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         

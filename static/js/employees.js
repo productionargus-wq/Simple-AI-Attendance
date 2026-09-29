@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function () {
   let currentLimit = 10;
   let currentSearch = '';
   let currentSortCol = 'id';
-  let currentSortDir = 'asc';
+  let currentSortDir = 'desc';
   let currentViewingEmpId = null;
 
   // DOM Elements
@@ -50,16 +50,12 @@ document.addEventListener('DOMContentLoaded', function () {
     tableBody.innerHTML = '';
 
     if (!employees || employees.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="13" style="text-align: center; padding: 20px; color: #888;">No matching records found</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 20px; color: #888;">No matching records found</td></tr>`;
       return;
     }
 
     employees.forEach(emp => {
       const tr = document.createElement('tr');
-      
-      const photoHtml = emp.photo_filename 
-        ? `<span class="photo-link" onclick="openPhotoModal('${emp.photo_filename}', '${escapeHtml(emp.employee_name)}')">View Image</span>`
-        : `<span style="color: #999;">No Image</span>`;
 
       const st = emp.salary_type || 'hourly';
       let badgeHtml = '';
@@ -83,7 +79,6 @@ document.addEventListener('DOMContentLoaded', function () {
         <td>${Number(emp.half_day_salary || 0).toFixed(0)}</td>
         <td>${escapeHtml(emp.mobile_number || '')}</td>
         <td>${escapeHtml(emp.email_id || '')}</td>
-        <td>${photoHtml}</td>
         <td>${escapeHtml(emp.shift_hours || '')}</td>
         <td>
           <button class="btn-action btn-action-view" onclick="viewEmployee('${emp.id}')" title="View">
@@ -208,8 +203,6 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('formEmployeeId').value = '';
     document.getElementById('entryModalTitle').textContent = 'Employee Detail Entry';
     document.getElementById('inputSalaryType').value = 'daily';
-    document.getElementById('inputPhoto').required = true;
-    document.getElementById('photoRequiredIndicator').style.display = 'inline';
     entryModal.classList.add('active');
   }
 
@@ -238,10 +231,6 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('inputAccountNumber').value = emp.account_number || '';
       document.getElementById('inputIfsc').value = emp.ifsc_code || '';
       document.getElementById('inputShiftHours').value = emp.shift_hours || '';
-
-      // Photo is not strictly required when editing existing
-      document.getElementById('inputPhoto').required = false;
-      document.getElementById('photoRequiredIndicator').style.display = 'none';
 
       entryModal.classList.add('active');
     } catch (err) {
