@@ -771,12 +771,12 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnTakeSnapshot) {
     btnTakeSnapshot.addEventListener('click', function () {
       if (!faceStream) return;
-      faceRegCanvas.width = faceRegVideo.videoWidth;
-      faceRegCanvas.height = faceRegVideo.videoHeight;
+      faceRegCanvas.width = faceRegVideo.videoWidth || 640;
+      faceRegCanvas.height = faceRegVideo.videoHeight || 480;
       const ctx = faceRegCanvas.getContext('2d');
       ctx.translate(faceRegCanvas.width, 0);
       ctx.scale(-1, 1);
-      ctx.drawImage(faceRegVideo, 0, 0);
+      ctx.drawImage(faceRegVideo, 0, 0, faceRegCanvas.width, faceRegCanvas.height);
 
       faceRegCanvas.toBlob(function (blob) {
         const file = new File([blob], 'face_capture.jpg', { type: 'image/jpeg' });
