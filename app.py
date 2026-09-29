@@ -154,7 +154,7 @@ def login():
         else:
             return render_template(
                 'login.html',
-                error='Access Denied: Email not authorized as Super Admin. Please use technologiesargus@gmail.com.'
+                error='Invalid email or credentials. Access denied.'
             )
     return render_template('login.html')
 
@@ -263,7 +263,7 @@ def google_callback():
             return redirect(url_for('dashboard'))
         else:
             return render_oauth_error(
-                f"Access Denied: The Google account '{google_email}' is not authorized as Super Admin. Please use technologiesargus@gmail.com."
+                f"Access Denied: The Google account '{google_email}' is not authorized as Super Admin."
             )
 
     elif login_type == 'company':
