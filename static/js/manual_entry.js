@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const today = new Date().toISOString().split('T')[0];
       entryDateInput.value = today;
       hoursInput.value = '04:00';
-      statusSelect.value = 'Permission';
+      statusSelect.value = 'Proper';
       modal.classList.add('active');
     });
   }
@@ -309,7 +309,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       entryDateInput.value = d;
       hoursInput.value = entry.hours || '04:00';
-      statusSelect.value = entry.status || 'Permission';
+      statusSelect.value = entry.status || 'Proper';
 
       modal.classList.add('active');
     } catch (err) {

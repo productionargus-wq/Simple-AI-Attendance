@@ -23,6 +23,7 @@
     <label for="statusFilter">Status</label>
     <select id="statusFilter" class="filter-input" style="width: 140px;">
       <option value="All" selected>All</option>
+      <option value="Proper">Proper</option>
       <option value="Permission">Permission</option>
       <option value="Improper">Improper</option>
       <option value="Others">Others</option>
@@ -136,11 +137,12 @@
             <input type="text" class="form-input" id="inputHours" name="hours" placeholder="04:00" value="04:00">
           </div>
 
-          <!-- Status (Permission / Improper / Others - Image 4) -->
+          <!-- Status (Proper / Permission / Improper / Others) -->
           <div class="form-group">
             <label class="form-label">Status</label>
             <select class="form-input" id="inputStatus" name="status">
-              <option value="Permission" selected>Permission</option>
+              <option value="Proper" selected>Proper</option>
+              <option value="Permission">Permission</option>
               <option value="Improper">Improper</option>
               <option value="Others">Others</option>
             </select>

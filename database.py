@@ -793,7 +793,7 @@ def process_company_timeout_entries(company_id=None):
                     'day_credit_type': day_credit_type,
                     'working_salary': working_salary,
                     'is_timeout': 1,
-                    'entry_type': 'timeout_auto',
+                    'entry_type': rep.get('entry_type', 'proper'),
                     'updated_at': now.isoformat()
                 }}
             )
@@ -927,19 +927,21 @@ def calculate_realistic_proximity(user_lat, user_lng, office_lat=OFFICE_LAT, off
     except Exception:
         return 14.5
 
-def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=OFFICE_LOCATION_STR, entry_distance=0.0, is_timeout=0, user_lat=None, user_lng=None, company_id='ARGUS_MASTER'):
+def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=OFFICE_LOCATION_STR, entry_distance=0.0, is_timeout=0, user_lat=None, user_lng=None, company_id='ARGUS_MASTER', target_lat=None, target_lng=None):
     db = get_db()
     if not entry_time:
         entry_time = get_ist_now().strftime('%d/%m/%Y %I:%M:%S %p')
         
-    calculated_meters = float(entry_distance)
-    if user_lat is not None and user_lng is not None:
+    calculated_meters = float(entry_distance or 0.0)
+    if calculated_meters > 0.0:
+        pass
+    elif user_lat is not None and user_lng is not None:
         try:
-            calculated_meters = calculate_realistic_proximity(user_lat, user_lng)
+            calculated_meters = calculate_realistic_proximity(user_lat, user_lng, office_lat=target_lat, office_lng=target_lng)
         except Exception:
-            pass
+            calculated_meters = 14.5
     elif calculated_meters == 0.0:
-        calculated_meters = calculate_realistic_proximity(None, None)
+        calculated_meters = calculate_realistic_proximity(None, None, office_lat=target_lat, office_lng=target_lng)
             
     doc = {
         'company_id': str(company_id or 'ARGUS_MASTER'),
@@ -1024,7 +1026,8 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     existing_rep = db.attendance_reports.find_one(report_filter, sort=[('created_at', DESCENDING)])
     
     if not existing_rep or (existing_rep.get('exit_time') and existing_rep.get('exit_time') != '----'):
-        # PUNCH IN: Create new attendance record
+        # Geofencing threshold: 2000 meters (<= 2000m is proper, > 2000m is improper)
+        punch_in_entry_type = 'proper' if dist_meters <= 2000.0 else 'improper'
         rep_doc = {
             'company_id': comp_id,
             'employee_id': str(employee_id),
@@ -1041,7 +1044,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'salary_type': salary_type,
             'day_credit_type': 'Pending',
             'working_salary': 0,
-            'entry_type': 'proper',
+            'entry_type': punch_in_entry_type,
             'created_at': now.isoformat()
         }
         db.attendance_reports.insert_one(rep_doc)
@@ -1150,6 +1153,11 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         else:
             computed_salary = int(round((working_minutes / 60.0) * hourly_rate))
             
+        # Determine final entry_type: Proper only if BOTH punch-in and punch-out are <= 2000m
+        in_entry_type = existing_rep.get('entry_type', 'proper')
+        out_is_proper = (dist_meters <= 2000.0)
+        final_entry_type = 'proper' if (in_entry_type == 'proper' and out_is_proper) else 'improper'
+
         upd_data = {
             'exit_time': now_time_12,
             'exit_distance': formatted_dist,
@@ -1159,6 +1167,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'salary_type': salary_type,
             'day_credit_type': day_credit_type,
             'working_salary': computed_salary,
+            'entry_type': final_entry_type,
             'updated_at': now.isoformat()
         }
         db.attendance_reports.update_one({'_id': existing_rep['_id']}, {'$set': upd_data})
@@ -1175,13 +1184,57 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
 
 def get_attendance_reports(report_type='all', start_date=None, end_date=None, employee='All', search=None, page=1, limit=10, company_id=None):
     db = get_db()
+
+    if report_type == 'manual':
+        m_query = {}
+        if company_id and company_id != 'ALL':
+            m_query['company_id'] = str(company_id)
+        if employee and employee != 'All':
+            m_query['employee_name'] = employee
+        if start_date:
+            m_query.setdefault('entry_date', {})['$gte'] = start_date.strip()
+        if end_date:
+            m_query.setdefault('entry_date', {})['$lte'] = end_date.strip()
+        if search:
+            reg = {'$regex': re.escape(search), '$options': 'i'}
+            m_query['$or'] = [{'employee_name': reg}, {'entry_date': reg}, {'status': reg}]
+            
+        total = db.manual_entries.count_documents(m_query)
+        cursor = db.manual_entries.find(m_query).sort([("entry_date", DESCENDING), ("created_at", DESCENDING)])
+        if limit and limit > 0:
+            cursor = cursor.skip((page - 1) * limit).limit(limit)
+        data = []
+        for doc in cursor:
+            c = clean_doc(doc)
+            data.append({
+                'employee_name': c.get('employee_name', ''),
+                'entry_time': c.get('submitted_at') or c.get('entry_date', ''),
+                'entry_distance': 'MANUAL ENTRY',
+                'entry_location': f"Manual Adjustment ({c.get('status', 'Proper')})",
+                'exit_time': '----',
+                'exit_distance': '----',
+                'exit_location': '----',
+                'working_hours': c.get('hours', '00:00'),
+                'shift_variance': '----',
+                'working_salary': c.get('working_salary', 0),
+                'entry_type': 'manual'
+            })
+        return {
+            'total': total,
+            'page': page,
+            'limit': limit,
+            'data': data
+        }
+
     query = {}
     
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
         
-    if report_type in ['proper', 'improper', 'manual']:
-        query['entry_type'] = report_type
+    if report_type == 'proper':
+        query['entry_type'] = {'$ne': 'improper'}
+    elif report_type == 'improper':
+        query['entry_type'] = 'improper'
         
     if employee and employee != 'All':
         query['employee_name'] = employee
@@ -1245,17 +1298,20 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
     data = []
     
     for r in rows:
-        wh = r.get('working_hours', '00:00')
-        sal = float(r.get('working_salary', 0.0))
-        total_salary += sal
-        
-        parts = wh.split(':')
-        if len(parts) >= 2:
-            try:
-                total_minutes += int(parts[0]) * 60 + int(parts[1])
-            except ValueError:
-                pass
-                
+        is_proper = r.get('entry_type') != 'improper'
+        if is_proper:
+            wh = r.get('working_hours', '00:00')
+            sal = float(r.get('working_salary', 0.0))
+            total_salary += sal
+            parts = wh.split(':')
+            if len(parts) >= 2:
+                try:
+                    total_minutes += int(parts[0]) * 60 + int(parts[1])
+                except ValueError:
+                    pass
+        else:
+            r['working_salary'] = 0.0
+            r['day_credit_type'] = 'Improper (0 Credit)'
         data.append(r)
         
     tot_h = total_minutes // 60
@@ -1327,7 +1383,7 @@ def create_manual_entry(data, company_id=None):
     
     hours_str = data.get('hours', '00:00')
     mode = data.get('mode', 'Hours')
-    status = data.get('status', 'Permission')
+    status = data.get('status', 'Proper')
     salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
     shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
     shift_target_minutes = 480
@@ -1427,7 +1483,7 @@ def update_manual_entry(entry_id, data):
 
     hours_str = data.get('hours', '00:00')
     mode = data.get('mode', 'Hours')
-    status = data.get('status', 'Permission')
+    status = data.get('status', 'Proper')
     
     working_salary = 0.0
     if mode == 'Salary':
@@ -1949,9 +2005,10 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         shift_target_minutes = 480
     half_shift_target = max(1, shift_target_minutes // 2)
     
-    # 1. Query attendance & attendance_reports for this employee & month
+    # 1. Query attendance & attendance_reports for this employee & month (Only Proper entries)
     att_query = {
         'employee_name': employee_name,
+        'entry_type': {'$ne': 'improper'},
         '$or': [
             {'date': {'$regex': f'^{month_year}'}},
             {'entry_time': {'$regex': f'^{month_year}'}},
@@ -1974,6 +2031,8 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     daily_manual_salary = {}
 
     for rec in records:
+        if rec.get('entry_type') == 'improper':
+            continue
         d_val = rec.get('date') or (rec.get('entry_time', '').split(' ')[0] if rec.get('entry_time') else '')
         if not d_val:
             continue
@@ -2011,6 +2070,9 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     manual_entries = list(db.manual_entries.find(manual_query))
 
     for m_entry in manual_entries:
+        st = str(m_entry.get('status', '')).strip().lower()
+        if 'improper' in st:
+            continue
         ed = m_entry.get('entry_date') or (m_entry.get('submitted_at', '').split(' ')[0] if m_entry.get('submitted_at') else '')
         if not ed:
             continue
