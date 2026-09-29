@@ -291,7 +291,10 @@ def google_callback():
             session['employee_id'] = str(employee.get('id', employee.get('_id', '')))
             session['employee_name'] = employee.get('employee_name', '')
             session['employee_email'] = employee.get('email_id', '')
-            session['company_id'] = employee.get('company_id', 'ARGUS_MASTER')
+            comp_id = employee.get('company_id', 'ARGUS_MASTER')
+            session['company_id'] = comp_id
+            comp_record = database.get_company_by_id(comp_id) if comp_id != 'ARGUS_MASTER' else None
+            session['company_name'] = comp_record.get('company_name', 'ARGUS TECHNOLOGIES') if comp_record else 'ARGUS TECHNOLOGIES'
             return redirect(url_for('employee_portal'))
         else:
             return render_oauth_error(
@@ -335,7 +338,10 @@ def employee_login():
             session['employee_id'] = str(employee.get('id', employee.get('_id', '')))
             session['employee_name'] = employee.get('employee_name', '')
             session['employee_email'] = employee.get('email_id', '')
-            session['company_id'] = employee.get('company_id', 'ARGUS_MASTER')
+            comp_id = employee.get('company_id', 'ARGUS_MASTER')
+            session['company_id'] = comp_id
+            comp_record = database.get_company_by_id(comp_id) if comp_id != 'ARGUS_MASTER' else None
+            session['company_name'] = comp_record.get('company_name', 'ARGUS TECHNOLOGIES') if comp_record else 'ARGUS TECHNOLOGIES'
             return redirect(url_for('employee_portal'))
         else:
             return render_template(
@@ -361,6 +367,8 @@ def employee_portal():
     comp_id = session.get('company_id')
     employee = database.get_employee_by_id(emp_id)
     company = database.get_company_by_id(comp_id) if comp_id != 'ARGUS_MASTER' else {'company_name': 'Argus Technologies'}
+    if company and company.get('company_name'):
+        session['company_name'] = company['company_name']
     return render_template('employee_portal.html', employee=employee, company=company)
 
 @app.route('/dashboard')

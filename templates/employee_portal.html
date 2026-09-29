@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ARGUS - Employee Portal | {{ employee.employee_name if employee else 'Employee' }}</title>
+  <title>{{ company.company_name if company and company.company_name else session.get('company_name') or 'ARGUS' }} - Employee Portal | {{ employee.employee_name if employee else 'Employee' }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <style>
     /* Ensure page is fully scrollable and not locked by global style.css */
@@ -28,6 +28,19 @@
       position: sticky;
       top: 0;
       z-index: 100;
+    }
+    .portal-nav-center {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-align: center;
+      white-space: nowrap;
+      pointer-events: none;
     }
     .portal-container {
       max-width: 1100px;
@@ -112,6 +125,12 @@
         padding: 12px 14px;
         text-align: center;
       }
+      .portal-nav-center {
+        position: static;
+        transform: none;
+        margin: 4px 0;
+        font-size: 16px;
+      }
       .portal-nav > div:last-child {
         width: 100%;
         justify-content: space-between;
@@ -165,6 +184,11 @@
         <div style="font-size: 16px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">ARGUS ATTENDANCE</div>
         <div style="font-size: 10px; color: #ffd166; font-weight: 700; letter-spacing: 0.8px;">EMPLOYEE SELF-SERVICE PORTAL</div>
       </div>
+    </div>
+
+    <!-- Center Company Name -->
+    <div class="portal-nav-center">
+      {{ (company.company_name if company and company.company_name else session.get('company_name') or 'ARGUS TECHNOLOGIES') | upper }}
     </div>
 
     <div style="display: flex; align-items: center; gap: 16px;">
