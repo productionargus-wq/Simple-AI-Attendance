@@ -63,21 +63,21 @@
         </tr>
         <tr>
           <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Employee ID</td>
-          <td class="ps-cell-val" id="dispEmpId" style="border: 1px solid #767676; padding: 5px 8px;">1782466963517</td>
-          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Day Salary</td>
-          <td class="ps-cell-val" id="dispDaySalary" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
+          <td class="ps-cell-val" id="dispEmpId" style="border: 1px solid #767676; padding: 5px 8px;">-</td>
+          <td class="ps-cell-lbl" id="dispRate1Lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Day Salary</td>
+          <td class="ps-cell-val" id="dispRate1Val" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
         </tr>
         <tr>
           <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Designation</td>
-          <td class="ps-cell-val" id="dispDesignation" style="border: 1px solid #767676; padding: 5px 8px;">Production</td>
-          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Half Day Salary</td>
-          <td class="ps-cell-val" id="dispHalfSalary" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
+          <td class="ps-cell-val" id="dispDesignation" style="border: 1px solid #767676; padding: 5px 8px;">-</td>
+          <td class="ps-cell-lbl" id="dispRate2Lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Half Day Salary</td>
+          <td class="ps-cell-val" id="dispRate2Val" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
         </tr>
         <tr>
           <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Phone Number</td>
-          <td class="ps-cell-val" id="dispPhone" style="border: 1px solid #767676; padding: 5px 8px;">8220394753</td>
-          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Hours Salary</td>
-          <td class="ps-cell-val" id="dispHoursSalary" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
+          <td class="ps-cell-val" id="dispPhone" style="border: 1px solid #767676; padding: 5px 8px;">-</td>
+          <td class="ps-cell-lbl" id="dispRate3Lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Hours Salary</td>
+          <td class="ps-cell-val" id="dispRate3Val" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
         </tr>
         <tr>
           <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Year & Month</td>
@@ -235,9 +235,32 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('dispPhone').innerText = p.phone_number;
         document.getElementById('dispSalaryBasis').innerText = p.salary_basis_label || 'Day-Based';
         document.getElementById('dispYearMonth').innerText = p.year_month;
-        document.getElementById('dispHoursSalary').innerText = `₹${p.hours_salary}`;
-        document.getElementById('dispDaySalary').innerText = `₹${p.day_salary}`;
-        document.getElementById('dispHalfSalary').innerText = `₹${p.half_day_salary}`;
+        const st = (p.salary_type || 'daily').toLowerCase();
+        const shiftH = p.shift_hours || '08:00';
+        const bankName = p.bank_name || '—';
+
+        if (st === 'hourly') {
+          document.getElementById('dispRate1Lbl').innerText = 'Hours Salary';
+          document.getElementById('dispRate1Val').innerText = `₹${p.hours_salary}`;
+          document.getElementById('dispRate2Lbl').innerText = 'Shift Hours';
+          document.getElementById('dispRate2Val').innerText = shiftH;
+          document.getElementById('dispRate3Lbl').innerText = 'Bank Name';
+          document.getElementById('dispRate3Val').innerText = bankName;
+        } else if (st === 'half_day') {
+          document.getElementById('dispRate1Lbl').innerText = 'Half Day Salary';
+          document.getElementById('dispRate1Val').innerText = `₹${p.half_day_salary}`;
+          document.getElementById('dispRate2Lbl').innerText = 'Shift Hours';
+          document.getElementById('dispRate2Val').innerText = shiftH;
+          document.getElementById('dispRate3Lbl').innerText = 'Bank Name';
+          document.getElementById('dispRate3Val').innerText = bankName;
+        } else {
+          document.getElementById('dispRate1Lbl').innerText = 'Day Salary';
+          document.getElementById('dispRate1Val').innerText = `₹${p.day_salary}`;
+          document.getElementById('dispRate2Lbl').innerText = 'Half Day Salary';
+          document.getElementById('dispRate2Val').innerText = `₹${p.half_day_salary}`;
+          document.getElementById('dispRate3Lbl').innerText = 'Shift Hours';
+          document.getElementById('dispRate3Val').innerText = shiftH;
+        }
         document.getElementById('dispWorkingDays').innerText = p.working_days_breakdown || `${p.working_days} Days`;
         document.getElementById('dispTotalDays').innerText = `${p.total_days_of_month} Days (${p.leave_days} Leave)`;
         document.getElementById('dispWorkingHours').innerText = p.total_working_hours;

@@ -1880,6 +1880,11 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     salary_basis_label = basis_labels.get(salary_type, 'Day-Based')
     working_days_breakdown = f"{working_days} ({full_days} Full, {half_days} Half)" if (full_days > 0 or half_days > 0) else str(working_days)
 
+    # Format rate reporting on payslips: only report rates applicable to the employee's basis
+    rep_hours_salary = int(round(hours_salary)) if salary_type == 'hourly' else 0
+    rep_day_salary = int(round(day_salary)) if salary_type == 'daily' else 0
+    rep_half_salary = int(round(half_salary)) if salary_type in ['daily', 'half_day'] else 0
+
     return {
         'company_id': assigned_company_id,
         'company_name': company_name,
@@ -1888,6 +1893,9 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         'employee_id': emp_id,
         'designation': designation,
         'phone_number': phone,
+        'shift_hours': str(shift_hours_str or '08:00'),
+        'bank_name': str(emp.get('bank_name', '') if emp else ''),
+        'account_number': str(emp.get('account_number', '') if emp else ''),
         'salary_type': salary_type,
         'salary_basis': salary_basis_label,
         'salary_basis_label': salary_basis_label,
@@ -1897,9 +1905,9 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         'working_days_breakdown': working_days_breakdown,
         'pay_period': month_year,
         'year_month': month_year,
-        'hours_salary': int(round(hours_salary)),
-        'day_salary': int(round(day_salary)),
-        'half_day_salary': int(round(half_salary)),
+        'hours_salary': rep_hours_salary,
+        'day_salary': rep_day_salary,
+        'half_day_salary': rep_half_salary,
         'working_days': working_days,
         'leave_days': leave_days,
         'total_days': total_days,
