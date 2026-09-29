@@ -1876,3 +1876,97 @@ body {
   border: 2px solid #3d6078;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
+
+/* Toolbar Right Controls & Icon-only View Toggles */
+.toolbar-right-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.view-toggle-wrapper {
+  display: inline-flex;
+  border: 1px solid #ced4da;
+  border-radius: 5px;
+  overflow: hidden;
+  background-color: #ffffff;
+}
+
+.btn-icon-view {
+  background-color: #ffffff;
+  border: none;
+  padding: 6px 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.btn-icon-view:first-child {
+  border-right: 1px solid #e2e8f0;
+}
+
+.btn-icon-view:hover {
+  background-color: #f1f5f9;
+  color: #3d6078;
+}
+
+.btn-icon-view.active {
+  background-color: #3d6078;
+  color: #ffffff;
+}
+
+/* Dedicated Face Camera Registration Overlay Modal */
+.face-camera-modal-overlay {
+  z-index: 1100 !important;
+}
+
+.modal-box-camera {
+  max-width: 420px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.camera-stream-box {
+  position: relative;
+  width: 320px;
+  height: 240px;
+  background-color: #1a1a2e;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid #3d6078;
+  margin: 0 auto;
+}
+
+.camera-stream-box video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camera-status-msg {
+  font-size: 12px;
+  margin-top: 8px;
+  min-height: 18px;
+  font-weight: 600;
+  color: #3d6078;
+}
+
+.camera-modal-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.btn-snapshot {
+  background-color: #198754;
+  padding: 8px 20px;
+  font-size: 13px;
+}

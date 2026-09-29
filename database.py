@@ -2017,12 +2017,16 @@ def get_payslip_data(employee_name, month_year, company_id=None):
             
         hrs_str = m_entry.get('hours', '00:00')
         mins = 0
-        if hrs_str and ':' in hrs_str:
-            try:
-                h, m = hrs_str.split(':')[:2]
-                mins = int(h) * 60 + int(m)
-            except Exception:
-                pass
+        if hrs_str:
+            clean_hrs = str(hrs_str).replace('-', '').strip()
+            if ':' in clean_hrs:
+                try:
+                    parts = clean_hrs.split(':')
+                    h = abs(int(parts[0]))
+                    m = abs(int(parts[1]))
+                    mins = h * 60 + m
+                except Exception:
+                    mins = 0
         st = str(m_entry.get('status', '')).lower()
         if 'full' in st:
             mins = max(mins, shift_target_minutes)
@@ -2032,15 +2036,15 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         is_sub = entry_type.lower() == 'sub' or float(m_entry.get('working_salary', 0.0)) < 0
         msal = abs(float(m_entry.get('working_salary', 0.0)))
 
-        if is_sub:
-            daily_minutes[ed] = max(0, daily_minutes.get(ed, 0) - mins)
-            daily_manual_salary[ed] = daily_manual_salary.get(ed, 0.0) - msal
-        else:
-            daily_minutes[ed] = daily_minutes.get(ed, 0) + mins
-            daily_manual_salary[ed] = daily_manual_salary.get(ed, 0.0) + msal
+        delta_mins = -mins if is_sub else mins
+        delta_sal = -msal if is_sub else msal
 
-    positive_days = {d: m for d, m in daily_minutes.items() if m > 0}
-    total_minutes = sum(positive_days.values())
+        daily_minutes[ed] = daily_minutes.get(ed, 0) + delta_mins
+        daily_manual_salary[ed] = daily_manual_salary.get(ed, 0.0) + delta_sal
+
+    net_daily_minutes = {d: max(0, m) for d, m in daily_minutes.items()}
+    positive_days = {d: m for d, m in net_daily_minutes.items() if m > 0}
+    total_minutes = max(0, sum(daily_minutes.values()))
     working_days = len(positive_days)
     tot_hrs = total_minutes // 60
     tot_mins = total_minutes % 60
@@ -2055,7 +2059,7 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         # Standard half-day target is 4 hours (240 mins) or half of shift
         ref_half_mins = 240 if shift_target_minutes >= 480 else (shift_target_minutes if shift_target_minutes <= 300 else 240)
         ref_full_mins = ref_half_mins * 2
-        for d, mins in daily_minutes.items():
+        for d, mins in net_daily_minutes.items():
             if mins >= ref_full_mins:
                 full_days += 1
             elif mins >= ref_half_mins:
@@ -2064,7 +2068,7 @@ def get_payslip_data(employee_name, month_year, company_id=None):
                 partial_days += 1
                 partial_minutes += mins
     else:
-        for d, mins in daily_minutes.items():
+        for d, mins in net_daily_minutes.items():
             if mins >= shift_target_minutes:
                 full_days += 1
             elif mins >= half_shift_target:
@@ -2077,24 +2081,33 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     effective_hour = hours_salary if hours_salary > 0 else (day_salary / (shift_target_minutes / 60.0) if day_salary > 0 else 0.0)
     manual_salary_sum = sum(daily_manual_salary.values())
 
-    # Calculate basic salary accurately based on salary_type
-    if salary_type == 'hourly':
+    # Calculate basic salary accurately based on salary_type and presence of records vs manual_entries
+    if not records and manual_entries:
+        # Solely driven by manual entries: basic salary is exact net sum of manual entries' working salary
+        manual_net = sum(float(m.get('working_salary', 0.0)) for m in manual_entries)
+        basic_salary = max(0.0, round(manual_net, 2))
+    elif salary_type == 'hourly':
         basic_salary = round((total_minutes / 60.0) * hours_salary, 2)
     elif salary_type == 'daily':
         part_sal = (partial_minutes / 60.0) * effective_hour
         basic_salary = round((full_days * day_salary) + (half_days * effective_half) + part_sal, 2)
+        # Deduct unapplied manual deductions (e.g. deductions logged on days without biometric punches)
+        unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
+        basic_salary = max(0.0, round(basic_salary + unapplied_deductions, 2))
     elif salary_type == 'half_day':
         total_half_units = (full_days * 2) + half_days
         target_half_div = ref_half_mins if 'ref_half_mins' in locals() and ref_half_mins > 0 else 240
         part_sal = (partial_minutes / float(target_half_div)) * effective_half
         basic_salary = round((total_half_units * effective_half) + part_sal, 2)
+        unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
+        basic_salary = max(0.0, round(basic_salary + unapplied_deductions, 2))
     else:
         if hours_salary > 0:
             basic_salary = round((total_minutes / 60.0) * hours_salary, 2)
         elif day_salary > 0:
             basic_salary = round((full_days * day_salary) + (half_days * effective_half), 2)
         else:
-            basic_salary = manual_salary_sum
+            basic_salary = max(0.0, manual_salary_sum)
 
     if basic_salary == 0.0 and manual_salary_sum > 0.0:
         basic_salary = manual_salary_sum

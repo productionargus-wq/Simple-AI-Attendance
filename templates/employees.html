@@ -29,15 +29,33 @@
       <span>entries</span>
     </div>
 
-    <!-- View Mode Toggle: List vs Grid -->
-    <div class="view-toggle-wrapper" style="display: flex; align-items: center; gap: 8px;">
-      <button type="button" class="btn-toggle-tab active" id="btnListView" style="padding: 5px 14px; font-size: 12px; font-weight: 700;">📄 List View</button>
-      <button type="button" class="btn-toggle-tab inactive" id="btnGridView" style="padding: 5px 14px; font-size: 12px; font-weight: 700;">🔲 Grid View</button>
-    </div>
+    <!-- Right Controls: Toggle Icons + Search Box -->
+    <div class="toolbar-right-controls">
+      <div class="view-toggle-wrapper">
+        <button type="button" class="btn-icon-view active" id="btnListView" title="List View" aria-label="List View">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+        </button>
+        <button type="button" class="btn-icon-view" id="btnGridView" title="Grid View" aria-label="Grid View">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+        </button>
+      </div>
 
-    <div class="search-box-wrapper">
-      <label for="tableSearch">Search:</label>
-      <input type="text" id="tableSearch" class="search-input">
+      <div class="search-box-wrapper">
+        <label for="tableSearch">Search:</label>
+        <input type="text" id="tableSearch" class="search-input">
+      </div>
     </div>
   </div>
 
@@ -190,22 +208,11 @@
           <!-- Row 7: Register Face & Photo -->
           <div class="form-group" style="grid-column: span 3;">
             <label class="form-label">Register Face & Photo<span class="required" id="photoRequiredIndicator">*</span></label>
-            <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <div style="display: flex; gap: 8px; align-items: center;">
               <input type="file" class="form-input form-file-input" id="inputPhoto" name="photo" accept="image/*" style="flex: 1;">
-              <button type="button" id="btnCaptureface" class="btn-submit" style="padding: 6px 14px; font-size: 11px; white-space: nowrap; background-color: #3d6078;">📷 Capture Face</button>
+              <button type="button" id="btnCaptureface" class="btn-submit" style="padding: 7px 14px; font-size: 12px; white-space: nowrap; background-color: #3d6078;">📷 Capture Face</button>
             </div>
-            <!-- Inline Camera Preview -->
-            <div id="faceCaptureArea" style="display: none; margin-top: 10px; background-color: #f8fafc; padding: 10px; border-radius: 6px; border: 1px dashed #cbd5e1;">
-              <div style="position: relative; width: 240px; height: 180px; background-color: #1a1a2e; border-radius: 4px; overflow: hidden; border: 1px solid #ced4da; margin: 0 auto;">
-                <video id="faceRegVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
-                <canvas id="faceRegCanvas" style="display: none;"></canvas>
-              </div>
-              <div style="margin-top: 8px; display: flex; gap: 8px; justify-content: center;">
-                <button type="button" id="btnTakeSnapshot" class="btn-submit" style="padding: 5px 14px; font-size: 11px; background-color: #198754;">Capture Snapshot</button>
-                <button type="button" id="btnCancelCapture" class="btn-reset" style="padding: 5px 14px; font-size: 11px;">Cancel</button>
-              </div>
-              <div id="captureStatus" style="font-size: 12px; color: #198754; font-weight: 700; margin-top: 6px; text-align: center;"></div>
-            </div>
+            <div id="captureStatus" style="font-size: 12px; color: #198754; font-weight: 700; margin-top: 6px;"></div>
           </div>
         </div>
       </div>
@@ -215,6 +222,27 @@
         <button type="button" class="btn-reset" id="btnResetForm">Reset</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ================= MODAL: Face Camera Registration (Overlay) ================= -->
+<div class="modal-overlay face-camera-modal-overlay" id="faceCameraModal">
+  <div class="modal-box modal-box-camera">
+    <div class="modal-header" style="background-color: #3d6078; color: #ffffff; padding: 12px 18px;">
+      <div class="modal-header-title" style="color: #ffffff; font-size: 14px;">📷 Capture Employee Face</div>
+      <button type="button" class="modal-close-btn" id="closeCameraModal" style="color: #ffffff;">&times;</button>
+    </div>
+    <div class="modal-body" style="padding: 16px; text-align: center;">
+      <div class="camera-stream-box">
+        <video id="faceRegVideo" autoplay playsinline></video>
+        <canvas id="faceRegCanvas" style="display: none;"></canvas>
+      </div>
+      <div id="cameraStatusMsg" class="camera-status-msg"></div>
+      <div class="camera-modal-actions">
+        <button type="button" id="btnTakeSnapshot" class="btn-submit btn-snapshot">Capture Snapshot</button>
+        <button type="button" id="btnCancelCapture" class="btn-reset">Cancel</button>
+      </div>
+    </div>
   </div>
 </div>
 

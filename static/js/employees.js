@@ -42,8 +42,8 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnListView && btnGridView) {
     btnListView.addEventListener('click', function () {
       currentView = 'list';
-      btnListView.className = 'btn-toggle-tab active';
-      btnGridView.className = 'btn-toggle-tab inactive';
+      btnListView.classList.add('active');
+      btnGridView.classList.remove('active');
       if (employeeListSection) employeeListSection.style.display = 'block';
       if (employeeGridSection) employeeGridSection.style.display = 'none';
       renderTableRows(currentEmployees);
@@ -51,8 +51,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     btnGridView.addEventListener('click', function () {
       currentView = 'grid';
-      btnGridView.className = 'btn-toggle-tab active';
-      btnListView.className = 'btn-toggle-tab inactive';
+      btnGridView.classList.add('active');
+      btnListView.classList.remove('active');
       if (employeeListSection) employeeListSection.style.display = 'none';
       if (employeeGridSection) employeeGridSection.style.display = 'grid';
       renderGridCards(currentEmployees);
@@ -703,38 +703,68 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initial load
   loadEmployees();
 
-  // ===== FACE BIOMETRICS CAMERA CAPTURE =====
+  // ===== FACE BIOMETRICS CAMERA CAPTURE (SEPARATE OVERLAY MODAL) =====
   const btnCaptureFace = document.getElementById('btnCaptureface');
-  const faceCaptureArea = document.getElementById('faceCaptureArea');
+  const faceCameraModal = document.getElementById('faceCameraModal');
+  const closeCameraModal = document.getElementById('closeCameraModal');
   const faceRegVideo = document.getElementById('faceRegVideo');
   const faceRegCanvas = document.getElementById('faceRegCanvas');
   const btnTakeSnapshot = document.getElementById('btnTakeSnapshot');
   const btnCancelCapture = document.getElementById('btnCancelCapture');
+  const cameraStatusMsg = document.getElementById('cameraStatusMsg');
   const captureStatus = document.getElementById('captureStatus');
   const inputPhoto = document.getElementById('inputPhoto');
   let faceStream = null;
 
+  function stopFaceCamera() {
+    if (faceStream) {
+      faceStream.getTracks().forEach(t => t.stop());
+      faceStream = null;
+    }
+    if (faceCameraModal) {
+      faceCameraModal.classList.remove('active');
+    }
+    if (cameraStatusMsg) {
+      cameraStatusMsg.textContent = '';
+    }
+  }
+
   if (btnCaptureFace) {
     btnCaptureFace.addEventListener('click', async function () {
-      faceCaptureArea.style.display = 'block';
-      captureStatus.textContent = '';
+      if (faceCameraModal) faceCameraModal.classList.add('active');
+      if (cameraStatusMsg) {
+        cameraStatusMsg.textContent = 'Connecting to webcam...';
+        cameraStatusMsg.style.color = '#3d6078';
+      }
       try {
         faceStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 320, height: 240 } });
         faceRegVideo.srcObject = faceStream;
+        if (cameraStatusMsg) {
+          cameraStatusMsg.textContent = 'Position face within frame and click Capture Snapshot';
+          cameraStatusMsg.style.color = '#198754';
+        }
       } catch (err) {
-        captureStatus.textContent = 'Camera access denied';
-        captureStatus.style.color = '#dc3545';
+        if (cameraStatusMsg) {
+          cameraStatusMsg.textContent = 'Camera access denied: ' + err.message;
+          cameraStatusMsg.style.color = '#dc3545';
+        }
       }
     });
   }
 
+  if (closeCameraModal) {
+    closeCameraModal.addEventListener('click', stopFaceCamera);
+  }
+
   if (btnCancelCapture) {
-    btnCancelCapture.addEventListener('click', function () {
-      if (faceStream) {
-        faceStream.getTracks().forEach(t => t.stop());
-        faceStream = null;
+    btnCancelCapture.addEventListener('click', stopFaceCamera);
+  }
+
+  if (faceCameraModal) {
+    faceCameraModal.addEventListener('click', function (e) {
+      if (e.target === faceCameraModal) {
+        stopFaceCamera();
       }
-      faceCaptureArea.style.display = 'none';
     });
   }
 
@@ -749,37 +779,24 @@ document.addEventListener('DOMContentLoaded', function () {
       ctx.drawImage(faceRegVideo, 0, 0);
 
       faceRegCanvas.toBlob(function (blob) {
-        // Create a File object and set it on the file input via DataTransfer
         const file = new File([blob], 'face_capture.jpg', { type: 'image/jpeg' });
         const dt = new DataTransfer();
         dt.items.add(file);
         inputPhoto.files = dt.files;
 
-        captureStatus.textContent = '✓ Face captured successfully';
-        captureStatus.style.color = '#198754';
-
-        // Stop camera
-        if (faceStream) {
-          faceStream.getTracks().forEach(t => t.stop());
-          faceStream = null;
+        if (captureStatus) {
+          captureStatus.textContent = '✓ Face photo captured successfully';
+          captureStatus.style.color = '#198754';
         }
-        // Hide video after short delay
-        setTimeout(() => {
-          faceCaptureArea.style.display = 'none';
-        }, 1500);
+
+        stopFaceCamera();
       }, 'image/jpeg', 0.9);
     });
   }
 
-  // Stop face camera when modal closes
+  // Also stop face camera when employee entry modal closes
   const closeEntryModalBtn2 = document.getElementById('closeEntryModal');
   if (closeEntryModalBtn2) {
-    closeEntryModalBtn2.addEventListener('click', function () {
-      if (faceStream) {
-        faceStream.getTracks().forEach(t => t.stop());
-        faceStream = null;
-      }
-      if (faceCaptureArea) faceCaptureArea.style.display = 'none';
-    });
+    closeEntryModalBtn2.addEventListener('click', stopFaceCamera);
   }
 });
