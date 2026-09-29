@@ -479,6 +479,21 @@ def api_delete_company(comp_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
+@app.route('/api/companies/<comp_id>/toggle-auto-reports', methods=['POST'])
+@super_admin_required
+def api_toggle_company_auto_reports(comp_id):
+    data = request.get_json(silent=True) or {}
+    enabled = data.get('enabled')
+    new_state = database.toggle_company_auto_reports(comp_id, enabled)
+    if new_state is None:
+        return jsonify({'success': False, 'error': 'Company not found'}), 404
+    return jsonify({
+        'success': True,
+        'company_id': comp_id,
+        'auto_email_reports': new_state,
+        'message': f"Automatic email reports {'enabled' if new_state else 'disabled'} successfully."
+    })
+
 @app.route('/api/companies/reports', methods=['GET'])
 @super_admin_required
 def api_company_reports():

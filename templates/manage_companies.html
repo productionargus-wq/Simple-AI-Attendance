@@ -55,12 +55,13 @@
           <th>OFFICE LOCATION (LAT, LNG)</th>
           <th style="text-align: center;">EMPLOYEES</th>
           <th style="text-align: center;">STATUS</th>
+          <th style="text-align: center; width: 125px;">AUTO REPORTS</th>
           <th style="text-align: center; width: 70px;">DELETE</th>
         </tr>
       </thead>
       <tbody id="companyTableBody">
         <tr>
-          <td colspan="9" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
+          <td colspan="10" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
         </tr>
       </tbody>
     </table>
@@ -141,6 +142,15 @@
             <select class="form-input" id="inputStatus" name="status">
               <option value="Active" selected>Active</option>
               <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+
+          <!-- Field 7: Automated Email Reports -->
+          <div class="form-group">
+            <label class="form-label">Auto Email Reports</label>
+            <select class="form-input" id="inputAutoEmailReports" name="auto_email_reports">
+              <option value="true" selected>Enabled (Send Emails)</option>
+              <option value="false">Disabled (No Emails)</option>
             </select>
           </div>
         </div>

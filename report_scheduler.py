@@ -226,6 +226,10 @@ def send_daily_activity_email(company_id, target_date=None, force=False):
     if not comp or not comp.get('email'):
         return False, f"Company {comp_id_str} not found or has no registered email.", None
 
+    # Check if automatic email reports are turned off for this company
+    if not force and comp.get('auto_email_reports') is False:
+        return False, f"Automatic email reports are turned off for {comp.get('company_name', comp_id_str)}. Skipping.", None
+
     to_email = comp['email'].strip()
 
     # Idempotency check: Don't send twice for the same date unless forced
@@ -266,6 +270,10 @@ def send_monthly_salary_email(company_id, target_month=None, force=False):
     if not comp or not comp.get('email'):
         return False, f"Company {comp_id_str} not found or has no registered email.", None
 
+    # Check if automatic email reports are turned off for this company
+    if not force and comp.get('auto_email_reports') is False:
+        return False, f"Automatic email reports are turned off for {comp.get('company_name', comp_id_str)}. Skipping.", None
+
     to_email = comp['email'].strip()
 
     if not force:
@@ -304,6 +312,10 @@ def dispatch_all_daily_reports(target_date=None, force=False):
         c_email = comp.get('email', '')
         if not c_id or not c_email:
             continue
+        if comp.get('auto_email_reports') is False and not force:
+            print(f"[Scheduler] Skipping company '{c_name}' (ID: {c_id}) - Automatic email reports turned off.")
+            results.append({'company_id': c_id, 'company_name': c_name, 'email': c_email, 'status': 'SKIPPED', 'message': 'Automatic email reports disabled by Super Admin.'})
+            continue
         try:
             ok, msg, _ = send_daily_activity_email(c_id, target_date=target_date, force=force)
             results.append({'company_id': c_id, 'company_name': c_name, 'email': c_email, 'status': 'SENT' if ok else 'FAILED', 'message': msg})
@@ -324,6 +336,10 @@ def dispatch_all_monthly_reports(target_month=None, force=False):
         c_name = comp.get('company_name', '')
         c_email = comp.get('email', '')
         if not c_id or not c_email:
+            continue
+        if comp.get('auto_email_reports') is False and not force:
+            print(f"[Scheduler] Skipping company '{c_name}' (ID: {c_id}) - Automatic email reports turned off.")
+            results.append({'company_id': c_id, 'company_name': c_name, 'email': c_email, 'status': 'SKIPPED', 'message': 'Automatic email reports disabled by Super Admin.'})
             continue
         try:
             ok, msg, _ = send_monthly_salary_email(c_id, target_month=target_month, force=force)

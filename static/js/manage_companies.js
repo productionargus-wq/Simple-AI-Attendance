@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function () {
     currentPage = page;
     companyTableBody.innerHTML = `
       <tr>
-        <td colspan="9" style="text-align: center; padding: 24px; color: #6c757d;">Loading companies...</td>
+        <td colspan="10" style="text-align: center; padding: 24px; color: #6c757d;">Loading companies...</td>
       </tr>
     `;
 
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!data.companies || data.companies.length === 0) {
         companyTableBody.innerHTML = `
           <tr>
-            <td colspan="9" style="text-align: center; padding: 28px; color: #6c757d;">
+            <td colspan="10" style="text-align: center; padding: 28px; color: #6c757d;">
               No registered companies found. Click <strong>+ Add Company</strong> above to register a new tenant.
             </td>
           </tr>
@@ -69,6 +69,23 @@ document.addEventListener('DOMContentLoaded', function () {
         const statusBadge = comp.status === 'Active'
           ? `<span style="background-color: #d1e7dd; color: #0f5132; padding: 3px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">Active</span>`
           : `<span style="background-color: #f8d7da; color: #842029; padding: 3px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">Inactive</span>`;
+
+        const isAutoReports = comp.auto_email_reports !== false;
+        const autoReportsBadge = isAutoReports
+          ? `<button type="button" class="btn-toggle-auto-reports btn-reports-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Auto Email Reports: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+              <span>ON</span>
+            </button>`
+          : `<button type="button" class="btn-toggle-auto-reports btn-reports-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Auto Email Reports: DISABLED (Click to turn on)" style="background-color: #f1f5f9; color: #64748b; border: 1.5px solid #cbd5e1; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; opacity: 0.85;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <line x1="2" y1="2" x2="22" y2="22"></line>
+              </svg>
+              <span>OFF</span>
+            </button>`;
 
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -93,6 +110,7 @@ document.addEventListener('DOMContentLoaded', function () {
             </span>
           </td>
           <td style="text-align: center;">${statusBadge}</td>
+          <td style="text-align: center;">${autoReportsBadge}</td>
           <td style="text-align: center;">
             <button class="btn-action btn-action-delete" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Delete Company">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -110,6 +128,39 @@ document.addEventListener('DOMContentLoaded', function () {
       const endEntry = Math.min(startIndex + data.companies.length, data.total);
       companyTableInfo.textContent = `Showing ${startEntry} to ${endEntry} of ${data.total} entries`;
       updatePagination(data.page, data.pages);
+
+      // Attach auto reports toggle handlers
+      document.querySelectorAll('.btn-toggle-auto-reports').forEach(btn => {
+        btn.addEventListener('click', async function () {
+          const compId = this.getAttribute('data-id');
+          const compName = this.getAttribute('data-name');
+          const currentState = this.getAttribute('data-state') === 'true';
+          const nextState = !currentState;
+
+          this.disabled = true;
+          this.style.opacity = '0.6';
+
+          try {
+            const res = await fetch(`/api/companies/${compId}/toggle-auto-reports`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enabled: nextState })
+            });
+            const resp = await res.json();
+            if (resp.success) {
+              loadCompanies(currentPage);
+            } else {
+              alert(`Error: ${resp.error || 'Failed to update auto reports setting'}`);
+              this.disabled = false;
+              this.style.opacity = '1';
+            }
+          } catch (err) {
+            alert('Network error while updating auto reports setting.');
+            this.disabled = false;
+            this.style.opacity = '1';
+          }
+        });
+      });
 
       // Attach delete handlers
       document.querySelectorAll('.btn-action-delete').forEach(btn => {
@@ -135,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch (err) {
       companyTableBody.innerHTML = `
         <tr>
-          <td colspan="9" style="text-align: center; padding: 24px; color: #dc3545;">
+          <td colspan="10" style="text-align: center; padding: 24px; color: #dc3545;">
             Failed to load companies. Please check database connection.
           </td>
         </tr>
@@ -239,7 +290,8 @@ document.addEventListener('DOMContentLoaded', function () {
         email: formData.get('email'),
         latitude: parseFloat(formData.get('latitude')) || 11.02980,
         longitude: parseFloat(formData.get('longitude')) || 76.97400,
-        status: formData.get('status') || 'Active'
+        status: formData.get('status') || 'Active',
+        auto_email_reports: formData.get('auto_email_reports') === 'true'
       };
 
       try {

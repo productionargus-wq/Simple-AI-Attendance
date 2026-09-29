@@ -184,6 +184,7 @@ def create_company(data):
         'latitude': float(data.get('latitude') or 11.02980),
         'longitude': float(data.get('longitude') or 76.97400),
         'status': data.get('status', 'Active').strip(),
+        'auto_email_reports': bool(data.get('auto_email_reports', True)),
         'created_at': datetime.now(),
         'updated_at': datetime.now()
     }
@@ -213,6 +214,8 @@ def get_all_companies(search='', page=1, limit=10):
     for doc in cursor:
         c = clean_doc(doc)
         c['employee_count'] = db.employees.count_documents({'company_id': c['id']})
+        if 'auto_email_reports' not in c:
+            c['auto_email_reports'] = True
         companies.append(c)
         
     return {
@@ -257,8 +260,21 @@ def update_company(comp_id, data):
         'status': data.get('status', 'Active').strip(),
         'updated_at': datetime.now()
     }
+    if 'auto_email_reports' in data:
+        upd['auto_email_reports'] = bool(data['auto_email_reports'])
     db.company_admin.update_one({'id': str(comp_id)}, {'$set': upd})
     return True
+
+def toggle_company_auto_reports(comp_id, enabled=None):
+    """Toggles or sets the automatic email report preference for a company."""
+    db = get_db()
+    comp = db.company_admin.find_one({'id': str(comp_id)})
+    if not comp:
+        return None
+    current_val = comp.get('auto_email_reports', True)
+    new_val = not current_val if enabled is None else bool(enabled)
+    db.company_admin.update_one({'id': str(comp_id)}, {'$set': {'auto_email_reports': new_val, 'updated_at': datetime.now()}})
+    return new_val
 
 def delete_company(comp_id):
     """Removes company from company_admin."""
