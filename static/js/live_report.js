@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function () {
       btnTimeoutEntries.className = 'btn-toggle-tab inactive';
     } else {
       pageTitle.textContent = 'TIMEOUT ENTRIES';
-      reportSubtitle.textContent = 'Displays entries where check-in durations exceed 15 hours.';
+      reportSubtitle.textContent = 'Displays employees whose punch-out was automatically recorded according to company shift hours.';
       btnTimeoutEntries.className = 'btn-toggle-tab active';
       btnLiveEntries.className = 'btn-toggle-tab inactive';
     }

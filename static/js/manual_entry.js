@@ -32,7 +32,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const entryTypeInput = document.getElementById('inputEntryType');
   const empNameSelect = document.getElementById('inputEmployeeName');
   const entryDateInput = document.getElementById('inputEntryDate');
-  const modeSelect = document.getElementById('inputMode');
   const hoursInput = document.getElementById('inputHours');
   const statusSelect = document.getElementById('inputStatus');
 
@@ -101,19 +100,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
     rows.forEach(r => {
       const tr = document.createElement('tr');
-      const salVal = Number(r.working_salary || 0).toFixed(0);
-      const salDisplay = Number(salVal) > 0 ? `₹ +${salVal}` : `₹ 0`;
+      const isSub = String(r.entry_type || '').toLowerCase() === 'sub' || Number(r.working_salary || 0) < 0;
+      const salVal = Math.abs(Number(r.working_salary || 0)).toFixed(0);
+      let salDisplay = '₹ 0';
+      let salClass = 'salary-positive';
+      if (isSub && Number(salVal) > 0) {
+        salDisplay = `₹ -${salVal}`;
+        salClass = 'salary-negative';
+      } else if (Number(salVal) > 0) {
+        salDisplay = `₹ +${salVal}`;
+        salClass = 'salary-positive';
+      }
+      const hoursDisplay = isSub ? `-${escapeHtml(r.hours || '')}` : escapeHtml(r.hours || '');
 
       tr.innerHTML = `
         <td>${escapeHtml(r.employee_name)}</td>
         <td>${escapeHtml(r.entry_date || '')}</td>
-        <td>${escapeHtml(r.hours || '')}</td>
+        <td>${hoursDisplay}</td>
         <td>${escapeHtml(r.status || '')}</td>
         <td>${escapeHtml(r.submitted_at || '')}</td>
         <td>${Number(r.hourly_rate || 0).toFixed(0)}</td>
         <td>${Number(r.day_rate || 0).toFixed(0)}</td>
         <td>${Number(r.half_rate || 0).toFixed(0)}</td>
-        <td><span class="salary-positive">${salDisplay}</span></td>
+        <td><span class="${salClass}">${salDisplay}</span></td>
         <td>
           <button class="btn-action-manual-edit" onclick="editManualEntry(${r.id})">Edit</button>
           <button class="btn-action-manual-del" onclick="deleteManualEntry(${r.id}, '${escapeHtml(r.employee_name)}')">Del</button>
@@ -219,12 +228,11 @@ document.addEventListener('DOMContentLoaded', function () {
     btnOpenModal.addEventListener('click', function () {
       form.reset();
       entryIdInput.value = '';
-      entryTypeInput.value = 'Add';
+      if (entryTypeInput) entryTypeInput.value = 'Add';
       modalTitle.textContent = 'Manual Entry';
       // Default to today
       const today = new Date().toISOString().split('T')[0];
       entryDateInput.value = today;
-      modeSelect.value = 'Hours';
       hoursInput.value = '04:00';
       statusSelect.value = 'Permission';
       modal.classList.add('active');
@@ -287,7 +295,9 @@ document.addEventListener('DOMContentLoaded', function () {
       const entry = await res.json();
 
       entryIdInput.value = entry.id;
-      entryTypeInput.value = 'Edit';
+      if (entryTypeInput) {
+        entryTypeInput.value = entry.entry_type || (Number(entry.working_salary || 0) < 0 ? 'Sub' : 'Add');
+      }
       modalTitle.textContent = 'Manual Entry';
       empNameSelect.value = entry.employee_name;
       
@@ -298,7 +308,6 @@ document.addEventListener('DOMContentLoaded', function () {
         d = `${parts[2]}-${parts[1]}-${parts[0]}`;
       }
       entryDateInput.value = d;
-      modeSelect.value = entry.mode || 'Hours';
       hoursInput.value = entry.hours || '04:00';
       statusSelect.value = entry.status || 'Permission';
 
@@ -333,10 +342,9 @@ document.addEventListener('DOMContentLoaded', function () {
       const formData = {
         employee_name: empNameSelect.value,
         entry_date: entryDateInput.value,
-        mode: modeSelect.value,
         hours: hoursInput.value,
         status: statusSelect.value,
-        entry_type: entryTypeInput.value
+        entry_type: (entryTypeInput ? entryTypeInput.value : 'Add')
       };
 
       const url = id ? `/api/manual-entries/${id}` : '/api/manual-entries';

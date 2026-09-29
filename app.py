@@ -600,6 +600,7 @@ def api_create_employee():
             
     if photo_filename:
         data['photo_filename'] = photo_filename
+        data['photo'] = photo_filename
 
     if not data.get('employee_name'):
         return jsonify({'error': 'Employee name is required'}), 400
@@ -637,6 +638,7 @@ def api_update_employee(emp_id):
             with open(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename), 'wb') as f:
                 f.write(file_bytes)
             data['photo_filename'] = unique_filename
+            data['photo'] = unique_filename
             
     database.update_employee(emp_id, data)
     return jsonify({'success': True, 'message': 'Employee updated successfully'})
@@ -657,6 +659,11 @@ def api_employee_pdf(emp_id):
     if not emp:
         return jsonify({'error': 'Employee not found'}), 404
         
+    if emp.get('company_id') and emp.get('company_id') != 'ARGUS_MASTER':
+        comp = database.get_company_by_id(emp['company_id'])
+        if comp:
+            emp['company_name'] = comp.get('company_name', 'ARGUS TECHNOLOGIES')
+            
     pdf_buffer = pdf_generator.generate_employee_pdf(emp)
     return send_file(
         pdf_buffer,

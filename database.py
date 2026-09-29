@@ -58,6 +58,10 @@ def clean_doc(doc):
         if 'id' not in d or not d['id']:
             d['id'] = str(d['_id'])
         d['_id'] = str(d['_id'])
+    if 'photo_filename' in d and not d.get('photo'):
+        d['photo'] = d['photo_filename']
+    elif 'photo' in d and not d.get('photo_filename'):
+        d['photo_filename'] = d['photo']
     return d
 
 def build_id_filter(ident):
@@ -185,6 +189,7 @@ def create_company(data):
         'longitude': float(data.get('longitude') or 76.97400),
         'status': data.get('status', 'Active').strip(),
         'employee_limit': int(data.get('employee_limit') or data.get('employee_count') or 50),
+        'shift_hours': str(data.get('shift_hours') or '08:00').strip(),
         'auto_email_reports': bool(data.get('auto_email_reports', True)),
         'created_at': datetime.now(),
         'updated_at': datetime.now()
@@ -216,6 +221,7 @@ def get_all_companies(search='', page=1, limit=10):
         c = clean_doc(doc)
         c['employee_count'] = db.employees.count_documents({'company_id': c['id']})
         c['employee_limit'] = int(c.get('employee_limit') or c.get('employee_count') or 50)
+        c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
         companies.append(c)
@@ -239,6 +245,7 @@ def get_company_by_id(comp_id):
         c = clean_doc(doc)
         c['employee_count'] = db.employees.count_documents({'company_id': c['id']})
         c['employee_limit'] = int(c.get('employee_limit') or c.get('employee_count') or 50)
+        c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
         return c
@@ -256,17 +263,37 @@ def update_company(comp_id, data):
     """Updates company details in company_admin."""
     db = get_db()
     upd = {
-        'company_name': data.get('company_name', '').strip(),
-        'gstin': data.get('gstin', '').strip().upper(),
-        'email': data.get('email', '').strip().lower(),
-        'phone': data.get('phone', '').strip(),
-        'latitude': float(data.get('latitude') or 11.02980),
-        'longitude': float(data.get('longitude') or 76.97400),
-        'status': data.get('status', 'Active').strip(),
-        'updated_at': datetime.now()
+        'updated_at': get_ist_now()
     }
+    if 'company_name' in data and data['company_name']:
+        upd['company_name'] = str(data['company_name']).strip()
+    if 'gstin' in data and data['gstin']:
+        upd['gstin'] = str(data['gstin']).strip().upper()
+    if 'email' in data and data['email']:
+        upd['email'] = str(data['email']).strip().lower()
+    if 'phone' in data and data['phone']:
+        upd['phone'] = str(data['phone']).strip()
+    if 'latitude' in data and data['latitude'] is not None and str(data['latitude']).strip():
+        try:
+            upd['latitude'] = float(data['latitude'])
+        except Exception:
+            pass
+    if 'longitude' in data and data['longitude'] is not None and str(data['longitude']).strip():
+        try:
+            upd['longitude'] = float(data['longitude'])
+        except Exception:
+            pass
+    if 'status' in data and data['status']:
+        upd['status'] = str(data['status']).strip()
     if 'employee_limit' in data or 'employee_count' in data:
-        upd['employee_limit'] = int(data.get('employee_limit') or data.get('employee_count') or 50)
+        lim = data.get('employee_limit') or data.get('employee_count')
+        if lim:
+            try:
+                upd['employee_limit'] = int(lim)
+            except Exception:
+                pass
+    if 'shift_hours' in data and data['shift_hours']:
+        upd['shift_hours'] = str(data['shift_hours']).strip()
     if 'auto_email_reports' in data:
         upd['auto_email_reports'] = bool(data['auto_email_reports'])
     db.company_admin.update_one({'id': str(comp_id)}, {'$set': upd})
@@ -456,10 +483,13 @@ def create_employee(data, company_id=None):
         'account_number': data.get('account_number', '').strip(),
         'ifsc_code': data.get('ifsc_code', '').strip(),
         'shift_hours': data.get('shift_hours', '').strip(),
-        'photo_filename': data.get('photo_filename', '').strip(),
+        'shift_start': str(data.get('shift_start') or '09:00 AM').strip(),
+        'shift_end': str(data.get('shift_end') or '06:00 PM').strip(),
+        'photo': str(data.get('photo') or data.get('photo_filename') or '').strip(),
+        'photo_filename': str(data.get('photo_filename') or data.get('photo') or '').strip(),
         'face_embedding': data.get('face_embedding', ''),
-        'created_at': datetime.now(),
-        'updated_at': datetime.now()
+        'created_at': get_ist_now(),
+        'updated_at': get_ist_now()
     }
     
     db.employees.insert_one(doc)
@@ -487,14 +517,20 @@ def update_employee(emp_id, data, company_id=None):
         'account_number': data.get('account_number', '').strip(),
         'ifsc_code': data.get('ifsc_code', '').strip(),
         'shift_hours': data.get('shift_hours', '').strip(),
-        'updated_at': datetime.now()
+        'updated_at': get_ist_now()
     }
+    if 'shift_start' in data and data['shift_start']:
+        upd['shift_start'] = str(data['shift_start']).strip()
+    if 'shift_end' in data and data['shift_end']:
+        upd['shift_end'] = str(data['shift_end']).strip()
     if 'salary_type' in data and data['salary_type']:
         st = str(data['salary_type']).strip().lower()
         if st in ['hourly', 'daily', 'half_day']:
             upd['salary_type'] = st
-    if 'photo_filename' in data and data['photo_filename']:
-        upd['photo_filename'] = data['photo_filename']
+    photo_val = data.get('photo') or data.get('photo_filename')
+    if photo_val:
+        upd['photo_filename'] = str(photo_val).strip()
+        upd['photo'] = str(photo_val).strip()
     if 'face_embedding' in data and data['face_embedding']:
         upd['face_embedding'] = data['face_embedding']
     if 'company_id' in data and data['company_id']:
@@ -657,7 +693,135 @@ def get_dashboard_stats(company_id=None):
 
 # ----------------- LIVE & TIMEOUT ENTRIES ----------------- #
 
+def process_company_timeout_entries(company_id=None):
+    """
+    Checks for employees who punched in and forgot to punch out.
+    If current IST time exceeds (entry_time + company.shift_hours),
+    automatically completes their punch-out according to the company shift time.
+    """
+    db = get_db()
+    now = get_ist_now()
+    
+    rep_query = {'exit_time': '----'}
+    if company_id and company_id != 'ALL':
+        rep_query['company_id'] = str(company_id)
+        
+    pending_reps = list(db.attendance_reports.find(rep_query))
+    if not pending_reps:
+        return 0
+        
+    company_shifts = {}
+    auto_count = 0
+    
+    for rep in pending_reps:
+        cid = rep.get('company_id', 'ARGUS_MASTER')
+        if cid not in company_shifts:
+            comp = db.company_admin.find_one({'id': str(cid)})
+            company_shifts[cid] = comp.get('shift_hours', '08:00') if comp else '08:00'
+            
+        shift_str = company_shifts[cid]
+        shift_h = 8
+        shift_m = 0
+        try:
+            if ':' in shift_str:
+                sp = shift_str.split(':')
+                shift_h = int(sp[0])
+                shift_m = int(sp[1])
+            else:
+                shift_h = int(float(shift_str))
+        except Exception:
+            shift_h = 8
+            shift_m = 0
+            
+        shift_mins = shift_h * 60 + shift_m
+        if shift_mins <= 0:
+            shift_mins = 480
+            shift_h = 8
+            shift_m = 0
+            
+        entry_time_str = rep.get('entry_time', '')
+        entry_dt = None
+        for fmt in ['%d/%m/%Y %I:%M:%S %p', '%d/%m/%Y %H:%M:%S', '%Y-%m-%d %H:%M:%S', '%d-%m-%Y %I:%M:%S %p']:
+            try:
+                entry_dt = datetime.strptime(entry_time_str.strip(), fmt)
+                break
+            except Exception:
+                pass
+                
+        if not entry_dt:
+            try:
+                entry_dt = datetime.fromisoformat(rep.get('created_at', ''))
+            except Exception:
+                continue
+                
+        if entry_dt.tzinfo is None:
+            entry_dt = entry_dt.replace(tzinfo=IST)
+            
+        auto_exit_dt = entry_dt + timedelta(minutes=shift_mins)
+        
+        # If current time is past scheduled shift exit, auto timeout punch-out
+        if now >= auto_exit_dt:
+            auto_exit_str = auto_exit_dt.strftime('%d/%m/%Y %I:%M:%S %p')
+            working_hours_str = f"{shift_h:02d}:{shift_m:02d}"
+            
+            emp_name = rep.get('employee_name', '')
+            emp = db.employees.find_one({'employee_name': emp_name})
+            salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
+            hourly_rate = float(emp.get('hourly_salary', 0.0)) if emp else 100.0
+            day_rate = float(emp.get('day_salary', 0.0)) if emp else (hourly_rate * 8.0)
+            half_rate = float(emp.get('half_day_salary', 0.0)) if emp else (day_rate / 2.0)
+            
+            day_credit_type = 'Full Day'
+            working_salary = 0.0
+            if salary_type == 'hourly':
+                working_salary = round((shift_mins / 60.0) * hourly_rate, 2)
+            elif salary_type == 'daily':
+                working_salary = day_rate
+            elif salary_type == 'half_day':
+                working_salary = half_rate * 2.0
+            else:
+                working_salary = round((shift_mins / 60.0) * hourly_rate, 2)
+                
+            db.attendance_reports.update_one(
+                {'_id': rep['_id']},
+                {'$set': {
+                    'exit_time': auto_exit_str,
+                    'exit_distance': '0.0M (AUTO TIMEOUT)',
+                    'exit_location': f"Auto Punch-Out based on Company Shift Time ({shift_str})",
+                    'working_hours': working_hours_str,
+                    'shift_variance': '00:00',
+                    'day_credit_type': day_credit_type,
+                    'working_salary': working_salary,
+                    'is_timeout': 1,
+                    'entry_type': 'timeout_auto',
+                    'updated_at': now.isoformat()
+                }}
+            )
+            
+            timeout_filter = {
+                'company_id': str(cid),
+                'employee_name': emp_name,
+                'is_timeout': 1,
+                'entry_time': auto_exit_str
+            }
+            if not db.live_entries.find_one(timeout_filter):
+                db.live_entries.insert_one({
+                    'company_id': str(cid),
+                    'employee_id': rep.get('employee_id', ''),
+                    'employee_name': emp_name,
+                    'entry_time': auto_exit_str,
+                    'site_name': 'OFFICE (AUTO TIMEOUT)',
+                    'entry_location': f"Auto Punch-Out based on Company Shift ({shift_str})",
+                    'entry_distance': 0.0,
+                    'is_timeout': 1,
+                    'created_at': now.isoformat()
+                })
+            auto_count += 1
+            
+    return auto_count
+
 def get_live_report_entries(tab='live', start_date=None, end_date=None, search=None, page=1, limit=10, company_id=None):
+    process_company_timeout_entries(company_id=company_id)
     db = get_db()
     query = {}
     
@@ -1214,6 +1378,10 @@ def create_manual_entry(data, company_id=None):
         else:
             working_salary = round((total_mins / 60.0) * hourly_rate, 2)
         
+    entry_type = str(data.get('entry_type', 'Add')).strip()
+    if entry_type.lower() == 'sub':
+        working_salary = -abs(working_salary)
+
     now_ts = get_ist_now().strftime("%d-%m-%Y %I:%M:%S %p")
     entry_id = int(time.time() * 1000)
     
@@ -1231,7 +1399,7 @@ def create_manual_entry(data, company_id=None):
         'half_rate': half_rate,
         'salary_type': salary_type,
         'working_salary': working_salary,
-        'entry_type': data.get('entry_type', 'Add'),
+        'entry_type': entry_type,
         'mode': mode,
         'created_at': get_ist_now().isoformat()
     }
@@ -1299,11 +1467,16 @@ def update_manual_entry(entry_id, data):
         else:
             working_salary = round((total_mins / 60.0) * hourly_rate, 2)
         
+    entry_type = str(data.get('entry_type', 'Add')).strip()
+    if entry_type.lower() == 'sub':
+        working_salary = -abs(working_salary)
+
     upd = {
         'employee_name': emp_name,
         'entry_date': data.get('entry_date', ''),
         'hours': hours_str,
         'status': status,
+        'entry_type': entry_type,
         'mode': mode,
         'hourly_rate': hourly_rate,
         'day_rate': day_rate,
@@ -1855,13 +2028,20 @@ def get_payslip_data(employee_name, month_year, company_id=None):
             mins = max(mins, shift_target_minutes)
         elif 'half' in st:
             mins = max(mins, half_shift_target)
-        daily_minutes[ed] = daily_minutes.get(ed, 0) + mins
-                
-        msal = float(m_entry.get('working_salary', 0.0))
-        daily_manual_salary[ed] = daily_manual_salary.get(ed, 0.0) + msal
+        entry_type = str(m_entry.get('entry_type', 'Add')).strip()
+        is_sub = entry_type.lower() == 'sub' or float(m_entry.get('working_salary', 0.0)) < 0
+        msal = abs(float(m_entry.get('working_salary', 0.0)))
 
-    total_minutes = sum(daily_minutes.values())
-    working_days = len(daily_minutes)
+        if is_sub:
+            daily_minutes[ed] = max(0, daily_minutes.get(ed, 0) - mins)
+            daily_manual_salary[ed] = daily_manual_salary.get(ed, 0.0) - msal
+        else:
+            daily_minutes[ed] = daily_minutes.get(ed, 0) + mins
+            daily_manual_salary[ed] = daily_manual_salary.get(ed, 0.0) + msal
+
+    positive_days = {d: m for d, m in daily_minutes.items() if m > 0}
+    total_minutes = sum(positive_days.values())
+    working_days = len(positive_days)
     tot_hrs = total_minutes // 60
     tot_mins = total_minutes % 60
     working_hours = f"{tot_hrs:02d}:{tot_mins:02d}"
@@ -2016,6 +2196,7 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         'total_days': total_days,
         'total_days_of_month': total_days,
         'total_working_hours': working_hours,
+        'working_hours': working_hours,
         'basic_salary': int(round(basic_salary)),
         'allowance': int(round(allowance)),
         'incentive': int(round(incentive)),

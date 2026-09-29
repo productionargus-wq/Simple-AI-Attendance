@@ -31,14 +31,47 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnPrintDetail = document.getElementById('btnPrintDetail');
   const btnDownloadPdf = document.getElementById('btnDownloadPdf');
 
-  // Fetch and render table
+  // List vs Grid View Toggle Elements
+  let currentView = 'list';
+  let currentEmployees = [];
+  const btnListView = document.getElementById('btnListView');
+  const btnGridView = document.getElementById('btnGridView');
+  const employeeListSection = document.getElementById('employeeListSection');
+  const employeeGridSection = document.getElementById('employeeGridSection');
+
+  if (btnListView && btnGridView) {
+    btnListView.addEventListener('click', function () {
+      currentView = 'list';
+      btnListView.className = 'btn-toggle-tab active';
+      btnGridView.className = 'btn-toggle-tab inactive';
+      if (employeeListSection) employeeListSection.style.display = 'block';
+      if (employeeGridSection) employeeGridSection.style.display = 'none';
+      renderTableRows(currentEmployees);
+    });
+
+    btnGridView.addEventListener('click', function () {
+      currentView = 'grid';
+      btnGridView.className = 'btn-toggle-tab active';
+      btnListView.className = 'btn-toggle-tab inactive';
+      if (employeeListSection) employeeListSection.style.display = 'none';
+      if (employeeGridSection) employeeGridSection.style.display = 'grid';
+      renderGridCards(currentEmployees);
+    });
+  }
+
+  // Fetch and render data
   async function loadEmployees() {
     try {
       const url = `/api/employees?search=${encodeURIComponent(currentSearch)}&sort_col=${currentSortCol}&sort_dir=${currentSortDir}&page=${currentPage}&limit=${currentLimit}`;
       const res = await fetch(url);
       const data = await res.json();
 
-      renderTableRows(data.data);
+      currentEmployees = data.data || [];
+      if (currentView === 'grid') {
+        renderGridCards(currentEmployees);
+      } else {
+        renderTableRows(currentEmployees);
+      }
       updatePagination(data.total, data.page, data.limit);
     } catch (err) {
       console.error('Failed to load employees:', err);
@@ -50,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function () {
     tableBody.innerHTML = '';
 
     if (!employees || employees.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 20px; color: #888;">No matching records found</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="13" style="text-align: center; padding: 20px; color: #888;">No matching records found</td></tr>`;
       return;
     }
 
@@ -69,8 +102,18 @@ document.addEventListener('DOMContentLoaded', function () {
         badgeHtml = '<span style="background:#f1f5f9; color:#475569; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">Hourly</span>';
       }
 
+      const photoFile = emp.photo || emp.photo_filename;
+      let photoHtml = '';
+      if (photoFile) {
+        photoHtml = `<img src="/uploads/${escapeHtml(photoFile)}" class="emp-table-photo" onclick="openPhotoModal('${escapeHtml(photoFile)}', '${escapeHtml(emp.employee_name)}')" title="Click to view photo">`;
+      } else {
+        const initials = (emp.employee_name || 'E').substring(0, 2).toUpperCase();
+        photoHtml = `<div class="emp-avatar-placeholder">${initials}</div>`;
+      }
+
       tr.innerHTML = `
         <td>${escapeHtml(emp.id)}</td>
+        <td style="text-align: center; vertical-align: middle;">${photoHtml}</td>
         <td>${escapeHtml(emp.employee_name)}</td>
         <td>${escapeHtml(emp.designation || '')}</td>
         <td>${badgeHtml}</td>
@@ -106,6 +149,88 @@ document.addEventListener('DOMContentLoaded', function () {
         </td>
       `;
       tableBody.appendChild(tr);
+    });
+  }
+
+  function renderGridCards(employees) {
+    if (!employeeGridSection) return;
+    employeeGridSection.innerHTML = '';
+    if (!employees || employees.length === 0) {
+      employeeGridSection.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 30px; color: #888;">No matching records found</div>`;
+      return;
+    }
+
+    employees.forEach(emp => {
+      const card = document.createElement('div');
+      card.className = 'emp-grid-card';
+
+      const photoFile = emp.photo || emp.photo_filename;
+      let photoImgHtml = '';
+      if (photoFile) {
+        photoImgHtml = `<img src="/uploads/${escapeHtml(photoFile)}" class="emp-grid-photo" onclick="openPhotoModal('${escapeHtml(photoFile)}', '${escapeHtml(emp.employee_name)}')" title="Click to view photo">`;
+      } else {
+        const initials = (emp.employee_name || 'E').substring(0, 2).toUpperCase();
+        photoImgHtml = `<div class="emp-grid-avatar-placeholder">${initials}</div>`;
+      }
+
+      const st = emp.salary_type || 'hourly';
+      let salaryRateDisplay = `₹${Number(emp.hourly_salary || 0).toFixed(0)}/hr`;
+      if (st === 'daily') salaryRateDisplay = `₹${Number(emp.day_salary || 0).toFixed(0)}/day`;
+      else if (st === 'half_day') salaryRateDisplay = `₹${Number(emp.half_day_salary || 0).toFixed(0)}/half-day`;
+
+      card.innerHTML = `
+        <div class="emp-grid-header">
+          ${photoImgHtml}
+          <div style="flex: 1; min-width: 0;">
+            <div class="emp-grid-info-title">${escapeHtml(emp.employee_name)}</div>
+            <div class="emp-grid-info-sub">${escapeHtml(emp.designation || 'Staff')} &bull; ID: ${escapeHtml(emp.id)}</div>
+          </div>
+        </div>
+        <div class="emp-grid-body">
+          <div class="emp-grid-row">
+            <span class="emp-grid-label">Salary Basis:</span>
+            <span class="emp-grid-val">${salaryRateDisplay}</span>
+          </div>
+          <div class="emp-grid-row">
+            <span class="emp-grid-label">Mobile:</span>
+            <span class="emp-grid-val">${escapeHtml(emp.mobile_number || '-')}</span>
+          </div>
+          <div class="emp-grid-row">
+            <span class="emp-grid-label">Email:</span>
+            <span class="emp-grid-val" style="font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px;" title="${escapeHtml(emp.email_id || '-')}">${escapeHtml(emp.email_id || '-')}</span>
+          </div>
+          <div class="emp-grid-row">
+            <span class="emp-grid-label">Shift Hours:</span>
+            <span class="emp-grid-val">${escapeHtml(emp.shift_hours || '09:00')}</span>
+          </div>
+          ${emp.shift_start || emp.shift_end ? `
+          <div class="emp-grid-row">
+            <span class="emp-grid-label">Shift Timing:</span>
+            <span class="emp-grid-val">${escapeHtml(emp.shift_start || '09:00 AM')} - ${escapeHtml(emp.shift_end || '06:00 PM')}</span>
+          </div>` : ''}
+        </div>
+        <div class="emp-grid-actions">
+          <button class="btn-action btn-action-view" onclick="viewEmployee('${emp.id}')" title="View Details">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+          <button class="btn-action btn-action-edit" onclick="editEmployee('${emp.id}')" title="Edit Employee">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+          <button class="btn-action btn-action-delete" onclick="deleteEmployee('${emp.id}', '${escapeHtml(emp.employee_name)}')" title="Delete Employee">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      `;
+      employeeGridSection.appendChild(card);
     });
   }
 
@@ -203,6 +328,13 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('formEmployeeId').value = '';
     document.getElementById('entryModalTitle').textContent = 'Employee Detail Entry';
     document.getElementById('inputSalaryType').value = 'daily';
+    const inStart = document.getElementById('inputShiftStart');
+    const inEnd = document.getElementById('inputShiftEnd');
+    if (inStart) inStart.value = '09:00 AM';
+    if (inEnd) inEnd.value = '06:00 PM';
+    document.getElementById('inputShiftHours').value = '09:00';
+    const captureStatusEl = document.getElementById('captureStatus');
+    if (captureStatusEl) captureStatusEl.textContent = '';
     entryModal.classList.add('active');
   }
 
@@ -230,7 +362,13 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('inputBankName').value = emp.bank_name || '';
       document.getElementById('inputAccountNumber').value = emp.account_number || '';
       document.getElementById('inputIfsc').value = emp.ifsc_code || '';
-      document.getElementById('inputShiftHours').value = emp.shift_hours || '';
+      document.getElementById('inputShiftHours').value = emp.shift_hours || '09:00';
+      const inStart = document.getElementById('inputShiftStart');
+      const inEnd = document.getElementById('inputShiftEnd');
+      if (inStart) inStart.value = emp.shift_start || '09:00 AM';
+      if (inEnd) inEnd.value = emp.shift_end || '06:00 PM';
+      const captureStatusEl = document.getElementById('captureStatus');
+      if (captureStatusEl) captureStatusEl.textContent = '';
 
       entryModal.classList.add('active');
     } catch (err) {
@@ -394,9 +532,39 @@ document.addEventListener('DOMContentLoaded', function () {
       const tbody = document.getElementById('viewInfoTableBody');
       tbody.innerHTML = '';
 
+      // Render photo in modal header
+      const photoHeader = document.getElementById('viewEmpPhotoHeader');
+      const photoFile = emp.photo || emp.photo_filename;
+      if (photoHeader) {
+        if (photoFile) {
+          photoHeader.innerHTML = `<img src="/uploads/${escapeHtml(photoFile)}" class="view-modal-photo" onclick="openPhotoModal('${escapeHtml(photoFile)}', '${escapeHtml(emp.employee_name)}')" title="Click to view full photo">`;
+        } else {
+          const initials = (emp.employee_name || 'E').substring(0, 2).toUpperCase();
+          photoHeader.innerHTML = `<div class="emp-grid-avatar-placeholder" style="width: 58px; height: 58px; font-size: 20px;">${initials}</div>`;
+        }
+      }
+
+      let formattedCreated = '-';
+      if (emp.created_at) {
+        try {
+          const cd = new Date(emp.created_at);
+          if (!isNaN(cd.getTime())) {
+            formattedCreated = cd.toLocaleString('en-IN', {
+              day: '2-digit', month: '2-digit', year: 'numeric',
+              hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+            });
+          } else {
+            formattedCreated = String(emp.created_at);
+          }
+        } catch (e) {
+          formattedCreated = String(emp.created_at);
+        }
+      }
+
       const stLabels = { hourly: 'Hourly-Based', daily: 'Day-Based', half_day: 'Half-Day-Based' };
       const fields = [
         ['ID', emp.id],
+        ['PHOTO', photoFile ? `<a href="/uploads/${escapeHtml(photoFile)}" target="_blank" style="color: #0d6efd; font-weight: 700; text-decoration: underline;">View Uploaded Photo</a>` : 'No photo registered'],
         ['EMPLOYEE NAME', emp.employee_name],
         ['DESIGNATION', emp.designation],
         ['SALARY BASIS', stLabels[emp.salary_type] || 'Hourly-Based'],
@@ -413,14 +581,17 @@ document.addEventListener('DOMContentLoaded', function () {
         ['BANK NAME', emp.bank_name],
         ['ACCOUNT NUMBER', emp.account_number],
         ['IFSC CODE', emp.ifsc_code],
-        ['SHIFT HOURS', emp.shift_hours]
+        ['SHIFT HOURS', emp.shift_hours || '09:00'],
+        ['SHIFT START', emp.shift_start || '09:00 AM'],
+        ['SHIFT END', emp.shift_end || '06:00 PM'],
+        ['RECORD CREATED AT', formattedCreated]
       ];
 
       fields.forEach(([label, val]) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="info-label">${label}</td>
-          <td>${val ? escapeHtml(String(val)) : ''}</td>
+          <td>${val ? (label === 'PHOTO' ? val : escapeHtml(String(val))) : '-'}</td>
         `;
         tbody.appendChild(tr);
       });

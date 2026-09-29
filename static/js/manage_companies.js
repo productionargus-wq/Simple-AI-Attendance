@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const inputLongitude = document.getElementById('inputLongitude');
   const inputStatus = document.getElementById('inputStatus');
   const inputEmployeeLimit = document.getElementById('inputEmployeeLimit');
+  const inputCompanyShiftHours = document.getElementById('inputShiftHours');
   const inputAutoEmailReports = document.getElementById('inputAutoEmailReports');
 
   let loadedCompanies = [];
@@ -208,6 +209,7 @@ document.addEventListener('DOMContentLoaded', function () {
           inputLongitude.value = comp.longitude || 76.97400;
           inputStatus.value = comp.status || 'Active';
           if (inputEmployeeLimit) inputEmployeeLimit.value = comp.employee_limit || 50;
+          if (inputCompanyShiftHours) inputCompanyShiftHours.value = comp.shift_hours || '08:00';
           if (inputAutoEmailReports) inputAutoEmailReports.value = (comp.auto_email_reports !== false) ? 'true' : 'false';
 
           companyModal.classList.add('active');
@@ -297,6 +299,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (companyModalTitle) companyModalTitle.textContent = 'Register New Company';
       if (btnSaveCompany) btnSaveCompany.textContent = 'Save Company';
       if (inputEmployeeLimit) inputEmployeeLimit.value = 25;
+      if (inputCompanyShiftHours) inputCompanyShiftHours.value = '08:00';
       if (inputAutoEmailReports) inputAutoEmailReports.value = 'true';
       companyModal.classList.add('active');
     });
@@ -349,6 +352,7 @@ document.addEventListener('DOMContentLoaded', function () {
         longitude: parseFloat(formData.get('longitude')) || 76.97400,
         status: formData.get('status') || 'Active',
         employee_limit: parseInt(formData.get('employee_limit'), 10) || 50,
+        shift_hours: (formData.get('shift_hours') || '08:00').trim(),
         auto_email_reports: formData.get('auto_email_reports') === 'true'
       };
 

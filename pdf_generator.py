@@ -1,5 +1,6 @@
 import io
 import os
+from datetime import datetime
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
@@ -68,13 +69,56 @@ def generate_employee_pdf(emp):
 
     elements = []
     
+    # Check for employee photo
+    photo_name = emp.get('photo') or emp.get('photo_filename')
+    photo_widget = None
+    if photo_name:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        photo_path = os.path.join(base_dir, 'uploads', str(photo_name))
+        if not os.path.exists(photo_path):
+            photo_path = os.path.join('uploads', str(photo_name))
+        if os.path.exists(photo_path):
+            try:
+                photo_widget = RLImage(photo_path, width=70, height=70)
+            except Exception:
+                photo_widget = None
+
     # Header logo or company text
-    elements.append(Paragraph("ARGUS TECHNOLOGIES", title_style))
-    elements.append(Spacer(1, 6))
-    elements.append(Paragraph("EMPLOYEE DETAILS", subtitle_style))
+    comp_name = emp.get('company_name') or "ARGUS TECHNOLOGIES"
+    if photo_widget:
+        hdr_text = [
+            Paragraph(comp_name, title_style),
+            Spacer(1, 4),
+            Paragraph("EMPLOYEE DETAILS", subtitle_style)
+        ]
+        hdr_table = Table([[hdr_text, photo_widget]], colWidths=[440, 100])
+        hdr_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(hdr_table)
+    else:
+        elements.append(Paragraph(comp_name, title_style))
+        elements.append(Spacer(1, 6))
+        elements.append(Paragraph("EMPLOYEE DETAILS", subtitle_style))
     elements.append(Spacer(1, 15))
     
-    # Fields table matching Image 4
+    # Format created_at in readable IST format
+    raw_created = emp.get('created_at', '')
+    created_str = '-'
+    if raw_created:
+        try:
+            if isinstance(raw_created, str):
+                dt = datetime.fromisoformat(raw_created.replace('Z', '+00:00'))
+            else:
+                dt = raw_created
+            created_str = dt.strftime('%d/%m/%Y %I:%M:%S %p')
+        except Exception:
+            created_str = str(raw_created)
+
+    # Fields table
     fields = [
         ("ID", str(emp.get('id', ''))),
         ("EMPLOYEE NAME", str(emp.get('employee_name', ''))),
@@ -93,7 +137,10 @@ def generate_employee_pdf(emp):
         ("BANK NAME", str(emp.get('bank_name', ''))),
         ("ACCOUNT NUMBER", str(emp.get('account_number', ''))),
         ("IFSC CODE", str(emp.get('ifsc_code', ''))),
-        ("SHIFT HOURS", str(emp.get('shift_hours', '')))
+        ("SHIFT HOURS", str(emp.get('shift_hours', ''))),
+        ("SHIFT START", str(emp.get('shift_start') or '09:00 AM')),
+        ("SHIFT END", str(emp.get('shift_end') or '06:00 PM')),
+        ("RECORD CREATED AT", created_str)
     ]
     
     table_data = [

@@ -110,7 +110,10 @@
           <!-- Entry Type -->
           <div class="form-group">
             <label class="form-label">Entry Type</label>
-            <input type="text" class="form-input" id="inputEntryType" name="entry_type" value="Add" readonly>
+            <select class="form-input" id="inputEntryType" name="entry_type">
+              <option value="Add" selected>Add</option>
+              <option value="Sub">Sub</option>
+            </select>
           </div>
 
           <!-- Name -->
@@ -125,15 +128,6 @@
           <div class="form-group">
             <label class="form-label">Date</label>
             <input type="date" class="form-input" id="inputEntryDate" name="entry_date" required>
-          </div>
-
-          <!-- Mode (Hours / Salary - Image 3) -->
-          <div class="form-group">
-            <label class="form-label">Mode</label>
-            <select class="form-input" id="inputMode" name="mode">
-              <option value="Hours" selected>Hours</option>
-              <option value="Salary">Salary</option>
-            </select>
           </div>
 
           <!-- Hours (HH:MM) -->
