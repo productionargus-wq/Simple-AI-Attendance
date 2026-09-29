@@ -55,8 +55,10 @@ try:
     if fe:
         fe.ensure_models_available()
         fe.auto_sync_stored_employee_embeddings()
+    import report_scheduler
+    report_scheduler.start_scheduler()
 except Exception as e:
-    print(f"Warning: database/face init error: {e}")
+    print(f"Warning: database/face/scheduler init error: {e}")
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -1533,6 +1535,73 @@ def api_salary_reports_export_pdf():
         download_name=filename,
         mimetype='application/pdf'
     )
+
+# ----------------- AUTOMATED COMPANY EMAIL REPORTING ROUTES ----------------- #
+
+@app.route('/api/admin/reports/send-daily', methods=['POST'])
+@super_admin_required
+def api_admin_send_daily_reports():
+    """Manually triggers or tests yesterday's daily activity reports to companies."""
+    data = request.get_json() if request.is_json else request.form.to_dict()
+    company_id = (data.get('company_id') or '').strip()
+    target_date = (data.get('date') or '').strip() or None
+    force = bool(data.get('force', False))
+
+    import report_scheduler
+    if company_id and company_id != 'ALL':
+        ok, msg, report = report_scheduler.send_daily_activity_email(company_id, target_date=target_date, force=force)
+        return jsonify({
+            'success': ok,
+            'message': msg,
+            'company_id': company_id,
+            'report': report
+        })
+    else:
+        results = report_scheduler.dispatch_all_daily_reports(target_date=target_date, force=force)
+        return jsonify({
+            'success': True,
+            'total_companies': len(results),
+            'results': results
+        })
+
+@app.route('/api/admin/reports/send-monthly', methods=['POST'])
+@super_admin_required
+def api_admin_send_monthly_reports():
+    """Manually triggers or tests monthly payroll reports to companies."""
+    data = request.get_json() if request.is_json else request.form.to_dict()
+    company_id = (data.get('company_id') or '').strip()
+    target_month = (data.get('month') or '').strip() or None
+    force = bool(data.get('force', False))
+
+    import report_scheduler
+    if company_id and company_id != 'ALL':
+        ok, msg, report = report_scheduler.send_monthly_salary_email(company_id, target_month=target_month, force=force)
+        return jsonify({
+            'success': ok,
+            'message': msg,
+            'company_id': company_id,
+            'report': report
+        })
+    else:
+        results = report_scheduler.dispatch_all_monthly_reports(target_month=target_month, force=force)
+        return jsonify({
+            'success': True,
+            'total_companies': len(results),
+            'results': results
+        })
+
+@app.route('/api/admin/reports/email-logs', methods=['GET'])
+@super_admin_required
+def api_admin_email_logs():
+    """Retrieves recent email dispatch audit logs from db.email_logs."""
+    db = database.get_db()
+    limit = int(request.args.get('limit', 50))
+    company_id = request.args.get('company_id', '').strip()
+    q = {}
+    if company_id and company_id != 'ALL':
+        q['company_id'] = company_id
+    logs = list(db.email_logs.find(q).sort('_id', -1).limit(limit))
+    return jsonify({'logs': database.clean_doc(logs)})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

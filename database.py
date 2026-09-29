@@ -35,8 +35,10 @@ def get_db():
 
 def clean_doc(doc):
     """Clean MongoDB document for JSON serialization recursively."""
-    if not doc:
+    if doc is None:
         return None
+    if isinstance(doc, list):
+        return [clean_doc(item) for item in doc]
     d = dict(doc)
     for k, v in list(d.items()):
         if isinstance(v, ObjectId):
