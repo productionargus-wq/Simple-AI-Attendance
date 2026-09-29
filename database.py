@@ -1788,14 +1788,27 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     partial_days = 0
     partial_minutes = 0
 
-    for d, mins in daily_minutes.items():
-        if mins >= shift_target_minutes:
-            full_days += 1
-        elif mins >= half_shift_target:
-            half_days += 1
-        elif mins > 0:
-            partial_days += 1
-            partial_minutes += mins
+    if salary_type == 'half_day':
+        # Standard half-day target is 4 hours (240 mins) or half of shift
+        ref_half_mins = 240 if shift_target_minutes >= 480 else (shift_target_minutes if shift_target_minutes <= 300 else 240)
+        ref_full_mins = ref_half_mins * 2
+        for d, mins in daily_minutes.items():
+            if mins >= ref_full_mins:
+                full_days += 1
+            elif mins >= ref_half_mins:
+                half_days += 1
+            elif mins > 0:
+                partial_days += 1
+                partial_minutes += mins
+    else:
+        for d, mins in daily_minutes.items():
+            if mins >= shift_target_minutes:
+                full_days += 1
+            elif mins >= half_shift_target:
+                half_days += 1
+            elif mins > 0:
+                partial_days += 1
+                partial_minutes += mins
 
     effective_half = half_salary if half_salary > 0 else (day_salary / 2.0 if day_salary > 0 else (hours_salary * 4.0))
     effective_hour = hours_salary if hours_salary > 0 else (day_salary / (shift_target_minutes / 60.0) if day_salary > 0 else 0.0)
@@ -1809,7 +1822,8 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         basic_salary = round((full_days * day_salary) + (half_days * effective_half) + part_sal, 2)
     elif salary_type == 'half_day':
         total_half_units = (full_days * 2) + half_days
-        part_sal = (partial_minutes / float(half_shift_target)) * effective_half
+        target_half_div = ref_half_mins if 'ref_half_mins' in locals() and ref_half_mins > 0 else 240
+        part_sal = (partial_minutes / float(target_half_div)) * effective_half
         basic_salary = round((total_half_units * effective_half) + part_sal, 2)
     else:
         if hours_salary > 0:
@@ -1878,7 +1892,13 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         'half_day': 'Half-Day-Based'
     }
     salary_basis_label = basis_labels.get(salary_type, 'Day-Based')
-    working_days_breakdown = f"{working_days} ({full_days} Full, {half_days} Half)" if (full_days > 0 or half_days > 0) else str(working_days)
+    if salary_type == 'half_day':
+        if full_days == 0:
+            working_days_breakdown = f"{half_days} Half Days"
+        else:
+            working_days_breakdown = f"{total_half_units} Half Days ({full_days} Full, {half_days} Half)"
+    else:
+        working_days_breakdown = f"{working_days} ({full_days} Full, {half_days} Half)" if (full_days > 0 or half_days > 0) else str(working_days)
 
     # Format rate reporting on payslips: only report rates applicable to the employee's basis
     rep_hours_salary = int(round(hours_salary)) if salary_type == 'hourly' else 0
