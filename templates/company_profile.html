@@ -121,8 +121,8 @@
           <span id="profileCoordBadge" style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;"></span>
         </label>
         <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-          <input type="number" step="any" class="form-input" id="profileLatitude" name="latitude" placeholder="Latitude" style="flex: 1; min-width: 140px;">
-          <input type="number" step="any" class="form-input" id="profileLongitude" name="longitude" placeholder="Longitude" style="flex: 1; min-width: 140px;">
+          <input type="text" class="form-input" id="profileLatitude" name="latitude" placeholder="Latitude (e.g. 11.029800 or any coordinate)" style="flex: 1; min-width: 140px;">
+          <input type="text" class="form-input" id="profileLongitude" name="longitude" placeholder="Longitude (e.g. 76.974000 or any coordinate)" style="flex: 1; min-width: 140px;">
           <button type="button" id="btnDetectProfileLocation" style="display: none; align-items: center; gap: 5px; background-color: #3d6078; color: #ffffff; border: none; border-radius: 4px; padding: 9px 14px; font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap;">
             📍 Get Current Location
           </button>
@@ -425,6 +425,22 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // Auto-split combined coordinates if user pastes/types "lat, lng" into latitude field
+  const profLatInput = document.getElementById('profileLatitude');
+  const profLngInput = document.getElementById('profileLongitude');
+  if (profLatInput && profLngInput) {
+    profLatInput.addEventListener('input', function () {
+      const val = this.value;
+      if (val && (val.includes(',') || val.includes(';'))) {
+        const parts = val.split(/[,;]+/);
+        if (parts.length >= 2) {
+          this.value = parts[0].trim();
+          profLngInput.value = parts[1].trim();
+        }
+      }
+    });
+  }
+
   if (companyProfileForm) {
     companyProfileForm.addEventListener('submit', async function (e) {
       e.preventDefault();
@@ -443,7 +459,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         const latInput = document.getElementById('profileLatitude');
         const lngInput = document.getElementById('profileLongitude');
-        if (latInput && !latInput.readOnly && latInput.value.trim() !== '' && lngInput && lngInput.value.trim() !== '') {
+        if (latInput && !latInput.readOnly && (latInput.value.trim() !== '' || lngInput.value.trim() !== '')) {
           payload.latitude = latInput.value.trim();
           payload.longitude = lngInput.value.trim();
         }
@@ -457,8 +473,8 @@ document.addEventListener('DOMContentLoaded', function () {
         payload.shift_hours = document.getElementById('profileShiftHours').value.trim();
         payload.employee_limit = document.getElementById('profileEmployeeLimit').value;
         payload.status = document.getElementById('profileStatus').value;
-        payload.latitude = document.getElementById('profileLatitude').value;
-        payload.longitude = document.getElementById('profileLongitude').value;
+        payload.latitude = document.getElementById('profileLatitude').value.trim();
+        payload.longitude = document.getElementById('profileLongitude').value.trim();
         payload.address = document.getElementById('profileAddress').value.trim();
 
         if (newPasswordVal) {

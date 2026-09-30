@@ -800,18 +800,24 @@ def api_update_company_profile():
             
             lat_val = data.get('latitude')
             lng_val = data.get('longitude')
+
+            # Check if user typed or pasted combined coordinates (e.g. "11.0298, 76.9740")
+            if lat_val and (',' in str(lat_val) or ';' in str(lat_val)) and (not lng_val or str(lng_val).strip() == ''):
+                import re
+                parts = re.split(r'[,;]+', str(lat_val))
+                if len(parts) >= 2:
+                    lat_val = parts[0].strip()
+                    lng_val = parts[1].strip()
+
             if lat_val is not None and lng_val is not None and str(lat_val).strip() != '' and str(lng_val).strip() != '':
-                try:
-                    new_lat = float(lat_val)
-                    new_lng = float(lng_val)
-                    database.update_company(comp_id, {
-                        'latitude': new_lat,
-                        'longitude': new_lng,
-                        'coordinates_locked': True,
-                        'coordinates_locked_at': database.get_ist_now()
-                    })
-                except Exception as e:
-                    return jsonify({'success': False, 'error': f'Invalid coordinate values: {e}'}), 400
+                new_lat = database.parse_coordinate_value(lat_val)
+                new_lng = database.parse_coordinate_value(lng_val)
+                database.update_company(comp_id, {
+                    'latitude': new_lat,
+                    'longitude': new_lng,
+                    'coordinates_locked': True,
+                    'coordinates_locked_at': database.get_ist_now()
+                })
 
         if 'address' in data:
             address = str(data.get('address', '')).strip()
@@ -846,21 +852,32 @@ def api_update_company_profile():
             data_to_save.pop('password', None)
             data_to_save.pop('password_hash', None)
 
+            lat_val = data_to_save.get('latitude')
+            lng_val = data_to_save.get('longitude')
+            # Check if user typed or pasted combined coordinates
+            if lat_val and (',' in str(lat_val) or ';' in str(lat_val)) and (not lng_val or str(lng_val).strip() == ''):
+                import re
+                parts = re.split(r'[,;]+', str(lat_val))
+                if len(parts) >= 2:
+                    lat_val = parts[0].strip()
+                    lng_val = parts[1].strip()
+                    data_to_save['longitude'] = lng_val
+
             if 'latitude' in data_to_save:
-                val = data_to_save['latitude']
+                val = lat_val
                 if val is not None and str(val).strip() != '':
-                    data_to_save['latitude'] = float(val)
+                    data_to_save['latitude'] = database.parse_coordinate_value(val)
                 else:
                     data_to_save['latitude'] = None
 
             if 'longitude' in data_to_save:
-                val = data_to_save['longitude']
+                val = data_to_save.get('longitude')
                 if val is not None and str(val).strip() != '':
-                    data_to_save['longitude'] = float(val)
+                    data_to_save['longitude'] = database.parse_coordinate_value(val)
                 else:
                     data_to_save['longitude'] = None
 
-            if data_to_save.get('latitude') is not None and data_to_save.get('longitude') is not None:
+            if data_to_save.get('latitude') is not None and data_to_save.get('longitude') is not None and str(data_to_save.get('latitude')).strip() != '' and str(data_to_save.get('longitude')).strip() != '':
                 data_to_save['coordinates_locked'] = True
                 data_to_save['coordinates_locked_at'] = database.get_ist_now()
 

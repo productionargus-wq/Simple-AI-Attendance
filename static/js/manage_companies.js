@@ -121,8 +121,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const slNo = startIndex + idx + 1;
         const hasCoords = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') &&
                           (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '');
-        const lat = hasCoords ? Number(comp.latitude).toFixed(5) : '-';
-        const lng = hasCoords ? Number(comp.longitude).toFixed(5) : '-';
+        const lat = hasCoords ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
+        const lng = hasCoords ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
         const statusBadge = comp.status === 'Active'
           ? `<span class="status-pill status-active">Active</span>`
           : `<span class="status-pill status-inactive">Inactive</span>`;
@@ -266,8 +266,8 @@ document.addEventListener('DOMContentLoaded', function () {
           if (viewCompanyPhone) viewCompanyPhone.textContent = comp.phone || '-';
           if (viewCompanyEmail) viewCompanyEmail.textContent = comp.email || '-';
 
-          const lat = comp.latitude ? Number(comp.latitude).toFixed(5) : '-';
-          const lng = comp.longitude ? Number(comp.longitude).toFixed(5) : '-';
+          const lat = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
+          const lng = (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '') ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
           if (viewCompanyLocation) viewCompanyLocation.textContent = (lat !== '-' && lng !== '-') ? `Lat: ${lat}, Long: ${lng}` : '-';
 
           if (viewCompanyShiftHours) viewCompanyShiftHours.textContent = comp.shift_hours || '08:00';
@@ -440,6 +440,20 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // Auto-split combined coordinates if user pastes/types "lat, lng" into latitude field
+  if (inputLatitude && inputLongitude) {
+    inputLatitude.addEventListener('input', function () {
+      const val = this.value;
+      if (val && (val.includes(',') || val.includes(';'))) {
+        const parts = val.split(/[,;]+/);
+        if (parts.length >= 2) {
+          this.value = parts[0].trim();
+          inputLongitude.value = parts[1].trim();
+        }
+      }
+    });
+  }
+
   // Submit Company Form
   if (companyForm) {
     companyForm.addEventListener('submit', async function (e) {
@@ -452,8 +466,8 @@ document.addEventListener('DOMContentLoaded', function () {
         gstin: formData.get('gstin'),
         phone: formData.get('phone'),
         email: formData.get('email'),
-        latitude: (formData.get('latitude') !== null && String(formData.get('latitude')).trim() !== '') ? parseFloat(formData.get('latitude')) : null,
-        longitude: (formData.get('longitude') !== null && String(formData.get('longitude')).trim() !== '') ? parseFloat(formData.get('longitude')) : null,
+        latitude: (formData.get('latitude') !== null && String(formData.get('latitude')).trim() !== '') ? String(formData.get('latitude')).trim() : null,
+        longitude: (formData.get('longitude') !== null && String(formData.get('longitude')).trim() !== '') ? String(formData.get('longitude')).trim() : null,
         status: formData.get('status') || 'Active',
         employee_limit: parseInt(formData.get('employee_limit'), 10) || 50,
         shift_hours: (formData.get('shift_hours') || '08:00').trim(),

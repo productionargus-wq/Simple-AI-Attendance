@@ -222,6 +222,69 @@ def init_db():
         except Exception as e:
             print(f"Master company seeding notice: {e}")
 
+# ----------------- UNIVERSAL COORDINATE PARSERS ----------------- #
+
+def parse_coordinate_value(val):
+    """
+    Parses any coordinate representation (decimal, DMS, directional, or custom manual entry).
+    Never throws an exception. Allows users to type manually ANY coordinate.
+    If numeric or standard GPS, returns a clean float.
+    If custom string/format, returns the sanitized string so nothing is ever rejected.
+    """
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return float(val)
+    val_str = str(val).strip()
+    if not val_str:
+        return None
+
+    # 1. Direct float conversion attempt
+    try:
+        return float(val_str)
+    except Exception:
+        pass
+
+    # 2. Regex parsing for degrees/minutes/seconds (DMS) or directional letters (N/S/E/W)
+    try:
+        # Check DMS format: e.g. 11° 1' 47.3" N or 11d 1m 47.3s N
+        dms_m = re.search(r'(\d+(?:\.\d+)?)\s*[°d\s]\s*(\d+(?:\.\d+)?|\b)?\s*[\'m\s]?\s*([\d\.]+)?\s*[\"s]?\s*([NSEWnsew])?', val_str)
+        if dms_m and (dms_m.group(4) or '°' in val_str or "'" in val_str or '"' in val_str):
+            deg = float(dms_m.group(1) or 0)
+            minute = float(dms_m.group(2) or 0)
+            sec = float(dms_m.group(3) or 0)
+            dec = deg + (minute / 60.0) + (sec / 3600.0)
+            dir_card = (dms_m.group(4) or '').upper()
+            if dir_card in ('S', 'W'):
+                dec = -dec
+            return round(dec, 7)
+
+        # Check decimal with direction: e.g. 11.0298 N or 76.9740 W or S 33.8688
+        dir_dec_m = re.search(r'([NSEWnsew])?\s*([-+]?\d+(?:\.\d+)?)\s*([NSEWnsew])?', val_str)
+        if dir_dec_m:
+            num = float(dir_dec_m.group(2))
+            dir_card = ((dir_dec_m.group(1) or '') + (dir_dec_m.group(3) or '')).upper()
+            if ('S' in dir_card or 'W' in dir_card) and num > 0:
+                num = -num
+            return num
+    except Exception:
+        pass
+
+    # 3. If arbitrary custom manual coordinate or text, preserve and return as string (never reject)
+    return val_str
+
+def parse_coordinate_to_float(val, default_val=None):
+    """Safely extracts a float value from any coordinate for distance calculation."""
+    if val is None:
+        return default_val
+    parsed = parse_coordinate_value(val)
+    if isinstance(parsed, (int, float)):
+        return float(parsed)
+    try:
+        return float(str(parsed).strip())
+    except Exception:
+        return default_val
+
 # ----------------- MULTI-TENANT COMPANY MANAGEMENT ----------------- #
 
 def apply_tenant_filter(query, company_id):
@@ -248,20 +311,18 @@ def create_company(data):
     reg_date_str = now_ist.strftime('%d/%m/%Y %I:%M %p')
     lat_val = data.get('latitude')
     lng_val = data.get('longitude')
-    lat = None
-    lng = None
-    if lat_val is not None and str(lat_val).strip() != '':
-        try:
-            lat = float(lat_val)
-        except Exception:
-            lat = None
-    if lng_val is not None and str(lng_val).strip() != '':
-        try:
-            lng = float(lng_val)
-        except Exception:
-            lng = None
+    
+    # Check if user typed or pasted combined coordinates (e.g. "11.0298, 76.9740")
+    if lat_val and (',' in str(lat_val) or ';' in str(lat_val)) and (not lng_val or str(lng_val).strip() == ''):
+        parts = re.split(r'[,;]+', str(lat_val))
+        if len(parts) >= 2:
+            lat_val = parts[0].strip()
+            lng_val = parts[1].strip()
 
-    coords_locked = bool(lat is not None and lng is not None)
+    lat = parse_coordinate_value(lat_val)
+    lng = parse_coordinate_value(lng_val)
+
+    coords_locked = bool(lat is not None and lng is not None and str(lat).strip() != '' and str(lng).strip() != '')
 
     doc = {
         'id': comp_id,
@@ -415,25 +476,19 @@ def update_company(comp_id, data):
         if lat_val is None or str(lat_val).strip() == '':
             upd['latitude'] = None
         else:
-            try:
-                upd['latitude'] = float(lat_val)
-            except Exception:
-                pass
+            upd['latitude'] = parse_coordinate_value(lat_val)
     if 'longitude' in data:
         lng_val = data['longitude']
         if lng_val is None or str(lng_val).strip() == '':
             upd['longitude'] = None
         else:
-            try:
-                upd['longitude'] = float(lng_val)
-            except Exception:
-                pass
+            upd['longitude'] = parse_coordinate_value(lng_val)
     if 'coordinates_locked' in data:
         upd['coordinates_locked'] = bool(data['coordinates_locked'])
     elif ('latitude' in upd or 'longitude' in upd):
         cur_lat = upd.get('latitude')
         cur_lng = upd.get('longitude')
-        if cur_lat is not None and cur_lng is not None:
+        if cur_lat is not None and cur_lng is not None and str(cur_lat).strip() != '' and str(cur_lng).strip() != '':
             upd['coordinates_locked'] = True
             upd['coordinates_locked_at'] = get_ist_now()
         elif cur_lat is None and cur_lng is None and ('latitude' in upd and 'longitude' in upd):
@@ -1296,7 +1351,10 @@ def calculate_distance_meters(lat1, lon1, lat2=OFFICE_LAT, lon2=OFFICE_LNG):
     """Calculate distance in meters between two GPS coordinates using Haversine formula."""
     import math
     try:
-        lat1, lon1, lat2, lon2 = float(lat1), float(lon1), float(lat2), float(lon2)
+        lat1 = parse_coordinate_to_float(lat1, OFFICE_LAT)
+        lon1 = parse_coordinate_to_float(lon1, OFFICE_LNG)
+        lat2 = parse_coordinate_to_float(lat2, OFFICE_LAT)
+        lon2 = parse_coordinate_to_float(lon2, OFFICE_LNG)
         r = 6371000.0  # Earth radius in meters
         phi1 = math.radians(lat1)
         phi2 = math.radians(lat2)
@@ -1330,10 +1388,10 @@ def calculate_realistic_proximity(user_lat, user_lng, office_lat=OFFICE_LAT, off
         import random
         return random.uniform(12.0, 35.0)
     try:
-        ulat = float(user_lat)
-        ulng = float(user_lng)
-        olat = float(office_lat if office_lat is not None else OFFICE_LAT)
-        olng = float(office_lng if office_lng is not None else OFFICE_LNG)
+        ulat = parse_coordinate_to_float(user_lat, OFFICE_LAT)
+        ulng = parse_coordinate_to_float(user_lng, OFFICE_LNG)
+        olat = parse_coordinate_to_float(office_lat, OFFICE_LAT)
+        olng = parse_coordinate_to_float(office_lng, OFFICE_LNG)
         d = calculate_distance_meters(ulat, ulng, olat, olng)
         if d < 5.0:
             import random
@@ -1401,8 +1459,8 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     if comp_id != 'ARGUS_MASTER':
         comp = db.company_admin.find_one({'id': comp_id})
         if comp:
-            target_lat = float(comp.get('latitude') or OFFICE_LAT)
-            target_lng = float(comp.get('longitude') or OFFICE_LNG)
+            target_lat = parse_coordinate_to_float(comp.get('latitude'), OFFICE_LAT)
+            target_lng = parse_coordinate_to_float(comp.get('longitude'), OFFICE_LNG)
             loc_str = f"{comp.get('company_name', 'Company')} Premises"
             
     # Calculate proximity distance
