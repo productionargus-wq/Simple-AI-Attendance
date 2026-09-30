@@ -1170,36 +1170,50 @@ body.sidebar-collapsed .app-footer {
   }
 }
 
-/* ---------------- Live Report & Timeout Entries UI ---------------- */
+/* ---------------- Live Report & Attendance Report Subtab Toggles ---------------- */
 .tab-toggle-container {
-  display: flex;
-  gap: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #f1f5f9;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
 }
 
 .btn-toggle-tab {
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   text-decoration: none;
   transition: all 0.15s ease;
+  background-color: transparent;
+  color: #64748b;
+  line-height: 1.2;
+}
+
+.btn-toggle-tab:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
 }
 
 .btn-toggle-tab.active {
-  background-color: #f59e0b;
-  color: #111111;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  background-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
 }
 
 .btn-toggle-tab.inactive {
-  background-color: #fef08a;
-  color: #333333;
+  background-color: transparent;
+  color: #64748b;
 }
 
 .btn-toggle-tab.inactive:hover {
-  background-color: #fde047;
+  background-color: #e2e8f0;
+  color: #0f172a;
 }
 
 .report-subtitle {
@@ -1242,33 +1256,36 @@ body.sidebar-collapsed .app-footer {
 }
 
 .btn-filter {
-  background-color: #007bff;
+  background-color: #2563eb;
   color: #ffffff;
   border: none;
-  border-radius: 4px;
-  padding: 5px 16px;
+  border-radius: 6px;
+  padding: 6px 16px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
+  transition: background 0.15s ease;
 }
 
 .btn-filter:hover {
-  background-color: #0069d9;
+  background-color: #1d4ed8;
 }
 
 .btn-clear {
-  background-color: #6c757d;
-  color: #ffffff;
-  border: none;
-  border-radius: 4px;
-  padding: 5px 16px;
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 16px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .btn-clear:hover {
-  background-color: #5a6268;
+  background-color: #e2e8f0;
+  color: #0f172a;
 }
 
 .table-toolbar-left {
@@ -1333,22 +1350,24 @@ body.sidebar-collapsed .app-footer {
 
 /* ---------------- Attendance Report Custom Styles ---------------- */
 .btn-update {
-  background-color: #ffc107;
-  color: #111111;
-  border: 1px solid #e0a800;
-  border-radius: 4px;
+  background-color: #ffffff;
+  color: #2563eb;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 6px;
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn-update:hover {
-  background-color: #e0a800;
+  background-color: #eff6ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
 }
 
 .simple-table-header-bar {
@@ -2685,13 +2704,6 @@ body.page-dashboard .bottom-footer {
   color: #c026d3;
 }
 
-/* Dashboard Footer Bar */
-.dash-footer-bar {
-  font-size: 12px;
-  color: #64748b;
-  padding: 8px 4px 16px;
-  text-align: left;
-}
 
 /* Responsive Breakpoints for Dashboard */
 @media (max-width: 1200px) {
