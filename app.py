@@ -1060,8 +1060,14 @@ def api_export_excel():
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['EMPLOYEE NAME', 'ENTRY TIME', 'SITE NAME', 'ENTRY LOCATION', 'ENTRY DISTANCE'])
-    for r in result['data']:
-        writer.writerow([r['employee_name'], r['entry_time'], r['site_name'], r['entry_location'], r['entry_distance']])
+    for r in result.get('data', []):
+        writer.writerow([
+            r.get('employee_name', ''),
+            r.get('entry_time', ''),
+            r.get('site_name', '----') or '----',
+            r.get('entry_location', '----') or '----',
+            r.get('entry_distance', '----') or '----'
+        ])
         
     output.seek(0)
     filename = f"{entry_type}_entries_report.csv"
@@ -1254,18 +1260,33 @@ def api_attendance_export_excel():
     if report_type == 'simple':
         result = database.get_attendance_simple_table(employee=employee, start_date=start_date, end_date=end_date, company_id=comp_id)
         writer.writerow(['EMPLOYEE NAME', 'ENTRY TIME', 'EXIT TIME', 'WORKING HOURS', 'SHIFT VARIANCE', 'WORKING SALARY', 'STATUS'])
-        for r in result['data']:
-            writer.writerow([r['employee_name'], r['entry_time'], r['exit_time'], r['working_hours'], r['shift_variance'], r['working_salary'], r['status']])
+        for r in result.get('data', []):
+            writer.writerow([
+                r.get('employee_name', ''),
+                r.get('entry_time', ''),
+                r.get('exit_time', '') or '',
+                r.get('working_hours', '00:00') or '00:00',
+                r.get('shift_variance', '') or '',
+                r.get('working_salary', 0),
+                r.get('status', 'Manual')
+            ])
         writer.writerow([])
-        writer.writerow(['TOTAL', '', '', result['total_working_hours'], '----', result['total_working_salary'], ''])
+        writer.writerow(['TOTAL', '', '', result.get('total_working_hours', '00:00'), '----', result.get('total_working_salary', '0.00'), ''])
     else:
         result = database.get_attendance_reports(report_type=report_type, start_date=start_date, end_date=end_date, employee=employee, limit=10000, company_id=comp_id)
         writer.writerow(['EMPLOYEE NAME', 'ENTRY TIME', 'ENTRY DISTANCE', 'ENTRY LOCATION', 'EXIT TIME', 'EXIT DISTANCE', 'EXIT LOCATION', 'WORKING HOURS', 'SHIFT VARIANCE', 'WORKING SALARY'])
-        for r in result['data']:
+        for r in result.get('data', []):
             writer.writerow([
-                r['employee_name'], r['entry_time'], r['entry_distance'], r['entry_location'],
-                r['exit_time'], r['exit_distance'], r['exit_location'], r['working_hours'],
-                r['shift_variance'], r['working_salary']
+                r.get('employee_name', ''),
+                r.get('entry_time', '') or '',
+                r.get('entry_distance', '----') or '----',
+                r.get('entry_location', '----') or '----',
+                r.get('exit_time', '----') or '----',
+                r.get('exit_distance', '----') or '----',
+                r.get('exit_location', '----') or '----',
+                r.get('working_hours', '00:00') or '00:00',
+                r.get('shift_variance', '----') or '----',
+                r.get('working_salary', 0) if r.get('working_salary') is not None else 0
             ])
             
     output.seek(0)
