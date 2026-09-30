@@ -459,7 +459,12 @@ def employee_portal():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    stats = database.get_dashboard_stats(company_id=get_current_company_id())
+    comp_id = get_current_company_id()
+    if comp_id and comp_id != 'ARGUS_MASTER':
+        comp = database.get_company_by_id(comp_id)
+        if comp and comp.get('company_name'):
+            session['company_name'] = comp['company_name']
+    stats = database.get_dashboard_stats(company_id=comp_id)
     return render_template('dashboard.html', active_tab='DASHBOARD', stats=stats)
 
 @app.route('/employee-details')

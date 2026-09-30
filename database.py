@@ -720,10 +720,12 @@ def get_dashboard_stats(company_id=None):
     present_count = len(combined_present)
     absent_count = max(0, total_employees - present_count)
     present_percentage = round((present_count / total_employees * 100), 1) if total_employees > 0 else 0.0
+    absent_percentage = round((absent_count / total_employees * 100), 1) if total_employees > 0 else 0.0
     
     tout_filter = dict(t_filter)
     tout_filter['is_timeout'] = 1
     timeout_count = db.live_entries.count_documents(tout_filter)
+    timeout_percentage = round((timeout_count / total_employees * 100), 1) if total_employees > 0 else 0.0
     
     # Last 7 days dynamic calculation including manual entries
     last_7_days = []
@@ -750,17 +752,31 @@ def get_dashboard_stats(company_id=None):
         ]
         d_me_names = db.manual_entries.distinct('employee_name', d_me)
         
-        unique_day_present = set(d_att_names).union(set(d_ar_names)).union(set(d_me_names))
+        d_live = dict(t_filter)
+        d_live['entry_time'] = {'$regex': day_slash}
+        d_live_names = db.live_entries.distinct('employee_name', d_live)
+        
+        d_tout = dict(d_live)
+        d_tout['is_timeout'] = 1
+        d_tout_cnt = db.live_entries.count_documents(d_tout)
+        
+        unique_day_present = set(d_att_names).union(set(d_ar_names)).union(set(d_me_names)).union(set(d_live_names))
+        day_present_cnt = len(unique_day_present)
+        day_absent_cnt = max(0, total_employees - day_present_cnt)
         
         last_7_days.append({
             'date': label,
-            'count': len(unique_day_present)
+            'present': day_present_cnt,
+            'absent': day_absent_cnt,
+            'timeout': d_tout_cnt,
+            'count': day_present_cnt
         })
         
     # Monthly stats dynamic calculation across attendance punches and manual entries
     monthly_stats = []
     months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     curr_year = get_ist_now().year
+    curr_month = get_ist_now().month
     for m_idx, m_name in enumerate(months, start=1):
         m_prefix = f"{curr_year}-{m_idx:02d}"
         m_hyphen = f"-{m_idx:02d}-{curr_year}"
@@ -781,21 +797,162 @@ def get_dashboard_stats(company_id=None):
         ]
         me_cnt = db.manual_entries.count_documents(mo_me)
         
+        mo_tout = dict(t_filter)
+        mo_tout['is_timeout'] = 1
+        mo_tout['entry_time'] = {'$regex': f"/{m_idx:02d}/{curr_year}"}
+        tout_cnt = db.live_entries.count_documents(mo_tout)
+        
         total_monthly_punches = att_cnt + ar_cnt + me_cnt
+        
+        if m_idx <= curr_month and total_employees > 0:
+            m_absent = max(0, total_employees * 26 - total_monthly_punches) if total_monthly_punches > 0 else 0
+        else:
+            m_absent = 0
+            
         monthly_stats.append({
             'month': m_name,
+            'present': total_monthly_punches,
+            'absent': m_absent,
+            'timeout': tout_cnt,
             'count': total_monthly_punches
         })
         
+    # Today's attendance list & Department summary
+    employees = list(db.employees.find(t_filter, {'_id': 0, 'id': 1, 'employee_name': 1, 'department': 1, 'designation': 1}))
+    
+    p_filter = dict(t_filter)
+    p_filter['date'] = today_str
+    att_docs = {a['employee_name']: a for a in db.attendance.find(p_filter)}
+    
+    ar_today_filter = dict(t_filter)
+    ar_today_filter['date'] = today_str
+    ar_docs = {a['employee_name']: a for a in db.attendance_reports.find(ar_today_filter)}
+    
+    l_filter = dict(t_filter)
+    l_filter['entry_time'] = {'$regex': today_slash}
+    live_docs = {l['employee_name']: l for l in db.live_entries.find(l_filter)}
+    
+    m_filter = dict(t_filter)
+    m_filter['$or'] = [
+        {'entry_date': today_str},
+        {'submitted_at': {'$regex': today_str}},
+        {'submitted_at': {'$regex': today_slash}}
+    ]
+    manual_docs = {m['employee_name']: m for m in db.manual_entries.find(m_filter)}
+    
+    today_attendance = []
+    present_names_set = set()
+    timeout_names_set = set()
+    
+    def format_time_str(t_str):
+        if not t_str or t_str == '-':
+            return '-'
+        parts = str(t_str).strip().split()
+        if len(parts) >= 3 and ('AM' in parts or 'PM' in parts):
+            time_part = parts[-2]
+            ampm = parts[-1]
+            time_sub = time_part.split(':')
+            if len(time_sub) >= 2:
+                return f"{time_sub[0]}:{time_sub[1]} {ampm}"
+        elif len(parts) == 2 and ('AM' in parts[1] or 'PM' in parts[1]):
+            time_sub = parts[0].split(':')
+            if len(time_sub) >= 2:
+                return f"{time_sub[0]}:{time_sub[1]} {parts[1]}"
+        elif len(parts) == 1 and ':' in parts[0]:
+            time_sub = parts[0].split(':')
+            if len(time_sub) >= 2:
+                return f"{time_sub[0]}:{time_sub[1]}"
+        return str(t_str)
+
+    for emp in employees:
+        ename = emp.get('employee_name', '')
+        in_time = '-'
+        out_time = '-'
+        hours = '-'
+        status = 'Absent'
+        
+        if ename in live_docs:
+            l = live_docs[ename]
+            in_time = format_time_str(l.get('entry_time'))
+            out_time = format_time_str(l.get('exit_time'))
+            hours = str(l.get('total_hours') or '-')
+            if l.get('is_timeout') == 1:
+                status = 'Timeout'
+                timeout_names_set.add(ename)
+            else:
+                status = 'Present'
+                present_names_set.add(ename)
+        elif ename in att_docs:
+            a = att_docs[ename]
+            in_time = format_time_str(a.get('in_time') or a.get('entry_time'))
+            out_time = format_time_str(a.get('out_time') or a.get('exit_time'))
+            hours = str(a.get('working_hours') or a.get('total_hours') or '-')
+            status = 'Present'
+            present_names_set.add(ename)
+        elif ename in ar_docs:
+            ar = ar_docs[ename]
+            in_time = format_time_str(ar.get('entry_time'))
+            out_time = format_time_str(ar.get('exit_time'))
+            hours = str(ar.get('working_hours') or '-')
+            status = 'Present'
+            present_names_set.add(ename)
+        elif ename in manual_docs:
+            m = manual_docs[ename]
+            in_time = format_time_str(m.get('in_time') or m.get('entry_time'))
+            out_time = format_time_str(m.get('out_time') or m.get('exit_time'))
+            hours = str(m.get('working_hours') or m.get('hours') or '-')
+            status = 'Present'
+            present_names_set.add(ename)
+            
+        today_attendance.append({
+            'employee_name': ename,
+            'department': emp.get('department') or emp.get('designation') or 'General',
+            'in_time': in_time,
+            'out_time': out_time,
+            'hours': hours,
+            'status': status
+        })
+        
+    status_order = {'Present': 0, 'Timeout': 1, 'Absent': 2}
+    today_attendance.sort(key=lambda x: (status_order.get(x['status'], 3), x['employee_name']))
+    for idx, item in enumerate(today_attendance, 1):
+        item['index'] = idx
+        
+    # Department Wise Summary
+    dept_map = {}
+    for emp in employees:
+        dept = emp.get('department') or emp.get('designation') or 'General'
+        if not dept:
+            dept = 'General'
+        if dept not in dept_map:
+            dept_map[dept] = {'department': dept, 'total': 0, 'present': 0, 'absent': 0, 'timeout': 0}
+        dept_map[dept]['total'] += 1
+        ename = emp.get('employee_name', '')
+        if ename in timeout_names_set:
+            dept_map[dept]['timeout'] += 1
+        elif ename in present_names_set:
+            dept_map[dept]['present'] += 1
+        else:
+            dept_map[dept]['absent'] += 1
+            
+    department_summary = list(dept_map.values())
+    department_summary.sort(key=lambda x: x['total'], reverse=True)
+    
     return {
         'total': total_employees,
         'present': present_count,
         'absent': absent_count,
         'present_percentage': present_percentage,
         'present_percent': f"{present_percentage}%",
+        'absent_percentage': absent_percentage,
+        'absent_percent': f"{absent_percentage}%",
         'timeout': timeout_count,
+        'timeout_percentage': timeout_percentage,
+        'timeout_percent': f"{timeout_percentage}%",
         'last_7_days': last_7_days,
-        'monthly_stats': monthly_stats
+        'monthly_stats': monthly_stats,
+        'today_attendance': today_attendance,
+        'department_summary': department_summary
     }
 
 # ----------------- LIVE & TIMEOUT ENTRIES ----------------- #

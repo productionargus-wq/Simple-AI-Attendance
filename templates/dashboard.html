@@ -1,53 +1,388 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<!-- Top Dashboard Banner -->
-<div class="content-banner-card">
-  <div class="content-banner-title">DASHBOARD</div>
-  <div class="live-clock" id="currentDateTime">26/09/2026 11:01:12</div>
-</div>
+<div class="dash-container">
 
-<!-- 5 Stat Cards Row -->
-<div class="stats-cards-row">
-  <div class="stat-card stat-card-total">
-    <div class="stat-card-title">Total</div>
-    <div class="stat-card-value" id="statTotal">{{ stats.total }}</div>
-  </div>
-  <div class="stat-card stat-card-present">
-    <div class="stat-card-title">Present</div>
-    <div class="stat-card-value" id="statPresent">{{ stats.present }}</div>
-  </div>
-  <div class="stat-card stat-card-absent">
-    <div class="stat-card-title">Absent</div>
-    <div class="stat-card-value" id="statAbsent">{{ stats.absent }}</div>
-  </div>
-  <div class="stat-card stat-card-pct">
-    <div class="stat-card-title">Present %</div>
-    <div class="stat-card-value" id="statPct">{{ stats.present_percent }}</div>
-  </div>
-  <div class="stat-card stat-card-timeout">
-    <div class="stat-card-title">Timeout</div>
-    <div class="stat-card-value" id="statTimeout">{{ stats.timeout }}</div>
-  </div>
-</div>
+  <!-- ROW 1: 4 Stat Summary Cards -->
+  <div class="dash-stats-grid">
+    <!-- 1. Total Employees -->
+    <div class="dash-stat-card card-total">
+      <div class="stat-main">
+        <div class="stat-icon-badge bg-blue-subtle text-blue">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+        </div>
+        <div class="stat-info">
+          <div class="stat-title">Total Employees</div>
+          <div class="stat-num" id="statTotal">{{ stats.total }}</div>
+        </div>
+      </div>
+      <div class="stat-deco deco-blue">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 21h18v-2H3v2zm3-4h3v-2H6v2zm0-4h3v-2H6v2zm0-4h3V7H6v2zm5 12h3v-2h-3v2zm0-4h3v-2h-3v2zm0-4h3V7h-3v2zm5 12h3v-2h-3v2zm0-4h3v-2h-3v2zm0-4h3V7h-3v2zM2 3v16h20V3H2zm18 14H4V5h16v12z"/>
+        </svg>
+      </div>
+    </div>
 
-<!-- Attendance Charts Row -->
-<div class="charts-grid">
-  <!-- Left: Last 7 Days Attendance -->
-  <div class="chart-card">
-    <div class="chart-header-title">Last 7 Days Attendance</div>
-    <div class="chart-container">
-      <canvas id="last7DaysChart"></canvas>
+    <!-- 2. Present Today -->
+    <div class="dash-stat-card card-present">
+      <div class="stat-main">
+        <div class="stat-icon-badge bg-green-subtle text-green">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </div>
+        <div class="stat-info">
+          <div class="stat-title">Present Today</div>
+          <div class="stat-value-group">
+            <span class="stat-num" id="statPresent">{{ stats.present }}</span>
+            <span class="stat-pill pill-green" id="statPresentPct">{{ stats.present_percent }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="stat-deco deco-green">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="2" y="10" width="4" height="12" rx="1"/>
+          <rect x="10" y="4" width="4" height="18" rx="1"/>
+          <rect x="18" y="8" width="4" height="14" rx="1"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 3. Absent Today -->
+    <div class="dash-stat-card card-absent">
+      <div class="stat-main">
+        <div class="stat-icon-badge bg-red-subtle text-red">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="8.5" cy="7" r="4"></circle>
+            <line x1="18" y1="8" x2="23" y2="13"></line>
+            <line x1="23" y1="8" x2="18" y2="13"></line>
+          </svg>
+        </div>
+        <div class="stat-info">
+          <div class="stat-title">Absent Today</div>
+          <div class="stat-value-group">
+            <span class="stat-num" id="statAbsent">{{ stats.absent }}</span>
+            <span class="stat-pill pill-red" id="statAbsentPct">{{ stats.absent_percent }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="stat-deco deco-red">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="2" y="14" width="4" height="8" rx="1"/>
+          <rect x="10" y="8" width="4" height="14" rx="1"/>
+          <rect x="18" y="4" width="4" height="18" rx="1"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 4. On Timeout -->
+    <div class="dash-stat-card card-timeout">
+      <div class="stat-main">
+        <div class="stat-icon-badge bg-amber-subtle text-amber">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <div class="stat-info">
+          <div class="stat-title">On Timeout</div>
+          <div class="stat-value-group">
+            <span class="stat-num" id="statTimeout">{{ stats.timeout }}</span>
+            <span class="stat-pill pill-amber" id="statTimeoutPct">{{ stats.timeout_percent }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="stat-deco deco-amber">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="2" y="12" width="4" height="10" rx="1"/>
+          <rect x="10" y="6" width="4" height="16" rx="1"/>
+          <rect x="18" y="10" width="4" height="12" rx="1"/>
+        </svg>
+      </div>
     </div>
   </div>
 
-  <!-- Right: Monthly Attendance -->
-  <div class="chart-card">
-    <div class="chart-header-title">Monthly Attendance</div>
-    <div class="chart-container">
-      <canvas id="monthlyAttendanceChart"></canvas>
+  <!-- ROW 2: Two Interactive Charts -->
+  <div class="dash-charts-row">
+    <!-- Left: Last 7 Days Attendance -->
+    <div class="dash-chart-card">
+      <div class="card-head">
+        <div class="card-title-group">
+          <div class="card-title-icon text-blue">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </div>
+          <h3 class="card-title-text">Last 7 Days Attendance</h3>
+        </div>
+        <div class="card-filter-dropdown">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          <span>Last 7 Days</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+      <div class="chart-canvas-container">
+        <canvas id="last7DaysLineChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Right: Monthly Attendance -->
+    <div class="dash-chart-card">
+      <div class="card-head">
+        <div class="card-title-group">
+          <div class="card-title-icon text-blue">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </div>
+          <h3 class="card-title-text">Monthly Attendance</h3>
+        </div>
+        <div class="card-filter-dropdown">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          <span>This Month</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+      <div class="chart-canvas-container">
+        <canvas id="monthlyAttendanceBarChart"></canvas>
+      </div>
     </div>
   </div>
+
+  <!-- ROW 3: Three Cards (Today's Attendance, Department Wise Summary, Quick Actions) -->
+  <div class="dash-bottom-row">
+
+    <!-- Card 1: Today's Attendance -->
+    <div class="dash-card card-today-attendance">
+      <div class="card-head">
+        <div class="card-title-group">
+          <div class="card-title-icon text-blue">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <h3 class="card-title-text">Today's Attendance</h3>
+        </div>
+        <a href="{{ url_for('attendance_report') }}" class="card-link-action">View All &rarr;</a>
+      </div>
+      <div class="card-table-scroll">
+        <table class="dash-table">
+          <thead>
+            <tr>
+              <th style="width: 28px;">#</th>
+              <th>Employee Name</th>
+              <th>In Time</th>
+              <th>Out Time</th>
+              <th>Hours</th>
+              <th style="text-align: center;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if stats.today_attendance and stats.today_attendance|length > 0 %}
+              {% for row in stats.today_attendance[:6] %}
+              <tr>
+                <td class="text-muted">{{ loop.index }}</td>
+                <td class="font-semibold text-dark">{{ row.employee_name }}</td>
+                <td>{{ row.in_time }}</td>
+                <td>{{ row.out_time }}</td>
+                <td>{{ row.hours }}</td>
+                <td style="text-align: center;">
+                  {% if row.status == 'Present' %}
+                    <span class="table-badge badge-present">Present</span>
+                  {% elif row.status == 'Timeout' %}
+                    <span class="table-badge badge-timeout">Timeout</span>
+                  {% else %}
+                    <span class="table-badge badge-absent">Absent</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="6" class="table-empty">No attendance records today</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Card 2: Department Wise Summary -->
+    <div class="dash-card card-dept-summary">
+      <div class="card-head">
+        <div class="card-title-group">
+          <div class="card-title-icon text-blue">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <h3 class="card-title-text">Department Wise Summary</h3>
+        </div>
+        <a href="{{ url_for('attendance_report') }}" class="card-link-action">View Report &rarr;</a>
+      </div>
+      <div class="card-table-scroll">
+        <table class="dash-table">
+          <thead>
+            <tr>
+              <th>Department</th>
+              <th style="text-align: center;">Total</th>
+              <th style="text-align: center;">Present</th>
+              <th style="text-align: center;">Absent</th>
+              <th style="text-align: center;">Timeout</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if stats.department_summary and stats.department_summary|length > 0 %}
+              {% for dept in stats.department_summary %}
+              <tr>
+                <td class="font-semibold text-dark">{{ dept.department }}</td>
+                <td style="text-align: center; font-weight: 700;">{{ dept.total }}</td>
+                <td style="text-align: center; color: #16a34a; font-weight: 700;">{{ dept.present }}</td>
+                <td style="text-align: center; color: #dc2626; font-weight: 700;">{{ dept.absent }}</td>
+                <td style="text-align: center; color: #d97706; font-weight: 700;">{{ dept.timeout }}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="5" class="table-empty">No department summary data</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Card 3: Quick Actions -->
+    <div class="dash-card card-quick-actions">
+      <div class="card-head">
+        <div class="card-title-group">
+          <div class="card-title-icon text-blue">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </div>
+          <h3 class="card-title-text">Quick Actions</h3>
+        </div>
+      </div>
+      <div class="quick-actions-grid">
+        <!-- 1. Add Employee -->
+        <a href="{{ url_for('employee_details') }}" class="qa-btn qa-btn-blue">
+          <div class="qa-content">
+            <svg class="qa-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="8.5" cy="7" r="4"></circle>
+              <line x1="20" y1="8" x2="20" y2="14"></line>
+              <line x1="23" y1="11" x2="17" y2="11"></line>
+            </svg>
+            <span class="qa-label">Add Employee</span>
+          </div>
+          <span class="qa-arrow">&rarr;</span>
+        </a>
+
+        <!-- 2. View Reports -->
+        <a href="{{ url_for('attendance_report') }}" class="qa-btn qa-btn-orange">
+          <div class="qa-content">
+            <svg class="qa-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            <span class="qa-label">View Reports</span>
+          </div>
+          <span class="qa-arrow">&rarr;</span>
+        </a>
+
+        <!-- 3. Manual Entry -->
+        <a href="{{ url_for('manual_entry') }}" class="qa-btn qa-btn-green">
+          <div class="qa-content">
+            <svg class="qa-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+            </svg>
+            <span class="qa-label">Manual Entry</span>
+          </div>
+          <span class="qa-arrow">&rarr;</span>
+        </a>
+
+        <!-- 4. Payment Entry -->
+        <a href="{{ url_for('payment_entry') }}" class="qa-btn qa-btn-red">
+          <div class="qa-content">
+            <svg class="qa-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+              <line x1="1" y1="10" x2="23" y2="10"></line>
+            </svg>
+            <span class="qa-label">Payment Entry</span>
+          </div>
+          <span class="qa-arrow">&rarr;</span>
+        </a>
+
+        <!-- 5. Generate Payslip -->
+        <a href="{{ url_for('monthly_payslip') }}" class="qa-btn qa-btn-purple">
+          <div class="qa-content">
+            <svg class="qa-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            <span class="qa-label">Generate Payslip</span>
+          </div>
+          <span class="qa-arrow">&rarr;</span>
+        </a>
+
+        <!-- 6. Company Settings -->
+        <a href="{{ url_for('company_profile') }}" class="qa-btn qa-btn-violet">
+          <div class="qa-content">
+            <svg class="qa-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span class="qa-label">Company Settings</span>
+          </div>
+          <span class="qa-arrow">&rarr;</span>
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Dashboard Footer -->
+  <div class="dash-footer-bar">
+    &copy; Argus Attendance &nbsp;|&nbsp; Powered by ARGUSCNC &nbsp;|&nbsp; Version 5.1
+  </div>
+
 </div>
 {% endblock %}
 
