@@ -248,12 +248,33 @@ def create_company(data):
     db.company_admin.insert_one(doc)
     return comp_id
 
+def format_company_reg_date(val):
+    if not val:
+        return '-'
+    if isinstance(val, datetime):
+        return val.strftime('%d/%m/%Y %I:%M %p')
+    val_str = str(val).strip()
+    if not val_str or val_str == '-':
+        return '-'
+    if 'T' in val_str or '-' in val_str:
+        clean_str = val_str.replace('Z', '')
+        if '.' in clean_str:
+            clean_str = clean_str.split('.')[0]
+        for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%d/%m/%Y %I:%M %p', '%d/%m/%Y'):
+            try:
+                parsed = datetime.strptime(clean_str, fmt)
+                return parsed.strftime('%d/%m/%Y %I:%M %p')
+            except Exception:
+                pass
+    return val_str
+
 def get_all_companies(search='', page=1, limit=10):
     """Retrieves paginated companies with employee count, limit, and registered date."""
     db = get_db()
     query = {}
-    if search:
-        reg = {'$regex': re.escape(search), '$options': 'i'}
+    search_str = str(search or '').strip()
+    if search_str:
+        reg = {'$regex': re.escape(search_str), '$options': 'i'}
         query['$or'] = [
             {'company_name': reg},
             {'email': reg},
@@ -278,17 +299,7 @@ def get_all_companies(search='', page=1, limit=10):
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
             
-        if not c.get('registered_date'):
-            if c.get('created_at'):
-                try:
-                    if isinstance(c['created_at'], datetime):
-                        c['registered_date'] = c['created_at'].strftime('%d/%m/%Y %I:%M %p')
-                    else:
-                        c['registered_date'] = str(c['created_at'])
-                except Exception:
-                    c['registered_date'] = str(c.get('created_at', '-'))
-            else:
-                c['registered_date'] = '-'
+        c['registered_date'] = format_company_reg_date(c.get('registered_date') or c.get('created_at'))
         companies.append(c)
         
     return {
@@ -314,17 +325,7 @@ def get_company_by_id(comp_id):
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
-        if not c.get('registered_date'):
-            if c.get('created_at'):
-                try:
-                    if isinstance(c['created_at'], datetime):
-                        c['registered_date'] = c['created_at'].strftime('%d/%m/%Y %I:%M %p')
-                    else:
-                        c['registered_date'] = str(c['created_at'])
-                except Exception:
-                    c['registered_date'] = str(c.get('created_at', '-'))
-            else:
-                c['registered_date'] = '-'
+        c['registered_date'] = format_company_reg_date(c.get('registered_date') or c.get('created_at'))
         return c
     return None
 

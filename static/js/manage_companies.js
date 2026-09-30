@@ -59,6 +59,28 @@ document.addEventListener('DOMContentLoaded', function () {
   const viewCompanyStatusBadge = document.getElementById('viewCompanyStatusBadge');
   const viewCompanyReportsBadge = document.getElementById('viewCompanyReportsBadge');
 
+  function formatDisplayDate(dateStr) {
+    if (!dateStr || dateStr === '-') return '-';
+    if (typeof dateStr === 'string' && (dateStr.includes('T') || (dateStr.includes('-') && dateStr.includes(':')))) {
+      try {
+        const d = new Date(dateStr.replace(' ', 'T'));
+        if (!isNaN(d.getTime())) {
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          let hours = d.getHours();
+          const minutes = String(d.getMinutes()).padStart(2, '0');
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          hours = hours % 12;
+          hours = hours ? hours : 12;
+          const strHours = String(hours).padStart(2, '0');
+          return `${day}/${month}/${year} ${strHours}:${minutes} ${ampm}`;
+        }
+      } catch (e) {}
+    }
+    return dateStr;
+  }
+
   // Fetch and display companies
   async function loadCompanies(page = 1) {
     currentPage = page;
@@ -105,14 +127,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const isAutoReports = comp.auto_email_reports !== false;
         const autoReportsBadge = isAutoReports
-          ? `<button type="button" class="btn-toggle-auto-reports btn-reports-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Auto Email Reports: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease;">
+          ? `<button type="button" class="btn-toggle-auto-reports btn-reports-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Auto Email Reports: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                 <polyline points="22,6 12,13 2,6"></polyline>
               </svg>
               <span>ON</span>
             </button>`
-          : `<button type="button" class="btn-toggle-auto-reports btn-reports-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Auto Email Reports: DISABLED (Click to turn on)" style="background-color: #f1f5f9; color: #64748b; border: 1.5px solid #cbd5e1; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; opacity: 0.85;">
+          : `<button type="button" class="btn-toggle-auto-reports btn-reports-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Auto Email Reports: DISABLED (Click to turn on)" style="background-color: #f1f5f9; color: #64748b; border: 1.5px solid #cbd5e1; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; opacity: 0.85; white-space: nowrap;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                 <line x1="2" y1="2" x2="22" y2="22"></line>
@@ -120,41 +142,42 @@ document.addEventListener('DOMContentLoaded', function () {
               <span>OFF</span>
             </button>`;
 
-        const regDateDisplay = comp.registered_date && comp.registered_date !== '-'
-          ? `<span style="display: inline-block; background-color: #f1f5f9; color: #334155; padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap;">${escapeHtml(comp.registered_date)}</span>`
+        const formattedDate = formatDisplayDate(comp.registered_date);
+        const regDateDisplay = formattedDate && formattedDate !== '-'
+          ? `<span style="display: inline-block; background-color: #f1f5f9; color: #334155; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap;">${escapeHtml(formattedDate)}</span>`
           : `<span style="color: #94a3b8; font-size: 11px;">-</span>`;
 
         const row = document.createElement('tr');
         row.innerHTML = `
-          <td style="font-weight: 700; color: #555;">${slNo}</td>
+          <td style="font-weight: 700; color: #64748b; text-align: center; white-space: nowrap;">${slNo}</td>
           <td>
-            <div style="font-weight: 800; color: #0f172a;">${escapeHtml(comp.company_name)}</div>
-            <div style="font-size: 10px; color: #64748b; font-family: monospace;">ID: ${comp.id}</div>
+            <div style="font-weight: 800; color: #0f172a; font-size: 12.5px; line-height: 1.35;">${escapeHtml(comp.company_name)}</div>
+            <div style="font-size: 10.5px; color: #64748b; font-family: monospace; margin-top: 2px; white-space: nowrap;">ID: ${comp.id}</div>
           </td>
-          <td>${regDateDisplay}</td>
-          <td><code style="background-color: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-size: 11px; color: #334155;">${escapeHtml(comp.gstin || '-')}</code></td>
-          <td>
+          <td style="white-space: nowrap; text-align: center;">${regDateDisplay}</td>
+          <td style="white-space: nowrap;"><code style="background-color: #f1f5f9; padding: 3px 6px; border-radius: 4px; font-size: 11px; color: #334155; font-weight: 600;">${escapeHtml(comp.gstin || '-')}</code></td>
+          <td style="white-space: nowrap;">
             <a href="mailto:${escapeHtml(comp.email)}" style="color: #2563eb; text-decoration: none; font-weight: 700;">
               ${escapeHtml(comp.email)}
             </a>
           </td>
-          <td>${escapeHtml(comp.phone || '-')}</td>
-          <td>
+          <td style="white-space: nowrap; font-weight: 600; color: #334155;">${escapeHtml(comp.phone || '-')}</td>
+          <td style="white-space: nowrap;">
             <div style="font-size: 11px; color: #334155; font-weight: 600;">📍 ${lat}, ${lng}</div>
           </td>
-          <td style="text-align: center;">
-            <span style="font-weight: 700; color: #0f172a; font-size: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 6px;">
+          <td style="text-align: center; white-space: nowrap;">
+            <span style="font-weight: 700; color: #0f172a; font-size: 11.5px; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 6px; display: inline-block;">
               ${escapeHtml(comp.shift_hours || '08:00')}
             </span>
           </td>
-          <td style="text-align: center;">
-            <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 4px 10px; border-radius: 12px; font-weight: 800; font-size: 11px;">
+          <td style="text-align: center; white-space: nowrap;">
+            <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 3px 8px; border-radius: 12px; font-weight: 800; font-size: 11px;">
               ${comp.employee_count || 0}/${comp.employee_limit || 50}
             </span>
           </td>
-          <td style="text-align: center;">${statusBadge}</td>
-          <td style="text-align: center;">${autoReportsBadge}</td>
-          <td style="text-align: center;">
+          <td style="text-align: center; white-space: nowrap;">${statusBadge}</td>
+          <td style="text-align: center; white-space: nowrap;">${autoReportsBadge}</td>
+          <td style="text-align: center; white-space: nowrap;">
             <div class="table-actions">
               <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

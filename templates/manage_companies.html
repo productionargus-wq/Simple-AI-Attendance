@@ -17,8 +17,8 @@
       <div class="content-banner-subtitle">Super Admin tenant organization and subscription management</div>
     </div>
   </div>
-  <div class="banner-actions">
-    <button class="btn-export" id="btnOpenReportsModal" style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; background: #ffffff;">
+  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;">
+    <button class="btn-secondary-action" id="btnOpenReportsModal">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="18" y1="20" x2="18" y2="10"></line>
         <line x1="12" y1="20" x2="12" y2="4"></line>
@@ -70,23 +70,23 @@
     <table class="employee-table" id="companyDataTable">
       <thead>
         <tr>
-          <th style="width: 45px;">SL NO</th>
-          <th>COMPANY NAME</th>
-          <th>REGISTERED DATE</th>
-          <th>GSTIN NUMBER</th>
-          <th>REGISTERED EMAIL</th>
-          <th>PHONE NUMBER</th>
-          <th>LOCATION</th>
-          <th style="text-align: center;">SHIFT</th>
-          <th style="text-align: center;">LIMIT</th>
-          <th style="text-align: center;">STATUS</th>
-          <th style="text-align: center; width: 105px;">AUTO REPORTS</th>
-          <th style="text-align: center; width: 110px;">ACTIONS</th>
+          <th style="width: 50px; text-align: center; white-space: nowrap;">SL NO</th>
+          <th style="min-width: 170px; white-space: nowrap;">COMPANY NAME</th>
+          <th style="min-width: 145px; white-space: nowrap; text-align: center;">REGISTERED DATE</th>
+          <th style="min-width: 140px; white-space: nowrap;">GSTIN NUMBER</th>
+          <th style="min-width: 170px; white-space: nowrap;">REGISTERED EMAIL</th>
+          <th style="min-width: 120px; white-space: nowrap;">PHONE NUMBER</th>
+          <th style="min-width: 150px; white-space: nowrap;">LOCATION</th>
+          <th style="min-width: 70px; text-align: center; white-space: nowrap;">SHIFT</th>
+          <th style="min-width: 70px; text-align: center; white-space: nowrap;">LIMIT</th>
+          <th style="min-width: 80px; text-align: center; white-space: nowrap;">STATUS</th>
+          <th style="min-width: 110px; text-align: center; white-space: nowrap;">AUTO REPORTS</th>
+          <th style="min-width: 115px; text-align: center; white-space: nowrap;">ACTIONS</th>
         </tr>
       </thead>
       <tbody id="companyTableBody">
         <tr>
-          <td colspan="11" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
+          <td colspan="12" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
         </tr>
       </tbody>
     </table>
