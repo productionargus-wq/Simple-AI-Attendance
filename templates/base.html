@@ -7,8 +7,6 @@
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <!-- Chart.js CDN for interactive charts -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body class="page-{{ (active_tab or '') | lower | replace(' ', '-') }}">
 
@@ -137,7 +135,7 @@
     </div>
   </footer>
 
-  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

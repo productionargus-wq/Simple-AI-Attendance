@@ -111,13 +111,17 @@ document.addEventListener('DOMContentLoaded', function () {
     }, { passive: true });
   }
 
-  // Universal modal body-scroll lock observer
+  // Universal modal body-scroll lock observer with state guard to eliminate DOM thrashing
+  let lastModalState = false;
   const modalObserver = new MutationObserver(function () {
-    const hasActiveModal = document.querySelector('.modal-overlay.active');
-    if (hasActiveModal) {
-      document.body.classList.add('modal-open');
-    } else {
-      document.body.classList.remove('modal-open');
+    const hasActiveModal = !!document.querySelector('.modal-overlay.active');
+    if (hasActiveModal !== lastModalState) {
+      lastModalState = hasActiveModal;
+      if (hasActiveModal) {
+        document.body.classList.add('modal-open');
+      } else {
+        document.body.classList.remove('modal-open');
+      }
     }
   });
   modalObserver.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });

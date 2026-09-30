@@ -42,7 +42,15 @@ _client = None
 def get_mongo_client():
     global _client
     if _client is None:
-        _client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=7000)
+        _client = MongoClient(
+            MONGODB_URI,
+            maxPoolSize=50,
+            minPoolSize=5,
+            maxIdleTimeMS=45000,
+            connectTimeoutMS=5000,
+            socketTimeoutMS=10000,
+            serverSelectionTimeoutMS=5000
+        )
     return _client
 
 def get_db():
@@ -95,9 +103,11 @@ def build_id_filter(ident):
 # ----------------- INITIALIZATION & SEEDING ----------------- #
 
 def migrate_existing_data_to_master():
-    """Backfills legacy documents without company_id to ARGUS_MASTER."""
+    """Backfills legacy documents without company_id to ARGUS_MASTER once."""
     try:
         db = get_db()
+        if db.system_flags.find_one({'name': 'master_migration_done'}):
+            return
         collections = ['employees', 'live_entries', 'attendance_reports', 'attendance', 'manual_entries', 'payments', 'advances', 'salary_reports']
         for coll_name in collections:
             coll = db[coll_name]
@@ -122,6 +132,7 @@ def migrate_existing_data_to_master():
             else:
                 st = 'hourly'
             db.employees.update_one({'_id': emp['_id']}, {'$set': {'salary_type': st}})
+        db.system_flags.insert_one({'name': 'master_migration_done', 'at': get_ist_now()})
     except Exception as e:
         print(f"Warning during tenant data migration: {e}")
 
@@ -139,8 +150,9 @@ def init_db():
         db.employees.create_index([("id", ASCENDING)], unique=True)
         db.employees.create_index([("company_id", ASCENDING), ("employee_name", ASCENDING)])
         db.employees.create_index([("email_id", ASCENDING)])
-        db.live_entries.create_index([("company_id", ASCENDING), ("is_timeout", ASCENDING), ("entry_time", DESCENDING)])
+        db.attendance_reports.create_index([("company_id", ASCENDING), ("date", DESCENDING)])
         db.attendance_reports.create_index([("company_id", ASCENDING), ("entry_type", ASCENDING), ("employee_name", ASCENDING)])
+        db.live_entries.create_index([("company_id", ASCENDING), ("entry_time", DESCENDING)])
         db.attendance.create_index([("company_id", ASCENDING), ("date", DESCENDING)])
         db.manual_entries.create_index([("company_id", ASCENDING), ("entry_date", DESCENDING)])
         db.payments.create_index([("company_id", ASCENDING), ("payment_date", DESCENDING), ("reason", ASCENDING)])
@@ -315,11 +327,26 @@ def get_all_companies(search='', page=1, limit=10):
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
     companies = []
-    for doc in cursor:
+    company_docs = list(cursor)
+    
+    # Batch calculate employee counts in a single query instead of N sequential calls
+    comp_ids = [doc.get('id') for doc in company_docs if doc.get('id')]
+    counts_map = {}
+    if comp_ids:
+        try:
+            agg_res = db.employees.aggregate([
+                {'$match': {'company_id': {'$in': comp_ids}}},
+                {'$group': {'_id': '$company_id', 'count': {'$sum': 1}}}
+            ])
+            counts_map = {item['_id']: item['count'] for item in agg_res}
+        except Exception:
+            pass
+
+    for doc in company_docs:
         c = clean_doc(doc)
         c['address'] = c.get('address') or c.get('location') or ''
-        c['employee_count'] = db.employees.count_documents({'company_id': c['id']})
-        c['employee_limit'] = int(c.get('employee_limit') or c.get('employee_count') or 50)
+        c['employee_count'] = counts_map.get(c['id'], 0)
+        c['employee_limit'] = int(c.get('employee_limit') or c['employee_count'] or 50)
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
@@ -757,7 +784,26 @@ def save_face_embedding(emp_id, embedding):
 
 # ----------------- DYNAMIC DASHBOARD STATS ----------------- #
 
+_dashboard_cache = {}
+_dashboard_cache_ttl = 30  # seconds
+
+def invalidate_dashboard_cache(company_id=None):
+    global _dashboard_cache
+    if company_id:
+        _dashboard_cache.pop(str(company_id), None)
+        _dashboard_cache.pop('ALL', None)
+        _dashboard_cache.pop(None, None)
+    else:
+        _dashboard_cache.clear()
+
 def get_dashboard_stats(company_id=None):
+    cache_key = str(company_id or 'ALL')
+    now_ts = time.time()
+    if cache_key in _dashboard_cache:
+        entry_time, cached_val = _dashboard_cache[cache_key]
+        if now_ts - entry_time < _dashboard_cache_ttl:
+            return cached_val
+
     db = get_db()
     t_filter = {}
     if company_id and company_id != 'ALL':
@@ -766,133 +812,14 @@ def get_dashboard_stats(company_id=None):
     total_employees = db.employees.count_documents(t_filter)
     
     # Calculate today's active punches across live punches, attendance, reports, and manual entries
-    today_str = get_ist_now().strftime('%Y-%m-%d')
-    today_slash = get_ist_now().strftime('%d/%m/%Y')
-    
-    p_filter = dict(t_filter)
-    p_filter['date'] = today_str
-    present_names = db.attendance.distinct('employee_name', p_filter)
-    
-    ar_today_filter = dict(t_filter)
-    ar_today_filter['date'] = today_str
-    ar_today = db.attendance_reports.distinct('employee_name', ar_today_filter)
-    
-    l_filter = dict(t_filter)
-    l_filter['entry_time'] = {'$regex': today_slash}
-    live_today = db.live_entries.distinct('employee_name', l_filter)
-    
-    m_filter = dict(t_filter)
-    m_filter['$or'] = [
-        {'entry_date': today_str},
-        {'submitted_at': {'$regex': today_str}},
-        {'submitted_at': {'$regex': today_slash}}
-    ]
-    manual_today = db.manual_entries.distinct('employee_name', m_filter)
-    
-    combined_present = set(present_names).union(set(live_today)).union(set(ar_today)).union(set(manual_today))
-    present_count = len(combined_present)
-    absent_count = max(0, total_employees - present_count)
-    present_percentage = round((present_count / total_employees * 100), 1) if total_employees > 0 else 0.0
-    absent_percentage = round((absent_count / total_employees * 100), 1) if total_employees > 0 else 0.0
-    
-    tout_filter = dict(t_filter)
-    tout_filter['is_timeout'] = 1
-    timeout_count = db.live_entries.count_documents(tout_filter)
-    timeout_percentage = round((timeout_count / total_employees * 100), 1) if total_employees > 0 else 0.0
-    
-    # Last 7 days dynamic calculation including manual entries
-    last_7_days = []
-    today = get_ist_now().date()
-    for i in range(6, -1, -1):
-        day = today - timedelta(days=i)
-        day_str = day.strftime('%Y-%m-%d')
-        day_slash = day.strftime('%d/%m/%Y')
-        label = day.strftime('%d %b')
-        
-        d_att = dict(t_filter)
-        d_att['date'] = day_str
-        d_att_names = db.attendance.distinct('employee_name', d_att)
-        
-        d_ar = dict(t_filter)
-        d_ar['date'] = day_str
-        d_ar_names = db.attendance_reports.distinct('employee_name', d_ar)
-        
-        d_me = dict(t_filter)
-        d_me['$or'] = [
-            {'entry_date': day_str},
-            {'submitted_at': {'$regex': day_str}},
-            {'submitted_at': {'$regex': day_slash}}
-        ]
-        d_me_names = db.manual_entries.distinct('employee_name', d_me)
-        
-        d_live = dict(t_filter)
-        d_live['entry_time'] = {'$regex': day_slash}
-        d_live_names = db.live_entries.distinct('employee_name', d_live)
-        
-        d_tout = dict(d_live)
-        d_tout['is_timeout'] = 1
-        d_tout_cnt = db.live_entries.count_documents(d_tout)
-        
-        unique_day_present = set(d_att_names).union(set(d_ar_names)).union(set(d_me_names)).union(set(d_live_names))
-        day_present_cnt = len(unique_day_present)
-        day_absent_cnt = max(0, total_employees - day_present_cnt)
-        
-        last_7_days.append({
-            'date': label,
-            'present': day_present_cnt,
-            'absent': day_absent_cnt,
-            'timeout': d_tout_cnt,
-            'count': day_present_cnt
-        })
-        
-    # Monthly stats dynamic calculation across attendance punches and manual entries
-    monthly_stats = []
-    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    curr_year = get_ist_now().year
-    curr_month = get_ist_now().month
-    for m_idx, m_name in enumerate(months, start=1):
-        m_prefix = f"{curr_year}-{m_idx:02d}"
-        m_hyphen = f"-{m_idx:02d}-{curr_year}"
-        
-        mo_att = dict(t_filter)
-        mo_att['date'] = {'$regex': f"^{m_prefix}"}
-        att_cnt = db.attendance.count_documents(mo_att)
-        
-        mo_ar = dict(t_filter)
-        mo_ar['date'] = {'$regex': f"^{m_prefix}"}
-        ar_cnt = db.attendance_reports.count_documents(mo_ar)
-        
-        mo_me = dict(t_filter)
-        mo_me['$or'] = [
-            {'entry_date': {'$regex': f"^{m_prefix}"}},
-            {'submitted_at': {'$regex': f"^{m_prefix}"}},
-            {'submitted_at': {'$regex': m_hyphen}}
-        ]
-        me_cnt = db.manual_entries.count_documents(mo_me)
-        
-        mo_tout = dict(t_filter)
-        mo_tout['is_timeout'] = 1
-        mo_tout['entry_time'] = {'$regex': f"/{m_idx:02d}/{curr_year}"}
-        tout_cnt = db.live_entries.count_documents(mo_tout)
-        
-        total_monthly_punches = att_cnt + ar_cnt + me_cnt
-        
-        if m_idx <= curr_month and total_employees > 0:
-            m_absent = max(0, total_employees * 26 - total_monthly_punches) if total_monthly_punches > 0 else 0
-        else:
-            m_absent = 0
-            
-        monthly_stats.append({
-            'month': m_name,
-            'present': total_monthly_punches,
-            'absent': m_absent,
-            'timeout': tout_cnt,
-            'count': total_monthly_punches
-        })
-        
-    # Today's attendance list & Department summary
-    employees = list(db.employees.find(t_filter, {'_id': 0, 'id': 1, 'employee_name': 1, 'department': 1, 'designation': 1}))
-    
+    now_ist = get_ist_now()
+    today = now_ist.date()
+    today_str = now_ist.strftime('%Y-%m-%d')
+    today_slash = now_ist.strftime('%d/%m/%Y')
+    curr_year = now_ist.year
+    curr_month = now_ist.month
+
+    # Fetch today's records upfront in batch (avoids duplicate queries)
     p_filter = dict(t_filter)
     p_filter['date'] = today_str
     att_docs = {a['employee_name']: a for a in db.attendance.find(p_filter)}
@@ -912,6 +839,155 @@ def get_dashboard_stats(company_id=None):
         {'submitted_at': {'$regex': today_slash}}
     ]
     manual_docs = {m['employee_name']: m for m in db.manual_entries.find(m_filter)}
+    
+    combined_present = set(att_docs.keys()).union(set(ar_docs.keys())).union(set(live_docs.keys())).union(set(manual_docs.keys()))
+    present_count = len(combined_present)
+    absent_count = max(0, total_employees - present_count)
+    present_percentage = round((present_count / total_employees * 100), 1) if total_employees > 0 else 0.0
+    absent_percentage = round((absent_count / total_employees * 100), 1) if total_employees > 0 else 0.0
+    
+    tout_filter = dict(t_filter)
+    tout_filter['is_timeout'] = 1
+    timeout_count = db.live_entries.count_documents(tout_filter)
+    timeout_percentage = round((timeout_count / total_employees * 100), 1) if total_employees > 0 else 0.0
+    
+    # Last 7 days dynamic calculation in BATCH queries (replaces 35 individual network calls)
+    days = [today - timedelta(days=i) for i in range(6, -1, -1)]
+    day_map = {d.strftime('%Y-%m-%d'): {'label': d.strftime('%d %b'), 'slash': d.strftime('%d/%m/%Y'), 'present': set(), 'timeouts': 0} for d in days}
+    day_strs = list(day_map.keys())
+    day_slashes = [v['slash'] for v in day_map.values()]
+
+    att_7d = list(db.attendance.find({**t_filter, 'date': {'$in': day_strs}}, {'employee_name': 1, 'date': 1}))
+    for a in att_7d:
+        dt = a.get('date')
+        if dt in day_map and a.get('employee_name'):
+            day_map[dt]['present'].add(a['employee_name'])
+
+    ar_7d = list(db.attendance_reports.find({**t_filter, 'date': {'$in': day_strs}}, {'employee_name': 1, 'date': 1}))
+    for a in ar_7d:
+        dt = a.get('date')
+        if dt in day_map and a.get('employee_name'):
+            day_map[dt]['present'].add(a['employee_name'])
+
+    slash_pattern = "|".join([d.replace('/', '\\/') for d in day_slashes])
+    hyphen_pattern = "|".join(day_strs)
+    me_7d = list(db.manual_entries.find({
+        **t_filter,
+        '$or': [
+            {'entry_date': {'$in': day_strs}},
+            {'submitted_at': {'$regex': hyphen_pattern}},
+            {'submitted_at': {'$regex': slash_pattern}}
+        ]
+    }, {'employee_name': 1, 'entry_date': 1, 'submitted_at': 1}))
+    for m in me_7d:
+        ename = m.get('employee_name')
+        edate = m.get('entry_date') or m.get('submitted_at', '')
+        for dt, info in day_map.items():
+            if dt in edate or info['slash'] in edate:
+                if ename:
+                    info['present'].add(ename)
+                break
+
+    live_7d = list(db.live_entries.find({**t_filter, 'entry_time': {'$regex': slash_pattern}}, {'employee_name': 1, 'entry_time': 1, 'is_timeout': 1}))
+    for l in live_7d:
+        et = l.get('entry_time', '')
+        ename = l.get('employee_name')
+        for dt, info in day_map.items():
+            if info['slash'] in et:
+                if ename:
+                    info['present'].add(ename)
+                if l.get('is_timeout') == 1:
+                    info['timeouts'] += 1
+                break
+
+    last_7_days = []
+    for dt in day_strs:
+        info = day_map[dt]
+        p_cnt = len(info['present'])
+        last_7_days.append({
+            'date': info['label'],
+            'present': p_cnt,
+            'absent': max(0, total_employees - p_cnt),
+            'timeout': info['timeouts'],
+            'count': p_cnt
+        })
+        
+    # Monthly stats dynamic calculation in BATCH queries (replaces 48 individual network calls)
+    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    monthly_map = {m_idx: {'present_cnt': 0, 'timeout_cnt': 0} for m_idx in range(1, 13)}
+
+    year_att = list(db.attendance.find({**t_filter, 'date': {'$regex': f"^{curr_year}-"}}, {'date': 1}))
+    for a in year_att:
+        dt = a.get('date', '')
+        if len(dt) >= 7:
+            try:
+                m_idx = int(dt[5:7])
+                if m_idx in monthly_map:
+                    monthly_map[m_idx]['present_cnt'] += 1
+            except Exception:
+                pass
+
+    year_ar = list(db.attendance_reports.find({**t_filter, 'date': {'$regex': f"^{curr_year}-"}}, {'date': 1}))
+    for a in year_ar:
+        dt = a.get('date', '')
+        if len(dt) >= 7:
+            try:
+                m_idx = int(dt[5:7])
+                if m_idx in monthly_map:
+                    monthly_map[m_idx]['present_cnt'] += 1
+            except Exception:
+                pass
+
+    year_me = list(db.manual_entries.find({
+        **t_filter,
+        '$or': [
+            {'entry_date': {'$regex': f"^{curr_year}-"}},
+            {'submitted_at': {'$regex': f"^{curr_year}-"}},
+            {'submitted_at': {'$regex': f"-{curr_year}$"}}
+        ]
+    }, {'entry_date': 1, 'submitted_at': 1}))
+    for m in year_me:
+        dt = m.get('entry_date') or m.get('submitted_at', '')
+        if len(dt) >= 7:
+            try:
+                if dt[4] == '-':
+                    m_idx = int(dt[5:7])
+                elif '/' in dt:
+                    m_idx = int(dt.split('/')[1])
+                else:
+                    m_idx = 0
+                if m_idx in monthly_map:
+                    monthly_map[m_idx]['present_cnt'] += 1
+            except Exception:
+                pass
+
+    year_live = list(db.live_entries.find({**t_filter, 'entry_time': {'$regex': f"/{curr_year}"}}, {'entry_time': 1, 'is_timeout': 1}))
+    for l in year_live:
+        et = l.get('entry_time', '')
+        sp = et.split('/')
+        if len(sp) >= 2:
+            try:
+                m_idx = int(sp[1])
+                if m_idx in monthly_map and l.get('is_timeout') == 1:
+                    monthly_map[m_idx]['timeout_cnt'] += 1
+            except Exception:
+                pass
+
+    monthly_stats = []
+    for m_idx, m_name in enumerate(months, start=1):
+        info = monthly_map[m_idx]
+        total_monthly_punches = info['present_cnt']
+        m_absent = max(0, total_employees * 26 - total_monthly_punches) if (m_idx <= curr_month and total_employees > 0 and total_monthly_punches > 0) else 0
+        monthly_stats.append({
+            'month': m_name,
+            'present': total_monthly_punches,
+            'absent': m_absent,
+            'timeout': info['timeout_cnt'],
+            'count': total_monthly_punches
+        })
+        
+    # Today's attendance list & Department summary
+    employees = list(db.employees.find(t_filter, {'_id': 0, 'id': 1, 'employee_name': 1, 'department': 1, 'designation': 1}))
     
     today_attendance = []
     present_names_set = set()
@@ -1011,7 +1087,7 @@ def get_dashboard_stats(company_id=None):
     department_summary = list(dept_map.values())
     department_summary.sort(key=lambda x: x['total'], reverse=True)
     
-    return {
+    res = {
         'total': total_employees,
         'present': present_count,
         'absent': absent_count,
@@ -1027,6 +1103,8 @@ def get_dashboard_stats(company_id=None):
         'today_attendance': today_attendance,
         'department_summary': department_summary
     }
+    _dashboard_cache[cache_key] = (now_ts, res)
+    return res
 
 # ----------------- LIVE & TIMEOUT ENTRIES ----------------- #
 
@@ -1293,6 +1371,7 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
         'created_at': get_ist_now().isoformat()
     }
     result = db.live_entries.insert_one(doc)
+    invalidate_dashboard_cache(doc.get('company_id'))
     return str(result.inserted_id)
 
 def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=None, company_id=None, client_time=None):
@@ -1515,6 +1594,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             {'$set': {'company_id': comp_id, 'working_hours': working_hours_str, 'status': 'Present', 'updated_at': now}},
             upsert=True
         )
+        invalidate_dashboard_cache(comp_id)
         return {'status': 'punch_out', 'live_id': live_id, 'formatted_dist': formatted_dist, 'working_hours': working_hours_str}
 
 # ----------------- ATTENDANCE REPORTS ----------------- #
@@ -1974,6 +2054,7 @@ def create_manual_entry(data, company_id=None):
         'created_at': get_ist_now().isoformat()
     }
     db.manual_entries.insert_one(doc)
+    invalidate_dashboard_cache(doc.get('company_id'))
     return entry_id
 
 def update_manual_entry(entry_id, data):

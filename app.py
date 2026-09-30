@@ -1,7 +1,9 @@
 import os
 import io
 import csv
+import gzip
 import secrets
+import threading
 import urllib.parse
 import requests
 import werkzeug.utils
@@ -42,6 +44,7 @@ app.secret_key = 'argus-tech-secret-key-2026'
 
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', os.path.join(os.path.dirname(__file__), 'static', 'uploads'))
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 43200  # 12 hours static caching
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 try:
@@ -49,12 +52,18 @@ try:
 except Exception as e:
     print(f"Warning: Could not create upload directory: {e}")
 
+def _background_startup():
+    try:
+        fe = get_face_engine()
+        if fe:
+            fe.ensure_models_available()
+            fe.auto_sync_stored_employee_embeddings()
+    except Exception as e:
+        print(f"Warning: background face sync error: {e}")
+
 try:
     database.init_db()
-    fe = get_face_engine()
-    if fe:
-        fe.ensure_models_available()
-        fe.auto_sync_stored_employee_embeddings()
+    threading.Thread(target=_background_startup, daemon=True, name="FaceSyncStartup").start()
     import report_scheduler
     report_scheduler.start_scheduler()
 except Exception as e:
@@ -168,6 +177,34 @@ def handle_exception(e):
     err = traceback.format_exc()
     print("Unhandled Exception:", err)
     return f"<h1>Server Error</h1><pre>{err}</pre>", 500
+
+@app.after_request
+def add_performance_headers(response):
+    if request.path.startswith('/static/'):
+        response.headers['Cache-Control'] = 'public, max-age=43200, stale-while-revalidate=86400'
+    elif response.status_code == 200 and request.method == 'GET' and not request.path.startswith('/api/'):
+        response.headers['Cache-Control'] = 'no-cache, must-revalidate'
+
+    accept_encoding = request.headers.get('Accept-Encoding', '')
+    if (
+        'gzip' in accept_encoding.lower()
+        and response.status_code == 200
+        and not response.direct_passthrough
+        and response.mimetype in ['text/html', 'text/css', 'application/javascript', 'application/json', 'image/svg+xml']
+    ):
+        try:
+            data = response.get_data()
+            if len(data) > 1024:
+                gzip_buffer = io.BytesIO()
+                with gzip.GzipFile(mode='wb', fileobj=gzip_buffer, compresslevel=6) as gz:
+                    gz.write(data)
+                response.set_data(gzip_buffer.getvalue())
+                response.headers['Content-Encoding'] = 'gzip'
+                response.headers['Content-Length'] = len(response.get_data())
+                response.headers['Vary'] = 'Accept-Encoding'
+        except Exception:
+            pass
+    return response
 
 # ----------------- AUTHENTICATION & PAGE ROUTES ----------------- #
 
