@@ -169,6 +169,12 @@ def init_db():
             }}
         )
 
+    # Backfill default password_raw if not present
+    db.admin_users.update_many(
+        {'password_raw': {'$exists': False}},
+        {'$set': {'password_raw': '76543'}}
+    )
+
     # Automatically backfill legacy records with company_id: ARGUS_MASTER
     migrate_existing_data_to_master()
 
@@ -466,14 +472,15 @@ def validate_company_login(email, password=None):
     return {'success': False, 'error': 'INVALID_PASSWORD', 'company': company}
 
 def set_company_password(company_id_or_email, plain_password):
-    """Sets a new hashed password for a company administrator."""
+    """Sets a new hashed password for a company administrator and persists password_raw."""
     db = get_db()
     if not company_id_or_email or not plain_password:
         return False
-    hashed = hash_user_password(plain_password)
+    raw = str(plain_password).strip()
+    hashed = hash_user_password(raw)
     res = db.company_admin.update_one(
         {'$or': [{'id': str(company_id_or_email)}, {'email': str(company_id_or_email)}]},
-        {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}}
+        {'$set': {'password': hashed, 'password_hash': hashed, 'password_raw': raw, 'password_updated_at': datetime.now()}}
     )
     return res.modified_count > 0 or res.matched_count > 0
 
@@ -2406,18 +2413,19 @@ def validate_admin_login(email_or_username, password=None):
     return {'success': False, 'error': 'INVALID_PASSWORD', 'admin': admin_user}
 
 def set_admin_password(plain_password):
-    """Sets a new hashed password for the Super Admin system administrator."""
+    """Sets a new hashed password for the Super Admin system administrator and persists password_raw."""
     db = get_db()
     if not plain_password:
         return False
-    hashed = hash_user_password(plain_password)
+    raw = str(plain_password).strip()
+    hashed = hash_user_password(raw)
     db.admin_users.update_many(
         {'role': 'super_admin'},
-        {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}}
+        {'$set': {'password': hashed, 'password_hash': hashed, 'password_raw': raw, 'password_updated_at': datetime.now()}}
     )
     db.company_admin.update_one(
         {'id': 'ARGUS_MASTER'},
-        {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}}
+        {'$set': {'password': hashed, 'password_hash': hashed, 'password_raw': raw, 'password_updated_at': datetime.now()}}
     )
     return True
 

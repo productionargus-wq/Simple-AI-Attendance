@@ -127,6 +127,14 @@
       flex-shrink: 0;
     }
 
+    .nav-label-desktop {
+      display: inline;
+    }
+
+    .nav-label-mobile {
+      display: none;
+    }
+
     /* Main Container - Elevated for Vertical Room */
     .main-content {
       flex: 1;
@@ -550,8 +558,11 @@
         gap: 5px;
         flex-wrap: nowrap;
       }
-      .nav-text-extra {
+      .nav-label-desktop {
         display: none !important;
+      }
+      .nav-label-mobile {
+        display: inline !important;
       }
       .nav-btn {
         padding: 6px 8px;
@@ -614,7 +625,7 @@
   <header class="navbar">
     <a href="/" class="nav-brand">
       <div class="nav-logo-badge">
-        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Argus">
+        <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="Argus" style="width: 24px; height: 24px; object-fit: contain;">
       </div>
       <div class="nav-title">ARGUS ATTENDANCE</div>
     </a>
@@ -633,7 +644,8 @@
           <line x1="8" y1="14" x2="8" y2="14.01"></line>
           <line x1="16" y1="14" x2="16" y2="14.01"></line>
         </svg>
-        Company<span class="nav-text-extra"> Access</span>
+        <span class="nav-label-desktop">Company Access</span>
+        <span class="nav-label-mobile">Company</span>
       </a>
 
       <a href="/employee-login" class="nav-btn" id="btnNavEmployeeLogin" title="Employee Portal Login">
@@ -641,7 +653,8 @@
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
           <circle cx="12" cy="7" r="4"></circle>
         </svg>
-        Employee<span class="nav-text-extra"> Login</span>
+        <span class="nav-label-desktop">Employee Login</span>
+        <span class="nav-label-mobile">Employee</span>
       </a>
 
       <a href="/login" class="nav-btn" id="btnNavAdminLogin" title="System Administration (Super Admin)">
@@ -649,7 +662,8 @@
           <circle cx="12" cy="12" r="3"></circle>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
-        <span class="nav-text-extra">System </span>Admin<span class="nav-text-extra">istration</span>
+        <span class="nav-label-desktop">System Administration</span>
+        <span class="nav-label-mobile">Admin</span>
       </a>
     </nav>
   </header>
@@ -718,7 +732,7 @@
   <!-- Footer -->
   <footer class="footer">
     <div class="footer-left">
-      &copy; 2026 ARGUS Attendance &nbsp;|&nbsp; ARGUS TECHNOLOGIES
+      &copy; 2026 ARGUS Attendance &nbsp;|&nbsp; Version 5.1
     </div>
     <div class="footer-right">
       <span>Powered by</span>

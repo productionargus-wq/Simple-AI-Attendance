@@ -155,11 +155,11 @@
 <body>
 
   <div class="login-card">
-    <!-- Emblem Logo -->
-    <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="Argus" style="width: 58px; height: 58px; object-fit: contain; margin-bottom: 8px;">
-    
-    <!-- Title & Brand Header -->
-    <div style="font-size: 20px; font-weight: 800; color: #14284b; letter-spacing: 0.8px; margin-bottom: 6px;">ARGUS ATTENDANCE</div>
+    <!-- Single-Row Brand Header (Logo + Title) -->
+    <div class="login-brand-row" style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px;">
+      <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="Argus" style="width: 36px; height: 36px; object-fit: contain;">
+      <div style="font-size: 20px; font-weight: 800; color: #14284b; letter-spacing: 0.8px; white-space: nowrap;">ARGUS ATTENDANCE</div>
+    </div>
     <div style="width: 38px; height: 3px; background-color: #e59819; border-radius: 2px; margin: 0 auto 10px;"></div>
     
     <!-- Dynamic Role Header -->

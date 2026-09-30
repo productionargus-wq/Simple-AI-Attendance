@@ -673,16 +673,22 @@ def api_get_company_profile():
 
         is_master = (target_id == 'ARGUS_MASTER')
         if company:
-            # STRICT PRIVACY RULE: Never leak client company passwords to Super Admin
-            if not is_master:
-                company.pop('password', None)
-                company.pop('password_hash', None)
-                company['has_password'] = False
-            else:
-                has_pass = bool(company.get('password') or company.get('password_hash'))
-                company['has_password'] = has_pass
-                company.pop('password', None)
-                company.pop('password_hash', None)
+            raw_pass = company.get('password_raw') or ''
+            if not raw_pass and is_master:
+                db = database.get_db()
+                adm = db.admin_users.find_one({'role': 'super_admin'}) or db.admin_users.find_one({'username': 'Admin'})
+                if adm:
+                    raw_pass = adm.get('password_raw') or adm.get('password', '')
+                    if raw_pass and (raw_pass.startswith('pbkdf2:') or raw_pass.startswith('scrypt:')):
+                        raw_pass = ''
+            elif not raw_pass:
+                p = company.get('password', '')
+                if p and not p.startswith('pbkdf2:') and not p.startswith('scrypt:'):
+                    raw_pass = p
+            company['saved_password'] = raw_pass
+            company['has_password'] = bool(raw_pass or company.get('password') or company.get('password_hash'))
+            company.pop('password', None)
+            company.pop('password_hash', None)
 
         return jsonify({
             'success': True,
@@ -696,15 +702,20 @@ def api_get_company_profile():
         company = database.get_company_by_id(comp_id)
         if not company:
             return jsonify({'success': False, 'error': 'Company profile not found'}), 404
-        has_pass = bool(company.get('password') or company.get('password_hash'))
-        company['has_password'] = has_pass
+        raw_pass = company.get('password_raw') or ''
+        if not raw_pass:
+            p = company.get('password', '')
+            if p and not p.startswith('pbkdf2:') and not p.startswith('scrypt:'):
+                raw_pass = p
+        company['saved_password'] = raw_pass
+        company['has_password'] = bool(raw_pass or company.get('password') or company.get('password_hash'))
         company.pop('password', None)
         company.pop('password_hash', None)
         return jsonify({
             'success': True,
             'role': 'company_admin',
             'company': company,
-            'has_password': has_pass
+            'has_password': company['has_password']
         })
 
 @app.route('/api/company-profile', methods=['PUT'])
@@ -734,29 +745,26 @@ def api_update_company_profile():
         return jsonify({'success': True, 'message': 'Company profile and credentials updated successfully.'})
     
     elif role == 'super_admin':
-        # Super Admin can edit all fields of any company, but can only set password for System Administration
+        # Super Admin can edit all fields of any company, and set password for any company or System Administration
         target_id = data.get('id') or data.get('company_id')
         if not target_id:
             return jsonify({'success': False, 'error': 'Company ID is required.'}), 400
         
         new_pass = str(data.get('password', '')).strip()
-        if target_id == 'ARGUS_MASTER':
-            # Setting password for System Administration
-            if new_pass:
-                if len(new_pass) < 4:
-                    return jsonify({'success': False, 'error': 'Password must be at least 4 characters.'}), 400
+        if new_pass:
+            if len(new_pass) < 4:
+                return jsonify({'success': False, 'error': 'Password must be at least 4 characters.'}), 400
+            if target_id == 'ARGUS_MASTER':
                 database.set_admin_password(new_pass)
-        else:
-            # STRICT PRIVACY RULE: Super admin cannot view or overwrite client company passwords!
-            data.pop('password', None)
-            data.pop('password_hash', None)
+            else:
+                database.set_company_password(target_id, new_pass)
             
         try:
             data_to_save = dict(data)
             data_to_save.pop('password', None)
             data_to_save.pop('password_hash', None)
             database.update_company(target_id, data_to_save)
-            return jsonify({'success': True, 'message': 'Company profile settings updated successfully.'})
+            return jsonify({'success': True, 'message': 'Company profile and password updated successfully.'})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 400
             

@@ -242,12 +242,15 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('profileLongitude').value = comp.longitude !== undefined ? comp.longitude : '';
     document.getElementById('profileAddress').value = comp.address || comp.location || '';
 
-    // Password field & Privacy Isolation
-    if (profilePasswordInput) profilePasswordInput.value = '';
+    // Password field & Display
+    if (profilePasswordInput) {
+      profilePasswordInput.value = comp.saved_password || '';
+    }
+    profilePasswordGroup.style.display = 'block';
+
     if (role === 'company_admin') {
-      profilePasswordGroup.style.display = 'block';
       profilePasswordLabel.innerHTML = '<strong>Portal Password</strong>';
-      if (comp.has_password) {
+      if (comp.saved_password || comp.has_password) {
         profilePasswordStatus.textContent = '✓ Password Configured';
         profilePasswordStatus.style.color = '#16a34a';
         profilePasswordStatus.style.background = '#dcfce7';
@@ -256,19 +259,26 @@ document.addEventListener('DOMContentLoaded', function () {
         profilePasswordStatus.style.color = '#ea580c';
         profilePasswordStatus.style.background = '#ffedd5';
       }
-      profilePasswordHelp.textContent = 'Set or update your company portal password to sign in with your email.';
+      profilePasswordHelp.textContent = 'View or edit your company portal password to sign in anytime.';
     } else if (role === 'super_admin') {
       if (isMaster || comp.id === 'ARGUS_MASTER') {
-        // Super Admin viewing System Administration
-        profilePasswordGroup.style.display = 'block';
         profilePasswordLabel.innerHTML = '<strong>System Administration Master Password</strong>';
         profilePasswordStatus.textContent = '🔒 Super Admin';
         profilePasswordStatus.style.color = '#0284c7';
         profilePasswordStatus.style.background = '#e0f2fe';
-        profilePasswordHelp.textContent = 'Sets the Super Admin master password for system administration login.';
+        profilePasswordHelp.textContent = 'Super Admin master password for system administration login.';
       } else {
-        // STRICT PRIVACY RULE: Client company password is hidden from Super Admin
-        profilePasswordGroup.style.display = 'none';
+        profilePasswordLabel.innerHTML = '<strong>Company Portal Password</strong>';
+        if (comp.saved_password || comp.has_password) {
+          profilePasswordStatus.textContent = '✓ Password Active';
+          profilePasswordStatus.style.color = '#16a34a';
+          profilePasswordStatus.style.background = '#dcfce7';
+        } else {
+          profilePasswordStatus.textContent = '⚠️ Password Not Set';
+          profilePasswordStatus.style.color = '#ea580c';
+          profilePasswordStatus.style.background = '#ffedd5';
+        }
+        profilePasswordHelp.textContent = 'View or set the login password for this company administrator.';
       }
     }
   }
@@ -352,8 +362,7 @@ document.addEventListener('DOMContentLoaded', function () {
         payload.longitude = document.getElementById('profileLongitude').value;
         payload.address = document.getElementById('profileAddress').value.trim();
 
-        // Super Admin sets password ONLY if targeting System Administration (ARGUS_MASTER)
-        if (currentId === 'ARGUS_MASTER' && newPasswordVal) {
+        if (newPasswordVal) {
           payload.password = newPasswordVal;
         }
       }
