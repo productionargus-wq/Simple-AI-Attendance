@@ -227,8 +227,8 @@
           <!-- Row 7: Register Face & Photo -->
           <div class="form-group" style="grid-column: span 3;">
             <label class="form-label">Register Face & Photo<span class="required" id="photoRequiredIndicator">*</span></label>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <input type="file" class="form-input form-file-input" id="inputPhoto" name="photo" accept="image/*" style="flex: 1;">
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <input type="file" class="form-input form-file-input" id="inputPhoto" name="photo" accept="image/*" style="flex: 1; min-width: 160px;">
               <button type="button" id="btnCaptureface" class="btn-submit" style="padding: 7px 14px; font-size: 12px; white-space: nowrap; background-color: #3d6078;">📷 Capture Face</button>
             </div>
             <div id="captureStatus" style="font-size: 12px; color: #198754; font-weight: 700; margin-top: 6px;"></div>

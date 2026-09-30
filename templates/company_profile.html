@@ -15,9 +15,9 @@
 
   {% if role == 'super_admin' %}
   <!-- Super Admin Tenant Selector -->
-  <div style="display: flex; align-items: center; gap: 10px;">
+  <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
     <label for="selectCompanyDropdown" style="font-size: 12px; font-weight: 700; color: #475569; white-space: nowrap;">SELECT COMPANY:</label>
-    <select id="selectCompanyDropdown" style="padding: 7px 14px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; color: #1e293b; background: #f8fafc; outline: none; cursor: pointer; min-width: 220px;">
+    <select id="selectCompanyDropdown" style="padding: 7px 14px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; color: #1e293b; background: #f8fafc; outline: none; cursor: pointer; flex: 1; min-width: 160px;">
       <option value="" disabled selected>Loading companies...</option>
     </select>
   </div>
@@ -116,13 +116,13 @@
 
       <!-- Office Coordinates -->
       <div class="form-group">
-        <label class="form-label" style="display: flex; justify-content: space-between;">
+        <label class="form-label" style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
           <span>Office Coordinates (Latitude, Longitude)</span>
           {% if role == 'company_admin' %}<span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>{% endif %}
         </label>
-        <div style="display: flex; gap: 8px;">
-          <input type="number" step="any" class="form-input" id="profileLatitude" name="latitude" placeholder="Latitude" {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
-          <input type="number" step="any" class="form-input" id="profileLongitude" name="longitude" placeholder="Longitude" {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <input type="number" step="any" class="form-input" id="profileLatitude" name="latitude" placeholder="Latitude" style="flex: 1; min-width: 120px; {% if role == 'company_admin' %}background-color: #f8fafc; cursor: not-allowed;{% endif %}" {% if role == 'company_admin' %}readonly{% endif %}>
+          <input type="number" step="any" class="form-input" id="profileLongitude" name="longitude" placeholder="Longitude" style="flex: 1; min-width: 120px; {% if role == 'company_admin' %}background-color: #f8fafc; cursor: not-allowed;{% endif %}" {% if role == 'company_admin' %}readonly{% endif %}>
         </div>
       </div>
 
@@ -159,7 +159,7 @@
     </div>
 
     <!-- Action Buttons -->
-    <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #f1f5f9; padding-top: 18px;">
+    <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #f1f5f9; padding-top: 18px; flex-wrap: wrap;">
       <button type="button" id="btnResetProfile" class="btn-reset" style="background-color: #94a3b8; color: #ffffff; padding: 9px 20px; font-size: 13px; font-weight: 700; border-radius: 5px; cursor: pointer;">
         Discard Changes
       </button>

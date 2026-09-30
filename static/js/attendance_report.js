@@ -425,9 +425,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         text += rowData.join('\t') + '\n';
       }
-      navigator.clipboard.writeText(text).then(() => {
+      (window.safeCopyToClipboard ? window.safeCopyToClipboard(text) : navigator.clipboard.writeText(text)).then(() => {
         alert('Table data copied to clipboard!');
-      });
+      }).catch(err => console.error(err));
     });
   }
 

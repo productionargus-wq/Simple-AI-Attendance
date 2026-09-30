@@ -60,11 +60,15 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Backdrop overlay click closes drawer on mobile
+  // Backdrop overlay click/touch closes drawer on mobile
   if (sidebarBackdrop) {
     sidebarBackdrop.addEventListener('click', function () {
       toggleSidebar(false);
     });
+    sidebarBackdrop.addEventListener('touchstart', function (e) {
+      e.preventDefault();
+      toggleSidebar(false);
+    }, { passive: false });
   }
 
   // Close sidebar when clicking outside on mobile screens
@@ -88,21 +92,52 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Touch swipe support to close drawer on mobile
+  // Touch swipe support to close drawer on mobile with vertical scroll guard
   let touchStartX = 0;
+  let touchStartY = 0;
   if (sidebar) {
     sidebar.addEventListener('touchstart', function (e) {
-      touchStartX = e.changedTouches[0].screenX;
+      touchStartX = e.changedTouches[0].clientX;
+      touchStartY = e.changedTouches[0].clientY;
     }, { passive: true });
 
     sidebar.addEventListener('touchend', function (e) {
-      const touchEndX = e.changedTouches[0].screenX;
-      if (touchStartX - touchEndX > 50) {
-        // Swiped left by more than 50px
+      const deltaX = touchStartX - e.changedTouches[0].clientX;
+      const deltaY = touchStartY - e.changedTouches[0].clientY;
+      if (deltaX > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        // Swiped left horizontally by more than 50px
         toggleSidebar(false);
       }
     }, { passive: true });
   }
+
+  // Universal modal body-scroll lock observer
+  const modalObserver = new MutationObserver(function () {
+    const hasActiveModal = document.querySelector('.modal-overlay.active');
+    if (hasActiveModal) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+  });
+  modalObserver.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+
+  // Global Escape key to dismiss any active modal
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' || e.keyCode === 27) {
+      const activeModal = document.querySelector('.modal-overlay.active');
+      if (activeModal) {
+        activeModal.classList.remove('active');
+      }
+    }
+  });
+
+  // Modal backdrop touch dismiss
+  document.addEventListener('touchstart', function (e) {
+    if (e.target.classList && e.target.classList.contains('modal-overlay') && e.target.classList.contains('active')) {
+      e.target.classList.remove('active');
+    }
+  }, { passive: true });
 
   // Handle window resize dynamically
   window.addEventListener('resize', function () {
@@ -122,3 +157,28 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 });
+
+// Universal safe clipboard copy helper with fallback for non-secure HTTP / LAN mobile
+window.safeCopyToClipboard = function (text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (success) resolve();
+      else reject(new Error('execCommand copy failed'));
+    } catch (err) {
+      reject(err);
+    }
+  });
+};

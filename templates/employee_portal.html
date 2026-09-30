@@ -42,6 +42,16 @@
       white-space: nowrap;
       pointer-events: none;
     }
+    .portal-nav-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .portal-nav-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
     .portal-container {
       max-width: 1100px;
       margin: 16px auto;
@@ -230,7 +240,7 @@
 
   <!-- Portal Navigation Header -->
   <header class="portal-nav">
-    <div class="portal-nav-left" style="display: flex; align-items: center; gap: 12px;">
+    <div class="portal-nav-left">
       <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Argus" style="width: 32px; height: auto;">
       <div>
         <div class="portal-nav-title" style="font-size: 16px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">ARGUS ATTENDANCE</div>
@@ -243,7 +253,7 @@
       {{ (company.company_name if company and company.company_name else session.get('company_name') or 'ARGUS TECHNOLOGIES') | upper }}
     </div>
 
-    <div class="portal-nav-right" style="display: flex; align-items: center; gap: 16px;">
+    <div class="portal-nav-right">
       <div class="portal-user-badge" style="text-align: right; font-size: 12px;">
         <div class="portal-user-name" style="font-weight: 800; color: #ffffff;">{{ employee.employee_name if employee else 'Employee' }}</div>
         <div class="portal-company-tag" style="color: #ffd166; font-size: 11px;">{{ company.company_name if company else 'Argus Technologies' }}</div>
@@ -399,7 +409,7 @@
         </div>
       </div>
 
-      <div style="padding: 20px; background-color: #ffffff; border-radius: 6px;">
+      <div style="padding: 8px 0; background-color: #ffffff; border-radius: 6px;">
         <div id="credentialsAlert" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; margin-bottom: 16px;"></div>
 
         <form id="employeeCredentialsForm" style="max-width: 550px;">
@@ -685,6 +695,8 @@
       const month = payslipMonthInput.value || `${curYear}-${curMonth}`;
       try {
         const res = await fetch(`/api/employee/my-payslip?month=${month}`);
+        const data = await res.json();
+        const p = data.payslip || data || {};
         const basic = p.basic_salary !== undefined ? p.basic_salary : (p.basic_earnings || 0);
         const deduct = p.total_deduction !== undefined ? p.total_deduction : (p.total_deductions || 0);
         const net = p.net_pay !== undefined ? p.net_pay : (p.net_salary || 0);

@@ -34,6 +34,11 @@ body {
   overflow: hidden; /* Sidebar never scrolls with the page */
 }
 
+body.modal-open {
+  overflow: hidden !important;
+  touch-action: none;
+}
+
 .d-none {
   display: none !important;
 }
@@ -704,13 +709,22 @@ body.sidebar-collapsed .app-footer {
 #simpleDataTable,
 #attendanceSimpleTable,
 .employee-table-simple { min-width: 860px; }
-#liveDataTable { min-width: 960px; }
-#manualDataTable { min-width: 900px; }
-#paymentDataTable { min-width: 900px; }
-#advanceDataTable { min-width: 900px; }
-#balanceDataTable { min-width: 900px; }
-#salaryReportsTable { min-width: 950px; }
+#liveDataTable,
+#liveReportTable { min-width: 960px; }
+#manualDataTable,
+#manualEntryTable { min-width: 900px; }
+#paymentDataTable,
+#paymentTable { min-width: 900px; }
+#advanceDataTable,
+#advanceTable { min-width: 900px; }
+#balanceDataTable,
+#balanceTable { min-width: 900px; }
+#salaryReportsTable,
+#salaryReportTable { min-width: 950px; }
 #companyDataTable { min-width: 1360px; }
+.dash-table { min-width: 520px; }
+.payslip-info-table,
+.payslip-document-wrapper table { min-width: 540px; }
 
 .employee-table th {
   background-color: #ffffff;
@@ -1397,21 +1411,44 @@ body.sidebar-collapsed .app-footer {
 
 .pagination-arrow-btn {
   background: none;
-  border: none;
-  font-size: 16px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 15px;
   font-weight: bold;
   color: #555555;
   cursor: pointer;
-  padding: 2px 8px;
+  padding: 4px 10px;
+  min-width: 36px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pagination-arrow-btn:hover {
   color: #111111;
+  background-color: #f1f5f9;
 }
 
 .pagination-arrow-btn.disabled {
   color: #cccccc;
+  border-color: #e2e8f0;
   cursor: not-allowed;
+}
+
+/* Balance Summary Bar */
+.balance-summary-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111111;
+  padding: 10px 14px;
+  background-color: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
 }
 
 /* ---------------- Attendance Report Custom Styles ---------------- */
@@ -2165,6 +2202,44 @@ body.drawer-open {
     justify-content: center;
   }
 
+  /* Balance Summary Bar Mobile */
+  .balance-summary-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  /* Simple Table Controls Mobile */
+  .employee-select-wrapper {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    gap: 6px !important;
+  }
+
+  .employee-dropdown {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .simple-export-btns {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    gap: 6px !important;
+  }
+
+  .simple-export-btns button,
+  .btn-simple-excel,
+  .btn-simple-pdf,
+  .btn-simple-print {
+    flex: 1 1 calc(33.333% - 6px) !important;
+    min-height: 36px !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+
   /* Inline Forms (Advance, Payment, Payslip Selection) */
   .advance-form-row {
     flex-direction: column;
@@ -2252,7 +2327,8 @@ body.drawer-open {
   .modal-box,
   .modal-box-large,
   .modal-box-payment,
-  .modal-box-manual {
+  .modal-box-manual,
+  .modal-box-camera {
     width: 95% !important;
     max-width: 95% !important;
     max-height: calc(100dvh - 25px);
@@ -2274,8 +2350,26 @@ body.drawer-open {
   .form-grid-company .form-group,
   .form-grid [style*="grid-column: span"],
   .form-grid-company [style*="grid-column: span"],
+  .view-company-grid [style*="grid-column: span"],
   .payment-form-grid .form-group {
     grid-column: span 1 !important;
+  }
+
+  .camera-stream-box {
+    width: 100% !important;
+    max-width: 280px !important;
+    height: auto !important;
+    aspect-ratio: 4/3;
+  }
+
+  .camera-modal-actions {
+    flex-wrap: wrap !important;
+    width: 100% !important;
+  }
+
+  .camera-modal-actions button {
+    flex: 1 1 auto !important;
+    min-height: 38px !important;
   }
 
   .reports-stats-grid {
@@ -2352,6 +2446,31 @@ body.drawer-open {
 
   .export-btn-group .btn-export {
     flex: 1 1 calc(33.333% - 6px);
+  }
+
+  .modal-overlay {
+    padding: 8px !important;
+  }
+
+  .modal-body {
+    padding: 12px !important;
+  }
+
+  .btn-std-save {
+    min-height: 38px !important;
+    padding: 8px 20px !important;
+    width: 100% !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+  }
+
+  .modal-close-icon-corner {
+    width: 36px !important;
+    height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 18px !important;
   }
 }
 
@@ -2562,8 +2681,9 @@ body.drawer-open {
 
 .camera-stream-box {
   position: relative;
-  width: 320px;
-  height: 240px;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 4/3;
   background-color: #1a1a2e;
   border-radius: 6px;
   overflow: hidden;

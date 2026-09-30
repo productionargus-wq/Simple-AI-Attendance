@@ -22,9 +22,9 @@
 </div>
 
 <!-- Employee Selector Matching Image 2 -->
-<div style="margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
-  <label for="filterBalanceEmployee" style="font-size: 13px; font-weight: 600; color: #212529;">Employee:</label>
-  <select id="filterBalanceEmployee" class="table-filter-select" style="width: 150px; padding: 4px 8px;">
+<div class="filter-group" style="margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+  <label for="filterBalanceEmployee" style="font-size: 13px; font-weight: 600; color: #212529; white-space: nowrap;">Employee:</label>
+  <select id="filterBalanceEmployee" class="table-filter-select" style="min-width: 150px; padding: 4px 8px;">
     <option value="All" selected>All</option>
     {% for emp in employees %}
     <option value="{{ emp }}">{{ emp }}</option>
@@ -90,7 +90,7 @@
 </div>
 
 <!-- Bottom Balance Summary Bar Matching Image 2 -->
-<div class="balance-summary-bar" style="margin-top: 14px; font-size: 13px; font-weight: 700; color: #111111; display: flex; gap: 30px;">
+<div class="balance-summary-bar" style="margin-top: 14px;">
   <div>Total Advance: <span id="summaryTotalAdvance" style="color: #0d6efd;">0.00</span></div>
   <div>Total Advance Repayment: <span id="summaryTotalRepayment" style="color: #0d6efd;">0.00</span></div>
   <div>Balance Amount: <span id="summaryBalanceAmount" style="color: #0d6efd;">0.00</span></div>
