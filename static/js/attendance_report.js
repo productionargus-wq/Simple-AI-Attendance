@@ -61,8 +61,8 @@ document.addEventListener('DOMContentLoaded', function () {
   // Subtitle dictionary
   const subtitles = {
     'all': 'Displays all attendance records, including Proper, Improper, and Manual entries.',
-    'proper': 'Displays valid attendance records where working hours are within 13 hours 30 minutes and location distance is within 300 meters.',
-    'improper': 'Displays attendance records where working hours exceed 13 hours 30 minutes or location distance is greater than 300 meters.',
+    'proper': 'Displays valid attendance records where working hours are within 13 hours 30 minutes and location distance is within 2000 meters.',
+    'improper': 'Displays attendance records where working hours exceed 13 hours 30 minutes or location distance is greater than 2000 meters.',
     'manual': 'Displays attendance records that were entered manually by the administrator.',
     'simple': 'Displays attendance records that were entered manually by the administrator.'
   };
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Populate employee dropdowns
   async function loadEmployeeNames() {
     try {
-      const res = await fetch('/api/employees');
+      const res = await fetch('/api/employees?limit=1000');
       const data = await res.json();
       if (simpleEmployeeSelect && data.data) {
         simpleEmployeeSelect.innerHTML = '<option value="All Employees">All Employees</option>';
@@ -134,6 +134,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (view === 'simple') {
       standardTableContainer.style.display = 'none';
       simpleTableContainer.style.display = 'block';
+      if (simpleEmployeeSelect && employeeFilterInput && employeeFilterInput.value && employeeFilterInput.value !== 'All') {
+        simpleEmployeeSelect.value = employeeFilterInput.value;
+      }
       loadSimpleTable();
     } else {
       simpleTableContainer.style.display = 'none';
@@ -209,10 +212,12 @@ document.addEventListener('DOMContentLoaded', function () {
   async function loadSimpleTable() {
     try {
       const empSelectVal = simpleEmployeeSelect ? simpleEmployeeSelect.value : employeeName;
+      const curStart = startDateInput ? startDateInput.value.trim() : startDate;
+      const curEnd = endDateInput ? endDateInput.value.trim() : endDate;
       const params = new URLSearchParams({
         employee: empSelectVal,
-        start_date: startDate,
-        end_date: endDate
+        start_date: curStart,
+        end_date: curEnd
       });
 
       const res = await fetch(`/api/attendance-reports/simple?${params.toString()}`);
@@ -250,6 +255,18 @@ document.addEventListener('DOMContentLoaded', function () {
         entryTimeHtml = `${parts[0]} <span class="text-time-blue">${parts.slice(1).join(' ')}</span>`;
       }
 
+      const rawStatus = (r.status || 'Manual').trim();
+      let statusHtml = '';
+      if (rawStatus.toLowerCase() === 'manual') {
+        statusHtml = `<span class="text-status-manual">Manual</span>`;
+      } else if (rawStatus.toLowerCase() === 'proper') {
+        statusHtml = `<span style="color: #16a34a; font-weight: 700;">Proper</span>`;
+      } else if (rawStatus.toLowerCase() === 'improper') {
+        statusHtml = `<span style="color: #dc2626; font-weight: 700;">Improper</span>`;
+      } else {
+        statusHtml = `<span class="text-status-manual">${escapeHtml(rawStatus)}</span>`;
+      }
+
       tr.innerHTML = `
         <td>${escapeHtml(r.employee_name)}</td>
         <td>${entryTimeHtml}</td>
@@ -257,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <td>${escapeHtml(r.working_hours || '')}</td>
         <td>${escapeHtml(r.shift_variance || '')}</td>
         <td>${Number(r.working_salary || 0).toFixed(2)}</td>
-        <td><span class="text-status-manual">${escapeHtml(r.status || 'Manual')}</span></td>
+        <td>${statusHtml}</td>
       `;
       simpleTableBody.appendChild(tr);
     });
@@ -424,7 +441,9 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnSimpleExcel) {
     btnSimpleExcel.addEventListener('click', function () {
       const emp = simpleEmployeeSelect ? simpleEmployeeSelect.value : 'All Employees';
-      window.location.href = `/api/attendance-reports/export/excel?type=simple&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&employee=${encodeURIComponent(emp)}`;
+      const curStart = startDateInput ? startDateInput.value.trim() : startDate;
+      const curEnd = endDateInput ? endDateInput.value.trim() : endDate;
+      window.location.href = `/api/attendance-reports/export/excel?type=simple&start_date=${encodeURIComponent(curStart)}&end_date=${encodeURIComponent(curEnd)}&employee=${encodeURIComponent(emp)}`;
     });
   }
 
@@ -438,7 +457,9 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnSimplePdf) {
     btnSimplePdf.addEventListener('click', function () {
       const emp = simpleEmployeeSelect ? simpleEmployeeSelect.value : 'All Employees';
-      window.location.href = `/api/attendance-reports/export/pdf?type=simple&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&employee=${encodeURIComponent(emp)}`;
+      const curStart = startDateInput ? startDateInput.value.trim() : startDate;
+      const curEnd = endDateInput ? endDateInput.value.trim() : endDate;
+      window.location.href = `/api/attendance-reports/export/pdf?type=simple&start_date=${encodeURIComponent(curStart)}&end_date=${encodeURIComponent(curEnd)}&employee=${encodeURIComponent(emp)}`;
     });
   }
 

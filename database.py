@@ -1391,44 +1391,221 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
 
 def get_attendance_simple_table(employee='All', start_date=None, end_date=None, company_id=None):
     db = get_db()
-    query = {}
-    if company_id and company_id != 'ALL':
-        query['company_id'] = str(company_id)
-    if employee and employee != 'All':
-        query['employee_name'] = employee
-        
-    cursor = db.attendance_reports.find(query).sort([("date", DESCENDING), ("created_at", DESCENDING), ("_id", DESCENDING)])
-    rows = [clean_doc(doc) for doc in cursor]
     
+    clean_emp = str(employee or '').strip()
+    is_all_emp = (clean_emp in ['All', 'All Employees', '', 'None'])
+    
+    def extract_iso_date(val):
+        if not val:
+            return ''
+        s = str(val).strip()
+        m = re.search(r'(20\d{2})[-/](0[1-9]|1[0-2])[-/](0[1-9]|[12]\d|3[01])', s)
+        if m:
+            return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+        m2 = re.search(r'(0[1-9]|[12]\d|3[01])[-/](0[1-9]|1[0-2])[-/](20\d{2})', s)
+        if m2:
+            return f"{m2.group(3)}-{m2.group(2)}-{m2.group(1)}"
+        return ''
+
+    s_iso = extract_iso_date(start_date) if start_date else ''
+    e_iso = extract_iso_date(end_date) if end_date else ''
+
+    # Pre-fetch employees in company for rate configurations
+    emp_filter = {}
+    if company_id and company_id != 'ALL':
+        emp_filter['company_id'] = str(company_id)
+    emp_docs = list(db.employees.find(emp_filter))
+    emp_map = {e.get('employee_name'): clean_doc(e) for e in emp_docs if e.get('employee_name')}
+
+    def calc_salary(emp_name, hours_str):
+        emp_info = emp_map.get(emp_name)
+        if not emp_info:
+            return 0.0
+        stype = str(emp_info.get('salary_type') or 'hourly').lower()
+        hr_rate = float(emp_info.get('hourly_salary') or 0.0)
+        d_rate = float(emp_info.get('day_salary') or 0.0)
+        h_rate = float(emp_info.get('half_day_salary') or 0.0)
+        if hr_rate <= 0 and d_rate > 0:
+            hr_rate = d_rate / 8.0
+
+        shift_str = emp_info.get('shift_hours', '08:00') or '08:00'
+        shift_mins = 480
+        try:
+            sp = str(shift_str).split(':')
+            shift_mins = int(sp[0]) * 60 + int(sp[1])
+        except Exception:
+            shift_mins = 480
+        if shift_mins <= 0:
+            shift_mins = 480
+        half_shift = max(1, shift_mins // 2)
+
+        tot_mins = 0
+        try:
+            parts = str(hours_str or '').split(':')
+            if len(parts) >= 2:
+                tot_mins = int(parts[0]) * 60 + int(parts[1])
+        except Exception:
+            tot_mins = 0
+
+        if tot_mins <= 0:
+            return 0.0
+
+        if stype == 'hourly':
+            return round((tot_mins / 60.0) * hr_rate, 2)
+        elif stype == 'daily':
+            if tot_mins >= shift_mins:
+                return round(d_rate, 2)
+            elif tot_mins >= half_shift:
+                eff_h = h_rate if h_rate > 0 else (d_rate / 2.0)
+                return round(eff_h, 2)
+            else:
+                eff_hr = hr_rate if hr_rate > 0 else (d_rate / (shift_mins / 60.0))
+                return round((tot_mins / 60.0) * eff_hr, 2)
+        elif stype == 'half_day':
+            eff_h = h_rate if h_rate > 0 else (d_rate / 2.0 if d_rate > 0 else hr_rate * 4.0)
+            if tot_mins >= shift_mins:
+                return round(eff_h * 2.0, 2)
+            elif tot_mins >= half_shift:
+                return round(eff_h, 2)
+            else:
+                return round((tot_mins / float(half_shift)) * eff_h, 2)
+        else:
+            return round((tot_mins / 60.0) * hr_rate, 2)
+
+    data = []
+
+    # 1. Fetch Facial Attendance Punches (attendance_reports)
+    rep_query = {}
+    if company_id and company_id != 'ALL':
+        rep_query['company_id'] = str(company_id)
+    if not is_all_emp:
+        rep_query['employee_name'] = clean_emp
+
+    for doc in db.attendance_reports.find(rep_query):
+        r = clean_doc(doc)
+        rec_date = extract_iso_date(r.get('date') or r.get('entry_time') or r.get('created_at'))
+        if s_iso and rec_date and rec_date < s_iso:
+            continue
+        if e_iso and rec_date and rec_date > e_iso:
+            continue
+
+        emp_name = r.get('employee_name', '')
+        entry_t = r.get('entry_time') or r.get('date') or ''
+        exit_t = r.get('exit_time') or '----'
+        wh = r.get('working_hours', '00:00')
+        sv = r.get('shift_variance', '----')
+        is_improper = (str(r.get('entry_type', '')).lower() == 'improper')
+
+        if is_improper:
+            w_sal = 0.0
+            status_label = 'Improper'
+        else:
+            raw_sal = r.get('working_salary')
+            if raw_sal is not None and float(raw_sal) > 0:
+                w_sal = float(raw_sal)
+            else:
+                w_sal = calc_salary(emp_name, wh)
+            status_label = r.get('status') or 'Proper'
+
+        data.append({
+            'employee_name': emp_name,
+            'entry_time': entry_t,
+            'exit_time': exit_t,
+            'working_hours': wh,
+            'shift_variance': sv,
+            'working_salary': round(w_sal, 2),
+            'status': status_label,
+            'sort_key': rec_date or entry_t,
+            'is_improper': is_improper,
+            'source': 'punch'
+        })
+
+    # 2. Fetch Manual Entries (manual_entries)
+    m_query = {}
+    if company_id and company_id != 'ALL':
+        m_query['company_id'] = str(company_id)
+    if not is_all_emp:
+        m_query['employee_name'] = clean_emp
+
+    for doc in db.manual_entries.find(m_query):
+        m = clean_doc(doc)
+        rec_date = extract_iso_date(m.get('entry_date') or m.get('submitted_at') or m.get('created_at'))
+        if s_iso and rec_date and rec_date < s_iso:
+            continue
+        if e_iso and rec_date and rec_date > e_iso:
+            continue
+
+        emp_name = m.get('employee_name', '')
+        raw_date = m.get('entry_date', '')
+        if rec_date and '-' in rec_date:
+            parts = rec_date.split('-')
+            fmt_date = f"{parts[2]}/{parts[1]}/{parts[0]}"
+        else:
+            fmt_date = raw_date
+        
+        sub_at = m.get('submitted_at', '')
+        time_part = "05:30:00"
+        if sub_at and (' ' in sub_at or ':' in sub_at):
+            t_match = re.search(r'(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AP]M)?)', sub_at, re.I)
+            if t_match:
+                time_part = t_match.group(1)
+        entry_t = f"{fmt_date} {time_part}".strip()
+
+        wh = m.get('hours', '00:00')
+        raw_status = (m.get('status') or 'Manual').strip()
+        is_improper = (raw_status.lower() == 'improper')
+
+        if is_improper:
+            w_sal = 0.0
+            status_label = 'Improper'
+        else:
+            raw_sal = m.get('working_salary')
+            if raw_sal is not None and float(raw_sal) > 0:
+                w_sal = float(raw_sal)
+            else:
+                w_sal = calc_salary(emp_name, wh)
+            status_label = 'Manual' if raw_status in ['Proper', 'Full Day', 'Half Day', 'Manual', 'Others', 'Permission'] else raw_status
+
+        data.append({
+            'employee_name': emp_name,
+            'entry_time': entry_t,
+            'exit_time': '',
+            'working_hours': wh,
+            'shift_variance': '',
+            'working_salary': round(w_sal, 2),
+            'status': status_label,
+            'sort_key': rec_date or entry_t,
+            'is_improper': is_improper,
+            'source': 'manual'
+        })
+
+    # Sort descending by sort_key then entry_time
+    data.sort(key=lambda x: (x.get('sort_key', ''), x.get('entry_time', '')), reverse=True)
+
+    # Compute Totals
     total_minutes = 0
     total_salary = 0.0
-    data = []
-    
-    for r in rows:
-        is_proper = r.get('entry_type') != 'improper'
-        if is_proper:
-            wh = r.get('working_hours', '00:00')
-            sal = float(r.get('working_salary', 0.0))
-            total_salary += sal
-            parts = wh.split(':')
-            if len(parts) >= 2:
-                try:
-                    total_minutes += int(parts[0]) * 60 + int(parts[1])
-                except ValueError:
-                    pass
-        else:
-            r['working_salary'] = 0.0
-            r['day_credit_type'] = 'Improper (0 Credit)'
-        data.append(r)
-        
+
+    for r in data:
+        wh = r.get('working_hours', '00:00')
+        parts = wh.split(':')
+        if len(parts) >= 2:
+            try:
+                total_minutes += int(parts[0]) * 60 + int(parts[1])
+            except ValueError:
+                pass
+        if not r.get('is_improper'):
+            total_salary += float(r.get('working_salary', 0.0))
+
     tot_h = total_minutes // 60
     tot_m = total_minutes % 60
     formatted_total_hours = f"{tot_h:02d}:{tot_m:02d}"
-    
+    formatted_total_salary = f"{total_salary:.2f}"
+
     return {
         'data': data,
         'total_working_hours': formatted_total_hours,
-        'total_working_salary': f"{total_salary:.2f}"
+        'total_working_salary': formatted_total_salary
     }
 
 # ----------------- MANUAL ENTRIES ----------------- #

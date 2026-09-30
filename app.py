@@ -1288,7 +1288,9 @@ def api_attendance_export_pdf():
     company_info = get_current_company_info()
     if report_type == 'simple':
         result = database.get_attendance_simple_table(employee=employee, start_date=start_date, end_date=end_date, company_id=comp_id)
-        title = "Manual Entries (Simple Table)"
+        emp_title = f" - {employee}" if (employee and employee not in ['All', 'All Employees']) else ""
+        date_title = f" ({start_date} to {end_date})" if (start_date and end_date) else (f" (From {start_date})" if start_date else (f" (Up to {end_date})" if end_date else ""))
+        title = f"Attendance Report (Simple Table){emp_title}{date_title}"
         totals = {
             'total_working_hours': result['total_working_hours'],
             'total_working_salary': result['total_working_salary']
