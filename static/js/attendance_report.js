@@ -415,8 +415,8 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // Excel
-  if (btnExportExcel) {
-    btnExportExcel.addEventListener('click', function () {
+  if (btnExcel) {
+    btnExcel.addEventListener('click', function () {
       window.location.href = `/api/attendance-reports/export/excel?type=${currentView}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&employee=${encodeURIComponent(employeeName)}`;
     });
   }
@@ -429,8 +429,8 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // PDF
-  if (btnExportPdf) {
-    btnExportPdf.addEventListener('click', function () {
+  if (btnPdf) {
+    btnPdf.addEventListener('click', function () {
       window.location.href = `/api/attendance-reports/export/pdf?type=${currentView}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&employee=${encodeURIComponent(employeeName)}`;
     });
   }
@@ -469,7 +469,8 @@ document.addEventListener('DOMContentLoaded', function () {
       .row-total td { background: #e9ecef; font-weight: bold; }
     `);
     printWindow.document.write('</style></head><body>');
-    printWindow.document.write(`<h2>ARGUS TECHNOLOGIES - ${title}</h2>`);
+    const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS TECHNOLOGIES';
+    printWindow.document.write(`<h2>${compName} - ${title}</h2>`);
     printWindow.document.write(printContents);
     printWindow.document.write('</body></html>');
     printWindow.document.close();

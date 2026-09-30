@@ -305,7 +305,7 @@ body {
 
 .main-content {
   flex: 1;
-  padding: 20px 24px;
+  padding: 20px 24px 85px 24px;
 }
 
 /* Top Banner Card */
@@ -698,6 +698,14 @@ body {
   max-width: 740px;
 }
 
+.modal-box form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 @keyframes modalFadeIn {
   from {
     opacity: 0;
@@ -793,6 +801,8 @@ body {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-shrink: 0;
+  background-color: #ffffff;
 }
 
 .modal-footer-left {
@@ -1971,4 +1981,38 @@ body {
   background-color: #198754;
   padding: 8px 20px;
   font-size: 13px;
+}
+
+/* Salary Basis Single Line Badge */
+.badge-salary-basis,
+.employee-table td:nth-child(5) span,
+.employee-table th:nth-child(5),
+.employee-table td:nth-child(5) {
+  white-space: nowrap !important;
+  display: inline-block;
+}
+
+/* Company Profile Styling */
+.profile-card {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #edf2f7;
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto 30px;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  margin-top: 16px;
+}
+
+.profile-field-readonly {
+  background-color: #f8fafc !important;
+  color: #475569 !important;
+  cursor: not-allowed;
+  border-color: #e2e8f0 !important;
 }

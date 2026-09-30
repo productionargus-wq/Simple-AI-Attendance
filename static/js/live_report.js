@@ -251,7 +251,8 @@ document.addEventListener('DOMContentLoaded', function () {
         th { background: #f0f4f8; }
       `);
       printWindow.document.write('</style></head><body>');
-      printWindow.document.write(`<h2>ARGUS TECHNOLOGIES - ${currentType === 'live' ? 'LIVE ENTRIES' : 'TIMEOUT ENTRIES'}</h2>`);
+      const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS TECHNOLOGIES';
+      printWindow.document.write(`<h2>${compName} - ${currentType === 'live' ? 'LIVE ENTRIES' : 'TIMEOUT ENTRIES'}</h2>`);
       printWindow.document.write(printContents);
       printWindow.document.write('</body></html>');
       printWindow.document.close();

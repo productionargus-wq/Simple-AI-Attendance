@@ -93,13 +93,13 @@ document.addEventListener('DOMContentLoaded', function () {
       const st = emp.salary_type || 'hourly';
       let badgeHtml = '';
       if (st === 'hourly') {
-        badgeHtml = '<span style="background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">Hourly</span>';
+        badgeHtml = '<span class="badge-salary-basis" style="background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; white-space:nowrap; display:inline-block;">Hourly</span>';
       } else if (st === 'daily') {
-        badgeHtml = '<span style="background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">Day-Based</span>';
+        badgeHtml = '<span class="badge-salary-basis" style="background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; white-space:nowrap; display:inline-block;">Day-Based</span>';
       } else if (st === 'half_day') {
-        badgeHtml = '<span style="background:#fef3c7; color:#b45309; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">Half-Day</span>';
+        badgeHtml = '<span class="badge-salary-basis" style="background:#fef3c7; color:#b45309; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; white-space:nowrap; display:inline-block;">Half-Day</span>';
       } else {
-        badgeHtml = '<span style="background:#f1f5f9; color:#475569; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">Hourly</span>';
+        badgeHtml = '<span class="badge-salary-basis" style="background:#f1f5f9; color:#475569; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; white-space:nowrap; display:inline-block;">Hourly</span>';
       }
 
       const photoFile = emp.photo || emp.photo_filename;
@@ -698,6 +698,78 @@ document.addEventListener('DOMContentLoaded', function () {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  // ================= EXPORTS (COPY, CSV, EXCEL, PDF, PRINT) =================
+  const btnCopyEmployees = document.getElementById('btnCopyEmployees');
+  const btnCsvEmployees = document.getElementById('btnCsvEmployees');
+  const btnExcelEmployees = document.getElementById('btnExcelEmployees');
+  const btnPdfEmployees = document.getElementById('btnPdfEmployees');
+  const btnPrintEmployees = document.getElementById('btnPrintEmployees');
+
+  if (btnCopyEmployees) {
+    btnCopyEmployees.addEventListener('click', function () {
+      const table = document.getElementById('employeeDataTable');
+      if (!table) return;
+      let text = '';
+      for (let row of table.rows) {
+        let rowData = [];
+        const cellCount = row.cells.length;
+        for (let i = 0; i < cellCount - 1; i++) {
+          rowData.push(row.cells[i].innerText.trim());
+        }
+        text += rowData.join('\t') + '\n';
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Employee table copied to clipboard!');
+      }).catch(err => console.error(err));
+    });
+  }
+
+  if (btnCsvEmployees) {
+    btnCsvEmployees.addEventListener('click', function () {
+      window.location.href = `/api/employees/export/csv?search=${encodeURIComponent(currentSearch)}`;
+    });
+  }
+
+  if (btnExcelEmployees) {
+    btnExcelEmployees.addEventListener('click', function () {
+      window.location.href = `/api/employees/export/excel?search=${encodeURIComponent(currentSearch)}`;
+    });
+  }
+
+  if (btnPdfEmployees) {
+    btnPdfEmployees.addEventListener('click', function () {
+      window.location.href = `/api/employees/export/pdf?search=${encodeURIComponent(currentSearch)}`;
+    });
+  }
+
+  if (btnPrintEmployees) {
+    btnPrintEmployees.addEventListener('click', function () {
+      const printContents = document.getElementById('employeeDataTable').outerHTML;
+      const printWindow = window.open('', '', 'height=600,width=850');
+      printWindow.document.write('<html><head><title>Print Employee Directory</title>');
+      printWindow.document.write('<style>');
+      printWindow.document.write(`
+        body { font-family: sans-serif; padding: 20px; }
+        h2 { text-align: center; margin-bottom: 20px; font-size: 18px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+        th { background: #2c3e50; color: #fff; }
+        th:last-child, td:last-child { display: none; }
+      `);
+      printWindow.document.write('</style></head><body>');
+      const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS TECHNOLOGIES';
+      printWindow.document.write(`<h2>${compName} - EMPLOYEE DIRECTORY REPORT</h2>`);
+      printWindow.document.write(printContents);
+      printWindow.document.write('</body></html>');
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+    });
   }
 
   // Initial load

@@ -122,6 +122,11 @@ document.addEventListener('DOMContentLoaded', function () {
             <div style="font-size: 11px; color: #3d6078; font-weight: 600;">📍 ${lat}, ${lng}</div>
           </td>
           <td style="text-align: center;">
+            <span style="font-weight: 700; color: #2c3e50; font-size: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 6px;">
+              ${escapeHtml(comp.shift_hours || '08:00')}
+            </span>
+          </td>
+          <td style="text-align: center;">
             <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 4px 12px; border-radius: 12px; font-weight: 800; font-size: 11px;">
               ${comp.employee_limit || 50}
             </span>
@@ -460,6 +465,77 @@ document.addEventListener('DOMContentLoaded', function () {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  // ================= EXPORTS (COPY, CSV, EXCEL, PDF, PRINT) =================
+  const btnCopyCompanies = document.getElementById('btnCopyCompanies');
+  const btnCsvCompanies = document.getElementById('btnCsvCompanies');
+  const btnExcelCompanies = document.getElementById('btnExcelCompanies');
+  const btnPdfCompanies = document.getElementById('btnPdfCompanies');
+  const btnPrintCompanies = document.getElementById('btnPrintCompanies');
+
+  if (btnCopyCompanies) {
+    btnCopyCompanies.addEventListener('click', function () {
+      const table = document.getElementById('companyDataTable');
+      if (!table) return;
+      let text = '';
+      for (let row of table.rows) {
+        let rowData = [];
+        const cellCount = row.cells.length;
+        for (let i = 0; i < Math.max(1, cellCount - 2); i++) {
+          rowData.push(row.cells[i].innerText.trim());
+        }
+        text += rowData.join('\t') + '\n';
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Companies table copied to clipboard!');
+      }).catch(err => console.error(err));
+    });
+  }
+
+  if (btnCsvCompanies) {
+    btnCsvCompanies.addEventListener('click', function () {
+      window.location.href = `/api/companies/export/csv?search=${encodeURIComponent(currentSearch)}`;
+    });
+  }
+
+  if (btnExcelCompanies) {
+    btnExcelCompanies.addEventListener('click', function () {
+      window.location.href = `/api/companies/export/excel?search=${encodeURIComponent(currentSearch)}`;
+    });
+  }
+
+  if (btnPdfCompanies) {
+    btnPdfCompanies.addEventListener('click', function () {
+      window.location.href = `/api/companies/export/pdf?search=${encodeURIComponent(currentSearch)}`;
+    });
+  }
+
+  if (btnPrintCompanies) {
+    btnPrintCompanies.addEventListener('click', function () {
+      const printContents = document.getElementById('companyDataTable').outerHTML;
+      const printWindow = window.open('', '', 'height=600,width=850');
+      printWindow.document.write('<html><head><title>Print Companies Directory</title>');
+      printWindow.document.write('<style>');
+      printWindow.document.write(`
+        body { font-family: sans-serif; padding: 20px; }
+        h2 { text-align: center; margin-bottom: 20px; font-size: 18px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+        th { background: #2c3e50; color: #fff; }
+        th:nth-last-child(1), td:nth-last-child(1), th:nth-last-child(2), td:nth-last-child(2) { display: none; }
+      `);
+      printWindow.document.write('</style></head><body>');
+      printWindow.document.write('<h2>REGISTERED CLIENT COMPANIES</h2>');
+      printWindow.document.write(printContents);
+      printWindow.document.write('</body></html>');
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+    });
   }
 
   // Initial load

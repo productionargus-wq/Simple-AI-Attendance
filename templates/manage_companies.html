@@ -2,10 +2,10 @@
 
 {% block content %}
 <!-- Top Manage Companies Banner -->
-<div class="content-banner-card" style="background-color: #3d6078; color: #ffffff; padding: 12px 20px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-  <div class="content-banner-title" style="font-size: 15px; font-weight: 800; letter-spacing: 0.8px;">MANAGE COMPANIES</div>
+<div class="content-banner-card" style="background-color: #ffffff; color: #2c3e50; padding: 14px 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); border: 1px solid #edf2f7;">
+  <div class="content-banner-title" style="font-size: 14px; font-weight: 800; color: #2c3e50; letter-spacing: 0.5px;">MANAGE COMPANIES</div>
   <div style="display: flex; gap: 10px; align-items: center;">
-    <button class="btn-reports" id="btnOpenReportsModal" style="background-color: #ffffff; color: #3d6078; border: none; border-radius: 4px; padding: 7px 16px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.15s;">
+    <button class="btn-reports" id="btnOpenReportsModal" style="background-color: #f8fafc; color: #3d6078; border: 1px solid #cbd5e1; border-radius: 4px; padding: 7px 16px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.15s;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="18" y1="20" x2="18" y2="10"></line>
         <line x1="12" y1="20" x2="12" y2="4"></line>
@@ -26,15 +26,25 @@
 <!-- Companies Table Card -->
 <div class="table-card">
   <div class="table-toolbar">
-    <div class="entries-select-wrapper">
-      <span>Show</span>
-      <select id="companyEntriesLimit" class="entries-select">
-        <option value="10" selected>10</option>
-        <option value="25">25</option>
-        <option value="50">50</option>
-        <option value="100">100</option>
-      </select>
-      <span>entries</span>
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <div class="entries-select-wrapper">
+        <span>Show</span>
+        <select id="companyEntriesLimit" class="entries-select">
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+        <span>entries</span>
+      </div>
+
+      <div class="export-btn-group">
+        <button class="btn-export" id="btnCopyCompanies" title="Copy">Copy</button>
+        <button class="btn-export" id="btnCsvCompanies" title="CSV">CSV</button>
+        <button class="btn-export btn-excel" id="btnExcelCompanies" title="Excel">Excel</button>
+        <button class="btn-export btn-pdf" id="btnPdfCompanies" title="PDF">PDF</button>
+        <button class="btn-export" id="btnPrintCompanies" title="Print">Print</button>
+      </div>
     </div>
 
     <div class="search-box-wrapper">
@@ -53,6 +63,7 @@
           <th>REGISTERED EMAIL</th>
           <th>PHONE NUMBER</th>
           <th>OFFICE LOCATION (LAT, LNG)</th>
+          <th style="text-align: center;">SHIFT HOURS</th>
           <th style="text-align: center;">EMPLOYEES</th>
           <th style="text-align: center;">STATUS</th>
           <th style="text-align: center; width: 125px;">AUTO REPORTS</th>
@@ -61,7 +72,7 @@
       </thead>
       <tbody id="companyTableBody">
         <tr>
-          <td colspan="10" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
+          <td colspan="11" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
         </tr>
       </tbody>
     </table>
@@ -86,7 +97,7 @@
     </div>
 
     <form id="companyForm">
-      <div class="modal-body">
+      <div class="modal-body" style="max-height: calc(85vh - 130px); overflow-y: auto; padding: 20px;">
         <div id="companyFormAlert" style="display: none; padding: 10px 14px; border-radius: 4px; font-size: 12px; margin-bottom: 14px;"></div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
@@ -170,9 +181,9 @@
         </div>
       </div>
 
-      <div class="modal-footer modal-footer-right">
-        <button type="button" class="btn-reset" id="btnCancelCompany">Cancel</button>
-        <button type="submit" class="btn-submit" id="btnSaveCompany" style="background-color: #198754;">Save Company</button>
+      <div class="modal-footer modal-footer-right" style="padding: 14px 20px; background-color: #ffffff; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; justify-content: flex-end; align-items: center; position: sticky; bottom: 0; z-index: 10;">
+        <button type="button" class="btn-reset" id="btnCancelCompany" style="background-color: #64748b; color: #ffffff; border: none; border-radius: 4px; padding: 8px 20px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s ease;">Cancel</button>
+        <button type="submit" class="btn-submit" id="btnSaveCompany" style="background-color: #198754; color: #ffffff; border: none; border-radius: 4px; padding: 8px 22px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">Save Company</button>
       </div>
     </form>
   </div>

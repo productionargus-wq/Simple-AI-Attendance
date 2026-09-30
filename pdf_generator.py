@@ -7,6 +7,70 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
+def build_pdf_header(elements, company_info=None, title=None, subtitle=None):
+    """Renders standardized dynamic company header across all generated PDF reports."""
+    comp_info = company_info or {}
+    comp_name = comp_info.get('company_name') or "ARGUS TECHNOLOGIES"
+    comp_addr = comp_info.get('company_address') or comp_info.get('address') or ""
+    email = comp_info.get('email') or comp_info.get('company_email') or ""
+    phone = comp_info.get('phone') or comp_info.get('company_phone') or ""
+    gstin = comp_info.get('gstin') or comp_info.get('company_gstin') or ""
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'DocHeaderTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=15,
+        leading=19,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1e3a8a')
+    )
+    addr_style = ParagraphStyle(
+        'DocHeaderAddr',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        leading=11,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#475569')
+    )
+    report_title_style = ParagraphStyle(
+        'DocHeaderReportTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=11,
+        leading=15,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#0f172a')
+    )
+
+    elements.append(Paragraph(comp_name.upper(), title_style))
+    
+    if comp_addr:
+        elements.append(Spacer(1, 2))
+        elements.append(Paragraph(comp_addr, addr_style))
+
+    contact_parts = []
+    if email:
+        contact_parts.append(f"Email: {email}")
+    if phone:
+        contact_parts.append(f"Phone: {phone}")
+    if gstin:
+        contact_parts.append(f"GSTIN: {gstin}")
+    if contact_parts:
+        elements.append(Spacer(1, 2))
+        elements.append(Paragraph(" | ".join(contact_parts), addr_style))
+
+    if title:
+        elements.append(Spacer(1, 6))
+        elements.append(Paragraph(title.upper(), report_title_style))
+    if subtitle:
+        elements.append(Spacer(1, 2))
+        elements.append(Paragraph(subtitle, addr_style))
+
+    elements.append(Spacer(1, 10))
+
 def generate_employee_pdf(emp):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -176,7 +240,158 @@ def generate_employee_pdf(emp):
     buffer.seek(0)
     return buffer
 
-def generate_live_report_pdf(title, entries):
+def generate_employees_pdf(employees, company_info=None):
+    """Generates a clean PDF directory report of all registered employees."""
+    from reportlab.lib.pagesizes import landscape
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(letter),
+        rightMargin=25,
+        leftMargin=25,
+        topMargin=25,
+        bottomMargin=25
+    )
+    styles = getSampleStyleSheet()
+    header_style = ParagraphStyle('EmpHdr', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor('#2c3e50'))
+    cell_style = ParagraphStyle('EmpCell', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#333333'))
+    
+    elements = []
+    build_pdf_header(elements, company_info=company_info, title="EMPLOYEE DIRECTORY REPORT")
+    
+    table_data = [
+        [
+            Paragraph("SL NO", header_style),
+            Paragraph("EMP ID", header_style),
+            Paragraph("EMPLOYEE NAME", header_style),
+            Paragraph("SALARY BASIS", header_style),
+            Paragraph("MOBILE", header_style),
+            Paragraph("SHIFT HOURS", header_style),
+            Paragraph("BANK NAME", header_style),
+            Paragraph("ACCOUNT NO", header_style),
+            Paragraph("JOIN DATE", header_style)
+        ]
+    ]
+    
+    if not employees:
+        table_data.append([
+            Paragraph("No employee records found", cell_style),
+            Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style),
+            Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style),
+            Paragraph("", cell_style), Paragraph("", cell_style)
+        ])
+    else:
+        for idx, emp in enumerate(employees, 1):
+            st = str(emp.get('salary_type', 'hourly')).lower()
+            st_label = 'Hourly' if st == 'hourly' else ('Day-Based' if st == 'daily' else 'Half-Day')
+            table_data.append([
+                Paragraph(str(idx), cell_style),
+                Paragraph(str(emp.get('id', '')), cell_style),
+                Paragraph(str(emp.get('employee_name', '')), cell_style),
+                Paragraph(st_label, cell_style),
+                Paragraph(str(emp.get('mobile_number', '') or '-'), cell_style),
+                Paragraph(str(emp.get('shift_hours', '08:00')), cell_style),
+                Paragraph(str(emp.get('bank_name', '') or '-'), cell_style),
+                Paragraph(str(emp.get('account_number', '') or '-'), cell_style),
+                Paragraph(str(emp.get('joining_date', '') or emp.get('date_of_joining', '') or '-'), cell_style)
+            ])
+            
+    col_widths = [45, 60, 110, 80, 85, 75, 95, 100, 80]
+    t = Table(table_data, colWidths=col_widths)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EDF1F5')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#DCE1E7')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#FBFBFD')])
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 14))
+    elements.append(Paragraph("© Argus Technologies | version 4.5", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+def generate_companies_pdf(companies, company_info=None):
+    """Generates a clean PDF directory report of all registered companies."""
+    from reportlab.lib.pagesizes import landscape
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(letter),
+        rightMargin=25,
+        leftMargin=25,
+        topMargin=25,
+        bottomMargin=25
+    )
+    styles = getSampleStyleSheet()
+    header_style = ParagraphStyle('CompHdr', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor('#2c3e50'))
+    cell_style = ParagraphStyle('CompCell', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#333333'))
+    
+    elements = []
+    build_pdf_header(elements, company_info=company_info, title="REGISTERED CLIENT COMPANIES REPORT")
+    
+    table_data = [
+        [
+            Paragraph("SL NO", header_style),
+            Paragraph("COMPANY NAME", header_style),
+            Paragraph("GSTIN", header_style),
+            Paragraph("EMAIL", header_style),
+            Paragraph("PHONE", header_style),
+            Paragraph("SHIFT HOURS", header_style),
+            Paragraph("EMPLOYEES", header_style),
+            Paragraph("STATUS", header_style)
+        ]
+    ]
+    
+    if not companies:
+        table_data.append([
+            Paragraph("No registered companies found", cell_style),
+            Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style),
+            Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style),
+            Paragraph("", cell_style)
+        ])
+    else:
+        for idx, c in enumerate(companies, 1):
+            table_data.append([
+                Paragraph(str(idx), cell_style),
+                Paragraph(str(c.get('company_name', '')), cell_style),
+                Paragraph(str(c.get('gstin', '')), cell_style),
+                Paragraph(str(c.get('email', '')), cell_style),
+                Paragraph(str(c.get('phone', '')), cell_style),
+                Paragraph(str(c.get('shift_hours', '08:00')), cell_style),
+                Paragraph(f"{c.get('employee_count', 0)} / {c.get('employee_limit', 50)}", cell_style),
+                Paragraph(str(c.get('status', 'Active')), cell_style)
+            ])
+            
+    col_widths = [45, 140, 100, 150, 95, 75, 75, 60]
+    t = Table(table_data, colWidths=col_widths)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EDF1F5')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#DCE1E7')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#FBFBFD')])
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 14))
+    elements.append(Paragraph("© Argus Technologies | version 4.5", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+def generate_live_report_pdf(title, entries, company_info=None):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -188,24 +403,6 @@ def generate_live_report_pdf(title, entries):
     )
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=16,
-        leading=20,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#2c3e50')
-    )
-    subtitle_style = ParagraphStyle(
-        'DocSub',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=12,
-        leading=15,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#3d6078')
-    )
     header_style = ParagraphStyle(
         'HeaderStyle',
         parent=styles['Normal'],
@@ -224,10 +421,8 @@ def generate_live_report_pdf(title, entries):
     )
     
     elements = []
-    elements.append(Paragraph("ARGUS TECHNOLOGIES", title_style))
-    elements.append(Spacer(1, 4))
-    elements.append(Paragraph(title.upper(), subtitle_style))
-    elements.append(Spacer(1, 14))
+    build_pdf_header(elements, company_info=company_info, title=title)
+
     
     table_data = [
         [
@@ -279,7 +474,7 @@ def generate_live_report_pdf(title, entries):
     buffer.seek(0)
     return buffer
 
-def generate_attendance_report_pdf(title, entries, is_simple=False, totals=None):
+def generate_attendance_report_pdf(title, entries, is_simple=False, totals=None, company_info=None):
     from reportlab.lib.pagesizes import landscape
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -292,24 +487,6 @@ def generate_attendance_report_pdf(title, entries, is_simple=False, totals=None)
     )
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=15,
-        leading=18,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#2c3e50')
-    )
-    subtitle_style = ParagraphStyle(
-        'DocSub',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=11,
-        leading=14,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#3d6078')
-    )
     header_style = ParagraphStyle(
         'HeaderStyle',
         parent=styles['Normal'],
@@ -336,10 +513,8 @@ def generate_attendance_report_pdf(title, entries, is_simple=False, totals=None)
     )
     
     elements = []
-    elements.append(Paragraph("ARGUS TECHNOLOGIES", title_style))
-    elements.append(Spacer(1, 4))
-    elements.append(Paragraph(title.upper(), subtitle_style))
-    elements.append(Spacer(1, 12))
+    build_pdf_header(elements, company_info=company_info, title=title)
+
     
     if not is_simple:
         # Full view table (omitting image columns)
@@ -444,7 +619,7 @@ def generate_attendance_report_pdf(title, entries, is_simple=False, totals=None)
     buffer.seek(0)
     return buffer
 
-def generate_manual_entries_pdf(entries):
+def generate_manual_entries_pdf(entries, company_info=None):
     from reportlab.lib.pagesizes import landscape
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -457,24 +632,6 @@ def generate_manual_entries_pdf(entries):
     )
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=15,
-        leading=18,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#2c3e50')
-    )
-    subtitle_style = ParagraphStyle(
-        'DocSub',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=11,
-        leading=14,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#3d6078')
-    )
     header_style = ParagraphStyle(
         'HeaderStyle',
         parent=styles['Normal'],
@@ -501,10 +658,7 @@ def generate_manual_entries_pdf(entries):
     )
     
     elements = []
-    elements.append(Paragraph("ARGUS TECHNOLOGIES", title_style))
-    elements.append(Spacer(1, 4))
-    elements.append(Paragraph("MANUAL ENTRIES REPORT", subtitle_style))
-    elements.append(Spacer(1, 14))
+    build_pdf_header(elements, company_info=company_info, title="MANUAL ENTRIES REPORT")
     
     table_data = [
         [
@@ -556,7 +710,7 @@ def generate_manual_entries_pdf(entries):
     buffer.seek(0)
     return buffer
 
-def generate_payments_pdf(payments):
+def generate_payments_pdf(payments, company_info=None):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -568,26 +722,6 @@ def generate_payments_pdf(payments):
     )
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=18,
-        leading=22,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#2c3e50')
-    )
-    
-    subtitle_style = ParagraphStyle(
-        'DocSubTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=13,
-        leading=16,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#3d6078')
-    )
-    
     header_style = ParagraphStyle(
         'HeaderCell',
         parent=styles['Normal'],
@@ -616,10 +750,8 @@ def generate_payments_pdf(payments):
     )
     
     elements = []
-    elements.append(Paragraph("ARGUS TECHNOLOGIES", title_style))
-    elements.append(Spacer(1, 4))
-    elements.append(Paragraph("PAYMENT MANAGEMENT REPORT", subtitle_style))
-    elements.append(Spacer(1, 14))
+    build_pdf_header(elements, company_info=company_info, title="PAYMENT MANAGEMENT REPORT")
+
     
     table_data = [
         [
@@ -677,7 +809,7 @@ def generate_payments_pdf(payments):
     buffer.seek(0)
     return buffer
 
-def generate_advances_pdf(advances):
+def generate_advances_pdf(advances, company_info=None):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -689,26 +821,6 @@ def generate_advances_pdf(advances):
     )
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=18,
-        leading=22,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#2c3e50')
-    )
-    
-    subtitle_style = ParagraphStyle(
-        'DocSubTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=13,
-        leading=16,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#3d6078')
-    )
-    
     header_style = ParagraphStyle(
         'HeaderCell',
         parent=styles['Normal'],
@@ -737,10 +849,7 @@ def generate_advances_pdf(advances):
     )
     
     elements = []
-    elements.append(Paragraph("ARGUS TECHNOLOGIES", title_style))
-    elements.append(Spacer(1, 4))
-    elements.append(Paragraph("ADVANCE MANAGEMENT REPORT", subtitle_style))
-    elements.append(Spacer(1, 14))
+    build_pdf_header(elements, company_info=company_info, title="ADVANCE MANAGEMENT REPORT")
     
     table_data = [
         [
@@ -789,7 +898,7 @@ def generate_advances_pdf(advances):
     buffer.seek(0)
     return buffer
 
-def generate_balance_report_pdf(data, totals=None):
+def generate_balance_report_pdf(data, totals=None, company_info=None):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -801,26 +910,6 @@ def generate_balance_report_pdf(data, totals=None):
     )
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=18,
-        leading=22,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#2c3e50')
-    )
-    
-    subtitle_style = ParagraphStyle(
-        'DocSubTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=13,
-        leading=16,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#3d6078')
-    )
-    
     header_style = ParagraphStyle(
         'HeaderCell',
         parent=styles['Normal'],
@@ -840,10 +929,8 @@ def generate_balance_report_pdf(data, totals=None):
     )
     
     elements = []
-    elements.append(Paragraph("ARGUS TECHNOLOGIES", title_style))
-    elements.append(Spacer(1, 4))
-    elements.append(Paragraph("BALANCE REPORT", subtitle_style))
-    elements.append(Spacer(1, 14))
+    build_pdf_header(elements, company_info=company_info, title="BALANCE REPORT")
+
     
     table_data = [
         [
@@ -922,9 +1009,26 @@ def generate_payslip_pdf(p):
     addr_style = ParagraphStyle('CompAddr', fontName='Helvetica', fontSize=8, leading=11, alignment=TA_CENTER, textColor=colors.HexColor('#0056b3'))
     sub_style = ParagraphStyle('CompSub', fontName='Helvetica-Bold', fontSize=11, leading=15, alignment=TA_CENTER, textColor=colors.HexColor('#212529'))
     
-    elements.append(Paragraph(p.get('company_name', 'ARGUS TECHNOLOGIES'), title_style))
-    elements.append(Spacer(1, 2))
-    elements.append(Paragraph(p.get('company_address', ''), addr_style))
+    comp_name = p.get('company_name', 'ARGUS TECHNOLOGIES')
+    comp_addr = p.get('company_address', '')
+    comp_email = p.get('company_email', '')
+    comp_phone = p.get('company_phone', '')
+    comp_gstin = p.get('company_gstin', '')
+
+    elements.append(Paragraph(comp_name.upper(), title_style))
+    if comp_addr:
+        elements.append(Spacer(1, 2))
+        elements.append(Paragraph(comp_addr, addr_style))
+    contact_parts = []
+    if comp_email:
+        contact_parts.append(f"Email: {comp_email}")
+    if comp_phone:
+        contact_parts.append(f"Phone: {comp_phone}")
+    if comp_gstin:
+        contact_parts.append(f"GSTIN: {comp_gstin}")
+    if contact_parts:
+        elements.append(Spacer(1, 2))
+        elements.append(Paragraph(" | ".join(contact_parts), addr_style))
     elements.append(Spacer(1, 4))
     elements.append(Paragraph("Monthly Payslip", sub_style))
     elements.append(Spacer(1, 10))
@@ -1027,7 +1131,7 @@ def generate_payslip_pdf(p):
     buffer.seek(0)
     return buffer
 
-def generate_salary_report_pdf(data):
+def generate_salary_report_pdf(data, company_info=None):
     from reportlab.lib.pagesizes import landscape
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -1040,16 +1144,6 @@ def generate_salary_report_pdf(data):
     )
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=15,
-        leading=18,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#2c3e50')
-    )
-    
     header_style = ParagraphStyle(
         'HeaderCell',
         parent=styles['Normal'],
@@ -1087,10 +1181,8 @@ def generate_salary_report_pdf(data):
     )
     
     elements = []
-    elements.append(Paragraph("ARGUS TECHNOLOGIES", title_style))
-    elements.append(Spacer(1, 3))
-    elements.append(Paragraph("SALARY REPORT", ParagraphStyle('Sub', fontName='Helvetica-Bold', fontSize=11, leading=14, alignment=TA_CENTER, textColor=colors.HexColor('#3d6078'))))
-    elements.append(Spacer(1, 10))
+    build_pdf_header(elements, company_info=company_info, title="MONTHLY SALARY REPORT")
+
     
     table_data = [
         [

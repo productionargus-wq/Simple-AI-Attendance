@@ -94,6 +94,41 @@
     </div>
   </div>
 </div>
+
+<!-- ================= MODAL: Edit Advance Modal ================= -->
+<div class="modal-overlay" id="editAdvanceModal">
+  <div class="modal-box" style="max-width: 480px;">
+    <div class="modal-header">
+      <div class="modal-header-title">Edit Advance Entry</div>
+      <button class="modal-close-btn" id="closeEditAdvanceModal">&times;</button>
+    </div>
+    <form id="editAdvanceForm">
+      <input type="hidden" id="editAdvanceId">
+      <div class="modal-body" style="padding: 20px;">
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Employee Name <span class="required">*</span></label>
+          <select class="form-input" id="editAdvEmployee" required>
+            {% for emp in employees %}
+            <option value="{{ emp }}">{{ emp }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Date <span class="required">*</span></label>
+          <input type="date" class="form-input" id="editAdvDate" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Amount (₹) <span class="required">*</span></label>
+          <input type="number" step="0.01" class="form-input" id="editAdvAmount" placeholder="Enter amount" required>
+        </div>
+      </div>
+      <div class="modal-footer modal-footer-right" style="padding: 14px 20px; background-color: #ffffff; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; justify-content: flex-end;">
+        <button type="button" class="btn-reset" id="btnCancelEditAdvance" style="background-color: #64748b; color: #ffffff; border: none; border-radius: 4px; padding: 7px 16px; font-size: 13px; font-weight: 600; cursor: pointer;">Cancel</button>
+        <button type="submit" class="btn-submit" id="btnUpdateAdvance" style="background-color: #198754; color: #ffffff; border: none; border-radius: 4px; padding: 7px 18px; font-size: 13px; font-weight: 700; cursor: pointer;">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -203,7 +238,10 @@ document.addEventListener('DOMContentLoaded', function () {
           <td>${r.advance_date}</td>
           <td style="color: #0d6efd; font-weight: 700;">₹ ${parseFloat(r.amount).toFixed(2)}</td>
           <td>
-            <button class="btn-action-manual-del btn-del-advance" data-id="${r.id}" title="Delete">Del</button>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button class="btn-action-manual-edit btn-edit-advance" data-id="${r.id}" title="Edit Advance" style="background-color: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;">Edit</button>
+              <button class="btn-action-manual-del btn-del-advance" data-id="${r.id}" title="Delete Advance" style="background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;">Del</button>
+            </div>
           </td>
         </tr>
       `;
@@ -211,11 +249,77 @@ document.addEventListener('DOMContentLoaded', function () {
 
     tbody.innerHTML = rowsHtml;
 
+    document.querySelectorAll('.btn-edit-advance').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const id = this.getAttribute('data-id');
+        openEditAdvance(id);
+      });
+    });
+
     document.querySelectorAll('.btn-del-advance').forEach(btn => {
       btn.addEventListener('click', function () {
         const id = this.getAttribute('data-id');
         deleteAdvance(id);
       });
+    });
+  }
+
+  const editModal = document.getElementById('editAdvanceModal');
+  const editForm = document.getElementById('editAdvanceForm');
+  const closeEditBtn = document.getElementById('closeEditAdvanceModal');
+  const cancelEditBtn = document.getElementById('btnCancelEditAdvance');
+
+  function openEditAdvance(id) {
+    fetch(`/api/advances/${id}`)
+      .then(res => res.json())
+      .then(adv => {
+        if (!adv || adv.error) {
+          alert('Could not find advance entry.');
+          return;
+        }
+        document.getElementById('editAdvanceId').value = adv.id;
+        document.getElementById('editAdvEmployee').value = adv.employee_name;
+        document.getElementById('editAdvDate').value = adv.advance_date;
+        document.getElementById('editAdvAmount').value = adv.amount;
+        editModal.classList.add('active');
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Failed to load advance record.');
+      });
+  }
+
+  if (closeEditBtn) closeEditBtn.addEventListener('click', () => editModal.classList.remove('active'));
+  if (cancelEditBtn) cancelEditBtn.addEventListener('click', () => editModal.classList.remove('active'));
+
+  if (editForm) {
+    editForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const id = document.getElementById('editAdvanceId').value;
+      const payload = {
+        employee_name: document.getElementById('editAdvEmployee').value,
+        advance_date: document.getElementById('editAdvDate').value,
+        amount: parseFloat(document.getElementById('editAdvAmount').value)
+      };
+
+      fetch(`/api/advances/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            editModal.classList.remove('active');
+            loadAdvances();
+          } else {
+            alert(data.error || 'Failed to update advance.');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert('Error updating advance.');
+        });
     });
   }
 
@@ -272,7 +376,17 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   document.getElementById('btnAdvancePrint').addEventListener('click', function () {
-    window.print();
+    const printContents = document.getElementById('printableAdvanceSection').innerHTML;
+    const printWindow = window.open('', '', 'height=600,width=800');
+    printWindow.document.write('<html><head><title>Print Advance Entries</title>');
+    printWindow.document.write('<style>body{font-family:sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;font-size:12px;}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;}th{background:#f0f4f8;}.btn-edit-advance,.btn-del-advance{display:none;}</style>');
+    const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS TECHNOLOGIES';
+    printWindow.document.write(`</head><body><h2>${compName} - ADVANCE MANAGEMENT REPORT</h2>`);
+    printWindow.document.write(printContents);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
   });
 
   loadAdvances();

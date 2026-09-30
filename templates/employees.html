@@ -18,15 +18,25 @@
 <!-- Employee Data Table Card -->
 <div class="table-card">
   <div class="table-toolbar">
-    <div class="entries-select-wrapper">
-      <span>Show</span>
-      <select id="entriesLimit" class="entries-select">
-        <option value="10" selected>10</option>
-        <option value="25">25</option>
-        <option value="50">50</option>
-        <option value="100">100</option>
-      </select>
-      <span>entries</span>
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <div class="entries-select-wrapper">
+        <span>Show</span>
+        <select id="entriesLimit" class="entries-select">
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+        <span>entries</span>
+      </div>
+
+      <div class="export-btn-group">
+        <button class="btn-export" id="btnCopyEmployees" title="Copy">Copy</button>
+        <button class="btn-export" id="btnCsvEmployees" title="CSV">CSV</button>
+        <button class="btn-export btn-excel" id="btnExcelEmployees" title="Excel">Excel</button>
+        <button class="btn-export btn-pdf" id="btnPdfEmployees" title="PDF">PDF</button>
+        <button class="btn-export" id="btnPrintEmployees" title="Print">Print</button>
+      </div>
     </div>
 
     <!-- Right Controls: Toggle Icons + Search Box -->

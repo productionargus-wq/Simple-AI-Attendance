@@ -157,6 +157,38 @@ def init_db():
     # Automatically backfill legacy records with company_id: ARGUS_MASTER
     migrate_existing_data_to_master()
 
+    # Ensure master company profile exists in company_admin
+    existing_argus = db.company_admin.find_one({'email': 'technologiesargus@gmail.com'})
+    if existing_argus:
+        db.company_admin.update_one(
+            {'_id': existing_argus['_id']},
+            {'$set': {
+                'id': 'ARGUS_MASTER',
+                'company_name': 'ARGUS TECHNOLOGIES',
+                'address': existing_argus.get('address') or 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'
+            }}
+        )
+    elif not db.company_admin.find_one({'id': 'ARGUS_MASTER'}):
+        try:
+            db.company_admin.insert_one({
+                'id': 'ARGUS_MASTER',
+                'company_name': 'ARGUS TECHNOLOGIES',
+                'gstin': '33AABCA0000A1Z5',
+                'email': 'technologiesargus@gmail.com',
+                'phone': '+91 98765 43210',
+                'address': 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006',
+                'latitude': 11.02980,
+                'longitude': 76.97400,
+                'status': 'Active',
+                'employee_limit': 1000,
+                'shift_hours': '08:00',
+                'auto_email_reports': True,
+                'created_at': datetime.now(),
+                'updated_at': datetime.now()
+            })
+        except Exception as e:
+            print(f"Master company seeding notice: {e}")
+
 # ----------------- MULTI-TENANT COMPANY MANAGEMENT ----------------- #
 
 def apply_tenant_filter(query, company_id):
@@ -185,6 +217,7 @@ def create_company(data):
         'gstin': data.get('gstin', '').strip().upper(),
         'email': email,
         'phone': data.get('phone', '').strip(),
+        'address': data.get('address', '').strip(),
         'latitude': float(data.get('latitude') or 11.02980),
         'longitude': float(data.get('longitude') or 76.97400),
         'status': data.get('status', 'Active').strip(),
@@ -208,7 +241,8 @@ def get_all_companies(search='', page=1, limit=10):
             {'email': reg},
             {'gstin': reg},
             {'phone': reg},
-            {'id': reg}
+            {'id': reg},
+            {'address': reg}
         ]
         
     total = db.company_admin.count_documents(query)
@@ -219,6 +253,7 @@ def get_all_companies(search='', page=1, limit=10):
     companies = []
     for doc in cursor:
         c = clean_doc(doc)
+        c['address'] = c.get('address') or c.get('location') or ''
         c['employee_count'] = db.employees.count_documents({'company_id': c['id']})
         c['employee_limit'] = int(c.get('employee_limit') or c.get('employee_count') or 50)
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
@@ -243,6 +278,7 @@ def get_company_by_id(comp_id):
         doc = db.company_admin.find_one(build_id_filter(comp_id))
     if doc:
         c = clean_doc(doc)
+        c['address'] = c.get('address') or c.get('location') or ''
         c['employee_count'] = db.employees.count_documents({'company_id': c['id']})
         c['employee_limit'] = int(c.get('employee_limit') or c.get('employee_count') or 50)
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
@@ -257,7 +293,11 @@ def get_company_by_email(email):
     if not email:
         return None
     doc = db.company_admin.find_one({'email': {'$regex': f"^{re.escape(email.strip())}$", '$options': 'i'}})
-    return clean_doc(doc) if doc else None
+    if doc:
+        c = clean_doc(doc)
+        c['address'] = c.get('address') or c.get('location') or ''
+        return c
+    return None
 
 def update_company(comp_id, data):
     """Updates company details in company_admin."""
@@ -273,6 +313,9 @@ def update_company(comp_id, data):
         upd['email'] = str(data['email']).strip().lower()
     if 'phone' in data and data['phone']:
         upd['phone'] = str(data['phone']).strip()
+    if 'address' in data:
+        upd['address'] = str(data['address']).strip()
+        upd['location'] = str(data['address']).strip()
     if 'latitude' in data and data['latitude'] is not None and str(data['latitude']).strip():
         try:
             upd['latitude'] = float(data['latitude'])
@@ -1980,18 +2023,23 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     assigned_company_id = str(company_id or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
     company_name = 'ARGUS TECHNOLOGIES'
     company_address = 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'
-    if assigned_company_id and assigned_company_id != 'ARGUS_MASTER':
-        comp_doc = db.company_admin.find_one({'id': assigned_company_id})
-        if comp_doc:
-            company_name = comp_doc.get('company_name', company_name)
-            loc = comp_doc.get('location') or comp_doc.get('address') or ''
-            if loc:
-                company_address = loc
-            else:
-                lat = comp_doc.get('latitude')
-                lng = comp_doc.get('longitude')
-                if lat and lng:
-                    company_address = f"Location: Lat {lat}, Lng {lng}"
+    comp_email = 'technologiesargus@gmail.com'
+    comp_phone = '+91 98765 43210'
+    comp_gstin = ''
+    comp_doc = db.company_admin.find_one({'id': assigned_company_id})
+    if comp_doc:
+        company_name = comp_doc.get('company_name') or company_name
+        comp_email = comp_doc.get('email') or comp_email
+        comp_phone = comp_doc.get('phone') or comp_phone
+        comp_gstin = comp_doc.get('gstin') or comp_gstin
+        loc = comp_doc.get('address') or comp_doc.get('location') or ''
+        if loc:
+            company_address = loc
+        else:
+            lat = comp_doc.get('latitude')
+            lng = comp_doc.get('longitude')
+            if lat and lng:
+                company_address = f"Location: Lat {lat}, Lng {lng}"
 
     shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
 
@@ -2247,6 +2295,9 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         'company_id': assigned_company_id,
         'company_name': company_name,
         'company_address': company_address,
+        'company_email': comp_email,
+        'company_phone': comp_phone,
+        'company_gstin': comp_gstin,
         'employee_name': employee_name,
         'employee_id': emp_id,
         'designation': designation,

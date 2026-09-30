@@ -40,10 +40,11 @@
     
     <!-- Company Header -->
     <div style="text-align: center; margin-bottom: 12px;">
-      <div style="font-size: 18px; font-weight: 800; color: #003366; letter-spacing: 0.5px;">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
-      <div style="font-size: 10.5px; color: #0056b3; margin-top: 3px; font-weight: 500;">
+      <div style="font-size: 18px; font-weight: 800; color: #003366; letter-spacing: 0.5px;" id="dispCompanyName">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
+      <div style="font-size: 10.5px; color: #0056b3; margin-top: 3px; font-weight: 500;" id="dispCompanyAddress">
         SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006
       </div>
+      <div style="font-size: 10px; color: #475569; margin-top: 2px; font-weight: 500;" id="dispCompanyContact"></div>
       <div style="font-size: 13px; font-weight: 700; color: #111111; margin-top: 6px;">Monthly Payslip</div>
     </div>
 
@@ -279,6 +280,24 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('dispNetPay').innerText = p.net_pay;
         document.getElementById('dispNetWords').innerText = p.net_pay_in_words;
 
+        // Dynamic Company Header
+        if (p.company_name) {
+          const compNameEl = document.getElementById('dispCompanyName');
+          if (compNameEl) compNameEl.innerText = p.company_name;
+        }
+        if (p.company_address) {
+          const compAddrEl = document.getElementById('dispCompanyAddress');
+          if (compAddrEl) compAddrEl.innerText = p.company_address;
+        }
+        const compContactEl = document.getElementById('dispCompanyContact');
+        if (compContactEl) {
+          const parts = [];
+          if (p.company_email) parts.push(`Email: ${p.company_email}`);
+          if (p.company_phone) parts.push(`Phone: ${p.company_phone}`);
+          if (p.company_gstin) parts.push(`GSTIN: ${p.company_gstin}`);
+          compContactEl.innerText = parts.join(' | ');
+        }
+
         // Show document card
         payslipDocumentCard.classList.remove('d-none');
         payslipDocumentCard.scrollIntoView({ behavior: 'smooth' });
@@ -290,7 +309,28 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   btnPrintPayslip.addEventListener('click', function () {
-    window.print();
+    const doc = document.getElementById('printablePayslipDoc');
+    if (!doc) return;
+    const printWin = window.open('', '', 'width=850,height=750');
+    printWin.document.write('<!DOCTYPE html><html><head><title>Monthly Payslip</title>');
+    printWin.document.write('<style>');
+    printWin.document.write(`
+      body { font-family: Arial, sans-serif; margin: 20px; color: #111; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #767676; padding: 5px 8px; font-size: 12px; }
+      @media print {
+        body { margin: 0; padding: 10px; }
+      }
+    `);
+    printWin.document.write('</style></head><body>');
+    printWin.document.write(doc.innerHTML);
+    printWin.document.write('</body></html>');
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => {
+      printWin.print();
+      printWin.close();
+    }, 250);
   });
 
   btnPdfPayslip.addEventListener('click', function () {

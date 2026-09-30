@@ -1,0 +1,302 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Company Profile Banner -->
+<div class="content-banner-card" style="background-color: #ffffff; color: #2c3e50; padding: 14px 22px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); border: 1px solid #edf2f7;">
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <div style="background-color: #e0f2fe; color: #0284c7; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+      🏢
+    </div>
+    <div>
+      <div class="content-banner-title" style="font-size: 15px; font-weight: 800; color: #1e293b; letter-spacing: 0.5px;">COMPANY PROFILE</div>
+      <div style="font-size: 11px; color: #64748b; font-weight: 500;" id="bannerSubtitle">Manage corporate identity and location settings</div>
+    </div>
+  </div>
+
+  {% if role == 'super_admin' %}
+  <!-- Super Admin Tenant Selector -->
+  <div style="display: flex; align-items: center; gap: 10px;">
+    <label for="selectCompanyDropdown" style="font-size: 12px; font-weight: 700; color: #475569; white-space: nowrap;">SELECT COMPANY:</label>
+    <select id="selectCompanyDropdown" style="padding: 7px 14px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; color: #1e293b; background: #f8fafc; outline: none; cursor: pointer; min-width: 220px;">
+      <option value="" disabled selected>Loading companies...</option>
+    </select>
+  </div>
+  {% else %}
+  <div style="background-color: #f1f5f9; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; color: #0f172a; border: 1px solid #e2e8f0;">
+    Role: <span style="color: #0284c7;">Company Administrator</span>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Main Profile Card -->
+<div class="table-card" style="padding: 24px; border-radius: 8px;">
+  <!-- Alert Banner -->
+  <div id="profileAlert" style="display: none; padding: 12px 16px; border-radius: 6px; font-size: 13px; margin-bottom: 20px; font-weight: 500;"></div>
+
+  {% if role == 'company_admin' %}
+  <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; font-size: 12.5px; color: #1e40af; line-height: 1.5;">
+    <strong>Notice:</strong> As a Company Administrator, you have authorization to edit and update your company's <strong>Office Address</strong>. All other legal, biometrics, shift, and geolocation settings are managed by Argus Platform Super Admin.
+  </div>
+  {% endif %}
+
+  <form id="companyProfileForm">
+    <input type="hidden" id="profileCompanyId" name="id">
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-bottom: 20px;">
+      
+      <!-- Company Name -->
+      <div class="form-group">
+        <label class="form-label" style="display: flex; justify-content: space-between;">
+          <span>Company Name <span class="required">*</span></span>
+          {% if role == 'company_admin' %}<span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>{% endif %}
+        </label>
+        <input type="text" class="form-input" id="profileCompanyName" name="company_name" required {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
+      </div>
+
+      <!-- GSTIN -->
+      <div class="form-group">
+        <label class="form-label" style="display: flex; justify-content: space-between;">
+          <span>GSTIN Number</span>
+          {% if role == 'company_admin' %}<span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>{% endif %}
+        </label>
+        <input type="text" class="form-input" id="profileGstin" name="gstin" {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
+      </div>
+
+      <!-- Registered Email -->
+      <div class="form-group">
+        <label class="form-label" style="display: flex; justify-content: space-between;">
+          <span>Registered Corporate Email <span class="required">*</span></span>
+          {% if role == 'company_admin' %}<span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>{% endif %}
+        </label>
+        <input type="email" class="form-input" id="profileEmail" name="email" required {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
+      </div>
+
+      <!-- Phone Number -->
+      <div class="form-group">
+        <label class="form-label" style="display: flex; justify-content: space-between;">
+          <span>Contact Phone Number</span>
+          {% if role == 'company_admin' %}<span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>{% endif %}
+        </label>
+        <input type="text" class="form-input" id="profilePhone" name="phone" {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
+      </div>
+
+      <!-- Shift Hours -->
+      <div class="form-group">
+        <label class="form-label" style="display: flex; justify-content: space-between;">
+          <span>Standard Shift Time Hours</span>
+          {% if role == 'company_admin' %}<span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>{% endif %}
+        </label>
+        <input type="text" class="form-input" id="profileShiftHours" name="shift_hours" placeholder="08:00" {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
+      </div>
+
+      <!-- Employee Limit & Count -->
+      <div class="form-group">
+        <label class="form-label" style="display: flex; justify-content: space-between;">
+          <span>Employee Quota / Limit</span>
+          {% if role == 'company_admin' %}<span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>{% endif %}
+        </label>
+        <input type="number" class="form-input" id="profileEmployeeLimit" name="employee_limit" {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
+      </div>
+
+      <!-- Status -->
+      <div class="form-group">
+        <label class="form-label" style="display: flex; justify-content: space-between;">
+          <span>Account Status</span>
+          {% if role == 'company_admin' %}<span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>{% endif %}
+        </label>
+        {% if role == 'super_admin' %}
+        <select class="form-input" id="profileStatus" name="status">
+          <option value="Active">Active</option>
+          <option value="Inactive">Inactive</option>
+        </select>
+        {% else %}
+        <input type="text" class="form-input" id="profileStatus" name="status" readonly style="background-color: #f8fafc; cursor: not-allowed;">
+        {% endif %}
+      </div>
+
+      <!-- Office Coordinates -->
+      <div class="form-group">
+        <label class="form-label" style="display: flex; justify-content: space-between;">
+          <span>Office Coordinates (Latitude, Longitude)</span>
+          {% if role == 'company_admin' %}<span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>{% endif %}
+        </label>
+        <div style="display: flex; gap: 8px;">
+          <input type="number" step="any" class="form-input" id="profileLatitude" name="latitude" placeholder="Latitude" {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
+          <input type="number" step="any" class="form-input" id="profileLongitude" name="longitude" placeholder="Longitude" {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Office Address (EDITABLE BY BOTH COMPANY ADMIN AND SUPER ADMIN) -->
+    <div class="form-group" style="margin-bottom: 24px;">
+      <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+        <span><strong>Official Company Address</strong> <span class="required">*</span></span>
+        <span style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ Editable by You</span>
+      </label>
+      <textarea class="form-input" id="profileAddress" name="address" rows="3" required placeholder="Enter complete corporate street address, building, city, postal code..." style="line-height: 1.5; font-size: 13px;"></textarea>
+      <div style="font-size: 11px; color: #64748b; margin-top: 4px;">This official address appears on all employee payslips, attendance registers, and PDF exports.</div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #f1f5f9; padding-top: 18px;">
+      <button type="button" id="btnResetProfile" class="btn-reset" style="background-color: #94a3b8; color: #ffffff; padding: 9px 20px; font-size: 13px; font-weight: 700; border-radius: 5px; cursor: pointer;">
+        Discard Changes
+      </button>
+      <button type="submit" id="btnSaveProfile" class="btn-submit" style="background-color: #0284c7; color: #ffffff; padding: 9px 24px; font-size: 13px; font-weight: 700; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.12);">
+        Save Profile
+      </button>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const role = "{{ role }}";
+  const selectCompanyDropdown = document.getElementById('selectCompanyDropdown');
+  const companyProfileForm = document.getElementById('companyProfileForm');
+  const profileAlert = document.getElementById('profileAlert');
+  const btnResetProfile = document.getElementById('btnResetProfile');
+  const btnSaveProfile = document.getElementById('btnSaveProfile');
+  let loadedCompanyData = null;
+
+  function showAlert(msg, isSuccess = true) {
+    profileAlert.textContent = msg;
+    profileAlert.style.display = 'block';
+    if (isSuccess) {
+      profileAlert.style.backgroundColor = '#dcfce7';
+      profileAlert.style.color = '#15803d';
+      profileAlert.style.border = '1px solid #bbf7d0';
+    } else {
+      profileAlert.style.backgroundColor = '#fee2e2';
+      profileAlert.style.color = '#b91c1c';
+      profileAlert.style.border = '1px solid #fecaca';
+    }
+    profileAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setTimeout(() => {
+      profileAlert.style.display = 'none';
+    }, 6000);
+  }
+
+  function populateForm(comp) {
+    if (!comp) return;
+    loadedCompanyData = comp;
+    document.getElementById('profileCompanyId').value = comp.id || '';
+    document.getElementById('profileCompanyName').value = comp.company_name || '';
+    document.getElementById('profileGstin').value = comp.gstin || '';
+    document.getElementById('profileEmail').value = comp.email || '';
+    document.getElementById('profilePhone').value = comp.phone || '';
+    document.getElementById('profileShiftHours').value = comp.shift_hours || '08:00';
+    document.getElementById('profileEmployeeLimit').value = comp.employee_limit || comp.employee_count || 50;
+    document.getElementById('profileStatus').value = comp.status || 'Active';
+    document.getElementById('profileLatitude').value = comp.latitude !== undefined ? comp.latitude : '';
+    document.getElementById('profileLongitude').value = comp.longitude !== undefined ? comp.longitude : '';
+    document.getElementById('profileAddress').value = comp.address || comp.location || '';
+  }
+
+  async function loadProfile(targetCompanyId = null) {
+    try {
+      let url = '/api/company-profile';
+      if (targetCompanyId) {
+        url += `?company_id=${encodeURIComponent(targetCompanyId)}`;
+      }
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!data.success) {
+        showAlert(data.error || 'Failed to load company profile', false);
+        return;
+      }
+
+      if (data.companies_list && selectCompanyDropdown) {
+        selectCompanyDropdown.innerHTML = '';
+        data.companies_list.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = c.company_name;
+          if (data.company && c.id === data.company.id) {
+            opt.selected = true;
+          }
+          selectCompanyDropdown.appendChild(opt);
+        });
+      }
+
+      populateForm(data.company);
+    } catch (err) {
+      console.error('Error loading company profile:', err);
+      showAlert('Connection error loading profile.', false);
+    }
+  }
+
+  if (selectCompanyDropdown) {
+    selectCompanyDropdown.addEventListener('change', function () {
+      loadProfile(this.value);
+    });
+  }
+
+  if (btnResetProfile) {
+    btnResetProfile.addEventListener('click', function () {
+      if (loadedCompanyData) {
+        populateForm(loadedCompanyData);
+        showAlert('Form values reset to current saved profile.', true);
+      }
+    });
+  }
+
+  if (companyProfileForm) {
+    companyProfileForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      btnSaveProfile.disabled = true;
+      btnSaveProfile.textContent = 'Saving...';
+
+      const payload = {};
+      if (role === 'company_admin') {
+        // Company admin only sends address
+        payload.address = document.getElementById('profileAddress').value.trim();
+      } else {
+        // Super admin sends all fields
+        payload.id = document.getElementById('profileCompanyId').value;
+        payload.company_name = document.getElementById('profileCompanyName').value.trim();
+        payload.gstin = document.getElementById('profileGstin').value.trim();
+        payload.email = document.getElementById('profileEmail').value.trim();
+        payload.phone = document.getElementById('profilePhone').value.trim();
+        payload.shift_hours = document.getElementById('profileShiftHours').value.trim();
+        payload.employee_limit = document.getElementById('profileEmployeeLimit').value;
+        payload.status = document.getElementById('profileStatus').value;
+        payload.latitude = document.getElementById('profileLatitude').value;
+        payload.longitude = document.getElementById('profileLongitude').value;
+        payload.address = document.getElementById('profileAddress').value.trim();
+      }
+
+      try {
+        const res = await fetch('/api/company-profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const resData = await res.json();
+        if (resData.success) {
+          showAlert(resData.message || 'Company profile updated successfully!', true);
+          // Reload fresh data
+          const currentId = document.getElementById('profileCompanyId').value;
+          loadProfile(currentId);
+        } else {
+          showAlert(resData.error || 'Failed to update company profile.', false);
+        }
+      } catch (err) {
+        console.error('Error updating company profile:', err);
+        showAlert('Network error while saving profile.', false);
+      } finally {
+        btnSaveProfile.disabled = false;
+        btnSaveProfile.textContent = 'Save Profile';
+      }
+    });
+  }
+
+  // Initial load
+  loadProfile();
+});
+</script>
+{% endblock %}

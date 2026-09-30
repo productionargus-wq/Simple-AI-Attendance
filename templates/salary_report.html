@@ -259,7 +259,27 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   document.getElementById('btnSalaryPrint').addEventListener('click', function () {
-    window.print();
+    const printContents = document.getElementById('printableSalarySection').innerHTML;
+    const printWindow = window.open('', '', 'height=600,width=850');
+    printWindow.document.write('<html><head><title>Print Salary Report</title>');
+    printWindow.document.write('<style>');
+    printWindow.document.write(`
+      body { font-family: sans-serif; padding: 20px; }
+      h2 { text-align: center; margin-bottom: 20px; font-size: 18px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+      th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+      th { background: #2c3e50; color: #fff; }
+    `);
+    const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS TECHNOLOGIES';
+    printWindow.document.write(`<h2>${compName} - MONTHLY SALARY REPORT</h2>`);
+    printWindow.document.write(printContents);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
   });
 
   document.getElementById('btnSalaryCopy').addEventListener('click', function () {

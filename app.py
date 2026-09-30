@@ -73,6 +73,43 @@ def get_current_company_id():
         return comp_id or 'ARGUS_MASTER'
     return comp_id or 'ARGUS_MASTER'
 
+def get_current_company_info():
+    """Returns dynamic company dictionary for PDF generation and headers."""
+    comp_id = get_current_company_id()
+    if comp_id and comp_id != 'ARGUS_MASTER':
+        comp = database.get_company_by_id(comp_id)
+        if comp:
+            addr = comp.get('address') or comp.get('location') or ''
+            if not addr and comp.get('latitude') and comp.get('longitude'):
+                addr = f"Location: Lat {comp.get('latitude')}, Lng {comp.get('longitude')}"
+            return {
+                'id': comp.get('id', comp_id),
+                'company_name': comp.get('company_name') or session.get('company_name', 'ARGUS TECHNOLOGIES'),
+                'company_address': addr,
+                'email': comp.get('email', ''),
+                'phone': comp.get('phone', ''),
+                'gstin': comp.get('gstin', '')
+            }
+    # Master / Default ARGUS info
+    master_comp = database.get_company_by_id('ARGUS_MASTER')
+    if master_comp:
+        return {
+            'id': 'ARGUS_MASTER',
+            'company_name': master_comp.get('company_name', 'ARGUS TECHNOLOGIES'),
+            'company_address': master_comp.get('address', 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'),
+            'email': master_comp.get('email', 'technologiesargus@gmail.com'),
+            'phone': master_comp.get('phone', '+91 98765 43210'),
+            'gstin': master_comp.get('gstin', '33AABCA0000A1Z5')
+        }
+    return {
+        'id': 'ARGUS_MASTER',
+        'company_name': 'ARGUS TECHNOLOGIES',
+        'company_address': 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006',
+        'email': 'technologiesargus@gmail.com',
+        'phone': '+91 98765 43210',
+        'gstin': '33AABCA0000A1Z5'
+    }
+
 def login_required(f):
     """Requires Super Admin or Company Admin session."""
     @wraps(f)
@@ -360,6 +397,12 @@ def logout():
 def manage_companies():
     return render_template('manage_companies.html', active_tab='MANAGE COMPANIES')
 
+@app.route('/company-profile')
+@login_required
+def company_profile():
+    role = session.get('role', 'company_admin')
+    return render_template('company_profile.html', active_tab='COMPANY PROFILE', role=role)
+
 @app.route('/employee/portal')
 @employee_required
 def employee_portal():
@@ -507,6 +550,119 @@ def api_toggle_company_auto_reports(comp_id):
 def api_company_reports():
     summary = database.get_company_reports_summary()
     return jsonify({'success': True, 'summary': summary})
+
+@app.route('/api/companies/export/excel', methods=['GET'])
+@app.route('/api/companies/export/csv', methods=['GET'])
+@super_admin_required
+def api_companies_export_excel():
+    search = request.args.get('search', '').strip()
+    result = database.get_all_companies(search=search, limit=10000)
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['SL NO', 'COMPANY NAME', 'GSTIN', 'EMAIL', 'PHONE', 'ADDRESS', 'LATITUDE', 'LONGITUDE', 'SHIFT HOURS', 'EMPLOYEES', 'EMPLOYEE LIMIT', 'STATUS'])
+    for idx, c in enumerate(result['data'], 1):
+        writer.writerow([
+            idx,
+            c.get('company_name', ''),
+            c.get('gstin', ''),
+            c.get('email', ''),
+            c.get('phone', ''),
+            c.get('address', ''),
+            c.get('latitude', ''),
+            c.get('longitude', ''),
+            c.get('shift_hours', '08:00'),
+            c.get('employee_count', 0),
+            c.get('employee_limit', 50),
+            c.get('status', 'Active')
+        ])
+    output.seek(0)
+    filename = "registered_companies.csv"
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename={filename}"}
+    )
+
+@app.route('/api/companies/export/pdf', methods=['GET'])
+@super_admin_required
+def api_companies_export_pdf():
+    search = request.args.get('search', '').strip()
+    result = database.get_all_companies(search=search, limit=10000)
+    company_info = get_current_company_info()
+    pdf_buffer = pdf_generator.generate_companies_pdf(result['data'], company_info=company_info)
+    filename = "registered_companies.pdf"
+    return send_file(
+        pdf_buffer,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/pdf'
+    )
+
+# ----------------- COMPANY PROFILE API ROUTES ----------------- #
+
+@app.route('/api/company-profile', methods=['GET'])
+@login_required
+def api_get_company_profile():
+    role = session.get('role', 'company_admin')
+    if role == 'super_admin':
+        req_id = request.args.get('company_id', '').strip()
+        all_comps = database.get_all_companies(limit=1000)['data']
+        has_master = any(c.get('id') == 'ARGUS_MASTER' for c in all_comps)
+        master_doc = database.get_company_by_id('ARGUS_MASTER')
+        if master_doc and not has_master:
+            all_comps.insert(0, master_doc)
+
+        target_id = req_id or (all_comps[0]['id'] if all_comps else 'ARGUS_MASTER')
+        company = database.get_company_by_id(target_id)
+        if not company and master_doc:
+            company = master_doc
+        return jsonify({
+            'success': True,
+            'role': 'super_admin',
+            'company': company,
+            'companies_list': [{'id': c['id'], 'company_name': c.get('company_name', c['id'])} for c in all_comps]
+        })
+    else:
+        comp_id = session.get('company_id')
+        company = database.get_company_by_id(comp_id)
+        if not company:
+            return jsonify({'success': False, 'error': 'Company profile not found'}), 404
+        return jsonify({
+            'success': True,
+            'role': 'company_admin',
+            'company': company
+        })
+
+@app.route('/api/company-profile', methods=['PUT'])
+@login_required
+def api_update_company_profile():
+    role = session.get('role', 'company_admin')
+    data = request.get_json(silent=True) or {}
+    
+    if role == 'company_admin':
+        # Company Admin can ONLY edit the address field
+        comp_id = session.get('company_id')
+        if not comp_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        address = str(data.get('address', '')).strip()
+        if not address:
+            return jsonify({'success': False, 'error': 'Address cannot be empty.'}), 400
+        database.update_company(comp_id, {'address': address})
+        return jsonify({'success': True, 'message': 'Company office address updated successfully.'})
+    
+    elif role == 'super_admin':
+        # Super Admin can edit all fields of any company
+        target_id = data.get('id') or data.get('company_id')
+        if not target_id:
+            return jsonify({'success': False, 'error': 'Company ID is required.'}), 400
+        try:
+            database.update_company(target_id, data)
+            return jsonify({'success': True, 'message': 'Company profile updated successfully.'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 400
+            
+    return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
 # ----------------- EMPLOYEE PORTAL API ROUTES ----------------- #
 
@@ -672,6 +828,58 @@ def api_employee_pdf(emp_id):
         mimetype='application/pdf'
     )
 
+@app.route('/api/employees/export/excel', methods=['GET'])
+@app.route('/api/employees/export/csv', methods=['GET'])
+@login_required
+def api_employees_export_excel():
+    search = request.args.get('search', '').strip()
+    comp_id = get_current_company_id()
+    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id)
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['SL NO', 'EMPLOYEE ID', 'EMPLOYEE NAME', 'SALARY BASIS', 'HOURLY SALARY', 'DAY SALARY', 'HALF DAY SALARY', 'MOBILE NUMBER', 'SHIFT HOURS', 'BANK NAME', 'ACCOUNT NUMBER', 'DATE OF JOINING'])
+    for idx, emp in enumerate(result['data'], 1):
+        st = str(emp.get('salary_type', 'hourly')).lower()
+        st_label = 'Hourly' if st == 'hourly' else ('Day-Based' if st == 'daily' else 'Half-Day')
+        writer.writerow([
+            idx,
+            emp.get('id', ''),
+            emp.get('employee_name', ''),
+            st_label,
+            emp.get('hourly_salary', 0),
+            emp.get('day_salary', 0),
+            emp.get('half_day_salary', 0),
+            emp.get('mobile_number', ''),
+            emp.get('shift_hours', '08:00'),
+            emp.get('bank_name', ''),
+            emp.get('account_number', ''),
+            emp.get('joining_date', '') or emp.get('date_of_joining', '')
+        ])
+    output.seek(0)
+    filename = "employee_directory.csv"
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename={filename}"}
+    )
+
+@app.route('/api/employees/export/pdf', methods=['GET'])
+@login_required
+def api_employees_export_pdf():
+    search = request.args.get('search', '').strip()
+    comp_id = get_current_company_id()
+    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id)
+    company_info = get_current_company_info()
+    pdf_buffer = pdf_generator.generate_employees_pdf(result['data'], company_info=company_info)
+    filename = "employee_directory.pdf"
+    return send_file(
+        pdf_buffer,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/pdf'
+    )
+
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -724,6 +932,7 @@ def api_add_live_entry():
     return jsonify({'success': True, 'id': inserted_id})
 
 @app.route('/api/live-entries/export/excel', methods=['GET'])
+@app.route('/api/live-entries/export/csv', methods=['GET'])
 @login_required
 def api_export_excel():
     entry_type = request.args.get('type', 'live')
@@ -766,7 +975,8 @@ def api_export_pdf():
     )
     
     title = "Live Entries Report" if entry_type == 'live' else "Timeout Entries Report"
-    pdf_buffer = pdf_generator.generate_live_report_pdf(title, result['data'])
+    company_info = get_current_company_info()
+    pdf_buffer = pdf_generator.generate_live_report_pdf(title, result['data'], company_info=company_info)
     filename = f"{entry_type}_entries_report.pdf"
     return send_file(
         pdf_buffer,
@@ -918,6 +1128,7 @@ def api_update_attendance_records():
     return jsonify({'success': True, 'message': 'Attendance records updated successfully'})
 
 @app.route('/api/attendance-reports/export/excel', methods=['GET'])
+@app.route('/api/attendance-reports/export/csv', methods=['GET'])
 @login_required
 def api_attendance_export_excel():
     report_type = request.args.get('type', 'all')
@@ -963,6 +1174,7 @@ def api_attendance_export_pdf():
     employee = request.args.get('employee', 'All').strip()
     comp_id = get_current_company_id()
     
+    company_info = get_current_company_info()
     if report_type == 'simple':
         result = database.get_attendance_simple_table(employee=employee, start_date=start_date, end_date=end_date, company_id=comp_id)
         title = "Manual Entries (Simple Table)"
@@ -970,7 +1182,7 @@ def api_attendance_export_pdf():
             'total_working_hours': result['total_working_hours'],
             'total_working_salary': result['total_working_salary']
         }
-        pdf_buffer = pdf_generator.generate_attendance_report_pdf(title, result['data'], is_simple=True, totals=totals)
+        pdf_buffer = pdf_generator.generate_attendance_report_pdf(title, result['data'], is_simple=True, totals=totals, company_info=company_info)
     else:
         result = database.get_attendance_reports(report_type=report_type, start_date=start_date, end_date=end_date, employee=employee, limit=10000, company_id=comp_id)
         titles = {
@@ -980,7 +1192,7 @@ def api_attendance_export_pdf():
             'manual': 'Manual Attendance Entries'
         }
         title = titles.get(report_type, 'Attendance Report')
-        pdf_buffer = pdf_generator.generate_attendance_report_pdf(title, result['data'], is_simple=False)
+        pdf_buffer = pdf_generator.generate_attendance_report_pdf(title, result['data'], is_simple=False, company_info=company_info)
         
     filename = f"attendance_{report_type}_report.pdf"
     return send_file(
@@ -1053,6 +1265,7 @@ def api_delete_manual_entry(entry_id):
     return jsonify({'success': True, 'message': 'Manual entry deleted successfully'})
 
 @app.route('/api/manual-entries/export/excel', methods=['GET'])
+@app.route('/api/manual-entries/export/csv', methods=['GET'])
 @login_required
 def api_manual_entries_export_excel():
     from_date = request.args.get('from_date', '').strip()
@@ -1100,7 +1313,8 @@ def api_manual_entries_export_pdf():
         limit=10000,
         company_id=get_current_company_id()
     )
-    pdf_buffer = pdf_generator.generate_manual_entries_pdf(result['data'])
+    company_info = get_current_company_info()
+    pdf_buffer = pdf_generator.generate_manual_entries_pdf(result['data'], company_info=company_info)
     filename = "manual_entries_report.pdf"
     return send_file(
         pdf_buffer,
@@ -1210,6 +1424,7 @@ def api_delete_payment(payment_id):
     return jsonify({'success': True, 'message': 'Payment deleted successfully'})
 
 @app.route('/api/payments/export/excel', methods=['GET'])
+@app.route('/api/payments/export/csv', methods=['GET'])
 @login_required
 def api_payments_export_excel():
     employee = request.args.get('employee', 'All').strip()
@@ -1268,7 +1483,8 @@ def api_payments_export_pdf():
         limit=10000,
         company_id=get_current_company_id()
     )
-    pdf_buffer = pdf_generator.generate_payments_pdf(result['data'])
+    company_info = get_current_company_info()
+    pdf_buffer = pdf_generator.generate_payments_pdf(result['data'], company_info=company_info)
     filename = "payment_management_report.pdf"
     return send_file(
         pdf_buffer,
@@ -1340,6 +1556,7 @@ def api_delete_advance(advance_id):
     return jsonify({'success': True, 'message': 'Advance deleted successfully'})
 
 @app.route('/api/advances/export/excel', methods=['GET'])
+@app.route('/api/advances/export/csv', methods=['GET'])
 @login_required
 def api_advances_export_excel():
     employee = request.args.get('employee', 'All').strip()
@@ -1385,7 +1602,8 @@ def api_advances_export_pdf():
         limit=10000,
         company_id=get_current_company_id()
     )
-    pdf_buffer = pdf_generator.generate_advances_pdf(result['data'])
+    company_info = get_current_company_info()
+    pdf_buffer = pdf_generator.generate_advances_pdf(result['data'], company_info=company_info)
     filename = "advance_management_report.pdf"
     return send_file(
         pdf_buffer,
@@ -1413,6 +1631,7 @@ def api_get_balance_report():
     return jsonify(result)
 
 @app.route('/api/balance-report/export/excel', methods=['GET'])
+@app.route('/api/balance-report/export/csv', methods=['GET'])
 @login_required
 def api_balance_report_export_excel():
     employee = request.args.get('employee', 'All').strip()
@@ -1448,7 +1667,8 @@ def api_balance_report_export_pdf():
         'total_repayment': result['total_repayment'],
         'balance_amount': result['balance_amount']
     }
-    pdf_buffer = pdf_generator.generate_balance_report_pdf(result['data'], totals)
+    company_info = get_current_company_info()
+    pdf_buffer = pdf_generator.generate_balance_report_pdf(result['data'], totals, company_info=company_info)
     filename = "balance_report.pdf"
     return send_file(
         pdf_buffer,
@@ -1529,6 +1749,7 @@ def api_get_salary_reports():
     return jsonify(result)
 
 @app.route('/api/salary-reports/export/excel', methods=['GET'])
+@app.route('/api/salary-reports/export/csv', methods=['GET'])
 @login_required
 def api_salary_reports_export_excel():
     start_month = request.args.get('start_month', '').strip()
@@ -1578,7 +1799,8 @@ def api_salary_reports_export_pdf():
         limit=10000,
         company_id=get_current_company_id()
     )
-    pdf_buffer = pdf_generator.generate_salary_report_pdf(result['data'])
+    company_info = get_current_company_info()
+    pdf_buffer = pdf_generator.generate_salary_report_pdf(result['data'], company_info=company_info)
     filename = "salary_report.pdf"
     return send_file(
         pdf_buffer,

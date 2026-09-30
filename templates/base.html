@@ -76,6 +76,9 @@
         <a href="{{ url_for('payment_entry') }}" class="nav-item-btn {% if active_tab == 'PAYMENT ENTRY' %}active{% endif %}">PAYMENT ENTRY</a>
         <a href="{{ url_for('monthly_payslip') }}" class="nav-item-btn {% if active_tab == 'MONTHLY PAYSLIP' %}active{% endif %}">MONTHLY PAYSLIP</a>
         <a href="{{ url_for('salary_report') }}" class="nav-item-btn {% if active_tab == 'SALARY REPORT' %}active{% endif %}">SALARY REPORT</a>
+        {% if session.get('role') in ['super_admin', 'company_admin'] %}
+        <a href="{{ url_for('company_profile') }}" class="nav-item-btn {% if active_tab == 'COMPANY PROFILE' %}active{% endif %}">COMPANY PROFILE</a>
+        {% endif %}
         {% if session.get('role') == 'super_admin' %}
         <a href="{{ url_for('manage_companies') }}" class="nav-item-btn {% if active_tab == 'MANAGE COMPANIES' %}active{% endif %}">MANAGE COMPANIES</a>
         {% endif %}
