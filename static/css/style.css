@@ -690,6 +690,7 @@ body.sidebar-collapsed .app-footer {
 }
 
 .employee-table {
+  min-width: 880px;
   width: 100%;
   border-collapse: collapse;
   font-size: 11px;
@@ -697,14 +698,29 @@ body.sidebar-collapsed .app-footer {
   table-layout: auto;
 }
 
+#employeeDataTable { min-width: 960px; }
+#attendanceDataTable,
+#attendanceStandardTable { min-width: 980px; }
+#simpleDataTable,
+#attendanceSimpleTable,
+.employee-table-simple { min-width: 860px; }
+#liveDataTable { min-width: 960px; }
+#manualDataTable { min-width: 900px; }
+#paymentDataTable { min-width: 900px; }
+#advanceDataTable { min-width: 900px; }
+#balanceDataTable { min-width: 900px; }
+#salaryReportsTable { min-width: 950px; }
+#companyDataTable { min-width: 1360px; }
+
 .employee-table th {
   background-color: #ffffff;
   color: #333333;
   font-weight: 700;
-  padding: 8px 6px;
+  padding: 8px 10px;
   border-bottom: 2px solid #dee2e6;
-  white-space: normal;
-  word-break: break-word;
+  white-space: nowrap !important;
+  word-break: normal !important;
+  word-wrap: normal !important;
   vertical-align: middle;
   font-size: 10.5px;
   cursor: pointer;
@@ -719,25 +735,25 @@ body.sidebar-collapsed .app-footer {
 }
 
 .employee-table td {
-  padding: 8px 6px;
+  padding: 8px 10px;
   border-bottom: 1px solid #e9ecef;
   color: #333333;
-  vertical-align: top;
-  white-space: normal;
-  word-break: break-word;
+  vertical-align: middle;
+  white-space: nowrap !important;
+  word-break: normal !important;
+  word-wrap: normal !important;
   font-size: 11px;
   line-height: 1.35;
 }
 
-/* Vertical address expansion matching Image 2 */
+/* Allow address columns to wrap nicely with controlled min-width */
 .employee-table [data-col="entry_location"],
 .employee-table [data-col="exit_location"],
-.employee-table td:nth-child(4),
-.employee-table td:nth-child(7) {
-  min-width: 140px;
-  max-width: 240px;
-  white-space: normal;
-  word-break: break-word;
+.employee-table td.col-location {
+  min-width: 150px;
+  max-width: 250px;
+  white-space: normal !important;
+  word-break: break-word !important;
   line-height: 1.35;
 }
 
@@ -1940,6 +1956,9 @@ body.drawer-open {
 
   .main-content {
     padding: 12px 10px 75px 10px;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   /* Top Banner Card */
@@ -2085,8 +2104,22 @@ body.drawer-open {
     font-size: 11px;
   }
 
+  .toolbar-right-controls {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .view-toggle-wrapper {
+    display: inline-flex !important;
+    flex-shrink: 0 !important;
+  }
+
   .search-box-wrapper {
-    width: 100%;
+    flex: 1 !important;
+    min-width: 0 !important;
+    width: auto !important;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -2680,6 +2713,8 @@ body.page-dashboard .bottom-footer {
   position: relative;
   overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .dash-stat-card:hover {
@@ -2799,6 +2834,8 @@ body.page-dashboard .bottom-footer {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .card-head {
@@ -2863,6 +2900,8 @@ body.page-dashboard .bottom-footer {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .card-link-action {
@@ -3065,10 +3104,68 @@ body.page-dashboard .bottom-footer {
 }
 
 @media (max-width: 768px) {
-  .dash-stats-grid {
-    grid-template-columns: 1fr;
+  body.page-dashboard .main-content {
+    padding: 12px 10px 75px 10px !important;
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
   }
+
+  .dash-stats-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .dash-charts-row,
+  .dash-bottom-row {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
   .quick-actions-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+  }
+
+  .dash-stat-card,
+  .dash-chart-card,
+  .dash-card {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 14px 12px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .chart-canvas-container {
+    height: 220px !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .chart-canvas-container canvas {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .card-table-scroll {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .card-head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .card-title-text {
+    font-size: 13.5px !important;
   }
 }

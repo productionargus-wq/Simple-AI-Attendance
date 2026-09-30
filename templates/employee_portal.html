@@ -120,22 +120,74 @@
     /* Mobile Responsiveness */
     @media (max-width: 768px) {
       .portal-nav {
-        flex-direction: column;
-        gap: 12px;
-        padding: 12px 14px;
-        text-align: center;
-      }
-      .portal-nav-center {
-        position: static;
-        transform: none;
-        margin: 4px 0;
-        font-size: 16px;
-      }
-      .portal-nav > div:last-child {
-        width: 100%;
+        height: 54px;
+        padding: 0 12px;
+        display: flex;
+        flex-direction: row;
         justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .portal-nav-left {
         display: flex;
         align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .portal-nav-left img {
+        width: 24px !important;
+        height: auto;
+      }
+      .portal-nav-title {
+        font-size: 13px !important;
+        font-weight: 800;
+        color: #ffffff;
+        white-space: nowrap;
+      }
+      .portal-nav-subtitle {
+        display: none !important;
+      }
+      .portal-nav-center {
+        display: none !important;
+      }
+      .portal-nav-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .portal-user-badge {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        max-width: 110px;
+        line-height: 1.2;
+      }
+      .portal-user-name {
+        font-size: 11px !important;
+        font-weight: 700;
+        color: #ffffff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 105px;
+      }
+      .portal-company-tag {
+        font-size: 9.5px !important;
+        color: #ffd166;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 105px;
+      }
+      .portal-btn-logout {
+        padding: 5px 10px !important;
+        font-size: 11px !important;
+        border-radius: 4px;
+        white-space: nowrap;
       }
       .portal-container {
         padding: 0 10px 40px;
@@ -178,11 +230,11 @@
 
   <!-- Portal Navigation Header -->
   <header class="portal-nav">
-    <div style="display: flex; align-items: center; gap: 12px;">
+    <div class="portal-nav-left" style="display: flex; align-items: center; gap: 12px;">
       <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Argus" style="width: 32px; height: auto;">
       <div>
-        <div style="font-size: 16px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">ARGUS ATTENDANCE</div>
-        <div style="font-size: 10px; color: #ffd166; font-weight: 700; letter-spacing: 0.8px;">EMPLOYEE SELF-SERVICE PORTAL</div>
+        <div class="portal-nav-title" style="font-size: 16px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">ARGUS ATTENDANCE</div>
+        <div class="portal-nav-subtitle" style="font-size: 10px; color: #ffd166; font-weight: 700; letter-spacing: 0.8px;">EMPLOYEE SELF-SERVICE PORTAL</div>
       </div>
     </div>
 
@@ -191,12 +243,12 @@
       {{ (company.company_name if company and company.company_name else session.get('company_name') or 'ARGUS TECHNOLOGIES') | upper }}
     </div>
 
-    <div style="display: flex; align-items: center; gap: 16px;">
-      <div style="text-align: right; font-size: 12px;">
-        <div style="font-weight: 800; color: #ffffff;">{{ employee.employee_name if employee else 'Employee' }}</div>
-        <div style="color: #ffd166; font-size: 11px;">{{ company.company_name if company else 'Argus Technologies' }}</div>
+    <div class="portal-nav-right" style="display: flex; align-items: center; gap: 16px;">
+      <div class="portal-user-badge" style="text-align: right; font-size: 12px;">
+        <div class="portal-user-name" style="font-weight: 800; color: #ffffff;">{{ employee.employee_name if employee else 'Employee' }}</div>
+        <div class="portal-company-tag" style="color: #ffd166; font-size: 11px;">{{ company.company_name if company else 'Argus Technologies' }}</div>
       </div>
-      <a href="/logout" style="background-color: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 6px 14px; font-size: 11px; font-weight: 700; text-decoration: none;">
+      <a href="/logout" class="portal-btn-logout" style="background-color: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 6px 14px; font-size: 11px; font-weight: 700; text-decoration: none;">
         Logout
       </a>
     </div>

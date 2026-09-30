@@ -520,21 +520,48 @@
     /* Responsive adjustments */
     @media (max-width: 640px) {
       .navbar {
-        padding: 0 14px;
-        height: auto;
-        padding-top: 10px;
-        padding-bottom: 10px;
-        flex-wrap: wrap;
-        gap: 10px;
-      }
-      .nav-links {
-        width: 100%;
+        padding: 0 10px;
+        height: 56px;
+        flex-wrap: nowrap;
         justify-content: space-between;
         gap: 6px;
+        width: 100%;
+        max-width: 100vw;
+        box-sizing: border-box;
+      }
+      .nav-brand {
+        gap: 6px;
+        min-width: 0;
+      }
+      .nav-logo-badge {
+        width: 28px;
+        height: 28px;
+      }
+      .nav-logo-badge img {
+        width: 18px;
+      }
+      .nav-title {
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .nav-links {
+        width: auto;
+        justify-content: flex-end;
+        gap: 5px;
+        flex-wrap: nowrap;
+      }
+      .nav-text-extra {
+        display: none !important;
       }
       .nav-btn {
-        padding: 6px 9px;
+        padding: 6px 8px;
         font-size: 11px;
+        gap: 4px;
+        white-space: nowrap;
+      }
+      .nav-btn svg {
+        width: 13px;
+        height: 13px;
       }
       .controls-row {
         grid-template-columns: 1fr;
@@ -581,7 +608,7 @@
           <line x1="8" y1="14" x2="8" y2="14.01"></line>
           <line x1="16" y1="14" x2="16" y2="14.01"></line>
         </svg>
-        Company Access
+        Company<span class="nav-text-extra"> Access</span>
       </a>
 
       <a href="/employee-login" class="nav-btn" id="btnNavEmployeeLogin" title="Employee Portal Login">
@@ -589,7 +616,7 @@
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
           <circle cx="12" cy="7" r="4"></circle>
         </svg>
-        Employee Login
+        Employee<span class="nav-text-extra"> Login</span>
       </a>
 
       <a href="/login" class="nav-btn" id="btnNavAdminLogin" title="System Administration (Super Admin)">
@@ -597,7 +624,7 @@
           <circle cx="12" cy="12" r="3"></circle>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
-        System Administration
+        <span class="nav-text-extra">System </span>Admin<span class="nav-text-extra">istration</span>
       </a>
     </nav>
   </header>
