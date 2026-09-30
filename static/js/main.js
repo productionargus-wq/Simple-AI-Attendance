@@ -1,10 +1,9 @@
-// Main application script: Navigation, sidebar toggle, refresh reload
+// Main application script: Navigation, sidebar toggle
 document.addEventListener('DOMContentLoaded', function () {
   const sidebar = document.getElementById('appSidebar');
   const sidebarToggle = document.getElementById('sidebarToggle');
-  const sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
-  const pageRefreshBtn = document.getElementById('pageRefreshBtn');
   const appContainer = document.querySelector('.app-container');
+  const topNavbar = document.querySelector('.top-navbar');
 
   function isMobile() {
     return window.innerWidth <= 768;
@@ -19,18 +18,26 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const isCollapsed = sidebar.classList.contains('collapsed');
+    document.body.classList.toggle('sidebar-collapsed', isCollapsed);
+
+    const marginValue = isCollapsed || isMobile() ? '0px' : '220px';
+    if (topNavbar) {
+      topNavbar.style.marginLeft = marginValue;
+    }
     if (appContainer) {
-      if (isMobile()) {
-        appContainer.style.marginLeft = '0px';
-      } else {
-        appContainer.style.marginLeft = isCollapsed ? '0px' : '200px';
-      }
+      appContainer.style.marginLeft = marginValue;
     }
   }
 
   // Auto-collapse sidebar on initial mobile load
   if (isMobile() && sidebar) {
     sidebar.classList.add('collapsed');
+    document.body.classList.add('sidebar-collapsed');
+    if (topNavbar) topNavbar.style.marginLeft = '0px';
+    if (appContainer) appContainer.style.marginLeft = '0px';
+  } else {
+    if (topNavbar) topNavbar.style.marginLeft = '220px';
+    if (appContainer) appContainer.style.marginLeft = '220px';
   }
 
   // Navbar hamburger toggle (open / close)
@@ -38,14 +45,6 @@ document.addEventListener('DOMContentLoaded', function () {
     sidebarToggle.addEventListener('click', function (e) {
       e.stopPropagation();
       toggleSidebar();
-    });
-  }
-
-  // Sidebar internal hamburger button (top left inside sidebar to expand main content)
-  if (sidebarCollapseBtn) {
-    sidebarCollapseBtn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      toggleSidebar(false); // Collapses sidebar -> Expands main content!
     });
   }
 
@@ -58,21 +57,16 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // Top-right Refresh / Reload button
-  if (pageRefreshBtn) {
-    pageRefreshBtn.addEventListener('click', function () {
-      window.location.reload();
-    });
-  }
-
   // Handle window resize dynamically
   window.addEventListener('resize', function () {
-    if (!sidebar || !appContainer) return;
-    if (isMobile()) {
-      appContainer.style.marginLeft = '0px';
-    } else {
-      appContainer.style.marginLeft = sidebar.classList.contains('collapsed') ? '0px' : '200px';
+    if (!sidebar) return;
+    const isCollapsed = sidebar.classList.contains('collapsed');
+    const marginValue = isCollapsed || isMobile() ? '0px' : '220px';
+    if (topNavbar) {
+      topNavbar.style.marginLeft = marginValue;
+    }
+    if (appContainer) {
+      appContainer.style.marginLeft = marginValue;
     }
   });
 });
-

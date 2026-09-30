@@ -3,7 +3,21 @@
 {% block content %}
 <!-- Top Attendance Report Banner with Subtab Toggles -->
 <div class="content-banner-card">
-  <div class="content-banner-title" id="pageTitle">ALL ENTRIES</div>
+  <div class="banner-left">
+    <div class="banner-icon-badge">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10 9 9 9 8 9"></polyline>
+      </svg>
+    </div>
+    <div class="banner-text-group">
+      <div class="banner-title" id="pageTitle">ALL ENTRIES</div>
+      <div class="banner-subtitle" id="reportSubtitle">Displays all attendance records, including Proper, Improper, and Manual entries.</div>
+    </div>
+  </div>
   <div class="tab-toggle-container">
     <button class="btn-toggle-tab active" id="btnAllEntries" data-view="all">All Entries</button>
     <button class="btn-toggle-tab inactive" id="btnProperEntries" data-view="proper">Proper Entries</button>
@@ -17,11 +31,6 @@
       Update
     </button>
   </div>
-</div>
-
-<!-- Dynamic Subtitle description -->
-<div class="report-subtitle" id="reportSubtitle">
-  Displays all attendance records, including Proper, Improper, and Manual entries.
 </div>
 
 <!-- Date and Employee Filter Bar -->

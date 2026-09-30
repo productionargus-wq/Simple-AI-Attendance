@@ -1,19 +1,35 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<!-- Top Banner Card Matching Image 3 -->
+<!-- Top Banner Card Matching Image 2 Design -->
 <div class="content-banner-card">
-  <div class="content-banner-title">MONTHLY PAYSLIP</div>
-  <button class="btn-update" id="btnUpdatePayslip" title="Update">
-    <i class="fa fa-refresh"></i> Update
+  <div class="banner-left">
+    <div class="banner-icon-badge">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="12" y1="18" x2="12" y2="12"></line>
+        <line x1="9" y1="15" x2="15" y2="15"></line>
+      </svg>
+    </div>
+    <div class="banner-text-group">
+      <div class="banner-title">MONTHLY PAYSLIP</div>
+      <div class="banner-subtitle">Generate, review and print individual monthly salary slips and deductions</div>
+    </div>
+  </div>
+  <button class="btn-secondary-action" id="btnUpdatePayslip" title="Refresh">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+    </svg>
+    Refresh
   </button>
 </div>
 
 <!-- ================= 1. SELECTION FORM (IMAGE 3) ================= -->
-<div class="table-card" id="payslipSelectionCard" style="padding: 30px 20px;">
+<div class="table-card" id="payslipSelectionCard" style="padding: 24px 20px; border-radius: 12px;">
   <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
     <div style="display: flex; align-items: center; gap: 8px;">
-      <label for="selectPayslipEmployee" style="font-size: 13px; font-weight: 700; color: #212529;">Select Employee Name:</label>
+      <label for="selectPayslipEmployee" style="font-size: 13px; font-weight: 700; color: #0f172a;">Select Employee Name:</label>
       <select id="selectPayslipEmployee" class="table-filter-select" style="min-width: 170px; padding: 6px 12px; font-size: 13px;">
         {% for emp in employees %}
         <option value="{{ emp }}" {% if emp == 'Ruban' %}selected{% endif %}>{{ emp }}</option>
@@ -22,12 +38,12 @@
     </div>
 
     <div style="display: flex; align-items: center; gap: 8px;">
-      <label for="selectPayslipMonth" style="font-size: 13px; font-weight: 700; color: #212529;">Month & Year:</label>
+      <label for="selectPayslipMonth" style="font-size: 13px; font-weight: 700; color: #0f172a;">Month & Year:</label>
       <input type="month" id="selectPayslipMonth" class="table-filter-date" style="padding: 5px 10px; font-size: 13px; width: 160px;">
     </div>
 
     <div>
-      <button type="button" id="btnGeneratePayslip" class="btn-submit" style="background-color: #0d6efd; color: #ffffff; padding: 7px 22px; font-weight: 700; font-size: 13px; border-radius: 4px; text-transform: uppercase;">
+      <button type="button" id="btnGeneratePayslip" class="btn-primary-action">
         GENERATE
       </button>
     </div>

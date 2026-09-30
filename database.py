@@ -226,6 +226,8 @@ def create_company(data):
     if existing:
         raise ValueError(f"A company with email '{email}' is already registered.")
         
+    now_ist = get_ist_now()
+    reg_date_str = now_ist.strftime('%d/%m/%Y %I:%M %p')
     doc = {
         'id': comp_id,
         'company_name': data.get('company_name', '').strip(),
@@ -239,14 +241,15 @@ def create_company(data):
         'employee_limit': int(data.get('employee_limit') or data.get('employee_count') or 50),
         'shift_hours': str(data.get('shift_hours') or '08:00').strip(),
         'auto_email_reports': bool(data.get('auto_email_reports', True)),
-        'created_at': datetime.now(),
-        'updated_at': datetime.now()
+        'registered_date': reg_date_str,
+        'created_at': now_ist,
+        'updated_at': now_ist
     }
     db.company_admin.insert_one(doc)
     return comp_id
 
 def get_all_companies(search='', page=1, limit=10):
-    """Retrieves paginated companies with employee count and limit."""
+    """Retrieves paginated companies with employee count, limit, and registered date."""
     db = get_db()
     query = {}
     if search:
@@ -274,6 +277,18 @@ def get_all_companies(search='', page=1, limit=10):
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
+            
+        if not c.get('registered_date'):
+            if c.get('created_at'):
+                try:
+                    if isinstance(c['created_at'], datetime):
+                        c['registered_date'] = c['created_at'].strftime('%d/%m/%Y %I:%M %p')
+                    else:
+                        c['registered_date'] = str(c['created_at'])
+                except Exception:
+                    c['registered_date'] = str(c.get('created_at', '-'))
+            else:
+                c['registered_date'] = '-'
         companies.append(c)
         
     return {
@@ -284,7 +299,7 @@ def get_all_companies(search='', page=1, limit=10):
     }
 
 def get_company_by_id(comp_id):
-    """Fetches company details by ID with current employee count and limit."""
+    """Fetches company details by ID with current employee count, limit, and registered date."""
     db = get_db()
     if not comp_id:
         return None
@@ -299,6 +314,17 @@ def get_company_by_id(comp_id):
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
+        if not c.get('registered_date'):
+            if c.get('created_at'):
+                try:
+                    if isinstance(c['created_at'], datetime):
+                        c['registered_date'] = c['created_at'].strftime('%d/%m/%Y %I:%M %p')
+                    else:
+                        c['registered_date'] = str(c['created_at'])
+                except Exception:
+                    c['registered_date'] = str(c.get('created_at', '-'))
+            else:
+                c['registered_date'] = '-'
         return c
     return None
 

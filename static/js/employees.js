@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function () {
     tableBody.innerHTML = '';
 
     if (!employees || employees.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="13" style="text-align: center; padding: 20px; color: #888;">No matching records found</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 24px; color: #64748b;">No matching records found</td></tr>`;
       return;
     }
 
@@ -93,13 +93,13 @@ document.addEventListener('DOMContentLoaded', function () {
       const st = emp.salary_type || 'hourly';
       let badgeHtml = '';
       if (st === 'hourly') {
-        badgeHtml = '<span class="badge-salary-basis" style="background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; white-space:nowrap; display:inline-block;">Hourly</span>';
+        badgeHtml = '<span class="status-pill status-blue">Hourly</span>';
       } else if (st === 'daily') {
-        badgeHtml = '<span class="badge-salary-basis" style="background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; white-space:nowrap; display:inline-block;">Day-Based</span>';
+        badgeHtml = '<span class="status-pill status-active">Day-Based</span>';
       } else if (st === 'half_day') {
-        badgeHtml = '<span class="badge-salary-basis" style="background:#fef3c7; color:#b45309; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; white-space:nowrap; display:inline-block;">Half-Day</span>';
+        badgeHtml = '<span class="status-pill status-pending">Half-Day</span>';
       } else {
-        badgeHtml = '<span class="badge-salary-basis" style="background:#f1f5f9; color:#475569; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; white-space:nowrap; display:inline-block;">Hourly</span>';
+        badgeHtml = '<span class="status-pill status-blue">Hourly</span>';
       }
 
       const photoFile = emp.photo || emp.photo_filename;
@@ -108,44 +108,42 @@ document.addEventListener('DOMContentLoaded', function () {
         photoHtml = `<img src="/uploads/${escapeHtml(photoFile)}" class="emp-table-photo" onclick="openPhotoModal('${escapeHtml(photoFile)}', '${escapeHtml(emp.employee_name)}')" title="Click to view photo">`;
       } else {
         const initials = (emp.employee_name || 'E').substring(0, 2).toUpperCase();
-        photoHtml = `<div class="emp-avatar-placeholder">${initials}</div>`;
+        photoHtml = `<div class="avatar-circle">${initials}</div>`;
       }
 
       tr.innerHTML = `
-        <td>${escapeHtml(emp.id)}</td>
+        <td style="font-weight: 700; color: #0f172a;">${escapeHtml(emp.id)}</td>
         <td style="text-align: center; vertical-align: middle;">${photoHtml}</td>
-        <td>${escapeHtml(emp.employee_name)}</td>
-        <td>${escapeHtml(emp.designation || '')}</td>
+        <td><strong style="color: #0f172a;">${escapeHtml(emp.employee_name)}</strong></td>
+        <td style="color: #475569;">${escapeHtml(emp.designation || '')}</td>
         <td>${badgeHtml}</td>
-        <td>${Number(emp.hourly_salary || 0).toFixed(2)}</td>
-        <td>${Number(emp.day_salary || 0).toFixed(0)}</td>
-        <td>${Number(emp.half_day_salary || 0).toFixed(0)}</td>
+        <td style="font-weight: 600;">₹${Number(emp.hourly_salary || 0).toFixed(2)}</td>
+        <td style="font-weight: 600;">₹${Number(emp.day_salary || 0).toFixed(0)}</td>
+        <td style="font-weight: 600;">₹${Number(emp.half_day_salary || 0).toFixed(0)}</td>
         <td>${escapeHtml(emp.mobile_number || '')}</td>
         <td>${escapeHtml(emp.email_id || '')}</td>
         <td>${escapeHtml(emp.shift_hours || '')}</td>
-        <td>
-          <button class="btn-action btn-action-view" onclick="viewEmployee('${emp.id}')" title="View">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-          </button>
-        </td>
-        <td>
-          <button class="btn-action btn-action-edit" onclick="editEmployee('${emp.id}')" title="Edit">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-          </button>
-        </td>
-        <td>
-          <button class="btn-action btn-action-delete" onclick="deleteEmployee('${emp.id}', '${escapeHtml(emp.employee_name)}')" title="Delete">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
+        <td style="text-align: center;">
+          <div class="table-actions">
+            <button class="btn-action-icon btn-action-view" onclick="viewEmployee('${emp.id}')" title="View Details">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+            <button class="btn-action-icon btn-action-edit" onclick="editEmployee('${emp.id}')" title="Edit Employee">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </button>
+            <button class="btn-action-icon btn-action-delete" onclick="deleteEmployee('${emp.id}', '${escapeHtml(emp.employee_name)}')" title="Delete Employee">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
         </td>
       `;
       tableBody.appendChild(tr);

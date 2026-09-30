@@ -43,12 +43,28 @@ document.addEventListener('DOMContentLoaded', function () {
   const closeReportsModal = document.getElementById('closeReportsModal');
   const btnCloseReportsFooter = document.getElementById('btnCloseReportsFooter');
 
+  // View modal elements
+  const viewCompanyModal = document.getElementById('viewCompanyModal');
+  const closeViewCompanyModal = document.getElementById('closeViewCompanyModal');
+  const btnCloseViewCompanyFooter = document.getElementById('btnCloseViewCompanyFooter');
+  const viewCompanyName = document.getElementById('viewCompanyName');
+  const viewCompanyId = document.getElementById('viewCompanyId');
+  const viewCompanyRegisteredDate = document.getElementById('viewCompanyRegisteredDate');
+  const viewCompanyGstin = document.getElementById('viewCompanyGstin');
+  const viewCompanyPhone = document.getElementById('viewCompanyPhone');
+  const viewCompanyEmail = document.getElementById('viewCompanyEmail');
+  const viewCompanyLocation = document.getElementById('viewCompanyLocation');
+  const viewCompanyShiftHours = document.getElementById('viewCompanyShiftHours');
+  const viewCompanyEmployees = document.getElementById('viewCompanyEmployees');
+  const viewCompanyStatusBadge = document.getElementById('viewCompanyStatusBadge');
+  const viewCompanyReportsBadge = document.getElementById('viewCompanyReportsBadge');
+
   // Fetch and display companies
   async function loadCompanies(page = 1) {
     currentPage = page;
     companyTableBody.innerHTML = `
       <tr>
-        <td colspan="10" style="text-align: center; padding: 24px; color: #6c757d;">Loading companies...</td>
+        <td colspan="12" style="text-align: center; padding: 24px; color: #6c757d;">Loading companies...</td>
       </tr>
     `;
 
@@ -66,7 +82,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!data.companies || data.companies.length === 0) {
         companyTableBody.innerHTML = `
           <tr>
-            <td colspan="10" style="text-align: center; padding: 28px; color: #6c757d;">
+            <td colspan="12" style="text-align: center; padding: 28px; color: #6c757d;">
               No registered companies found. Click <strong>+ Add Company</strong> above to register a new tenant.
             </td>
           </tr>
@@ -84,8 +100,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const lat = comp.latitude ? Number(comp.latitude).toFixed(5) : '11.02980';
         const lng = comp.longitude ? Number(comp.longitude).toFixed(5) : '76.97400';
         const statusBadge = comp.status === 'Active'
-          ? `<span style="background-color: #d1e7dd; color: #0f5132; padding: 3px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">Active</span>`
-          : `<span style="background-color: #f8d7da; color: #842029; padding: 3px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">Inactive</span>`;
+          ? `<span class="status-pill status-active">Active</span>`
+          : `<span class="status-pill status-inactive">Inactive</span>`;
 
         const isAutoReports = comp.auto_email_reports !== false;
         const autoReportsBadge = isAutoReports
@@ -104,44 +120,55 @@ document.addEventListener('DOMContentLoaded', function () {
               <span>OFF</span>
             </button>`;
 
+        const regDateDisplay = comp.registered_date && comp.registered_date !== '-'
+          ? `<span style="display: inline-block; background-color: #f1f5f9; color: #334155; padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap;">${escapeHtml(comp.registered_date)}</span>`
+          : `<span style="color: #94a3b8; font-size: 11px;">-</span>`;
+
         const row = document.createElement('tr');
         row.innerHTML = `
           <td style="font-weight: 700; color: #555;">${slNo}</td>
           <td>
-            <div style="font-weight: 800; color: #2c3e50;">${escapeHtml(comp.company_name)}</div>
-            <div style="font-size: 10px; color: #888;">ID: ${comp.id}</div>
+            <div style="font-weight: 800; color: #0f172a;">${escapeHtml(comp.company_name)}</div>
+            <div style="font-size: 10px; color: #64748b; font-family: monospace;">ID: ${comp.id}</div>
           </td>
-          <td><code style="background-color: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-size: 11px;">${escapeHtml(comp.gstin || '-')}</code></td>
+          <td>${regDateDisplay}</td>
+          <td><code style="background-color: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-size: 11px; color: #334155;">${escapeHtml(comp.gstin || '-')}</code></td>
           <td>
-            <a href="mailto:${escapeHtml(comp.email)}" style="color: #007bff; text-decoration: none; font-weight: 700;">
+            <a href="mailto:${escapeHtml(comp.email)}" style="color: #2563eb; text-decoration: none; font-weight: 700;">
               ${escapeHtml(comp.email)}
             </a>
           </td>
           <td>${escapeHtml(comp.phone || '-')}</td>
           <td>
-            <div style="font-size: 11px; color: #3d6078; font-weight: 600;">📍 ${lat}, ${lng}</div>
+            <div style="font-size: 11px; color: #334155; font-weight: 600;">📍 ${lat}, ${lng}</div>
           </td>
           <td style="text-align: center;">
-            <span style="font-weight: 700; color: #2c3e50; font-size: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 6px;">
+            <span style="font-weight: 700; color: #0f172a; font-size: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 6px;">
               ${escapeHtml(comp.shift_hours || '08:00')}
             </span>
           </td>
           <td style="text-align: center;">
-            <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 4px 12px; border-radius: 12px; font-weight: 800; font-size: 11px;">
-              ${comp.employee_limit || 50}
+            <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 4px 10px; border-radius: 12px; font-weight: 800; font-size: 11px;">
+              ${comp.employee_count || 0}/${comp.employee_limit || 50}
             </span>
           </td>
           <td style="text-align: center;">${statusBadge}</td>
           <td style="text-align: center;">${autoReportsBadge}</td>
           <td style="text-align: center;">
-            <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
-              <button class="btn-action btn-action-edit" data-id="${comp.id}" title="Edit Company" style="background-color: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; border-radius: 4px; padding: 5px 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s ease;">
+            <div class="table-actions">
+              <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+              <button class="btn-action-icon btn-action-edit" data-id="${comp.id}" title="Edit Company">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                 </svg>
               </button>
-              <button class="btn-action btn-action-delete" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Delete Company">
+              <button class="btn-action-icon btn-action-delete" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Delete Company">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="3 6 5 6 21 6"></polyline>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -188,6 +215,53 @@ document.addEventListener('DOMContentLoaded', function () {
             alert('Network error while updating auto reports setting.');
             this.disabled = false;
             this.style.opacity = '1';
+          }
+        });
+      });
+
+      // Attach view handlers
+      document.querySelectorAll('.btn-action-view').forEach(btn => {
+        btn.addEventListener('click', async function () {
+          const compId = this.getAttribute('data-id');
+          let comp = loadedCompanies.find(c => String(c.id) === String(compId));
+          if (!comp) {
+            try {
+              const res = await fetch(`/api/companies/${compId}`);
+              comp = await res.json();
+            } catch (err) {
+              console.error('Error fetching company details:', err);
+            }
+          }
+          if (!comp) return;
+
+          if (viewCompanyName) viewCompanyName.textContent = comp.company_name || '-';
+          if (viewCompanyId) viewCompanyId.textContent = comp.id || '-';
+          if (viewCompanyRegisteredDate) viewCompanyRegisteredDate.textContent = comp.registered_date && comp.registered_date !== '-' ? comp.registered_date : 'Not recorded';
+          if (viewCompanyGstin) viewCompanyGstin.textContent = comp.gstin || '-';
+          if (viewCompanyPhone) viewCompanyPhone.textContent = comp.phone || '-';
+          if (viewCompanyEmail) viewCompanyEmail.textContent = comp.email || '-';
+
+          const lat = comp.latitude ? Number(comp.latitude).toFixed(5) : '-';
+          const lng = comp.longitude ? Number(comp.longitude).toFixed(5) : '-';
+          if (viewCompanyLocation) viewCompanyLocation.textContent = (lat !== '-' && lng !== '-') ? `Lat: ${lat}, Long: ${lng}` : '-';
+
+          if (viewCompanyShiftHours) viewCompanyShiftHours.textContent = comp.shift_hours || '08:00';
+          if (viewCompanyEmployees) viewCompanyEmployees.textContent = `${comp.employee_count || 0} enrolled (Limit: ${comp.employee_limit || 50})`;
+
+          if (viewCompanyStatusBadge) {
+            viewCompanyStatusBadge.innerHTML = comp.status === 'Active'
+              ? `<span class="status-pill status-active">Active</span>`
+              : `<span class="status-pill status-inactive">Inactive</span>`;
+          }
+
+          if (viewCompanyReportsBadge) {
+            viewCompanyReportsBadge.innerHTML = (comp.auto_email_reports !== false)
+              ? `<span class="status-pill status-active">Enabled</span>`
+              : `<span class="status-pill status-inactive">Disabled</span>`;
+          }
+
+          if (viewCompanyModal) {
+            viewCompanyModal.classList.add('active');
           }
         });
       });
@@ -450,11 +524,24 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function closeReportsModalFunc() {
-    reportsModal.classList.remove('active');
+    if (reportsModal) reportsModal.classList.remove('active');
   }
 
   if (closeReportsModal) closeReportsModal.addEventListener('click', closeReportsModalFunc);
   if (btnCloseReportsFooter) btnCloseReportsFooter.addEventListener('click', closeReportsModalFunc);
+
+  function closeViewCompanyModalFunc() {
+    if (viewCompanyModal) viewCompanyModal.classList.remove('active');
+  }
+
+  if (closeViewCompanyModal) closeViewCompanyModal.addEventListener('click', closeViewCompanyModalFunc);
+  if (btnCloseViewCompanyFooter) btnCloseViewCompanyFooter.addEventListener('click', closeViewCompanyModalFunc);
+
+  window.addEventListener('click', function (e) {
+    if (e.target === viewCompanyModal) closeViewCompanyModalFunc();
+    if (e.target === companyModal) closeCompanyModalFunc();
+    if (e.target === reportsModal) closeReportsModalFunc();
+  });
 
   // Helper escape function
   function escapeHtml(str) {

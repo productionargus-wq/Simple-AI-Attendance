@@ -25,19 +25,7 @@
     </div>
     
     <div class="nav-right">
-      <a href="/logout" class="btn-logout" title="Logout">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-        </svg>
-        Logout
-      </a>
-      <button class="btn-fullscreen" id="pageRefreshBtn" title="Refresh / Reload">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="23 4 23 10 17 10"></polyline>
-          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-        </svg>
-      </button>
+      <!-- Clean top right navbar -->
     </div>
   </header>
 
@@ -45,15 +33,6 @@
   <div class="app-container">
     <!-- Left Sidebar -->
     <aside class="sidebar" id="appSidebar">
-      <!-- Top Left Hamburger Inside Sidebar -->
-      <div class="sidebar-top-bar">
-        <button class="sidebar-hamburger-btn" id="sidebarCollapseBtn" title="Expand Main Content">
-          <span></span>
-          <span></span>
-          <span></span>
-        </button>
-      </div>
-
       <div class="sidebar-header">
         <div class="sidebar-brand-box">
           <div class="sidebar-logo-circle">
@@ -142,9 +121,15 @@
     </div>
   </div>
 
-  <!-- Bottom Yellow Footer -->
-  <footer class="bottom-footer">
-    © Argus Technologies | version 4.5
+  <!-- Modern Dual-Branded Footer -->
+  <footer class="app-footer">
+    <div class="footer-left">
+      &copy; Argus Attendance &nbsp;|&nbsp; Powered by ARGUSCNC &nbsp;|&nbsp; Version 5.1
+    </div>
+    <div class="footer-right">
+      <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="Argus CNC" class="footer-logo">
+      <span class="footer-brand-name">ARGUSCNC</span>
+    </div>
   </footer>
 
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>

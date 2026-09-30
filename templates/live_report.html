@@ -3,16 +3,21 @@
 {% block content %}
 <!-- Top Live Report Banner with Toggles -->
 <div class="content-banner-card">
-  <div class="content-banner-title" id="pageTitle">LIVE ENTRIES</div>
+  <div class="banner-left">
+    <div class="banner-icon-badge">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+      </svg>
+    </div>
+    <div class="banner-text-group">
+      <div class="banner-title" id="pageTitle">LIVE ENTRIES</div>
+      <div class="banner-subtitle" id="reportSubtitle">Displays employees currently working in the company.</div>
+    </div>
+  </div>
   <div class="tab-toggle-container">
     <button class="btn-toggle-tab active" id="btnLiveEntries">Live Entries</button>
     <button class="btn-toggle-tab inactive" id="btnTimeoutEntries">Timeout Entries</button>
   </div>
-</div>
-
-<!-- Subtitle description -->
-<div class="report-subtitle" id="reportSubtitle">
-  Displays employees currently working in the company.
 </div>
 
 <!-- Date Filter Bar -->

@@ -1,17 +1,32 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<!-- Top Banner Card Matching Image 1 -->
+<!-- Top Banner Card Matching Image 2 Design -->
 <div class="content-banner-card">
-  <div class="content-banner-title">PAYMENT MANAGEMENT</div>
-  <div class="payment-banner-actions">
-    <button class="btn-yellow-action" id="btnOpenAddPaymentModal">
-      <i class="fa fa-plus"></i> + Add Payment
+  <div class="banner-left">
+    <div class="banner-icon-badge">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+        <line x1="2" y1="10" x2="22" y2="10"></line>
+      </svg>
+    </div>
+    <div class="banner-text-group">
+      <div class="banner-title">PAYMENT MANAGEMENT</div>
+      <div class="banner-subtitle">Record employee salaries, advances, and payment disbursement ledger</div>
+    </div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <button class="btn-primary-action" id="btnOpenAddPaymentModal">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      + Add Payment
     </button>
-    <a href="/advance-management" class="btn-yellow-action">
-      <i class="fa fa-plus"></i> + Add Advance
+    <a href="/advance-management" class="btn-secondary-action">
+      + Add Advance
     </a>
-    <a href="/balance-report" class="btn-yellow-action">
+    <a href="/balance-report" class="btn-secondary-action">
       📊 Balance
     </a>
   </div>
