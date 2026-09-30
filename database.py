@@ -6,8 +6,23 @@ from datetime import datetime, date, timedelta, timezone
 from dotenv import load_dotenv
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from bson import ObjectId
+from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
+
+def hash_user_password(plain_password):
+    """Generates a secure PBKDF2/SHA256 password hash."""
+    return generate_password_hash(str(plain_password).strip())
+
+def verify_user_password(stored_password, provided_password):
+    """Verifies a plain password against a hashed or legacy plaintext password."""
+    if not stored_password or not provided_password:
+        return False
+    stored = str(stored_password).strip()
+    provided = str(provided_password).strip()
+    if stored.startswith('pbkdf2:') or stored.startswith('scrypt:'):
+        return check_password_hash(stored, provided)
+    return stored == provided
 
 # Indian Standard Time (IST, UTC+5:30)
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -398,40 +413,89 @@ def get_company_reports_summary():
         'companies': breakdown
     }
 
-def validate_company_login(email):
-    """Validates company admin login by registered email."""
+def validate_company_login(email, password=None):
+    """Validates company admin login by registered email, and optionally verifies password for manual login."""
     db = get_db()
     if not email:
-        return None
+        return None if password is None else {'success': False, 'error': 'NOT_REGISTERED'}
     email_clean = email.strip().lower()
     doc = db.company_admin.find_one({
         'email': {'$regex': f"^{re.escape(email_clean)}$", '$options': 'i'}
     })
-    return clean_doc(doc) if doc else None
+    if not doc:
+        return None if password is None else {'success': False, 'error': 'NOT_REGISTERED'}
+    company = clean_doc(doc)
+    
+    if password is None:
+        # Google OAuth flow - password not required
+        return company
 
-def validate_employee_login(email):
-    """Validates employee login by registered email and attaches company details."""
+    # Manual login with password required
+    stored = doc.get('password') or doc.get('password_hash')
+    if not stored:
+        return {'success': False, 'error': 'PASSWORD_NOT_SET', 'company': company}
+    if verify_user_password(stored, password):
+        return {'success': True, 'company': company}
+    return {'success': False, 'error': 'INVALID_PASSWORD', 'company': company}
+
+def set_company_password(company_id_or_email, plain_password):
+    """Sets a new hashed password for a company administrator."""
+    db = get_db()
+    if not company_id_or_email or not plain_password:
+        return False
+    hashed = hash_user_password(plain_password)
+    res = db.company_admin.update_one(
+        {'$or': [{'id': str(company_id_or_email)}, {'email': str(company_id_or_email)}]},
+        {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}}
+    )
+    return res.modified_count > 0 or res.matched_count > 0
+
+def validate_employee_login(email, password=None):
+    """Validates employee login by registered email and attaches company details, optionally verifying password."""
     db = get_db()
     if not email:
-        return None
+        return None if password is None else {'success': False, 'error': 'NOT_REGISTERED'}
     email_clean = email.strip().lower()
     doc = db.employees.find_one({
         'email_id': {'$regex': f"^{re.escape(email_clean)}$", '$options': 'i'}
     })
-    if doc:
-        emp = clean_doc(doc)
-        comp_id = emp.get('company_id')
-        if comp_id and comp_id != 'ARGUS_MASTER':
-            comp = db.company_admin.find_one({'id': str(comp_id)})
-            emp['company_name'] = comp.get('company_name') if comp else 'Client Company'
-            emp['company_lat'] = comp.get('latitude') if comp else 11.02980
-            emp['company_lng'] = comp.get('longitude') if comp else 76.97400
-        else:
-            emp['company_name'] = 'ARGUS TECHNOLOGIES'
-            emp['company_lat'] = 11.02980
-            emp['company_lng'] = 76.97400
+    if not doc:
+        return None if password is None else {'success': False, 'error': 'NOT_REGISTERED'}
+    emp = clean_doc(doc)
+    comp_id = emp.get('company_id')
+    if comp_id and comp_id != 'ARGUS_MASTER':
+        comp = db.company_admin.find_one({'id': str(comp_id)})
+        emp['company_name'] = comp.get('company_name') if comp else 'Client Company'
+        emp['company_lat'] = comp.get('latitude') if comp else 11.02980
+        emp['company_lng'] = comp.get('longitude') if comp else 76.97400
+    else:
+        emp['company_name'] = 'ARGUS TECHNOLOGIES'
+        emp['company_lat'] = 11.02980
+        emp['company_lng'] = 76.97400
+
+    if password is None:
+        # Google OAuth flow - password not required
         return emp
-    return None
+
+    # Manual login with password required
+    stored = doc.get('password') or doc.get('password_hash')
+    if not stored:
+        return {'success': False, 'error': 'PASSWORD_NOT_SET', 'employee': emp}
+    if verify_user_password(stored, password):
+        return {'success': True, 'employee': emp}
+    return {'success': False, 'error': 'INVALID_PASSWORD', 'employee': emp}
+
+def set_employee_password(emp_id_or_email, plain_password):
+    """Sets a new hashed password for an employee."""
+    db = get_db()
+    if not emp_id_or_email or not plain_password:
+        return False
+    hashed = hash_user_password(plain_password)
+    res = db.employees.update_one(
+        {'$or': [build_id_filter(emp_id_or_email), {'email_id': str(emp_id_or_email)}]},
+        {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}}
+    )
+    return res.modified_count > 0 or res.matched_count > 0
 
 # ----------------- EMPLOYEE OPERATIONS ----------------- #
 
@@ -1937,10 +2001,10 @@ def number_to_words(n):
     return f"{words} Rupees Only"
 
 def validate_admin_login(email_or_username, password=None):
-    """Validates Super Admin login by registered email (technologiesargus@gmail.com) or username."""
+    """Validates Super Admin login by registered email (technologiesargus@gmail.com) or username, optionally verifying password."""
     db = get_db()
     if not email_or_username:
-        return None
+        return None if password is None else {'success': False, 'error': 'NOT_REGISTERED'}
     clean = str(email_or_username).strip().lower()
     doc = db.admin_users.find_one({
         '$or': [
@@ -1955,6 +2019,7 @@ def validate_admin_login(email_or_username, password=None):
             {'$set': {
                 'email': 'technologiesargus@gmail.com',
                 'username': 'Admin',
+                'password': '76543',
                 'role': 'super_admin',
                 'company_id': 'ARGUS_MASTER',
                 'company_name': 'ARGUS TECHNOLOGIES'
@@ -1962,7 +2027,38 @@ def validate_admin_login(email_or_username, password=None):
             upsert=True
         )
         doc = db.admin_users.find_one({'email': 'technologiesargus@gmail.com'})
-    return clean_doc(doc) if doc else None
+
+    if not doc:
+        return None if password is None else {'success': False, 'error': 'NOT_REGISTERED'}
+    admin_user = clean_doc(doc)
+
+    if password is None:
+        # Google OAuth flow - password not required
+        return admin_user
+
+    # Manual login with password
+    stored = doc.get('password') or doc.get('password_hash')
+    if not stored:
+        return {'success': False, 'error': 'PASSWORD_NOT_SET', 'admin': admin_user}
+    if verify_user_password(stored, password):
+        return {'success': True, 'admin': admin_user}
+    return {'success': False, 'error': 'INVALID_PASSWORD', 'admin': admin_user}
+
+def set_admin_password(plain_password):
+    """Sets a new hashed password for the Super Admin system administrator."""
+    db = get_db()
+    if not plain_password:
+        return False
+    hashed = hash_user_password(plain_password)
+    db.admin_users.update_many(
+        {'role': 'super_admin'},
+        {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}}
+    )
+    db.company_admin.update_one(
+        {'id': 'ARGUS_MASTER'},
+        {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}}
+    )
+    return True
 
 def save_generated_salary_report(p, company_id=None):
     """Save or upsert generated payslip record into db.salary_reports."""

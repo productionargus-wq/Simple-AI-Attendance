@@ -335,6 +335,60 @@
       </div>
     </div>
 
+    <!-- Section 4: My Credentials -->
+    <div class="portal-card" style="margin-top: 20px;">
+      <div class="portal-card-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 16px;">🔑</span>
+          <span>My Credentials</span>
+        </div>
+        <div style="font-size: 11px; font-weight: normal; color: #64748b;">
+          Manage your secure password for email login
+        </div>
+      </div>
+
+      <div style="padding: 20px; background-color: #ffffff; border-radius: 6px;">
+        <div id="credentialsAlert" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; margin-bottom: 16px;"></div>
+
+        <form id="employeeCredentialsForm" style="max-width: 550px;">
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px;">
+              Registered Email ID
+            </label>
+            <input type="email" value="{{ employee.email_id or session.get('employee_email') or '' }}" readonly
+                   style="width: 100%; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; background-color: #f1f5f9; color: #475569; cursor: not-allowed; box-sizing: border-box;">
+            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">This is your verified corporate email address registered in the system.</div>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px;">
+              Password
+            </label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="employeeNewPassword" placeholder="Enter your desired password (min 4 chars)" required
+                     style="width: 100%; padding: 9px 40px 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box;">
+              <button type="button" id="toggleEmpPassBtn" style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: #64748b; padding: 4px; display: flex; align-items: center;" title="Show/Hide password">
+                <svg id="empEyeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Create or update your personal password to log in without Google.</div>
+          </div>
+
+          <button type="submit" id="btnSaveCredentials" style="background-color: #1b4975; color: #ffffff; border: none; border-radius: 6px; padding: 9px 22px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: background 0.2s;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            Save Password
+          </button>
+        </form>
+      </div>
+    </div>
+
   </main>
 
   <footer style="text-align: center; padding: 20px; font-size: 11px; color: #6c757d; margin-top: auto; border-top: 1px solid #e2e8f0; background-color: #ffffff;">
@@ -609,6 +663,88 @@
       const month = payslipMonthInput.value || `${curYear}-${curMonth}`;
       window.open(`/api/payslip/export/pdf?month=${month}`, '_blank');
     });
+
+    // ===== MY CREDENTIALS PASSWORD HANDLER =====
+    const empCredForm = document.getElementById('employeeCredentialsForm');
+    const empPassInput = document.getElementById('employeeNewPassword');
+    const toggleEmpPassBtn = document.getElementById('toggleEmpPassBtn');
+    const empEyeIcon = document.getElementById('empEyeIcon');
+    const credAlert = document.getElementById('credentialsAlert');
+    const btnSaveCred = document.getElementById('btnSaveCredentials');
+
+    if (toggleEmpPassBtn && empPassInput) {
+      toggleEmpPassBtn.addEventListener('click', function () {
+        const isPassword = empPassInput.type === 'password';
+        empPassInput.type = isPassword ? 'text' : 'password';
+        if (isPassword) {
+          empEyeIcon.innerHTML = `
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          `;
+        } else {
+          empEyeIcon.innerHTML = `
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          `;
+        }
+      });
+    }
+
+    if (empCredForm) {
+      empCredForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const pwd = empPassInput.value.trim();
+        if (!pwd || pwd.length < 4) {
+          showCredAlert('Password must be at least 4 characters long.', 'danger');
+          return;
+        }
+
+        btnSaveCred.disabled = true;
+        btnSaveCred.textContent = 'Saving...';
+
+        try {
+          const res = await fetch('/api/employee/credentials', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pwd })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showCredAlert(data.message || 'Password saved successfully!', 'success');
+            empPassInput.value = '';
+          } else {
+            showCredAlert(data.error || 'Failed to save password.', 'danger');
+          }
+        } catch (err) {
+          showCredAlert('Server connection error. Please try again.', 'danger');
+        } finally {
+          btnSaveCred.disabled = false;
+          btnSaveCred.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            Save Password
+          `;
+        }
+      });
+    }
+
+    function showCredAlert(msg, type) {
+      if (!credAlert) return;
+      credAlert.style.display = 'block';
+      if (type === 'success') {
+        credAlert.style.backgroundColor = '#ecfdf5';
+        credAlert.style.color = '#065f46';
+        credAlert.style.border = '1px solid #a7f3d0';
+      } else {
+        credAlert.style.backgroundColor = '#fef2f2';
+        credAlert.style.color = '#991b1b';
+        credAlert.style.border = '1px solid #fecaca';
+      }
+      credAlert.textContent = msg;
+    }
   });
   </script>
 

@@ -178,8 +178,18 @@ def login():
     """Super Admin Login (Registered Email: technologiesargus@gmail.com)."""
     if request.method == 'POST':
         email = (request.form.get('email') or request.form.get('username') or '').strip()
-        admin_user = database.validate_admin_login(email)
-        if admin_user:
+        password = request.form.get('password', '').strip()
+        if not email:
+            return render_template('login.html', error='Please enter your authorized email address.')
+        if not password:
+            return render_template(
+                'login.html',
+                error='Password is required for manual sign-in. First time signing in? Please use Continue with Google below.'
+            )
+        
+        result = database.validate_admin_login(email, password=password)
+        if isinstance(result, dict) and result.get('success'):
+            admin_user = result['admin']
             session.clear()
             session['admin_logged_in'] = True
             session['admin_username'] = admin_user.get('username', 'Admin')
@@ -189,10 +199,14 @@ def login():
             session['company_name'] = 'ARGUS TECHNOLOGIES'
             return redirect(url_for('dashboard'))
         else:
-            return render_template(
-                'login.html',
-                error='Invalid email or credentials. Access denied.'
-            )
+            err_code = result.get('error') if isinstance(result, dict) else None
+            if err_code == 'PASSWORD_NOT_SET':
+                error_msg = "Password has not been set yet. First-time access? Please click 'Continue with Google' below to verify your account and set your password."
+            elif err_code == 'NOT_REGISTERED':
+                error_msg = 'Access Denied: Email is not authorized as Super Admin. Please verify with Google below.'
+            else:
+                error_msg = 'Invalid password. Please verify your password or sign in with Google.'
+            return render_template('login.html', error=error_msg)
     return render_template('login.html')
 
 @app.route('/auth/google/login')
@@ -345,8 +359,18 @@ def company_login():
     """Dedicated Company Admin Portal Login via Registered Corporate Email."""
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
-        company = database.validate_company_login(email)
-        if company:
+        password = request.form.get('password', '').strip()
+        if not email:
+            return render_template('company_login.html', error='Please enter your registered corporate email.')
+        if not password:
+            return render_template(
+                'company_login.html',
+                error='Password is required for manual sign-in. First time signing in? Please use Continue with Google below.'
+            )
+
+        result = database.validate_company_login(email, password=password)
+        if isinstance(result, dict) and result.get('success'):
+            company = result['company']
             session.clear()
             session['admin_logged_in'] = True
             session['admin_username'] = company.get('company_name', 'Company Admin')
@@ -356,10 +380,14 @@ def company_login():
             session['company_email'] = company.get('email', '')
             return redirect(url_for('dashboard'))
         else:
-            return render_template(
-                'company_login.html',
-                error='Access Denied: This email is not registered as a company administrator. Please contact Argus Support.'
-            )
+            err_code = result.get('error') if isinstance(result, dict) else None
+            if err_code == 'PASSWORD_NOT_SET':
+                error_msg = "Password has not been set yet. First-time access? Please click 'Continue with Google' below to verify your account and set your password in Company Profile."
+            elif err_code == 'NOT_REGISTERED':
+                error_msg = 'Access Denied: This email is not registered as a company administrator. Please contact Argus Support.'
+            else:
+                error_msg = 'Invalid password. Please check your credentials or continue with Google.'
+            return render_template('company_login.html', error=error_msg)
     return render_template('company_login.html')
 
 @app.route('/employee-login', methods=['GET', 'POST'])
@@ -367,8 +395,18 @@ def employee_login():
     """Dedicated Employee Portal Login via Registered Employee Email."""
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
-        employee = database.validate_employee_login(email)
-        if employee:
+        password = request.form.get('password', '').strip()
+        if not email:
+            return render_template('employee_login.html', error='Please enter your registered employee email.')
+        if not password:
+            return render_template(
+                'employee_login.html',
+                error='Password is required for manual sign-in. First time signing in? Please use Continue with Google below.'
+            )
+
+        result = database.validate_employee_login(email, password=password)
+        if isinstance(result, dict) and result.get('success'):
+            employee = result['employee']
             session.clear()
             session['employee_logged_in'] = True
             session['role'] = 'employee'
@@ -381,10 +419,14 @@ def employee_login():
             session['company_name'] = comp_record.get('company_name', 'ARGUS TECHNOLOGIES') if comp_record else 'ARGUS TECHNOLOGIES'
             return redirect(url_for('employee_portal'))
         else:
-            return render_template(
-                'employee_login.html',
-                error='Access Denied: Email not registered with any organisation. Please contact your company HR.'
-            )
+            err_code = result.get('error') if isinstance(result, dict) else None
+            if err_code == 'PASSWORD_NOT_SET':
+                error_msg = "Password has not been set yet. First-time access? Please click 'Continue with Google' below to verify your account and set your password in My Credentials."
+            elif err_code == 'NOT_REGISTERED':
+                error_msg = 'Access Denied: Email not registered with any organisation. Please contact your company HR.'
+            else:
+                error_msg = 'Invalid password. Please check your credentials or continue with Google.'
+            return render_template('employee_login.html', error=error_msg)
     return render_template('employee_login.html')
 
 @app.route('/logout')
@@ -608,30 +650,56 @@ def api_get_company_profile():
     if role == 'super_admin':
         req_id = request.args.get('company_id', '').strip()
         all_comps = database.get_all_companies(limit=1000)['data']
-        has_master = any(c.get('id') == 'ARGUS_MASTER' for c in all_comps)
-        master_doc = database.get_company_by_id('ARGUS_MASTER')
-        if master_doc and not has_master:
-            all_comps.insert(0, master_doc)
+        
+        # Build dropdown list with System Administration prominently at top
+        comps_dropdown = [{'id': 'ARGUS_MASTER', 'company_name': 'System Administration (ARGUS TECHNOLOGIES)'}]
+        for c in all_comps:
+            if c.get('id') != 'ARGUS_MASTER':
+                comps_dropdown.append({'id': c['id'], 'company_name': c.get('company_name', c['id'])})
 
-        target_id = req_id or (all_comps[0]['id'] if all_comps else 'ARGUS_MASTER')
+        target_id = req_id or 'ARGUS_MASTER'
         company = database.get_company_by_id(target_id)
-        if not company and master_doc:
-            company = master_doc
+        if not company and target_id == 'ARGUS_MASTER':
+            company = database.get_company_by_id('ARGUS_MASTER') or {
+                'id': 'ARGUS_MASTER',
+                'company_name': 'ARGUS TECHNOLOGIES',
+                'email': 'technologiesargus@gmail.com'
+            }
+
+        is_master = (target_id == 'ARGUS_MASTER')
+        if company:
+            # STRICT PRIVACY RULE: Never leak client company passwords to Super Admin
+            if not is_master:
+                company.pop('password', None)
+                company.pop('password_hash', None)
+                company['has_password'] = False
+            else:
+                has_pass = bool(company.get('password') or company.get('password_hash'))
+                company['has_password'] = has_pass
+                company.pop('password', None)
+                company.pop('password_hash', None)
+
         return jsonify({
             'success': True,
             'role': 'super_admin',
             'company': company,
-            'companies_list': [{'id': c['id'], 'company_name': c.get('company_name', c['id'])} for c in all_comps]
+            'is_master': is_master,
+            'companies_list': comps_dropdown
         })
     else:
         comp_id = session.get('company_id')
         company = database.get_company_by_id(comp_id)
         if not company:
             return jsonify({'success': False, 'error': 'Company profile not found'}), 404
+        has_pass = bool(company.get('password') or company.get('password_hash'))
+        company['has_password'] = has_pass
+        company.pop('password', None)
+        company.pop('password_hash', None)
         return jsonify({
             'success': True,
             'role': 'company_admin',
-            'company': company
+            'company': company,
+            'has_password': has_pass
         })
 
 @app.route('/api/company-profile', methods=['PUT'])
@@ -641,24 +709,49 @@ def api_update_company_profile():
     data = request.get_json(silent=True) or {}
     
     if role == 'company_admin':
-        # Company Admin can ONLY edit the address field
+        # Company Admin can edit their address and their own password
         comp_id = session.get('company_id')
         if not comp_id:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-        address = str(data.get('address', '')).strip()
-        if not address:
-            return jsonify({'success': False, 'error': 'Address cannot be empty.'}), 400
-        database.update_company(comp_id, {'address': address})
-        return jsonify({'success': True, 'message': 'Company office address updated successfully.'})
+        
+        if 'address' in data:
+            address = str(data.get('address', '')).strip()
+            if not address:
+                return jsonify({'success': False, 'error': 'Address cannot be empty.'}), 400
+            database.update_company(comp_id, {'address': address})
+            
+        new_pass = str(data.get('password', '')).strip()
+        if new_pass:
+            if len(new_pass) < 4:
+                return jsonify({'success': False, 'error': 'Password must be at least 4 characters.'}), 400
+            database.set_company_password(comp_id, new_pass)
+            
+        return jsonify({'success': True, 'message': 'Company profile and credentials updated successfully.'})
     
     elif role == 'super_admin':
-        # Super Admin can edit all fields of any company
+        # Super Admin can edit all fields of any company, but can only set password for System Administration
         target_id = data.get('id') or data.get('company_id')
         if not target_id:
             return jsonify({'success': False, 'error': 'Company ID is required.'}), 400
+        
+        new_pass = str(data.get('password', '')).strip()
+        if target_id == 'ARGUS_MASTER':
+            # Setting password for System Administration
+            if new_pass:
+                if len(new_pass) < 4:
+                    return jsonify({'success': False, 'error': 'Password must be at least 4 characters.'}), 400
+                database.set_admin_password(new_pass)
+        else:
+            # STRICT PRIVACY RULE: Super admin cannot view or overwrite client company passwords!
+            data.pop('password', None)
+            data.pop('password_hash', None)
+            
         try:
-            database.update_company(target_id, data)
-            return jsonify({'success': True, 'message': 'Company profile updated successfully.'})
+            data_to_save = dict(data)
+            data_to_save.pop('password', None)
+            data_to_save.pop('password_hash', None)
+            database.update_company(target_id, data_to_save)
+            return jsonify({'success': True, 'message': 'Company profile settings updated successfully.'})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 400
             
@@ -693,6 +786,24 @@ def api_employee_my_payslip():
         month = datetime.now().strftime("%Y-%m")
     payslip = database.get_payslip_data(emp_name, month, company_id=comp_id)
     return jsonify(payslip)
+
+@app.route('/api/employee/credentials', methods=['POST'])
+@employee_required
+def api_employee_set_credentials():
+    """Allows authenticated employee to create or update their portal password."""
+    data = request.get_json(silent=True) or request.form.to_dict()
+    new_password = str(data.get('password', '')).strip()
+    if not new_password or len(new_password) < 4:
+        return jsonify({'success': False, 'error': 'Password must be at least 4 characters long.'}), 400
+    
+    emp_id = session.get('employee_id')
+    success = database.set_employee_password(emp_id, new_password)
+    if success:
+        return jsonify({
+            'success': True,
+            'message': 'Your password has been saved successfully! You can now sign in using your email and password.'
+        })
+    return jsonify({'success': False, 'error': 'Failed to save password. Please try again.'}), 500
 
 # ----------------- EMPLOYEE MANAGEMENT API ROUTES ----------------- #
 
