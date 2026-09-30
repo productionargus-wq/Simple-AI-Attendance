@@ -119,8 +119,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
       data.companies.forEach((comp, idx) => {
         const slNo = startIndex + idx + 1;
-        const lat = comp.latitude ? Number(comp.latitude).toFixed(5) : '11.02980';
-        const lng = comp.longitude ? Number(comp.longitude).toFixed(5) : '76.97400';
+        const hasCoords = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') &&
+                          (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '');
+        const lat = hasCoords ? Number(comp.latitude).toFixed(5) : '-';
+        const lng = hasCoords ? Number(comp.longitude).toFixed(5) : '-';
         const statusBadge = comp.status === 'Active'
           ? `<span class="status-pill status-active">Active</span>`
           : `<span class="status-pill status-inactive">Inactive</span>`;
@@ -163,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function () {
           </td>
           <td style="white-space: nowrap; font-weight: 600; color: #334155;">${escapeHtml(comp.phone || '-')}</td>
           <td style="white-space: nowrap;">
-            <div style="font-size: 11px; color: #334155; font-weight: 600;">📍 ${lat}, ${lng}</div>
+            <div style="font-size: 11px; color: #334155; font-weight: 600;">${hasCoords ? `📍 ${lat}, ${lng}` : `<span style="color: #94a3b8; font-size: 11px;">-</span>`}</div>
           </td>
           <td style="text-align: center; white-space: nowrap;">
             <span style="font-weight: 700; color: #0f172a; font-size: 11.5px; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 6px; display: inline-block;">
@@ -307,8 +309,8 @@ document.addEventListener('DOMContentLoaded', function () {
           inputGstin.value = comp.gstin || '';
           inputPhone.value = comp.phone || '';
           inputEmail.value = comp.email || '';
-          inputLatitude.value = comp.latitude || 11.02980;
-          inputLongitude.value = comp.longitude || 76.97400;
+          inputLatitude.value = (comp.latitude !== undefined && comp.latitude !== null) ? comp.latitude : '';
+          inputLongitude.value = (comp.longitude !== undefined && comp.longitude !== null) ? comp.longitude : '';
           inputStatus.value = comp.status || 'Active';
           if (inputEmployeeLimit) inputEmployeeLimit.value = comp.employee_limit || 50;
           if (inputCompanyShiftHours) inputCompanyShiftHours.value = comp.shift_hours || '08:00';
@@ -450,8 +452,8 @@ document.addEventListener('DOMContentLoaded', function () {
         gstin: formData.get('gstin'),
         phone: formData.get('phone'),
         email: formData.get('email'),
-        latitude: parseFloat(formData.get('latitude')) || 11.02980,
-        longitude: parseFloat(formData.get('longitude')) || 76.97400,
+        latitude: (formData.get('latitude') !== null && String(formData.get('latitude')).trim() !== '') ? parseFloat(formData.get('latitude')) : null,
+        longitude: (formData.get('longitude') !== null && String(formData.get('longitude')).trim() !== '') ? parseFloat(formData.get('longitude')) : null,
         status: formData.get('status') || 'Active',
         employee_limit: parseInt(formData.get('employee_limit'), 10) || 50,
         shift_hours: (formData.get('shift_hours') || '08:00').trim(),

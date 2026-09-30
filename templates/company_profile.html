@@ -115,15 +115,19 @@
       </div>
 
       <!-- Office Coordinates -->
-      <div class="form-group">
-        <label class="form-label" style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
+      <div class="form-group" style="grid-column: span 2;">
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
           <span>Office Coordinates (Latitude, Longitude)</span>
-          {% if role == 'company_admin' %}<span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>{% endif %}
+          <span id="profileCoordBadge" style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;"></span>
         </label>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <input type="number" step="any" class="form-input" id="profileLatitude" name="latitude" placeholder="Latitude" style="flex: 1; min-width: 120px; {% if role == 'company_admin' %}background-color: #f8fafc; cursor: not-allowed;{% endif %}" {% if role == 'company_admin' %}readonly{% endif %}>
-          <input type="number" step="any" class="form-input" id="profileLongitude" name="longitude" placeholder="Longitude" style="flex: 1; min-width: 120px; {% if role == 'company_admin' %}background-color: #f8fafc; cursor: not-allowed;{% endif %}" {% if role == 'company_admin' %}readonly{% endif %}>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+          <input type="number" step="any" class="form-input" id="profileLatitude" name="latitude" placeholder="Latitude" style="flex: 1; min-width: 140px;">
+          <input type="number" step="any" class="form-input" id="profileLongitude" name="longitude" placeholder="Longitude" style="flex: 1; min-width: 140px;">
+          <button type="button" id="btnDetectProfileLocation" style="display: none; align-items: center; gap: 5px; background-color: #3d6078; color: #ffffff; border: none; border-radius: 4px; padding: 9px 14px; font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap;">
+            📍 Get Current Location
+          </button>
         </div>
+        <div id="profileCoordHelp" style="font-size: 11px; margin-top: 4px;"></div>
       </div>
 
     </div>
@@ -238,9 +242,74 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('profileShiftHours').value = comp.shift_hours || '08:00';
     document.getElementById('profileEmployeeLimit').value = comp.employee_limit || comp.employee_count || 50;
     document.getElementById('profileStatus').value = comp.status || 'Active';
-    document.getElementById('profileLatitude').value = comp.latitude !== undefined ? comp.latitude : '';
-    document.getElementById('profileLongitude').value = comp.longitude !== undefined ? comp.longitude : '';
+    document.getElementById('profileLatitude').value = (comp.latitude !== undefined && comp.latitude !== null) ? comp.latitude : '';
+    document.getElementById('profileLongitude').value = (comp.longitude !== undefined && comp.longitude !== null) ? comp.longitude : '';
     document.getElementById('profileAddress').value = comp.address || comp.location || '';
+
+    // Geolocation Lock & Permissions
+    const latInput = document.getElementById('profileLatitude');
+    const lngInput = document.getElementById('profileLongitude');
+    const coordBadge = document.getElementById('profileCoordBadge');
+    const coordHelp = document.getElementById('profileCoordHelp');
+    const btnDetect = document.getElementById('btnDetectProfileLocation');
+
+    const isLocked = comp.coordinates_locked === true || (comp.coordinates_locked === undefined && comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '' && comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '');
+
+    if (role === 'super_admin') {
+      latInput.readOnly = false;
+      latInput.style.backgroundColor = '#ffffff';
+      latInput.style.cursor = 'text';
+      lngInput.readOnly = false;
+      lngInput.style.backgroundColor = '#ffffff';
+      lngInput.style.cursor = 'text';
+      if (coordBadge) {
+        coordBadge.textContent = '✏️ Super Admin (Always Editable)';
+        coordBadge.style.color = '#16a34a';
+        coordBadge.style.background = '#dcfce7';
+      }
+      if (coordHelp) {
+        coordHelp.innerHTML = 'Super Admin has permission to modify office coordinates at any time.';
+        coordHelp.style.color = '#64748b';
+      }
+      if (btnDetect) btnDetect.style.display = 'inline-flex';
+    } else {
+      // role === 'company_admin'
+      if (isLocked) {
+        latInput.readOnly = true;
+        latInput.style.backgroundColor = '#f8fafc';
+        latInput.style.cursor = 'not-allowed';
+        lngInput.readOnly = true;
+        lngInput.style.backgroundColor = '#f8fafc';
+        lngInput.style.cursor = 'not-allowed';
+        if (coordBadge) {
+          coordBadge.textContent = '🔒 Locked';
+          coordBadge.style.color = '#64748b';
+          coordBadge.style.background = '#f1f5f9';
+        }
+        if (coordHelp) {
+          coordHelp.innerHTML = 'Office coordinates are locked. Only Super Admin can modify them.';
+          coordHelp.style.color = '#64748b';
+        }
+        if (btnDetect) btnDetect.style.display = 'none';
+      } else {
+        latInput.readOnly = false;
+        latInput.style.backgroundColor = '#ffffff';
+        latInput.style.cursor = 'text';
+        lngInput.readOnly = false;
+        lngInput.style.backgroundColor = '#ffffff';
+        lngInput.style.cursor = 'text';
+        if (coordBadge) {
+          coordBadge.textContent = '✏️ One-Time Setup (Editable Once)';
+          coordBadge.style.color = '#0284c7';
+          coordBadge.style.background = '#e0f2fe';
+        }
+        if (coordHelp) {
+          coordHelp.innerHTML = '⚠️ <strong>Important:</strong> You can only enter coordinates once. Once saved, they will be permanently locked.';
+          coordHelp.style.color = '#ea580c';
+        }
+        if (btnDetect) btnDetect.style.display = 'inline-flex';
+      }
+    }
 
     // Password field & Display
     if (profilePasswordInput) {
@@ -332,6 +401,30 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  const btnDetectProfileLocation = document.getElementById('btnDetectProfileLocation');
+  if (btnDetectProfileLocation) {
+    btnDetectProfileLocation.addEventListener('click', function () {
+      if (navigator.geolocation) {
+        btnDetectProfileLocation.textContent = '⌛ Detecting...';
+        navigator.geolocation.getCurrentPosition(
+          function (pos) {
+            document.getElementById('profileLatitude').value = pos.coords.latitude.toFixed(6);
+            document.getElementById('profileLongitude').value = pos.coords.longitude.toFixed(6);
+            btnDetectProfileLocation.textContent = '✓ Location Detected';
+            setTimeout(() => { btnDetectProfileLocation.textContent = '📍 Get Current Location'; }, 3000);
+          },
+          function (err) {
+            alert('Could not retrieve current location: ' + err.message);
+            btnDetectProfileLocation.textContent = '📍 Get Current Location';
+          },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      } else {
+        alert('Geolocation is not supported by your browser.');
+      }
+    });
+  }
+
   if (companyProfileForm) {
     companyProfileForm.addEventListener('submit', async function (e) {
       e.preventDefault();
@@ -343,10 +436,16 @@ document.addEventListener('DOMContentLoaded', function () {
       const newPasswordVal = profilePasswordInput ? profilePasswordInput.value.trim() : '';
 
       if (role === 'company_admin') {
-        // Company admin can update address and password
+        // Company admin can update address, password, and coordinates (only once during setup)
         payload.address = document.getElementById('profileAddress').value.trim();
         if (newPasswordVal) {
           payload.password = newPasswordVal;
+        }
+        const latInput = document.getElementById('profileLatitude');
+        const lngInput = document.getElementById('profileLongitude');
+        if (latInput && !latInput.readOnly && latInput.value.trim() !== '' && lngInput && lngInput.value.trim() !== '') {
+          payload.latitude = latInput.value.trim();
+          payload.longitude = lngInput.value.trim();
         }
       } else {
         // Super admin sends all fields

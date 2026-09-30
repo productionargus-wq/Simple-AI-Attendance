@@ -149,7 +149,9 @@ DEFAULT_AVATAR_SVG = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120
 @app.route('/favicon.ico')
 def favicon():
     icon_dir = os.path.join(app.root_path, 'static', 'images')
-    if os.path.exists(os.path.join(icon_dir, 'logo.png')):
+    if os.path.exists(os.path.join(icon_dir, 'argus_triangle_logo.png')):
+        return send_from_directory(icon_dir, 'argus_triangle_logo.png', mimetype='image/png')
+    elif os.path.exists(os.path.join(icon_dir, 'logo.png')):
         return send_from_directory(icon_dir, 'logo.png', mimetype='image/png')
     return Response(status=204)
 
@@ -673,6 +675,13 @@ def api_get_company_profile():
 
         is_master = (target_id == 'ARGUS_MASTER')
         if company:
+            is_locked = company.get('coordinates_locked')
+            if is_locked is None:
+                lat = company.get('latitude')
+                lng = company.get('longitude')
+                is_locked = bool(lat is not None and lng is not None and str(lat).strip() != '' and str(lng).strip() != '')
+            company['coordinates_locked'] = bool(is_locked)
+
             raw_pass = company.get('password_raw') or ''
             if not raw_pass and is_master:
                 db = database.get_db()
@@ -702,6 +711,14 @@ def api_get_company_profile():
         company = database.get_company_by_id(comp_id)
         if not company:
             return jsonify({'success': False, 'error': 'Company profile not found'}), 404
+
+        is_locked = company.get('coordinates_locked')
+        if is_locked is None:
+            lat = company.get('latitude')
+            lng = company.get('longitude')
+            is_locked = bool(lat is not None and lng is not None and str(lat).strip() != '' and str(lng).strip() != '')
+        company['coordinates_locked'] = bool(is_locked)
+
         raw_pass = company.get('password_raw') or ''
         if not raw_pass:
             p = company.get('password', '')
@@ -725,11 +742,40 @@ def api_update_company_profile():
     data = request.get_json(silent=True) or {}
     
     if role == 'company_admin':
-        # Company Admin can edit their address and their own password
         comp_id = session.get('company_id')
         if not comp_id:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-        
+
+        comp = database.get_company_by_id(comp_id)
+        if not comp:
+            return jsonify({'success': False, 'error': 'Company profile not found'}), 404
+
+        is_locked = comp.get('coordinates_locked')
+        if is_locked is None:
+            lat = comp.get('latitude')
+            lng = comp.get('longitude')
+            is_locked = bool(lat is not None and lng is not None and str(lat).strip() != '' and str(lng).strip() != '')
+
+        # Coordinates handling: only once allowed for company_admin
+        if 'latitude' in data or 'longitude' in data:
+            if is_locked:
+                return jsonify({'success': False, 'error': 'Office coordinates are locked and can only be modified by Super Admin.'}), 403
+            
+            lat_val = data.get('latitude')
+            lng_val = data.get('longitude')
+            if lat_val is not None and lng_val is not None and str(lat_val).strip() != '' and str(lng_val).strip() != '':
+                try:
+                    new_lat = float(lat_val)
+                    new_lng = float(lng_val)
+                    database.update_company(comp_id, {
+                        'latitude': new_lat,
+                        'longitude': new_lng,
+                        'coordinates_locked': True,
+                        'coordinates_locked_at': database.get_ist_now()
+                    })
+                except Exception as e:
+                    return jsonify({'success': False, 'error': f'Invalid coordinate values: {e}'}), 400
+
         if 'address' in data:
             address = str(data.get('address', '')).strip()
             if not address:
@@ -742,10 +788,9 @@ def api_update_company_profile():
                 return jsonify({'success': False, 'error': 'Password must be at least 4 characters.'}), 400
             database.set_company_password(comp_id, new_pass)
             
-        return jsonify({'success': True, 'message': 'Company profile and credentials updated successfully.'})
+        return jsonify({'success': True, 'message': 'Company profile updated successfully.'})
     
     elif role == 'super_admin':
-        # Super Admin can edit all fields of any company, and set password for any company or System Administration
         target_id = data.get('id') or data.get('company_id')
         if not target_id:
             return jsonify({'success': False, 'error': 'Company ID is required.'}), 400
@@ -763,8 +808,27 @@ def api_update_company_profile():
             data_to_save = dict(data)
             data_to_save.pop('password', None)
             data_to_save.pop('password_hash', None)
+
+            if 'latitude' in data_to_save:
+                val = data_to_save['latitude']
+                if val is not None and str(val).strip() != '':
+                    data_to_save['latitude'] = float(val)
+                else:
+                    data_to_save['latitude'] = None
+
+            if 'longitude' in data_to_save:
+                val = data_to_save['longitude']
+                if val is not None and str(val).strip() != '':
+                    data_to_save['longitude'] = float(val)
+                else:
+                    data_to_save['longitude'] = None
+
+            if data_to_save.get('latitude') is not None and data_to_save.get('longitude') is not None:
+                data_to_save['coordinates_locked'] = True
+                data_to_save['coordinates_locked_at'] = database.get_ist_now()
+
             database.update_company(target_id, data_to_save)
-            return jsonify({'success': True, 'message': 'Company profile and password updated successfully.'})
+            return jsonify({'success': True, 'message': 'Company profile updated successfully.'})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 400
             

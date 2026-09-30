@@ -234,6 +234,23 @@ def create_company(data):
         
     now_ist = get_ist_now()
     reg_date_str = now_ist.strftime('%d/%m/%Y %I:%M %p')
+    lat_val = data.get('latitude')
+    lng_val = data.get('longitude')
+    lat = None
+    lng = None
+    if lat_val is not None and str(lat_val).strip() != '':
+        try:
+            lat = float(lat_val)
+        except Exception:
+            lat = None
+    if lng_val is not None and str(lng_val).strip() != '':
+        try:
+            lng = float(lng_val)
+        except Exception:
+            lng = None
+
+    coords_locked = bool(lat is not None and lng is not None)
+
     doc = {
         'id': comp_id,
         'company_name': data.get('company_name', '').strip(),
@@ -241,8 +258,10 @@ def create_company(data):
         'email': email,
         'phone': data.get('phone', '').strip(),
         'address': data.get('address', '').strip(),
-        'latitude': float(data.get('latitude') or 11.02980),
-        'longitude': float(data.get('longitude') or 76.97400),
+        'latitude': lat,
+        'longitude': lng,
+        'coordinates_locked': coords_locked,
+        'coordinates_locked_at': now_ist if coords_locked else None,
         'status': data.get('status', 'Active').strip(),
         'employee_limit': int(data.get('employee_limit') or data.get('employee_count') or 50),
         'shift_hours': str(data.get('shift_hours') or '08:00').strip(),
@@ -364,16 +383,36 @@ def update_company(comp_id, data):
     if 'address' in data:
         upd['address'] = str(data['address']).strip()
         upd['location'] = str(data['address']).strip()
-    if 'latitude' in data and data['latitude'] is not None and str(data['latitude']).strip():
-        try:
-            upd['latitude'] = float(data['latitude'])
-        except Exception:
-            pass
-    if 'longitude' in data and data['longitude'] is not None and str(data['longitude']).strip():
-        try:
-            upd['longitude'] = float(data['longitude'])
-        except Exception:
-            pass
+    if 'latitude' in data:
+        lat_val = data['latitude']
+        if lat_val is None or str(lat_val).strip() == '':
+            upd['latitude'] = None
+        else:
+            try:
+                upd['latitude'] = float(lat_val)
+            except Exception:
+                pass
+    if 'longitude' in data:
+        lng_val = data['longitude']
+        if lng_val is None or str(lng_val).strip() == '':
+            upd['longitude'] = None
+        else:
+            try:
+                upd['longitude'] = float(lng_val)
+            except Exception:
+                pass
+    if 'coordinates_locked' in data:
+        upd['coordinates_locked'] = bool(data['coordinates_locked'])
+    elif ('latitude' in upd or 'longitude' in upd):
+        cur_lat = upd.get('latitude')
+        cur_lng = upd.get('longitude')
+        if cur_lat is not None and cur_lng is not None:
+            upd['coordinates_locked'] = True
+            upd['coordinates_locked_at'] = get_ist_now()
+        elif cur_lat is None and cur_lng is None and ('latitude' in upd and 'longitude' in upd):
+            upd['coordinates_locked'] = False
+    if 'coordinates_locked_at' in data:
+        upd['coordinates_locked_at'] = data['coordinates_locked_at']
     if 'status' in data and data['status']:
         upd['status'] = str(data['status']).strip()
     if 'employee_limit' in data or 'employee_count' in data:

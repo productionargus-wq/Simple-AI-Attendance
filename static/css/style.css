@@ -1219,8 +1219,9 @@ body.sidebar-collapsed .app-footer {
 }
 
 .app-footer .footer-logo {
-  width: 18px;
-  height: 18px;
+  height: 22px;
+  width: auto;
+  max-width: 140px;
   object-fit: contain;
 }
 
