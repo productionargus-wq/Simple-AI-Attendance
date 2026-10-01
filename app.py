@@ -606,11 +606,12 @@ def balance_report():
     return render_template('balance_report.html', active_tab='PAYMENT ENTRY', employees=employees)
 
 @app.route('/monthly-payslip')
+@app.route('/payslip-preview')
 @login_required
 def monthly_payslip():
     employees_res = database.get_all_employees(company_id=get_current_company_id(), limit=1000)
     employees = [e['employee_name'] for e in employees_res['data']]
-    return render_template('monthly_payslip.html', active_tab='MONTHLY PAYSLIP', employees=employees)
+    return render_template('monthly_payslip.html', active_tab='PAYSLIP PREVIEW', employees=employees)
 
 @app.route('/salary-report')
 @login_required
@@ -1600,16 +1601,18 @@ def api_attendance_export_excel():
         writer.writerow(['TOTAL', '', '', result.get('total_working_hours', '00:00'), '----', result.get('total_working_salary', '0.00'), ''])
     else:
         result = database.get_attendance_reports(report_type=report_type, start_date=start_date, end_date=end_date, employee=employee, limit=10000, company_id=comp_id)
-        writer.writerow(['EMPLOYEE NAME', 'ENTRY TIME', 'ENTRY DISTANCE', 'ENTRY LOCATION', 'EXIT TIME', 'EXIT DISTANCE', 'EXIT LOCATION', 'WORKING HOURS', 'SHIFT VARIANCE', 'WORKING SALARY'])
+        writer.writerow(['EMPLOYEE NAME', 'ENTRY TIME', 'ENTRY DISTANCE', 'ENTRY LOCATION', 'ENTRY STATUS', 'EXIT TIME', 'EXIT DISTANCE', 'EXIT LOCATION', 'EXIT STATUS', 'WORKING HOURS', 'SHIFT VARIANCE', 'WORKING SALARY'])
         for r in result.get('data', []):
             writer.writerow([
                 r.get('employee_name', ''),
                 r.get('entry_time', '') or '',
                 r.get('entry_distance', '----') or '----',
                 r.get('entry_location', '----') or '----',
+                r.get('entry_status', '-') or '-',
                 r.get('exit_time', '----') or '----',
                 r.get('exit_distance', '----') or '----',
                 r.get('exit_location', '----') or '----',
+                r.get('exit_status', '-') or '-',
                 r.get('working_hours', '00:00') or '00:00',
                 r.get('shift_variance', '----') or '----',
                 r.get('working_salary', 0) if r.get('working_salary') is not None else 0

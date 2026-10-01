@@ -21,7 +21,7 @@
         <line x1="12" y1="5" x2="12" y2="19"></line>
         <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
-      + Add Payment
+      Add Payment
     </button>
     <a href="/advance-management" class="btn-secondary-action">
       + Add Advance
@@ -148,66 +148,81 @@
   </div>
 </div>
 
-<!-- ================= ADD PAYMENT MODAL (IMAGES 2, 3, 4) ================= -->
+<!-- ================= ADD PAYMENT MODAL ================= -->
 <div class="modal-overlay" id="paymentModalOverlay">
-  <div class="modal-box-payment">
-    <!-- Top-left Close 'x' Icon matching Screenshot -->
-    <button type="button" class="modal-close-icon-corner" id="btnClosePaymentModal" title="Close">x</button>
+  <div class="modal-box modal-box-manual">
+    <div class="modal-header">
+      <div class="modal-header-title" id="paymentModalTitle">Payment Entry</div>
+      <button type="button" class="modal-close-btn" id="btnClosePaymentModal">&times;</button>
+    </div>
     
     <form id="paymentForm" enctype="multipart/form-data">
       <input type="hidden" id="editPaymentId" value="">
       
-      <div class="payment-form-grid">
-        <!-- Row 1: Employee -->
-        <label for="paymentEmployee" class="payment-form-label">Employee</label>
-        <select id="paymentEmployee" name="employee_name" class="payment-form-control">
-          {% for emp in employees %}
-          <option value="{{ emp }}" {% if loop.first or emp == 'G_sujithkumar' %}selected{% endif %}>{{ emp }}</option>
-          {% endfor %}
-        </select>
+      <div class="modal-body">
+        <div class="modal-form-vertical">
+          <!-- Row 1: Employee -->
+          <div class="form-group">
+            <label class="form-label" for="paymentEmployee">Employee</label>
+            <select id="paymentEmployee" name="employee_name" class="form-input">
+              {% for emp in employees %}
+              <option value="{{ emp }}" {% if loop.first or emp == 'G_sujithkumar' %}selected{% endif %}>{{ emp }}</option>
+              {% endfor %}
+            </select>
+          </div>
 
-        <!-- Row 2: Date -->
-        <label for="paymentDate" class="payment-form-label">Date</label>
-        <input type="date" id="paymentDate" name="payment_date" class="payment-form-control" placeholder="mm/dd/yyyy">
+          <!-- Row 2: Date -->
+          <div class="form-group">
+            <label class="form-label" for="paymentDate">Date</label>
+            <input type="date" id="paymentDate" name="payment_date" class="form-input" placeholder="mm/dd/yyyy">
+          </div>
 
-        <!-- Row 3: Amount -->
-        <label for="paymentAmount" class="payment-form-label">Amount</label>
-        <input type="number" step="0.01" id="paymentAmount" name="amount" class="payment-form-control" placeholder="">
+          <!-- Row 3: Amount -->
+          <div class="form-group">
+            <label class="form-label" for="paymentAmount">Amount</label>
+            <input type="number" step="0.01" id="paymentAmount" name="amount" class="form-input" placeholder="0.00" required>
+          </div>
 
-        <!-- Row 4: Bank -->
-        <label for="paymentBank" class="payment-form-label">Bank</label>
-        <input type="text" id="paymentBank" name="bank" class="payment-form-control" placeholder="">
+          <!-- Row 4: Bank -->
+          <div class="form-group">
+            <label class="form-label" for="paymentBank">Bank</label>
+            <input type="text" id="paymentBank" name="bank" class="form-input" placeholder="Bank Name / UPI ID">
+          </div>
 
-        <!-- Row 5: Payment Type (Options from Image 3) -->
-        <label for="paymentType" class="payment-form-label">Payment Type</label>
-        <select id="paymentType" name="payment_type" class="payment-form-control">
-          <option value="UPI" selected>UPI</option>
-          <option value="Cash">Cash</option>
-          <option value="Net Banking">Net Banking</option>
-          <option value="Mobile Banking">Mobile Banking</option>
-          <option value="Repayment">Repayment</option>
-          <option value="Others">Others</option>
-        </select>
+          <!-- Row 5: Payment Type -->
+          <div class="form-group">
+            <label class="form-label" for="paymentType">Payment Type</label>
+            <select id="paymentType" name="payment_type" class="form-input">
+              <option value="UPI" selected>UPI</option>
+              <option value="Cash">Cash</option>
+              <option value="Net Banking">Net Banking</option>
+              <option value="Mobile Banking">Mobile Banking</option>
+              <option value="Repayment">Repayment</option>
+              <option value="Others">Others</option>
+            </select>
+          </div>
 
-        <!-- Row 6: Reason (Options from Image 4) -->
-        <label for="paymentReason" class="payment-form-label">Reason</label>
-        <select id="paymentReason" name="reason" class="payment-form-control">
-          <option value="Advance Repayment" selected>Advance Repayment</option>
-          <option value="Salary">Salary</option>
-          <option value="Incentive">Incentive</option>
-          <option value="Allowance">Allowance</option>
-          <option value="Other Earnings">Other Earnings</option>
-          <option value="Other Deductions">Other Deductions</option>
-        </select>
+          <!-- Row 6: Reason -->
+          <div class="form-group">
+            <label class="form-label" for="paymentReason">Reason</label>
+            <select id="paymentReason" name="reason" class="form-input">
+              <option value="Advance Repayment" selected>Advance Repayment</option>
+              <option value="Salary">Salary</option>
+              <option value="Incentive">Incentive</option>
+              <option value="Allowance">Allowance</option>
+              <option value="Other Earnings">Other Earnings</option>
+              <option value="Other Deductions">Other Deductions</option>
+            </select>
+          </div>
 
-        <!-- Row 7: Receipt -->
-        <label for="paymentReceipt" class="payment-form-label">Receipt</label>
-        <input type="file" id="paymentReceipt" name="receipt" class="payment-form-file" accept="image/*,.pdf,.doc,.docx,.txt">
-      </div>
+          <!-- Row 7: Receipt -->
+          <div class="form-group">
+            <label class="form-label" for="paymentReceipt">Receipt</label>
+            <input type="file" id="paymentReceipt" name="receipt" class="form-input" accept="image/*,.pdf,.doc,.docx,.txt" style="padding: 5px;">
+          </div>
 
-      <!-- Save Button matching Screenshot -->
-      <div class="payment-modal-footer">
-        <button type="submit" id="btnSavePayment" class="btn-std-save">Save</button>
+          <button type="submit" id="btnSavePayment" class="btn-submit-full">Save</button>
+        </div>
       </div>
     </form>
   </div>

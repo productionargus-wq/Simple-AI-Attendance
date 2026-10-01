@@ -909,16 +909,16 @@
     function getUserLocation() {
       return new Promise((resolve) => {
         if (!navigator.geolocation) {
-          resolve({ latitude: 11.02980, longitude: 76.97400 });
+          resolve(null);
           return;
         }
         navigator.geolocation.getCurrentPosition(
           (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
           (err) => {
-            console.log('Location prompt skipped / fallback coordinates applied:', err.message);
-            resolve({ latitude: 11.02980, longitude: 76.97400 });
+            console.log('Location retrieval skipped / GPS unavailable:', err.message);
+            resolve(null);
           },
-          { enableHighAccuracy: true, timeout: 3500, maximumAge: 0 }
+          { enableHighAccuracy: true, timeout: 4000, maximumAge: 0 }
         );
       });
     }
@@ -969,8 +969,10 @@
 
         const formData = new FormData();
         formData.append('photo', blob, 'punch_frame.jpg');
-        formData.append('latitude', coords.latitude);
-        formData.append('longitude', coords.longitude);
+        if (coords && coords.latitude != null && coords.longitude != null) {
+          formData.append('latitude', coords.latitude);
+          formData.append('longitude', coords.longitude);
+        }
         formData.append('client_time', clientTimestamp);
 
         try {

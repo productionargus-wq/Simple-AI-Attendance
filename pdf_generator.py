@@ -250,7 +250,7 @@ def generate_employee_pdf(emp):
     
     elements.append(t)
     elements.append(Spacer(1, 20))
-    elements.append(Paragraph("© Argus Technologies | version 4.5", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -327,7 +327,7 @@ def generate_employees_pdf(employees, company_info=None):
     ]))
     elements.append(t)
     elements.append(Spacer(1, 14))
-    elements.append(Paragraph("© Argus Technologies | version 4.5", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -400,7 +400,7 @@ def generate_companies_pdf(companies, company_info=None):
     ]))
     elements.append(t)
     elements.append(Spacer(1, 14))
-    elements.append(Paragraph("© Argus Technologies | version 4.5", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -440,25 +440,29 @@ def generate_live_report_pdf(title, entries, company_info=None):
     build_pdf_header(elements, company_info=company_info, title=title)
 
     
-    time_col_title = "EXIT TIME" if "timeout" in (title or '').lower() else "ENTRY TIME"
+    is_timeout_pdf = "timeout" in (title or '').lower()
+    time_col_title = "EXIT TIME" if is_timeout_pdf else "ENTRY TIME"
+    loc_col_title = "EXIT LOCATION" if is_timeout_pdf else "ENTRY LOCATION"
+    dist_col_title = "EXIT DISTANCE" if is_timeout_pdf else "ENTRY DISTANCE"
     table_data = [
         [
             Paragraph("EMPLOYEE NAME", header_style),
             Paragraph(time_col_title, header_style),
             Paragraph("SITE NAME", header_style),
-            Paragraph("ENTRY LOCATION", header_style),
-            Paragraph("ENTRY DISTANCE", header_style)
+            Paragraph(loc_col_title, header_style),
+            Paragraph(dist_col_title, header_style)
         ]
     ]
     
     for row in entries:
-        t_val = row.get('exit_time') if "timeout" in (title or '').lower() and row.get('exit_time') else row.get('entry_time', '')
-        d_val = row.get('formatted_distance') or str(row.get('entry_distance', '0'))
+        t_val = row.get('exit_time') if is_timeout_pdf and row.get('exit_time') else row.get('entry_time', '')
+        l_val = row.get('exit_location') if is_timeout_pdf and row.get('exit_location') else row.get('entry_location', '')
+        d_val = row.get('exit_distance') if is_timeout_pdf and row.get('exit_distance') and row.get('exit_distance') != '----' else (row.get('formatted_distance') or str(row.get('entry_distance', '0')))
         table_data.append([
             Paragraph(str(row.get('employee_name', '')), cell_style),
             Paragraph(str(t_val), cell_style),
             Paragraph(str(row.get('site_name', '')), cell_style),
-            Paragraph(str(row.get('entry_location', '')), cell_style),
+            Paragraph(str(l_val), cell_style),
             Paragraph(str(d_val), cell_style)
         ])
         
@@ -487,7 +491,7 @@ def generate_live_report_pdf(title, entries, company_info=None):
     
     elements.append(t)
     elements.append(Spacer(1, 16))
-    elements.append(Paragraph("© Argus Technologies | version 4.5", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -543,9 +547,11 @@ def generate_attendance_report_pdf(title, entries, is_simple=False, totals=None,
                 Paragraph("ENTRY TIME", header_style),
                 Paragraph("ENTRY DISTANCE", header_style),
                 Paragraph("ENTRY LOCATION", header_style),
+                Paragraph("ENTRY STATUS", header_style),
                 Paragraph("EXIT TIME", header_style),
                 Paragraph("EXIT DISTANCE", header_style),
                 Paragraph("EXIT LOCATION", header_style),
+                Paragraph("EXIT STATUS", header_style),
                 Paragraph("WORKING HOURS", header_style),
                 Paragraph("SHIFT VARIANCE", header_style),
                 Paragraph("WORKING SALARY", header_style)
@@ -558,15 +564,17 @@ def generate_attendance_report_pdf(title, entries, is_simple=False, totals=None,
                 Paragraph(str(r.get('entry_time', '')), cell_style),
                 Paragraph(str(r.get('entry_distance', '')), cell_style),
                 Paragraph(str(r.get('entry_location', '')), cell_style),
+                Paragraph(str(r.get('entry_status', '-')), cell_style),
                 Paragraph(str(r.get('exit_time', '')), cell_style),
                 Paragraph(str(r.get('exit_distance', '')), cell_style),
                 Paragraph(str(r.get('exit_location', '')), cell_style),
+                Paragraph(str(r.get('exit_status', '-')), cell_style),
                 Paragraph(str(r.get('working_hours', '')), cell_style),
                 Paragraph(str(r.get('shift_variance', '')), cell_style),
                 Paragraph(str(r.get('working_salary', '0')), cell_style)
             ])
             
-        col_widths = [65, 65, 65, 140, 65, 65, 140, 50, 45, 50]
+        col_widths = [65, 60, 50, 110, 55, 60, 50, 110, 55, 45, 45, 47]
         t = Table(table_data, colWidths=col_widths)
         t.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EDF1F5')),
@@ -632,7 +640,7 @@ def generate_attendance_report_pdf(title, entries, is_simple=False, totals=None,
 
     elements.append(t)
     elements.append(Spacer(1, 14))
-    elements.append(Paragraph("© Argus Technologies | version 4.5", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -723,7 +731,7 @@ def generate_manual_entries_pdf(entries, company_info=None):
     
     elements.append(t)
     elements.append(Spacer(1, 16))
-    elements.append(Paragraph("© Argus Technologies | version 4.5", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -822,7 +830,7 @@ def generate_payments_pdf(payments, company_info=None):
     
     elements.append(t)
     elements.append(Spacer(1, 16))
-    elements.append(Paragraph("© Argus Technologies | version 4.5", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -911,7 +919,7 @@ def generate_advances_pdf(advances, company_info=None):
     
     elements.append(t)
     elements.append(Spacer(1, 16))
-    elements.append(Paragraph("© Argus Technologies | version 4.5", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -1003,7 +1011,7 @@ def generate_balance_report_pdf(data, totals=None, company_info=None):
         elements.append(Paragraph(tot_text, ParagraphStyle('Totals', fontName='Helvetica', fontSize=10, textColor=colors.HexColor('#0d6efd'))))
         elements.append(Spacer(1, 14))
         
-    elements.append(Paragraph("© Argus Technologies | version 4.5", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     doc.build(elements)
     buffer.seek(0)
     return buffer
@@ -1257,7 +1265,7 @@ def generate_salary_report_pdf(data, company_info=None):
     
     elements.append(t)
     elements.append(Spacer(1, 10))
-    elements.append(Paragraph("© Argus Technologies | version 4.5", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)

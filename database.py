@@ -1439,7 +1439,20 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
-    data = [clean_doc(doc) for doc in cursor]
+    data = []
+    for doc in cursor:
+        c = clean_doc(doc)
+        cid = c.get('company_id') or company_id
+        full_addr = get_company_full_address(cid)
+        if not c.get('entry_location') or str(c.get('entry_location')).strip() in ['OFFICE', '----', '']:
+            c['entry_location'] = full_addr
+        elif 'Premises' in str(c.get('entry_location')):
+            c['entry_location'] = full_addr
+            
+        if c.get('exit_location') and str(c.get('exit_location')).strip() not in ['----', '-', '']:
+            if 'Premises' in str(c.get('exit_location')) or str(c.get('exit_location')).strip() == 'OFFICE':
+                c['exit_location'] = full_addr
+        data.append(c)
     return {
         'total': total,
         'page': page,
@@ -1580,30 +1593,42 @@ def format_office_distance(meters):
     except Exception:
         return "OFFICE DISTANCE 0.0M"
 
+def get_company_full_address(company_id):
+    """Returns the registered full address string for a company."""
+    if not company_id or company_id == 'ARGUS_MASTER':
+        db = get_db()
+        comp = db.company_admin.find_one({'id': 'ARGUS_MASTER'})
+        return (comp.get('address') if comp else None) or OFFICE_LOCATION_STR
+    db = get_db()
+    comp = db.company_admin.find_one({'id': str(company_id)})
+    if comp:
+        return comp.get('address') or comp.get('location') or OFFICE_LOCATION_STR
+    return OFFICE_LOCATION_STR
+
 get_live_entries = get_live_report_entries
 
 def calculate_realistic_proximity(user_lat, user_lng, office_lat=OFFICE_LAT, office_lng=OFFICE_LNG):
-    """Calculate distance in meters, with realistic office vicinity variation (12m - 45m) if desktop coordinates match exactly."""
+    """Calculate distance in meters between user GPS coordinates and target office coordinates using precise Haversine formula."""
     if user_lat is None or user_lng is None:
-        import random
-        return random.uniform(12.0, 35.0)
+        return 0.0
     try:
-        ulat = parse_coordinate_to_float(user_lat, OFFICE_LAT)
-        ulng = parse_coordinate_to_float(user_lng, OFFICE_LNG)
+        ulat = parse_coordinate_to_float(user_lat, None)
+        ulng = parse_coordinate_to_float(user_lng, None)
         olat = parse_coordinate_to_float(office_lat, OFFICE_LAT)
         olng = parse_coordinate_to_float(office_lng, OFFICE_LNG)
+        if ulat is None or ulng is None or olat is None or olng is None:
+            return 0.0
         d = calculate_distance_meters(ulat, ulng, olat, olng)
-        if d < 5.0:
-            import random
-            return round(random.uniform(8.5, 24.5), 1)
-        return round(d, 1)
+        return round(max(0.0, d), 1)
     except Exception:
-        return 14.5
+        return 0.0
 
-def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=OFFICE_LOCATION_STR, entry_distance=0.0, is_timeout=0, user_lat=None, user_lng=None, company_id='ARGUS_MASTER', target_lat=None, target_lng=None):
+def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=None, entry_distance=0.0, is_timeout=0, user_lat=None, user_lng=None, company_id='ARGUS_MASTER', target_lat=None, target_lng=None):
     db = get_db()
     if not entry_time:
         entry_time = get_ist_now().strftime('%d/%m/%Y %I:%M:%S %p')
+        
+    resolved_location = entry_location or get_company_full_address(company_id)
         
     calculated_meters = float(entry_distance or 0.0)
     if calculated_meters > 0.0:
@@ -1612,7 +1637,7 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
         try:
             calculated_meters = calculate_realistic_proximity(user_lat, user_lng, office_lat=target_lat, office_lng=target_lng)
         except Exception:
-            calculated_meters = 14.5
+            calculated_meters = 0.0
     elif calculated_meters == 0.0:
         calculated_meters = calculate_realistic_proximity(None, None, office_lat=target_lat, office_lng=target_lng)
             
@@ -1622,7 +1647,7 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
         'employee_name': employee_name,
         'entry_time': entry_time,
         'site_name': site_name,
-        'entry_location': entry_location,
+        'entry_location': resolved_location,
         'entry_distance': round(calculated_meters, 2),
         'formatted_distance': format_office_distance(calculated_meters),
         'is_timeout': int(is_timeout),
@@ -1636,7 +1661,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     """
     Punch In / Punch Out Attendance Lifecycle Engine with Multi-Tenant Geolocation Support:
     1. Records Live Entry in db.live_entries with company_id in 12-hour format (IST).
-    2. Resolves company office coordinates from company_admin if tenant-owned.
+    2. Resolves company office coordinates and full address from company_admin if tenant-owned.
     3. Handles Punch In & Punch Out lifecycle under exact company_id.
     """
     db = get_db()
@@ -1652,16 +1677,24 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         
     comp_id = str(company_id or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
     
-    # Determine office coordinates and location string for this company
+    # Determine office coordinates and full address for this company
     target_lat = OFFICE_LAT
     target_lng = OFFICE_LNG
-    loc_str = OFFICE_LOCATION_STR
+    loc_str = get_company_full_address(comp_id)
     if comp_id != 'ARGUS_MASTER':
         comp = db.company_admin.find_one({'id': comp_id})
         if comp:
             target_lat = parse_coordinate_to_float(comp.get('latitude'), OFFICE_LAT)
             target_lng = parse_coordinate_to_float(comp.get('longitude'), OFFICE_LNG)
-            loc_str = f"{comp.get('company_name', 'Company')} Premises"
+            if comp.get('address'):
+                loc_str = comp.get('address')
+    else:
+        comp = db.company_admin.find_one({'id': 'ARGUS_MASTER'})
+        if comp:
+            target_lat = parse_coordinate_to_float(comp.get('latitude'), OFFICE_LAT)
+            target_lng = parse_coordinate_to_float(comp.get('longitude'), OFFICE_LNG)
+            if comp.get('address'):
+                loc_str = comp.get('address')
             
     # Calculate proximity distance
     dist_meters = calculate_realistic_proximity(user_lat, user_lng, target_lat, target_lng)
@@ -1895,8 +1928,102 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
 
 # ----------------- ATTENDANCE REPORTS ----------------- #
 
+def compute_entry_exit_status(entry_time_str, exit_time_str, shift_start='09:00 AM', shift_end='06:00 PM', is_manual=False):
+    """
+    Computes precise ENTRY STATUS and EXIT STATUS strings:
+    - If manual entry: returns ('-', '-')
+    - Entry Status: 'Late by X minutes', 'Late by X hr Y mins', 'Early by X minutes', or 'On Time'
+    - Exit Status: 'Early by X minutes', 'Early by X hr Y mins', 'Overtime by X minutes', 'On Time', or '-' (if working/pending)
+    """
+    if is_manual:
+        return '-', '-'
+
+    def parse_time_to_minutes(t_str):
+        if not t_str or str(t_str).strip() in ['----', '-', '']:
+            return None
+        match = re.search(r'(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?', str(t_str), re.I)
+        if not match:
+            return None
+        h = int(match.group(1))
+        m = int(match.group(2))
+        ampm = match.group(3).upper() if match.group(3) else None
+        if ampm == 'PM' and h < 12:
+            h += 12
+        elif ampm == 'AM' and h == 12:
+            h = 0
+        return h * 60 + m
+
+    entry_mins = parse_time_to_minutes(entry_time_str)
+    start_mins = parse_time_to_minutes(shift_start)
+    if start_mins is None:
+        start_mins = 540  # Default 09:00 AM
+
+    if entry_mins is None:
+        entry_status = '-'
+    else:
+        diff_in = entry_mins - start_mins
+        if diff_in > 5:  # Grace of 5 mins
+            if diff_in >= 60:
+                dh = diff_in // 60
+                dm = diff_in % 60
+                entry_status = f"Late by {dh} hr {dm} mins" if dm > 0 else f"Late by {dh} hr"
+            else:
+                entry_status = f"Late by {diff_in} minutes"
+        elif diff_in < -5:
+            early_m = abs(diff_in)
+            if early_m >= 60:
+                dh = early_m // 60
+                dm = early_m % 60
+                entry_status = f"Early by {dh} hr {dm} mins" if dm > 0 else f"Early by {dh} hr"
+            else:
+                entry_status = f"Early by {early_m} minutes"
+        else:
+            entry_status = "On Time"
+
+    exit_mins = parse_time_to_minutes(exit_time_str)
+    end_mins = parse_time_to_minutes(shift_end)
+    if end_mins is None:
+        end_mins = 1080  # Default 06:00 PM
+
+    if exit_mins is None:
+        exit_status = '-'
+    else:
+        diff_out = exit_mins - end_mins
+        if diff_out < -5:
+            early_m = abs(diff_out)
+            if early_m >= 60:
+                dh = early_m // 60
+                dm = early_m % 60
+                exit_status = f"Early by {dh} hr {dm} mins" if dm > 0 else f"Early by {dh} hr"
+            else:
+                exit_status = f"Early by {early_m} minutes"
+        elif diff_out > 5:
+            ot_m = diff_out
+            if ot_m >= 60:
+                dh = ot_m // 60
+                dm = ot_m % 60
+                exit_status = f"Overtime by {dh} hr {dm} mins" if dm > 0 else f"Overtime by {dh} hr"
+            else:
+                exit_status = f"Overtime by {ot_m} minutes"
+        else:
+            exit_status = "On Time"
+
+    return entry_status, exit_status
+
 def get_attendance_reports(report_type='all', start_date=None, end_date=None, employee='All', search=None, page=1, limit=10, company_id=None):
     db = get_db()
+
+    # Pre-load employee shift hours for dynamic status computation
+    emp_shifts = {}
+    emp_q = {}
+    if company_id and company_id != 'ALL':
+        emp_q['company_id'] = str(company_id)
+    for emp_d in db.employees.find(emp_q, {'employee_name': 1, 'shift_start': 1, 'shift_end': 1}):
+        if emp_d.get('employee_name'):
+            emp_shifts[emp_d['employee_name']] = {
+                'start': emp_d.get('shift_start', '09:00 AM') or '09:00 AM',
+                'end': emp_d.get('shift_end', '06:00 PM') or '06:00 PM'
+            }
 
     if report_type == 'manual':
         m_query = {}
@@ -1924,13 +2051,16 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
                 'entry_time': c.get('submitted_at') or c.get('entry_date', ''),
                 'entry_distance': 'MANUAL ENTRY',
                 'entry_location': f"Manual Adjustment ({c.get('status', 'Proper')})",
+                'entry_status': '-',
                 'exit_time': '----',
                 'exit_distance': '----',
                 'exit_location': '----',
+                'exit_status': '-',
                 'working_hours': c.get('hours', '00:00'),
                 'shift_variance': '----',
-                'working_salary': c.get('working_salary', 0),
-                'entry_type': 'manual'
+                'working_salary': float(c.get('working_salary', 0)),
+                'entry_type': 'manual',
+                'is_manual': True
             })
         return {
             'total': total,
@@ -1939,8 +2069,8 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
             'data': data
         }
 
+    # Biometric Attendance Reports Query
     query = {}
-    
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
         
@@ -1953,7 +2083,6 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         query['employee_name'] = employee
         
     if start_date:
-        # Convert YYYY-MM-DD if needed
         s_date = start_date.strip()
         query.setdefault('$and', []).append({
             '$or': [
@@ -1981,18 +2110,112 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
             {'entry_location': reg},
             {'exit_location': reg}
         ]
-        
-    total = db.attendance_reports.count_documents(query)
-    cursor = db.attendance_reports.find(query).sort([("date", DESCENDING), ("created_at", DESCENDING), ("_id", DESCENDING)])
+
+    # For Proper and Improper reports: query attendance_reports collection
+    if report_type in ['proper', 'improper']:
+        total = db.attendance_reports.count_documents(query)
+        cursor = db.attendance_reports.find(query).sort([("date", DESCENDING), ("created_at", DESCENDING), ("_id", DESCENDING)])
+        if limit and limit > 0:
+            cursor = cursor.skip((page - 1) * limit).limit(limit)
+            
+        data = []
+        for doc in cursor:
+            c = clean_doc(doc)
+            cid = c.get('company_id') or company_id
+            full_addr = get_company_full_address(cid)
+            if not c.get('entry_location') or str(c.get('entry_location')).strip() in ['OFFICE', '----', '']:
+                c['entry_location'] = full_addr
+            elif 'Premises' in str(c.get('entry_location')):
+                c['entry_location'] = full_addr
+
+            if c.get('exit_location') and str(c.get('exit_location')).strip() not in ['----', '-', '']:
+                if 'Premises' in str(c.get('exit_location')) or str(c.get('exit_location')).strip() == 'OFFICE':
+                    c['exit_location'] = full_addr
+
+            s_cfg = emp_shifts.get(c.get('employee_name', ''), {'start': '09:00 AM', 'end': '06:00 PM'})
+            e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False)
+            c['entry_status'] = e_status
+            c['exit_status'] = x_status
+            data.append(c)
+        return {
+            'total': total,
+            'page': page,
+            'limit': limit,
+            'data': data
+        }
+
+    # For 'all' report_type: merge attendance_reports AND manual_entries
+    combined = []
+    
+    for doc in db.attendance_reports.find(query):
+        c = clean_doc(doc)
+        cid = c.get('company_id') or company_id
+        full_addr = get_company_full_address(cid)
+        if not c.get('entry_location') or str(c.get('entry_location')).strip() in ['OFFICE', '----', '']:
+            c['entry_location'] = full_addr
+        elif 'Premises' in str(c.get('entry_location')):
+            c['entry_location'] = full_addr
+
+        if c.get('exit_location') and str(c.get('exit_location')).strip() not in ['----', '-', '']:
+            if 'Premises' in str(c.get('exit_location')) or str(c.get('exit_location')).strip() == 'OFFICE':
+                c['exit_location'] = full_addr
+
+        s_cfg = emp_shifts.get(c.get('employee_name', ''), {'start': '09:00 AM', 'end': '06:00 PM'})
+        e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False)
+        c['entry_status'] = e_status
+        c['exit_status'] = x_status
+        c['is_manual'] = False
+        c['sort_key'] = str(c.get('date') or c.get('created_at') or c.get('entry_time') or '')
+        combined.append(c)
+
+    # Manual entries query matching same filters
+    m_query = {}
+    if company_id and company_id != 'ALL':
+        m_query['company_id'] = str(company_id)
+    if employee and employee != 'All':
+        m_query['employee_name'] = employee
+    if start_date:
+        m_query.setdefault('entry_date', {})['$gte'] = start_date.strip()
+    if end_date:
+        m_query.setdefault('entry_date', {})['$lte'] = end_date.strip()
+    if search:
+        reg = {'$regex': re.escape(search), '$options': 'i'}
+        m_query['$or'] = [{'employee_name': reg}, {'entry_date': reg}, {'status': reg}]
+
+    for doc in db.manual_entries.find(m_query):
+        c = clean_doc(doc)
+        combined.append({
+            'employee_name': c.get('employee_name', ''),
+            'entry_time': c.get('submitted_at') or c.get('entry_date', ''),
+            'entry_distance': 'MANUAL ENTRY',
+            'entry_location': f"Manual Adjustment ({c.get('status', 'Proper')})",
+            'entry_status': '-',
+            'exit_time': '----',
+            'exit_distance': '----',
+            'exit_location': '----',
+            'exit_status': '-',
+            'working_hours': c.get('hours', '00:00'),
+            'shift_variance': '----',
+            'working_salary': float(c.get('working_salary', 0.0)),
+            'entry_type': 'manual',
+            'is_manual': True,
+            'sort_key': str(c.get('entry_date') or c.get('created_at') or c.get('submitted_at') or '')
+        })
+
+    # Sort descending by date/timestamp
+    combined.sort(key=lambda x: str(x.get('sort_key', '') or x.get('entry_time', '')), reverse=True)
+    total = len(combined)
+
     if limit and limit > 0:
-        cursor = cursor.skip((page - 1) * limit).limit(limit)
-        
-    data = [clean_doc(doc) for doc in cursor]
+        p_data = combined[(page - 1) * limit : page * limit]
+    else:
+        p_data = combined
+
     return {
         'total': total,
         'page': page,
         'limit': limit,
-        'data': data
+        'data': p_data
     }
 
 def get_attendance_simple_table(employee='All', start_date=None, end_date=None, company_id=None):
@@ -2166,10 +2389,20 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
             status_label = 'Improper'
         else:
             raw_sal = m.get('working_salary')
-            if raw_sal is not None and float(raw_sal) > 0:
-                w_sal = float(raw_sal)
+            is_sub = (str(m.get('entry_type', '')).strip().lower() == 'sub')
+            if raw_sal is not None:
+                try:
+                    w_sal = float(raw_sal)
+                    if is_sub and w_sal > 0:
+                        w_sal = -w_sal
+                except (ValueError, TypeError):
+                    w_sal = calc_salary(emp_name, wh)
+                    if is_sub:
+                        w_sal = -abs(w_sal)
             else:
                 w_sal = calc_salary(emp_name, wh)
+                if is_sub:
+                    w_sal = -abs(w_sal)
             status_label = 'Manual' if raw_status in ['Proper', 'Full Day', 'Half Day', 'Manual', 'Others', 'Permission'] else raw_status
 
         data.append({
@@ -2194,18 +2427,22 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
 
     for r in data:
         wh = r.get('working_hours', '00:00')
-        parts = wh.split(':')
+        parts = str(wh).replace('-', '').split(':')
+        is_sub = (float(r.get('working_salary', 0.0)) < 0) or (r.get('source') == 'manual' and str(r.get('entry_type', '')).lower() == 'sub')
         if len(parts) >= 2:
             try:
-                total_minutes += int(parts[0]) * 60 + int(parts[1])
+                mins = int(parts[0]) * 60 + int(parts[1])
+                total_minutes += (-mins if is_sub else mins)
             except ValueError:
                 pass
         if not r.get('is_improper'):
             total_salary += float(r.get('working_salary', 0.0))
 
-    tot_h = total_minutes // 60
-    tot_m = total_minutes % 60
-    formatted_total_hours = f"{tot_h:02d}:{tot_m:02d}"
+    neg = total_minutes < 0
+    abs_mins = abs(total_minutes)
+    tot_h = abs_mins // 60
+    tot_m = abs_mins % 60
+    formatted_total_hours = f"{'-' if neg else ''}{tot_h:02d}:{tot_m:02d}"
     formatted_total_salary = f"{total_salary:.2f}"
 
     return {

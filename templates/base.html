@@ -78,9 +78,9 @@
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
           <span>Payment Entry</span>
         </a>
-        <a href="{{ url_for('monthly_payslip') }}" class="nav-item-btn {% if active_tab == 'MONTHLY PAYSLIP' %}active{% endif %}">
+        <a href="{{ url_for('monthly_payslip') }}" class="nav-item-btn {% if active_tab in ['PAYSLIP PREVIEW', 'MONTHLY PAYSLIP'] %}active{% endif %}">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-          <span>Monthly Payslip</span>
+          <span>Payslip Preview</span>
         </a>
         <a href="{{ url_for('salary_report') }}" class="nav-item-btn {% if active_tab == 'SALARY REPORT' %}active{% endif %}">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>

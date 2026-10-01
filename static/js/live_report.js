@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnLiveEntries = document.getElementById('btnLiveEntries');
   const btnTimeoutEntries = document.getElementById('btnTimeoutEntries');
   const colTimeHeader = document.getElementById('colTimeHeader');
+  const colLocationHeader = document.getElementById('colLocationHeader');
+  const colDistanceHeader = document.getElementById('colDistanceHeader');
   
   const startDateInput = document.getElementById('startDate');
   const endDateInput = document.getElementById('endDate');
@@ -50,6 +52,12 @@ document.addEventListener('DOMContentLoaded', function () {
       if (colTimeHeader) {
         colTimeHeader.innerHTML = 'ENTRY TIME <span class="sort-icon">⇅</span>';
       }
+      if (colLocationHeader) {
+        colLocationHeader.innerHTML = 'ENTRY LOCATION <span class="sort-icon">⇅</span>';
+      }
+      if (colDistanceHeader) {
+        colDistanceHeader.innerHTML = 'ENTRY DISTANCE <span class="sort-icon">⇅</span>';
+      }
     } else {
       pageTitle.textContent = 'TIMEOUT ENTRIES';
       reportSubtitle.textContent = 'Displays employees who have punched out (manual punch-out and automatic checkout).';
@@ -57,6 +65,12 @@ document.addEventListener('DOMContentLoaded', function () {
       btnLiveEntries.className = 'btn-toggle-tab inactive';
       if (colTimeHeader) {
         colTimeHeader.innerHTML = 'EXIT TIME <span class="sort-icon">⇅</span>';
+      }
+      if (colLocationHeader) {
+        colLocationHeader.innerHTML = 'EXIT LOCATION <span class="sort-icon">⇅</span>';
+      }
+      if (colDistanceHeader) {
+        colDistanceHeader.innerHTML = 'EXIT DISTANCE <span class="sort-icon">⇅</span>';
       }
     }
 
@@ -120,12 +134,15 @@ document.addEventListener('DOMContentLoaded', function () {
         siteBadge = `<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px;">${escapeHtml(entry.site_name)}</span>`;
       }
 
+      const locDisplay = (currentType === 'timeout' && entry.exit_location) ? entry.exit_location : (entry.entry_location || '----');
+      const distDisplay = (currentType === 'timeout' && entry.exit_distance && entry.exit_distance !== '----') ? entry.exit_distance : distStr;
+
       tr.innerHTML = `
         <td><strong>${escapeHtml(entry.employee_name)}</strong></td>
         <td>${escapeHtml(timeDisplay)}</td>
         <td>${siteBadge}</td>
-        <td>${escapeHtml(entry.entry_location || '----')}</td>
-        <td>${escapeHtml(distStr)}</td>
+        <td>${escapeHtml(locDisplay)}</td>
+        <td>${escapeHtml(distDisplay)}</td>
       `;
       tableBody.appendChild(tr);
     });
