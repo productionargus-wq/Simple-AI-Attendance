@@ -242,7 +242,7 @@ def login():
             if err_code == 'PASSWORD_NOT_SET':
                 error_msg = "Password has not been set yet. First-time access? Please click 'Continue with Google' below to verify your account and set your password."
             elif err_code == 'NOT_REGISTERED':
-                error_msg = 'Access Denied: Email is not authorized as Super Admin. Please verify with Google below.'
+                error_msg = 'Access Denied: Email is not authorized as System Admin. Please verify with Google below.'
             else:
                 error_msg = 'Invalid password. Please verify your password or sign in with Google.'
             return render_template('login.html', error=error_msg)
@@ -353,7 +353,7 @@ def google_callback():
             return redirect(url_for('dashboard'))
         else:
             return render_oauth_error(
-                f"Access Denied: The Google account '{google_email}' is not authorized as Super Admin."
+                f"Access Denied: The Google account '{google_email}' is not authorized as System Admin."
             )
 
     elif login_type == 'company':
@@ -796,7 +796,7 @@ def api_update_company_profile():
         # Coordinates handling: only once allowed for company_admin
         if 'latitude' in data or 'longitude' in data:
             if is_locked:
-                return jsonify({'success': False, 'error': 'Office coordinates are locked and can only be modified by Super Admin.'}), 403
+                return jsonify({'success': False, 'error': 'Office coordinates are locked and can only be modified by System Admin.'}), 403
             
             lat_val = data.get('latitude')
             lng_val = data.get('longitude')

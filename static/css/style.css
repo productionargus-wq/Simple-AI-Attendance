@@ -697,10 +697,12 @@ body.sidebar-collapsed .app-footer {
 .employee-table {
   min-width: 880px;
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: collapse !important;
+  empty-cells: show !important;
   font-size: 11px;
   text-align: left;
   table-layout: auto;
+  border: 1px solid #e2e8f0;
 }
 
 #employeeDataTable { min-width: 960px; }
@@ -727,37 +729,89 @@ body.sidebar-collapsed .app-footer {
 .payslip-document-wrapper table { min-width: 540px; }
 
 .employee-table th {
-  background-color: #ffffff;
-  color: #333333;
+  background-color: #f8fafc;
+  color: #1e293b;
   font-weight: 700;
-  padding: 8px 10px;
-  border-bottom: 2px solid #dee2e6;
+  padding: 9px 10px;
+  border-bottom: 2px solid #cbd5e1 !important;
+  border-right: 1px solid #e2e8f0 !important;
   white-space: nowrap !important;
   word-break: normal !important;
   word-wrap: normal !important;
-  vertical-align: middle;
-  font-size: 10.5px;
+  vertical-align: middle !important;
+  font-size: 11px;
   cursor: pointer;
   user-select: none;
   line-height: 1.25;
+  box-sizing: border-box !important;
+}
+
+.employee-table th:last-child {
+  border-right: none !important;
 }
 
 .employee-table th .sort-icon {
-  color: #a0aec0;
-  margin-left: 2px;
+  color: #94a3b8;
+  margin-left: 3px;
   font-size: 10px;
 }
 
 .employee-table td {
   padding: 8px 10px;
-  border-bottom: 1px solid #e9ecef;
-  color: #333333;
-  vertical-align: middle;
+  border-bottom: 1px solid #e2e8f0 !important;
+  border-right: 1px solid #e2e8f0 !important;
+  color: #334155;
+  vertical-align: middle !important;
   white-space: nowrap !important;
   word-break: normal !important;
   word-wrap: normal !important;
   font-size: 11px;
   line-height: 1.35;
+  box-sizing: border-box !important;
+}
+
+.employee-table td:last-child {
+  border-right: none !important;
+}
+
+/* Table Filters Row (Image 4 Alignment Fix) */
+.table-filters-row th {
+  background-color: #f1f5f9 !important;
+  padding: 4px 6px !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+  border-right: 1px solid #e2e8f0 !important;
+  height: 36px !important;
+  vertical-align: middle !important;
+  box-sizing: border-box !important;
+}
+
+.table-filters-row th:last-child {
+  border-right: none !important;
+}
+
+.table-filter-select,
+.table-filter-date,
+.table-filters-row input {
+  width: 100%;
+  height: 26px !important;
+  padding: 2px 6px !important;
+  font-size: 11px !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 4px !important;
+  background-color: #ffffff !important;
+  color: #334155 !important;
+  box-sizing: border-box !important;
+}
+
+.table-date-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.table-date-stacked input {
+  height: 22px !important;
+  font-size: 10px !important;
 }
 
 /* Allow address columns to wrap nicely with controlled min-width */
@@ -779,8 +833,9 @@ body.sidebar-collapsed .app-footer {
 #companyDataTable {
   min-width: 1360px;
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: collapse !important;
   table-layout: auto;
+  border: 1px solid #e2e8f0;
 }
 
 #companyDataTable th,
@@ -791,22 +846,34 @@ body.sidebar-collapsed .app-footer {
 
 #companyDataTable thead th {
   background-color: #f8fafc;
-  color: #475569;
+  color: #334155;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.5px;
-  padding: 12px 14px;
-  border-bottom: 2px solid #e2e8f0;
+  padding: 10px 12px;
+  border-bottom: 2px solid #cbd5e1 !important;
+  border-right: 1px solid #e2e8f0 !important;
   white-space: nowrap !important;
-  vertical-align: middle;
+  vertical-align: middle !important;
+  box-sizing: border-box !important;
+}
+
+#companyDataTable thead th:last-child {
+  border-right: none !important;
 }
 
 #companyDataTable tbody td {
-  padding: 12px 14px;
-  vertical-align: middle;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 10px 12px;
+  vertical-align: middle !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  border-right: 1px solid #e2e8f0 !important;
   font-size: 12px;
   color: #1e293b;
+  box-sizing: border-box !important;
+}
+
+#companyDataTable tbody td:last-child {
+  border-right: none !important;
 }
 
 #companyDataTable tbody tr:hover td {

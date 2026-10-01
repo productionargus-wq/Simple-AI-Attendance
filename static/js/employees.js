@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <td style="font-weight: 600;">₹${Number(emp.half_day_salary || 0).toFixed(0)}</td>
         <td>${escapeHtml(emp.mobile_number || '')}</td>
         <td>${escapeHtml(emp.email_id || '')}</td>
-        <td>${escapeHtml(emp.shift_hours || '')}</td>
+        <td>${escapeHtml(emp.shift_hours || '-')}</td>
         <td style="text-align: center;">
           <div class="table-actions">
             <button class="btn-action-icon btn-action-view" onclick="viewEmployee('${emp.id}')" title="View Details">
@@ -345,6 +345,8 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('formEmployeeId').value = emp.id;
       document.getElementById('entryModalTitle').textContent = 'Employee Detail Entry';
       document.getElementById('inputName').value = emp.employee_name || '';
+      const inDept = document.getElementById('inputDepartment');
+      if (inDept) inDept.value = emp.department || '';
       document.getElementById('inputDesignation').value = emp.designation || '';
       document.getElementById('inputSalaryType').value = emp.salary_type || 'hourly';
       document.getElementById('inputMobile').value = emp.mobile_number || '';
@@ -564,6 +566,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ['ID', emp.id],
         ['PHOTO', photoFile ? `<a href="/uploads/${escapeHtml(photoFile)}" target="_blank" style="color: #0d6efd; font-weight: 700; text-decoration: underline;">View Uploaded Photo</a>` : 'No photo registered'],
         ['EMPLOYEE NAME', emp.employee_name],
+        ['DEPARTMENT', emp.department || emp.designation || '-'],
         ['DESIGNATION', emp.designation],
         ['SALARY BASIS', stLabels[emp.salary_type] || 'Hourly-Based'],
         ['HOURLY SALARY', emp.hourly_salary],

@@ -308,7 +308,26 @@ def create_company(data):
         raise ValueError(f"A company with email '{email}' is already registered.")
         
     now_ist = get_ist_now()
-    reg_date_str = now_ist.strftime('%d/%m/%Y %I:%M %p')
+    manual_date = data.get('registered_date')
+    if manual_date and str(manual_date).strip():
+        m_str = str(manual_date).strip()
+        try:
+            if '-' in m_str:
+                parts = m_str.split('-')
+                if len(parts) == 3:
+                    if len(parts[0]) == 4: # YYYY-MM-DD
+                        reg_date_str = f"{parts[2]}/{parts[1]}/{parts[0]}"
+                    else: # DD-MM-YYYY
+                        reg_date_str = f"{parts[0]}/{parts[1]}/{parts[2]}"
+                else:
+                    reg_date_str = m_str
+            else:
+                reg_date_str = m_str
+        except Exception:
+            reg_date_str = m_str
+    else:
+        reg_date_str = now_ist.strftime('%d/%m/%Y')
+
     lat_val = data.get('latitude')
     lng_val = data.get('longitude')
     
@@ -350,10 +369,12 @@ def format_company_reg_date(val):
     if not val:
         return '-'
     if isinstance(val, datetime):
-        return val.strftime('%d/%m/%Y %I:%M %p')
+        return val.strftime('%d/%m/%Y')
     val_str = str(val).strip()
     if not val_str or val_str == '-':
         return '-'
+    if re.match(r'^\d{2}/\d{2}/\d{4}$', val_str):
+        return val_str
     if 'T' in val_str or '-' in val_str:
         clean_str = val_str.replace('Z', '')
         if '.' in clean_str:
@@ -361,7 +382,7 @@ def format_company_reg_date(val):
         for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%d/%m/%Y %I:%M %p', '%d/%m/%Y'):
             try:
                 parsed = datetime.strptime(clean_str, fmt)
-                return parsed.strftime('%d/%m/%Y %I:%M %p')
+                return parsed.strftime('%d/%m/%Y')
             except Exception:
                 pass
     return val_str
@@ -506,6 +527,19 @@ def update_company(comp_id, data):
                 pass
     if 'shift_hours' in data and data['shift_hours']:
         upd['shift_hours'] = str(data['shift_hours']).strip()
+    if 'registered_date' in data and data['registered_date']:
+        m_str = str(data['registered_date']).strip()
+        try:
+            if '-' in m_str:
+                parts = m_str.split('-')
+                if len(parts) == 3 and len(parts[0]) == 4:
+                    upd['registered_date'] = f"{parts[2]}/{parts[1]}/{parts[0]}"
+                else:
+                    upd['registered_date'] = m_str
+            else:
+                upd['registered_date'] = m_str
+        except Exception:
+            upd['registered_date'] = m_str
     if 'auto_email_reports' in data:
         upd['auto_email_reports'] = bool(data['auto_email_reports'])
     db.company_admin.update_one({'id': str(comp_id)}, {'$set': upd})
@@ -719,7 +753,7 @@ def create_employee(data, company_id=None):
             if current_count >= limit:
                 comp_name = comp.get('company_name', assigned_company_id)
                 raise ValueError(
-                    f"Employee registration limit reached: Company '{comp_name}' allows a maximum of {limit} employees ({current_count}/{limit} currently registered). Please contact Super Admin to increase the employee limit."
+                    f"Employee registration limit reached: Company '{comp_name}' allows a maximum of {limit} employees ({current_count}/{limit} currently registered). Please contact System Admin to increase the employee limit."
                 )
 
     raw_st = str(data.get('salary_type') or 'hourly').strip().lower()
@@ -729,6 +763,7 @@ def create_employee(data, company_id=None):
         'id': emp_id,
         'company_id': assigned_company_id,
         'employee_name': data.get('employee_name', '').strip(),
+        'department': (data.get('department') or data.get('designation') or 'General').strip(),
         'designation': data.get('designation', '').strip(),
         'salary_type': salary_type,
         'mobile_number': data.get('mobile_number', '').strip(),
@@ -755,6 +790,7 @@ def create_employee(data, company_id=None):
     }
     
     db.employees.insert_one(doc)
+    invalidate_dashboard_cache(assigned_company_id)
     return emp_id
 
 def update_employee(emp_id, data, company_id=None):
@@ -764,6 +800,7 @@ def update_employee(emp_id, data, company_id=None):
         f = {'$and': [f, {'company_id': str(company_id)}]}
     upd = {
         'employee_name': data.get('employee_name', '').strip(),
+        'department': (data.get('department') or data.get('designation') or 'General').strip(),
         'designation': data.get('designation', '').strip(),
         'mobile_number': data.get('mobile_number', '').strip(),
         'hourly_salary': float(data.get('hourly_salary') or 0.0),
@@ -799,6 +836,7 @@ def update_employee(emp_id, data, company_id=None):
         upd['company_id'] = str(data['company_id'])
         
     db.employees.update_one(f, {'$set': upd})
+    invalidate_dashboard_cache(company_id)
     return True
 
 def delete_employee(emp_id, company_id=None):
@@ -807,6 +845,7 @@ def delete_employee(emp_id, company_id=None):
     if company_id and company_id != 'ALL':
         f = {'$and': [f, {'company_id': str(company_id)}]}
     db.employees.delete_one(f)
+    invalidate_dashboard_cache(company_id)
     return True
 
 def get_all_face_embeddings(company_id=None):

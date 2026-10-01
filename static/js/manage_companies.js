@@ -32,7 +32,26 @@ document.addEventListener('DOMContentLoaded', function () {
   const inputStatus = document.getElementById('inputStatus');
   const inputEmployeeLimit = document.getElementById('inputEmployeeLimit');
   const inputCompanyShiftHours = document.getElementById('inputShiftHours');
+  const inputRegisteredDate = document.getElementById('inputRegisteredDate');
   const inputAutoEmailReports = document.getElementById('inputAutoEmailReports');
+
+  function formatDateForDateInput(val) {
+    if (!val || val === '-') return new Date().toISOString().split('T')[0];
+    const s = String(val).trim();
+    if (s.includes('/')) {
+      const parts = s.split(' ')[0].split('/');
+      if (parts.length === 3) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    } else if (s.includes('-')) {
+      const parts = s.split(' ')[0].split('-');
+      if (parts.length === 3) {
+        if (parts[0].length === 4) return parts.join('-');
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    return new Date().toISOString().split('T')[0];
+  }
 
   let loadedCompanies = [];
   let editingCompanyId = null;
@@ -314,6 +333,7 @@ document.addEventListener('DOMContentLoaded', function () {
           inputStatus.value = comp.status || 'Active';
           if (inputEmployeeLimit) inputEmployeeLimit.value = comp.employee_limit || 50;
           if (inputCompanyShiftHours) inputCompanyShiftHours.value = comp.shift_hours || '08:00';
+          if (inputRegisteredDate) inputRegisteredDate.value = formatDateForDateInput(comp.registered_date);
           if (inputAutoEmailReports) inputAutoEmailReports.value = (comp.auto_email_reports !== false) ? 'true' : 'false';
 
           companyModal.classList.add('active');
@@ -404,6 +424,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (btnSaveCompany) btnSaveCompany.textContent = 'Save Company';
       if (inputEmployeeLimit) inputEmployeeLimit.value = 25;
       if (inputCompanyShiftHours) inputCompanyShiftHours.value = '08:00';
+      if (inputRegisteredDate) inputRegisteredDate.value = new Date().toISOString().split('T')[0];
       if (inputAutoEmailReports) inputAutoEmailReports.value = 'true';
       companyModal.classList.add('active');
     });
@@ -471,6 +492,7 @@ document.addEventListener('DOMContentLoaded', function () {
         status: formData.get('status') || 'Active',
         employee_limit: parseInt(formData.get('employee_limit'), 10) || 50,
         shift_hours: (formData.get('shift_hours') || '08:00').trim(),
+        registered_date: formData.get('registered_date') || '',
         auto_email_reports: formData.get('auto_email_reports') === 'true'
       };
 

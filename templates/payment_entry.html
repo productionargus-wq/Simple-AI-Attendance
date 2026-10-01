@@ -91,7 +91,9 @@
               <input type="date" id="filterPaymentEndDate" class="table-filter-date" placeholder="mm/dd/yyyy">
             </div>
           </th>
-          <th></th>
+          <th>
+            <input type="text" id="filterPaymentAmount" class="table-filter-select" placeholder="All" style="text-align: center;">
+          </th>
           <th>
             <select id="filterPaymentBank" class="table-filter-select">
               <option value="All" selected>All</option>
@@ -299,6 +301,7 @@ document.addEventListener('DOMContentLoaded', function () {
       payment_type: paymentType,
       reason: reason,
       search: search,
+      amount: document.getElementById('filterPaymentAmount') ? document.getElementById('filterPaymentAmount').value.trim() : '',
       page: paymentPage,
       limit: paymentLimit
     });
@@ -416,7 +419,7 @@ document.addEventListener('DOMContentLoaded', function () {
       .catch(err => console.error(err));
   }
 
-  ['filterPaymentEmployee', 'filterPaymentStartDate', 'filterPaymentEndDate', 'filterPaymentBank', 'filterPaymentType', 'filterPaymentReason'].forEach(id => {
+  ['filterPaymentEmployee', 'filterPaymentStartDate', 'filterPaymentEndDate', 'filterPaymentAmount', 'filterPaymentBank', 'filterPaymentType', 'filterPaymentReason'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('change', function () {

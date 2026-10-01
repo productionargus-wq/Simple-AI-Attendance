@@ -17,12 +17,6 @@
       <div class="banner-subtitle">Generate, review and print individual monthly salary slips and deductions</div>
     </div>
   </div>
-  <button class="btn-secondary-action" id="btnUpdatePayslip" title="Refresh">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-    </svg>
-    Refresh
-  </button>
 </div>
 
 <!-- ================= 1. SELECTION FORM (IMAGE 3) ================= -->
@@ -209,20 +203,14 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnBackToGenerate = document.getElementById('btnBackToGenerate');
   const btnPrintPayslip = document.getElementById('btnPrintPayslip');
   const btnPdfPayslip = document.getElementById('btnPdfPayslip');
-  const btnUpdatePayslip = document.getElementById('btnUpdatePayslip');
   const selectPayslipMonth = document.getElementById('selectPayslipMonth');
 
-  // Set default month to current year and month dynamically
   if (selectPayslipMonth && !selectPayslipMonth.value) {
     const today = new Date();
     const curY = today.getFullYear();
     const curM = String(today.getMonth() + 1).padStart(2, '0');
     selectPayslipMonth.value = `${curY}-${curM}`;
   }
-
-  btnUpdatePayslip.addEventListener('click', function () {
-    generatePayslip();
-  });
 
   btnGeneratePayslip.addEventListener('click', function () {
     generatePayslip();

@@ -175,6 +175,35 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  function getTimingBadge(entryTime) {
+    if (!entryTime || entryTime === '----' || entryTime === '-') {
+      return '<span>-</span>';
+    }
+    const str = String(entryTime).trim();
+    const match = str.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+    if (!match) return '<span>-</span>';
+    
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const ampm = match[3] ? match[3].toUpperCase() : null;
+    
+    if (ampm === 'PM' && hours < 12) hours += 12;
+    if (ampm === 'AM' && hours === 12) hours = 0;
+    
+    const totalMins = hours * 60 + minutes;
+    // Standard Start: 09:00 AM (540 mins)
+    // Before: < 08:55 AM (535)
+    // On-time: 08:55 AM to 09:10 AM (535 to 550)
+    // Late: > 09:10 AM (550)
+    if (totalMins < 535) {
+      return '<span class="status-pill status-blue">Before</span>';
+    } else if (totalMins <= 550) {
+      return '<span class="status-pill status-active">On-time</span>';
+    } else {
+      return '<span class="status-pill status-inactive">Late</span>';
+    }
+  }
+
   function renderStandardRows(rows) {
     if (!standardTableBody) return;
     standardTableBody.innerHTML = '';
@@ -182,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!rows || rows.length === 0) {
       standardTableBody.innerHTML = `
         <tr>
-          <td colspan="10" style="text-align: center; color: #555; padding: 25px;">
+          <td colspan="11" style="text-align: center; color: #555; padding: 25px;">
             No data available in table
           </td>
         </tr>
@@ -197,6 +226,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <td>${escapeHtml(r.entry_time || '')}</td>
         <td>${escapeHtml(r.entry_distance || '')}</td>
         <td>${escapeHtml(r.entry_location || '')}</td>
+        <td style="text-align: center; white-space: nowrap;">${getTimingBadge(r.entry_time)}</td>
         <td>${escapeHtml(r.exit_time || '')}</td>
         <td>${escapeHtml(r.exit_distance || '')}</td>
         <td>${escapeHtml(r.exit_location || '')}</td>

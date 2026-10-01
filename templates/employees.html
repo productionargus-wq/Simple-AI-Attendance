@@ -138,15 +138,23 @@
             <input type="text" class="form-input" id="inputName" name="employee_name" placeholder="Name" required>
           </div>
           <div class="form-group">
+            <label class="form-label">Department<span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputDepartment" name="department" placeholder="Department (e.g. Production, IT, HR)" required>
+          </div>
+          <div class="form-group">
             <label class="form-label">Designation<span class="required">*</span></label>
             <input type="text" class="form-input" id="inputDesignation" name="designation" placeholder="Type/Select Designation" required>
           </div>
+
+          <!-- Row 2: Contact & Salary Type -->
           <div class="form-group">
             <label class="form-label">Mobile Number<span class="required">*</span></label>
             <input type="text" class="form-input" id="inputMobile" name="mobile_number" placeholder="Number" required>
           </div>
-
-          <!-- Row 2: Salary Basis & Rates -->
+          <div class="form-group">
+            <label class="form-label">Email ID<span class="required">*</span></label>
+            <input type="email" class="form-input" id="inputEmail" name="email_id" placeholder="Email ID" required>
+          </div>
           <div class="form-group">
             <label class="form-label">Salary Basis / Type<span class="required">*</span></label>
             <select class="form-input" id="inputSalaryType" name="salary_type" required>
@@ -155,6 +163,8 @@
               <option value="half_day">Half-Day-Based</option>
             </select>
           </div>
+
+          <!-- Row 3: Salary Rates -->
           <div class="form-group">
             <label class="form-label">Day Salary<span class="required">*</span></label>
             <input type="number" step="0.01" class="form-input" id="inputDaySalary" name="day_salary" placeholder="Amount (e.g. 800)" required>
@@ -163,15 +173,29 @@
             <label class="form-label">Half Day Salary<span class="required">*</span></label>
             <input type="number" step="0.01" class="form-input" id="inputHalfDaySalary" name="half_day_salary" placeholder="Amount (e.g. 400)" required>
           </div>
-
-          <!-- Row 3: Hourly Salary & Contacts -->
           <div class="form-group">
             <label class="form-label">Hourly Salary<span class="required">*</span></label>
             <input type="number" step="0.01" class="form-input" id="inputHourlySalary" name="hourly_salary" placeholder="Amount (e.g. 100)" required>
           </div>
+
+          <!-- Row 4: Joining Date & Shift Details -->
           <div class="form-group">
-            <label class="form-label">Email ID</label>
-            <input type="email" class="form-input" id="inputEmail" name="email_id" placeholder="Email ID">
+            <label class="form-label">Joining Date</label>
+            <input type="date" class="form-input" id="inputJoiningDate" name="joining_date" placeholder="mm/dd/yyyy">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shift Start</label>
+            <input type="text" class="form-input" id="inputShiftStart" name="shift_start" placeholder="09:00 AM" value="09:00 AM">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shift End</label>
+            <input type="text" class="form-input" id="inputShiftEnd" name="shift_end" placeholder="06:00 PM" value="06:00 PM">
+          </div>
+
+          <!-- Row 5: Shift Hours & Identity -->
+          <div class="form-group">
+            <label class="form-label">Shift Hours</label>
+            <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="Example 09:00" value="09:00">
           </div>
           <div class="form-group">
             <label class="form-label">Aadhar Number</label>
@@ -182,21 +206,11 @@
             <input type="text" class="form-input" id="inputEmergency" name="emergency_contact" placeholder="Number">
           </div>
 
-          <!-- Row 4 -->
-          <div class="form-group">
-            <label class="form-label">Joining Date</label>
-            <input type="date" class="form-input" id="inputJoiningDate" name="joining_date" placeholder="mm/dd/yyyy">
-          </div>
+          <!-- Row 6: Banking Details -->
           <div class="form-group">
             <label class="form-label">Account Holder Name</label>
             <input type="text" class="form-input" id="inputAccountHolder" name="account_holder_name" placeholder="Account Holder Name">
           </div>
-          <div class="form-group">
-            <label class="form-label">UPI Number</label>
-            <input type="text" class="form-input" id="inputUpi" name="upi_number" placeholder="UPI Number">
-          </div>
-
-          <!-- Row 5 -->
           <div class="form-group">
             <label class="form-label">Bank Name</label>
             <input type="text" class="form-input" id="inputBankName" name="bank_name" placeholder="Bank Name">
@@ -205,23 +219,15 @@
             <label class="form-label">Account Number</label>
             <input type="text" class="form-input" id="inputAccountNumber" name="account_number" placeholder="Account Number">
           </div>
+
+          <!-- Row 7: Banking & UPI -->
           <div class="form-group">
             <label class="form-label">IFSC Code</label>
             <input type="text" class="form-input" id="inputIfsc" name="ifsc_code" placeholder="IFSC Code">
           </div>
-
-          <!-- Row 6: Shift Details -->
           <div class="form-group">
-            <label class="form-label">Shift Hours</label>
-            <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="Example 09:00" value="09:00">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Shift Start</label>
-            <input type="text" class="form-input" id="inputShiftStart" name="shift_start" placeholder="09:00 AM" value="09:00 AM">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Shift End</label>
-            <input type="text" class="form-input" id="inputShiftEnd" name="shift_end" placeholder="06:00 PM" value="06:00 PM">
+            <label class="form-label">UPI Number</label>
+            <input type="text" class="form-input" id="inputUpi" name="upi_number" placeholder="UPI Number">
           </div>
 
           <!-- Row 7: Register Face & Photo -->

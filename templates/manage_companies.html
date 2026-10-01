@@ -14,7 +14,7 @@
     </div>
     <div class="banner-text-group">
       <div class="banner-title">MANAGE COMPANIES</div>
-      <div class="banner-subtitle">Super Admin tenant organization and subscription management</div>
+      <div class="banner-subtitle">System Admin tenant organization and subscription management</div>
     </div>
   </div>
   <div class="banner-actions" style="display: flex; align-items: center; gap: 10px;">
@@ -31,7 +31,7 @@
         <line x1="12" y1="5" x2="12" y2="19"></line>
         <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
-      + Add Company
+      Add Company
     </button>
   </div>
 </div>
@@ -123,8 +123,8 @@
 
           <!-- Field 2: GSTIN Number -->
           <div class="form-group">
-            <label class="form-label">GSTIN Number <span class="required">*</span></label>
-            <input type="text" class="form-input" id="inputGstin" name="gstin" placeholder="15-digit GSTIN (e.g. 33AAAAA0000A1Z5)" required style="text-transform: uppercase;">
+            <label class="form-label">GSTIN Number</label>
+            <input type="text" class="form-input" id="inputGstin" name="gstin" placeholder="15-digit GSTIN (e.g. 33AAAAA0000A1Z5)" style="text-transform: uppercase;">
           </div>
 
           <!-- Field 3: Phone Number -->
@@ -161,14 +161,27 @@
             </button>
           </div>
 
-          <!-- Field 6: Employee Count (Limit) -->
+          <!-- Row: Employee Count & Shift-time Hours -->
           <div class="form-group">
             <label class="form-label">Employee Count <span class="required">*</span></label>
             <input type="number" class="form-input" id="inputEmployeeLimit" name="employee_limit" min="1" max="10000" placeholder="e.g. 25" required>
             <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Maximum allowed employees for this company.</span>
           </div>
 
-          <!-- Field 7: Status -->
+          <div class="form-group">
+            <label class="form-label">Shift-time Hours <span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="e.g. 08:00 or 8" value="08:00" required>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Daily total shift duration (e.g. 08:00).</span>
+          </div>
+
+          <!-- Row: Manual Registered Date -->
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label">Date <span class="required">*</span></label>
+            <input type="date" class="form-input" id="inputRegisteredDate" name="registered_date" required>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Date this company is registered in the application.</span>
+          </div>
+
+          <!-- Row: Company Status & Auto Email Reports -->
           <div class="form-group">
             <label class="form-label">Company Status</label>
             <select class="form-input" id="inputStatus" name="status">
@@ -177,15 +190,7 @@
             </select>
           </div>
 
-          <!-- Field 8: Shift-time Hours -->
           <div class="form-group">
-            <label class="form-label">Shift-time Hours <span class="required">*</span></label>
-            <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="e.g. 08:00 or 8" value="08:00" required>
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Daily total shift duration (e.g. 08:00).</span>
-          </div>
-
-          <!-- Field 9: Automated Email Reports -->
-          <div class="form-group" style="grid-column: span 2;">
             <label class="form-label">Auto Email Reports</label>
             <select class="form-input" id="inputAutoEmailReports" name="auto_email_reports">
               <option value="true" selected>Enabled (Send Emails)</option>

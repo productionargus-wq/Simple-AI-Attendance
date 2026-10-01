@@ -125,17 +125,12 @@
           </div>
           <h3 class="card-title-text">Last 7 Days Attendance</h3>
         </div>
-        <div class="card-filter-dropdown">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="16" y1="2" x2="16" y2="6"></line>
-            <line x1="8" y1="2" x2="8" y2="6"></line>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
-          </svg>
-          <span>Last 7 Days</span>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
+        <div class="card-filter-dropdown" style="padding: 2px 8px;">
+          <select id="filterTrendRange" style="background: transparent; border: none; font-size: 11px; font-weight: 700; color: #475569; outline: none; cursor: pointer;">
+            <option value="7" selected>Last 7 Days</option>
+            <option value="14">Last 14 Days</option>
+            <option value="30">Last 30 Days</option>
+          </select>
         </div>
       </div>
       <div class="chart-canvas-container">
@@ -157,17 +152,12 @@
           </div>
           <h3 class="card-title-text">Monthly Attendance</h3>
         </div>
-        <div class="card-filter-dropdown">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="16" y1="2" x2="16" y2="6"></line>
-            <line x1="8" y1="2" x2="8" y2="6"></line>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
-          </svg>
-          <span>This Month</span>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
+        <div class="card-filter-dropdown" style="padding: 2px 8px;">
+          <select id="filterMonthlyRange" style="background: transparent; border: none; font-size: 11px; font-weight: 700; color: #475569; outline: none; cursor: pointer;">
+            <option value="current" selected>This Month</option>
+            <option value="last3">Last 3 Months</option>
+            <option value="year">Full Year (12M)</option>
+          </select>
         </div>
       </div>
       <div class="chart-canvas-container">
@@ -205,7 +195,7 @@
               <th style="text-align: center;">Status</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="todayAttendanceTableBody">
             {% if stats.today_attendance and stats.today_attendance|length > 0 %}
               {% for row in stats.today_attendance[:6] %}
               <tr>
@@ -262,7 +252,7 @@
               <th style="text-align: center;">Timeout</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="deptSummaryTableBody">
             {% if stats.department_summary and stats.department_summary|length > 0 %}
               {% for dept in stats.department_summary %}
               <tr>
