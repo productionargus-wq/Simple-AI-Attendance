@@ -222,6 +222,11 @@ def init_db():
         except Exception as e:
             print(f"Master company seeding notice: {e}")
 
+    try:
+        sync_geofence_entry_types()
+    except Exception as e:
+        print(f"Geofence sync notice: {e}")
+
 # ----------------- UNIVERSAL COORDINATE PARSERS ----------------- #
 
 def parse_coordinate_value(val):
@@ -1385,6 +1390,48 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
 OFFICE_LAT = 11.02980
 OFFICE_LNG = 76.97400
 OFFICE_LOCATION_STR = "515, Rabindranath Tagore Rd, Poosaripalayam, Manikarampalayam, Ganapathy, Coimbatore, Tamil Nadu 641006, India"
+GEOFENCE_RADIUS_METERS = 200.0  # Proper entries <= 200 meters, Improper entries > 200 meters
+
+def parse_distance_meters_val(dist_str):
+    """Parse distance strings like 'OFFICE DISTANCE 23.5M' or '3.19KM' to float meters."""
+    if not dist_str:
+        return None
+    s = str(dist_str).strip()
+    if s in ['----', 'MANUAL ENTRY', '0.0M (AUTO TIMEOUT)', '']:
+        return None
+    m = re.search(r'([\d.]+)\s*(KM|M)', s, re.IGNORECASE)
+    if m:
+        try:
+            val = float(m.group(1))
+            unit = m.group(2).upper()
+            return (val * 1000.0) if unit == 'KM' else val
+        except Exception:
+            return None
+    return None
+
+def sync_geofence_entry_types():
+    """Synchronize attendance_reports entry_type to strictly match the 200-meter geofencing rule."""
+    try:
+        db = get_db()
+        for doc in db.attendance_reports.find({}):
+            e_dist = parse_distance_meters_val(doc.get('entry_distance'))
+            x_dist = parse_distance_meters_val(doc.get('exit_distance'))
+            
+            # If neither distance is recorded (e.g. legacy/mock records without distances), leave as-is
+            if e_dist is None and x_dist is None:
+                continue
+
+            is_outside = False
+            if e_dist is not None and e_dist > GEOFENCE_RADIUS_METERS:
+                is_outside = True
+            if x_dist is not None and x_dist > GEOFENCE_RADIUS_METERS:
+                is_outside = True
+
+            target_type = 'improper' if is_outside else 'proper'
+            if doc.get('entry_type') != target_type:
+                db.attendance_reports.update_one({'_id': doc['_id']}, {'$set': {'entry_type': target_type}})
+    except Exception as e:
+        print(f"Warning in sync_geofence_entry_types: {e}")
 
 def calculate_distance_meters(lat1, lon1, lat2=OFFICE_LAT, lon2=OFFICE_LNG):
     """Calculate distance in meters between two GPS coordinates using Haversine formula."""
@@ -1539,8 +1586,8 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     existing_rep = db.attendance_reports.find_one(report_filter, sort=[('created_at', DESCENDING)])
     
     if not existing_rep or (existing_rep.get('exit_time') and existing_rep.get('exit_time') != '----'):
-        # Geofencing threshold: 2000 meters (<= 2000m is proper, > 2000m is improper)
-        punch_in_entry_type = 'proper' if dist_meters <= 2000.0 else 'improper'
+        # Geofencing threshold: 200 meters (<= 200m is proper, > 200m is improper)
+        punch_in_entry_type = 'proper' if dist_meters <= GEOFENCE_RADIUS_METERS else 'improper'
         rep_doc = {
             'company_id': comp_id,
             'employee_id': str(employee_id),
@@ -1666,9 +1713,9 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         else:
             computed_salary = int(round((working_minutes / 60.0) * hourly_rate))
             
-        # Determine final entry_type: Proper only if BOTH punch-in and punch-out are <= 2000m
+        # Determine final entry_type: Proper only if BOTH punch-in and punch-out are <= 200m
         in_entry_type = existing_rep.get('entry_type', 'proper')
-        out_is_proper = (dist_meters <= 2000.0)
+        out_is_proper = (dist_meters <= GEOFENCE_RADIUS_METERS)
         final_entry_type = 'proper' if (in_entry_type == 'proper' and out_is_proper) else 'improper'
 
         upd_data = {

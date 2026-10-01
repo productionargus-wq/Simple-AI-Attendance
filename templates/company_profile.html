@@ -71,7 +71,7 @@
         <input type="email" class="form-input" id="profileEmail" name="email" required {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
       </div>
 
-      <!-- Phone Number -->
+      <!-- Contact Phone -->
       <div class="form-group">
         <label class="form-label" style="display: flex; justify-content: space-between;">
           <span>Contact Phone Number</span>
@@ -80,10 +80,19 @@
         <input type="text" class="form-input" id="profilePhone" name="phone" {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
       </div>
 
-      <!-- Shift Hours -->
+      <!-- Registered Date (Set by System Admin, Read-Only for Companies) -->
       <div class="form-group">
         <label class="form-label" style="display: flex; justify-content: space-between;">
-          <span>Standard Shift Time Hours</span>
+          <span>Company Registered Date</span>
+          <span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>
+        </label>
+        <input type="text" class="form-input" id="profileRegisteredDate" name="registered_date" readonly style="background-color: #f8fafc; cursor: not-allowed;" placeholder="e.g. 01/10/2026">
+      </div>
+
+      <!-- Shift Hours / Automatic Checkout Limit -->
+      <div class="form-group">
+        <label class="form-label" style="display: flex; justify-content: space-between;">
+          <span>Automatic Checkout Limit</span>
           {% if role == 'company_admin' %}<span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>{% endif %}
         </label>
         <input type="text" class="form-input" id="profileShiftHours" name="shift_hours" placeholder="08:00" {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
@@ -114,10 +123,10 @@
         {% endif %}
       </div>
 
-      <!-- Office Coordinates -->
+      <!-- Office Geolocation (Latitude, Longitude) -->
       <div class="form-group" style="grid-column: span 2;">
         <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
-          <span>Office Coordinates (Latitude, Longitude)</span>
+          <span>Office Geolocation (Latitude, Longitude)</span>
           <span id="profileCoordBadge" style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;"></span>
         </label>
         <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
@@ -239,6 +248,24 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('profileGstin').value = comp.gstin || '';
     document.getElementById('profileEmail').value = comp.email || '';
     document.getElementById('profilePhone').value = comp.phone || '';
+    
+    // Format and display Company Registered Date
+    const regDateInput = document.getElementById('profileRegisteredDate');
+    if (regDateInput) {
+      const rawDate = comp.registered_date || '';
+      let displayDate = '-';
+      if (rawDate) {
+        if (rawDate.includes('-')) {
+          const p = rawDate.split('T')[0].split('-');
+          if (p.length === 3) displayDate = `${p[2]}/${p[1]}/${p[0]}`;
+          else displayDate = rawDate;
+        } else {
+          displayDate = rawDate;
+        }
+      }
+      regDateInput.value = displayDate;
+    }
+
     document.getElementById('profileShiftHours').value = comp.shift_hours || '08:00';
     document.getElementById('profileEmployeeLimit').value = comp.employee_limit || comp.employee_count || 50;
     document.getElementById('profileStatus').value = comp.status || 'Active';

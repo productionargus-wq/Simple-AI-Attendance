@@ -46,15 +46,11 @@
             <span class="brand-subtitle">ATTENDANCE</span>
           </div>
         </div>
+        {% if session.get('role') == 'super_admin' %}
         <div class="admin-subtitle">
-          {% if session.get('role') == 'super_admin' %}
-            SYSTEM ADMINISTRATION
-          {% elif session.get('company_name') %}
-            {{ session.get('company_name') | upper }}
-          {% else %}
-            SYSTEM ADMINISTRATION
-          {% endif %}
+          SYSTEM ADMINISTRATION
         </div>
+        {% endif %}
       </div>
       
       <nav class="sidebar-nav">

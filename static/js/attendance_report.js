@@ -61,8 +61,8 @@ document.addEventListener('DOMContentLoaded', function () {
   // Subtitle dictionary
   const subtitles = {
     'all': 'Displays all attendance records, including Proper, Improper, and Manual entries.',
-    'proper': 'Displays valid attendance records where working hours are within 13 hours 30 minutes and location distance is within 2000 meters.',
-    'improper': 'Displays attendance records where working hours exceed 13 hours 30 minutes or location distance is greater than 2000 meters.',
+    'proper': 'Displays valid attendance records where location distance is within 200 meters of the configured office geolocation.',
+    'improper': 'Displays attendance records where location distance exceeds 200 meters from the configured office geolocation.',
     'manual': 'Displays attendance records that were entered manually by the administrator.',
     'simple': 'Displays attendance records that were entered manually by the administrator.'
   };
