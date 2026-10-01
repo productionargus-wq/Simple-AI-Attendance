@@ -83,8 +83,7 @@ document.addEventListener('DOMContentLoaded', function () {
     'proper': btnProperEntries,
     'improper': btnImproperEntries,
     'manual': btnManualEntries,
-    'compact': btnCompactView,
-    'simple': btnCompactView
+    'compact': btnCompactView
   };
 
   // Populate employee dropdowns
@@ -117,17 +116,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Set View
   function switchView(view) {
-    currentView = view;
+    const canonicalView = (view === 'simple') ? 'compact' : view;
+    currentView = canonicalView;
     currentPage = 1;
 
-    pageTitle.textContent = titles[view] || 'ALL ENTRIES';
-    reportSubtitle.textContent = subtitles[view] || '';
+    if (pageTitle) pageTitle.textContent = titles[canonicalView] || titles['compact'] || 'ALL ENTRIES';
+    if (reportSubtitle) reportSubtitle.textContent = subtitles[canonicalView] || subtitles['compact'] || '';
 
     // Update active button classes
     Object.keys(toggleButtons).forEach(key => {
       const btn = toggleButtons[key];
       if (btn) {
-        if (key === view) {
+        if (key === canonicalView) {
           btn.className = 'btn-toggle-tab active';
         } else {
           btn.className = 'btn-toggle-tab inactive';
@@ -135,16 +135,16 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
 
-    if (view === 'compact' || view === 'simple') {
-      standardTableContainer.style.display = 'none';
-      simpleTableContainer.style.display = 'block';
+    if (canonicalView === 'compact') {
+      if (standardTableContainer) standardTableContainer.style.display = 'none';
+      if (simpleTableContainer) simpleTableContainer.style.display = 'block';
       if (simpleEmployeeSelect && employeeFilterInput && employeeFilterInput.value && employeeFilterInput.value !== 'All') {
         simpleEmployeeSelect.value = employeeFilterInput.value;
       }
       loadSimpleTable();
     } else {
-      simpleTableContainer.style.display = 'none';
-      standardTableContainer.style.display = 'block';
+      if (simpleTableContainer) simpleTableContainer.style.display = 'none';
+      if (standardTableContainer) standardTableContainer.style.display = 'block';
       loadStandardTable();
     }
   }
