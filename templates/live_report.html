@@ -11,7 +11,7 @@
     </div>
     <div class="banner-text-group">
       <div class="banner-title" id="pageTitle">LIVE ENTRIES</div>
-      <div class="banner-subtitle" id="reportSubtitle">Displays employees currently working in the company.</div>
+      <div class="banner-subtitle" id="reportSubtitle">Displays employees who are punched-in and currently working.</div>
     </div>
   </div>
   <div class="tab-toggle-container">
@@ -95,7 +95,7 @@
       <thead>
         <tr>
           <th data-col="employee_name">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
-          <th data-col="entry_time">ENTRY TIME <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_time" id="colTimeHeader">ENTRY TIME <span class="sort-icon">⇅</span></th>
           <th data-col="site_name">SITE NAME <span class="sort-icon">⇅</span></th>
           <th data-col="entry_location">ENTRY LOCATION <span class="sort-icon">⇅</span></th>
           <th data-col="entry_distance">ENTRY DISTANCE <span class="sort-icon">⇅</span></th>
@@ -118,5 +118,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/live_report.js') }}"></script>
+<script src="{{ url_for('static', filename='js/live_report.js') }}?v=2.1"></script>
 {% endblock %}

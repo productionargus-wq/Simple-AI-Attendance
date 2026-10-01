@@ -108,7 +108,7 @@ def migrate_existing_data_to_master():
         db = get_db()
         if db.system_flags.find_one({'name': 'master_migration_done'}):
             return
-        collections = ['employees', 'live_entries', 'attendance_reports', 'attendance', 'manual_entries', 'payments', 'advances', 'salary_reports']
+        collections = ['employees', 'live_entries', 'timeout_entries', 'attendance_reports', 'attendance', 'manual_entries', 'payments', 'advances', 'salary_reports']
         for coll_name in collections:
             coll = db[coll_name]
             coll.update_many(
@@ -153,6 +153,8 @@ def init_db():
         db.attendance_reports.create_index([("company_id", ASCENDING), ("date", DESCENDING)])
         db.attendance_reports.create_index([("company_id", ASCENDING), ("entry_type", ASCENDING), ("employee_name", ASCENDING)])
         db.live_entries.create_index([("company_id", ASCENDING), ("entry_time", DESCENDING)])
+        db.timeout_entries.create_index([("company_id", ASCENDING), ("exit_time", DESCENDING), ("created_at", DESCENDING)])
+        db.timeout_entries.create_index([("company_id", ASCENDING), ("employee_name", ASCENDING)])
         db.attendance.create_index([("company_id", ASCENDING), ("date", DESCENDING)])
         db.manual_entries.create_index([("company_id", ASCENDING), ("entry_date", DESCENDING)])
         db.payments.create_index([("company_id", ASCENDING), ("payment_date", DESCENDING), ("reason", ASCENDING)])
@@ -226,6 +228,11 @@ def init_db():
         sync_geofence_entry_types()
     except Exception as e:
         print(f"Geofence sync notice: {e}")
+
+    try:
+        sync_live_and_timeout_entries()
+    except Exception as e:
+        print(f"Live and timeout entries sync notice: {e}")
 
 # ----------------- UNIVERSAL COORDINATE PARSERS ----------------- #
 
@@ -951,7 +958,8 @@ def get_dashboard_stats(company_id=None):
     ]
     manual_docs = {m['employee_name']: m for m in db.manual_entries.find(m_filter)}
     
-    combined_present = set(att_docs.keys()).union(set(ar_docs.keys())).union(set(live_docs.keys())).union(set(manual_docs.keys()))
+    timeout_today = {t['employee_name']: t for t in db.timeout_entries.find({**t_filter, '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]})}
+    combined_present = set(att_docs.keys()).union(set(ar_docs.keys())).union(set(live_docs.keys())).union(set(manual_docs.keys())).union(set(timeout_today.keys()))
     present_count = len(combined_present)
     absent_count = max(0, total_employees - present_count)
     present_percentage = round((present_count / total_employees * 100), 1) if total_employees > 0 else 0.0
@@ -959,7 +967,7 @@ def get_dashboard_stats(company_id=None):
     
     tout_filter = dict(t_filter)
     tout_filter['is_timeout'] = 1
-    timeout_count = db.live_entries.count_documents(tout_filter)
+    timeout_count = db.timeout_entries.count_documents(dict(t_filter)) + db.live_entries.count_documents(tout_filter)
     timeout_percentage = round((timeout_count / total_employees * 100), 1) if total_employees > 0 else 0.0
     
     # Last 7 days dynamic calculation in BATCH queries (replaces 35 individual network calls)
@@ -1009,6 +1017,17 @@ def get_dashboard_stats(company_id=None):
                     info['present'].add(ename)
                 if l.get('is_timeout') == 1:
                     info['timeouts'] += 1
+                break
+
+    timeout_7d = list(db.timeout_entries.find({**t_filter, '$or': [{'entry_time': {'$regex': slash_pattern}}, {'exit_time': {'$regex': slash_pattern}}]}, {'employee_name': 1, 'entry_time': 1, 'exit_time': 1}))
+    for t_doc in timeout_7d:
+        et = t_doc.get('exit_time') or t_doc.get('entry_time', '')
+        ename = t_doc.get('employee_name')
+        for dt, info in day_map.items():
+            if info['slash'] in et:
+                if ename:
+                    info['present'].add(ename)
+                info['timeouts'] += 1
                 break
 
     last_7_days = []
@@ -1324,24 +1343,44 @@ def process_company_timeout_entries(company_id=None):
                 }}
             )
             
+            # Store in timeout_entries
             timeout_filter = {
                 'company_id': str(cid),
                 'employee_name': emp_name,
-                'is_timeout': 1,
-                'entry_time': auto_exit_str
+                'exit_time': auto_exit_str
             }
-            if not db.live_entries.find_one(timeout_filter):
-                db.live_entries.insert_one({
+            if not db.timeout_entries.find_one(timeout_filter):
+                active_live = db.live_entries.find_one({
+                    'company_id': str(cid),
+                    'employee_name': emp_name
+                }, sort=[('created_at', DESCENDING)])
+
+                entry_t = active_live.get('entry_time', entry_time_str) if active_live else entry_time_str
+                entry_l = active_live.get('entry_location', 'OFFICE') if active_live else 'OFFICE'
+                entry_d = active_live.get('entry_distance', 0.0) if active_live else 0.0
+
+                db.timeout_entries.insert_one({
                     'company_id': str(cid),
                     'employee_id': rep.get('employee_id', ''),
                     'employee_name': emp_name,
-                    'entry_time': auto_exit_str,
+                    'entry_time': entry_t,
+                    'exit_time': auto_exit_str,
+                    'working_hours': working_hours_str,
                     'site_name': 'OFFICE (AUTO TIMEOUT)',
-                    'entry_location': f"Auto Punch-Out based on Company Shift ({shift_str})",
-                    'entry_distance': 0.0,
+                    'entry_location': entry_l,
+                    'exit_location': f"Auto Punch-Out based on Company Shift ({shift_str})",
+                    'entry_distance': entry_d,
+                    'exit_distance': '0.0M (AUTO TIMEOUT)',
+                    'formatted_distance': '0.0M (AUTO TIMEOUT)',
                     'is_timeout': 1,
                     'created_at': now.isoformat()
                 })
+
+            # Remove from live_entries
+            db.live_entries.delete_many({
+                'company_id': str(cid),
+                'employee_name': emp_name
+            })
             auto_count += 1
             
     return auto_count
@@ -1354,18 +1393,17 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
         
-    if tab == 'timeout':
-        query['is_timeout'] = 1
-    else:
-        query['is_timeout'] = 0
-        
+    target_coll = db.timeout_entries if tab == 'timeout' else db.live_entries
+
     if search:
         reg = {'$regex': re.escape(search), '$options': 'i'}
         query['$or'] = [
             {'employee_name': reg},
             {'site_name': reg},
             {'entry_location': reg},
-            {'entry_time': reg}
+            {'exit_location': reg},
+            {'entry_time': reg},
+            {'exit_time': reg}
         ]
         
     if start_date:
@@ -1373,7 +1411,8 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
         query.setdefault('$and', []).append({
             '$or': [
                 {'created_at': {'$gte': s_date}},
-                {'entry_time': {'$gte': s_date}}
+                {'entry_time': {'$gte': s_date}},
+                {'exit_time': {'$gte': s_date}}
             ]
         })
     if end_date:
@@ -1381,12 +1420,13 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
         query.setdefault('$and', []).append({
             '$or': [
                 {'created_at': {'$lte': e_date + 'T23:59:59'}},
-                {'entry_time': {'$lte': e_date + ' 23:59:59'}}
+                {'entry_time': {'$lte': e_date + ' 23:59:59'}},
+                {'exit_time': {'$lte': e_date + ' 23:59:59'}}
             ]
         })
         
-    total = db.live_entries.count_documents(query)
-    cursor = db.live_entries.find(query).sort([("created_at", DESCENDING), ("_id", DESCENDING)])
+    total = target_coll.count_documents(query)
+    cursor = target_coll.find(query).sort([("created_at", DESCENDING), ("_id", DESCENDING)])
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
@@ -1444,6 +1484,59 @@ def sync_geofence_entry_types():
                 db.attendance_reports.update_one({'_id': doc['_id']}, {'$set': {'entry_type': target_type}})
     except Exception as e:
         print(f"Warning in sync_geofence_entry_types: {e}")
+
+def sync_live_and_timeout_entries():
+    """
+    Ensures db.live_entries contains ONLY active punched-in employees currently on duty.
+    If an employee has already punched out today (or previously),
+    moves their completed session into db.timeout_entries and removes them from db.live_entries.
+    """
+    try:
+        db = get_db()
+        live_list = list(db.live_entries.find({}))
+        for entry in live_list:
+            emp_name = entry.get('employee_name')
+            cid = entry.get('company_id', 'ARGUS_MASTER')
+            entry_t = entry.get('entry_time', '')
+            
+            # Check if there is an attendance_report where exit_time != '----' for this employee
+            rep = db.attendance_reports.find_one({
+                'employee_name': emp_name,
+                'company_id': cid,
+                'exit_time': {'$exists': True, '$ne': '----'}
+            }, sort=[('created_at', DESCENDING)])
+            
+            if entry.get('is_timeout') == 1 or rep:
+                exit_t = rep.get('exit_time') if rep else entry.get('entry_time')
+                w_hrs = rep.get('working_hours', '00:00') if rep else '00:00'
+                exit_loc = rep.get('exit_location') if rep else entry.get('entry_location')
+                exit_dist = rep.get('exit_distance') if rep else entry.get('formatted_distance')
+                site_n = 'OFFICE (PUNCH OUT)'
+                if rep and rep.get('is_timeout') == 1:
+                    site_n = 'OFFICE (AUTO TIMEOUT)'
+                
+                # Insert into timeout_entries if not already there
+                if not db.timeout_entries.find_one({'company_id': cid, 'employee_name': emp_name, 'exit_time': exit_t}):
+                    db.timeout_entries.insert_one({
+                        'company_id': cid,
+                        'employee_id': entry.get('employee_id', ''),
+                        'employee_name': emp_name,
+                        'entry_time': entry_t,
+                        'exit_time': exit_t,
+                        'working_hours': w_hrs,
+                        'site_name': site_n,
+                        'entry_location': entry.get('entry_location', 'OFFICE'),
+                        'exit_location': exit_loc,
+                        'entry_distance': entry.get('entry_distance', 0.0),
+                        'exit_distance': exit_dist,
+                        'formatted_distance': exit_dist or entry.get('formatted_distance', ''),
+                        'is_timeout': 1,
+                        'created_at': entry.get('created_at', get_ist_now().isoformat())
+                    })
+                # Remove from live_entries
+                db.live_entries.delete_one({'_id': entry['_id']})
+    except Exception as e:
+        print(f"Warning syncing live and timeout entries: {e}")
 
 def calculate_distance_meters(lat1, lon1, lat2=OFFICE_LAT, lon2=OFFICE_LNG):
     """Calculate distance in meters between two GPS coordinates using Haversine formula."""
@@ -1565,20 +1658,6 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     dist_meters = calculate_realistic_proximity(user_lat, user_lng, target_lat, target_lng)
     formatted_dist = format_office_distance(dist_meters)
     
-    # 1. Create Live Entry
-    live_id = add_live_entry(
-        employee_id=employee_id,
-        employee_name=employee_name,
-        entry_time=now_time_12,
-        site_name='OFFICE',
-        entry_location=loc_str,
-        entry_distance=dist_meters,
-        is_timeout=0,
-        user_lat=user_lat,
-        user_lng=user_lng,
-        company_id=comp_id
-    )
-    
     salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
     hourly_rate = float(emp.get('hourly_salary', 0.0)) if emp else 100.0
     day_rate = float(emp.get('day_salary', 0.0)) if emp else (hourly_rate * 8.0)
@@ -1598,6 +1677,21 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     existing_rep = db.attendance_reports.find_one(report_filter, sort=[('created_at', DESCENDING)])
     
     if not existing_rep or (existing_rep.get('exit_time') and existing_rep.get('exit_time') != '----'):
+        # PUNCH IN:
+        # Create active Live Entry (Currently working)
+        live_id = add_live_entry(
+            employee_id=employee_id,
+            employee_name=employee_name,
+            entry_time=now_time_12,
+            site_name='OFFICE',
+            entry_location=loc_str,
+            entry_distance=dist_meters,
+            is_timeout=0,
+            user_lat=user_lat,
+            user_lng=user_lng,
+            company_id=comp_id
+        )
+
         # Geofencing threshold: 200 meters (<= 200m is proper, > 200m is improper)
         punch_in_entry_type = 'proper' if dist_meters <= GEOFENCE_RADIUS_METERS else 'improper'
         rep_doc = {
@@ -1744,6 +1838,43 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         }
         db.attendance_reports.update_one({'_id': existing_rep['_id']}, {'$set': upd_data})
         
+        # PUNCH OUT:
+        # 1. Fetch employee's active live entry if present
+        active_live = db.live_entries.find_one({
+            'employee_name': employee_name,
+            'company_id': comp_id
+        }, sort=[('created_at', DESCENDING)])
+        
+        entry_time_val = active_live.get('entry_time', entry_time_str) if active_live else entry_time_str
+        entry_loc_val = active_live.get('entry_location', loc_str) if active_live else loc_str
+        entry_dist_val = active_live.get('entry_distance', dist_meters) if active_live else dist_meters
+
+        # 2. Store in timeout_entries
+        timeout_doc = {
+            'company_id': comp_id,
+            'employee_id': str(employee_id),
+            'employee_name': employee_name,
+            'entry_time': entry_time_val,
+            'exit_time': now_time_12,
+            'working_hours': working_hours_str,
+            'site_name': 'OFFICE (PUNCH OUT)',
+            'entry_location': entry_loc_val,
+            'exit_location': loc_str,
+            'entry_distance': entry_dist_val,
+            'exit_distance': formatted_dist,
+            'formatted_distance': formatted_dist,
+            'is_timeout': 1,
+            'created_at': now.isoformat()
+        }
+        timeout_res = db.timeout_entries.insert_one(timeout_doc)
+        timeout_id = str(timeout_res.inserted_id)
+
+        # 3. REMOVE from live_entries (punched-out employee is no longer currently working)
+        db.live_entries.delete_many({
+            'employee_name': employee_name,
+            'company_id': comp_id
+        })
+
         # Update db.attendance
         db.attendance.update_one(
             {'company_id': comp_id, 'employee_name': employee_name, 'date': today_date},
@@ -1751,7 +1882,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             upsert=True
         )
         invalidate_dashboard_cache(comp_id)
-        return {'status': 'punch_out', 'live_id': live_id, 'formatted_dist': formatted_dist, 'working_hours': working_hours_str}
+        return {'status': 'punch_out', 'live_id': timeout_id, 'formatted_dist': formatted_dist, 'working_hours': working_hours_str}
 
 # ----------------- ATTENDANCE REPORTS ----------------- #
 

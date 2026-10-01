@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const reportSubtitle = document.getElementById('reportSubtitle');
   const btnLiveEntries = document.getElementById('btnLiveEntries');
   const btnTimeoutEntries = document.getElementById('btnTimeoutEntries');
+  const colTimeHeader = document.getElementById('colTimeHeader');
   
   const startDateInput = document.getElementById('startDate');
   const endDateInput = document.getElementById('endDate');
@@ -43,14 +44,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (currentType === 'live') {
       pageTitle.textContent = 'LIVE ENTRIES';
-      reportSubtitle.textContent = 'Displays employees currently working in the company.';
+      reportSubtitle.textContent = 'Displays employees who are punched-in and currently working.';
       btnLiveEntries.className = 'btn-toggle-tab active';
       btnTimeoutEntries.className = 'btn-toggle-tab inactive';
+      if (colTimeHeader) {
+        colTimeHeader.innerHTML = 'ENTRY TIME <span class="sort-icon">⇅</span>';
+      }
     } else {
       pageTitle.textContent = 'TIMEOUT ENTRIES';
-      reportSubtitle.textContent = 'Displays employees whose punch-out was automatically recorded according to company shift hours.';
+      reportSubtitle.textContent = 'Displays employees who have punched out (manual punch-out and automatic checkout).';
       btnTimeoutEntries.className = 'btn-toggle-tab active';
       btnLiveEntries.className = 'btn-toggle-tab inactive';
+      if (colTimeHeader) {
+        colTimeHeader.innerHTML = 'EXIT TIME <span class="sort-icon">⇅</span>';
+      }
     }
 
     loadEntries();
@@ -103,11 +110,21 @@ document.addEventListener('DOMContentLoaded', function () {
         const dNum = parseFloat(entry.entry_distance || 0);
         distStr = dNum >= 1000 ? `OFFICE DISTANCE ${(dNum / 1000).toFixed(2)}KM` : `OFFICE DISTANCE ${dNum.toFixed(1)}M`;
       }
+
+      const timeDisplay = (currentType === 'timeout' && entry.exit_time) ? entry.exit_time : (entry.entry_time || '----');
+
+      let siteBadge = escapeHtml(entry.site_name || '----');
+      if (entry.site_name && entry.site_name.includes('PUNCH OUT')) {
+        siteBadge = `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px;">${escapeHtml(entry.site_name)}</span>`;
+      } else if (entry.site_name && entry.site_name.includes('AUTO TIMEOUT')) {
+        siteBadge = `<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px;">${escapeHtml(entry.site_name)}</span>`;
+      }
+
       tr.innerHTML = `
-        <td>${escapeHtml(entry.employee_name)}</td>
-        <td>${escapeHtml(entry.entry_time)}</td>
-        <td>${escapeHtml(entry.site_name)}</td>
-        <td>${escapeHtml(entry.entry_location)}</td>
+        <td><strong>${escapeHtml(entry.employee_name)}</strong></td>
+        <td>${escapeHtml(timeDisplay)}</td>
+        <td>${siteBadge}</td>
+        <td>${escapeHtml(entry.entry_location || '----')}</td>
         <td>${escapeHtml(distStr)}</td>
       `;
       tableBody.appendChild(tr);

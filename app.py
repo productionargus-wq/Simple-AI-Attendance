@@ -1245,14 +1245,17 @@ def api_export_excel():
     
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['EMPLOYEE NAME', 'ENTRY TIME', 'SITE NAME', 'ENTRY LOCATION', 'ENTRY DISTANCE'])
+    time_header = 'EXIT TIME' if entry_type == 'timeout' else 'ENTRY TIME'
+    writer.writerow(['EMPLOYEE NAME', time_header, 'SITE NAME', 'ENTRY LOCATION', 'ENTRY DISTANCE'])
     for r in result.get('data', []):
+        time_val = (r.get('exit_time') if entry_type == 'timeout' and r.get('exit_time') else r.get('entry_time', '')) or '----'
+        dist_val = r.get('formatted_distance') or (f"OFFICE DISTANCE {r.get('entry_distance', 0)}M" if r.get('entry_distance') is not None else '----')
         writer.writerow([
             r.get('employee_name', ''),
-            r.get('entry_time', ''),
+            time_val,
             r.get('site_name', '----') or '----',
             r.get('entry_location', '----') or '----',
-            r.get('entry_distance', '----') or '----'
+            dist_val
         ])
         
     output.seek(0)

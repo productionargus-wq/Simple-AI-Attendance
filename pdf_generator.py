@@ -424,10 +424,11 @@ def generate_live_report_pdf(title, entries, company_info=None):
     build_pdf_header(elements, company_info=company_info, title=title)
 
     
+    time_col_title = "EXIT TIME" if "timeout" in (title or '').lower() else "ENTRY TIME"
     table_data = [
         [
             Paragraph("EMPLOYEE NAME", header_style),
-            Paragraph("ENTRY TIME", header_style),
+            Paragraph(time_col_title, header_style),
             Paragraph("SITE NAME", header_style),
             Paragraph("ENTRY LOCATION", header_style),
             Paragraph("ENTRY DISTANCE", header_style)
@@ -435,12 +436,14 @@ def generate_live_report_pdf(title, entries, company_info=None):
     ]
     
     for row in entries:
+        t_val = row.get('exit_time') if "timeout" in (title or '').lower() and row.get('exit_time') else row.get('entry_time', '')
+        d_val = row.get('formatted_distance') or str(row.get('entry_distance', '0'))
         table_data.append([
             Paragraph(str(row.get('employee_name', '')), cell_style),
-            Paragraph(str(row.get('entry_time', '')), cell_style),
+            Paragraph(str(t_val), cell_style),
             Paragraph(str(row.get('site_name', '')), cell_style),
             Paragraph(str(row.get('entry_location', '')), cell_style),
-            Paragraph(str(row.get('entry_distance', '0')), cell_style)
+            Paragraph(str(d_val), cell_style)
         ])
         
     if len(table_data) == 1:
