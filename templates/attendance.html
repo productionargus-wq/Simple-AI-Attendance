@@ -65,6 +65,8 @@
       align-items: center;
       gap: 12px;
       text-decoration: none;
+      flex-shrink: 0;
+      min-width: 0;
     }
 
     .nav-logo-badge {
@@ -93,12 +95,16 @@
       color: #ffffff;
       letter-spacing: 0.8px;
       text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .nav-links {
       display: flex;
       align-items: center;
       gap: 12px;
+      flex-shrink: 0;
     }
 
     .nav-btn {
@@ -115,6 +121,7 @@
       border: 1px solid rgba(255, 255, 255, 0.12);
       transition: all 0.2s ease;
       white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .nav-btn:hover {
@@ -528,6 +535,23 @@
     }
 
     /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .navbar {
+        padding: 0 16px;
+      }
+      .nav-label-desktop {
+        display: none !important;
+      }
+      .nav-label-mobile {
+        display: inline !important;
+      }
+      .nav-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+        gap: 5px;
+      }
+    }
+
     @media (max-width: 640px) {
       .navbar {
         padding: 0 10px;
@@ -542,6 +566,7 @@
       .nav-brand {
         gap: 6px;
         min-width: 0;
+        flex-shrink: 0;
       }
       .nav-logo-badge {
         width: 28px;
@@ -554,11 +579,15 @@
         font-size: 13px;
         white-space: nowrap;
       }
+      .nav-title-attendance {
+        display: none !important;
+      }
       .nav-links {
         width: auto;
         justify-content: flex-end;
         gap: 5px;
         flex-wrap: nowrap;
+        flex-shrink: 0;
       }
       .nav-label-desktop {
         display: none !important;
@@ -571,6 +600,7 @@
         font-size: 11px;
         gap: 4px;
         white-space: nowrap;
+        flex-shrink: 0;
       }
       .nav-btn svg {
         width: 13px;
@@ -594,18 +624,36 @@
       }
     }
 
-    @media (max-width: 420px) {
+    @media (max-width: 380px) {
+      .navbar {
+        padding: 0 6px;
+        gap: 4px;
+      }
+      .nav-brand {
+        gap: 4px;
+      }
+      .nav-logo-badge {
+        width: 26px;
+        height: 26px;
+      }
+      .nav-logo-badge img {
+        width: 16px;
+      }
       .nav-title {
         font-size: 11.5px;
         letter-spacing: 0.2px;
+      }
+      .nav-links {
+        gap: 4px;
       }
       .nav-btn {
         padding: 5px 6px;
         font-size: 10px;
         gap: 3px;
       }
-      .navbar {
-        padding: 0 6px;
+      .nav-btn svg {
+        width: 12px;
+        height: 12px;
       }
       .header-date {
         font-size: 19px;
@@ -629,7 +677,7 @@
       <div class="nav-logo-badge">
         <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="Argus" style="width: 24px; height: 24px; object-fit: contain;">
       </div>
-      <div class="nav-title">ARGUS ATTENDANCE</div>
+      <div class="nav-title"><span>ARGUS</span><span class="nav-title-attendance"> ATTENDANCE</span></div>
     </a>
 
     <!-- Right Navigation (Direct Links - NO Dropdown carets) -->
