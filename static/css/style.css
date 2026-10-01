@@ -697,7 +697,8 @@ body.sidebar-collapsed .app-footer {
 .employee-table {
   min-width: 880px;
   width: 100%;
-  border-collapse: collapse !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
   empty-cells: show !important;
   font-size: 11px;
   text-align: left;
@@ -747,6 +748,7 @@ body.sidebar-collapsed .app-footer {
   font-weight: 700;
   padding: 9px 10px;
   border-top: none !important;
+  border-left: none !important;
   border-bottom: 2px solid #cbd5e1 !important;
   border-right: 1px solid #e2e8f0 !important;
   white-space: nowrap !important;
@@ -774,6 +776,8 @@ body.sidebar-collapsed .app-footer {
 .employee-table td {
   display: table-cell !important;
   padding: 8px 10px;
+  border-top: none !important;
+  border-left: none !important;
   border-bottom: 1px solid #e2e8f0 !important;
   border-right: 1px solid #e2e8f0 !important;
   color: #334155;
@@ -795,6 +799,8 @@ body.sidebar-collapsed .app-footer {
   display: table-cell !important;
   background-color: #f1f5f9 !important;
   padding: 4px 6px !important;
+  border-top: none !important;
+  border-left: none !important;
   border-bottom: 2px solid #cbd5e1 !important;
   border-right: 1px solid #e2e8f0 !important;
   height: 36px !important;
@@ -850,7 +856,8 @@ body.sidebar-collapsed .app-footer {
 #companyDataTable {
   min-width: 1360px;
   width: 100%;
-  border-collapse: collapse !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
   table-layout: auto;
   border: 1px solid #e2e8f0;
 }
@@ -870,6 +877,7 @@ body.sidebar-collapsed .app-footer {
   letter-spacing: 0.5px;
   padding: 10px 12px;
   border-top: none !important;
+  border-left: none !important;
   border-bottom: 2px solid #cbd5e1 !important;
   border-right: 1px solid #e2e8f0 !important;
   white-space: nowrap !important;
@@ -886,6 +894,8 @@ body.sidebar-collapsed .app-footer {
   display: table-cell !important;
   padding: 10px 12px;
   vertical-align: middle !important;
+  border-top: none !important;
+  border-left: none !important;
   border-bottom: 1px solid #e2e8f0 !important;
   border-right: 1px solid #e2e8f0 !important;
   font-size: 12px;
