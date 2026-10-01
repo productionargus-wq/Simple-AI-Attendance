@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', function () {
   let currentSortCol = 'id';
   let currentSortDir = 'desc';
   let currentViewingEmpId = null;
+  let currentCapturedBlob = null;
 
   // DOM Elements
   const tableBody = document.getElementById('employeeTableBody');
@@ -323,6 +324,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function openAddEntryModal() {
     employeeForm.reset();
+    currentCapturedBlob = null;
     document.getElementById('formEmployeeId').value = '';
     document.getElementById('entryModalTitle').textContent = 'Employee Detail Entry';
     document.getElementById('inputSalaryType').value = 'daily';
@@ -496,11 +498,45 @@ document.addEventListener('DOMContentLoaded', function () {
   if (employeeForm) {
     employeeForm.addEventListener('submit', async function (e) {
       e.preventDefault();
-      const empId = document.getElementById('formEmployeeId').value;
+
+      // Ensure salary rates are calculated even if user only entered one
+      const hourlyVal = inputHourly ? (parseFloat(inputHourly.value) || 0) : 0;
+      const dayVal = inputDay ? (parseFloat(inputDay.value) || 0) : 0;
+      const halfVal = inputHalfDay ? (parseFloat(inputHalfDay.value) || 0) : 0;
+      const dur = getShiftDuration();
+
+      if (dayVal > 0) {
+        if (hourlyVal <= 0 && inputHourly) inputHourly.value = (dayVal / dur).toFixed(2);
+        if (halfVal <= 0 && inputHalfDay) inputHalfDay.value = (dayVal / 2).toFixed(2);
+      } else if (hourlyVal > 0) {
+        if (inputDay) inputDay.value = (hourlyVal * dur).toFixed(2);
+        if (inputHalfDay) inputHalfDay.value = ((hourlyVal * dur) / 2).toFixed(2);
+      } else if (halfVal > 0) {
+        if (inputDay) inputDay.value = (halfVal * 2).toFixed(2);
+        if (inputHourly) inputHourly.value = ((halfVal * 2) / dur).toFixed(2);
+      } else {
+        if (inputDay && !inputDay.value) inputDay.value = '0.00';
+        if (inputHalfDay && !inputHalfDay.value) inputHalfDay.value = '0.00';
+        if (inputHourly && !inputHourly.value) inputHourly.value = '0.00';
+      }
+
+      const empId = document.getElementById('formEmployeeId').value.trim();
       const formData = new FormData(employeeForm);
+
+      // Attach webcam captured photo if DataTransfer wasn't available
+      if (currentCapturedBlob && (!inputPhoto || !inputPhoto.files || inputPhoto.files.length === 0)) {
+        formData.set('photo', currentCapturedBlob, 'face_capture.jpg');
+      }
 
       const url = empId ? `/api/employees/${empId}` : '/api/employees';
       const method = 'POST';
+
+      const btnSubmitForm = document.getElementById('btnSubmitForm');
+      const origText = btnSubmitForm ? btnSubmitForm.textContent : 'Submit';
+      if (btnSubmitForm) {
+        btnSubmitForm.disabled = true;
+        btnSubmitForm.textContent = 'Saving...';
+      }
 
       try {
         const res = await fetch(url, {
@@ -511,12 +547,19 @@ document.addEventListener('DOMContentLoaded', function () {
         const data = await res.json();
         if (res.ok && data.success) {
           entryModal.classList.remove('active');
+          currentCapturedBlob = null;
+          alert(empId ? 'Employee updated successfully!' : 'Employee created successfully!');
           loadEmployees();
         } else {
           alert(data.error || 'Failed to save employee');
         }
       } catch (err) {
         alert('Error saving employee: ' + err.message);
+      } finally {
+        if (btnSubmitForm) {
+          btnSubmitForm.disabled = false;
+          btnSubmitForm.textContent = origText;
+        }
       }
     });
   }
@@ -852,10 +895,15 @@ document.addEventListener('DOMContentLoaded', function () {
       ctx.drawImage(faceRegVideo, 0, 0, faceRegCanvas.width, faceRegCanvas.height);
 
       faceRegCanvas.toBlob(function (blob) {
-        const file = new File([blob], 'face_capture.jpg', { type: 'image/jpeg' });
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        inputPhoto.files = dt.files;
+        currentCapturedBlob = blob;
+        try {
+          const file = new File([blob], 'face_capture.jpg', { type: 'image/jpeg' });
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          inputPhoto.files = dt.files;
+        } catch (err) {
+          console.warn('DataTransfer fallback used for photo upload:', err);
+        }
 
         if (captureStatus) {
           captureStatus.textContent = '✓ Face photo captured successfully';

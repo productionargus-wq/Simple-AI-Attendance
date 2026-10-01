@@ -984,17 +984,26 @@ def api_create_employee():
     if 'photo' in request.files:
         file = request.files['photo']
         if file and file.filename and allowed_file(file.filename):
-            file_bytes = file.read()
-            # Extract 128-d face embedding immediately (Image is NOT stored)
-            embedding = get_face_engine().extract_face_embedding_from_image(file_bytes)
-            data['face_embedding'] = database.json.dumps(embedding)
-            
-            # Reset file pointer if saving thumbnail or legacy
-            filename = werkzeug.utils.secure_filename(file.filename)
-            unique_filename = f"{int(database.time.time())}_{filename}"
-            with open(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename), 'wb') as f:
-                f.write(file_bytes)
-            photo_filename = unique_filename
+            try:
+                file_bytes = file.read()
+                # Extract 128-d face embedding immediately (Image is NOT stored)
+                fe = get_face_engine()
+                if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                    try:
+                        embedding = fe.extract_face_embedding_from_image(file_bytes)
+                        if embedding:
+                            data['face_embedding'] = database.json.dumps(embedding)
+                    except Exception as fe_err:
+                        print(f"Warning: face embedding extraction error: {fe_err}")
+                
+                # Save thumbnail/photo securely
+                filename = werkzeug.utils.secure_filename(file.filename) or 'photo.jpg'
+                unique_filename = f"{int(database.time.time())}_{filename}"
+                with open(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename), 'wb') as f:
+                    f.write(file_bytes)
+                photo_filename = unique_filename
+            except Exception as pe:
+                print(f"Warning: photo processing error: {pe}")
             
     if photo_filename:
         data['photo_filename'] = photo_filename
@@ -1027,16 +1036,25 @@ def api_update_employee(emp_id):
     if 'photo' in request.files:
         file = request.files['photo']
         if file and file.filename and allowed_file(file.filename):
-            file_bytes = file.read()
-            embedding = get_face_engine().extract_face_embedding_from_image(file_bytes)
-            data['face_embedding'] = database.json.dumps(embedding)
-            
-            filename = werkzeug.utils.secure_filename(file.filename)
-            unique_filename = f"{int(database.time.time())}_{filename}"
-            with open(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename), 'wb') as f:
-                f.write(file_bytes)
-            data['photo_filename'] = unique_filename
-            data['photo'] = unique_filename
+            try:
+                file_bytes = file.read()
+                fe = get_face_engine()
+                if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                    try:
+                        embedding = fe.extract_face_embedding_from_image(file_bytes)
+                        if embedding:
+                            data['face_embedding'] = database.json.dumps(embedding)
+                    except Exception as fe_err:
+                        print(f"Warning: face embedding extraction error: {fe_err}")
+                
+                filename = werkzeug.utils.secure_filename(file.filename) or 'photo.jpg'
+                unique_filename = f"{int(database.time.time())}_{filename}"
+                with open(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename), 'wb') as f:
+                    f.write(file_bytes)
+                data['photo_filename'] = unique_filename
+                data['photo'] = unique_filename
+            except Exception as pe:
+                print(f"Warning: photo processing error: {pe}")
             
     database.update_employee(emp_id, data)
     return jsonify({'success': True, 'message': 'Employee updated successfully'})

@@ -744,14 +744,26 @@ def get_employee_by_id(emp_id, company_id=None):
     doc = db.employees.find_one(f)
     return clean_doc(doc)
 
+def safe_float(val, default=0.0):
+    """Safely converts string/number/empty to float without raising ValueError."""
+    try:
+        if val is None:
+            return default
+        s = str(val).replace(',', '').strip()
+        if not s:
+            return default
+        return float(s)
+    except (ValueError, TypeError):
+        return default
+
 def create_employee(data, company_id=None):
     db = get_db()
-    emp_id = data.get('id') or generate_employee_id()
+    emp_id = str(data.get('id') or '').strip() or generate_employee_id()
     assigned_company_id = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
 
     # Enforce Employee Count registration limit for tenant companies
     if assigned_company_id != 'ARGUS_MASTER':
-        comp = db.company_admin.find_one({'id': assigned_company_id})
+        comp = db.company_admin.find_one(build_id_filter(assigned_company_id))
         if comp:
             limit = int(comp.get('employee_limit') or comp.get('employee_count') or 50)
             current_count = db.employees.count_documents({'company_id': assigned_company_id})
@@ -761,8 +773,8 @@ def create_employee(data, company_id=None):
                     f"Employee registration limit reached: Company '{comp_name}' allows a maximum of {limit} employees ({current_count}/{limit} currently registered). Please contact System Admin to increase the employee limit."
                 )
 
-    raw_st = str(data.get('salary_type') or 'hourly').strip().lower()
-    salary_type = raw_st if raw_st in ['hourly', 'daily', 'half_day'] else 'hourly'
+    raw_st = str(data.get('salary_type') or 'daily').strip().lower()
+    salary_type = raw_st if raw_st in ['hourly', 'daily', 'half_day'] else 'daily'
     
     doc = {
         'id': emp_id,
@@ -772,9 +784,9 @@ def create_employee(data, company_id=None):
         'designation': data.get('designation', '').strip(),
         'salary_type': salary_type,
         'mobile_number': data.get('mobile_number', '').strip(),
-        'hourly_salary': float(data.get('hourly_salary') or 0.0),
-        'day_salary': float(data.get('day_salary') or 0.0),
-        'half_day_salary': float(data.get('half_day_salary') or 0.0),
+        'hourly_salary': safe_float(data.get('hourly_salary')),
+        'day_salary': safe_float(data.get('day_salary')),
+        'half_day_salary': safe_float(data.get('half_day_salary')),
         'email_id': data.get('email_id', '').strip(),
         'aadhar_number': data.get('aadhar_number', '').strip(),
         'emergency_contact': data.get('emergency_contact', '').strip(),
@@ -808,9 +820,9 @@ def update_employee(emp_id, data, company_id=None):
         'department': (data.get('department') or data.get('designation') or 'General').strip(),
         'designation': data.get('designation', '').strip(),
         'mobile_number': data.get('mobile_number', '').strip(),
-        'hourly_salary': float(data.get('hourly_salary') or 0.0),
-        'day_salary': float(data.get('day_salary') or 0.0),
-        'half_day_salary': float(data.get('half_day_salary') or 0.0),
+        'hourly_salary': safe_float(data.get('hourly_salary')),
+        'day_salary': safe_float(data.get('day_salary')),
+        'half_day_salary': safe_float(data.get('half_day_salary')),
         'email_id': data.get('email_id', '').strip(),
         'aadhar_number': data.get('aadhar_number', '').strip(),
         'emergency_contact': data.get('emergency_contact', '').strip(),
