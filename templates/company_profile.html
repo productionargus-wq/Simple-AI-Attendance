@@ -80,13 +80,21 @@
         <input type="text" class="form-input" id="profilePhone" name="phone" {% if role == 'company_admin' %}readonly style="background-color: #f8fafc; cursor: not-allowed;"{% endif %}>
       </div>
 
-      <!-- Registered Date (Set by System Admin, Read-Only for Companies) -->
+      <!-- Registered Date (Set by System Admin, Read-Only for Companies, Editable for System Admin) -->
       <div class="form-group">
         <label class="form-label" style="display: flex; justify-content: space-between;">
           <span>Company Registered Date</span>
-          <span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>
+          {% if role == 'company_admin' %}
+            <span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>
+          {% else %}
+            <span style="font-size: 10px; color: #16a34a; font-weight: 700;">✏️ System Admin Editable</span>
+          {% endif %}
         </label>
-        <input type="text" class="form-input" id="profileRegisteredDate" name="registered_date" readonly style="background-color: #f8fafc; cursor: not-allowed;" placeholder="e.g. 01/10/2026">
+        {% if role == 'super_admin' %}
+          <input type="date" class="form-input" id="profileRegisteredDate" name="registered_date">
+        {% else %}
+          <input type="text" class="form-input" id="profileRegisteredDate" name="registered_date" readonly style="background-color: #f8fafc; cursor: not-allowed;" placeholder="e.g. 01/10/2026">
+        {% endif %}
       </div>
 
       <!-- Shift Hours / Automatic Checkout Limit -->
@@ -253,17 +261,33 @@ document.addEventListener('DOMContentLoaded', function () {
     const regDateInput = document.getElementById('profileRegisteredDate');
     if (regDateInput) {
       const rawDate = comp.registered_date || '';
-      let displayDate = '-';
-      if (rawDate) {
-        if (rawDate.includes('-')) {
-          const p = rawDate.split('T')[0].split('-');
-          if (p.length === 3) displayDate = `${p[2]}/${p[1]}/${p[0]}`;
-          else displayDate = rawDate;
-        } else {
-          displayDate = rawDate;
+      if (role === 'super_admin') {
+        let isoDate = '';
+        if (rawDate) {
+          const s = String(rawDate).trim().split('T')[0];
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+            isoDate = s;
+          } else if (s.includes('/')) {
+            const p = s.split('/');
+            if (p.length === 3) isoDate = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+          } else {
+            isoDate = s;
+          }
         }
+        regDateInput.value = isoDate;
+      } else {
+        let displayDate = '-';
+        if (rawDate) {
+          if (rawDate.includes('-')) {
+            const p = rawDate.split('T')[0].split('-');
+            if (p.length === 3) displayDate = `${p[2]}/${p[1]}/${p[0]}`;
+            else displayDate = rawDate;
+          } else {
+            displayDate = rawDate;
+          }
+        }
+        regDateInput.value = displayDate;
       }
-      regDateInput.value = displayDate;
     }
 
     document.getElementById('profileShiftHours').value = comp.shift_hours || '08:00';
@@ -503,6 +527,11 @@ document.addEventListener('DOMContentLoaded', function () {
         payload.latitude = document.getElementById('profileLatitude').value.trim();
         payload.longitude = document.getElementById('profileLongitude').value.trim();
         payload.address = document.getElementById('profileAddress').value.trim();
+
+        const regDateElem = document.getElementById('profileRegisteredDate');
+        if (regDateElem && regDateElem.value) {
+          payload.registered_date = regDateElem.value.trim();
+        }
 
         if (newPasswordVal) {
           payload.password = newPasswordVal;
