@@ -50,6 +50,9 @@
     
     <!-- Company Header -->
     <div style="text-align: center; margin-bottom: 12px;">
+      <div id="dispCompanyLogoWrapper" style="display: none; margin-bottom: 8px;">
+        <img id="dispCompanyLogo" src="" alt="Company Logo" style="max-height: 60px; max-width: 200px; object-fit: contain; margin: 0 auto; display: block;">
+      </div>
       <div style="font-size: 18px; font-weight: 800; color: #003366; letter-spacing: 0.5px;" id="dispCompanyName">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
       <div style="font-size: 10.5px; color: #0056b3; margin-top: 3px; font-weight: 500;" id="dispCompanyAddress">
         SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006
@@ -63,14 +66,20 @@
       PAYSLIP
     </div>
 
-    <!-- 4-Column Info Table -->
+    <!-- 5-Column Info Table with Employee Photo -->
     <table class="payslip-info-table" style="width: 100%; min-width: 540px; border-collapse: collapse; font-size: 12px; border: 1px solid #767676; border-top: none;">
       <tbody>
         <tr>
-          <td class="ps-cell-lbl" style="width: 25%; font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Employee Name</td>
-          <td class="ps-cell-val" id="dispEmpName" style="width: 25%; border: 1px solid #767676; padding: 5px 8px;">Ruban</td>
-          <td class="ps-cell-lbl" style="width: 25%; font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Salary Basis</td>
-          <td class="ps-cell-val" id="dispSalaryBasis" style="width: 25%; border: 1px solid #767676; padding: 5px 8px; font-weight: 700; color: #003366;">Day-Based</td>
+          <td class="ps-cell-lbl" style="width: 22%; font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Employee Name</td>
+          <td class="ps-cell-val" id="dispEmpName" style="width: 23%; border: 1px solid #767676; padding: 5px 8px;">-</td>
+          <td class="ps-cell-lbl" style="width: 22%; font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Salary Basis</td>
+          <td class="ps-cell-val" id="dispSalaryBasis" style="width: 21%; border: 1px solid #767676; padding: 5px 8px; font-weight: 700; color: #003366;">Day-Based</td>
+          <td rowspan="7" style="width: 12%; text-align: center; vertical-align: middle; background: #fafafa; border: 1px solid #767676; padding: 4px;">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+              <img id="dispEmpPhoto" src="" alt="Employee Photo" style="width: 75px; height: 90px; object-fit: cover; border: 1px solid #cbd5e1; border-radius: 4px; display: none;">
+              <div id="dispEmpPhotoPlaceholder" style="width: 75px; height: 90px; border: 1px dashed #cbd5e1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #94a3b8; background: #f8fafc;">PHOTO</div>
+            </div>
+          </td>
         </tr>
         <tr>
           <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Employee ID</td>
@@ -79,26 +88,32 @@
           <td class="ps-cell-val" id="dispRate1Val" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
         </tr>
         <tr>
+          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Department</td>
+          <td class="ps-cell-val" id="dispDepartment" style="border: 1px solid #767676; padding: 5px 8px;">General</td>
           <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Designation</td>
           <td class="ps-cell-val" id="dispDesignation" style="border: 1px solid #767676; padding: 5px 8px;">-</td>
-          <td class="ps-cell-lbl" id="dispRate2Lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Half Day Salary</td>
-          <td class="ps-cell-val" id="dispRate2Val" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
         </tr>
         <tr>
+          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Email ID</td>
+          <td class="ps-cell-val" id="dispEmail" style="border: 1px solid #767676; padding: 5px 8px; word-break: break-all;">-</td>
           <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Phone Number</td>
           <td class="ps-cell-val" id="dispPhone" style="border: 1px solid #767676; padding: 5px 8px;">-</td>
-          <td class="ps-cell-lbl" id="dispRate3Lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Hours Salary</td>
-          <td class="ps-cell-val" id="dispRate3Val" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
+        </tr>
+        <tr>
+          <td class="ps-cell-lbl" id="dispRate2Lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Shift Hours</td>
+          <td class="ps-cell-val" id="dispRate2Val" style="border: 1px solid #767676; padding: 5px 8px;">08:00</td>
+          <td class="ps-cell-lbl" id="dispRate3Lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Bank Name</td>
+          <td class="ps-cell-val" id="dispRate3Val" style="border: 1px solid #767676; padding: 5px 8px;">—</td>
         </tr>
         <tr>
           <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Year & Month</td>
-          <td class="ps-cell-val" id="dispYearMonth" style="border: 1px solid #767676; padding: 5px 8px;">2026-06</td>
+          <td class="ps-cell-val" id="dispYearMonth" style="border: 1px solid #767676; padding: 5px 8px;">2026-10</td>
           <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Working Days</td>
-          <td class="ps-cell-val" id="dispWorkingDays" style="border: 1px solid #767676; padding: 5px 8px;">4</td>
+          <td class="ps-cell-val" id="dispWorkingDays" style="border: 1px solid #767676; padding: 5px 8px;">1</td>
         </tr>
         <tr>
           <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Total Working Hours</td>
-          <td class="ps-cell-val" id="dispWorkingHours" style="border: 1px solid #767676; padding: 5px 8px;">17:11</td>
+          <td class="ps-cell-val" id="dispWorkingHours" style="border: 1px solid #767676; padding: 5px 8px;">00:00</td>
           <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Total Days / Leave</td>
           <td class="ps-cell-val" id="dispTotalDays" style="border: 1px solid #767676; padding: 5px 8px;">30</td>
         </tr>
@@ -115,12 +130,12 @@
       </div>
     </div>
 
-    <!-- Earnings & Deductions Table -->
+    <!-- Earnings & Deductions Table (Total Earnings & Total Deductions in SAME ROW) -->
     <table class="payslip-data-table" style="width: 100%; min-width: 540px; border-collapse: collapse; font-size: 12px; border: 1px solid #767676;">
       <tbody>
         <tr>
           <td style="width: 30%; border: 1px solid #767676; padding: 5px 8px;">Basic Salary</td>
-          <td id="dispBasicSalary" style="width: 20%; border: 1px solid #767676; padding: 5px 8px;">₹17</td>
+          <td id="dispBasicSalary" style="width: 20%; border: 1px solid #767676; padding: 5px 8px;">₹0</td>
           <td style="width: 30%; border: 1px solid #767676; padding: 5px 8px;">Paid Salary</td>
           <td id="dispPaidSalary" style="width: 20%; border: 1px solid #767676; padding: 5px 8px;">₹0</td>
         </tr>
@@ -142,17 +157,11 @@
           <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
           <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
         </tr>
-        <tr>
-          <td style="border: 1px solid #767676; padding: 5px 8px; font-weight: 700;">TOTAL EARNINGS</td>
-          <td id="dispTotalEarnings" style="border: 1px solid #767676; padding: 5px 8px; font-weight: 700;">₹17</td>
-          <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
-          <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
-        </tr>
-        <tr>
-          <td style="border: 1px solid #767676; padding: 5px 8px; font-weight: 700;">TOTAL DEDUCTION</td>
-          <td id="dispTotalDeductions" style="border: 1px solid #767676; padding: 5px 8px; font-weight: 700;">₹0</td>
-          <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
-          <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
+        <tr style="background-color: #f8fafc;">
+          <td style="border: 1px solid #767676; padding: 6px 8px; font-weight: 800; font-size: 13px; color: #0f172a;">TOTAL EARNINGS</td>
+          <td id="dispTotalEarnings" style="border: 1px solid #767676; padding: 6px 8px; font-weight: 800; font-size: 13px; color: #0f172a;">₹0</td>
+          <td style="border: 1px solid #767676; padding: 6px 8px; font-weight: 800; font-size: 13px; color: #0f172a;">TOTAL DEDUCTIONS</td>
+          <td id="dispTotalDeductions" style="border: 1px solid #767676; padding: 6px 8px; font-weight: 800; font-size: 13px; color: #0f172a;">₹0</td>
         </tr>
       </tbody>
     </table>
@@ -237,9 +246,26 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('dispEmpName').innerText = p.employee_name;
         document.getElementById('dispEmpId').innerText = p.employee_id;
         document.getElementById('dispDesignation').innerText = p.designation;
+        document.getElementById('dispDepartment').innerText = p.department || 'General';
+        document.getElementById('dispEmail').innerText = p.email_id || '-';
         document.getElementById('dispPhone').innerText = p.phone_number;
         document.getElementById('dispSalaryBasis').innerText = p.salary_basis_label || 'Day-Based';
         document.getElementById('dispYearMonth').innerText = p.year_month;
+
+        // Employee Photo Preview
+        const empPhoto = document.getElementById('dispEmpPhoto');
+        const empPhotoPlaceholder = document.getElementById('dispEmpPhotoPlaceholder');
+        const photoSrc = p.employee_photo_url || (p.employee_photo ? `/uploads/${p.employee_photo}` : '');
+        if (photoSrc) {
+          empPhoto.src = photoSrc;
+          empPhoto.style.display = 'block';
+          if (empPhotoPlaceholder) empPhotoPlaceholder.style.display = 'none';
+        } else {
+          empPhoto.src = '';
+          empPhoto.style.display = 'none';
+          if (empPhotoPlaceholder) empPhotoPlaceholder.style.display = 'flex';
+        }
+
         const st = (p.salary_type || 'daily').toLowerCase();
         const shiftH = p.shift_hours || '08:00';
         const bankName = p.bank_name || '—';
@@ -261,10 +287,10 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
           document.getElementById('dispRate1Lbl').innerText = 'Day Salary';
           document.getElementById('dispRate1Val').innerText = `₹${p.day_salary}`;
-          document.getElementById('dispRate2Lbl').innerText = 'Half Day Salary';
-          document.getElementById('dispRate2Val').innerText = `₹${p.half_day_salary}`;
-          document.getElementById('dispRate3Lbl').innerText = 'Shift Hours';
-          document.getElementById('dispRate3Val').innerText = shiftH;
+          document.getElementById('dispRate2Lbl').innerText = 'Shift Hours';
+          document.getElementById('dispRate2Val').innerText = shiftH;
+          document.getElementById('dispRate3Lbl').innerText = 'Bank Name';
+          document.getElementById('dispRate3Val').innerText = bankName;
         }
         document.getElementById('dispWorkingDays').innerText = p.working_days_breakdown || `${p.working_days} Days`;
         document.getElementById('dispTotalDays').innerText = `${p.total_days_of_month} Days (${p.leave_days} Leave)`;
@@ -279,12 +305,23 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('dispPaidSalary').innerText = `₹${p.paid_salary}`;
         document.getElementById('dispAdvRepayment').innerText = `₹${p.advance_repayment}`;
         document.getElementById('dispOtherDeductions').innerText = `₹${p.other_deductions}`;
-        document.getElementById('dispTotalDeductions').innerText = `₹${p.total_deduction}`;
+        document.getElementById('dispTotalDeductions').innerText = `₹${p.total_deduction !== undefined ? p.total_deduction : p.total_deductions}`;
 
         document.getElementById('dispNetPay').innerText = p.net_pay;
         document.getElementById('dispNetWords').innerText = p.net_pay_in_words;
 
-        // Dynamic Company Header
+        // Dynamic Company Logo & Header
+        const logoEl = document.getElementById('dispCompanyLogo');
+        const logoWrapper = document.getElementById('dispCompanyLogoWrapper');
+        const logoSrc = p.company_logo_url || (p.company_logo ? `/uploads/${p.company_logo}` : '');
+        if (logoSrc) {
+          logoEl.src = logoSrc;
+          logoWrapper.style.display = 'block';
+        } else {
+          logoEl.src = '';
+          logoWrapper.style.display = 'none';
+        }
+
         if (p.company_name) {
           const compNameEl = document.getElementById('dispCompanyName');
           if (compNameEl) compNameEl.innerText = p.company_name;

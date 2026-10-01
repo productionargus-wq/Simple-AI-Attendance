@@ -554,6 +554,10 @@ def update_company(comp_id, data):
             upd['registered_date'] = m_str
     if 'auto_email_reports' in data:
         upd['auto_email_reports'] = bool(data['auto_email_reports'])
+    if 'logo' in data:
+        upd['logo'] = str(data['logo']).strip()
+    if 'logo_data' in data:
+        upd['logo_data'] = str(data['logo_data']).strip()
     db.company_admin.update_one({'id': str(comp_id)}, {'$set': upd})
     return True
 
@@ -2884,7 +2888,7 @@ def get_balance_report(employee=None, search=None, page=1, limit=10, company_id=
         reg = {'$regex': re.escape(search), '$options': 'i'}
         adv_query['$or'] = [{'employee_name': reg}, {'timestamp': reg}, {'advance_date': reg}]
         
-    adv_cursor = db.advances.find(adv_query)
+    adv_cursor = list(db.advances.find(adv_query))
     
     # Query all advance repayments
     rep_query = {'reason': 'Advance Repayment'}
@@ -2896,39 +2900,60 @@ def get_balance_report(employee=None, search=None, page=1, limit=10, company_id=
         reg = {'$regex': re.escape(search), '$options': 'i'}
         rep_query['$or'] = [{'employee_name': reg}, {'timestamp': reg}, {'payment_date': reg}]
         
-    rep_cursor = db.payments.find(rep_query)
+    rep_cursor = list(db.payments.find(rep_query))
     
-    combined = []
+    raw_items = []
     total_advance = 0.0
     total_repayment = 0.0
     
     for a in adv_cursor:
         amt = float(a.get('amount', 0.0))
         total_advance += amt
-        combined.append({
-            'timestamp': a.get('timestamp', ''),
+        raw_items.append({
+            'type': 'advance',
+            'timestamp': a.get('timestamp') or a.get('created_at', ''),
             'name': a.get('employee_name', ''),
             'date': a.get('advance_date', ''),
             'advance_amount': amt,
+            'payment_amount': 0.0,
             'advance_repayment_amount': 0.0,
-            'balance_amount': amt
+            'created_at': str(a.get('created_at') or a.get('advance_date') or a.get('timestamp') or '')
         })
         
     for p in rep_cursor:
         amt = float(p.get('amount', 0.0))
         total_repayment += amt
-        combined.append({
-            'timestamp': p.get('timestamp', ''),
+        raw_items.append({
+            'type': 'repayment',
+            'timestamp': p.get('timestamp') or p.get('created_at', ''),
             'name': p.get('employee_name', ''),
             'date': p.get('payment_date', ''),
             'advance_amount': 0.0,
+            'payment_amount': amt,
             'advance_repayment_amount': amt,
-            'balance_amount': -amt
+            'created_at': str(p.get('created_at') or p.get('payment_date') or p.get('timestamp') or '')
         })
         
-    combined.sort(key=lambda x: (x.get('date', '') or x.get('timestamp', ''), str(x.get('id', ''))), reverse=True)
+    # Group by employee to calculate accurate chronological running balance per employee
+    from collections import defaultdict
+    by_emp = defaultdict(list)
+    for it in raw_items:
+        by_emp[it['name']].append(it)
+
+    combined = []
+    for emp_name, entries in by_emp.items():
+        # Sort chronologically (oldest to newest) to calculate cumulative running balance
+        entries.sort(key=lambda x: (x.get('date', '') or '', x.get('timestamp', '') or '', x.get('created_at', '')))
+        running_bal = 0.0
+        for e in entries:
+            running_bal += e['advance_amount'] - e['payment_amount']
+            e['balance_amount'] = round(running_bal, 2)
+        combined.extend(entries)
+
+    # Sort combined for display: chronological order matching Image 1
+    combined.sort(key=lambda x: (x.get('date', '') or '', x.get('timestamp', '') or '', x.get('created_at', '')))
     total = len(combined)
-    balance_amount = total_advance - total_repayment
+    balance_amount = round(total_advance - total_repayment, 2)
     
     if limit and limit > 0:
         offset = (page - 1) * limit
@@ -2941,12 +2966,14 @@ def get_balance_report(employee=None, search=None, page=1, limit=10, company_id=
         'page': page,
         'limit': limit,
         'data': paginated_data,
-        'total_advance': total_advance,
-        'total_repayment': total_repayment,
+        'total_advance': round(total_advance, 2),
+        'total_repayment': round(total_repayment, 2),
+        'total_payment': round(total_repayment, 2),
         'balance_amount': balance_amount,
         'summary': {
-            'total_advance': total_advance,
-            'total_repayment': total_repayment,
+            'total_advance': round(total_advance, 2),
+            'total_repayment': round(total_repayment, 2),
+            'total_payment': round(total_repayment, 2),
             'balance': balance_amount
         }
     }
@@ -3143,8 +3170,13 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     company_address = 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'
     comp_email = 'technologiesargus@gmail.com'
     comp_phone = '+91 98765 43210'
-    comp_gstin = ''
-    comp_doc = db.company_admin.find_one({'id': assigned_company_id})
+    comp_doc = db.company_admin.find_one({'id': assigned_company_id}) if assigned_company_id else None
+    if not comp_doc and assigned_company_id and assigned_company_id != 'ARGUS_MASTER':
+        comp_doc = db.company_admin.find_one(build_id_filter(assigned_company_id))
+    if not comp_doc and emp and emp.get('company_name'):
+        comp_doc = db.company_admin.find_one({'company_name': emp.get('company_name')})
+    if not comp_doc and company_name:
+        comp_doc = db.company_admin.find_one({'company_name': company_name})
     if comp_doc:
         company_name = comp_doc.get('company_name') or company_name
         comp_email = comp_doc.get('email') or comp_email
@@ -3367,18 +3399,24 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     other_earnings = 0.0
     advance_repayment = 0.0
     paid_salary = 0.0
+    other_deductions = 0.0
 
     for p in payments:
         p_amt = float(p.get('amount', 0.0))
         reason = p.get('reason', '').strip()
-        if reason.lower() == 'incentive':
+        r_low = reason.lower()
+        if r_low == 'incentive':
             incentive += p_amt
-        elif reason.lower() == 'allowance':
+        elif r_low == 'allowance':
             allowance += p_amt
-        elif 'advance' in reason.lower():
+        elif 'advance' in r_low:
             advance_repayment += p_amt
-        elif reason.lower() in ['salary', 'paid salary']:
+        elif r_low in ['salary', 'paid salary']:
             paid_salary += p_amt
+        elif 'deduction' in r_low:
+            other_deductions += p_amt
+        elif 'earning' in r_low:
+            other_earnings += p_amt
         else:
             other_earnings += p_amt
 
@@ -3389,8 +3427,8 @@ def get_payslip_data(employee_name, month_year, company_id=None):
             advance_repayment = float(adv_doc.get('repayment_amount', 0.0))
 
     total_earnings = round(basic_salary + allowance + incentive + other_earnings, 2)
-    other_deductions = 0.0
-    total_deduction = round(advance_repayment + other_deductions, 2)
+    # Paid salary is added to total deduction per user Requirement 7
+    total_deduction = round(paid_salary + advance_repayment + other_deductions, 2)
     net_pay = max(0.0, round(total_earnings - total_deduction, 2))
         
     leave_days = max(0, total_days - working_days)
@@ -3456,6 +3494,13 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         'advance_repayment': int(round(advance_repayment)),
         'other_deductions': int(round(other_deductions)),
         'total_deduction': int(round(total_deduction)),
+        'total_deductions': int(round(total_deduction)),
         'net_pay': int(round(net_pay)),
-        'net_pay_in_words': net_pay_in_words
+        'net_pay_in_words': net_pay_in_words,
+        'email_id': str(emp.get('email_id') or emp.get('email', '') if emp else ''),
+        'department': str(emp.get('department', '') or 'General' if emp else 'General'),
+        'employee_photo': str(emp.get('photo') or emp.get('photo_filename', '') if emp else ''),
+        'employee_photo_url': (emp.get('photo_data') if emp and emp.get('photo_data') else (f"/uploads/{emp.get('photo') or emp.get('photo_filename')}" if emp and (emp.get('photo') or emp.get('photo_filename')) else '')) if emp else '',
+        'company_logo': str(comp_doc.get('logo') or comp_doc.get('company_logo') or '' if comp_doc else ''),
+        'company_logo_url': (comp_doc.get('logo_data') if comp_doc and comp_doc.get('logo_data') else (f"/uploads/{comp_doc.get('logo') or comp_doc.get('company_logo')}" if comp_doc and (comp_doc.get('logo') or comp_doc.get('company_logo')) else '')) if comp_doc else ''
     }

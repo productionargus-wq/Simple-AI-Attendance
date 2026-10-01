@@ -1,4 +1,5 @@
 import os
+import re
 import io
 import csv
 import gzip
@@ -598,6 +599,7 @@ def advance_management():
     employees = [e['employee_name'] for e in employees_res['data']]
     return render_template('advance_management.html', active_tab='PAYMENT ENTRY', employees=employees)
 
+@app.route('/advance-summary')
 @app.route('/balance-report')
 @login_required
 def balance_report():
@@ -790,6 +792,8 @@ def api_get_company_profile():
                     raw_pass = p
             company['saved_password'] = raw_pass
             company['has_password'] = bool(raw_pass or company.get('password') or company.get('password_hash'))
+            company['logo'] = company.get('logo') or ''
+            company['logo_url'] = company.get('logo_data') or (f"/uploads/{company['logo']}" if company.get('logo') else '')
             company.pop('password', None)
             company.pop('password_hash', None)
 
@@ -820,6 +824,8 @@ def api_get_company_profile():
                 raw_pass = p
         company['saved_password'] = raw_pass
         company['has_password'] = bool(raw_pass or company.get('password') or company.get('password_hash'))
+        company['logo'] = company.get('logo') or ''
+        company['logo_url'] = company.get('logo_data') or (f"/uploads/{company['logo']}" if company.get('logo') else '')
         company.pop('password', None)
         company.pop('password_hash', None)
         return jsonify({
@@ -943,6 +949,85 @@ def api_update_company_profile():
             return jsonify({'success': False, 'error': str(e)}), 400
             
     return jsonify({'success': False, 'error': 'Unauthorized: Admin role not recognized.'}), 403
+
+@app.route('/api/company-profile/logo', methods=['POST'])
+@login_required
+def api_upload_company_logo():
+    role = session.get('role', 'company_admin')
+    if role not in ['super_admin', 'company_admin']:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    if 'logo' not in request.files:
+        return jsonify({'success': False, 'error': 'No logo file provided'}), 400
+
+    file = request.files['logo']
+    if not file or not file.filename:
+        return jsonify({'success': False, 'error': 'No file selected'}), 400
+
+    allowed_exts = {'png', 'jpg', 'jpeg', 'webp', 'svg'}
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in allowed_exts:
+        return jsonify({'success': False, 'error': f'Unsupported format .{ext}. Please upload PNG, JPG, JPEG, or WEBP.'}), 400
+
+    if role == 'super_admin':
+        comp_id = request.form.get('company_id') or session.get('company_id') or 'ARGUS_MASTER'
+    else:
+        comp_id = session.get('company_id')
+        if not comp_id:
+            return jsonify({'success': False, 'error': 'No company ID associated with session'}), 403
+
+    comp_id_clean = re.sub(r'[^a-zA-Z0-9_-]', '_', str(comp_id))
+    timestamp = int(datetime.now().timestamp())
+    filename = f"company_logo_{comp_id_clean}_{timestamp}.{ext}"
+    upload_folder = app.config['UPLOAD_FOLDER']
+    os.makedirs(upload_folder, exist_ok=True)
+    file_path = os.path.join(upload_folder, filename)
+
+    file_bytes = file.read()
+    with open(file_path, 'wb') as f:
+        f.write(file_bytes)
+
+    # Generate base64 data URI for database storage and recovery
+    mime = f"image/{'svg+xml' if ext == 'svg' else ext}"
+    if ext == 'jpg': mime = 'image/jpeg'
+    b64_str = base64.b64encode(file_bytes).decode('utf-8')
+    logo_data = f"data:{mime};base64,{b64_str}"
+
+    db = database.get_db()
+    if comp_id == 'ARGUS_MASTER':
+        db.company_admin.update_one(
+            {'id': 'ARGUS_MASTER'},
+            {'$set': {'id': 'ARGUS_MASTER', 'company_name': 'ARGUS TECHNOLOGIES', 'logo': filename, 'logo_data': logo_data, 'updated_at': database.get_ist_now()}},
+            upsert=True
+        )
+    else:
+        database.update_company(comp_id, {'logo': filename, 'logo_data': logo_data})
+
+    return jsonify({
+        'success': True,
+        'logo': filename,
+        'logo_url': f"/uploads/{filename}",
+        'message': 'Company logo uploaded and saved successfully.'
+    })
+
+@app.route('/api/company-profile/logo', methods=['DELETE'])
+@login_required
+def api_delete_company_logo():
+    role = session.get('role', 'company_admin')
+    if role not in ['super_admin', 'company_admin']:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    if role == 'super_admin':
+        comp_id = request.args.get('company_id') or session.get('company_id') or 'ARGUS_MASTER'
+    else:
+        comp_id = session.get('company_id')
+
+    db = database.get_db()
+    db.company_admin.update_one(
+        {'id': str(comp_id)},
+        {'$set': {'logo': '', 'logo_data': '', 'updated_at': database.get_ist_now()}}
+    )
+    return jsonify({'success': True, 'message': 'Company logo removed successfully.'})
 
 # ----------------- EMPLOYEE PORTAL API ROUTES ----------------- #
 
@@ -1315,6 +1400,29 @@ def uploaded_file(filename):
             except Exception:
                 pass
 
+            return Response(img_bytes, mimetype=mime)
+
+        # Check company_admin for company logos
+        comp = db.company_admin.find_one({'logo': filename})
+        if not comp:
+            clean_name = os.path.basename(filename)
+            import re
+            comp = db.company_admin.find_one({'logo': {'$regex': re.escape(clean_name)}})
+        if comp and comp.get('logo_data'):
+            raw_data = str(comp['logo_data'])
+            if ',' in raw_data:
+                header, b64_data = raw_data.split(',', 1)
+                mime = header.split(';')[0].replace('data:', '') if 'data:' in header else 'image/png'
+            else:
+                b64_data = raw_data
+                mime = 'image/png'
+            img_bytes = base64.b64decode(b64_data)
+            try:
+                os.makedirs(upload_folder, exist_ok=True)
+                with open(file_path, 'wb') as f:
+                    f.write(img_bytes)
+            except Exception:
+                pass
             return Response(img_bytes, mimetype=mime)
     except Exception as ex:
         print(f"Notice: Image recovery from DB error for {filename}: {ex}")
@@ -2077,6 +2185,7 @@ def api_advances_export_pdf():
 
 # ----------------- BALANCE REPORT API ROUTES ----------------- #
 
+@app.route('/api/advance-summary', methods=['GET'])
 @app.route('/api/balance-report', methods=['GET'])
 @login_required
 def api_get_balance_report():
@@ -2093,6 +2202,8 @@ def api_get_balance_report():
     )
     return jsonify(result)
 
+@app.route('/api/advance-summary/export/excel', methods=['GET'])
+@app.route('/api/advance-summary/export/csv', methods=['GET'])
 @app.route('/api/balance-report/export/excel', methods=['GET'])
 @app.route('/api/balance-report/export/csv', methods=['GET'])
 @login_required
@@ -2102,24 +2213,26 @@ def api_balance_report_export_excel():
     
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['TIMESTAMP', 'NAME', 'DATE', 'ADVANCE AMOUNT', 'ADVANCE REPAYMENT AMOUNT', 'BALANCE AMOUNT'])
+    writer.writerow(['DATE&TIME', 'NAME', 'DATE', 'ADVANCE AMOUNT', 'PAYMENT AMOUNT', 'BALANCE AMOUNT'])
     for r in result['data']:
+        pay_amt = r.get('payment_amount', r.get('advance_repayment_amount', 0.0))
         writer.writerow([
             r['timestamp'], r['name'], r['date'],
             f"{float(r['advance_amount']):.2f}",
-            f"{float(r['advance_repayment_amount']):.2f}",
+            f"{float(pay_amt):.2f}",
             f"{float(r['balance_amount']):.2f}"
         ])
     writer.writerow([])
-    writer.writerow(['TOTAL ADVANCE', f"{result['total_advance']:.2f}", 'TOTAL REPAYMENT', f"{result['total_repayment']:.2f}", 'BALANCE AMOUNT', f"{result['balance_amount']:.2f}"])
+    writer.writerow(['TOTAL ADVANCE', f"{result['total_advance']:.2f}", 'TOTAL PAYMENT', f"{result.get('total_payment', result.get('total_repayment', 0.0)):.2f}", 'BALANCE AMOUNT', f"{result['balance_amount']:.2f}"])
     output.seek(0)
-    filename = "balance_report.csv"
+    filename = "advance_summary.csv"
     return Response(
         output.getvalue(),
         mimetype="text/csv",
         headers={"Content-disposition": f"attachment; filename={filename}"}
     )
 
+@app.route('/api/advance-summary/export/pdf', methods=['GET'])
 @app.route('/api/balance-report/export/pdf', methods=['GET'])
 @login_required
 def api_balance_report_export_pdf():
@@ -2127,12 +2240,13 @@ def api_balance_report_export_pdf():
     result = database.get_balance_report(employee=employee, limit=10000, company_id=get_current_company_id())
     totals = {
         'total_advance': result['total_advance'],
-        'total_repayment': result['total_repayment'],
+        'total_repayment': result.get('total_payment', result.get('total_repayment', 0.0)),
+        'total_payment': result.get('total_payment', result.get('total_repayment', 0.0)),
         'balance_amount': result['balance_amount']
     }
     company_info = get_current_company_info()
     pdf_buffer = pdf_generator.generate_balance_report_pdf(result['data'], totals, company_info=company_info)
-    filename = "balance_report.pdf"
+    filename = "advance_summary.pdf"
     return send_file(
         pdf_buffer,
         as_attachment=True,

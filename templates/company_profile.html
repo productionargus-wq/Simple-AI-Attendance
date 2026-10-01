@@ -42,6 +42,41 @@
   <form id="companyProfileForm">
     <input type="hidden" id="profileCompanyId" name="id">
 
+    <!-- Company Logo Section (Editable by both System Admin and Company Admin) -->
+    <div class="company-logo-card" style="display: flex; align-items: center; gap: 20px; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; flex-wrap: wrap;">
+      <div style="position: relative; width: 100px; height: 100px; border-radius: 8px; border: 1px solid #e2e8f0; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-shrink: 0;">
+        <img id="profileLogoPreview" src="" alt="Company Logo" style="max-width: 100%; max-height: 100%; object-fit: contain; display: none;">
+        <div id="profileLogoPlaceholder" style="display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-size: 11px; text-align: center; padding: 4px;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 4px;">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          <span>No Logo</span>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-width: 240px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <label style="font-size: 13px; font-weight: 700; color: #0f172a; margin: 0;">Company Logo</label>
+          <span style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ Editable by You</span>
+        </div>
+        <div style="font-size: 12px; color: #64748b; margin-bottom: 10px; line-height: 1.4;">
+          Upload your company's official logo (.png, .jpg, .jpeg, .webp). This logo will appear dynamically at the top of employee payslips and PDF exports.
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <input type="file" id="profileLogoInput" accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;">
+          <button type="button" id="btnChooseLogo" style="background: #0284c7; color: #ffffff; border: none; padding: 7px 14px; font-size: 12px; font-weight: 600; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+            📁 Choose Logo Image
+          </button>
+          <button type="button" id="btnRemoveLogo" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 7px 12px; font-size: 12px; font-weight: 600; border-radius: 5px; cursor: pointer; display: none;">
+            🗑️ Remove Logo
+          </button>
+          <span id="profileLogoStatus" style="font-size: 11.5px; color: #64748b; font-weight: 500;"></span>
+        </div>
+      </div>
+    </div>
+
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-bottom: 20px;">
       
       <!-- Company Name -->
@@ -297,6 +332,26 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('profileLongitude').value = (comp.longitude !== undefined && comp.longitude !== null) ? comp.longitude : '';
     document.getElementById('profileAddress').value = comp.address || comp.location || '';
 
+    // Company Logo Preview
+    const logoImg = document.getElementById('profileLogoPreview');
+    const logoPlaceholder = document.getElementById('profileLogoPlaceholder');
+    const btnRemoveLogo = document.getElementById('btnRemoveLogo');
+    const logoStatus = document.getElementById('profileLogoStatus');
+    if (logoStatus) logoStatus.textContent = '';
+    
+    const logoSrc = comp.logo_url || comp.logo_data || (comp.logo ? `/uploads/${comp.logo}` : '');
+    if (logoSrc) {
+      logoImg.src = logoSrc;
+      logoImg.style.display = 'block';
+      logoPlaceholder.style.display = 'none';
+      if (btnRemoveLogo) btnRemoveLogo.style.display = 'inline-flex';
+    } else {
+      logoImg.src = '';
+      logoImg.style.display = 'none';
+      logoPlaceholder.style.display = 'flex';
+      if (btnRemoveLogo) btnRemoveLogo.style.display = 'none';
+    }
+
     // Geolocation Lock & Permissions
     const latInput = document.getElementById('profileLatitude');
     const lngInput = document.getElementById('profileLongitude');
@@ -472,6 +527,70 @@ document.addEventListener('DOMContentLoaded', function () {
         );
       } else {
         alert('Geolocation is not supported by your browser.');
+      }
+    });
+  }
+
+  // Company Logo Event Listeners
+  const btnChooseLogo = document.getElementById('btnChooseLogo');
+  const profileLogoInput = document.getElementById('profileLogoInput');
+  const btnRemoveLogo = document.getElementById('btnRemoveLogo');
+
+  if (btnChooseLogo && profileLogoInput) {
+    btnChooseLogo.addEventListener('click', () => profileLogoInput.click());
+    
+    profileLogoInput.addEventListener('change', async function () {
+      if (!this.files || !this.files[0]) return;
+      const file = this.files[0];
+      const currentId = document.getElementById('profileCompanyId').value || (loadedCompanyData ? loadedCompanyData.id : '') || 'ARGUS_MASTER';
+      
+      const formData = new FormData();
+      formData.append('logo', file);
+      formData.append('company_id', currentId);
+      
+      const logoStatus = document.getElementById('profileLogoStatus');
+      if (logoStatus) logoStatus.textContent = '⌛ Uploading logo...';
+      
+      try {
+        const res = await fetch('/api/company-profile/logo', {
+          method: 'POST',
+          body: formData
+        });
+        const d = await res.json();
+        if (d.success) {
+          showAlert(d.message || 'Company logo uploaded successfully!', true);
+          loadProfile(currentId);
+        } else {
+          showAlert(d.error || 'Failed to upload logo', false);
+        }
+      } catch (err) {
+        console.error('Error uploading logo:', err);
+        showAlert('Network error uploading logo', false);
+      } finally {
+        if (logoStatus) logoStatus.textContent = '';
+        profileLogoInput.value = '';
+      }
+    });
+  }
+
+  if (btnRemoveLogo) {
+    btnRemoveLogo.addEventListener('click', async function () {
+      if (!confirm('Are you sure you want to remove the company logo?')) return;
+      const currentId = document.getElementById('profileCompanyId').value || (loadedCompanyData ? loadedCompanyData.id : '') || 'ARGUS_MASTER';
+      try {
+        const res = await fetch(`/api/company-profile/logo?company_id=${encodeURIComponent(currentId)}`, {
+          method: 'DELETE'
+        });
+        const d = await res.json();
+        if (d.success) {
+          showAlert(d.message || 'Company logo removed successfully!', true);
+          loadProfile(currentId);
+        } else {
+          showAlert(d.error || 'Failed to remove logo', false);
+        }
+      } catch (err) {
+        console.error('Error removing logo:', err);
+        showAlert('Network error removing logo', false);
       }
     });
   }

@@ -12,8 +12,8 @@
       </svg>
     </div>
     <div class="banner-text-group">
-      <div class="banner-title">BALANCE REPORT</div>
-      <div class="banner-subtitle">Outstanding advances, monthly deductions, and employee balance ledger</div>
+      <div class="banner-title">ADVANCE SUMMARY</div>
+      <div class="banner-subtitle">Outstanding advances, repayments, and running balance ledger</div>
     </div>
   </div>
   <a href="/payment-entry" class="btn-secondary-action">
@@ -64,12 +64,12 @@
     <table class="employee-table" id="balanceTable">
       <thead>
         <tr>
-          <th data-col="timestamp" style="width: 18%;">Timestamp <span class="sort-icon">⇅</span></th>
-          <th data-col="name" style="width: 18%;">Name <span class="sort-icon">⇅</span></th>
-          <th data-col="date" style="width: 14%;">Date <span class="sort-icon">⇅</span></th>
-          <th data-col="advance_amount" style="width: 16%;">Advance Amount <span class="sort-icon">⇅</span></th>
-          <th data-col="advance_repayment_amount" style="width: 18%;">Advance Repayment Amount <span class="sort-icon">⇅</span></th>
-          <th data-col="balance_amount" style="width: 16%;">Balance Amount <span class="sort-icon">⇅</span></th>
+          <th data-col="timestamp" style="width: 18%;">DATE&TIME <span class="sort-icon">⇅</span></th>
+          <th data-col="name" style="width: 18%;">NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="date" style="width: 14%;">DATE <span class="sort-icon">⇅</span></th>
+          <th data-col="advance_amount" style="width: 16%;">ADVANCE AMOUNT <span class="sort-icon">⇅</span></th>
+          <th data-col="payment_amount" style="width: 18%;">PAYMENT AMOUNT <span class="sort-icon">⇅</span></th>
+          <th data-col="balance_amount" style="width: 16%;">BALANCE AMOUNT <span class="sort-icon">⇅</span></th>
         </tr>
       </thead>
       <tbody id="balanceTableBody">
@@ -89,10 +89,10 @@
   </div>
 </div>
 
-<!-- Bottom Balance Summary Bar Matching Image 2 -->
+<!-- Bottom Balance Summary Bar Matching Image 1 & 2 -->
 <div class="balance-summary-bar" style="margin-top: 14px;">
   <div>Total Advance: <span id="summaryTotalAdvance" style="color: #0d6efd;">0.00</span></div>
-  <div>Total Advance Repayment: <span id="summaryTotalRepayment" style="color: #0d6efd;">0.00</span></div>
+  <div>Total Payment: <span id="summaryTotalPayment" style="color: #0d6efd;">0.00</span></div>
   <div>Balance Amount: <span id="summaryBalanceAmount" style="color: #0d6efd;">0.00</span></div>
 </div>
 {% endblock %}
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Update bottom summary bar
     document.getElementById('summaryTotalAdvance').innerText = parseFloat(res.total_advance || 0).toFixed(2);
-    document.getElementById('summaryTotalRepayment').innerText = parseFloat(res.total_repayment || 0).toFixed(2);
+    document.getElementById('summaryTotalPayment').innerText = parseFloat(res.total_payment !== undefined ? res.total_payment : res.total_repayment || 0).toFixed(2);
     document.getElementById('summaryBalanceAmount').innerText = parseFloat(res.balance_amount || 0).toFixed(2);
 
     if (!data || data.length === 0) {
@@ -163,13 +163,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let rowsHtml = '';
     data.forEach(r => {
+      const payAmt = r.payment_amount !== undefined ? r.payment_amount : (r.advance_repayment_amount || 0);
       rowsHtml += `
         <tr>
           <td>${r.timestamp}</td>
           <td style="font-weight: 600;">${r.name}</td>
           <td>${r.date}</td>
           <td>₹ ${parseFloat(r.advance_amount).toFixed(2)}</td>
-          <td>₹ ${parseFloat(r.advance_repayment_amount).toFixed(2)}</td>
+          <td>₹ ${parseFloat(payAmt).toFixed(2)}</td>
           <td style="font-weight: 700; color: #0d6efd;">₹ ${parseFloat(r.balance_amount).toFixed(2)}</td>
         </tr>
       `;
@@ -227,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const printContents = document.getElementById('printableBalanceSection').innerHTML;
     const summaryContents = document.querySelector('.balance-summary-bar') ? document.querySelector('.balance-summary-bar').outerHTML : '';
     const printWindow = window.open('', '', 'height=600,width=850');
-    printWindow.document.write('<html><head><title>Print Balance Report</title>');
+    printWindow.document.write('<html><head><title>Print Advance Summary</title>');
     printWindow.document.write('<style>');
     printWindow.document.write(`
       body { font-family: sans-serif; padding: 20px; }
@@ -238,7 +239,7 @@ document.addEventListener('DOMContentLoaded', function () {
       .balance-summary-bar { margin-top: 20px; border: 1px solid #ccc; padding: 10px; display: flex; gap: 20px; font-weight: bold; font-size: 12px; }
     `);
     const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS TECHNOLOGIES';
-    printWindow.document.write(`<h2>${compName} - EMPLOYEE BALANCE REPORT</h2>`);
+    printWindow.document.write(`<h2>${compName} - ADVANCE SUMMARY</h2>`);
     printWindow.document.write(printContents);
     printWindow.document.write(summaryContents);
     printWindow.document.write('</body></html>');

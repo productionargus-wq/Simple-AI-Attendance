@@ -956,16 +956,15 @@ def generate_balance_report_pdf(data, totals=None, company_info=None):
     )
     
     elements = []
-    build_pdf_header(elements, company_info=company_info, title="BALANCE REPORT")
+    build_pdf_header(elements, company_info=company_info, title="ADVANCE SUMMARY")
 
-    
     table_data = [
         [
-            Paragraph("TIMESTAMP", header_style),
+            Paragraph("DATE&TIME", header_style),
             Paragraph("NAME", header_style),
             Paragraph("DATE", header_style),
             Paragraph("ADVANCE AMOUNT", header_style),
-            Paragraph("ADVANCE REPAYMENT AMOUNT", header_style),
+            Paragraph("PAYMENT AMOUNT", header_style),
             Paragraph("BALANCE AMOUNT", header_style)
         ]
     ]
@@ -981,12 +980,13 @@ def generate_balance_report_pdf(data, totals=None, company_info=None):
         ])
     else:
         for r in data:
+            pay_amt = r.get('payment_amount', r.get('advance_repayment_amount', 0))
             table_data.append([
                 Paragraph(str(r.get('timestamp', '')), cell_style),
                 Paragraph(str(r.get('name', '')), cell_style),
                 Paragraph(str(r.get('date', '')), cell_style),
                 Paragraph(f"{float(r.get('advance_amount', 0)):.2f}", cell_style),
-                Paragraph(f"{float(r.get('advance_repayment_amount', 0)):.2f}", cell_style),
+                Paragraph(f"{float(pay_amt):.2f}", cell_style),
                 Paragraph(f"{float(r.get('balance_amount', 0)):.2f}", cell_style)
             ])
             
@@ -1007,7 +1007,8 @@ def generate_balance_report_pdf(data, totals=None, company_info=None):
     elements.append(Spacer(1, 14))
     
     if totals:
-        tot_text = f"<b>Total Advance:</b> {totals.get('total_advance', 0.0):.2f} &nbsp;&nbsp;&nbsp;&nbsp; <b>Total Advance Repayment:</b> {totals.get('total_repayment', 0.0):.2f} &nbsp;&nbsp;&nbsp;&nbsp; <b>Balance Amount:</b> {totals.get('balance_amount', 0.0):.2f}"
+        tot_pay = totals.get('total_payment', totals.get('total_repayment', 0.0))
+        tot_text = f"<b>Total Advance:</b> {totals.get('total_advance', 0.0):.2f} &nbsp;&nbsp;&nbsp;&nbsp; <b>Total Payment:</b> {tot_pay:.2f} &nbsp;&nbsp;&nbsp;&nbsp; <b>Balance Amount:</b> {totals.get('balance_amount', 0.0):.2f}"
         elements.append(Paragraph(tot_text, ParagraphStyle('Totals', fontName='Helvetica', fontSize=10, textColor=colors.HexColor('#0d6efd'))))
         elements.append(Spacer(1, 14))
         
@@ -1015,6 +1016,57 @@ def generate_balance_report_pdf(data, totals=None, company_info=None):
     doc.build(elements)
     buffer.seek(0)
     return buffer
+
+def get_rl_image(img_ref, max_width=120, max_height=50):
+    """Safely creates a ReportLab Image from filepath, filename, or data URI."""
+    if not img_ref:
+        return None
+    try:
+        raw_str = str(img_ref).strip()
+        if not raw_str:
+            return None
+        # Check if base64 data URI
+        if raw_str.startswith('data:image'):
+            header, b64 = raw_str.split(',', 1)
+            raw = base64.b64decode(b64)
+            img_io = io.BytesIO(raw)
+            img = RLImage(img_io)
+        elif os.path.isabs(raw_str) and os.path.isfile(raw_str):
+            img = RLImage(raw_str)
+        else:
+            base_dir = os.path.abspath(os.path.dirname(__file__))
+            candidates = [
+                os.path.join(base_dir, 'static', 'uploads', raw_str),
+                os.path.join(base_dir, 'static', raw_str.lstrip('/\\')),
+                os.path.join(base_dir, 'static', 'images', raw_str),
+                os.path.join(base_dir, raw_str.lstrip('/\\'))
+            ]
+            clean_name = os.path.basename(raw_str)
+            candidates.append(os.path.join(base_dir, 'static', 'uploads', clean_name))
+
+            found = None
+            for path in candidates:
+                if os.path.isfile(path):
+                    found = path
+                    break
+            if not found:
+                return None
+            img = RLImage(found)
+
+        # Scale preserving aspect ratio
+        if getattr(img, 'imageWidth', None) and getattr(img, 'imageHeight', None) and img.imageWidth > 0 and img.imageHeight > 0:
+            aspect = float(img.imageWidth) / float(img.imageHeight)
+            w = max_width
+            h = w / aspect
+            if h > max_height:
+                h = max_height
+                w = h * aspect
+            img.drawWidth = w
+            img.drawHeight = h
+            return img
+    except Exception as e:
+        print(f"Notice: Image load for PDF failed for {img_ref}: {e}")
+    return None
 
 def generate_payslip_pdf(p):
     buffer = io.BytesIO()
@@ -1031,8 +1083,15 @@ def generate_payslip_pdf(p):
     
     elements = []
     
+    # 1. Company Logo at top (if available)
+    logo_img = get_rl_image(p.get('company_logo') or p.get('company_logo_url'), max_width=140, max_height=45)
+    if logo_img:
+        logo_img.hAlign = 'CENTER'
+        elements.append(logo_img)
+        elements.append(Spacer(1, 4))
+
     # Header
-    title_style = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=16, leading=20, alignment=TA_CENTER, textColor=colors.HexColor('#003366'))
+    title_style = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=15, leading=19, alignment=TA_CENTER, textColor=colors.HexColor('#003366'))
     addr_style = ParagraphStyle('CompAddr', fontName='Helvetica', fontSize=8, leading=11, alignment=TA_CENTER, textColor=colors.HexColor('#0056b3'))
     sub_style = ParagraphStyle('CompSub', fontName='Helvetica-Bold', fontSize=11, leading=15, alignment=TA_CENTER, textColor=colors.HexColor('#212529'))
     
@@ -1058,55 +1117,63 @@ def generate_payslip_pdf(p):
         elements.append(Paragraph(" | ".join(contact_parts), addr_style))
     elements.append(Spacer(1, 4))
     elements.append(Paragraph("Monthly Payslip", sub_style))
-    elements.append(Spacer(1, 10))
+    elements.append(Spacer(1, 8))
     
     cell_lbl_style = ParagraphStyle('CellLbl', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor('#212529'))
     cell_val_style = ParagraphStyle('CellVal', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#333333'))
     
-    # 4-column Employee Info Table - Dynamically configured based on salary basis
+    # 5-column Employee Info Table with Employee Photo on right
     st = str(p.get('salary_type', 'daily')).lower()
     shift_h = str(p.get('shift_hours') or '08:00')
     bank = str(p.get('bank_name') or '—')
 
     if st == 'hourly':
         lbl_r2, val_r2 = "Hours Salary", f"Rs. {p.get('hours_salary', 0)}"
-        lbl_r3, val_r3 = "Shift Hours", shift_h
-        lbl_r4, val_r4 = "Bank Name", bank
     elif st == 'half_day':
         lbl_r2, val_r2 = "Half Day Salary", f"Rs. {p.get('half_day_salary', 0)}"
-        lbl_r3, val_r3 = "Shift Hours", shift_h
-        lbl_r4, val_r4 = "Bank Name", bank
     else:  # 'daily'
         lbl_r2, val_r2 = "Day Salary", f"Rs. {p.get('day_salary', 0)}"
-        lbl_r3, val_r3 = "Half Day Salary", f"Rs. {p.get('half_day_salary', 0)}"
-        lbl_r4, val_r4 = "Shift Hours", shift_h
+
+    emp_photo_img = get_rl_image(p.get('employee_photo') or p.get('employee_photo_url'), max_width=65, max_height=80)
+    if emp_photo_img:
+        emp_photo_img.hAlign = 'CENTER'
+        photo_cell = emp_photo_img
+    else:
+        photo_cell = Paragraph("<font size='8' color='#94a3b8'>PHOTO</font>", ParagraphStyle('PhotoHolder', alignment=TA_CENTER))
 
     info_data = [
-        [Paragraph("PAYSLIP", ParagraphStyle('SectionHdr', fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=TA_CENTER, textColor=colors.white)), "", "", ""],
-        [Paragraph("Employee Name", cell_lbl_style), Paragraph(str(p.get('employee_name', '')), cell_val_style), Paragraph("Salary Basis", cell_lbl_style), Paragraph(str(p.get('salary_basis_label', 'Day-Based')), cell_val_style)],
-        [Paragraph("Employee ID", cell_lbl_style), Paragraph(str(p.get('employee_id', '')), cell_val_style), Paragraph(lbl_r2, cell_lbl_style), Paragraph(val_r2, cell_val_style)],
-        [Paragraph("Designation", cell_lbl_style), Paragraph(str(p.get('designation', '')), cell_val_style), Paragraph(lbl_r3, cell_lbl_style), Paragraph(val_r3, cell_val_style)],
-        [Paragraph("Phone Number", cell_lbl_style), Paragraph(str(p.get('phone_number', '')), cell_val_style), Paragraph(lbl_r4, cell_lbl_style), Paragraph(val_r4, cell_val_style)],
-        [Paragraph("Year & Month", cell_lbl_style), Paragraph(str(p.get('year_month', '')), cell_val_style), Paragraph("Working Days", cell_lbl_style), Paragraph(str(p.get('working_days_breakdown', p.get('working_days', 0))), cell_val_style)],
-        [Paragraph("Total Working Hours", cell_lbl_style), Paragraph(str(p.get('total_working_hours', '00:00')), cell_val_style), Paragraph("Total Days / Leave", cell_lbl_style), Paragraph(f"{p.get('total_days_of_month', 30)} Days ({p.get('leave_days', 0)} Leave)", cell_val_style)],
+        [Paragraph("PAYSLIP", ParagraphStyle('SectionHdr', fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=TA_CENTER, textColor=colors.white)), "", "", "", ""],
+        [Paragraph("Employee Name", cell_lbl_style), Paragraph(str(p.get('employee_name', '')), cell_val_style), Paragraph("Salary Basis", cell_lbl_style), Paragraph(str(p.get('salary_basis_label', 'Day-Based')), cell_val_style), photo_cell],
+        [Paragraph("Employee ID", cell_lbl_style), Paragraph(str(p.get('employee_id', '')), cell_val_style), Paragraph(lbl_r2, cell_lbl_style), Paragraph(val_r2, cell_val_style), ""],
+        [Paragraph("Department", cell_lbl_style), Paragraph(str(p.get('department', 'General')), cell_val_style), Paragraph("Designation", cell_lbl_style), Paragraph(str(p.get('designation', '')), cell_val_style), ""],
+        [Paragraph("Email ID", cell_lbl_style), Paragraph(str(p.get('email_id', '')), cell_val_style), Paragraph("Phone Number", cell_lbl_style), Paragraph(str(p.get('phone_number', '')), cell_val_style), ""],
+        [Paragraph("Shift Hours", cell_lbl_style), Paragraph(shift_h, cell_val_style), Paragraph("Bank Name", cell_lbl_style), Paragraph(bank, cell_val_style), ""],
+        [Paragraph("Year & Month", cell_lbl_style), Paragraph(str(p.get('year_month', '')), cell_val_style), Paragraph("Working Days", cell_lbl_style), Paragraph(str(p.get('working_days_breakdown', p.get('working_days', 0))), cell_val_style), ""],
+        [Paragraph("Total Working Hours", cell_lbl_style), Paragraph(str(p.get('total_working_hours', '00:00')), cell_val_style), Paragraph("Total Days / Leave", cell_lbl_style), Paragraph(f"{p.get('total_days_of_month', 30)} Days ({p.get('leave_days', 0)} Leave)", cell_val_style), ""],
     ]
     
-    t_info = Table(info_data, colWidths=[120, 150, 130, 140])
+    t_info = Table(info_data, colWidths=[110, 135, 110, 115, 70])
     t_info.setStyle(TableStyle([
-        ('SPAN', (0, 0), (3, 0)),
-        ('BACKGROUND', (0, 0), (3, 0), colors.HexColor('#1565c0')),
-        ('ALIGN', (0, 0), (3, 0), 'CENTER'),
+        ('SPAN', (0, 0), (4, 0)),
+        ('BACKGROUND', (0, 0), (4, 0), colors.HexColor('#1565c0')),
+        ('ALIGN', (0, 0), (4, 0), 'CENTER'),
+        ('SPAN', (4, 1), (4, 7)),
+        ('ALIGN', (4, 1), (4, 7), 'CENTER'),
+        ('VALIGN', (4, 1), (4, 7), 'MIDDLE'),
+        ('BACKGROUND', (4, 1), (4, 7), colors.HexColor('#fafafa')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#767676')),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
     ]))
     elements.append(t_info)
-    elements.append(Spacer(1, 10))
+    elements.append(Spacer(1, 8))
     
-    # Earnings & Deductions Table
+    # Earnings & Deductions Table (Total Earnings and Total Deductions in SAME ROW)
+    bold_earn_style = ParagraphStyle('BoldEarn', fontName='Helvetica-Bold', fontSize=9, leading=11, textColor=colors.HexColor('#0f172a'))
+    
     earn_ded_data = [
         [Paragraph("EARNINGS", ParagraphStyle('EarnHdr', fontName='Helvetica-Bold', fontSize=9, leading=11, alignment=TA_CENTER, textColor=colors.white)), "",
          Paragraph("DEDUCTION", ParagraphStyle('DedHdr', fontName='Helvetica-Bold', fontSize=9, leading=11, alignment=TA_CENTER, textColor=colors.white)), ""],
@@ -1114,8 +1181,8 @@ def generate_payslip_pdf(p):
         [Paragraph("Allowance", cell_lbl_style), Paragraph(f"Rs. {p.get('allowance', 0)}", cell_val_style), Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {p.get('advance_repayment', 0)}", cell_val_style)],
         [Paragraph("Incentive", cell_lbl_style), Paragraph(f"Rs. {p.get('incentive', 0)}", cell_val_style), Paragraph("Other Deductions", cell_lbl_style), Paragraph(f"Rs. {p.get('other_deductions', 0)}", cell_val_style)],
         [Paragraph("Others Earnings", cell_lbl_style), Paragraph(f"Rs. {p.get('other_earnings', 0)}", cell_val_style), Paragraph("", cell_lbl_style), Paragraph("", cell_val_style)],
-        [Paragraph("TOTAL EARNINGS", cell_lbl_style), Paragraph(f"Rs. {p.get('total_earnings', 0)}", cell_lbl_style), Paragraph("", cell_lbl_style), Paragraph("", cell_val_style)],
-        [Paragraph("TOTAL DEDUCTION", cell_lbl_style), Paragraph(f"Rs. {p.get('total_deduction', 0)}", cell_lbl_style), Paragraph("", cell_lbl_style), Paragraph("", cell_val_style)],
+        [Paragraph("TOTAL EARNINGS", bold_earn_style), Paragraph(f"Rs. {p.get('total_earnings', 0)}", bold_earn_style),
+         Paragraph("TOTAL DEDUCTIONS", bold_earn_style), Paragraph(f"Rs. {p.get('total_deductions', p.get('total_deduction', 0))}", bold_earn_style)],
     ]
     
     t_earn = Table(earn_ded_data, colWidths=[150, 120, 150, 120])
@@ -1124,6 +1191,7 @@ def generate_payslip_pdf(p):
         ('SPAN', (2, 0), (3, 0)),
         ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#0d47a1')),
         ('BACKGROUND', (2, 0), (3, 0), colors.HexColor('#0d47a1')),
+        ('BACKGROUND', (0, 5), (-1, 5), colors.HexColor('#f8fafc')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#767676')),
         ('TOPPADDING', (0, 0), (-1, -1), 4),
@@ -1132,7 +1200,7 @@ def generate_payslip_pdf(p):
         ('RIGHTPADDING', (0, 0), (-1, -1), 6),
     ]))
     elements.append(t_earn)
-    elements.append(Spacer(1, 10))
+    elements.append(Spacer(1, 8))
     
     # Net Pay Bar
     net_data = [
@@ -1153,6 +1221,8 @@ def generate_payslip_pdf(p):
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
     elements.append(t_net)
+    elements.append(Spacer(1, 8))
+    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
