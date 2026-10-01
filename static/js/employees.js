@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const photoSrc = emp.photo_data || (photoFile ? (photoFile.startsWith('data:') ? photoFile : `/uploads/${encodeURIComponent(photoFile)}`) : '');
       let photoHtml = '';
       if (photoSrc) {
-        photoHtml = `<img src="${photoSrc}" class="emp-table-photo" onclick="openPhotoModal('${photoSrc}', '${escapeHtml(emp.employee_name)}')" title="Click to view photo">`;
+        photoHtml = `<img src="${photoSrc}" class="emp-table-photo" onclick="openPhotoModal(this.src, '${escapeHtml(emp.employee_name)}')" title="Click to view photo">`;
       } else {
         const initials = (emp.employee_name || 'E').substring(0, 2).toUpperCase();
         photoHtml = `<div class="avatar-circle">${initials}</div>`;
@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const photoSrc = emp.photo_data || (photoFile ? (photoFile.startsWith('data:') ? photoFile : `/uploads/${encodeURIComponent(photoFile)}`) : '');
       let photoImgHtml = '';
       if (photoSrc) {
-        photoImgHtml = `<img src="${photoSrc}" class="emp-grid-photo" onclick="openPhotoModal('${photoSrc}', '${escapeHtml(emp.employee_name)}')" title="Click to view photo">`;
+        photoImgHtml = `<img src="${photoSrc}" class="emp-grid-photo" onclick="openPhotoModal(this.src, '${escapeHtml(emp.employee_name)}')" title="Click to view photo">`;
       } else {
         const initials = (emp.employee_name || 'E').substring(0, 2).toUpperCase();
         photoImgHtml = `<div class="emp-grid-avatar-placeholder">${initials}</div>`;
@@ -555,9 +555,20 @@ document.addEventListener('DOMContentLoaded', function () {
       const empId = document.getElementById('formEmployeeId').value.trim();
       const formData = new FormData(employeeForm);
 
-      // Attach webcam captured photo if DataTransfer wasn't available
-      if (currentCapturedBlob && (!inputPhoto || !inputPhoto.files || inputPhoto.files.length === 0)) {
+      // Attach webcam captured photo if user took snapshot
+      if (currentCapturedBlob) {
         formData.set('photo', currentCapturedBlob, 'face_capture.jpg');
+        try {
+          const canvas = document.getElementById('faceRegCanvas');
+          if (canvas) {
+            const cData = canvas.toDataURL('image/jpeg', 0.9);
+            if (cData && cData.startsWith('data:image')) {
+              formData.set('photo_data', cData);
+            }
+          }
+        } catch (cErr) {
+          console.warn('Canvas toDataURL fallback failed:', cErr);
+        }
       }
 
       const url = empId ? `/api/employees/${empId}` : '/api/employees';
@@ -627,7 +638,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const photoSrc = emp.photo_data || (photoFile ? (photoFile.startsWith('data:') ? photoFile : `/uploads/${encodeURIComponent(photoFile)}`) : '');
       if (photoHeader) {
         if (photoSrc) {
-          photoHeader.innerHTML = `<img src="${photoSrc}" class="view-modal-photo" onclick="openPhotoModal('${photoSrc}', '${escapeHtml(emp.employee_name)}')" title="Click to view full photo">`;
+          photoHeader.innerHTML = `<img src="${photoSrc}" class="view-modal-photo" onclick="openPhotoModal(this.src, '${escapeHtml(emp.employee_name)}')" title="Click to view full photo">`;
         } else {
           const initials = (emp.employee_name || 'E').substring(0, 2).toUpperCase();
           photoHeader.innerHTML = `<div class="emp-grid-avatar-placeholder" style="width: 58px; height: 58px; font-size: 20px;">${initials}</div>`;
@@ -739,9 +750,12 @@ document.addEventListener('DOMContentLoaded', function () {
   window.openPhotoModal = function (srcOrFilename, name) {
     const imgEl = document.getElementById('photoModalImg');
     const titleEl = document.getElementById('photoModalTitle');
-    const validSrc = (srcOrFilename.startsWith('data:') || srcOrFilename.startsWith('/')) ? srcOrFilename : `/uploads/${encodeURIComponent(srcOrFilename)}`;
+    let validSrc = srcOrFilename || '';
+    if (validSrc && typeof validSrc === 'string' && !validSrc.startsWith('data:') && !validSrc.startsWith('http://') && !validSrc.startsWith('https://') && !validSrc.startsWith('/')) {
+      validSrc = `/uploads/${encodeURIComponent(validSrc)}`;
+    }
     imgEl.src = validSrc;
-    titleEl.textContent = `${name} - Photo`;
+    titleEl.textContent = `${name || 'Employee'} - Photo`;
     photoModal.classList.add('active');
   };
 

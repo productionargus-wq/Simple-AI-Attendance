@@ -1061,6 +1061,26 @@ def api_create_employee():
                 except Exception as pe:
                     print(f"Warning: photo processing error: {pe}")
                 
+        # Fallback: if photo was sent as base64 data URI in form body
+        if not photo_data_url and data.get('photo_data') and str(data['photo_data']).startswith('data:image'):
+            try:
+                raw_b64 = str(data['photo_data'])
+                header, b64_part = raw_b64.split(',', 1)
+                img_bytes = base64.b64decode(b64_part)
+                fe = get_face_engine()
+                if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                    try:
+                        embedding = fe.extract_face_embedding_from_image(img_bytes)
+                        if embedding:
+                            data['face_embedding'] = database.json.dumps(embedding)
+                            face_registered = True
+                    except Exception as fe_err:
+                        print(f"Warning: face embedding extraction error: {fe_err}")
+                unique_filename, photo_data_url, _ = process_uploaded_photo(img_bytes, 'face_capture.jpg')
+                photo_filename = unique_filename
+            except Exception as b64_err:
+                print(f"Warning: processing base64 photo_data failed: {b64_err}")
+
         if photo_filename:
             data['photo_filename'] = photo_filename
             data['photo'] = photo_filename
@@ -1128,6 +1148,28 @@ def api_update_employee(emp_id):
                         data['photo_data'] = photo_data_url
                 except Exception as pe:
                     print(f"Warning: photo processing error: {pe}")
+                
+        # Fallback: if photo was sent as base64 data URI in update form body
+        if not face_registered and 'photo_data' in data and data['photo_data'] and str(data['photo_data']).startswith('data:image'):
+            try:
+                raw_b64 = str(data['photo_data'])
+                header, b64_part = raw_b64.split(',', 1)
+                img_bytes = base64.b64decode(b64_part)
+                fe = get_face_engine()
+                if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                    try:
+                        embedding = fe.extract_face_embedding_from_image(img_bytes)
+                        if embedding:
+                            data['face_embedding'] = database.json.dumps(embedding)
+                            face_registered = True
+                    except Exception as fe_err:
+                        print(f"Warning: face embedding extraction from photo_data error: {fe_err}")
+                unique_filename, photo_data_url, _ = process_uploaded_photo(img_bytes, 'face_capture.jpg')
+                data['photo_filename'] = unique_filename
+                data['photo'] = unique_filename
+                data['photo_data'] = photo_data_url
+            except Exception as b64_err:
+                print(f"Warning: processing base64 photo_data in update failed: {b64_err}")
                 
         database.update_employee(emp_id, data)
         success_msg = 'Employee updated successfully'
