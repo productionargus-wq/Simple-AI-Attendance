@@ -150,10 +150,10 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // Event listeners for toggle buttons
-  btnAllEntries.addEventListener('click', () => switchView('all'));
-  btnProperEntries.addEventListener('click', () => switchView('proper'));
-  btnImproperEntries.addEventListener('click', () => switchView('improper'));
-  btnManualEntries.addEventListener('click', () => switchView('manual'));
+  if (btnAllEntries) btnAllEntries.addEventListener('click', () => switchView('all'));
+  if (btnProperEntries) btnProperEntries.addEventListener('click', () => switchView('proper'));
+  if (btnImproperEntries) btnImproperEntries.addEventListener('click', () => switchView('improper'));
+  if (btnManualEntries) btnManualEntries.addEventListener('click', () => switchView('manual'));
   if (btnCompactView) {
     btnCompactView.addEventListener('click', () => switchView('compact'));
   }

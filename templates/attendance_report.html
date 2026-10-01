@@ -24,6 +24,7 @@
     <button class="btn-toggle-tab inactive" id="btnImproperEntries" data-view="improper">Improper Entries</button>
     <button class="btn-toggle-tab inactive" id="btnManualEntries" data-view="manual">Manual Entries</button>
     <button class="btn-toggle-tab inactive" id="btnCompactView" data-view="compact">Compact View</button>
+    <span id="btnSimpleTable" style="display: none;"></span>
   </div>
 </div>
 
@@ -209,5 +210,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/attendance_report.js') }}"></script>
+<script src="{{ url_for('static', filename='js/attendance_report.js') }}?v=5.3"></script>
 {% endblock %}
