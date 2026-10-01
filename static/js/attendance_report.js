@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', function () {
   // Check URL query parameters
   const urlParams = new URLSearchParams(window.location.search);
   const paramView = urlParams.get('tab') || urlParams.get('view');
-  if (['all', 'proper', 'improper', 'manual', 'simple'].includes(paramView)) {
-    currentView = paramView;
+  if (['all', 'proper', 'improper', 'manual', 'compact', 'simple'].includes(paramView)) {
+    currentView = (paramView === 'simple') ? 'compact' : paramView;
   }
 
   // DOM Elements
@@ -25,7 +25,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnProperEntries = document.getElementById('btnProperEntries');
   const btnImproperEntries = document.getElementById('btnImproperEntries');
   const btnManualEntries = document.getElementById('btnManualEntries');
-  const btnSimpleTable = document.getElementById('btnSimpleTable');
+  const btnCompactView = document.getElementById('btnCompactView') || document.getElementById('btnSimpleTable');
+  const btnSimpleTable = btnCompactView;
   const btnUpdateData = document.getElementById('btnUpdateData');
 
   const startDateInput = document.getElementById('startDate');
@@ -64,7 +65,8 @@ document.addEventListener('DOMContentLoaded', function () {
     'proper': 'Displays valid attendance records where location distance is within 200 meters of the configured office geolocation.',
     'improper': 'Displays attendance records where location distance exceeds 200 meters from the configured office geolocation.',
     'manual': 'Displays attendance records that were entered manually by the administrator.',
-    'simple': 'Displays attendance records that were entered manually by the administrator.'
+    'compact': 'View essential attendance details in a compact format.',
+    'simple': 'View essential attendance details in a compact format.'
   };
 
   const titles = {
@@ -72,7 +74,8 @@ document.addEventListener('DOMContentLoaded', function () {
     'proper': 'PROPER ENTRIES',
     'improper': 'IMPROPER ENTRIES',
     'manual': 'MANUAL ENTRIES',
-    'simple': 'MANUAL ENTRIES'
+    'compact': 'COMPACT OVERVIEW',
+    'simple': 'COMPACT OVERVIEW'
   };
 
   const toggleButtons = {
@@ -80,7 +83,8 @@ document.addEventListener('DOMContentLoaded', function () {
     'proper': btnProperEntries,
     'improper': btnImproperEntries,
     'manual': btnManualEntries,
-    'simple': btnSimpleTable
+    'compact': btnCompactView,
+    'simple': btnCompactView
   };
 
   // Populate employee dropdowns
@@ -131,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
 
-    if (view === 'simple') {
+    if (view === 'compact' || view === 'simple') {
       standardTableContainer.style.display = 'none';
       simpleTableContainer.style.display = 'block';
       if (simpleEmployeeSelect && employeeFilterInput && employeeFilterInput.value && employeeFilterInput.value !== 'All') {
@@ -150,7 +154,9 @@ document.addEventListener('DOMContentLoaded', function () {
   btnProperEntries.addEventListener('click', () => switchView('proper'));
   btnImproperEntries.addEventListener('click', () => switchView('improper'));
   btnManualEntries.addEventListener('click', () => switchView('manual'));
-  btnSimpleTable.addEventListener('click', () => switchView('simple'));
+  if (btnCompactView) {
+    btnCompactView.addEventListener('click', () => switchView('compact'));
+  }
 
   // Load Standard Table Data (All / Proper / Improper / Manual)
   async function loadStandardTable() {
@@ -345,7 +351,7 @@ document.addEventListener('DOMContentLoaded', function () {
       endDate = endDateInput.value.trim();
       employeeName = employeeFilterInput.value.trim();
       currentPage = 1;
-      if (currentView === 'simple') {
+      if (currentView === 'simple' || currentView === 'compact') {
         loadSimpleTable();
       } else {
         loadStandardTable();
@@ -362,7 +368,7 @@ document.addEventListener('DOMContentLoaded', function () {
       endDate = '';
       employeeName = 'All';
       currentPage = 1;
-      if (currentView === 'simple') {
+      if (currentView === 'simple' || currentView === 'compact') {
         if (simpleEmployeeSelect) simpleEmployeeSelect.value = 'All Employees';
         loadSimpleTable();
       } else {
@@ -387,7 +393,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const d = await res.json();
         if (d.success) {
           alert('Attendance records refreshed successfully!');
-          if (currentView === 'simple') {
+          if (currentView === 'simple' || currentView === 'compact') {
             loadSimpleTable();
           } else {
             loadStandardTable();
@@ -473,7 +479,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const emp = simpleEmployeeSelect ? simpleEmployeeSelect.value : 'All Employees';
       const curStart = startDateInput ? startDateInput.value.trim() : startDate;
       const curEnd = endDateInput ? endDateInput.value.trim() : endDate;
-      window.location.href = `/api/attendance-reports/export/excel?type=simple&start_date=${encodeURIComponent(curStart)}&end_date=${encodeURIComponent(curEnd)}&employee=${encodeURIComponent(emp)}`;
+      window.location.href = `/api/attendance-reports/export/excel?type=compact&start_date=${encodeURIComponent(curStart)}&end_date=${encodeURIComponent(curEnd)}&employee=${encodeURIComponent(emp)}`;
     });
   }
 
@@ -489,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const emp = simpleEmployeeSelect ? simpleEmployeeSelect.value : 'All Employees';
       const curStart = startDateInput ? startDateInput.value.trim() : startDate;
       const curEnd = endDateInput ? endDateInput.value.trim() : endDate;
-      window.location.href = `/api/attendance-reports/export/pdf?type=simple&start_date=${encodeURIComponent(curStart)}&end_date=${encodeURIComponent(curEnd)}&employee=${encodeURIComponent(emp)}`;
+      window.location.href = `/api/attendance-reports/export/pdf?type=compact&start_date=${encodeURIComponent(curStart)}&end_date=${encodeURIComponent(curEnd)}&employee=${encodeURIComponent(emp)}`;
     });
   }
 
@@ -502,7 +508,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (btnSimplePrint) {
     btnSimplePrint.addEventListener('click', function () {
-      printTable('printableSimpleSection', 'MANUAL ENTRIES (SIMPLE TABLE)');
+      printTable('printableSimpleSection', 'COMPACT OVERVIEW');
     });
   }
 

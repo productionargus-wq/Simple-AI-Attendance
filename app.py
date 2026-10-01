@@ -1355,6 +1355,7 @@ def api_get_attendance_reports():
     )
     return jsonify(result)
 
+@app.route('/api/attendance-reports/compact', methods=['GET'])
 @app.route('/api/attendance-reports/simple', methods=['GET'])
 @login_required
 def api_get_attendance_simple():
@@ -1388,7 +1389,7 @@ def api_attendance_export_excel():
     output = io.StringIO()
     writer = csv.writer(output)
     
-    if report_type == 'simple':
+    if report_type in ['simple', 'compact']:
         result = database.get_attendance_simple_table(employee=employee, start_date=start_date, end_date=end_date, company_id=comp_id)
         writer.writerow(['EMPLOYEE NAME', 'ENTRY TIME', 'EXIT TIME', 'WORKING HOURS', 'SHIFT VARIANCE', 'WORKING SALARY', 'STATUS'])
         for r in result.get('data', []):
@@ -1438,11 +1439,11 @@ def api_attendance_export_pdf():
     comp_id = get_current_company_id()
     
     company_info = get_current_company_info()
-    if report_type == 'simple':
+    if report_type in ['simple', 'compact']:
         result = database.get_attendance_simple_table(employee=employee, start_date=start_date, end_date=end_date, company_id=comp_id)
         emp_title = f" - {employee}" if (employee and employee not in ['All', 'All Employees']) else ""
         date_title = f" ({start_date} to {end_date})" if (start_date and end_date) else (f" (From {start_date})" if start_date else (f" (Up to {end_date})" if end_date else ""))
-        title = f"Attendance Report (Simple Table){emp_title}{date_title}"
+        title = f"Attendance Report (Compact View){emp_title}{date_title}"
         totals = {
             'total_working_hours': result['total_working_hours'],
             'total_working_salary': result['total_working_salary']
