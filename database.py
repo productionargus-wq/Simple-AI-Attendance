@@ -815,6 +815,7 @@ def create_employee(data, company_id=None):
         'shift_end': str(data.get('shift_end') or '06:00 PM').strip(),
         'photo': str(data.get('photo') or data.get('photo_filename') or '').strip(),
         'photo_filename': str(data.get('photo_filename') or data.get('photo') or '').strip(),
+        'photo_data': str(data.get('photo_data') or '').strip(),
         'face_embedding': data.get('face_embedding', ''),
         'created_at': get_ist_now(),
         'updated_at': get_ist_now()
@@ -831,38 +832,37 @@ def update_employee(emp_id, data, company_id=None):
         f = {'$and': [f, {'company_id': str(company_id)}]}
     if 'email_id' in data and not str(data.get('email_id') or '').strip():
         raise ValueError('Email ID is required.')
-    upd = {
-        'employee_name': data.get('employee_name', '').strip(),
-        'department': (data.get('department') or data.get('designation') or 'General').strip(),
-        'designation': data.get('designation', '').strip(),
-        'mobile_number': data.get('mobile_number', '').strip(),
-        'hourly_salary': safe_float(data.get('hourly_salary')),
-        'day_salary': safe_float(data.get('day_salary')),
-        'half_day_salary': safe_float(data.get('half_day_salary')),
-        'email_id': data.get('email_id', '').strip(),
-        'aadhar_number': data.get('aadhar_number', '').strip(),
-        'emergency_contact': data.get('emergency_contact', '').strip(),
-        'joining_date': data.get('joining_date', '').strip(),
-        'account_holder_name': data.get('account_holder_name', '').strip(),
-        'upi_number': data.get('upi_number', '').strip(),
-        'bank_name': data.get('bank_name', '').strip(),
-        'account_number': data.get('account_number', '').strip(),
-        'ifsc_code': data.get('ifsc_code', '').strip(),
-        'shift_hours': data.get('shift_hours', '').strip(),
-        'updated_at': get_ist_now()
-    }
-    if 'shift_start' in data and data['shift_start']:
-        upd['shift_start'] = str(data['shift_start']).strip()
-    if 'shift_end' in data and data['shift_end']:
-        upd['shift_end'] = str(data['shift_end']).strip()
+
+    upd = {'updated_at': get_ist_now()}
+
+    text_fields = [
+        'employee_name', 'department', 'designation', 'mobile_number', 'email_id',
+        'aadhar_number', 'emergency_contact', 'joining_date', 'account_holder_name',
+        'upi_number', 'bank_name', 'account_number', 'ifsc_code', 'shift_hours',
+        'shift_start', 'shift_end'
+    ]
+    for key in text_fields:
+        if key in data:
+            upd[key] = str(data[key]).strip() if data[key] is not None else ''
+
+    salary_fields = ['hourly_salary', 'day_salary', 'half_day_salary']
+    for s_key in salary_fields:
+        if s_key in data:
+            upd[s_key] = safe_float(data[s_key])
+
     if 'salary_type' in data and data['salary_type']:
         st = str(data['salary_type']).strip().lower()
         if st in ['hourly', 'daily', 'half_day']:
             upd['salary_type'] = st
+
     photo_val = data.get('photo') or data.get('photo_filename')
     if photo_val:
         upd['photo_filename'] = str(photo_val).strip()
         upd['photo'] = str(photo_val).strip()
+
+    if 'photo_data' in data and data['photo_data']:
+        upd['photo_data'] = str(data['photo_data']).strip()
+
     if 'face_embedding' in data and data['face_embedding']:
         upd['face_embedding'] = data['face_embedding']
     if 'company_id' in data and data['company_id']:

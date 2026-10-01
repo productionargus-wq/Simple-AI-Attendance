@@ -1,5 +1,6 @@
 import io
 import os
+import base64
 from datetime import datetime
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -133,19 +134,34 @@ def generate_employee_pdf(emp):
 
     elements = []
     
-    # Check for employee photo
+    # Check for employee photo (from MongoDB base64 or disk)
     photo_name = emp.get('photo') or emp.get('photo_filename')
+    photo_data = emp.get('photo_data')
     photo_widget = None
-    if photo_name:
+
+    if photo_data and isinstance(photo_data, str) and ',' in photo_data:
+        try:
+            b64_part = photo_data.split(',', 1)[1]
+            p_bytes = base64.b64decode(b64_part)
+            photo_widget = RLImage(io.BytesIO(p_bytes), width=70, height=70)
+        except Exception:
+            photo_widget = None
+
+    if not photo_widget and photo_name:
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        photo_path = os.path.join(base_dir, 'uploads', str(photo_name))
-        if not os.path.exists(photo_path):
-            photo_path = os.path.join('uploads', str(photo_name))
-        if os.path.exists(photo_path):
-            try:
-                photo_widget = RLImage(photo_path, width=70, height=70)
-            except Exception:
-                photo_widget = None
+        possible_paths = [
+            os.path.join(base_dir, 'static', 'uploads', str(photo_name)),
+            os.path.join(base_dir, 'uploads', str(photo_name)),
+            os.path.join('static', 'uploads', str(photo_name)),
+            os.path.join('uploads', str(photo_name))
+        ]
+        for p_path in possible_paths:
+            if os.path.exists(p_path):
+                try:
+                    photo_widget = RLImage(p_path, width=70, height=70)
+                    break
+                except Exception:
+                    photo_widget = None
 
     # Header logo or company text
     comp_name = emp.get('company_name') or "ARGUS TECHNOLOGIES"

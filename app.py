@@ -3,12 +3,14 @@ import io
 import csv
 import gzip
 import secrets
+import base64
 import threading
 import urllib.parse
 import requests
 import werkzeug.utils
 from datetime import datetime
 from dotenv import load_dotenv
+from PIL import Image, ImageOps
 
 load_dotenv()
 
@@ -42,7 +44,8 @@ app = Flask(__name__)
 CORS(app)
 app.secret_key = 'argus-tech-secret-key-2026'
 
-app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', os.path.join(os.path.dirname(__file__), 'static', 'uploads'))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', os.path.join(BASE_DIR, 'static', 'uploads'))
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 43200  # 12 hours static caching
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -51,6 +54,47 @@ try:
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 except Exception as e:
     print(f"Warning: Could not create upload directory: {e}")
+
+def process_uploaded_photo(file_bytes, original_filename='photo.jpg'):
+    """
+    Optimizes and prepares photo for dual-storage (disk + permanent MongoDB Atlas base64):
+    1. Auto-orients portrait/landscape via EXIF metadata.
+    2. Resizes to max 600x600 px using high-quality LANCZOS resampling.
+    3. Converts to standard RGB JPEG (~30-50 KB).
+    4. Generates base64 data URI for 100% persistent MongoDB storage (never lost on refresh/redeploy).
+    5. Saves optimized copy to UPLOAD_FOLDER on disk.
+    """
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        img = ImageOps.exif_transpose(img)
+        if img.mode in ('RGBA', 'P', 'LA'):
+            img = img.convert('RGB')
+        img.thumbnail((600, 600), Image.Resampling.LANCZOS)
+        out_buf = io.BytesIO()
+        img.save(out_buf, format='JPEG', quality=85, optimize=True)
+        optimized_bytes = out_buf.getvalue()
+    except Exception as e:
+        print(f"Warning: PIL photo optimization failed, using raw bytes: {e}")
+        optimized_bytes = file_bytes
+
+    b64_str = base64.b64encode(optimized_bytes).decode('utf-8')
+    photo_data_url = f"data:image/jpeg;base64,{b64_str}"
+
+    clean_name = werkzeug.utils.secure_filename(original_filename) or 'face_capture.jpg'
+    if not clean_name.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+        clean_name += '.jpg'
+    unique_filename = f"{int(database.time.time())}_{clean_name}"
+
+    try:
+        upload_dir = app.config['UPLOAD_FOLDER']
+        os.makedirs(upload_dir, exist_ok=True)
+        file_path = os.path.join(upload_dir, unique_filename)
+        with open(file_path, 'wb') as f:
+            f.write(optimized_bytes)
+    except Exception as io_err:
+        print(f"Warning: could not write photo to disk: {io_err}")
+
+    return unique_filename, photo_data_url, optimized_bytes
 
 def _background_startup():
     try:
@@ -993,35 +1037,35 @@ def api_create_employee():
             data = request.form.to_dict() or {}
             
         photo_filename = ''
+        photo_data_url = ''
         face_registered = False
         if 'photo' in request.files:
             file = request.files['photo']
             if file and file.filename and allowed_file(file.filename):
                 try:
                     file_bytes = file.read()
-                    # Extract 128-d face embedding immediately (Image is NOT stored)
-                    fe = get_face_engine()
-                    if fe and hasattr(fe, 'extract_face_embedding_from_image'):
-                        try:
-                            embedding = fe.extract_face_embedding_from_image(file_bytes)
-                            if embedding:
-                                data['face_embedding'] = database.json.dumps(embedding)
-                                face_registered = True
-                        except Exception as fe_err:
-                            print(f"Warning: face embedding extraction error: {fe_err}")
-                    
-                    # Save thumbnail/photo securely
-                    filename = werkzeug.utils.secure_filename(file.filename) or 'photo.jpg'
-                    unique_filename = f"{int(database.time.time())}_{filename}"
-                    with open(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename), 'wb') as f:
-                        f.write(file_bytes)
-                    photo_filename = unique_filename
+                    if file_bytes:
+                        # Extract 128-d face embedding immediately for AI attendance
+                        fe = get_face_engine()
+                        if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                            try:
+                                embedding = fe.extract_face_embedding_from_image(file_bytes)
+                                if embedding:
+                                    data['face_embedding'] = database.json.dumps(embedding)
+                                    face_registered = True
+                            except Exception as fe_err:
+                                print(f"Warning: face embedding extraction error: {fe_err}")
+                        
+                        unique_filename, photo_data_url, _ = process_uploaded_photo(file_bytes, file.filename)
+                        photo_filename = unique_filename
                 except Exception as pe:
                     print(f"Warning: photo processing error: {pe}")
                 
         if photo_filename:
             data['photo_filename'] = photo_filename
             data['photo'] = photo_filename
+        if photo_data_url:
+            data['photo_data'] = photo_data_url
 
         if not data.get('employee_name'):
             return jsonify({'error': 'Employee name is required'}), 400
@@ -1067,22 +1111,21 @@ def api_update_employee(emp_id):
             if file and file.filename and allowed_file(file.filename):
                 try:
                     file_bytes = file.read()
-                    fe = get_face_engine()
-                    if fe and hasattr(fe, 'extract_face_embedding_from_image'):
-                        try:
-                            embedding = fe.extract_face_embedding_from_image(file_bytes)
-                            if embedding:
-                                data['face_embedding'] = database.json.dumps(embedding)
-                                face_registered = True
-                        except Exception as fe_err:
-                            print(f"Warning: face embedding extraction error: {fe_err}")
-                    
-                    filename = werkzeug.utils.secure_filename(file.filename) or 'photo.jpg'
-                    unique_filename = f"{int(database.time.time())}_{filename}"
-                    with open(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename), 'wb') as f:
-                        f.write(file_bytes)
-                    data['photo_filename'] = unique_filename
-                    data['photo'] = unique_filename
+                    if file_bytes:
+                        fe = get_face_engine()
+                        if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                            try:
+                                embedding = fe.extract_face_embedding_from_image(file_bytes)
+                                if embedding:
+                                    data['face_embedding'] = database.json.dumps(embedding)
+                                    face_registered = True
+                            except Exception as fe_err:
+                                print(f"Warning: face embedding extraction error: {fe_err}")
+                        
+                        unique_filename, photo_data_url, _ = process_uploaded_photo(file_bytes, file.filename)
+                        data['photo_filename'] = unique_filename
+                        data['photo'] = unique_filename
+                        data['photo_data'] = photo_data_url
                 except Exception as pe:
                     print(f"Warning: photo processing error: {pe}")
                 
@@ -1184,10 +1227,56 @@ def api_employees_export_pdf():
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if not os.path.isfile(file_path):
-        return Response(DEFAULT_AVATAR_SVG, mimetype='image/svg+xml')
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    upload_folder = app.config['UPLOAD_FOLDER']
+    file_path = os.path.join(upload_folder, filename)
+
+    # 1. If file exists on disk, serve it directly
+    if os.path.isfile(file_path):
+        return send_from_directory(upload_folder, filename)
+
+    # 2. If file missing from disk (e.g. server restart, ephemeral container, hard refresh),
+    # recover it permanently from MongoDB Atlas!
+    try:
+        db = database.get_db()
+        emp = db.employees.find_one({
+            '$or': [
+                {'photo': filename},
+                {'photo_filename': filename}
+            ]
+        })
+        if not emp:
+            clean_name = os.path.basename(filename)
+            import re
+            emp = db.employees.find_one({
+                '$or': [
+                    {'photo': {'$regex': re.escape(clean_name)}},
+                    {'photo_filename': {'$regex': re.escape(clean_name)}}
+                ]
+            })
+
+        if emp and emp.get('photo_data'):
+            raw_data = str(emp['photo_data'])
+            if ',' in raw_data:
+                header, b64_data = raw_data.split(',', 1)
+                mime = header.split(';')[0].replace('data:', '') if 'data:' in header else 'image/jpeg'
+            else:
+                b64_data = raw_data
+                mime = 'image/jpeg'
+            img_bytes = base64.b64decode(b64_data)
+
+            # Re-cache to disk for fast subsequent requests
+            try:
+                os.makedirs(upload_folder, exist_ok=True)
+                with open(file_path, 'wb') as f:
+                    f.write(img_bytes)
+            except Exception:
+                pass
+
+            return Response(img_bytes, mimetype=mime)
+    except Exception as ex:
+        print(f"Notice: Image recovery from DB error for {filename}: {ex}")
+
+    return Response(DEFAULT_AVATAR_SVG, mimetype='image/svg+xml')
 
 # ----------------- LIVE & TIMEOUT REPORT API ROUTES ----------------- #
 

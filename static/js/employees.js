@@ -104,9 +104,10 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const photoFile = emp.photo || emp.photo_filename;
+      const photoSrc = emp.photo_data || (photoFile ? (photoFile.startsWith('data:') ? photoFile : `/uploads/${encodeURIComponent(photoFile)}`) : '');
       let photoHtml = '';
-      if (photoFile) {
-        photoHtml = `<img src="/uploads/${escapeHtml(photoFile)}" class="emp-table-photo" onclick="openPhotoModal('${escapeHtml(photoFile)}', '${escapeHtml(emp.employee_name)}')" title="Click to view photo">`;
+      if (photoSrc) {
+        photoHtml = `<img src="${photoSrc}" class="emp-table-photo" onclick="openPhotoModal('${photoSrc}', '${escapeHtml(emp.employee_name)}')" title="Click to view photo">`;
       } else {
         const initials = (emp.employee_name || 'E').substring(0, 2).toUpperCase();
         photoHtml = `<div class="avatar-circle">${initials}</div>`;
@@ -164,9 +165,10 @@ document.addEventListener('DOMContentLoaded', function () {
       card.className = 'emp-grid-card';
 
       const photoFile = emp.photo || emp.photo_filename;
+      const photoSrc = emp.photo_data || (photoFile ? (photoFile.startsWith('data:') ? photoFile : `/uploads/${encodeURIComponent(photoFile)}`) : '');
       let photoImgHtml = '';
-      if (photoFile) {
-        photoImgHtml = `<img src="/uploads/${escapeHtml(photoFile)}" class="emp-grid-photo" onclick="openPhotoModal('${escapeHtml(photoFile)}', '${escapeHtml(emp.employee_name)}')" title="Click to view photo">`;
+      if (photoSrc) {
+        photoImgHtml = `<img src="${photoSrc}" class="emp-grid-photo" onclick="openPhotoModal('${photoSrc}', '${escapeHtml(emp.employee_name)}')" title="Click to view photo">`;
       } else {
         const initials = (emp.employee_name || 'E').substring(0, 2).toUpperCase();
         photoImgHtml = `<div class="emp-grid-avatar-placeholder">${initials}</div>`;
@@ -335,6 +337,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('inputShiftHours').value = '09:00';
     const captureStatusEl = document.getElementById('captureStatus');
     if (captureStatusEl) captureStatusEl.textContent = '';
+    const photoPreviewBox = document.getElementById('currentPhotoPreview');
+    if (photoPreviewBox) photoPreviewBox.style.display = 'none';
     entryModal.classList.add('active');
   }
 
@@ -371,6 +375,20 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inEnd) inEnd.value = emp.shift_end || '06:00 PM';
       const captureStatusEl = document.getElementById('captureStatus');
       if (captureStatusEl) captureStatusEl.textContent = '';
+
+      // Show existing photo preview if present
+      const photoPreviewBox = document.getElementById('currentPhotoPreview');
+      const editThumb = document.getElementById('editPhotoThumb');
+      const editNote = document.getElementById('editPhotoNote');
+      const photoFile = emp.photo || emp.photo_filename;
+      const currentPhotoSrc = emp.photo_data || (photoFile ? (photoFile.startsWith('data:') ? photoFile : `/uploads/${encodeURIComponent(photoFile)}`) : '');
+      if (currentPhotoSrc && photoPreviewBox && editThumb) {
+        editThumb.src = currentPhotoSrc;
+        if (editNote) editNote.textContent = 'Current registered photo. Leave file input empty to keep this photo, or capture/upload a new one to replace.';
+        photoPreviewBox.style.display = 'flex';
+      } else if (photoPreviewBox) {
+        photoPreviewBox.style.display = 'none';
+      }
 
       entryModal.classList.add('active');
     } catch (err) {
@@ -606,9 +624,10 @@ document.addEventListener('DOMContentLoaded', function () {
       // Render photo in modal header
       const photoHeader = document.getElementById('viewEmpPhotoHeader');
       const photoFile = emp.photo || emp.photo_filename;
+      const photoSrc = emp.photo_data || (photoFile ? (photoFile.startsWith('data:') ? photoFile : `/uploads/${encodeURIComponent(photoFile)}`) : '');
       if (photoHeader) {
-        if (photoFile) {
-          photoHeader.innerHTML = `<img src="/uploads/${escapeHtml(photoFile)}" class="view-modal-photo" onclick="openPhotoModal('${escapeHtml(photoFile)}', '${escapeHtml(emp.employee_name)}')" title="Click to view full photo">`;
+        if (photoSrc) {
+          photoHeader.innerHTML = `<img src="${photoSrc}" class="view-modal-photo" onclick="openPhotoModal('${photoSrc}', '${escapeHtml(emp.employee_name)}')" title="Click to view full photo">`;
         } else {
           const initials = (emp.employee_name || 'E').substring(0, 2).toUpperCase();
           photoHeader.innerHTML = `<div class="emp-grid-avatar-placeholder" style="width: 58px; height: 58px; font-size: 20px;">${initials}</div>`;
@@ -717,10 +736,11 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ================= PHOTO PREVIEW MODAL LOGIC =================
-  window.openPhotoModal = function (filename, name) {
+  window.openPhotoModal = function (srcOrFilename, name) {
     const imgEl = document.getElementById('photoModalImg');
     const titleEl = document.getElementById('photoModalTitle');
-    imgEl.src = `/uploads/${filename}`;
+    const validSrc = (srcOrFilename.startsWith('data:') || srcOrFilename.startsWith('/')) ? srcOrFilename : `/uploads/${encodeURIComponent(srcOrFilename)}`;
+    imgEl.src = validSrc;
     titleEl.textContent = `${name} - Photo`;
     photoModal.classList.add('active');
   };
@@ -938,8 +958,39 @@ document.addEventListener('DOMContentLoaded', function () {
           captureStatus.style.color = '#198754';
         }
 
+        // Update photo preview thumbnail in entry modal
+        const photoPreviewBox = document.getElementById('currentPhotoPreview');
+        const editThumb = document.getElementById('editPhotoThumb');
+        const editNote = document.getElementById('editPhotoNote');
+        if (photoPreviewBox && editThumb) {
+          editThumb.src = URL.createObjectURL(blob);
+          if (editNote) editNote.textContent = '✓ New snapshot captured and ready to save.';
+          photoPreviewBox.style.display = 'flex';
+        }
+
         stopFaceCamera();
       }, 'image/jpeg', 0.9);
+    });
+  }
+
+  // Live preview when selecting image via file input
+  if (inputPhoto) {
+    inputPhoto.addEventListener('change', function () {
+      if (this.files && this.files[0]) {
+        currentCapturedBlob = null;
+        const photoPreviewBox = document.getElementById('currentPhotoPreview');
+        const editThumb = document.getElementById('editPhotoThumb');
+        const editNote = document.getElementById('editPhotoNote');
+        if (photoPreviewBox && editThumb) {
+          editThumb.src = URL.createObjectURL(this.files[0]);
+          if (editNote) editNote.textContent = `✓ Selected photo: ${this.files[0].name}`;
+          photoPreviewBox.style.display = 'flex';
+        }
+        if (captureStatus) {
+          captureStatus.textContent = `✓ Selected photo: ${this.files[0].name}`;
+          captureStatus.style.color = '#198754';
+        }
+      }
     });
   }
 

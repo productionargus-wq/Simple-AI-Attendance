@@ -238,6 +238,10 @@
               <button type="button" id="btnCaptureface" class="btn-submit" style="padding: 7px 14px; font-size: 12px; white-space: nowrap; background-color: #3d6078;">📷 Capture Face</button>
             </div>
             <div id="captureStatus" style="font-size: 12px; color: #198754; font-weight: 700; margin-top: 6px;"></div>
+            <div id="currentPhotoPreview" style="display: none; margin-top: 8px; align-items: center; gap: 12px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+              <img id="editPhotoThumb" src="" alt="Profile Photo" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #3d6078;">
+              <span id="editPhotoNote" style="font-size: 11px; color: #475569; font-weight: 500;">Profile photo attached. Leave file input empty to keep this photo, or capture/upload a new one to replace.</span>
+            </div>
           </div>
         </div>
       </div>
@@ -339,5 +343,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/employees.js') }}?v=5.7"></script>
+<script src="{{ url_for('static', filename='js/employees.js') }}?v=5.8"></script>
 {% endblock %}
