@@ -765,6 +765,13 @@ def safe_float(val, default=0.0):
 
 def create_employee(data, company_id=None):
     db = get_db()
+    emp_name = str(data.get('employee_name') or '').strip()
+    if not emp_name:
+        raise ValueError('Employee name is required.')
+    email_id = str(data.get('email_id') or '').strip()
+    if not email_id:
+        raise ValueError('Email ID is required.')
+
     emp_id = str(data.get('id') or '').strip() or generate_employee_id()
     assigned_company_id = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
 
@@ -782,13 +789,6 @@ def create_employee(data, company_id=None):
 
     raw_st = str(data.get('salary_type') or 'daily').strip().lower()
     salary_type = raw_st if raw_st in ['hourly', 'daily', 'half_day'] else 'daily'
-    
-    emp_name = str(data.get('employee_name') or '').strip()
-    if not emp_name:
-        raise ValueError('Employee name is required.')
-    email_id = str(data.get('email_id') or '').strip()
-    if not email_id:
-        raise ValueError('Email ID is required.')
     
     doc = {
         'id': emp_id,
@@ -3034,7 +3034,7 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         daily_manual_salary[ed] = daily_manual_salary.get(ed, 0.0) + delta_sal
 
     net_daily_minutes = {d: max(0, m) for d, m in daily_minutes.items()}
-    positive_days = {d: m for d, m in net_daily_minutes.items() if m > 0}
+    positive_days = {d: m for d, m in net_daily_minutes.items() if m > 0 or daily_manual_salary.get(d, 0.0) > 0}
     total_minutes = max(0, sum(daily_minutes.values()))
     working_days = len(positive_days)
     tot_hrs = total_minutes // 60
@@ -3045,6 +3045,7 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     half_days = 0
     partial_days = 0
     partial_minutes = 0
+    total_half_units = 0
 
     if salary_type == 'half_day':
         # Standard half-day target is 4 hours (240 mins) or half of shift
@@ -3058,6 +3059,7 @@ def get_payslip_data(employee_name, month_year, company_id=None):
             elif mins > 0:
                 partial_days += 1
                 partial_minutes += mins
+        total_half_units = (full_days * 2) + half_days
     else:
         for d, mins in net_daily_minutes.items():
             if mins >= shift_target_minutes:
@@ -3079,19 +3081,23 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         basic_salary = max(0.0, round(manual_net, 2))
     elif salary_type == 'hourly':
         basic_salary = round((total_minutes / 60.0) * hours_salary, 2)
+        unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
+        basic_salary = max(0.0, round(basic_salary + unapplied_additions, 2))
     elif salary_type == 'daily':
         part_sal = (partial_minutes / 60.0) * effective_hour
         basic_salary = round((full_days * day_salary) + (half_days * effective_half) + part_sal, 2)
         # Deduct unapplied manual deductions (e.g. deductions logged on days without biometric punches)
         unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
-        basic_salary = max(0.0, round(basic_salary + unapplied_deductions, 2))
+        unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
+        basic_salary = max(0.0, round(basic_salary + unapplied_deductions + unapplied_additions, 2))
     elif salary_type == 'half_day':
         total_half_units = (full_days * 2) + half_days
         target_half_div = ref_half_mins if 'ref_half_mins' in locals() and ref_half_mins > 0 else 240
         part_sal = (partial_minutes / float(target_half_div)) * effective_half
         basic_salary = round((total_half_units * effective_half) + part_sal, 2)
         unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
-        basic_salary = max(0.0, round(basic_salary + unapplied_deductions, 2))
+        unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
+        basic_salary = max(0.0, round(basic_salary + unapplied_deductions + unapplied_additions, 2))
     else:
         if hours_salary > 0:
             basic_salary = round((total_minutes / 60.0) * hours_salary, 2)
