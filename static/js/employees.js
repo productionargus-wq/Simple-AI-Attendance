@@ -520,6 +520,20 @@ document.addEventListener('DOMContentLoaded', function () {
         if (inputHourly && !inputHourly.value) inputHourly.value = '0.00';
       }
 
+      const emailInput = document.getElementById('inputEmail');
+      const emailVal = emailInput ? emailInput.value.trim() : '';
+      if (!emailVal) {
+        alert('Email ID is required.');
+        if (emailInput) emailInput.focus();
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailVal)) {
+        alert('Please enter a valid email address (e.g. employee@company.com).');
+        if (emailInput) emailInput.focus();
+        return;
+      }
+
       const empId = document.getElementById('formEmployeeId').value.trim();
       const formData = new FormData(employeeForm);
 

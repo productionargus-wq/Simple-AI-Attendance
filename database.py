@@ -783,10 +783,17 @@ def create_employee(data, company_id=None):
     raw_st = str(data.get('salary_type') or 'daily').strip().lower()
     salary_type = raw_st if raw_st in ['hourly', 'daily', 'half_day'] else 'daily'
     
+    emp_name = str(data.get('employee_name') or '').strip()
+    if not emp_name:
+        raise ValueError('Employee name is required.')
+    email_id = str(data.get('email_id') or '').strip()
+    if not email_id:
+        raise ValueError('Email ID is required.')
+    
     doc = {
         'id': emp_id,
         'company_id': assigned_company_id,
-        'employee_name': data.get('employee_name', '').strip(),
+        'employee_name': emp_name,
         'department': (data.get('department') or data.get('designation') or 'General').strip(),
         'designation': data.get('designation', '').strip(),
         'salary_type': salary_type,
@@ -822,6 +829,8 @@ def update_employee(emp_id, data, company_id=None):
     f = build_id_filter(emp_id)
     if company_id and company_id != 'ALL':
         f = {'$and': [f, {'company_id': str(company_id)}]}
+    if 'email_id' in data and not str(data.get('email_id') or '').strip():
+        raise ValueError('Email ID is required.')
     upd = {
         'employee_name': data.get('employee_name', '').strip(),
         'department': (data.get('department') or data.get('designation') or 'General').strip(),
