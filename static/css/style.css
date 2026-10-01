@@ -728,11 +728,25 @@ body.sidebar-collapsed .app-footer {
 .payslip-info-table,
 .payslip-document-wrapper table { min-width: 540px; }
 
+.employee-table thead tr {
+  height: 38px;
+}
+
+.employee-table thead tr:not(:last-child) th {
+  border-bottom: 1px solid #cbd5e1 !important;
+}
+
+.employee-table thead tr:last-child th {
+  border-bottom: 2px solid #cbd5e1 !important;
+}
+
 .employee-table th {
+  display: table-cell !important;
   background-color: #f8fafc;
   color: #1e293b;
   font-weight: 700;
   padding: 9px 10px;
+  border-top: none !important;
   border-bottom: 2px solid #cbd5e1 !important;
   border-right: 1px solid #e2e8f0 !important;
   white-space: nowrap !important;
@@ -744,6 +758,7 @@ body.sidebar-collapsed .app-footer {
   user-select: none;
   line-height: 1.25;
   box-sizing: border-box !important;
+  height: 38px !important;
 }
 
 .employee-table th:last-child {
@@ -757,6 +772,7 @@ body.sidebar-collapsed .app-footer {
 }
 
 .employee-table td {
+  display: table-cell !important;
   padding: 8px 10px;
   border-bottom: 1px solid #e2e8f0 !important;
   border-right: 1px solid #e2e8f0 !important;
@@ -776,6 +792,7 @@ body.sidebar-collapsed .app-footer {
 
 /* Table Filters Row (Image 4 Alignment Fix) */
 .table-filters-row th {
+  display: table-cell !important;
   background-color: #f1f5f9 !important;
   padding: 4px 6px !important;
   border-bottom: 2px solid #cbd5e1 !important;
@@ -814,9 +831,9 @@ body.sidebar-collapsed .app-footer {
   font-size: 10px !important;
 }
 
-/* Allow address columns to wrap nicely with controlled min-width */
-.employee-table [data-col="entry_location"],
-.employee-table [data-col="exit_location"],
+/* Allow address cells to wrap nicely with controlled min-width */
+.employee-table td[data-col="entry_location"],
+.employee-table td[data-col="exit_location"],
 .employee-table td.col-location {
   min-width: 150px;
   max-width: 250px;
@@ -845,17 +862,20 @@ body.sidebar-collapsed .app-footer {
 }
 
 #companyDataTable thead th {
+  display: table-cell !important;
   background-color: #f8fafc;
   color: #334155;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.5px;
   padding: 10px 12px;
+  border-top: none !important;
   border-bottom: 2px solid #cbd5e1 !important;
   border-right: 1px solid #e2e8f0 !important;
   white-space: nowrap !important;
   vertical-align: middle !important;
   box-sizing: border-box !important;
+  height: 38px !important;
 }
 
 #companyDataTable thead th:last-child {
@@ -863,6 +883,7 @@ body.sidebar-collapsed .app-footer {
 }
 
 #companyDataTable tbody td {
+  display: table-cell !important;
   padding: 10px 12px;
   vertical-align: middle !important;
   border-bottom: 1px solid #e2e8f0 !important;
@@ -2790,11 +2811,17 @@ body.drawer-open {
 
 /* Salary Basis Single Line Badge */
 .badge-salary-basis,
-.employee-table td:nth-child(5) span,
-.employee-table th:nth-child(5),
-.employee-table td:nth-child(5) {
+.employee-table td .status-pill,
+.employee-table td .status-badge {
   white-space: nowrap !important;
   display: inline-block;
+}
+
+.employee-table th,
+.employee-table td,
+.employee-table th:nth-child(5),
+.employee-table td:nth-child(5) {
+  display: table-cell !important;
 }
 
 /* Company Profile Styling */
