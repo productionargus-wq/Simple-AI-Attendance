@@ -787,13 +787,16 @@ def api_get_company_profile():
 @app.route('/api/company-profile', methods=['PUT'])
 @login_required
 def api_update_company_profile():
-    role = session.get('role', 'company_admin')
+    role = session.get('role')
+    if not role and session.get('admin_logged_in'):
+        role = 'super_admin' if session.get('company_id') == 'ARGUS_MASTER' or not session.get('company_id') else 'company_admin'
+    role = role or 'company_admin'
     data = request.get_json(silent=True) or {}
     
     if role == 'company_admin':
         comp_id = session.get('company_id')
         if not comp_id:
-            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+            return jsonify({'success': False, 'error': 'Unauthorized: No company ID associated with session.'}), 403
 
         comp = database.get_company_by_id(comp_id)
         if not comp:
@@ -807,9 +810,6 @@ def api_update_company_profile():
 
         # Coordinates handling: only once allowed for company_admin
         if 'latitude' in data or 'longitude' in data:
-            if is_locked:
-                return jsonify({'success': False, 'error': 'Office coordinates are locked and can only be modified by System Admin.'}), 403
-            
             lat_val = data.get('latitude')
             lng_val = data.get('longitude')
 
@@ -821,7 +821,8 @@ def api_update_company_profile():
                     lat_val = parts[0].strip()
                     lng_val = parts[1].strip()
 
-            if lat_val is not None and lng_val is not None and str(lat_val).strip() != '' and str(lng_val).strip() != '':
+            # If not locked yet, company admin can lock them for the first time
+            if not is_locked and lat_val is not None and lng_val is not None and str(lat_val).strip() != '' and str(lng_val).strip() != '':
                 new_lat = database.parse_coordinate_value(lat_val)
                 new_lng = database.parse_coordinate_value(lng_val)
                 database.update_company(comp_id, {
@@ -833,9 +834,8 @@ def api_update_company_profile():
 
         if 'address' in data:
             address = str(data.get('address', '')).strip()
-            if not address:
-                return jsonify({'success': False, 'error': 'Address cannot be empty.'}), 400
-            database.update_company(comp_id, {'address': address})
+            if address:
+                database.update_company(comp_id, {'address': address})
             
         new_pass = str(data.get('password', '')).strip()
         if new_pass:
@@ -846,9 +846,7 @@ def api_update_company_profile():
         return jsonify({'success': True, 'message': 'Company profile updated successfully.'})
     
     elif role == 'super_admin':
-        target_id = data.get('id') or data.get('company_id')
-        if not target_id:
-            return jsonify({'success': False, 'error': 'Company ID is required.'}), 400
+        target_id = data.get('id') or data.get('company_id') or session.get('company_id') or 'ARGUS_MASTER'
         
         new_pass = str(data.get('password', '')).strip()
         if new_pass:
@@ -896,9 +894,10 @@ def api_update_company_profile():
             database.update_company(target_id, data_to_save)
             return jsonify({'success': True, 'message': 'Company profile updated successfully.'})
         except Exception as e:
+            print("Error in super_admin update_company_profile:", traceback.format_exc())
             return jsonify({'success': False, 'error': str(e)}), 400
             
-    return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    return jsonify({'success': False, 'error': 'Unauthorized: Admin role not recognized.'}), 403
 
 # ----------------- EMPLOYEE PORTAL API ROUTES ----------------- #
 

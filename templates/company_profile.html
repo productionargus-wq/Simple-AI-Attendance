@@ -499,10 +499,11 @@ document.addEventListener('DOMContentLoaded', function () {
       btnSaveProfile.textContent = 'Saving...';
 
       const payload = {};
-      const currentId = document.getElementById('profileCompanyId').value;
+      const currentId = document.getElementById('profileCompanyId').value || (loadedCompanyData ? loadedCompanyData.id : '') || 'ARGUS_MASTER';
       const newPasswordVal = profilePasswordInput ? profilePasswordInput.value.trim() : '';
 
       if (role === 'company_admin') {
+        payload.id = currentId;
         // Company admin can update address, password, and coordinates (only once during setup)
         payload.address = document.getElementById('profileAddress').value.trim();
         if (newPasswordVal) {
@@ -544,7 +545,15 @@ document.addEventListener('DOMContentLoaded', function () {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const resData = await res.json();
+        const contentType = res.headers.get('content-type') || '';
+        let resData = {};
+        if (contentType.includes('application/json')) {
+          resData = await res.json();
+        } else {
+          const txt = await res.text();
+          throw new Error(`Server returned error ${res.status}: ${txt.slice(0, 150)}`);
+        }
+
         if (resData.success) {
           showAlert(resData.message || 'Company profile updated successfully!', true);
           // Reload fresh data
@@ -554,7 +563,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       } catch (err) {
         console.error('Error updating company profile:', err);
-        showAlert('Network error while saving profile.', false);
+        showAlert(err.message || 'Network error while saving profile.', false);
       } finally {
         btnSaveProfile.disabled = false;
         btnSaveProfile.textContent = 'Save Profile';
