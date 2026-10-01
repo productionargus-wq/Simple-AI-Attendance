@@ -544,11 +544,25 @@ document.addEventListener('DOMContentLoaded', function () {
           body: formData
         });
 
-        const data = await res.json();
+        const contentType = res.headers.get('content-type') || '';
+        let data = {};
+        if (contentType.includes('application/json')) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          if (res.status === 401) {
+            alert('Your session has expired. Please log in again.');
+            window.location.href = '/login';
+            return;
+          }
+          throw new Error(`Server returned status ${res.status}: ${text.slice(0, 150)}`);
+        }
+
         if (res.ok && data.success) {
           entryModal.classList.remove('active');
           currentCapturedBlob = null;
-          alert(empId ? 'Employee updated successfully!' : 'Employee created successfully!');
+          const msg = data.message || (empId ? 'Employee updated successfully!' : 'Employee created successfully!');
+          alert(msg);
           loadEmployees();
         } else {
           alert(data.error || 'Failed to save employee');
@@ -906,7 +920,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (captureStatus) {
-          captureStatus.textContent = '✓ Face photo captured successfully';
+          captureStatus.textContent = '✓ Face snapshot captured (AI Face Biometrics will be generated upon saving)';
           captureStatus.style.color = '#198754';
         }
 

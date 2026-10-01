@@ -124,6 +124,8 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('admin_logged_in') or session.get('role') not in ['super_admin', 'company_admin']:
+            if request.path.startswith('/api/'):
+                return jsonify({'error': 'Authentication required. Your session may have expired. Please refresh and log in again.'}), 401
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -133,6 +135,8 @@ def super_admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('admin_logged_in') or session.get('role') != 'super_admin':
+            if request.path.startswith('/api/'):
+                return jsonify({'error': 'Super Admin privileges required.'}), 403
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -142,6 +146,8 @@ def employee_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('employee_logged_in') or session.get('role') != 'employee':
+            if request.path.startswith('/api/'):
+                return jsonify({'error': 'Employee authentication required.'}), 401
             return redirect(url_for('employee_login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -168,14 +174,20 @@ def favicon():
 def handle_500(e):
     err = traceback.format_exc()
     print("500 Internal Error:", err)
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
     return f"<h1>Internal Server Error (500)</h1><pre>{err}</pre>", 500
 
 @app.errorhandler(Exception)
 def handle_exception(e):
     if isinstance(e, HTTPException):
+        if request.path.startswith('/api/'):
+            return jsonify({'error': e.description}), e.code
         return e
     err = traceback.format_exc()
     print("Unhandled Exception:", err)
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Server error', 'details': str(e)}), 500
     return f"<h1>Server Error</h1><pre>{err}</pre>", 500
 
 @app.after_request
@@ -974,90 +986,116 @@ def api_get_employee(emp_id):
 @app.route('/api/employees', methods=['POST'])
 @login_required
 def api_create_employee():
-    data = {}
-    if request.is_json:
-        data = request.get_json()
-    else:
-        data = request.form.to_dict()
-        
-    photo_filename = ''
-    if 'photo' in request.files:
-        file = request.files['photo']
-        if file and file.filename and allowed_file(file.filename):
-            try:
-                file_bytes = file.read()
-                # Extract 128-d face embedding immediately (Image is NOT stored)
-                fe = get_face_engine()
-                if fe and hasattr(fe, 'extract_face_embedding_from_image'):
-                    try:
-                        embedding = fe.extract_face_embedding_from_image(file_bytes)
-                        if embedding:
-                            data['face_embedding'] = database.json.dumps(embedding)
-                    except Exception as fe_err:
-                        print(f"Warning: face embedding extraction error: {fe_err}")
-                
-                # Save thumbnail/photo securely
-                filename = werkzeug.utils.secure_filename(file.filename) or 'photo.jpg'
-                unique_filename = f"{int(database.time.time())}_{filename}"
-                with open(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename), 'wb') as f:
-                    f.write(file_bytes)
-                photo_filename = unique_filename
-            except Exception as pe:
-                print(f"Warning: photo processing error: {pe}")
-            
-    if photo_filename:
-        data['photo_filename'] = photo_filename
-        data['photo'] = photo_filename
-
-    if not data.get('employee_name'):
-        return jsonify({'error': 'Employee name is required'}), 400
-        
     try:
+        data = {}
+        if request.is_json:
+            data = request.get_json() or {}
+        else:
+            data = request.form.to_dict() or {}
+            
+        photo_filename = ''
+        face_registered = False
+        if 'photo' in request.files:
+            file = request.files['photo']
+            if file and file.filename and allowed_file(file.filename):
+                try:
+                    file_bytes = file.read()
+                    # Extract 128-d face embedding immediately (Image is NOT stored)
+                    fe = get_face_engine()
+                    if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                        try:
+                            embedding = fe.extract_face_embedding_from_image(file_bytes)
+                            if embedding:
+                                data['face_embedding'] = database.json.dumps(embedding)
+                                face_registered = True
+                        except Exception as fe_err:
+                            print(f"Warning: face embedding extraction error: {fe_err}")
+                    
+                    # Save thumbnail/photo securely
+                    filename = werkzeug.utils.secure_filename(file.filename) or 'photo.jpg'
+                    unique_filename = f"{int(database.time.time())}_{filename}"
+                    with open(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename), 'wb') as f:
+                        f.write(file_bytes)
+                    photo_filename = unique_filename
+                except Exception as pe:
+                    print(f"Warning: photo processing error: {pe}")
+                
+        if photo_filename:
+            data['photo_filename'] = photo_filename
+            data['photo'] = photo_filename
+
+        if not data.get('employee_name'):
+            return jsonify({'error': 'Employee name is required'}), 400
+            
         emp_id = database.create_employee(data, company_id=get_current_company_id())
-        return jsonify({'success': True, 'id': emp_id, 'message': 'Employee created successfully'})
+        success_msg = 'Employee created successfully'
+        if face_registered:
+            success_msg += ' (AI Face Biometrics Registered)'
+        return jsonify({
+            'success': True,
+            'id': emp_id,
+            'face_registered': face_registered,
+            'message': success_msg
+        })
     except ValueError as ve:
         return jsonify({'error': str(ve)}), 400
     except Exception as e:
-        return jsonify({'error': f'Failed to create employee: {e}'}), 500
+        print("Error in api_create_employee:", traceback.format_exc())
+        return jsonify({'error': f'Failed to create employee: {str(e)}'}), 500
 
 @app.route('/api/employees/<emp_id>', methods=['PUT', 'POST'])
 @login_required
 def api_update_employee(emp_id):
-    emp = database.get_employee_by_id(emp_id)
-    if not emp:
-        return jsonify({'error': 'Employee not found'}), 404
-        
-    data = {}
-    if request.is_json:
-        data = request.get_json()
-    else:
-        data = request.form.to_dict()
-        
-    if 'photo' in request.files:
-        file = request.files['photo']
-        if file and file.filename and allowed_file(file.filename):
-            try:
-                file_bytes = file.read()
-                fe = get_face_engine()
-                if fe and hasattr(fe, 'extract_face_embedding_from_image'):
-                    try:
-                        embedding = fe.extract_face_embedding_from_image(file_bytes)
-                        if embedding:
-                            data['face_embedding'] = database.json.dumps(embedding)
-                    except Exception as fe_err:
-                        print(f"Warning: face embedding extraction error: {fe_err}")
-                
-                filename = werkzeug.utils.secure_filename(file.filename) or 'photo.jpg'
-                unique_filename = f"{int(database.time.time())}_{filename}"
-                with open(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename), 'wb') as f:
-                    f.write(file_bytes)
-                data['photo_filename'] = unique_filename
-                data['photo'] = unique_filename
-            except Exception as pe:
-                print(f"Warning: photo processing error: {pe}")
+    try:
+        emp = database.get_employee_by_id(emp_id)
+        if not emp:
+            return jsonify({'error': 'Employee not found'}), 404
             
-    database.update_employee(emp_id, data)
-    return jsonify({'success': True, 'message': 'Employee updated successfully'})
+        data = {}
+        if request.is_json:
+            data = request.get_json() or {}
+        else:
+            data = request.form.to_dict() or {}
+            
+        face_registered = False
+        if 'photo' in request.files:
+            file = request.files['photo']
+            if file and file.filename and allowed_file(file.filename):
+                try:
+                    file_bytes = file.read()
+                    fe = get_face_engine()
+                    if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                        try:
+                            embedding = fe.extract_face_embedding_from_image(file_bytes)
+                            if embedding:
+                                data['face_embedding'] = database.json.dumps(embedding)
+                                face_registered = True
+                        except Exception as fe_err:
+                            print(f"Warning: face embedding extraction error: {fe_err}")
+                    
+                    filename = werkzeug.utils.secure_filename(file.filename) or 'photo.jpg'
+                    unique_filename = f"{int(database.time.time())}_{filename}"
+                    with open(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename), 'wb') as f:
+                        f.write(file_bytes)
+                    data['photo_filename'] = unique_filename
+                    data['photo'] = unique_filename
+                except Exception as pe:
+                    print(f"Warning: photo processing error: {pe}")
+                
+        database.update_employee(emp_id, data)
+        success_msg = 'Employee updated successfully'
+        if face_registered:
+            success_msg += ' (AI Face Biometrics Registered)'
+        return jsonify({
+            'success': True,
+            'face_registered': face_registered,
+            'message': success_msg
+        })
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        print("Error in api_update_employee:", traceback.format_exc())
+        return jsonify({'error': f'Failed to update employee: {str(e)}'}), 500
 
 @app.route('/api/employees/<emp_id>', methods=['DELETE'])
 @login_required
