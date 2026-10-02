@@ -545,13 +545,12 @@
         GENERATE
       </button>
 
-      <!-- Choose Template Button with Dynamic Badge -->
+      <!-- Choose Template Button -->
       <button type="button" id="btnChooseTemplate" class="btn-secondary-action" style="background-color: #1e3a8a; color: #ffffff; padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s ease;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
         </svg>
         <span>Choose Template</span>
-        <span id="activeTemplateBadge" style="background: rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">Executive • Navy</span>
       </button>
     </div>
   </div>
@@ -881,7 +880,6 @@ document.addEventListener('DOMContentLoaded', function () {
   // Elements
   const btnGeneratePayslip = document.getElementById('btnGeneratePayslip');
   const btnChooseTemplate = document.getElementById('btnChooseTemplate');
-  const activeTemplateBadge = document.getElementById('activeTemplateBadge');
   const payslipSelectionCard = document.getElementById('payslipSelectionCard');
   const payslipDocumentCard = document.getElementById('payslipDocumentCard');
   const printablePayslipDoc = document.getElementById('printablePayslipDoc');
@@ -1075,13 +1073,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function applyTemplateAndTheme(tmpl, theme) {
     const palette = COLOR_PALETTES[theme] || COLOR_PALETTES['navy'];
-    const tmplShort = (tmpl === 'template_1') ? 'Executive' : 'Streamlined';
-    const themeShort = palette.name.split(' ')[0];
-
-    // Update Toolbar Badge
-    if (activeTemplateBadge) {
-      activeTemplateBadge.innerText = `${tmplShort} • ${themeShort}`;
-    }
 
     // Update CSS Custom Properties on Payslip Doc
     if (printablePayslipDoc) {
