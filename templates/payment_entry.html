@@ -396,7 +396,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <td style="white-space: nowrap;">${receiptHtml}</td>
           <td style="white-space: nowrap;">
             <button class="btn-action-manual-edit btn-edit-payment" data-id="${r.id}" title="Edit">Edit</button>
-            <button class="btn-action-manual-del btn-del-payment" data-id="${r.id}" title="Delete">Del</button>
+            ${window.IS_SYSTEM_ADMIN ? `<button class="btn-action-manual-del btn-del-payment" data-id="${r.id}" title="Delete">Del</button>` : ''}
           </td>
         </tr>
       `;

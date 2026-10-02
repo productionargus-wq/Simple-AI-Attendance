@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <td>
             <div style="display: flex; gap: 6px; align-items: center;">
               <button class="btn-action-manual-edit btn-edit-advance" data-id="${r.id}" title="Edit Advance" style="background-color: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;">Edit</button>
-              <button class="btn-action-manual-del btn-del-advance" data-id="${r.id}" title="Delete Advance" style="background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;">Del</button>
+              ${window.IS_SYSTEM_ADMIN ? `<button class="btn-action-manual-del btn-del-advance" data-id="${r.id}" title="Delete Advance" style="background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;">Del</button>` : ''}
             </div>
           </td>
         </tr>

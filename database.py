@@ -1701,6 +1701,60 @@ def get_company_full_address(company_id):
 
 get_live_entries = get_live_report_entries
 
+def delete_live_report_entry(entry_id, entry_type='live', company_id=None):
+    """
+    Deletes an entry from live_entries or timeout_entries.
+    Also purges corresponding attendance_reports and attendance records
+    so sync_live_and_timeout_entries does not regenerate the entry.
+    """
+    db = get_db()
+    id_filter = build_id_filter(entry_id)
+    
+    target_coll = db.timeout_entries if entry_type == 'timeout' else db.live_entries
+    alt_coll = db.live_entries if entry_type == 'timeout' else db.timeout_entries
+    
+    doc = target_coll.find_one(id_filter)
+    target_used = target_coll
+    if not doc:
+        doc = alt_coll.find_one(id_filter)
+        target_used = alt_coll
+
+    deleted = False
+    if doc:
+        emp_name = doc.get('employee_name')
+        entry_t = doc.get('entry_time')
+        cid = doc.get('company_id') or company_id
+        
+        target_used.delete_one({'_id': doc['_id']})
+        if emp_name and entry_t:
+            alt_coll.delete_many({'employee_name': emp_name, 'entry_time': entry_t})
+            
+            # Remove from attendance_reports
+            att_rep_filter = {'employee_name': emp_name, 'entry_time': entry_t}
+            if cid and cid != 'ALL':
+                att_rep_filter['company_id'] = str(cid)
+            db.attendance_reports.delete_many(att_rep_filter)
+            
+            # Clean up db.attendance
+            entry_t_str = str(entry_t)
+            time_prefix = entry_t_str[:10]
+            db.attendance.delete_many({
+                '$and': [
+                    {'$or': [{'employee_name': emp_name}, {'name': emp_name}]},
+                    {'$or': [
+                        {'punch_time': entry_t},
+                        {'timestamp': {'$regex': f"^{re.escape(time_prefix)}"}}
+                    ]}
+                ]
+            })
+        deleted = True
+    else:
+        res1 = target_coll.delete_one(id_filter)
+        res2 = alt_coll.delete_one(id_filter)
+        deleted = (res1.deleted_count > 0 or res2.deleted_count > 0)
+        
+    return deleted
+
 _GEOCODE_CACHE = {}
 
 def reverse_geocode_coordinates(lat, lng, timeout=3.5):
@@ -2266,6 +2320,8 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
             m_reason = (c.get('reason') or '').strip()
             status_reason_str = f"{m_status} - {m_reason}" if m_reason else m_status
             data.append({
+                'id': c.get('id'),
+                'company_id': c.get('company_id'),
                 'employee_name': c.get('employee_name', ''),
                 'entry_time': c.get('submitted_at') or c.get('entry_date', ''),
                 'entry_distance': 'MANUAL ENTRY',
@@ -2415,6 +2471,8 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         m_reason = (c.get('reason') or '').strip()
         status_reason_str = f"{m_status} - {m_reason}" if m_reason else m_status
         combined.append({
+            'id': c.get('id'),
+            'company_id': c.get('company_id'),
             'employee_name': c.get('employee_name', ''),
             'entry_time': c.get('submitted_at') or c.get('entry_date', ''),
             'entry_distance': 'MANUAL ENTRY',
@@ -2567,6 +2625,8 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
             status_label = r.get('status') or 'Proper'
 
         data.append({
+            'id': r.get('id'),
+            'company_id': r.get('company_id'),
             'employee_name': emp_name,
             'entry_time': entry_t,
             'exit_time': exit_t,
@@ -2576,7 +2636,8 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
             'status': status_label,
             'sort_key': rec_date or entry_t,
             'is_improper': is_improper,
-            'source': 'punch'
+            'source': 'punch',
+            'is_manual': False
         })
 
     # 2. Fetch Manual Entries (manual_entries)
@@ -2636,6 +2697,8 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
             status_label = 'Manual' if raw_status in ['Proper', 'Full Day', 'Half Day', 'Manual', 'Others', 'Permission'] else raw_status
 
         data.append({
+            'id': m.get('id'),
+            'company_id': m.get('company_id'),
             'employee_name': emp_name,
             'entry_time': entry_t,
             'exit_time': '',
@@ -2645,7 +2708,8 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
             'status': status_label,
             'sort_key': rec_date or entry_t,
             'is_improper': is_improper,
-            'source': 'manual'
+            'source': 'manual',
+            'is_manual': True
         })
 
     # Sort descending by normalized datetime
@@ -2910,6 +2974,70 @@ def delete_manual_entry(entry_id):
     db = get_db()
     db.manual_entries.delete_one(build_id_filter(entry_id))
     return True
+
+def delete_attendance_report(report_id, is_manual=False, company_id=None):
+    """
+    Deletes an attendance report (facial punch or manual adjustment).
+    Also purges corresponding live_entries, timeout_entries, and attendance documents.
+    """
+    db = get_db()
+    id_filter = build_id_filter(report_id)
+    
+    deleted = False
+    if is_manual:
+        # Check manual_entries
+        doc = db.manual_entries.find_one(id_filter)
+        if doc:
+            db.manual_entries.delete_one({'_id': doc['_id']})
+            deleted = True
+        else:
+            # Fallback: check attendance_reports
+            doc = db.attendance_reports.find_one(id_filter)
+            if doc:
+                db.attendance_reports.delete_one({'_id': doc['_id']})
+                deleted = True
+            else:
+                res = db.manual_entries.delete_one(id_filter)
+                deleted = (res.deleted_count > 0)
+    else:
+        # Check attendance_reports
+        doc = db.attendance_reports.find_one(id_filter)
+        if doc:
+            emp_name = doc.get('employee_name')
+            entry_t = doc.get('entry_time')
+            cid = doc.get('company_id') or company_id
+            
+            db.attendance_reports.delete_one({'_id': doc['_id']})
+            deleted = True
+            
+            # Clean up from live_entries and timeout_entries
+            if emp_name and entry_t:
+                db.live_entries.delete_many({'employee_name': emp_name, 'entry_time': entry_t})
+                db.timeout_entries.delete_many({'employee_name': emp_name, 'entry_time': entry_t})
+                
+                # Also delete from attendance collection
+                date_str = doc.get('date') or (str(entry_t)[:10] if entry_t else None)
+                if date_str:
+                    db.attendance.delete_many({
+                        '$and': [
+                            {'$or': [{'employee_name': emp_name}, {'name': emp_name}]},
+                            {'$or': [
+                                {'punch_time': entry_t},
+                                {'timestamp': {'$regex': f"^{re.escape(str(date_str))}"}}
+                            ]}
+                        ]
+                    })
+        else:
+            # Fallback: check manual_entries
+            doc = db.manual_entries.find_one(id_filter)
+            if doc:
+                db.manual_entries.delete_one({'_id': doc['_id']})
+                deleted = True
+            else:
+                res = db.attendance_reports.delete_one(id_filter)
+                deleted = (res.deleted_count > 0)
+                
+    return deleted
 
 # ----------------- PAYMENT MANAGEMENT ----------------- #
 

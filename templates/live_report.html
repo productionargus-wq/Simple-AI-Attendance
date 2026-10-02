@@ -99,6 +99,9 @@
           <th data-col="site_name" style="min-width: 110px; white-space: nowrap;">SITE NAME <span class="sort-icon">⇅</span></th>
           <th data-col="entry_location" id="colLocationHeader" style="min-width: 240px;">ENTRY LOCATION <span class="sort-icon">⇅</span></th>
           <th data-col="entry_distance" id="colDistanceHeader" style="min-width: 160px; white-space: nowrap;">ENTRY DISTANCE <span class="sort-icon">⇅</span></th>
+          {% if session.get('role') == 'super_admin' %}
+          <th style="min-width: 70px; text-align: center; white-space: nowrap;">ACTION</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody id="liveReportTableBody">
@@ -118,5 +121,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/live_report.js') }}?v=3.1"></script>
+<script src="{{ url_for('static', filename='js/live_report.js') }}?v=20261002_08"></script>
 {% endblock %}

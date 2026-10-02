@@ -1423,7 +1423,7 @@ def api_update_employee(emp_id):
         return jsonify({'error': f'Failed to update employee: {str(e)}'}), 500
 
 @app.route('/api/employees/<emp_id>', methods=['DELETE'])
-@login_required
+@super_admin_required
 def api_delete_employee(emp_id):
     emp = database.get_employee_by_id(emp_id)
     if not emp:
@@ -1629,6 +1629,15 @@ def api_add_live_entry():
         live_address=data.get('live_address')
     )
     return jsonify({'success': True, 'id': inserted_id})
+
+@app.route('/api/live-entries/<entry_id>', methods=['DELETE'])
+@super_admin_required
+def api_delete_live_entry(entry_id):
+    entry_type = request.args.get('type', 'live')
+    success = database.delete_live_report_entry(entry_id, entry_type=entry_type, company_id=get_current_company_id())
+    if not success:
+        return jsonify({'error': 'Entry not found or could not be deleted'}), 404
+    return jsonify({'success': True, 'message': 'Live report entry deleted successfully'})
 
 @app.route('/api/live-entries/export/excel', methods=['GET'])
 @app.route('/api/live-entries/export/csv', methods=['GET'])
@@ -1848,6 +1857,15 @@ def api_get_attendance_simple():
 def api_update_attendance_records():
     return jsonify({'success': True, 'message': 'Attendance records updated successfully'})
 
+@app.route('/api/attendance-reports/<report_id>', methods=['DELETE'])
+@super_admin_required
+def api_delete_attendance_report(report_id):
+    is_manual = request.args.get('is_manual', 'false').lower() in ['true', '1', 'yes']
+    success = database.delete_attendance_report(report_id, is_manual=is_manual, company_id=get_current_company_id())
+    if not success:
+        return jsonify({'error': 'Attendance record not found or could not be deleted'}), 404
+    return jsonify({'success': True, 'message': 'Attendance record deleted successfully'})
+
 @app.route('/api/attendance-reports/export/excel', methods=['GET'])
 @app.route('/api/attendance-reports/export/csv', methods=['GET'])
 @login_required
@@ -1995,7 +2013,7 @@ def api_update_manual_entry(entry_id):
     return jsonify({'success': True, 'message': 'Manual entry updated successfully'})
 
 @app.route('/api/manual-entries/<entry_id>', methods=['DELETE'])
-@login_required
+@super_admin_required
 def api_delete_manual_entry(entry_id):
     entry = database.get_manual_entry_by_id(entry_id)
     if not entry:
@@ -2157,7 +2175,7 @@ def api_update_payment(payment_id):
     return jsonify({'success': True, 'message': 'Payment updated successfully'})
 
 @app.route('/api/payments/<payment_id>', methods=['DELETE'])
-@login_required
+@super_admin_required
 def api_delete_payment(payment_id):
     p = database.get_payment_by_id(payment_id)
     if not p:
@@ -2292,7 +2310,7 @@ def api_update_advance(advance_id):
     return jsonify({'success': True, 'message': 'Advance updated successfully'})
 
 @app.route('/api/advances/<advance_id>', methods=['DELETE'])
-@login_required
+@super_admin_required
 def api_delete_advance(advance_id):
     a = database.get_advance_by_id(advance_id)
     if not a:

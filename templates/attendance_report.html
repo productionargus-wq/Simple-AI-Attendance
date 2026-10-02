@@ -122,6 +122,9 @@
           <th data-col="working_hours" style="min-width: 110px; white-space: nowrap;">WORKING HOURS <span class="sort-icon">⇅</span></th>
           <th data-col="shift_variance" style="min-width: 110px; white-space: nowrap;">SHIFT VARIANCE <span class="sort-icon">⇅</span></th>
           <th data-col="working_salary" style="min-width: 110px; white-space: nowrap;">WORKING SALARY <span class="sort-icon">⇅</span></th>
+          {% if session.get('role') == 'super_admin' %}
+          <th style="min-width: 70px; text-align: center; white-space: nowrap;">ACTIONS</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody id="attendanceStandardTableBody">
@@ -190,6 +193,9 @@
           <th>SHIFT VARIANCE</th>
           <th>WORKING SALARY</th>
           <th>STATUS</th>
+          {% if session.get('role') == 'super_admin' %}
+          <th style="min-width: 70px; text-align: center; white-space: nowrap;">ACTIONS</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody id="attendanceSimpleTableBody">
@@ -202,6 +208,9 @@
           <td>----</td>
           <td id="totalSalaryVal">20.00</td>
           <td></td>
+          {% if session.get('role') == 'super_admin' %}
+          <td></td>
+          {% endif %}
         </tr>
       </tfoot>
     </table>
@@ -210,5 +219,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/attendance_report.js') }}?v=20261002_1645"></script>
+<script src="{{ url_for('static', filename='js/attendance_report.js') }}?v=20261002_1730"></script>
 {% endblock %}

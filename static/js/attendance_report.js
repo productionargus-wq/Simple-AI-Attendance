@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!rows || rows.length === 0) {
       standardTableBody.innerHTML = `
         <tr>
-          <td colspan="12" style="text-align: center; color: #555; padding: 25px;">
+          <td colspan="${window.IS_SYSTEM_ADMIN ? 13 : 12}" style="text-align: center; color: #555; padding: 25px;">
             No data available in table
           </td>
         </tr>
@@ -219,6 +219,12 @@ document.addEventListener('DOMContentLoaded', function () {
       const tr = document.createElement('tr');
       const entryStatusVal = (r.is_manual || r.source === 'manual') ? '-' : (r.entry_status || '-');
       const exitStatusVal = (r.is_manual || r.source === 'manual') ? '-' : (r.exit_status || '-');
+      const isManual = (r.is_manual || r.entry_type === 'manual' || r.source === 'manual') ? true : false;
+      const actionHtml = window.IS_SYSTEM_ADMIN ? `
+        <td style="text-align: center; white-space: nowrap;">
+          <button class="btn-action-del" data-id="${escapeHtml(r.id || r._id)}" data-manual="${isManual}" data-name="${escapeHtml(r.employee_name)}" title="Delete record" style="padding: 3px 8px; font-size: 11px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; font-weight: 600;">Del</button>
+        </td>
+      ` : '';
 
       tr.innerHTML = `
         <td style="white-space: nowrap;"><strong>${escapeHtml(r.employee_name)}</strong></td>
@@ -237,6 +243,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <td style="white-space: nowrap;">${escapeHtml(r.working_hours || '')}</td>
         <td style="white-space: nowrap;">${escapeHtml(r.shift_variance || '')}</td>
         <td style="white-space: nowrap;">${Number(r.working_salary || 0).toFixed(0)}</td>
+        ${actionHtml}
       `;
       standardTableBody.appendChild(tr);
     });
@@ -272,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!rows || rows.length === 0) {
       simpleTableBody.innerHTML = `
         <tr>
-          <td colspan="7" style="text-align: center; color: #555; padding: 25px;">
+          <td colspan="${window.IS_SYSTEM_ADMIN ? 8 : 7}" style="text-align: center; color: #555; padding: 25px;">
             No data available in table
           </td>
         </tr>
@@ -301,6 +308,13 @@ document.addEventListener('DOMContentLoaded', function () {
         statusHtml = `<span class="text-status-manual">${escapeHtml(rawStatus)}</span>`;
       }
 
+      const isManual = (r.is_manual || r.source === 'manual') ? true : false;
+      const actionHtml = window.IS_SYSTEM_ADMIN ? `
+        <td style="text-align: center; white-space: nowrap;">
+          <button class="btn-action-del" data-id="${escapeHtml(r.id || r._id)}" data-manual="${isManual}" data-name="${escapeHtml(r.employee_name)}" title="Delete record" style="padding: 3px 8px; font-size: 11px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; font-weight: 600;">Del</button>
+        </td>
+      ` : '';
+
       tr.innerHTML = `
         <td>${escapeHtml(r.employee_name)}</td>
         <td>${entryTimeHtml}</td>
@@ -309,6 +323,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <td>${escapeHtml(r.shift_variance || '')}</td>
         <td>${Number(r.working_salary || 0).toFixed(2)}</td>
         <td>${statusHtml}</td>
+        ${actionHtml}
       `;
       simpleTableBody.appendChild(tr);
     });
@@ -545,6 +560,42 @@ document.addEventListener('DOMContentLoaded', function () {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
+
+  // Handle Attendance Deletion (System Admin only)
+  async function handleAttendanceDelete(e) {
+    const delBtn = e.target.closest('.btn-action-del');
+    if (!delBtn) return;
+    const recId = delBtn.dataset.id;
+    const isManual = delBtn.dataset.manual === 'true';
+    const empName = delBtn.dataset.name || 'this employee';
+    if (!recId) return;
+
+    if (!confirm(`Are you sure you want to delete this attendance record for "${empName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/attendance-reports/${recId}?is_manual=${isManual}`, {
+        method: 'DELETE'
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        if (currentView === 'compact') {
+          loadSimpleTable();
+        } else {
+          loadStandardTable();
+        }
+      } else {
+        alert(result.error || 'Failed to delete record');
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('An error occurred while deleting the record.');
+    }
+  }
+
+  if (standardTableBody) standardTableBody.addEventListener('click', handleAttendanceDelete);
+  if (simpleTableBody) simpleTableBody.addEventListener('click', handleAttendanceDelete);
 
   // Init
   loadEmployeeNames();

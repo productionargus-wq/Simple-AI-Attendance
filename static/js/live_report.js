@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!entries || entries.length === 0) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="5" style="text-align: center; color: #555; padding: 25px; font-size: 13px;">
+          <td colspan="${window.IS_SYSTEM_ADMIN ? 6 : 5}" style="text-align: center; color: #555; padding: 25px; font-size: 13px;">
             No data available in table
           </td>
         </tr>
@@ -137,6 +137,12 @@ document.addEventListener('DOMContentLoaded', function () {
       const locDisplay = (currentType === 'timeout' && entry.exit_location) ? entry.exit_location : (entry.entry_location || '----');
       const distDisplay = (currentType === 'timeout' && entry.exit_distance && entry.exit_distance !== '----') ? entry.exit_distance : distStr;
 
+      const actionHtml = window.IS_SYSTEM_ADMIN ? `
+        <td style="text-align: center; white-space: nowrap;">
+          <button class="btn-action-del" data-id="${escapeHtml(entry.id || entry._id)}" data-name="${escapeHtml(entry.employee_name)}" title="Delete entry" style="padding: 3px 8px; font-size: 11px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; font-weight: 600;">Del</button>
+        </td>
+      ` : '';
+
       tr.innerHTML = `
         <td style="white-space: nowrap;"><strong>${escapeHtml(entry.employee_name)}</strong></td>
         <td style="white-space: nowrap;">${escapeHtml(timeDisplay)}</td>
@@ -145,6 +151,7 @@ document.addEventListener('DOMContentLoaded', function () {
           ${locDisplay && locDisplay !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${escapeHtml(locDisplay)}
         </td>
         <td class="col-nowrap" data-col="entry_distance" title="${escapeHtml(locDisplay)}" style="white-space: nowrap !important; min-width: 140px;">${escapeHtml(distDisplay)}</td>
+        ${actionHtml}
       `;
       tableBody.appendChild(tr);
     });
@@ -308,6 +315,36 @@ document.addEventListener('DOMContentLoaded', function () {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  // Handle Delete (System Admin only)
+  if (tableBody) {
+    tableBody.addEventListener('click', async function (e) {
+      const delBtn = e.target.closest('.btn-action-del');
+      if (!delBtn) return;
+      const entryId = delBtn.dataset.id;
+      const empName = delBtn.dataset.name || 'this employee';
+      if (!entryId) return;
+
+      if (!confirm(`Are you sure you want to delete the ${currentType} entry for "${empName}"? This action cannot be undone.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/live-entries/${entryId}?type=${currentType}`, {
+          method: 'DELETE'
+        });
+        const result = await res.json();
+        if (res.ok && result.success) {
+          loadEntries();
+        } else {
+          alert(result.error || 'Failed to delete entry');
+        }
+      } catch (err) {
+        console.error('Delete error:', err);
+        alert('An error occurred while deleting the entry.');
+      }
+    });
   }
 
   // Initial trigger
