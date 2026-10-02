@@ -134,9 +134,12 @@ def build_daily_activity_report(company_id, target_date=None):
     payments = list(db.payments.find(payment_query))
     clean_payments = []
     for pay in payments:
+        p_stat = pay.get('status') or pay.get('reason') or 'Payment'
+        p_reas = pay.get('reason') if pay.get('status') else ''
+        p_disp = f"{p_stat} - {p_reas}" if p_reas else p_stat
         clean_payments.append({
             'employee_name': pay.get('employee_name', ''),
-            'reason': pay.get('reason', 'Payment'),
+            'reason': p_disp,
             'amount': int(round(float(pay.get('amount', 0.0)))),
             'timestamp': pay.get('timestamp') or pay.get('payment_date', '')
         })
@@ -433,12 +436,15 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
     for p in payments_raw:
         emp_name = p.get('employee_name', '-')
         amt_num = int(round(float(p.get('amount') or 0.0)))
+        p_stat = p.get('status') or p.get('reason') or 'Payment'
+        p_reas = p.get('reason') if p.get('status') else ''
+        p_disp = f"{p_stat} - {p_reas}" if p_reas else p_stat
         payment_entries.append({
             'employee_name': emp_name,
             'date': d_slash,
             'type': p.get('payment_type') or 'Payment',
             'amount': f"{amt_num:,}",
-            'remarks': p.get('reason') or 'Salary payment'
+            'remarks': p_disp
         })
     for a in advances_raw:
         emp_name = a.get('employee_name', '-')

@@ -2082,7 +2082,7 @@ def api_get_payments():
     end_date = request.args.get('end_date', '').strip()
     bank = request.args.get('bank', 'All').strip()
     payment_type = request.args.get('payment_type', 'All').strip()
-    reason = request.args.get('reason', 'All').strip()
+    status = (request.args.get('status') or request.args.get('reason') or 'All').strip()
     search = request.args.get('search', '').strip()
     page = int(request.args.get('page', 1))
     limit = int(request.args.get('limit', 10))
@@ -2093,7 +2093,7 @@ def api_get_payments():
         end_date=end_date,
         bank=bank,
         payment_type=payment_type,
-        reason=reason,
+        status=status,
         search=search,
         page=page,
         limit=limit,
@@ -2175,7 +2175,7 @@ def api_payments_export_excel():
     end_date = request.args.get('end_date', '').strip()
     bank = request.args.get('bank', 'All').strip()
     payment_type = request.args.get('payment_type', 'All').strip()
-    reason = request.args.get('reason', 'All').strip()
+    status = (request.args.get('status') or request.args.get('reason') or 'All').strip()
     
     result = database.get_payments(
         employee=employee,
@@ -2183,19 +2183,22 @@ def api_payments_export_excel():
         end_date=end_date,
         bank=bank,
         payment_type=payment_type,
-        reason=reason,
+        status=status,
         limit=10000,
         company_id=get_current_company_id()
     )
     
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['TIMESTAMP', 'EMPLOYEE', 'DATE', 'AMOUNT', 'BANK', 'PAYMENT TYPE', 'REASON'])
+    writer.writerow(['TIMESTAMP', 'EMPLOYEE', 'DATE', 'AMOUNT', 'BANK', 'PAYMENT TYPE', 'STATUS'])
     for r in result['data']:
+        st = r.get('status') or r.get('reason') or 'Payment'
+        rs = r.get('reason') if r.get('status') else ''
+        disp_st = f"{st} - {rs}" if rs else st
         writer.writerow([
             r['timestamp'], r['employee_name'], r['payment_date'],
             f"{float(r['amount']):.2f}", r['bank'] or '-',
-            r['payment_type'], r['reason']
+            r['payment_type'], disp_st
         ])
         
     output.seek(0)
@@ -2214,7 +2217,7 @@ def api_payments_export_pdf():
     end_date = request.args.get('end_date', '').strip()
     bank = request.args.get('bank', 'All').strip()
     payment_type = request.args.get('payment_type', 'All').strip()
-    reason = request.args.get('reason', 'All').strip()
+    status = (request.args.get('status') or request.args.get('reason') or 'All').strip()
     
     result = database.get_payments(
         employee=employee,
@@ -2222,7 +2225,7 @@ def api_payments_export_pdf():
         end_date=end_date,
         bank=bank,
         payment_type=payment_type,
-        reason=reason,
+        status=status,
         limit=10000,
         company_id=get_current_company_id()
     )
@@ -2385,7 +2388,7 @@ def api_balance_report_export_excel():
     
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['DATE&TIME', 'NAME', 'DATE', 'ADVANCE AMOUNT', 'PAYMENT AMOUNT', 'BALANCE AMOUNT'])
+    writer.writerow(['DATE&TIME', 'NAME', 'DATE', 'ADVANCE AMOUNT', 'REPAYMENT AMOUNT', 'BALANCE AMOUNT'])
     for r in result['data']:
         pay_amt = r.get('payment_amount', r.get('advance_repayment_amount', 0.0))
         writer.writerow([
@@ -2395,7 +2398,7 @@ def api_balance_report_export_excel():
             f"{float(r['balance_amount']):.2f}"
         ])
     writer.writerow([])
-    writer.writerow(['TOTAL ADVANCE', f"{result['total_advance']:.2f}", 'TOTAL PAYMENT', f"{result.get('total_payment', result.get('total_repayment', 0.0)):.2f}", 'BALANCE AMOUNT', f"{result['balance_amount']:.2f}"])
+    writer.writerow(['TOTAL ADVANCE', f"{result['total_advance']:.2f}", 'TOTAL REPAYMENT', f"{result.get('total_payment', result.get('total_repayment', 0.0)):.2f}", 'BALANCE AMOUNT', f"{result['balance_amount']:.2f}"])
     output.seek(0)
     filename = "advance_summary.csv"
     return Response(

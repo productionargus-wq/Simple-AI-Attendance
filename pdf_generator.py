@@ -792,7 +792,7 @@ def generate_payments_pdf(payments, company_info=None):
             Paragraph("AMOUNT", header_style),
             Paragraph("BANK", header_style),
             Paragraph("PAYMENT TYPE", header_style),
-            Paragraph("REASON", header_style)
+            Paragraph("STATUS", header_style)
         ]
     ]
     
@@ -808,6 +808,9 @@ def generate_payments_pdf(payments, company_info=None):
         ])
     else:
         for r in payments:
+            st = r.get('status') or r.get('reason') or 'Payment'
+            rs = r.get('reason') if r.get('status') else ''
+            disp_st = f"{st} - {rs}" if rs else st
             table_data.append([
                 Paragraph(str(r.get('timestamp', '')), cell_style),
                 Paragraph(str(r.get('employee_name', '')), cell_style),
@@ -815,7 +818,7 @@ def generate_payments_pdf(payments, company_info=None):
                 Paragraph(f"{float(r.get('amount', 0)):.2f}", amount_style),
                 Paragraph(str(r.get('bank', '') or '-'), cell_style),
                 Paragraph(str(r.get('payment_type', '')), cell_style),
-                Paragraph(str(r.get('reason', '')), cell_style)
+                Paragraph(str(disp_st), cell_style)
             ])
             
     col_widths = [100, 85, 65, 60, 70, 75, 85]
@@ -968,7 +971,7 @@ def generate_balance_report_pdf(data, totals=None, company_info=None):
             Paragraph("NAME", header_style),
             Paragraph("DATE", header_style),
             Paragraph("ADVANCE AMOUNT", header_style),
-            Paragraph("PAYMENT AMOUNT", header_style),
+            Paragraph("REPAYMENT AMOUNT", header_style),
             Paragraph("BALANCE AMOUNT", header_style)
         ]
     ]
@@ -1012,7 +1015,7 @@ def generate_balance_report_pdf(data, totals=None, company_info=None):
     
     if totals:
         tot_pay = totals.get('total_payment', totals.get('total_repayment', 0.0))
-        tot_text = f"<b>Total Advance:</b> {totals.get('total_advance', 0.0):.2f} &nbsp;&nbsp;&nbsp;&nbsp; <b>Total Payment:</b> {tot_pay:.2f} &nbsp;&nbsp;&nbsp;&nbsp; <b>Balance Amount:</b> {totals.get('balance_amount', 0.0):.2f}"
+        tot_text = f"<b>Total Advance:</b> {totals.get('total_advance', 0.0):.2f} &nbsp;&nbsp;&nbsp;&nbsp; <b>Total Repayment:</b> {tot_pay:.2f} &nbsp;&nbsp;&nbsp;&nbsp; <b>Balance Amount:</b> {totals.get('balance_amount', 0.0):.2f}"
         elements.append(Paragraph(tot_text, ParagraphStyle('Totals', fontName='Helvetica', fontSize=10, textColor=colors.HexColor('#0d6efd'))))
         elements.append(Spacer(1, 14))
         

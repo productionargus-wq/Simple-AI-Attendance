@@ -2878,43 +2878,60 @@ def delete_manual_entry(entry_id):
 
 # ----------------- PAYMENT MANAGEMENT ----------------- #
 
-def get_payments(employee=None, start_date=None, end_date=None, bank=None, payment_type=None, reason=None, search=None, page=1, limit=10, company_id=None):
+def get_payments(employee=None, start_date=None, end_date=None, bank=None, payment_type=None, status=None, reason=None, search=None, page=1, limit=10, company_id=None):
     db = get_db()
-    query = {}
+    conditions = []
     
     if company_id and company_id != 'ALL':
-        query['company_id'] = str(company_id)
+        conditions.append({'company_id': str(company_id)})
         
     if employee and employee != 'All':
-        query['employee_name'] = employee
+        conditions.append({'employee_name': employee})
     if start_date:
-        query['payment_date'] = {'$gte': start_date}
+        conditions.append({'payment_date': {'$gte': start_date}})
     if end_date:
-        query.setdefault('payment_date', {})['$lte'] = end_date
+        conditions.append({'payment_date': {'$lte': end_date}})
     if bank and bank != 'All':
-        query['bank'] = bank
+        conditions.append({'bank': bank})
     if payment_type and payment_type != 'All':
-        query['payment_type'] = payment_type
-    if reason and reason != 'All':
-        query['reason'] = reason
+        conditions.append({'payment_type': payment_type})
+        
+    filter_status = status if (status and status != 'All') else (reason if (reason and reason != 'All') else None)
+    if filter_status:
+        conditions.append({'$or': [{'status': filter_status}, {'reason': filter_status}]})
         
     if search:
         reg = {'$regex': re.escape(search), '$options': 'i'}
-        query['$or'] = [
+        conditions.append({'$or': [
             {'employee_name': reg},
             {'bank': reg},
             {'payment_type': reg},
+            {'status': reg},
             {'reason': reg},
             {'timestamp': reg},
             {'payment_date': reg}
-        ]
+        ]})
+        
+    query = {'$and': conditions} if conditions else {}
         
     total = db.payments.count_documents(query)
     cursor = db.payments.find(query).sort([("payment_date", DESCENDING), ("created_at", DESCENDING), ("id", DESCENDING), ("_id", DESCENDING)])
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
-    data = [clean_doc(doc) for doc in cursor]
+    data = []
+    for doc in cursor:
+        cdoc = clean_doc(doc)
+        raw_status = cdoc.get('status')
+        raw_reason = cdoc.get('reason')
+        if not raw_status and raw_reason:
+            cdoc['status'] = raw_reason
+            cdoc['reason'] = ''
+        elif not raw_status:
+            cdoc['status'] = 'Advance Repayment'
+            cdoc['reason'] = raw_reason or ''
+        data.append(cdoc)
+        
     return {
         'total': total,
         'page': page,
@@ -2928,7 +2945,18 @@ def get_payment_by_id(payment_id, company_id=None):
     if company_id and company_id != 'ALL':
         f = {'$and': [f, {'company_id': str(company_id)}]}
     doc = db.payments.find_one(f)
-    return clean_doc(doc)
+    if not doc:
+        return None
+    cdoc = clean_doc(doc)
+    raw_status = cdoc.get('status')
+    raw_reason = cdoc.get('reason')
+    if not raw_status and raw_reason:
+        cdoc['status'] = raw_reason
+        cdoc['reason'] = ''
+    elif not raw_status:
+        cdoc['status'] = 'Advance Repayment'
+        cdoc['reason'] = raw_reason or ''
+    return cdoc
 
 def create_payment(data, company_id=None):
     db = get_db()
@@ -2942,7 +2970,16 @@ def create_payment(data, company_id=None):
     amount = float(data.get('amount') or 0.0)
     bank = data.get('bank', '').strip()
     payment_type = data.get('payment_type', 'UPI')
-    reason = data.get('reason', 'Advance Repayment')
+    
+    status = data.get('status')
+    reason = data.get('reason', '')
+    if not status and reason:
+        status = reason
+        reason = ''
+    elif not status:
+        status = 'Advance Repayment'
+        
+    reason = (reason or '').strip()
     receipt_filename = data.get('receipt_filename', '')
     
     doc = {
@@ -2955,6 +2992,7 @@ def create_payment(data, company_id=None):
         'amount': amount,
         'bank': bank,
         'payment_type': payment_type,
+        'status': status,
         'reason': reason,
         'receipt_filename': receipt_filename,
         'created_at': datetime.now()
@@ -2965,13 +3003,23 @@ def create_payment(data, company_id=None):
 def update_payment(payment_id, data):
     db = get_db()
     emp_name = data.get('employee_name', '')
+    status = data.get('status')
+    reason = data.get('reason', '')
+    if not status and reason:
+        status = reason
+        reason = ''
+    elif not status:
+        status = 'Advance Repayment'
+        
+    reason = (reason or '').strip()
     upd = {
         'employee_name': emp_name,
         'payment_date': data.get('payment_date'),
         'amount': float(data.get('amount') or 0.0),
         'bank': data.get('bank', '').strip(),
         'payment_type': data.get('payment_type', 'UPI'),
-        'reason': data.get('reason', 'Advance Repayment')
+        'status': status,
+        'reason': reason
     }
     if 'receipt_filename' in data and data['receipt_filename'] is not None:
         upd['receipt_filename'] = data['receipt_filename']
@@ -3087,15 +3135,16 @@ def get_balance_report(employee=None, search=None, page=1, limit=10, company_id=
     adv_cursor = list(db.advances.find(adv_query))
     
     # Query all advance repayments
-    rep_query = {'reason': 'Advance Repayment'}
+    rep_conditions = [{'$or': [{'status': 'Advance Repayment'}, {'reason': 'Advance Repayment'}]}]
     if company_id and company_id != 'ALL':
-        rep_query['company_id'] = str(company_id)
+        rep_conditions.append({'company_id': str(company_id)})
     if employee and employee != 'All':
-        rep_query['employee_name'] = employee
+        rep_conditions.append({'employee_name': employee})
     if search:
         reg = {'$regex': re.escape(search), '$options': 'i'}
-        rep_query['$or'] = [{'employee_name': reg}, {'timestamp': reg}, {'payment_date': reg}]
+        rep_conditions.append({'$or': [{'employee_name': reg}, {'timestamp': reg}, {'payment_date': reg}]})
         
+    rep_query = {'$and': rep_conditions}
     rep_cursor = list(db.payments.find(rep_query))
     
     raw_items = []
@@ -3622,7 +3671,7 @@ def get_payslip_data(employee_name, month_year, company_id=None):
 
     for p in payments:
         p_amt = float(p.get('amount', 0.0))
-        reason = p.get('reason', '').strip()
+        reason = (p.get('status') or p.get('reason') or '').strip()
         r_low = reason.lower()
         if r_low == 'incentive':
             incentive += p_amt
