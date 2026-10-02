@@ -2350,8 +2350,10 @@ def api_export_payslip_pdf():
         else:
             employee = 'Employee'
     
+    template = request.args.get('template', 'template_1').strip()
+    theme = request.args.get('theme', 'navy').strip()
     payslip = database.get_payslip_data(employee, month, company_id=comp_id)
-    pdf_buffer = pdf_generator.generate_payslip_pdf(payslip)
+    pdf_buffer = pdf_generator.generate_payslip_pdf(payslip, template_id=template, theme=theme)
     filename = f"payslip_{employee}_{month}.pdf"
     return send_file(
         pdf_buffer,

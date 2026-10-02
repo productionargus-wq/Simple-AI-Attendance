@@ -1,7 +1,511 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<!-- Top Banner Card Matching Image 2 Design -->
+<style>
+  :root {
+    --ps-primary: #1b3b5f;
+    --ps-dark: #0f233a;
+    --ps-tint: #f0f5fa;
+    --ps-border: #cbd5e1;
+    --ps-text-dark: #0f233a;
+  }
+
+  /* Document styles */
+  .payslip-doc {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    transition: all 0.3s ease;
+  }
+
+  .payslip-header-pill {
+    background: var(--ps-primary);
+    border-radius: 10px;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #ffffff;
+    transition: background 0.3s ease;
+  }
+
+  .payslip-logo-card {
+    background: #ffffff;
+    border-radius: 8px;
+    width: 65px;
+    height: 65px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+    overflow: hidden;
+  }
+
+  .payslip-logo-card img {
+    max-width: 58px;
+    max-height: 58px;
+    object-fit: contain;
+  }
+
+  .payslip-logo-card .comp-initial {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--ps-primary);
+  }
+
+  .payslip-header-center {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .payslip-header-center .comp-name {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #ffffff;
+    line-height: 1.25;
+  }
+
+  .payslip-header-center .comp-addr {
+    font-size: 10px;
+    color: #e2e8f0;
+    margin-top: 3px;
+    text-transform: uppercase;
+    line-height: 1.35;
+  }
+
+  .payslip-header-center .comp-contact {
+    font-size: 9.5px;
+    color: #cbd5e1;
+    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    line-height: 1.35;
+  }
+
+  .payslip-gstin-badge {
+    background: rgba(255, 255, 255, 0.18);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.4px;
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  .payslip-header-month-badge {
+    background: var(--ps-dark);
+    border-radius: 8px;
+    padding: 10px 18px;
+    text-align: center;
+    flex-shrink: 0;
+    min-width: 125px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+    transition: background 0.3s ease;
+  }
+
+  .payslip-header-month-badge .sub-title {
+    font-size: 9px;
+    font-weight: 700;
+    color: #cbd5e1;
+    letter-spacing: 0.5px;
+  }
+
+  .payslip-header-month-badge .main-title {
+    font-size: 14.5px;
+    font-weight: 800;
+    color: #ffffff;
+    margin-top: 2px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Employee info card */
+  .payslip-emp-card {
+    background: var(--ps-tint);
+    border: 1px solid var(--ps-border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: all 0.3s ease;
+  }
+
+  .payslip-emp-badge {
+    background: var(--ps-primary);
+    color: #ffffff;
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 6px 12px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    text-align: center;
+    transition: background 0.3s ease;
+  }
+
+  .payslip-emp-details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .payslip-emp-details .emp-name {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ps-text-dark);
+    text-transform: uppercase;
+  }
+
+  .payslip-emp-details .emp-sub {
+    font-size: 10.5px;
+    color: #475569;
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+
+  .payslip-emp-photo-box {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    border: 1px solid var(--ps-border);
+    overflow: hidden;
+    flex-shrink: 0;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .payslip-emp-photo-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* 4 Metric cards */
+  .payslip-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .payslip-metric-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+
+  .payslip-metric-card .m-lbl {
+    font-size: 9px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .payslip-metric-card .m-val {
+    font-size: 13px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-top: 3px;
+  }
+
+  /* Summary bar */
+  .payslip-summary-bar {
+    background: var(--ps-tint);
+    border: 1px solid var(--ps-border);
+    border-radius: 6px;
+    padding: 8px 14px;
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #334155;
+    transition: all 0.3s ease;
+  }
+
+  /* Dual Tables */
+  .payslip-dual-container {
+    margin-top: 12px;
+    border: 1px solid var(--ps-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .payslip-dual-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+  }
+
+  .payslip-dual-table th {
+    background: var(--ps-primary);
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 11px;
+    text-align: center;
+    padding: 7px 10px;
+    letter-spacing: 0.5px;
+    border: none;
+    transition: background 0.3s ease;
+  }
+
+  .payslip-dual-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+  }
+
+  .payslip-dual-table td.val-cell {
+    font-weight: 700;
+    color: #0f172a;
+    text-align: right;
+  }
+
+  .payslip-dual-table tr.total-row td {
+    background: var(--ps-tint);
+    font-weight: 800;
+    font-size: 12px;
+    color: var(--ps-text-dark);
+    padding: 8px 12px;
+    border-bottom: none;
+  }
+
+  .payslip-dual-table tr.total-row td.val-cell {
+    color: var(--ps-text-dark);
+  }
+
+  /* Net Pay Banner */
+  .payslip-net-banner {
+    background: var(--ps-primary);
+    border-radius: 8px;
+    padding: 10px 18px;
+    margin-top: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #ffffff;
+    transition: background 0.3s ease;
+  }
+
+  .payslip-net-banner .net-left .net-lbl {
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #cbd5e1;
+    letter-spacing: 0.5px;
+  }
+
+  .payslip-net-banner .net-left .net-val {
+    font-size: 20px;
+    font-weight: 800;
+    margin-top: 1px;
+  }
+
+  .payslip-net-banner .net-right {
+    text-align: right;
+  }
+
+  .payslip-net-banner .net-right .words-lbl {
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #cbd5e1;
+    letter-spacing: 0.5px;
+  }
+
+  .payslip-net-banner .net-right .words-val {
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+
+  /* Formula note */
+  .payslip-formula-note {
+    font-size: 9.5px;
+    color: #64748b;
+    font-style: italic;
+    margin-top: 6px;
+    padding-left: 2px;
+  }
+
+  /* Signatory section */
+  .payslip-signatory-wrap {
+    margin-top: 24px;
+    display: flex;
+    justify-content: flex-end;
+    padding-right: 15px;
+  }
+
+  .payslip-signatory-box {
+    text-align: center;
+    min-width: 190px;
+  }
+
+  .payslip-signatory-title {
+    font-size: 9.5px;
+    font-weight: 800;
+    color: #1e293b;
+    letter-spacing: 0.5px;
+  }
+
+  .payslip-signatory-line {
+    margin-top: 36px;
+    border-bottom: 1.5px solid #94a3b8;
+    width: 100%;
+  }
+
+  .payslip-signatory-sub {
+    font-size: 8.5px;
+    color: #64748b;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+
+  /* Footer */
+  .payslip-footer-bar {
+    border-top: 1px solid #e2e8f0;
+    margin-top: 16px;
+    padding-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: #64748b;
+  }
+
+  /* Template Modal Styles */
+  .tmpl-modal-backdrop {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 1050;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .tmpl-modal-dialog {
+    background: #ffffff;
+    border-radius: 14px;
+    max-width: 820px;
+    width: 100%;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    animation: tmplModalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes tmplModalIn {
+    from { opacity: 0; transform: scale(0.96) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .tmpl-modal-header {
+    padding: 16px 22px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+  }
+
+  .tmpl-modal-body {
+    padding: 22px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .tmpl-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+  }
+
+  .tmpl-card {
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .tmpl-card:hover {
+    border-color: #94a3b8;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.05);
+  }
+
+  .tmpl-card.active-card {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+
+  .tmpl-mockup {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 12px;
+    position: relative;
+  }
+
+  .tmpl-swatch-list {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .swatch-circle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 1px #cbd5e1;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .swatch-circle:hover {
+    transform: scale(1.15);
+  }
+
+  .swatch-circle.active-swatch {
+    box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #2563eb;
+    transform: scale(1.1);
+  }
+
+  @media (max-width: 640px) {
+    .tmpl-grid {
+      grid-template-columns: 1fr;
+    }
+    .payslip-metric-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>
+
+<!-- Top Banner Card -->
 <div class="content-banner-card">
   <div class="banner-left">
     <div class="banner-icon-badge">
@@ -14,14 +518,14 @@
     </div>
     <div class="banner-text-group">
       <div class="banner-title">PAYSLIP PREVIEW</div>
-      <div class="banner-subtitle">Select an employee and pay period, then click Generate to view the payslip.</div>
+      <div class="banner-subtitle">Select an employee, choose your template layout and theme, then generate payslip.</div>
     </div>
   </div>
 </div>
 
-<!-- ================= 1. SELECTION FORM (IMAGE 3) ================= -->
-<div class="table-card" id="payslipSelectionCard" style="padding: 24px 20px; border-radius: 12px;">
-  <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
+<!-- ================= 1. SELECTION FORM ================= -->
+<div class="table-card" id="payslipSelectionCard" style="padding: 22px 20px; border-radius: 12px;">
+  <div style="display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;">
     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; flex-shrink: 0;">
       <label for="selectPayslipEmployee" style="font-size: 13px; font-weight: 700; color: #0f172a; white-space: nowrap; flex-shrink: 0;">Select Employee Name:</label>
       <select id="selectPayslipEmployee" class="table-filter-select" style="min-width: 170px; padding: 6px 12px; font-size: 13px;">
@@ -36,169 +540,337 @@
       <input type="month" id="selectPayslipMonth" class="table-filter-date" style="padding: 5px 10px; font-size: 13px; width: 160px;">
     </div>
 
-    <div>
-      <button type="button" id="btnGeneratePayslip" class="btn-primary-action">
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <button type="button" id="btnGeneratePayslip" class="btn-primary-action" style="padding: 7px 20px; font-size: 13px; font-weight: 700;">
         GENERATE
+      </button>
+
+      <!-- Choose Template Button with Dynamic Badge -->
+      <button type="button" id="btnChooseTemplate" class="btn-secondary-action" style="background-color: #1e3a8a; color: #ffffff; padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s ease;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+        </svg>
+        <span>Choose Template</span>
+        <span id="activeTemplateBadge" style="background: rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">Executive • Navy</span>
       </button>
     </div>
   </div>
 </div>
 
-<!-- ================= 2. GENERATED PAYSLIP DOCUMENT (IMAGE 4) ================= -->
+<!-- ================= 2. GENERATED PAYSLIP DOCUMENT ================= -->
 <div id="payslipDocumentCard" class="d-none" style="margin-top: 20px; margin-bottom: 30px;">
-  <div class="payslip-document-wrapper" id="printablePayslipDoc" style="background-color: #ffffff; border: 1.5px solid #212529; border-radius: 2px; max-width: 820px; margin: 0 auto; padding: 20px 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+  <div class="payslip-doc" id="printablePayslipDoc">
     
-    <!-- Company Header -->
-    <div style="text-align: center; margin-bottom: 12px;">
-      <div id="dispCompanyLogoWrapper" style="display: none; margin-bottom: 8px;">
-        <img id="dispCompanyLogo" src="" alt="Company Logo" style="max-height: 60px; max-width: 200px; object-fit: contain; margin: 0 auto; display: block;">
+    <!-- 1. Pill Header (Aligned GSTIN + Company Details + Month Badge) -->
+    <div class="payslip-header-pill">
+      <!-- Left: Logo Box -->
+      <div class="payslip-logo-card" id="dispCompanyLogoWrapper">
+        <img id="dispCompanyLogo" src="" alt="Logo" style="display: none;">
+        <span class="comp-initial" id="dispCompanyInitial">A</span>
       </div>
-      <div style="font-size: 18px; font-weight: 800; color: #003366; letter-spacing: 0.5px;" id="dispCompanyName">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
-      <div style="font-size: 10.5px; color: #0056b3; margin-top: 3px; font-weight: 500;" id="dispCompanyAddress">
-        SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006
+
+      <!-- Center: Company Info & Cleanly Aligned GSTIN -->
+      <div class="payslip-header-center">
+        <div class="comp-name" id="dispCompanyName">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
+        <div class="comp-addr" id="dispCompanyAddress">SF NO. 515, BHARATHIYAR ROAD, MANIYAKARANPALAYAM, GANAPATHY, COIMBATORE - 641 006</div>
+        <div class="comp-contact" id="dispCompanyContact">
+          <span>Email: argusattendance@gmail.com</span>
+          <span style="opacity: 0.5;">|</span>
+          <span>Phone: 9878787999</span>
+          <span style="opacity: 0.5;">|</span>
+          <span class="payslip-gstin-badge">GSTIN: 33AHZPG5373L2ZN</span>
+        </div>
       </div>
-      <div style="font-size: 10px; color: #475569; margin-top: 2px; font-weight: 500;" id="dispCompanyContact"></div>
-      <div style="font-size: 13px; font-weight: 700; color: #111111; margin-top: 6px;">Monthly Payslip</div>
-    </div>
 
-    <!-- Section Bar: PAYSLIP -->
-    <div style="background-color: #1565c0; color: #ffffff; font-weight: 700; font-size: 13px; text-align: center; padding: 5px 0; border: 1px solid #767676; letter-spacing: 0.5px;">
-      PAYSLIP
-    </div>
-
-    <!-- 5-Column Info Table with Employee Photo -->
-    <table class="payslip-info-table" style="width: 100%; min-width: 540px; border-collapse: collapse; font-size: 12px; border: 1px solid #767676; border-top: none;">
-      <tbody>
-        <tr>
-          <td class="ps-cell-lbl" style="width: 22%; font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Employee Name</td>
-          <td class="ps-cell-val" id="dispEmpName" style="width: 23%; border: 1px solid #767676; padding: 5px 8px;">-</td>
-          <td class="ps-cell-lbl" style="width: 22%; font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Salary Basis</td>
-          <td class="ps-cell-val" id="dispSalaryBasis" style="width: 21%; border: 1px solid #767676; padding: 5px 8px; font-weight: 700; color: #003366;">Day-Based</td>
-          <td rowspan="7" style="width: 12%; text-align: center; vertical-align: middle; background: #fafafa; border: 1px solid #767676; padding: 4px;">
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-              <img id="dispEmpPhoto" src="" alt="Employee Photo" style="width: 75px; height: 90px; object-fit: cover; border: 1px solid #cbd5e1; border-radius: 4px; display: none;">
-              <div id="dispEmpPhotoPlaceholder" style="width: 75px; height: 90px; border: 1px dashed #cbd5e1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #94a3b8; background: #f8fafc;">PHOTO</div>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Employee ID</td>
-          <td class="ps-cell-val" id="dispEmpId" style="border: 1px solid #767676; padding: 5px 8px;">-</td>
-          <td class="ps-cell-lbl" id="dispRate1Lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Day Salary</td>
-          <td class="ps-cell-val" id="dispRate1Val" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
-        </tr>
-        <tr>
-          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Department</td>
-          <td class="ps-cell-val" id="dispDepartment" style="border: 1px solid #767676; padding: 5px 8px;">General</td>
-          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Designation</td>
-          <td class="ps-cell-val" id="dispDesignation" style="border: 1px solid #767676; padding: 5px 8px;">-</td>
-        </tr>
-        <tr>
-          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Email ID</td>
-          <td class="ps-cell-val" id="dispEmail" style="border: 1px solid #767676; padding: 5px 8px; word-break: break-all;">-</td>
-          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Phone Number</td>
-          <td class="ps-cell-val" id="dispPhone" style="border: 1px solid #767676; padding: 5px 8px;">-</td>
-        </tr>
-        <tr>
-          <td class="ps-cell-lbl" id="dispRate2Lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Shift Hours</td>
-          <td class="ps-cell-val" id="dispRate2Val" style="border: 1px solid #767676; padding: 5px 8px;">08:00</td>
-          <td class="ps-cell-lbl" id="dispRate3Lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Bank Name</td>
-          <td class="ps-cell-val" id="dispRate3Val" style="border: 1px solid #767676; padding: 5px 8px;">—</td>
-        </tr>
-        <tr>
-          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Year & Month</td>
-          <td class="ps-cell-val" id="dispYearMonth" style="border: 1px solid #767676; padding: 5px 8px;">2026-10</td>
-          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Working Days</td>
-          <td class="ps-cell-val" id="dispWorkingDays" style="border: 1px solid #767676; padding: 5px 8px;">1</td>
-        </tr>
-        <tr>
-          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Total Working Hours</td>
-          <td class="ps-cell-val" id="dispWorkingHours" style="border: 1px solid #767676; padding: 5px 8px;">00:00</td>
-          <td class="ps-cell-lbl" style="font-weight: 700; border: 1px solid #767676; padding: 5px 8px;">Total Days / Leave</td>
-          <td class="ps-cell-val" id="dispTotalDays" style="border: 1px solid #767676; padding: 5px 8px;">30</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <!-- Earnings & Deductions Header Bar -->
-    <div style="display: flex; margin-top: 10px; border: 1px solid #767676; border-bottom: none;">
-      <div style="width: 50%; background-color: #0d47a1; color: #ffffff; font-weight: 700; font-size: 12px; text-align: center; padding: 5px 0; border-right: 1px solid #767676;">
-        EARNINGS
-      </div>
-      <div style="width: 50%; background-color: #0d47a1; color: #ffffff; font-weight: 700; font-size: 12px; text-align: center; padding: 5px 0;">
-        DEDUCTION
+      <!-- Right: Month Badge -->
+      <div class="payslip-header-month-badge">
+        <div class="sub-title">MONTHLY PAYSLIP</div>
+        <div class="main-title" id="dispHeaderMonth">OCT 2026</div>
       </div>
     </div>
 
-    <!-- Earnings & Deductions Table (Total Earnings & Total Deductions in SAME ROW) -->
-    <table class="payslip-data-table" style="width: 100%; min-width: 540px; border-collapse: collapse; font-size: 12px; border: 1px solid #767676;">
-      <tbody>
-        <tr>
-          <td style="width: 30%; border: 1px solid #767676; padding: 5px 8px;">Basic Salary</td>
-          <td id="dispBasicSalary" style="width: 20%; border: 1px solid #767676; padding: 5px 8px;">₹0</td>
-          <td style="width: 30%; border: 1px solid #767676; padding: 5px 8px;">Paid Salary</td>
-          <td id="dispPaidSalary" style="width: 20%; border: 1px solid #767676; padding: 5px 8px;">₹0</td>
-        </tr>
-        <tr>
-          <td style="border: 1px solid #767676; padding: 5px 8px;">Allowance</td>
-          <td id="dispAllowance" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
-          <td style="border: 1px solid #767676; padding: 5px 8px;">Advance Repayment</td>
-          <td id="dispAdvRepayment" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
-        </tr>
-        <tr>
-          <td style="border: 1px solid #767676; padding: 5px 8px;">Incentive</td>
-          <td id="dispIncentive" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
-          <td style="border: 1px solid #767676; padding: 5px 8px;">Other Deductions</td>
-          <td id="dispOtherDeductions" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
-        </tr>
-        <tr>
-          <td style="border: 1px solid #767676; padding: 5px 8px;">Others Earnings</td>
-          <td id="dispOtherEarnings" style="border: 1px solid #767676; padding: 5px 8px;">₹0</td>
-          <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
-          <td style="border: 1px solid #767676; padding: 5px 8px;"></td>
-        </tr>
-        <tr style="background-color: #f8fafc;">
-          <td style="border: 1px solid #767676; padding: 6px 8px; font-weight: 800; font-size: 13px; color: #0f172a;">TOTAL EARNINGS</td>
-          <td id="dispTotalEarnings" style="border: 1px solid #767676; padding: 6px 8px; font-weight: 800; font-size: 13px; color: #0f172a;">₹0</td>
-          <td style="border: 1px solid #767676; padding: 6px 8px; font-weight: 800; font-size: 13px; color: #0f172a;">TOTAL DEDUCTIONS</td>
-          <td id="dispTotalDeductions" style="border: 1px solid #767676; padding: 6px 8px; font-weight: 800; font-size: 13px; color: #0f172a;">₹0</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <!-- NET PAY BAR -->
-    <div style="background-color: #f1f3f5; border: 1px solid #767676; border-top: none; text-align: center; padding: 10px 0; font-size: 16px; font-weight: 800; color: #111111;">
-      NET PAY : ₹<span id="dispNetPay">17</span>
+    <!-- 2. Employee Details Card -->
+    <div class="payslip-emp-card">
+      <div class="payslip-emp-badge">EMPLOYEE</div>
+      <div class="payslip-emp-details">
+        <div class="emp-name" id="dispEmpName">-</div>
+        <div class="emp-sub">
+          Employee ID: <strong id="dispEmpId">-</strong> &nbsp;|&nbsp;
+          Designation: <strong id="dispDesignation">-</strong> &nbsp;|&nbsp;
+          Department: <strong id="dispDepartment">General</strong>
+        </div>
+        <div class="emp-sub" style="margin-top: 1px;">
+          Email: <strong id="dispEmail">-</strong> &nbsp;|&nbsp;
+          Phone: <strong id="dispPhone">-</strong>
+        </div>
+      </div>
+      <!-- Employee Photo Preview -->
+      <div class="payslip-emp-photo-box" id="dispEmpPhotoWrapper">
+        <img id="dispEmpPhoto" src="" alt="Employee Photo" style="display: none;">
+        <div id="dispEmpPhotoPlaceholder" style="font-size: 9px; color: #94a3b8; font-weight: 700;">PHOTO</div>
+      </div>
     </div>
 
-    <!-- NET PAY IN WORDS BAR -->
-    <div style="background-color: #fef9e7; border: 1px solid #767676; border-top: none; text-align: center; padding: 7px 0; font-size: 13px; font-weight: 700; color: #003366;">
-      NET PAY IN WORDS: <span id="dispNetWords">Seventeen Rupees Only</span>
+    <!-- 3. 4 Key Metric Cards -->
+    <div class="payslip-metric-grid">
+      <div class="payslip-metric-card">
+        <div class="m-lbl">SALARY BASIS</div>
+        <div class="m-val" id="dispSalaryBasis">Day-Based</div>
+      </div>
+      <div class="payslip-metric-card">
+        <div class="m-lbl" id="dispRateLbl">DAY SALARY</div>
+        <div class="m-val" id="dispRateVal">₹0</div>
+      </div>
+      <div class="payslip-metric-card">
+        <div class="m-lbl">SHIFT HOURS</div>
+        <div class="m-val" id="dispShiftHours">08:00</div>
+      </div>
+      <div class="payslip-metric-card">
+        <div class="m-lbl">WORKING DAYS</div>
+        <div class="m-val" id="dispWorkingDays">1 Days</div>
+      </div>
     </div>
 
-    <!-- Footnotes -->
-    <div style="text-align: center; font-size: 10px; color: #475569; padding: 8px 0; font-style: italic; border: 1px solid #767676; border-top: none;">
-      <div>** Net Pay = Total Earnings - Total Deduction</div>
-      <div style="margin-top: 2px;">* Payslip is auto-generated and valid without the need for a signature. *</div>
+    <!-- 4. Summary Bar -->
+    <div class="payslip-summary-bar">
+      <div>Total Working Hours: <strong id="dispWorkingHours">00:00</strong></div>
+      <div>Total Days / Leave: <strong id="dispTotalDays">30 Days (0 Leave)</strong></div>
+      <div>Bank: <strong id="dispBankName">SBI</strong></div>
     </div>
 
-    <!-- Bottom Dark Banner -->
-    <div style="background-color: #37474f; color: #ffffff; text-align: center; padding: 6px 0; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">
-      ** This document has been automatically generated by ARGUS **
+    <!-- 5. Dual Side-by-Side Tables (Earnings & Deductions) -->
+    <div class="payslip-dual-container">
+      <table class="payslip-dual-table">
+        <thead>
+          <tr>
+            <th colspan="2" style="width: 50%;">EARNINGS</th>
+            <th colspan="2" style="width: 50%; border-left: 1px solid rgba(255,255,255,0.25);">DEDUCTIONS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="width: 28%;">Basic Salary</td>
+            <td class="val-cell" id="dispBasicSalary" style="width: 22%;">₹0</td>
+            <td style="width: 28%; border-left: 1px solid #e2e8f0;">Paid Salary</td>
+            <td class="val-cell" id="dispPaidSalary" style="width: 22%;">₹0</td>
+          </tr>
+          <tr>
+            <td>Allowance</td>
+            <td class="val-cell" id="dispAllowance">₹0</td>
+            <td style="border-left: 1px solid #e2e8f0;">Advance Repayment</td>
+            <td class="val-cell" id="dispAdvRepayment">₹0</td>
+          </tr>
+          <tr>
+            <td>Incentive</td>
+            <td class="val-cell" id="dispIncentive">₹0</td>
+            <td style="border-left: 1px solid #e2e8f0;">Other Deductions</td>
+            <td class="val-cell" id="dispOtherDeductions">₹0</td>
+          </tr>
+          <tr>
+            <td>Other Earnings</td>
+            <td class="val-cell" id="dispOtherEarnings">₹0</td>
+            <td style="border-left: 1px solid #e2e8f0;"></td>
+            <td class="val-cell"></td>
+          </tr>
+          <tr class="total-row">
+            <td>TOTAL EARNINGS</td>
+            <td class="val-cell" id="dispTotalEarnings">₹0</td>
+            <td style="border-left: 1px solid var(--ps-border);">TOTAL DEDUCTIONS</td>
+            <td class="val-cell" id="dispTotalDeductions">₹0</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
+
+    <!-- 6. Net Pay Banner -->
+    <div class="payslip-net-banner">
+      <div class="net-left">
+        <div class="net-lbl">NET PAY</div>
+        <div class="net-val">₹<span id="dispNetPay">0</span></div>
+      </div>
+      <div class="net-right">
+        <div class="words-lbl">IN WORDS</div>
+        <div class="words-val" id="dispNetWords">Zero Rupees Only</div>
+      </div>
+    </div>
+
+    <!-- 7. Formula Footnote -->
+    <div class="payslip-formula-note">
+      * Net Pay = Total Earnings - Total Deductions
+    </div>
+
+    <!-- 8. Authorized Signatory Section (Template 1 Only) -->
+    <div class="payslip-signatory-wrap" id="signatorySection">
+      <div class="payslip-signatory-box">
+        <div class="payslip-signatory-title">AUTHORIZED SIGNATORY</div>
+        <div class="payslip-signatory-line"></div>
+        <div class="payslip-signatory-sub">Signature & Company Seal</div>
+      </div>
+    </div>
+
+    <!-- 9. Standardized Footer -->
+    <div class="payslip-footer-bar">
+      <div>Generated by ARGUS Attendance</div>
+      <div>Argus Attendance | version 5.1 | powered by ArgusCNC™</div>
+    </div>
+
   </div>
 
-  <!-- Action Buttons below Payslip Matching Image 4 -->
-  <div style="display: flex; justify-content: center; gap: 10px; margin-top: 18px; flex-wrap: wrap;">
-    <button type="button" id="btnPrintPayslip" class="btn-action-view" style="background-color: #0d6efd; color: #ffffff; border: none; padding: 7px 18px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-      <i class="fa fa-print"></i> Print
+  <!-- Action Buttons below Payslip Document -->
+  <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
+    <button type="button" id="btnPrintPayslip" class="btn-action-view" style="background-color: #0d6efd; color: #ffffff; border: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+        <rect x="6" y="14" width="12" height="8"></rect>
+      </svg>
+      <span>Print</span>
     </button>
-    <button type="button" id="btnPdfPayslip" class="btn-action-view" style="background-color: #0d6efd; color: #ffffff; border: none; padding: 7px 18px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-      <i class="fa fa-file-pdf-o"></i> PDF
+    <button type="button" id="btnPdfPayslip" class="btn-action-view" style="background-color: #0d6efd; color: #ffffff; border: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+      </svg>
+      <span>Download PDF</span>
     </button>
-    <button type="button" id="btnBackToGenerate" class="btn-action-view" style="background-color: #0d6efd; color: #ffffff; border: none; padding: 7px 18px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+    <button type="button" id="btnBackToGenerate" class="btn-action-view" style="background-color: #64748b; color: #ffffff; border: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
       ← Back
     </button>
+  </div>
+</div>
+
+<!-- ================= MODAL: CHOOSE PAYSLIP TEMPLATE ================= -->
+<div class="tmpl-modal-backdrop" id="templateModal">
+  <div class="tmpl-modal-dialog">
+    <div class="tmpl-modal-header">
+      <div>
+        <h5 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+          <span>🎨</span>
+          <span>Choose Payslip Template</span>
+        </h5>
+        <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+          Select a template layout and color palette for live preview & PDF export
+        </div>
+      </div>
+      <button type="button" id="btnCloseTemplateModal" style="background: none; border: none; font-size: 22px; color: #94a3b8; cursor: pointer; line-height: 1;">&times;</button>
+    </div>
+
+    <div class="tmpl-modal-body">
+      <div class="tmpl-grid">
+        
+        <!-- CARD 1: TEMPLATE 1 (MODERN EXECUTIVE) -->
+        <div class="tmpl-card active-card" id="cardTemplate1" data-template="template_1">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 13px; font-weight: 800; color: #0f172a;">Template 1: Modern Executive</span>
+            <span class="active-tag" id="tagTemplate1" style="background: #2563eb; color: #fff; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px;">ACTIVE</span>
+          </div>
+          <div style="font-size: 10.5px; color: #15803d; font-weight: 700; margin-bottom: 8px;">
+            ✓ Official Seal & Signatory Block
+          </div>
+
+          <!-- Miniature Mockup Preview -->
+          <div class="tmpl-mockup" id="mockupTmpl1">
+            <div class="mockup-pill-bar" style="background: #1b3b5f; border-radius: 4px; height: 18px; margin-bottom: 5px; display: flex; align-items: center; padding: 0 6px; justify-content: space-between;">
+              <div style="width: 10px; height: 10px; background: #fff; border-radius: 2px;"></div>
+              <div style="width: 40px; height: 4px; background: rgba(255,255,255,0.7); border-radius: 2px;"></div>
+              <div class="mockup-dark-badge" style="width: 22px; height: 10px; background: #0f233a; border-radius: 2px;"></div>
+            </div>
+            <div class="mockup-tint-box" style="background: #f0f5fa; border-radius: 4px; height: 13px; margin-bottom: 4px; border: 1px solid #cbd5e1;"></div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
+            </div>
+            <div style="border: 1px solid #cbd5e1; border-radius: 3px; height: 16px; margin-bottom: 4px; background: #fff;"></div>
+            <div class="mockup-net-bar" style="background: #1b3b5f; border-radius: 3px; height: 11px; margin-bottom: 4px;"></div>
+            <!-- Distinct Signatory underline in mockup -->
+            <div style="display: flex; justify-content: flex-end; padding-top: 2px;">
+              <div style="width: 55px; border-bottom: 1.5px solid #64748b; font-size: 6px; color: #64748b; text-align: center; padding-top: 2px;">Signatory</div>
+            </div>
+          </div>
+
+          <div style="font-size: 11px; color: #475569; line-height: 1.35; flex: 1;">
+            Corporate layout featuring company logo, aligned GSTIN, full earnings/deductions breakdown, and <strong>Authorized Signatory & Seal</strong> area for certified documentation.
+          </div>
+
+          <!-- Color Swatches for Template 1 -->
+          <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+            <div style="font-size: 10.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Color Palette:</div>
+            <div class="tmpl-swatch-list">
+              <div class="swatch-circle active-swatch" data-template="template_1" data-theme="navy" style="background: #1b3b5f;" title="Navy Classic"></div>
+              <div class="swatch-circle" data-template="template_1" data-theme="emerald" style="background: #0f5132;" title="Forest Emerald"></div>
+              <div class="swatch-circle" data-template="template_1" data-theme="burgundy" style="background: #5c1d48;" title="Burgundy Wine"></div>
+              <span class="swatch-label" id="swatchLabelTmpl1" style="font-size: 11px; font-weight: 600; color: #1b3b5f; margin-left: 4px;">Navy Classic</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 2: TEMPLATE 2 (MODERN STREAMLINED) -->
+        <div class="tmpl-card" id="cardTemplate2" data-template="template_2">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 13px; font-weight: 800; color: #0f172a;">Template 2: Modern Streamlined</span>
+            <span class="active-tag" id="tagTemplate2" style="background: #64748b; color: #fff; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; display: none;">ACTIVE</span>
+          </div>
+          <div style="font-size: 10.5px; color: #0284c7; font-weight: 700; margin-bottom: 8px;">
+            ⚡ Digital & Direct Paperless
+          </div>
+
+          <!-- Miniature Mockup Preview -->
+          <div class="tmpl-mockup" id="mockupTmpl2">
+            <div class="mockup-pill-bar" style="background: #1b3b5f; border-radius: 4px; height: 18px; margin-bottom: 5px; display: flex; align-items: center; padding: 0 6px; justify-content: space-between;">
+              <div style="width: 10px; height: 10px; background: #fff; border-radius: 2px;"></div>
+              <div style="width: 40px; height: 4px; background: rgba(255,255,255,0.7); border-radius: 2px;"></div>
+              <div class="mockup-dark-badge" style="width: 22px; height: 10px; background: #0f233a; border-radius: 2px;"></div>
+            </div>
+            <div class="mockup-tint-box" style="background: #f0f5fa; border-radius: 4px; height: 13px; margin-bottom: 4px; border: 1px solid #cbd5e1;"></div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
+            </div>
+            <div style="border: 1px solid #cbd5e1; border-radius: 3px; height: 16px; margin-bottom: 4px; background: #fff;"></div>
+            <div class="mockup-net-bar" style="background: #1b3b5f; border-radius: 3px; height: 11px; margin-bottom: 4px;"></div>
+            <!-- Digital auto-approved badge in mockup -->
+            <div style="display: flex; justify-content: flex-end; padding-top: 2px;">
+              <div style="font-size: 6px; color: #0284c7; font-weight: 700; text-align: center; padding-top: 2px;">Direct Paperless</div>
+            </div>
+          </div>
+
+          <div style="font-size: 11px; color: #475569; line-height: 1.35; flex: 1;">
+            Identical modern pill architecture without the manual signature block. Designed specifically for <strong>direct emailing, self-service portals, and paperless records</strong>.
+          </div>
+
+          <!-- Color Swatches for Template 2 -->
+          <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+            <div style="font-size: 10.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Color Palette:</div>
+            <div class="tmpl-swatch-list">
+              <div class="swatch-circle active-swatch" data-template="template_2" data-theme="navy" style="background: #1b3b5f;" title="Navy Classic"></div>
+              <div class="swatch-circle" data-template="template_2" data-theme="emerald" style="background: #0f5132;" title="Forest Emerald"></div>
+              <div class="swatch-circle" data-template="template_2" data-theme="burgundy" style="background: #5c1d48;" title="Burgundy Wine"></div>
+              <span class="swatch-label" id="swatchLabelTmpl2" style="font-size: 11px; font-weight: 600; color: #1b3b5f; margin-left: 4px;">Navy Classic</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div style="padding: 14px 22px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+      <div style="font-size: 12px; color: #475569;">
+        Selected: <strong id="modalSummaryTxt" style="color: #0f172a;">Modern Executive • Navy Classic</strong>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" id="btnCancelTemplateModal" style="background: #e2e8f0; color: #334155; border: none; padding: 7px 16px; border-radius: 6px; font-size: 12.5px; font-weight: 600; cursor: pointer;">
+          Cancel
+        </button>
+        <button type="button" id="btnApplyTemplate" style="background: #2563eb; color: #ffffff; border: none; padding: 7px 18px; border-radius: 6px; font-size: 12.5px; font-weight: 700; cursor: pointer;">
+          Apply Template
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -206,14 +878,70 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  // Elements
   const btnGeneratePayslip = document.getElementById('btnGeneratePayslip');
+  const btnChooseTemplate = document.getElementById('btnChooseTemplate');
+  const activeTemplateBadge = document.getElementById('activeTemplateBadge');
   const payslipSelectionCard = document.getElementById('payslipSelectionCard');
   const payslipDocumentCard = document.getElementById('payslipDocumentCard');
+  const printablePayslipDoc = document.getElementById('printablePayslipDoc');
+  const signatorySection = document.getElementById('signatorySection');
   const btnBackToGenerate = document.getElementById('btnBackToGenerate');
   const btnPrintPayslip = document.getElementById('btnPrintPayslip');
   const btnPdfPayslip = document.getElementById('btnPdfPayslip');
   const selectPayslipMonth = document.getElementById('selectPayslipMonth');
+  const selectPayslipEmployee = document.getElementById('selectPayslipEmployee');
 
+  // Modal Elements
+  const templateModal = document.getElementById('templateModal');
+  const btnCloseTemplateModal = document.getElementById('btnCloseTemplateModal');
+  const btnCancelTemplateModal = document.getElementById('btnCancelTemplateModal');
+  const btnApplyTemplate = document.getElementById('btnApplyTemplate');
+  const modalSummaryTxt = document.getElementById('modalSummaryTxt');
+  const cardTemplate1 = document.getElementById('cardTemplate1');
+  const cardTemplate2 = document.getElementById('cardTemplate2');
+  const tagTemplate1 = document.getElementById('tagTemplate1');
+  const tagTemplate2 = document.getElementById('tagTemplate2');
+
+  // Palette Definitions
+  const COLOR_PALETTES = {
+    navy: {
+      id: 'navy',
+      name: 'Navy Classic',
+      primary: '#1b3b5f',
+      dark: '#0f233a',
+      tint: '#f0f5fa',
+      border: '#cbd5e1',
+      text_dark: '#0f233a'
+    },
+    emerald: {
+      id: 'emerald',
+      name: 'Forest Emerald',
+      primary: '#0f5132',
+      dark: '#0a3622',
+      tint: '#e9f7ef',
+      border: '#a3cfbb',
+      text_dark: '#0a3622'
+    },
+    burgundy: {
+      id: 'burgundy',
+      name: 'Burgundy Wine',
+      primary: '#5c1d48',
+      dark: '#3f1331',
+      tint: '#f9edf4',
+      border: '#d8b4cb',
+      text_dark: '#3f1331'
+    }
+  };
+
+  // State Management
+  let currentTemplate = localStorage.getItem('argus_payslip_template') || 'template_1';
+  let currentTheme = localStorage.getItem('argus_payslip_theme') || 'navy';
+  let modalTempTemplate = currentTemplate;
+  let modalTempTheme = currentTheme;
+  let lastPayslipData = null;
+
+  // Set default month to current year-month
   if (selectPayslipMonth && !selectPayslipMonth.value) {
     const today = new Date();
     const curY = today.getFullYear();
@@ -221,6 +949,156 @@ document.addEventListener('DOMContentLoaded', function () {
     selectPayslipMonth.value = `${curY}-${curM}`;
   }
 
+  // Initial apply of saved template and theme
+  applyTemplateAndTheme(currentTemplate, currentTheme);
+
+  // ----------------- TEMPLATE MODAL HANDLERS -----------------
+  btnChooseTemplate.addEventListener('click', function () {
+    modalTempTemplate = currentTemplate;
+    modalTempTheme = currentTheme;
+    syncModalUI();
+    templateModal.style.display = 'flex';
+  });
+
+  function closeTemplateModal() {
+    templateModal.style.display = 'none';
+  }
+
+  btnCloseTemplateModal.addEventListener('click', closeTemplateModal);
+  btnCancelTemplateModal.addEventListener('click', closeTemplateModal);
+
+  templateModal.addEventListener('click', function (e) {
+    if (e.target === templateModal) closeTemplateModal();
+  });
+
+  // Clicking cards in modal
+  cardTemplate1.addEventListener('click', function (e) {
+    // If a swatch was clicked, handled by swatch listener
+    if (e.target.classList.contains('swatch-circle')) return;
+    modalTempTemplate = 'template_1';
+    syncModalUI();
+  });
+
+  cardTemplate2.addEventListener('click', function (e) {
+    if (e.target.classList.contains('swatch-circle')) return;
+    modalTempTemplate = 'template_2';
+    syncModalUI();
+  });
+
+  // Swatch selection in modal
+  document.querySelectorAll('.swatch-circle').forEach(swatch => {
+    swatch.addEventListener('click', function (e) {
+      e.stopPropagation();
+      const tmpl = this.dataset.template;
+      const th = this.dataset.theme;
+      modalTempTemplate = tmpl;
+      modalTempTheme = th;
+      syncModalUI();
+    });
+  });
+
+  btnApplyTemplate.addEventListener('click', function () {
+    currentTemplate = modalTempTemplate;
+    currentTheme = modalTempTheme;
+    localStorage.setItem('argus_payslip_template', currentTemplate);
+    localStorage.setItem('argus_payslip_theme', currentTheme);
+    applyTemplateAndTheme(currentTemplate, currentTheme);
+    closeTemplateModal();
+  });
+
+  function syncModalUI() {
+    // Highlight Active Card
+    if (modalTempTemplate === 'template_1') {
+      cardTemplate1.classList.add('active-card');
+      cardTemplate2.classList.remove('active-card');
+      tagTemplate1.style.display = 'inline-block';
+      tagTemplate2.style.display = 'none';
+    } else {
+      cardTemplate2.classList.add('active-card');
+      cardTemplate1.classList.remove('active-card');
+      tagTemplate2.style.display = 'inline-block';
+      tagTemplate1.style.display = 'none';
+    }
+
+    // Update Swatch Active Rings & Mockup Colors
+    const palette = COLOR_PALETTES[modalTempTheme] || COLOR_PALETTES['navy'];
+
+    // Update Card 1 Swatches
+    document.querySelectorAll('#cardTemplate1 .swatch-circle').forEach(sw => {
+      if (sw.dataset.theme === modalTempTheme) {
+        sw.classList.add('active-swatch');
+      } else {
+        sw.classList.remove('active-swatch');
+      }
+    });
+    const lbl1 = document.getElementById('swatchLabelTmpl1');
+    if (lbl1) {
+      lbl1.innerText = palette.name;
+      lbl1.style.color = palette.primary;
+    }
+
+    // Update Card 2 Swatches
+    document.querySelectorAll('#cardTemplate2 .swatch-circle').forEach(sw => {
+      if (sw.dataset.theme === modalTempTheme) {
+        sw.classList.add('active-swatch');
+      } else {
+        sw.classList.remove('active-swatch');
+      }
+    });
+    const lbl2 = document.getElementById('swatchLabelTmpl2');
+    if (lbl2) {
+      lbl2.innerText = palette.name;
+      lbl2.style.color = palette.primary;
+    }
+
+    // Update Mockup Previews inside Modal
+    const activeMockupId = (modalTempTemplate === 'template_1') ? 'mockupTmpl1' : 'mockupTmpl2';
+    const mockEl = document.getElementById(activeMockupId);
+    if (mockEl) {
+      const pill = mockEl.querySelector('.mockup-pill-bar');
+      if (pill) pill.style.background = palette.primary;
+      const darkBadge = mockEl.querySelector('.mockup-dark-badge');
+      if (darkBadge) darkBadge.style.background = palette.dark;
+      const tintBox = mockEl.querySelector('.mockup-tint-box');
+      if (tintBox) {
+        tintBox.style.background = palette.tint;
+        tintBox.style.borderColor = palette.border;
+      }
+      const netBar = mockEl.querySelector('.mockup-net-bar');
+      if (netBar) netBar.style.background = palette.primary;
+    }
+
+    // Update Modal Summary Text
+    const tmplTitle = (modalTempTemplate === 'template_1') ? 'Modern Executive' : 'Modern Streamlined';
+    modalSummaryTxt.innerText = `${tmplTitle} • ${palette.name}`;
+  }
+
+  function applyTemplateAndTheme(tmpl, theme) {
+    const palette = COLOR_PALETTES[theme] || COLOR_PALETTES['navy'];
+    const tmplShort = (tmpl === 'template_1') ? 'Executive' : 'Streamlined';
+    const themeShort = palette.name.split(' ')[0];
+
+    // Update Toolbar Badge
+    if (activeTemplateBadge) {
+      activeTemplateBadge.innerText = `${tmplShort} • ${themeShort}`;
+    }
+
+    // Update CSS Custom Properties on Payslip Doc
+    if (printablePayslipDoc) {
+      printablePayslipDoc.style.setProperty('--ps-primary', palette.primary);
+      printablePayslipDoc.style.setProperty('--ps-dark', palette.dark);
+      printablePayslipDoc.style.setProperty('--ps-tint', palette.tint);
+      printablePayslipDoc.style.setProperty('--ps-border', palette.border);
+      printablePayslipDoc.style.setProperty('--ps-text-dark', palette.text_dark);
+    }
+
+    // Toggle Signatory Block: Template 1 has it, Template 2 omits it
+    if (signatorySection) {
+      signatorySection.style.display = (tmpl === 'template_1') ? 'flex' : 'none';
+    }
+  }
+
+  // ----------------- GENERATE PAYSLIP -----------------
   btnGeneratePayslip.addEventListener('click', function () {
     generatePayslip();
   });
@@ -230,9 +1108,18 @@ document.addEventListener('DOMContentLoaded', function () {
     payslipSelectionCard.classList.remove('d-none');
   });
 
+  function formatCurrency(val) {
+    try {
+      const num = Number(val || 0);
+      return '₹' + num.toLocaleString('en-IN');
+    } catch (e) {
+      return '₹' + (val || '0');
+    }
+  }
+
   function generatePayslip() {
-    const employee = document.getElementById('selectPayslipEmployee').value;
-    const month = document.getElementById('selectPayslipMonth').value;
+    const employee = selectPayslipEmployee.value;
+    const month = selectPayslipMonth.value;
 
     if (!employee) {
       alert('Please select an employee.');
@@ -242,17 +1129,31 @@ document.addEventListener('DOMContentLoaded', function () {
     fetch(`/api/payslip/generate?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}`)
       .then(res => res.json())
       .then(p => {
-        // Populate document
-        document.getElementById('dispEmpName').innerText = p.employee_name;
-        document.getElementById('dispEmpId').innerText = p.employee_id;
-        document.getElementById('dispDesignation').innerText = p.designation;
+        lastPayslipData = p;
+
+        // 1. Employee Details
+        document.getElementById('dispEmpName').innerText = p.employee_name || '-';
+        document.getElementById('dispEmpId').innerText = p.employee_id || '-';
+        document.getElementById('dispDesignation').innerText = p.designation || '-';
         document.getElementById('dispDepartment').innerText = p.department || 'General';
         document.getElementById('dispEmail').innerText = p.email_id || '-';
-        document.getElementById('dispPhone').innerText = p.phone_number;
+        document.getElementById('dispPhone').innerText = p.phone_number || p.mobile_number || '-';
         document.getElementById('dispSalaryBasis').innerText = p.salary_basis_label || 'Day-Based';
-        document.getElementById('dispYearMonth').innerText = p.year_month;
 
-        // Employee Photo Preview
+        // 2. Month Badge
+        let monthBadgeVal = 'OCT 2026';
+        if (p.year_month) {
+          const parts = p.year_month.split('-');
+          if (parts.length === 2) {
+            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+            monthBadgeVal = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase();
+          } else {
+            monthBadgeVal = p.year_month.toUpperCase();
+          }
+        }
+        document.getElementById('dispHeaderMonth').innerText = monthBadgeVal;
+
+        // 3. Employee Photo Preview
         const empPhoto = document.getElementById('dispEmpPhoto');
         const empPhotoPlaceholder = document.getElementById('dispEmpPhotoPlaceholder');
         const photoSrc = p.employee_photo_url || (p.employee_photo ? `/uploads/${p.employee_photo}` : '');
@@ -266,78 +1167,84 @@ document.addEventListener('DOMContentLoaded', function () {
           if (empPhotoPlaceholder) empPhotoPlaceholder.style.display = 'flex';
         }
 
+        // 4. Rate & Metric Cards
         const st = (p.salary_type || 'daily').toLowerCase();
         const shiftH = p.shift_hours || '08:00';
-        const bankName = p.bank_name || '—';
+        const bankName = p.bank_name || 'SBI';
 
         if (st === 'hourly') {
-          document.getElementById('dispRate1Lbl').innerText = 'Hours Salary';
-          document.getElementById('dispRate1Val').innerText = `₹${p.hours_salary}`;
-          document.getElementById('dispRate2Lbl').innerText = 'Shift Hours';
-          document.getElementById('dispRate2Val').innerText = shiftH;
-          document.getElementById('dispRate3Lbl').innerText = 'Bank Name';
-          document.getElementById('dispRate3Val').innerText = bankName;
+          document.getElementById('dispRateLbl').innerText = 'HOURS SALARY';
+          document.getElementById('dispRateVal').innerText = formatCurrency(p.hours_salary);
         } else if (st === 'half_day') {
-          document.getElementById('dispRate1Lbl').innerText = 'Half Day Salary';
-          document.getElementById('dispRate1Val').innerText = `₹${p.half_day_salary}`;
-          document.getElementById('dispRate2Lbl').innerText = 'Shift Hours';
-          document.getElementById('dispRate2Val').innerText = shiftH;
-          document.getElementById('dispRate3Lbl').innerText = 'Bank Name';
-          document.getElementById('dispRate3Val').innerText = bankName;
+          document.getElementById('dispRateLbl').innerText = 'HALF DAY SALARY';
+          document.getElementById('dispRateVal').innerText = formatCurrency(p.half_day_salary);
         } else {
-          document.getElementById('dispRate1Lbl').innerText = 'Day Salary';
-          document.getElementById('dispRate1Val').innerText = `₹${p.day_salary}`;
-          document.getElementById('dispRate2Lbl').innerText = 'Shift Hours';
-          document.getElementById('dispRate2Val').innerText = shiftH;
-          document.getElementById('dispRate3Lbl').innerText = 'Bank Name';
-          document.getElementById('dispRate3Val').innerText = bankName;
+          document.getElementById('dispRateLbl').innerText = 'DAY SALARY';
+          document.getElementById('dispRateVal').innerText = formatCurrency(p.day_salary);
         }
+        document.getElementById('dispShiftHours').innerText = shiftH;
         document.getElementById('dispWorkingDays').innerText = p.working_days_breakdown || `${p.working_days} Days`;
         document.getElementById('dispTotalDays').innerText = `${p.total_days_of_month} Days (${p.leave_days} Leave)`;
-        document.getElementById('dispWorkingHours').innerText = p.total_working_hours;
+        document.getElementById('dispWorkingHours').innerText = p.total_working_hours || '00:00';
+        document.getElementById('dispBankName').innerText = bankName;
 
-        document.getElementById('dispBasicSalary').innerText = `₹${p.basic_salary}`;
-        document.getElementById('dispAllowance').innerText = `₹${p.allowance}`;
-        document.getElementById('dispIncentive').innerText = `₹${p.incentive}`;
-        document.getElementById('dispOtherEarnings').innerText = `₹${p.other_earnings}`;
-        document.getElementById('dispTotalEarnings').innerText = `₹${p.total_earnings}`;
+        // 5. Earnings & Deductions Tables
+        document.getElementById('dispBasicSalary').innerText = formatCurrency(p.basic_salary);
+        document.getElementById('dispAllowance').innerText = formatCurrency(p.allowance);
+        document.getElementById('dispIncentive').innerText = formatCurrency(p.incentive);
+        document.getElementById('dispOtherEarnings').innerText = formatCurrency(p.other_earnings);
+        document.getElementById('dispTotalEarnings').innerText = formatCurrency(p.total_earnings);
 
-        document.getElementById('dispPaidSalary').innerText = `₹${p.paid_salary}`;
-        document.getElementById('dispAdvRepayment').innerText = `₹${p.advance_repayment}`;
-        document.getElementById('dispOtherDeductions').innerText = `₹${p.other_deductions}`;
-        document.getElementById('dispTotalDeductions').innerText = `₹${p.total_deduction !== undefined ? p.total_deduction : p.total_deductions}`;
+        document.getElementById('dispPaidSalary').innerText = formatCurrency(p.paid_salary);
+        document.getElementById('dispAdvRepayment').innerText = formatCurrency(p.advance_repayment);
+        document.getElementById('dispOtherDeductions').innerText = formatCurrency(p.other_deductions);
+        const totDed = (p.total_deduction !== undefined) ? p.total_deduction : p.total_deductions;
+        document.getElementById('dispTotalDeductions').innerText = formatCurrency(totDed);
 
-        document.getElementById('dispNetPay').innerText = p.net_pay;
-        document.getElementById('dispNetWords').innerText = p.net_pay_in_words;
+        // 6. Net Pay Banner
+        const netNum = Number(p.net_pay || 0);
+        document.getElementById('dispNetPay').innerText = netNum.toLocaleString('en-IN');
+        document.getElementById('dispNetWords').innerText = (p.net_pay_in_words || '').trim() || 'Zero Rupees Only';
 
-        // Dynamic Company Logo & Header
+        // 7. Dynamic Company Logo & Aligned Header Info
         const logoEl = document.getElementById('dispCompanyLogo');
-        const logoWrapper = document.getElementById('dispCompanyLogoWrapper');
+        const initialEl = document.getElementById('dispCompanyInitial');
         const logoSrc = p.company_logo_url || (p.company_logo ? `/uploads/${p.company_logo}` : '');
         if (logoSrc) {
           logoEl.src = logoSrc;
-          logoWrapper.style.display = 'block';
+          logoEl.style.display = 'block';
+          initialEl.style.display = 'none';
         } else {
           logoEl.src = '';
-          logoWrapper.style.display = 'none';
+          logoEl.style.display = 'none';
+          initialEl.innerText = ((p.company_name || 'A')[0]).toUpperCase();
+          initialEl.style.display = 'block';
         }
 
         if (p.company_name) {
-          const compNameEl = document.getElementById('dispCompanyName');
-          if (compNameEl) compNameEl.innerText = p.company_name;
+          document.getElementById('dispCompanyName').innerText = p.company_name;
         }
         if (p.company_address) {
-          const compAddrEl = document.getElementById('dispCompanyAddress');
-          if (compAddrEl) compAddrEl.innerText = p.company_address;
+          document.getElementById('dispCompanyAddress').innerText = p.company_address;
         }
+
+        // Clean Horizontal Alignment of Contact & GSTIN
         const compContactEl = document.getElementById('dispCompanyContact');
         if (compContactEl) {
           const parts = [];
-          if (p.company_email) parts.push(`Email: ${p.company_email}`);
-          if (p.company_phone) parts.push(`Phone: ${p.company_phone}`);
-          if (p.company_gstin) parts.push(`GSTIN: ${p.company_gstin}`);
-          compContactEl.innerText = parts.join(' | ');
+          if (p.company_email) parts.push(`<span>Email: ${p.company_email}</span>`);
+          if (p.company_phone) parts.push(`<span>Phone: ${p.company_phone}</span>`);
+          if (p.company_gstin) parts.push(`<span class="payslip-gstin-badge">GSTIN: ${p.company_gstin}</span>`);
+          
+          if (parts.length > 0) {
+            compContactEl.innerHTML = parts.join('<span style="opacity: 0.5;"> | </span>');
+          } else {
+            compContactEl.innerHTML = `<span>Email: argusattendance@gmail.com</span><span style="opacity:0.5;"> | </span><span>Phone: 9878787999</span><span style="opacity:0.5;"> | </span><span class="payslip-gstin-badge">GSTIN: 33AHZPG5373L2ZN</span>`;
+          }
         }
+
+        // Apply current template layout & color scheme
+        applyTemplateAndTheme(currentTemplate, currentTheme);
 
         // Show document card
         payslipDocumentCard.classList.remove('d-none');
@@ -349,35 +1256,54 @@ document.addEventListener('DOMContentLoaded', function () {
       });
   }
 
+  // ----------------- PRINT PAYSLIP -----------------
   btnPrintPayslip.addEventListener('click', function () {
     const doc = document.getElementById('printablePayslipDoc');
     if (!doc) return;
-    const printWin = window.open('', '', 'width=850,height=750');
+    const palette = COLOR_PALETTES[currentTheme] || COLOR_PALETTES['navy'];
+    const printWin = window.open('', '', 'width=880,height=800');
     printWin.document.write('<!DOCTYPE html><html><head><title>Monthly Payslip</title>');
-    printWin.document.write('<style>');
+    
+    // Copy style tags from main document
+    const headStyles = document.querySelectorAll('style');
+    headStyles.forEach(s => {
+      printWin.document.write(`<style>${s.innerHTML}</style>`);
+    });
+
     printWin.document.write(`
-      body { font-family: Arial, sans-serif; margin: 20px; color: #111; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { border: 1px solid #767676; padding: 5px 8px; font-size: 12px; }
-      @media print {
-        body { margin: 0; padding: 10px; }
-      }
+      <style>
+        :root {
+          --ps-primary: ${palette.primary};
+          --ps-dark: ${palette.dark};
+          --ps-tint: ${palette.tint};
+          --ps-border: ${palette.border};
+          --ps-text-dark: ${palette.text_dark};
+        }
+        * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 15px; color: #1e293b; }
+        .payslip-doc { box-shadow: none !important; border: 1px solid #cbd5e1 !important; margin: 0 auto; width: 100%; max-width: 100%; }
+        @media print {
+          body { margin: 0; padding: 10px; }
+          .payslip-doc { border: none !important; box-shadow: none !important; }
+        }
+      </style>
     `);
-    printWin.document.write('</style></head><body>');
-    printWin.document.write(doc.innerHTML);
+    printWin.document.write('</head><body>');
+    printWin.document.write(doc.outerHTML);
     printWin.document.write('</body></html>');
     printWin.document.close();
     printWin.focus();
     setTimeout(() => {
       printWin.print();
       printWin.close();
-    }, 250);
+    }, 300);
   });
 
+  // ----------------- PDF DOWNLOAD WITH TEMPLATE & THEME -----------------
   btnPdfPayslip.addEventListener('click', function () {
-    const employee = document.getElementById('selectPayslipEmployee').value;
-    const month = document.getElementById('selectPayslipMonth').value;
-    window.location.href = `/api/payslip/export/pdf?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}`;
+    const employee = selectPayslipEmployee.value;
+    const month = selectPayslipMonth.value;
+    window.location.href = `/api/payslip/export/pdf?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}&template=${encodeURIComponent(currentTemplate)}&theme=${encodeURIComponent(currentTheme)}`;
   });
 });
 </script>

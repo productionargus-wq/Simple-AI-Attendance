@@ -1068,165 +1068,349 @@ def get_rl_image(img_ref, max_width=120, max_height=50):
         print(f"Notice: Image load for PDF failed for {img_ref}: {e}")
     return None
 
-def generate_payslip_pdf(p):
+PAYSLIP_THEMES = {
+    'navy': {
+        'primary': colors.HexColor('#1b3b5f'),
+        'dark': colors.HexColor('#0f233a'),
+        'tint': colors.HexColor('#f0f5fa'),
+        'border': colors.HexColor('#cbd5e1'),
+        'text_dark': colors.HexColor('#0f172a'),
+        'text_sub': colors.HexColor('#475569'),
+    },
+    'emerald': {
+        'primary': colors.HexColor('#0f5132'),
+        'dark': colors.HexColor('#0a3622'),
+        'tint': colors.HexColor('#e9f7ef'),
+        'border': colors.HexColor('#a3cfbb'),
+        'text_dark': colors.HexColor('#064e3b'),
+        'text_sub': colors.HexColor('#198754'),
+    },
+    'burgundy': {
+        'primary': colors.HexColor('#5c1d48'),
+        'dark': colors.HexColor('#3f1331'),
+        'tint': colors.HexColor('#f9edf4'),
+        'border': colors.HexColor('#d8b4cb'),
+        'text_dark': colors.HexColor('#4a153b'),
+        'text_sub': colors.HexColor('#701a75'),
+    }
+}
+
+def generate_payslip_pdf(p, template_id='template_1', theme='navy'):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
         rightMargin=36,
         leftMargin=36,
-        topMargin=36,
-        bottomMargin=36
+        topMargin=32,
+        bottomMargin=32
     )
     
-    styles = getSampleStyleSheet()
+    # Resolve color palette
+    theme_key = str(theme or 'navy').lower().strip()
+    palette = PAYSLIP_THEMES.get(theme_key, PAYSLIP_THEMES['navy'])
+    
+    # Resolve template settings
+    has_signatory = (template_id != 'template_2')
     
     elements = []
     
-    # 1. Company Logo at top (if available)
-    logo_img = get_rl_image(p.get('company_logo') or p.get('company_logo_url'), max_width=140, max_height=45)
+    # ----------------- 1. TOP HEADER PILL -----------------
+    logo_img = get_rl_image(p.get('company_logo') or p.get('company_logo_url'), max_width=44, max_height=44)
     if logo_img:
-        logo_img.hAlign = 'CENTER'
-        elements.append(logo_img)
-        elements.append(Spacer(1, 4))
-
-    # Header
-    title_style = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=15, leading=19, alignment=TA_CENTER, textColor=colors.HexColor('#003366'))
-    addr_style = ParagraphStyle('CompAddr', fontName='Helvetica', fontSize=8, leading=11, alignment=TA_CENTER, textColor=colors.HexColor('#0056b3'))
-    sub_style = ParagraphStyle('CompSub', fontName='Helvetica-Bold', fontSize=11, leading=15, alignment=TA_CENTER, textColor=colors.HexColor('#212529'))
-    
-    comp_name = p.get('company_name', 'ARGUS TECHNOLOGIES')
-    comp_addr = p.get('company_address', '')
-    comp_email = p.get('company_email', '')
-    comp_phone = p.get('company_phone', '')
-    comp_gstin = p.get('company_gstin', '')
-
-    elements.append(Paragraph(comp_name.upper(), title_style))
-    if comp_addr:
-        elements.append(Spacer(1, 2))
-        elements.append(Paragraph(comp_addr, addr_style))
-    contact_parts = []
-    if comp_email:
-        contact_parts.append(f"Email: {comp_email}")
-    if comp_phone:
-        contact_parts.append(f"Phone: {comp_phone}")
-    if comp_gstin:
-        contact_parts.append(f"GSTIN: {comp_gstin}")
-    if contact_parts:
-        elements.append(Spacer(1, 2))
-        elements.append(Paragraph(" | ".join(contact_parts), addr_style))
-    elements.append(Spacer(1, 4))
-    elements.append(Paragraph("Monthly Payslip", sub_style))
-    elements.append(Spacer(1, 8))
-    
-    cell_lbl_style = ParagraphStyle('CellLbl', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor('#212529'))
-    cell_val_style = ParagraphStyle('CellVal', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#333333'))
-    
-    # 5-column Employee Info Table with Employee Photo on right
-    st = str(p.get('salary_type', 'daily')).lower()
-    shift_h = str(p.get('shift_hours') or '08:00')
-    bank = str(p.get('bank_name') or '—')
-
-    if st == 'hourly':
-        lbl_r2, val_r2 = "Hours Salary", f"Rs. {p.get('hours_salary', 0)}"
-    elif st == 'half_day':
-        lbl_r2, val_r2 = "Half Day Salary", f"Rs. {p.get('half_day_salary', 0)}"
-    else:  # 'daily'
-        lbl_r2, val_r2 = "Day Salary", f"Rs. {p.get('day_salary', 0)}"
-
-    emp_photo_img = get_rl_image(p.get('employee_photo') or p.get('employee_photo_url'), max_width=65, max_height=80)
-    if emp_photo_img:
-        emp_photo_img.hAlign = 'CENTER'
-        photo_cell = emp_photo_img
+        logo_cell_content = [logo_img]
     else:
-        photo_cell = Paragraph("<font size='8' color='#94a3b8'>PHOTO</font>", ParagraphStyle('PhotoHolder', alignment=TA_CENTER))
+        comp_initial = (p.get('company_name') or 'A')[:1].upper()
+        logo_cell_content = [Paragraph(f"<font size='16' color='#1b3b5f'><b>{comp_initial}</b></font>", ParagraphStyle('LogoInit', alignment=TA_CENTER))]
 
-    info_data = [
-        [Paragraph("PAYSLIP", ParagraphStyle('SectionHdr', fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=TA_CENTER, textColor=colors.white)), "", "", "", ""],
-        [Paragraph("Employee Name", cell_lbl_style), Paragraph(str(p.get('employee_name', '')), cell_val_style), Paragraph("Salary Basis", cell_lbl_style), Paragraph(str(p.get('salary_basis_label', 'Day-Based')), cell_val_style), photo_cell],
-        [Paragraph("Employee ID", cell_lbl_style), Paragraph(str(p.get('employee_id', '')), cell_val_style), Paragraph(lbl_r2, cell_lbl_style), Paragraph(val_r2, cell_val_style), ""],
-        [Paragraph("Department", cell_lbl_style), Paragraph(str(p.get('department', 'General')), cell_val_style), Paragraph("Designation", cell_lbl_style), Paragraph(str(p.get('designation', '')), cell_val_style), ""],
-        [Paragraph("Email ID", cell_lbl_style), Paragraph(str(p.get('email_id', '')), cell_val_style), Paragraph("Phone Number", cell_lbl_style), Paragraph(str(p.get('phone_number', '')), cell_val_style), ""],
-        [Paragraph("Shift Hours", cell_lbl_style), Paragraph(shift_h, cell_val_style), Paragraph("Bank Name", cell_lbl_style), Paragraph(bank, cell_val_style), ""],
-        [Paragraph("Year & Month", cell_lbl_style), Paragraph(str(p.get('year_month', '')), cell_val_style), Paragraph("Working Days", cell_lbl_style), Paragraph(str(p.get('working_days_breakdown', p.get('working_days', 0))), cell_val_style), ""],
-        [Paragraph("Total Working Hours", cell_lbl_style), Paragraph(str(p.get('total_working_hours', '00:00')), cell_val_style), Paragraph("Total Days / Leave", cell_lbl_style), Paragraph(f"{p.get('total_days_of_month', 30)} Days ({p.get('leave_days', 0)} Leave)", cell_val_style), ""],
-    ]
+    comp_name = str(p.get('company_name') or 'ARGUS TECHNOLOGIES').upper()
+    comp_addr = str(p.get('company_address') or 'GANAPATHY, COIMBATORE').upper()
     
-    t_info = Table(info_data, colWidths=[110, 135, 110, 115, 70])
-    t_info.setStyle(TableStyle([
-        ('SPAN', (0, 0), (4, 0)),
-        ('BACKGROUND', (0, 0), (4, 0), colors.HexColor('#1565c0')),
-        ('ALIGN', (0, 0), (4, 0), 'CENTER'),
-        ('SPAN', (4, 1), (4, 7)),
-        ('ALIGN', (4, 1), (4, 7), 'CENTER'),
-        ('VALIGN', (4, 1), (4, 7), 'MIDDLE'),
-        ('BACKGROUND', (4, 1), (4, 7), colors.HexColor('#fafafa')),
+    contact_bits = []
+    if p.get('company_email'): contact_bits.append(str(p['company_email']))
+    if p.get('company_phone'): contact_bits.append(str(p['company_phone']))
+    if p.get('company_gstin'): contact_bits.append(f"GSTIN: {p['company_gstin']}")
+    contact_str = " | ".join(contact_bits) if contact_bits else "argusattendance@gmail.com | 9878787999 | GSTIN: 33AHZPG5373L2ZN"
+
+    raw_ym = str(p.get('year_month', '')).strip()
+    month_badge_val = "OCT 2026"
+    if raw_ym:
+        try:
+            dt = datetime.strptime(raw_ym, "%Y-%m")
+            month_badge_val = dt.strftime("%b %Y").upper()
+        except Exception:
+            month_badge_val = raw_ym.upper()
+
+    hdr_data = [
+        [
+            logo_cell_content,
+            [
+                Paragraph(f"<b>{comp_name}</b>", ParagraphStyle('HdrName', fontName='Helvetica-Bold', fontSize=12.5, leading=15, textColor=colors.white)),
+                Paragraph(comp_addr, ParagraphStyle('HdrAddr', fontName='Helvetica', fontSize=7.5, leading=10, textColor=colors.HexColor('#e2e8f0'))),
+                Paragraph(contact_str, ParagraphStyle('HdrContact', fontName='Helvetica', fontSize=6.5, leading=9, textColor=colors.HexColor('#cbd5e1')))
+            ],
+            [
+                Paragraph("<font size='6.5' color='#cbd5e1'><b>MONTHLY PAYSLIP</b></font>", ParagraphStyle('HdrBadgeSub', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
+                Paragraph(f"<b>{month_badge_val}</b>", ParagraphStyle('HdrBadgeMain', fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=TA_CENTER, textColor=colors.white))
+            ]
+        ]
+    ]
+
+    t_hdr = Table(hdr_data, colWidths=[52, 368, 120])
+    t_hdr.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), palette['primary']),
+        ('BACKGROUND', (0, 0), (0, 0), colors.white),
+        ('BACKGROUND', (2, 0), (2, 0), palette['dark']),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#767676')),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING', (0, 0), (-1, -1), 5),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+        ('ALIGN', (2, 0), (2, 0), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (1, 0), (1, 0), 10),
+        ('RIGHTPADDING', (1, 0), (1, 0), 6),
     ]))
-    elements.append(t_info)
-    elements.append(Spacer(1, 8))
-    
-    # Earnings & Deductions Table (Total Earnings and Total Deductions in SAME ROW)
-    bold_earn_style = ParagraphStyle('BoldEarn', fontName='Helvetica-Bold', fontSize=9, leading=11, textColor=colors.HexColor('#0f172a'))
-    
-    earn_ded_data = [
-        [Paragraph("EARNINGS", ParagraphStyle('EarnHdr', fontName='Helvetica-Bold', fontSize=9, leading=11, alignment=TA_CENTER, textColor=colors.white)), "",
-         Paragraph("DEDUCTION", ParagraphStyle('DedHdr', fontName='Helvetica-Bold', fontSize=9, leading=11, alignment=TA_CENTER, textColor=colors.white)), ""],
-        [Paragraph("Basic Salary", cell_lbl_style), Paragraph(f"Rs. {p.get('basic_salary', 0)}", cell_val_style), Paragraph("Paid Salary", cell_lbl_style), Paragraph(f"Rs. {p.get('paid_salary', 0)}", cell_val_style)],
-        [Paragraph("Allowance", cell_lbl_style), Paragraph(f"Rs. {p.get('allowance', 0)}", cell_val_style), Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {p.get('advance_repayment', 0)}", cell_val_style)],
-        [Paragraph("Incentive", cell_lbl_style), Paragraph(f"Rs. {p.get('incentive', 0)}", cell_val_style), Paragraph("Other Deductions", cell_lbl_style), Paragraph(f"Rs. {p.get('other_deductions', 0)}", cell_val_style)],
-        [Paragraph("Others Earnings", cell_lbl_style), Paragraph(f"Rs. {p.get('other_earnings', 0)}", cell_val_style), Paragraph("", cell_lbl_style), Paragraph("", cell_val_style)],
-        [Paragraph("TOTAL EARNINGS", bold_earn_style), Paragraph(f"Rs. {p.get('total_earnings', 0)}", bold_earn_style),
-         Paragraph("TOTAL DEDUCTIONS", bold_earn_style), Paragraph(f"Rs. {p.get('total_deductions', p.get('total_deduction', 0))}", bold_earn_style)],
+    elements.append(t_hdr)
+    elements.append(Spacer(1, 10))
+
+    # ----------------- 2. EMPLOYEE DETAILS CARD -----------------
+    emp_name = str(p.get('employee_name') or 'EMPLOYEE').upper()
+    emp_id = str(p.get('employee_id') or '-')
+    desig = str(p.get('designation') or 'STAFF').upper()
+    dept = str(p.get('department') or 'GENERAL').upper()
+    email = str(p.get('email_id') or '-')
+    phone = str(p.get('phone_number') or p.get('mobile_number') or '-')
+
+    emp_data = [
+        [
+            Paragraph("<b>EMPLOYEE</b>", ParagraphStyle('EmpBadge', fontName='Helvetica-Bold', fontSize=8.5, leading=10, alignment=TA_CENTER, textColor=colors.white)),
+            [
+                Paragraph(f"<b>{emp_name}</b>", ParagraphStyle('EmpName', fontName='Helvetica-Bold', fontSize=11.5, leading=14, textColor=palette['text_dark'])),
+                Paragraph(f"Employee ID {emp_id} &nbsp;|&nbsp; Designation {desig} &nbsp;|&nbsp; Department {dept}", ParagraphStyle('EmpLine1', fontName='Helvetica', fontSize=7.2, leading=9.5, textColor=palette['text_sub'])),
+                Paragraph(f"Email {email} &nbsp;|&nbsp; Phone {phone}", ParagraphStyle('EmpLine2', fontName='Helvetica', fontSize=7.2, leading=9.5, textColor=palette['text_sub']))
+            ]
+        ]
     ]
-    
-    t_earn = Table(earn_ded_data, colWidths=[150, 120, 150, 120])
-    t_earn.setStyle(TableStyle([
+
+    t_emp = Table(emp_data, colWidths=[75, 465])
+    t_emp.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), palette['tint']),
+        ('BACKGROUND', (0, 0), (0, 0), palette['primary']),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+        ('BOX', (0, 0), (-1, -1), 0.5, palette['border']),
+        ('TOPPADDING', (0, 0), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ('LEFTPADDING', (1, 0), (1, 0), 10),
+    ]))
+    elements.append(t_emp)
+    elements.append(Spacer(1, 10))
+
+    # ----------------- 3. 4 KEY METRIC CARDS -----------------
+    st = str(p.get('salary_type', 'daily')).lower()
+    if st == 'hourly':
+        basis_lbl = "Hourly-Based"
+        rate_lbl = "HOURS SALARY"
+        rate_val = f"Rs. {p.get('hours_salary', p.get('hourly_salary', 0))}"
+    elif st == 'half_day':
+        basis_lbl = "Half-Day Based"
+        rate_lbl = "HALF DAY SALARY"
+        rate_val = f"Rs. {p.get('half_day_salary', 0)}"
+    else:
+        basis_lbl = "Daily-Based"
+        rate_lbl = "DAY SALARY"
+        rate_val = f"Rs. {p.get('day_salary', 0)}"
+
+    shift_h = str(p.get('shift_hours') or '09:00')
+    working_days = str(p.get('working_days', 0))
+
+    metric_lbl_style = ParagraphStyle('MetLbl', fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#64748b'))
+    metric_val_style = ParagraphStyle('MetVal', fontName='Helvetica-Bold', fontSize=10, leading=12, textColor=colors.HexColor('#0f172a'))
+
+    cards_data = [
+        [
+            [Paragraph("SALARY BASIS", metric_lbl_style), Paragraph(f"<b>{basis_lbl}</b>", metric_val_style)],
+            [Paragraph(rate_lbl, metric_lbl_style), Paragraph(f"<b>{rate_val}</b>", metric_val_style)],
+            [Paragraph("SHIFT HOURS", metric_lbl_style), Paragraph(f"<b>{shift_h}</b>", metric_val_style)],
+            [Paragraph("WORKING DAYS", metric_lbl_style), Paragraph(f"<b>{working_days}</b>", metric_val_style)],
+        ]
+    ]
+
+    t_cards = Table(cards_data, colWidths=[135, 135, 135, 135])
+    t_cards.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOX', (0, 0), (0, 0), 0.5, colors.HexColor('#e2e8f0')),
+        ('BOX', (1, 0), (1, 0), 0.5, colors.HexColor('#e2e8f0')),
+        ('BOX', (2, 0), (2, 0), 0.5, colors.HexColor('#e2e8f0')),
+        ('BOX', (3, 0), (3, 0), 0.5, colors.HexColor('#e2e8f0')),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(t_cards)
+    elements.append(Spacer(1, 8))
+
+    # ----------------- 4. SUMMARY BAR -----------------
+    tot_work_h = str(p.get('total_working_hours') or p.get('working_hours') or '00:00')
+    tot_days = p.get('total_days_of_month', 30)
+    leave_days = p.get('leave_days', 0)
+    bank_name = str(p.get('bank_name') or 'SBI')
+
+    summary_style = ParagraphStyle('SumTxt', fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#334155'))
+    summary_data = [
+        [
+            Paragraph(f"Total Working Hours: <b>{tot_work_h}</b>", summary_style),
+            Paragraph(f"Total Days / Leave: <b>{tot_days} Days ({leave_days} Leave)</b>", summary_style),
+            Paragraph(f"Bank: <b>{bank_name}</b>", ParagraphStyle('BankTxt', parent=summary_style, alignment=TA_CENTER))
+        ]
+    ]
+    t_summary = Table(summary_data, colWidths=[180, 240, 120])
+    t_summary.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), palette['tint']),
+        ('BOX', (0, 0), (-1, -1), 0.5, palette['border']),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    elements.append(t_summary)
+    elements.append(Spacer(1, 10))
+
+    # ----------------- 5. DUAL SIDE-BY-SIDE TABLES (EARNINGS & DEDUCTIONS) -----------------
+    cell_lbl_style = ParagraphStyle('DualLbl', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#334155'))
+    cell_val_style = ParagraphStyle('DualVal', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_CENTER, textColor=colors.HexColor('#0f172a'))
+    hdr_style = ParagraphStyle('DualHdr', fontName='Helvetica-Bold', fontSize=8.5, leading=10, textColor=colors.white)
+    total_lbl_style = ParagraphStyle('TotLbl', fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=palette['text_dark'])
+    total_val_style = ParagraphStyle('TotVal', fontName='Helvetica-Bold', fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=palette['text_dark'])
+
+    earn_ded_data = [
+        [
+            Paragraph("EARNINGS", hdr_style), "",
+            Paragraph("DEDUCTIONS", hdr_style), ""
+        ],
+        [
+            Paragraph("Basic Salary", cell_lbl_style), Paragraph(f"Rs. {Number_format(p.get('basic_salary', 0))}", cell_val_style),
+            Paragraph("Paid Salary", cell_lbl_style), Paragraph(f"Rs. {Number_format(p.get('paid_salary', 0))}", cell_val_style)
+        ],
+        [
+            Paragraph("Allowance", cell_lbl_style), Paragraph(f"Rs. {Number_format(p.get('allowance', 0))}", cell_val_style),
+            Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {Number_format(p.get('advance_repayment', 0))}", cell_val_style)
+        ],
+        [
+            Paragraph("Incentive", cell_lbl_style), Paragraph(f"Rs. {Number_format(p.get('incentive', 0))}", cell_val_style),
+            Paragraph("Other Deductions", cell_lbl_style), Paragraph(f"Rs. {Number_format(p.get('other_deductions', 0))}", cell_val_style)
+        ],
+        [
+            Paragraph("Other Earnings", cell_lbl_style), Paragraph(f"Rs. {Number_format(p.get('other_earnings', 0))}", cell_val_style),
+            Paragraph("", cell_lbl_style), Paragraph("", cell_val_style)
+        ],
+        [
+            Paragraph("TOTAL EARNINGS", total_lbl_style), Paragraph(f"Rs. {Number_format(p.get('total_earnings', 0))}", total_val_style),
+            Paragraph("TOTAL DEDUCTIONS", total_lbl_style), Paragraph(f"Rs. {Number_format(p.get('total_deductions', p.get('total_deduction', 0)))}", total_val_style)
+        ]
+    ]
+
+    t_tables = Table(earn_ded_data, colWidths=[160, 105, 165, 110])
+    t_tables.setStyle(TableStyle([
         ('SPAN', (0, 0), (1, 0)),
         ('SPAN', (2, 0), (3, 0)),
-        ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#0d47a1')),
-        ('BACKGROUND', (2, 0), (3, 0), colors.HexColor('#0d47a1')),
-        ('BACKGROUND', (0, 5), (-1, 5), colors.HexColor('#f8fafc')),
+        ('BACKGROUND', (0, 0), (1, 0), palette['primary']),
+        ('BACKGROUND', (2, 0), (3, 0), palette['primary']),
+        ('BACKGROUND', (0, 5), (1, 5), palette['tint']),
+        ('BACKGROUND', (2, 5), (3, 5), palette['tint']),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#767676')),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('LINEBELOW', (0, 1), (1, 4), 0.5, colors.HexColor('#f1f5f9')),
+        ('LINEBELOW', (2, 1), (3, 4), 0.5, colors.HexColor('#f1f5f9')),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
     ]))
-    elements.append(t_earn)
-    elements.append(Spacer(1, 8))
-    
-    # Net Pay Bar
-    net_data = [
-        [Paragraph(f"<b>NET PAY : Rs. {p.get('net_pay', 0)}</b>", ParagraphStyle('NetPay', fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=TA_CENTER, textColor=colors.black))],
-        [Paragraph(f"<b>NET PAY IN WORDS: {p.get('net_pay_in_words', '')}</b>", ParagraphStyle('NetWords', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=TA_CENTER, textColor=colors.HexColor('#003366')))],
-        [Paragraph("<font size='7'><i>** Net Pay = Total Earnings - Total Deduction<br/>* Payslip is auto-generated and valid without the need for a signature. *</i></font>", ParagraphStyle('Notes', fontName='Helvetica', fontSize=7, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#333333')))],
-        [Paragraph("<font color='white'><b>** This document has been automatically generated by ARGUS **</b></font>", ParagraphStyle('ArgusGen', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_CENTER, textColor=colors.white))]
+    elements.append(t_tables)
+    elements.append(Spacer(1, 10))
+
+    # ----------------- 6. NET PAY BANNER -----------------
+    net_pay_val = Number_format(p.get('net_pay', 0))
+    net_words_val = str(p.get('net_pay_in_words', '')).strip() or "Zero Rupees Only"
+
+    net_banner_data = [
+        [
+            [
+                Paragraph("<font size='7' color='#cbd5e1'><b>NET PAY</b></font>", ParagraphStyle('NetLbl', fontName='Helvetica-Bold', leading=8)),
+                Paragraph(f"<b>Rs. {net_pay_val}</b>", ParagraphStyle('NetVal', fontName='Helvetica-Bold', fontSize=17, leading=20, textColor=colors.white))
+            ],
+            [
+                Paragraph("<font size='6.5' color='#cbd5e1'><b>IN WORDS</b></font>", ParagraphStyle('WordsLbl', fontName='Helvetica-Bold', leading=8, alignment=TA_CENTER)),
+                Paragraph(f"<b>{net_words_val}</b>", ParagraphStyle('WordsVal', fontName='Helvetica-Bold', fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=colors.white))
+            ]
+        ]
     ]
-    t_net = Table(net_data, colWidths=[540])
+
+    t_net = Table(net_banner_data, colWidths=[200, 340])
     t_net.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#f1f3f5')),
-        ('BACKGROUND', (0, 1), (0, 1), colors.HexColor('#fef9e7')),
-        ('BACKGROUND', (0, 3), (0, 3), colors.HexColor('#37474f')),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('BACKGROUND', (0, 0), (-1, -1), palette['primary']),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#767676')),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (0, 0), 14),
+        ('RIGHTPADDING', (1, 0), (1, 0), 14),
     ]))
     elements.append(t_net)
     elements.append(Spacer(1, 8))
-    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+
+    # Footnote
+    elements.append(Paragraph("<i>Net Pay = Total Earnings - Total Deductions</i>", ParagraphStyle('FootnoteFormula', fontName='Helvetica-Oblique', fontSize=7, leading=9, textColor=colors.HexColor('#64748b'))))
+
+    # ----------------- 7. AUTHORIZED SIGNATORY (TEMPLATE 1 ONLY) -----------------
+    if has_signatory:
+        elements.append(Spacer(1, 18))
+        sig_data = [
+            [
+                "",
+                [
+                    Paragraph("<b>AUTHORIZED SIGNATORY</b>", ParagraphStyle('SigHdr', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_CENTER, textColor=colors.HexColor('#1e293b'))),
+                    Spacer(1, 24),
+                    Paragraph("________________________________", ParagraphStyle('SigLine', fontName='Helvetica', fontSize=8, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#94a3b8'))),
+                    Paragraph("Signature & Company Seal", ParagraphStyle('SigSub', fontName='Helvetica', fontSize=7, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b')))
+                ]
+            ]
+        ]
+        t_sig = Table(sig_data, colWidths=[350, 190])
+        t_sig.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+        ]))
+        elements.append(t_sig)
+    else:
+        elements.append(Spacer(1, 12))
+
+    # ----------------- 8. STANDARDIZED FOOTER -----------------
+    elements.append(Spacer(1, 10))
+    footer_data = [
+        [
+            Paragraph("Generated by ARGUS Attendance", ParagraphStyle('FtrL', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
+            Paragraph("Argus Attendance | version 5.1 | powered by ArgusCNC(TM)", ParagraphStyle('FtrR', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b')))
+        ]
+    ]
+    t_ftr = Table(footer_data, colWidths=[270, 270])
+    t_ftr.setStyle(TableStyle([
+        ('LINEABOVE', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    elements.append(t_ftr)
     
     doc.build(elements)
     buffer.seek(0)
     return buffer
+
+def Number_format(val):
+    """Formats numeric value with commas (e.g. 1000 -> '1,000')."""
+    try:
+        return f"{int(float(val)):,}"
+    except Exception:
+        return str(val)
 
 def generate_salary_report_pdf(data, company_info=None):
     from reportlab.lib.pagesizes import landscape
