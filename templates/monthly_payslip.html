@@ -8,6 +8,14 @@
     --ps-tint: #f0f5fa;
     --ps-border: #cbd5e1;
     --ps-text-dark: #0f233a;
+    --ps-light-badge: #dbeafe;
+  }
+
+  .tmpl-layout-container {
+    display: none;
+  }
+  .tmpl-layout-container.active-layout {
+    display: block;
   }
 
   /* Document styles */
@@ -388,6 +396,252 @@
     color: #64748b;
   }
 
+  /* Template 3 Styles */
+  .t3-hdr-pill {
+    background: var(--ps-dark);
+    border-radius: 10px;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #ffffff;
+    transition: background 0.3s ease;
+  }
+  .t3-metric-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--ps-primary);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .t3-dual-table th.t3-th-earn {
+    background: var(--ps-primary);
+    color: #ffffff;
+  }
+  .t3-dual-table th.t3-th-ded {
+    background: #1a2936;
+    color: #ffffff;
+    border-left: 1px solid rgba(255,255,255,0.25);
+  }
+
+  /* Template 4 Classic Grid Styles */
+  .t4-header {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  .t4-comp-name {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #0f172a;
+    line-height: 1.25;
+  }
+  .t4-comp-addr {
+    font-size: 10px;
+    color: #475569;
+    margin-top: 3px;
+    text-transform: uppercase;
+  }
+  .t4-comp-contact {
+    font-size: 9.5px;
+    color: #475569;
+    margin-top: 3px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    align-items: center;
+  }
+  .t4-payslip-banner {
+    background: var(--ps-primary);
+    color: #ffffff;
+    text-align: center;
+    font-weight: 800;
+    padding: 6px 12px;
+    font-size: 12px;
+    letter-spacing: 0.8px;
+    border-radius: 4px;
+    margin-top: 8px;
+    text-transform: uppercase;
+    transition: background 0.3s ease;
+  }
+  .t4-meta-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #767676;
+    font-size: 10.5px;
+    margin-top: 8px;
+  }
+  .t4-meta-table td {
+    border: 1px solid #767676;
+    padding: 4px 8px;
+    vertical-align: middle;
+  }
+  .t4-meta-table td.lbl-td {
+    color: #334155;
+    font-weight: 600;
+    background: #f8fafc;
+  }
+  .t4-meta-table td.val-td {
+    color: #0f172a;
+    font-weight: 700;
+  }
+  .t4-dual-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #767676;
+    font-size: 11px;
+    margin-top: 10px;
+  }
+  .t4-dual-table th {
+    background: var(--ps-primary);
+    color: #ffffff;
+    font-weight: 800;
+    padding: 6px 10px;
+    text-align: center;
+    border: 1px solid #767676;
+    letter-spacing: 0.5px;
+    transition: background 0.3s ease;
+  }
+  .t4-dual-table td {
+    border: 1px solid #767676;
+    padding: 5px 10px;
+  }
+  .t4-dual-table tr.tot-row td {
+    background: #f1f3f5;
+    font-weight: 800;
+    font-size: 11.5px;
+  }
+  .t4-net-bar-1 {
+    background: #f1f3f5;
+    border: 1px solid #767676;
+    text-align: center;
+    font-weight: 800;
+    font-size: 13px;
+    padding: 6px;
+    margin-top: 8px;
+    color: #0f172a;
+  }
+  .t4-net-bar-2 {
+    background: #fef9e7;
+    border: 1px solid #767676;
+    border-top: none;
+    text-align: center;
+    font-weight: 800;
+    font-size: 10.5px;
+    color: #003366;
+    padding: 5px;
+  }
+  .t4-dark-banner {
+    background: #37474f;
+    color: #ffffff;
+    text-align: center;
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 5px;
+    border-radius: 3px;
+    margin-top: 8px;
+  }
+
+  /* Template 5 & 6 Card Styles */
+  .t5-container, .t6-container {
+    border: 1.5px solid var(--ps-border);
+    border-radius: 10px;
+    padding: 18px;
+    transition: border-color 0.3s ease;
+  }
+  .t5-hdr, .t6-hdr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .t5-month-pill, .t6-month-pill {
+    background: var(--ps-light-badge);
+    border: 1px solid var(--ps-border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    text-align: center;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+  }
+  .t5-month-pill .sub, .t6-month-pill .sub {
+    font-size: 8px;
+    font-weight: 800;
+    color: var(--ps-primary);
+    letter-spacing: 0.5px;
+  }
+  .t5-month-pill .main, .t6-month-pill .main {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--ps-primary);
+    margin-top: 1px;
+  }
+  .t5-emp-card, .t6-emp-card {
+    background: var(--ps-tint);
+    border: 1px solid var(--ps-border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    transition: all 0.3s ease;
+  }
+  .t5-emp-badge, .t6-emp-badge {
+    background: var(--ps-primary);
+    color: #ffffff;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    transition: background 0.3s ease;
+  }
+  .t5-meta-table, .t6-meta-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .t5-meta-table td, .t6-meta-table td {
+    padding: 3px 5px;
+    vertical-align: middle;
+  }
+  .t5-meta-table td.lbl, .t6-meta-table td.lbl {
+    color: #475569;
+    font-weight: 600;
+    width: 22%;
+  }
+  .t5-meta-table td.col, .t6-meta-table td.col {
+    color: #64748b;
+    font-weight: 700;
+    text-align: center;
+    width: 3%;
+  }
+  .t5-meta-table td.val, .t6-meta-table td.val {
+    color: #0f172a;
+    font-weight: 700;
+    width: 25%;
+  }
+  .t5-net-banner, .t6-net-banner {
+    background: var(--ps-light-badge);
+    border: 1px solid var(--ps-border);
+    border-radius: 8px;
+    padding: 10px 18px;
+    margin-top: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+  }
+
   /* Template Modal Styles */
   .tmpl-modal-backdrop {
     display: none;
@@ -404,7 +658,7 @@
   .tmpl-modal-dialog {
     background: #ffffff;
     border-radius: 14px;
-    max-width: 820px;
+    max-width: 880px;
     width: 100%;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     overflow: hidden;
@@ -426,7 +680,7 @@
   }
 
   .tmpl-modal-body {
-    padding: 22px;
+    padding: 20px 22px;
     max-height: 80vh;
     overflow-y: auto;
   }
@@ -434,13 +688,13 @@
   .tmpl-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 18px;
+    gap: 16px;
   }
 
   .tmpl-card {
     border: 2px solid #e2e8f0;
     border-radius: 10px;
-    padding: 16px;
+    padding: 15px;
     cursor: pointer;
     transition: all 0.2s ease;
     background: #ffffff;
@@ -464,21 +718,21 @@
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
-    padding: 10px;
-    margin-bottom: 12px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
     position: relative;
   }
 
   .tmpl-swatch-list {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-top: 10px;
+    gap: 8px;
+    margin-top: 8px;
   }
 
   .swatch-circle {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     cursor: pointer;
     border: 2px solid #ffffff;
@@ -495,7 +749,7 @@
     transform: scale(1.1);
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 680px) {
     .tmpl-grid {
       grid-template-columns: 1fr;
     }
@@ -560,157 +814,702 @@
 <div id="payslipDocumentCard" class="d-none" style="margin-top: 20px; margin-bottom: 30px;">
   <div class="payslip-doc" id="printablePayslipDoc">
     
-    <!-- 1. Pill Header (Aligned GSTIN + Company Details + Month Badge) -->
-    <div class="payslip-header-pill">
-      <!-- Left: Logo Box -->
-      <div class="payslip-logo-card" id="dispCompanyLogoWrapper">
-        <img id="dispCompanyLogo" src="" alt="Logo" style="display: none;">
-        <span class="comp-initial" id="dispCompanyInitial">A</span>
-      </div>
+    <!-- ================= LAYOUT 1 & 2: MODERN EXECUTIVE & STREAMLINED ================= -->
+    <div class="tmpl-layout-container active-layout" id="tmplLayout_1_2">
+      <!-- 1. Pill Header (Aligned GSTIN + Company Details + Month Badge) -->
+      <div class="payslip-header-pill">
+        <!-- Left: Logo Box -->
+        <div class="payslip-logo-card" id="dispCompanyLogoWrapper">
+          <img id="dispCompanyLogo" class="ps-comp-logo" src="" alt="Logo" style="display: none;">
+          <span class="comp-initial ps-comp-initial" id="dispCompanyInitial">A</span>
+        </div>
 
-      <!-- Center: Company Info & Cleanly Aligned GSTIN -->
-      <div class="payslip-header-center">
-        <div class="comp-name" id="dispCompanyName">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
-        <div class="comp-addr" id="dispCompanyAddress">SF NO. 515, BHARATHIYAR ROAD, MANIYAKARANPALAYAM, GANAPATHY, COIMBATORE - 641 006</div>
-        <div class="comp-contact" id="dispCompanyContact">
-          <span>Email: argusattendance@gmail.com</span>
-          <span style="opacity: 0.5;">|</span>
-          <span>Phone: 9878787999</span>
-          <span style="opacity: 0.5;">|</span>
-          <span class="payslip-gstin-badge">GSTIN: 33AHZPG5373L2ZN</span>
+        <!-- Center: Company Info & Cleanly Aligned GSTIN -->
+        <div class="payslip-header-center">
+          <div class="comp-name ps-comp-name" id="dispCompanyName">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
+          <div class="comp-addr ps-comp-addr" id="dispCompanyAddress">SF NO. 515, BHARATHIYAR ROAD, MANIYAKARANPALAYAM, GANAPATHY, COIMBATORE - 641 006</div>
+          <div class="comp-contact ps-comp-contact" id="dispCompanyContact">
+            <span>Email: argusattendance@gmail.com</span>
+            <span style="opacity: 0.5;">|</span>
+            <span>Phone: 9878787999</span>
+            <span style="opacity: 0.5;">|</span>
+            <span class="payslip-gstin-badge ps-comp-gstin">GSTIN: 33AHZPG5373L2ZN</span>
+          </div>
+        </div>
+
+        <!-- Right: Month Badge -->
+        <div class="payslip-header-month-badge">
+          <div class="sub-title">MONTHLY PAYSLIP</div>
+          <div class="main-title ps-header-month" id="dispHeaderMonth">OCT 2026</div>
         </div>
       </div>
 
-      <!-- Right: Month Badge -->
-      <div class="payslip-header-month-badge">
-        <div class="sub-title">MONTHLY PAYSLIP</div>
-        <div class="main-title" id="dispHeaderMonth">OCT 2026</div>
-      </div>
-    </div>
-
-    <!-- 2. Employee Details Card -->
-    <div class="payslip-emp-card">
-      <div class="payslip-emp-badge">EMPLOYEE</div>
-      <div class="payslip-emp-details">
-        <div class="emp-name" id="dispEmpName">-</div>
-        <div class="emp-sub">
-          Employee ID: <strong id="dispEmpId">-</strong> &nbsp;|&nbsp;
-          Designation: <strong id="dispDesignation">-</strong> &nbsp;|&nbsp;
-          Department: <strong id="dispDepartment">General</strong>
+      <!-- 2. Employee Details Card -->
+      <div class="payslip-emp-card">
+        <div class="payslip-emp-badge">EMPLOYEE</div>
+        <div class="payslip-emp-details">
+          <div class="emp-name ps-emp-name" id="dispEmpName">-</div>
+          <div class="emp-sub">
+            Employee ID: <strong id="dispEmpId" class="ps-emp-id">-</strong> &nbsp;|&nbsp;
+            Designation: <strong id="dispDesignation" class="ps-emp-desig">-</strong> &nbsp;|&nbsp;
+            Department: <strong id="dispDepartment" class="ps-emp-dept">General</strong>
+          </div>
+          <div class="emp-sub" style="margin-top: 1px;">
+            Email: <strong id="dispEmail" class="ps-emp-email">-</strong> &nbsp;|&nbsp;
+            Phone: <strong id="dispPhone" class="ps-emp-phone">-</strong>
+          </div>
         </div>
-        <div class="emp-sub" style="margin-top: 1px;">
-          Email: <strong id="dispEmail">-</strong> &nbsp;|&nbsp;
-          Phone: <strong id="dispPhone">-</strong>
+        <!-- Employee Photo Preview -->
+        <div class="payslip-emp-photo-box" id="dispEmpPhotoWrapper">
+          <img id="dispEmpPhoto" class="ps-emp-photo" src="" alt="Employee Photo" style="display: none;">
+          <div id="dispEmpPhotoPlaceholder" class="ps-emp-photo-placeholder" style="font-size: 9px; color: #94a3b8; font-weight: 700;">PHOTO</div>
         </div>
       </div>
-      <!-- Employee Photo Preview -->
-      <div class="payslip-emp-photo-box" id="dispEmpPhotoWrapper">
-        <img id="dispEmpPhoto" src="" alt="Employee Photo" style="display: none;">
-        <div id="dispEmpPhotoPlaceholder" style="font-size: 9px; color: #94a3b8; font-weight: 700;">PHOTO</div>
+
+      <!-- 3. 4 Key Metric Cards -->
+      <div class="payslip-metric-grid">
+        <div class="payslip-metric-card">
+          <div class="m-lbl">SALARY BASIS</div>
+          <div class="m-val ps-salary-basis" id="dispSalaryBasis">Day-Based</div>
+        </div>
+        <div class="payslip-metric-card">
+          <div class="m-lbl ps-rate-lbl" id="dispRateLbl">DAY SALARY</div>
+          <div class="m-val ps-rate-val" id="dispRateVal">₹0</div>
+        </div>
+        <div class="payslip-metric-card">
+          <div class="m-lbl">SHIFT HOURS</div>
+          <div class="m-val ps-shift-hours" id="dispShiftHours">08:00</div>
+        </div>
+        <div class="payslip-metric-card">
+          <div class="m-lbl">WORKING DAYS</div>
+          <div class="m-val ps-working-days" id="dispWorkingDays">1 Days</div>
+        </div>
+      </div>
+
+      <!-- 4. Summary Bar -->
+      <div class="payslip-summary-bar">
+        <div>Total Working Hours: <strong id="dispWorkingHours" class="ps-working-hours">00:00</strong></div>
+        <div>Total Days / Leave: <strong id="dispTotalDays" class="ps-total-days">30 Days (0 Leave)</strong></div>
+        <div>Bank: <strong id="dispBankName" class="ps-bank-name">SBI</strong></div>
+      </div>
+
+      <!-- 5. Dual Side-by-Side Tables (Earnings & Deductions) -->
+      <div class="payslip-dual-container">
+        <table class="payslip-dual-table">
+          <thead>
+            <tr>
+              <th colspan="2" style="width: 50%;">EARNINGS</th>
+              <th colspan="2" style="width: 50%; border-left: 1px solid rgba(255,255,255,0.25);">DEDUCTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="width: 28%;">Basic Salary</td>
+              <td class="val-cell ps-basic-sal" id="dispBasicSalary" style="width: 22%;">₹0</td>
+              <td style="width: 28%; border-left: 1px solid #e2e8f0;">Paid Salary</td>
+              <td class="val-cell ps-paid-sal" id="dispPaidSalary" style="width: 22%;">₹0</td>
+            </tr>
+            <tr>
+              <td>Allowance</td>
+              <td class="val-cell ps-allowance" id="dispAllowance">₹0</td>
+              <td style="border-left: 1px solid #e2e8f0;">Advance Repayment</td>
+              <td class="val-cell ps-adv-repay" id="dispAdvRepayment">₹0</td>
+            </tr>
+            <tr>
+              <td>Incentive</td>
+              <td class="val-cell ps-incentive" id="dispIncentive">₹0</td>
+              <td style="border-left: 1px solid #e2e8f0;">Other Deductions</td>
+              <td class="val-cell ps-other-ded" id="dispOtherDeductions">₹0</td>
+            </tr>
+            <tr>
+              <td>Other Earnings</td>
+              <td class="val-cell ps-other-earn" id="dispOtherEarnings">₹0</td>
+              <td style="border-left: 1px solid #e2e8f0;"></td>
+              <td class="val-cell"></td>
+            </tr>
+            <tr class="total-row">
+              <td>TOTAL EARNINGS</td>
+              <td class="val-cell ps-tot-earn" id="dispTotalEarnings">₹0</td>
+              <td style="border-left: 1px solid var(--ps-border);">TOTAL DEDUCTIONS</td>
+              <td class="val-cell ps-tot-ded" id="dispTotalDeductions">₹0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 6. Net Pay Banner -->
+      <div class="payslip-net-banner">
+        <div class="net-left">
+          <div class="net-lbl">NET PAY</div>
+          <div class="net-val">₹<span id="dispNetPay" class="ps-net-pay">0</span></div>
+        </div>
+        <div class="net-right">
+          <div class="words-lbl">IN WORDS</div>
+          <div class="words-val ps-net-words" id="dispNetWords">Zero Rupees Only</div>
+        </div>
+      </div>
+
+      <!-- 7. Formula Footnote -->
+      <div class="payslip-formula-note">
+        * Net Pay = Total Earnings - Total Deductions
+      </div>
+
+      <!-- 8. Authorized Signatory Section (Template 1 Only) -->
+      <div class="payslip-signatory-wrap" id="signatorySection">
+        <div class="payslip-signatory-box">
+          <div class="payslip-signatory-title">AUTHORIZED SIGNATORY</div>
+          <div class="payslip-signatory-line"></div>
+          <div class="payslip-signatory-sub">Signature & Company Seal</div>
+        </div>
+      </div>
+
+      <!-- 9. Standardized Footer -->
+      <div class="payslip-footer-bar">
+        <div>Generated by ARGUS Attendance</div>
+        <div>Argus Attendance | version 5.1 | powered by ArgusCNC™</div>
       </div>
     </div>
 
-    <!-- 3. 4 Key Metric Cards -->
-    <div class="payslip-metric-grid">
-      <div class="payslip-metric-card">
-        <div class="m-lbl">SALARY BASIS</div>
-        <div class="m-val" id="dispSalaryBasis">Day-Based</div>
+    <!-- ================= LAYOUT 3: PREMIUM EXECUTIVE ================= -->
+    <div class="tmpl-layout-container" id="tmplLayout_3">
+      <!-- Dark Pill Header -->
+      <div class="t3-hdr-pill">
+        <div class="payslip-logo-card">
+          <img class="ps-comp-logo" src="" alt="Logo" style="display: none;">
+          <span class="comp-initial ps-comp-initial">A</span>
+        </div>
+        <div class="payslip-header-center">
+          <div class="comp-name ps-comp-name">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
+          <div class="comp-addr ps-comp-addr">SF NO. 515, BHARATHIYAR ROAD, MANIYAKARANPALAYAM, GANAPATHY, COIMBATORE - 641 006</div>
+          <div class="comp-contact ps-comp-contact">
+            <span>Email: argusattendance@gmail.com</span> | <span>Phone: 9878787999</span> | <span class="payslip-gstin-badge">GSTIN: 33AHZPG5373L2ZN</span>
+          </div>
+        </div>
+        <div class="payslip-header-month-badge" style="background: var(--ps-primary);">
+          <div class="sub-title">MONTHLY PAYSLIP</div>
+          <div class="main-title ps-header-month">OCT 2026</div>
+        </div>
       </div>
-      <div class="payslip-metric-card">
-        <div class="m-lbl" id="dispRateLbl">DAY SALARY</div>
-        <div class="m-val" id="dispRateVal">₹0</div>
+
+      <!-- Employee Details Card -->
+      <div class="payslip-emp-card">
+        <div class="payslip-emp-badge">EMPLOYEE</div>
+        <div class="payslip-emp-details">
+          <div class="emp-name ps-emp-name">-</div>
+          <div class="emp-sub">
+            Employee ID: <strong class="ps-emp-id">-</strong> &nbsp;|&nbsp;
+            Designation: <strong class="ps-emp-desig">-</strong> &nbsp;|&nbsp;
+            Department: <strong class="ps-emp-dept">General</strong>
+          </div>
+          <div class="emp-sub" style="margin-top: 1px;">
+            Email: <strong class="ps-emp-email">-</strong> &nbsp;|&nbsp;
+            Phone: <strong class="ps-emp-phone">-</strong>
+          </div>
+        </div>
+        <div class="payslip-emp-photo-box">
+          <img class="ps-emp-photo" src="" alt="Photo" style="display: none;">
+          <div class="ps-emp-photo-placeholder" style="font-size: 9px; color: #94a3b8; font-weight: 700;">PHOTO</div>
+        </div>
       </div>
-      <div class="payslip-metric-card">
-        <div class="m-lbl">SHIFT HOURS</div>
-        <div class="m-val" id="dispShiftHours">08:00</div>
+
+      <!-- 4 Key Metric Cards with Circular Icon Badges -->
+      <div class="payslip-metric-grid">
+        <div class="payslip-metric-card" style="display: flex; align-items: center; gap: 10px;">
+          <div class="t3-metric-icon">₹</div>
+          <div>
+            <div class="m-lbl">SALARY BASIS</div>
+            <div class="m-val ps-salary-basis">Day-Based</div>
+          </div>
+        </div>
+        <div class="payslip-metric-card" style="display: flex; align-items: center; gap: 10px;">
+          <div class="t3-metric-icon">💼</div>
+          <div>
+            <div class="m-lbl ps-rate-lbl">DAY SALARY</div>
+            <div class="m-val ps-rate-val">₹0</div>
+          </div>
+        </div>
+        <div class="payslip-metric-card" style="display: flex; align-items: center; gap: 10px;">
+          <div class="t3-metric-icon">⏱</div>
+          <div>
+            <div class="m-lbl">SHIFT HOURS</div>
+            <div class="m-val ps-shift-hours">08:00</div>
+          </div>
+        </div>
+        <div class="payslip-metric-card" style="display: flex; align-items: center; gap: 10px;">
+          <div class="t3-metric-icon">📅</div>
+          <div>
+            <div class="m-lbl">WORKING DAYS</div>
+            <div class="m-val ps-working-days">1 Days</div>
+          </div>
+        </div>
       </div>
-      <div class="payslip-metric-card">
-        <div class="m-lbl">WORKING DAYS</div>
-        <div class="m-val" id="dispWorkingDays">1 Days</div>
+
+      <!-- Summary Bar -->
+      <div class="payslip-summary-bar">
+        <div>Total Working Hours: <strong class="ps-working-hours">00:00</strong></div>
+        <div>Total Days / Leave: <strong class="ps-total-days">30 Days (0 Leave)</strong></div>
+        <div>Bank: <strong class="ps-bank-name">SBI</strong></div>
+      </div>
+
+      <!-- Dual Side-by-Side Tables with Theme Earnings & Dark Slate Deductions -->
+      <div class="payslip-dual-container">
+        <table class="payslip-dual-table t3-dual-table">
+          <thead>
+            <tr>
+              <th colspan="2" class="t3-th-earn" style="width: 50%;">EARNINGS</th>
+              <th colspan="2" class="t3-th-ded" style="width: 50%;">DEDUCTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="width: 28%;">Basic Salary</td>
+              <td class="val-cell ps-basic-sal" style="width: 22%;">₹0</td>
+              <td style="width: 28%; border-left: 1px solid #e2e8f0;">Paid Salary</td>
+              <td class="val-cell ps-paid-sal" style="width: 22%;">₹0</td>
+            </tr>
+            <tr>
+              <td>Allowance</td>
+              <td class="val-cell ps-allowance">₹0</td>
+              <td style="border-left: 1px solid #e2e8f0;">Advance Repayment</td>
+              <td class="val-cell ps-adv-repay">₹0</td>
+            </tr>
+            <tr>
+              <td>Incentive</td>
+              <td class="val-cell ps-incentive">₹0</td>
+              <td style="border-left: 1px solid #e2e8f0;">Other Deductions</td>
+              <td class="val-cell ps-other-ded">₹0</td>
+            </tr>
+            <tr>
+              <td>Other Earnings</td>
+              <td class="val-cell ps-other-earn">₹0</td>
+              <td style="border-left: 1px solid #e2e8f0;"></td>
+              <td class="val-cell"></td>
+            </tr>
+            <tr class="total-row">
+              <td style="color: var(--ps-primary);">TOTAL EARNINGS</td>
+              <td class="val-cell ps-tot-earn" style="color: var(--ps-primary);">₹0</td>
+              <td style="border-left: 1px solid var(--ps-border); color: #1a2936;">TOTAL DEDUCTIONS</td>
+              <td class="val-cell ps-tot-ded" style="color: #1a2936;">₹0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Net Pay Banner -->
+      <div class="payslip-net-banner" style="background: var(--ps-dark);">
+        <div class="net-left">
+          <div class="net-lbl">NET PAY</div>
+          <div class="net-val">₹<span class="ps-net-pay">0</span></div>
+        </div>
+        <div class="net-right">
+          <div class="words-lbl">IN WORDS</div>
+          <div class="words-val ps-net-words">Zero Rupees Only</div>
+        </div>
+      </div>
+
+      <div class="payslip-formula-note">
+        * Net Pay = Total Earnings - Total Deductions &nbsp;|&nbsp; Automatically generated payroll document
+      </div>
+
+      <!-- Footer -->
+      <div class="payslip-footer-bar">
+        <div>Generated by ARGUS Attendance</div>
+        <div>Argus Attendance | version 5.1 | powered by ArgusCNC™</div>
       </div>
     </div>
 
-    <!-- 4. Summary Bar -->
-    <div class="payslip-summary-bar">
-      <div>Total Working Hours: <strong id="dispWorkingHours">00:00</strong></div>
-      <div>Total Days / Leave: <strong id="dispTotalDays">30 Days (0 Leave)</strong></div>
-      <div>Bank: <strong id="dispBankName">SBI</strong></div>
-    </div>
+    <!-- ================= LAYOUT 4: CLASSIC CORPORATE GRID ================= -->
+    <div class="tmpl-layout-container" id="tmplLayout_4">
+      <div class="t4-header">
+        <div style="margin-bottom: 6px;">
+          <img class="ps-comp-logo" src="" alt="Logo" style="max-height: 50px; display: none; margin: 0 auto;">
+          <span class="comp-initial ps-comp-initial" style="font-size: 24px; font-weight: 800; color: var(--ps-primary); display: inline-block;">A</span>
+        </div>
+        <div class="t4-comp-name ps-comp-name">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
+        <div class="t4-comp-addr ps-comp-addr">SF NO. 515, BHARATHIYAR ROAD, MANIYAKARANPALAYAM, GANAPATHY, COIMBATORE - 641 006</div>
+        <div class="t4-comp-contact ps-comp-contact">
+          <span>Email: argusattendance@gmail.com</span> | <span>Phone: 9878787999</span> | <span class="payslip-gstin-badge" style="background: #334155; color: #fff;">GSTIN: 33AHZPG5373L2ZN</span>
+        </div>
+      </div>
 
-    <!-- 5. Dual Side-by-Side Tables (Earnings & Deductions) -->
-    <div class="payslip-dual-container">
-      <table class="payslip-dual-table">
+      <!-- Solid PAYSLIP bar -->
+      <div class="t4-payslip-banner">
+        PAYSLIP FOR THE MONTH OF <span class="ps-header-month">OCT 2026</span>
+      </div>
+
+      <!-- 5-Column Bordered Grid with Employee Photo Cell Spanning Rows on Right -->
+      <table class="t4-meta-table">
+        <tbody>
+          <tr>
+            <td class="lbl-td" style="width: 18%;">Employee Name</td>
+            <td class="val-td ps-emp-name" style="width: 24%;">-</td>
+            <td class="lbl-td" style="width: 18%;">Employee ID</td>
+            <td class="val-td ps-emp-id" style="width: 22%;">-</td>
+            <td rowspan="6" style="width: 18%; text-align: center; vertical-align: middle; background: #fafafa; padding: 6px;">
+              <img class="ps-emp-photo" src="" alt="Photo" style="max-width: 75px; max-height: 90px; border-radius: 4px; display: none; margin: 0 auto;">
+              <div class="ps-emp-photo-placeholder" style="font-size: 8.5px; color: #94a3b8; font-weight: 700; border: 1px dashed #cbd5e1; padding: 18px 4px; border-radius: 4px;">PHOTO</div>
+            </td>
+          </tr>
+          <tr>
+            <td class="lbl-td">Designation</td>
+            <td class="val-td ps-emp-desig">-</td>
+            <td class="lbl-td">Department</td>
+            <td class="val-td ps-emp-dept">General</td>
+          </tr>
+          <tr>
+            <td class="lbl-td">Salary Basis</td>
+            <td class="val-td ps-salary-basis">Day-Based</td>
+            <td class="lbl-td ps-rate-lbl">Day Salary</td>
+            <td class="val-td ps-rate-val">₹0</td>
+          </tr>
+          <tr>
+            <td class="lbl-td">Shift Hours</td>
+            <td class="val-td ps-shift-hours">08:00</td>
+            <td class="lbl-td">Working Days</td>
+            <td class="val-td ps-working-days">1 Days</td>
+          </tr>
+          <tr>
+            <td class="lbl-td">Working Hours</td>
+            <td class="val-td ps-working-hours">00:00</td>
+            <td class="lbl-td">Total Days / Leave</td>
+            <td class="val-td ps-total-days">30 Days (0 Leave)</td>
+          </tr>
+          <tr>
+            <td class="lbl-td">Bank Name</td>
+            <td class="val-td ps-bank-name">SBI</td>
+            <td class="lbl-td">Phone / Email</td>
+            <td class="val-td" style="font-size: 9.5px;"><span class="ps-emp-phone">-</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Dual Tables with Classic Border Grid -->
+      <table class="t4-dual-table">
         <thead>
           <tr>
             <th colspan="2" style="width: 50%;">EARNINGS</th>
-            <th colspan="2" style="width: 50%; border-left: 1px solid rgba(255,255,255,0.25);">DEDUCTIONS</th>
+            <th colspan="2" style="width: 50%;">DEDUCTIONS</th>
+          </tr>
+          <tr style="background: #f8fafc; font-size: 10px; color: #475569; font-weight: 700;">
+            <td style="border: 1px solid #767676;">Particulars</td>
+            <td style="border: 1px solid #767676; text-align: right;">Amount (₹)</td>
+            <td style="border: 1px solid #767676;">Particulars</td>
+            <td style="border: 1px solid #767676; text-align: right;">Amount (₹)</td>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td style="width: 28%;">Basic Salary</td>
-            <td class="val-cell" id="dispBasicSalary" style="width: 22%;">₹0</td>
-            <td style="width: 28%; border-left: 1px solid #e2e8f0;">Paid Salary</td>
-            <td class="val-cell" id="dispPaidSalary" style="width: 22%;">₹0</td>
+            <td>Basic Salary</td>
+            <td style="text-align: right; font-weight: 700;" class="ps-basic-sal">₹0</td>
+            <td>Paid Salary</td>
+            <td style="text-align: right; font-weight: 700;" class="ps-paid-sal">₹0</td>
           </tr>
           <tr>
             <td>Allowance</td>
-            <td class="val-cell" id="dispAllowance">₹0</td>
-            <td style="border-left: 1px solid #e2e8f0;">Advance Repayment</td>
-            <td class="val-cell" id="dispAdvRepayment">₹0</td>
+            <td style="text-align: right; font-weight: 700;" class="ps-allowance">₹0</td>
+            <td>Advance Repayment</td>
+            <td style="text-align: right; font-weight: 700;" class="ps-adv-repay">₹0</td>
           </tr>
           <tr>
             <td>Incentive</td>
-            <td class="val-cell" id="dispIncentive">₹0</td>
-            <td style="border-left: 1px solid #e2e8f0;">Other Deductions</td>
-            <td class="val-cell" id="dispOtherDeductions">₹0</td>
+            <td style="text-align: right; font-weight: 700;" class="ps-incentive">₹0</td>
+            <td>Other Deductions</td>
+            <td style="text-align: right; font-weight: 700;" class="ps-other-ded">₹0</td>
           </tr>
           <tr>
             <td>Other Earnings</td>
-            <td class="val-cell" id="dispOtherEarnings">₹0</td>
-            <td style="border-left: 1px solid #e2e8f0;"></td>
-            <td class="val-cell"></td>
+            <td style="text-align: right; font-weight: 700;" class="ps-other-earn">₹0</td>
+            <td></td>
+            <td style="text-align: right; font-weight: 700;"></td>
           </tr>
-          <tr class="total-row">
+          <tr class="tot-row">
             <td>TOTAL EARNINGS</td>
-            <td class="val-cell" id="dispTotalEarnings">₹0</td>
-            <td style="border-left: 1px solid var(--ps-border);">TOTAL DEDUCTIONS</td>
-            <td class="val-cell" id="dispTotalDeductions">₹0</td>
+            <td style="text-align: right; font-weight: 800; color: var(--ps-primary);" class="ps-tot-earn">₹0</td>
+            <td>TOTAL DEDUCTIONS</td>
+            <td style="text-align: right; font-weight: 800; color: var(--ps-primary);" class="ps-tot-ded">₹0</td>
           </tr>
         </tbody>
       </table>
-    </div>
 
-    <!-- 6. Net Pay Banner -->
-    <div class="payslip-net-banner">
-      <div class="net-left">
-        <div class="net-lbl">NET PAY</div>
-        <div class="net-val">₹<span id="dispNetPay">0</span></div>
+      <!-- Dual Stacked Net Pay Bars -->
+      <div class="t4-net-bar-1">
+        NET PAY : Rs. <span class="ps-net-pay">0</span>
       </div>
-      <div class="net-right">
-        <div class="words-lbl">IN WORDS</div>
-        <div class="words-val" id="dispNetWords">Zero Rupees Only</div>
+      <div class="t4-net-bar-2">
+        NET PAY IN WORDS: <span class="ps-net-words">Zero Rupees Only</span>
       </div>
-    </div>
 
-    <!-- 7. Formula Footnote -->
-    <div class="payslip-formula-note">
-      * Net Pay = Total Earnings - Total Deductions
-    </div>
+      <div style="font-size: 8.5px; color: #475569; text-align: center; margin-top: 6px; font-style: italic;">
+        ** Net Pay = Total Earnings - Total Deduction<br/>* Payslip is auto-generated and valid without the need for a signature. *
+      </div>
 
-    <!-- 8. Authorized Signatory Section (Template 1 Only) -->
-    <div class="payslip-signatory-wrap" id="signatorySection">
-      <div class="payslip-signatory-box">
-        <div class="payslip-signatory-title">AUTHORIZED SIGNATORY</div>
-        <div class="payslip-signatory-line"></div>
-        <div class="payslip-signatory-sub">Signature & Company Seal</div>
+      <!-- Dark auto-generated banner -->
+      <div class="t4-dark-banner">
+        ** This document has been automatically generated by ARGUS **
+      </div>
+      <div style="text-align: center; font-size: 8px; color: #94a3b8; margin-top: 4px;">
+        © Argus Attendance | version 5.1 | powered by ArgusCNC™
       </div>
     </div>
 
-    <!-- 9. Standardized Footer -->
-    <div class="payslip-footer-bar">
-      <div>Generated by ARGUS Attendance</div>
-      <div>Argus Attendance | version 5.1 | powered by ArgusCNC™</div>
+    <!-- ================= LAYOUT 5: MODERN MINIMALIST CARD ================= -->
+    <div class="tmpl-layout-container" id="tmplLayout_5">
+      <div class="t5-container">
+        <!-- Header -->
+        <div class="t5-hdr">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div class="payslip-logo-card">
+              <img class="ps-comp-logo" src="" alt="Logo" style="display: none;">
+              <span class="comp-initial ps-comp-initial">A</span>
+            </div>
+            <div>
+              <div style="font-size: 16px; font-weight: 800; color: #0f172a; text-transform: uppercase;" class="ps-comp-name">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
+              <div style="font-size: 9.5px; color: #475569; margin-top: 2px;" class="ps-comp-addr">SF NO. 515, BHARATHIYAR ROAD, GANAPATHY, COIMBATORE - 641 006</div>
+              <div style="font-size: 9px; color: #64748b; margin-top: 2px;" class="ps-comp-contact">Email: argusattendance@gmail.com | Phone: 9878787999 | GSTIN: 33AHZPG5373L2ZN</div>
+            </div>
+          </div>
+          <div class="t5-month-pill">
+            <div class="sub">MONTHLY PAYSLIP</div>
+            <div class="main ps-header-month">OCTOBER 2026</div>
+          </div>
+        </div>
+
+        <!-- Employee Details Box with Solid Badge & Colon Alignment -->
+        <div class="t5-emp-card">
+          <div class="t5-emp-badge">EMPLOYEE DETAILS</div>
+          <table class="t5-meta-table">
+            <tbody>
+              <tr>
+                <td class="lbl">Employee Name</td><td class="col">:</td><td class="val ps-emp-name">-</td>
+                <td class="lbl">Designation</td><td class="col">:</td><td class="val ps-emp-desig">-</td>
+              </tr>
+              <tr>
+                <td class="lbl">Employee ID</td><td class="col">:</td><td class="val ps-emp-id">-</td>
+                <td class="lbl">Phone Number</td><td class="col">:</td><td class="val ps-emp-phone">-</td>
+              </tr>
+              <tr>
+                <td class="lbl">Department</td><td class="col">:</td><td class="val ps-emp-dept">General</td>
+                <td class="lbl">Bank Name</td><td class="col">:</td><td class="val ps-bank-name">SBI</td>
+              </tr>
+              <tr>
+                <td class="lbl">Email ID</td><td class="col">:</td><td class="val ps-emp-email">-</td>
+                <td class="lbl">Salary Basis</td><td class="col">:</td><td class="val ps-salary-basis">Day-Based</td>
+              </tr>
+              <tr>
+                <td class="lbl"></td><td class="col">:</td><td class="val"></td>
+                <td class="lbl ps-rate-lbl">Day Salary</td><td class="col">:</td><td class="val ps-rate-val">₹0</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 4 Key Metrics Bar -->
+        <div class="payslip-metric-grid" style="margin-top: 10px;">
+          <div class="payslip-metric-card" style="border-radius: 6px; padding: 7px 12px; background: var(--ps-tint); border: 1px solid var(--ps-border);">
+            <div class="m-lbl">SHIFT HOURS</div>
+            <div class="m-val ps-shift-hours" style="font-size: 13px;">08:00</div>
+          </div>
+          <div class="payslip-metric-card" style="border-radius: 6px; padding: 7px 12px; background: var(--ps-tint); border: 1px solid var(--ps-border);">
+            <div class="m-lbl">WORKING DAYS</div>
+            <div class="m-val ps-working-days" style="font-size: 13px;">1 Days</div>
+          </div>
+          <div class="payslip-metric-card" style="border-radius: 6px; padding: 7px 12px; background: var(--ps-tint); border: 1px solid var(--ps-border);">
+            <div class="m-lbl">TOTAL WORKING HOURS</div>
+            <div class="m-val ps-working-hours" style="font-size: 13px;">00:00</div>
+          </div>
+          <div class="payslip-metric-card" style="border-radius: 6px; padding: 7px 12px; background: var(--ps-tint); border: 1px solid var(--ps-border);">
+            <div class="m-lbl">TOTAL DAYS / LEAVE</div>
+            <div class="m-val ps-total-days" style="font-size: 13px;">30 Days (0 Leave)</div>
+          </div>
+        </div>
+
+        <!-- Dual Separate Card Tables -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px;">
+          <!-- Left: Earnings -->
+          <div style="border: 1px solid var(--ps-border); border-radius: 8px; overflow: hidden; background: #fff;">
+            <div style="background: var(--ps-primary); color: #fff; font-size: 11px; font-weight: 800; padding: 6px 12px; text-align: center; letter-spacing: 0.5px;">EARNINGS</div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 12px; background: #f8fafc; font-size: 9.5px; font-weight: 700; color: #64748b; border-bottom: 1px solid #f1f5f9;">
+              <span>Particulars</span><span>Amount</span>
+            </div>
+            <div style="padding: 2px 0; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Basic Salary</span><span style="font-weight: 700;" class="ps-basic-sal">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Allowance</span><span style="font-weight: 700;" class="ps-allowance">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Incentive</span><span style="font-weight: 700;" class="ps-incentive">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px;"><span>Others Earnings</span><span style="font-weight: 700;" class="ps-other-earn">₹0</span></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 12px; background: var(--ps-light-badge); font-size: 11.5px; font-weight: 800; color: var(--ps-primary); border-top: 1px solid var(--ps-border);">
+              <span>TOTAL EARNINGS</span><span class="ps-tot-earn">₹0</span>
+            </div>
+          </div>
+          <!-- Right: Deductions -->
+          <div style="border: 1px solid var(--ps-border); border-radius: 8px; overflow: hidden; background: #fff;">
+            <div style="background: var(--ps-primary); color: #fff; font-size: 11px; font-weight: 800; padding: 6px 12px; text-align: center; letter-spacing: 0.5px;">DEDUCTIONS</div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 12px; background: #f8fafc; font-size: 9.5px; font-weight: 700; color: #64748b; border-bottom: 1px solid #f1f5f9;">
+              <span>Particulars</span><span>Amount</span>
+            </div>
+            <div style="padding: 2px 0; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Paid Salary</span><span style="font-weight: 700;" class="ps-paid-sal">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Advance Repayment</span><span style="font-weight: 700;" class="ps-adv-repay">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Other Deductions</span><span style="font-weight: 700;" class="ps-other-ded">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; visibility: hidden;"><span>-</span><span>-</span></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 12px; background: var(--ps-light-badge); font-size: 11.5px; font-weight: 800; color: var(--ps-primary); border-top: 1px solid var(--ps-border);">
+              <span>TOTAL DEDUCTIONS</span><span class="ps-tot-ded">₹0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Soft Net Pay Banner -->
+        <div class="t5-net-banner">
+          <div>
+            <div style="font-size: 9px; font-weight: 700; color: #475569; letter-spacing: 0.5px;">NET PAY</div>
+            <div style="font-size: 22px; font-weight: 800; color: var(--ps-primary); margin-top: 1px;">₹<span class="ps-net-pay">0</span></div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 9px; font-weight: 700; color: #475569; letter-spacing: 0.5px;">NET PAY IN WORDS</div>
+            <div style="font-size: 12px; font-weight: 700; color: #0f172a; margin-top: 2px;" class="ps-net-words">Zero Rupees Only</div>
+          </div>
+        </div>
+
+        <div style="background: var(--ps-tint); border-radius: 4px; padding: 4px; text-align: center; font-size: 9px; color: #64748b; margin-top: 8px;">
+          Net Pay = Total Earnings - Total Deduction
+        </div>
+
+        <div class="payslip-footer-bar" style="border-top: 1px solid var(--ps-border); margin-top: 12px;">
+          <div>Generated by ARGUS Attendance</div>
+          <div>Professional Payroll Document | © Argus Attendance | Version 5.1</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= LAYOUT 6: PROFESSIONAL ELEGANT ================= -->
+    <div class="tmpl-layout-container" id="tmplLayout_6">
+      <div class="t6-container">
+        <!-- Header -->
+        <div class="t6-hdr">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div class="payslip-logo-card">
+              <img class="ps-comp-logo" src="" alt="Logo" style="display: none;">
+              <span class="comp-initial ps-comp-initial" style="color: var(--ps-primary);">A</span>
+            </div>
+            <div>
+              <div style="font-size: 16px; font-weight: 800; color: #0f172a; text-transform: uppercase;" class="ps-comp-name">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
+              <div style="font-size: 9.5px; color: #475569; margin-top: 2px;" class="ps-comp-addr">SF NO. 515, BHARATHIYAR ROAD, GANAPATHY, COIMBATORE - 641 006</div>
+              <div style="font-size: 9px; color: #64748b; margin-top: 2px;" class="ps-comp-contact">Email: argusattendance@gmail.com | Phone: 9878787999 | GSTIN: 33AHZPG5373L2ZN</div>
+            </div>
+          </div>
+          <div class="t6-month-pill">
+            <div class="sub">MONTHLY PAYSLIP</div>
+            <div class="main ps-header-month">OCTOBER 2026</div>
+          </div>
+        </div>
+
+        <!-- Employee Details Box with Person Icon Badge & 5x2 list -->
+        <div class="t6-emp-card">
+          <div class="t6-emp-badge">👤 EMPLOYEE DETAILS</div>
+          <table class="t6-meta-table">
+            <tbody>
+              <tr>
+                <td class="lbl">Employee Name</td><td class="col">:</td><td class="val ps-emp-name">-</td>
+                <td class="lbl">Phone Number</td><td class="col">:</td><td class="val ps-emp-phone">-</td>
+              </tr>
+              <tr>
+                <td class="lbl">Employee ID</td><td class="col">:</td><td class="val ps-emp-id">-</td>
+                <td class="lbl">Bank Name</td><td class="col">:</td><td class="val ps-bank-name">SBI</td>
+              </tr>
+              <tr>
+                <td class="lbl">Department</td><td class="col">:</td><td class="val ps-emp-dept">General</td>
+                <td class="lbl">Salary Basis</td><td class="col">:</td><td class="val ps-salary-basis">Day-Based</td>
+              </tr>
+              <tr>
+                <td class="lbl">Email ID</td><td class="col">:</td><td class="val ps-emp-email">-</td>
+                <td class="lbl ps-rate-lbl">Day Salary</td><td class="col">:</td><td class="val ps-rate-val">₹0</td>
+              </tr>
+              <tr>
+                <td class="lbl">Designation</td><td class="col">:</td><td class="val ps-emp-desig">-</td>
+                <td class="lbl">Year & Month</td><td class="col">:</td><td class="val ps-header-month" style="font-weight: 800;">OCTOBER 2026</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 4 Key Metrics Bar -->
+        <div class="payslip-metric-grid" style="margin-top: 10px;">
+          <div class="payslip-metric-card" style="border-radius: 6px; padding: 7px 12px; background: var(--ps-tint); border: 1px solid var(--ps-border);">
+            <div class="m-lbl">SHIFT HOURS</div>
+            <div class="m-val ps-shift-hours" style="font-size: 13px;">08:00</div>
+          </div>
+          <div class="payslip-metric-card" style="border-radius: 6px; padding: 7px 12px; background: var(--ps-tint); border: 1px solid var(--ps-border);">
+            <div class="m-lbl">WORKING DAYS</div>
+            <div class="m-val ps-working-days" style="font-size: 13px;">1 Days</div>
+          </div>
+          <div class="payslip-metric-card" style="border-radius: 6px; padding: 7px 12px; background: var(--ps-tint); border: 1px solid var(--ps-border);">
+            <div class="m-lbl">TOTAL WORKING HOURS</div>
+            <div class="m-val ps-working-hours" style="font-size: 13px;">00:00</div>
+          </div>
+          <div class="payslip-metric-card" style="border-radius: 6px; padding: 7px 12px; background: var(--ps-tint); border: 1px solid var(--ps-border);">
+            <div class="m-lbl">TOTAL DAYS / LEAVE</div>
+            <div class="m-val ps-total-days" style="font-size: 13px;">30 Days (0 Leave)</div>
+          </div>
+        </div>
+
+        <!-- Dual Separate Card Tables -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px;">
+          <!-- Left: Earnings -->
+          <div style="border: 1px solid var(--ps-border); border-radius: 8px; overflow: hidden; background: #fff;">
+            <div style="background: var(--ps-primary); color: #fff; font-size: 11px; font-weight: 800; padding: 6px 12px; text-align: center; letter-spacing: 0.5px;">EARNINGS</div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 12px; background: #f8fafc; font-size: 9.5px; font-weight: 700; color: #64748b; border-bottom: 1px solid #f1f5f9;">
+              <span>Particulars</span><span>Amount</span>
+            </div>
+            <div style="padding: 2px 0; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Basic Salary</span><span style="font-weight: 700;" class="ps-basic-sal">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Allowance</span><span style="font-weight: 700;" class="ps-allowance">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Incentive</span><span style="font-weight: 700;" class="ps-incentive">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px;"><span>Others Earnings</span><span style="font-weight: 700;" class="ps-other-earn">₹0</span></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 12px; background: var(--ps-light-badge); font-size: 11.5px; font-weight: 800; color: var(--ps-primary); border-top: 1px solid var(--ps-border);">
+              <span>TOTAL EARNINGS</span><span class="ps-tot-earn">₹0</span>
+            </div>
+          </div>
+          <!-- Right: Deductions -->
+          <div style="border: 1px solid var(--ps-border); border-radius: 8px; overflow: hidden; background: #fff;">
+            <div style="background: var(--ps-primary); color: #fff; font-size: 11px; font-weight: 800; padding: 6px 12px; text-align: center; letter-spacing: 0.5px;">DEDUCTIONS</div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 12px; background: #f8fafc; font-size: 9.5px; font-weight: 700; color: #64748b; border-bottom: 1px solid #f1f5f9;">
+              <span>Particulars</span><span>Amount</span>
+            </div>
+            <div style="padding: 2px 0; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Paid Salary</span><span style="font-weight: 700;" class="ps-paid-sal">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Advance Repayment</span><span style="font-weight: 700;" class="ps-adv-repay">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Other Deductions</span><span style="font-weight: 700;" class="ps-other-ded">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; visibility: hidden;"><span>-</span><span>-</span></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 12px; background: var(--ps-light-badge); font-size: 11.5px; font-weight: 800; color: var(--ps-primary); border-top: 1px solid var(--ps-border);">
+              <span>TOTAL DEDUCTIONS</span><span class="ps-tot-ded">₹0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cash Stack Net Pay Banner -->
+        <div class="t6-net-banner">
+          <div>
+            <div style="font-size: 9px; font-weight: 700; color: #475569; letter-spacing: 0.5px;">💵 NET PAY</div>
+            <div style="font-size: 22px; font-weight: 800; color: var(--ps-primary); margin-top: 1px;">₹<span class="ps-net-pay">0</span></div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 9px; font-weight: 700; color: #475569; letter-spacing: 0.5px;">NET PAY IN WORDS</div>
+            <div style="font-size: 12px; font-weight: 700; color: #0f172a; margin-top: 2px;" class="ps-net-words">Zero Rupees Only</div>
+          </div>
+        </div>
+
+        <div style="background: var(--ps-tint); border-radius: 4px; padding: 4px; text-align: center; font-size: 9px; color: #64748b; margin-top: 8px;">
+          Net Pay = Total Earnings - Total Deduction
+        </div>
+
+        <div class="payslip-footer-bar" style="border-top: 1px solid var(--ps-border); margin-top: 12px;">
+          <div>Generated by ARGUS Attendance</div>
+          <div>Professional Payroll Document | © Argus Attendance | Version 5.1</div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -853,6 +1652,213 @@
           </div>
         </div>
 
+        <!-- CARD 3: TEMPLATE 3 (PREMIUM EXECUTIVE) -->
+        <div class="tmpl-card" id="cardTemplate3" data-template="template_3">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 13px; font-weight: 800; color: #0f172a;">Template 3: Premium Executive</span>
+            <span class="active-tag" id="tagTemplate3" style="background: #64748b; color: #fff; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; display: none;">ACTIVE</span>
+          </div>
+          <div style="font-size: 10.5px; color: #7c3aed; font-weight: 700; margin-bottom: 8px;">
+            ★ Dual-Tone Tables & Circular Metrics
+          </div>
+
+          <!-- Miniature Mockup Preview -->
+          <div class="tmpl-mockup" id="mockupTmpl3">
+            <div class="mockup-pill-bar" style="background: #0f233a; border-radius: 4px; height: 18px; margin-bottom: 5px; display: flex; align-items: center; padding: 0 6px; justify-content: space-between;">
+              <div style="width: 10px; height: 10px; background: #fff; border-radius: 2px;"></div>
+              <div style="width: 40px; height: 4px; background: rgba(255,255,255,0.7); border-radius: 2px;"></div>
+              <div class="mockup-dark-badge" style="width: 22px; height: 10px; background: #1b3b5f; border-radius: 2px;"></div>
+            </div>
+            <div class="mockup-tint-box" style="background: #f0f5fa; border-radius: 4px; height: 13px; margin-bottom: 4px; border: 1px solid #cbd5e1;"></div>
+            <!-- 4 metric cards with circular dot icons -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px; display: flex; align-items: center; padding-left: 2px;"><div class="mockup-circ-dot" style="width: 5px; height: 5px; border-radius: 50%; background: #1b3b5f;"></div></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px; display: flex; align-items: center; padding-left: 2px;"><div class="mockup-circ-dot" style="width: 5px; height: 5px; border-radius: 50%; background: #1b3b5f;"></div></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px; display: flex; align-items: center; padding-left: 2px;"><div class="mockup-circ-dot" style="width: 5px; height: 5px; border-radius: 50%; background: #1b3b5f;"></div></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px; display: flex; align-items: center; padding-left: 2px;"><div class="mockup-circ-dot" style="width: 5px; height: 5px; border-radius: 50%; background: #1b3b5f;"></div></div>
+            </div>
+            <!-- Dual tone header table -->
+            <div style="display: flex; height: 14px; margin-bottom: 4px; border: 1px solid #cbd5e1; border-radius: 3px; overflow: hidden;">
+              <div class="mockup-net-bar" style="flex: 1; background: #1b3b5f;"></div>
+              <div style="flex: 1; background: #1a2936;"></div>
+            </div>
+            <div class="mockup-dark-badge" style="background: #0f233a; border-radius: 3px; height: 11px; margin-bottom: 2px;"></div>
+          </div>
+
+          <div style="font-size: 11px; color: #475569; line-height: 1.35; flex: 1;">
+            High-impact corporate layout featuring dark pill header, circular icon metric cards, dual-color tables (Earnings in primary theme, Deductions in dark slate), and dark net pay container.
+          </div>
+
+          <!-- Color Swatches for Template 3 -->
+          <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+            <div style="font-size: 10.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Color Palette:</div>
+            <div class="tmpl-swatch-list">
+              <div class="swatch-circle active-swatch" data-template="template_3" data-theme="navy" style="background: #1b3b5f;" title="Navy Classic"></div>
+              <div class="swatch-circle" data-template="template_3" data-theme="emerald" style="background: #0f5132;" title="Forest Emerald"></div>
+              <div class="swatch-circle" data-template="template_3" data-theme="burgundy" style="background: #5c1d48;" title="Burgundy Wine"></div>
+              <span class="swatch-label" id="swatchLabelTmpl3" style="font-size: 11px; font-weight: 600; color: #1b3b5f; margin-left: 4px;">Navy Classic</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 4: TEMPLATE 4 (CLASSIC CORPORATE GRID) -->
+        <div class="tmpl-card" id="cardTemplate4" data-template="template_4">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 13px; font-weight: 800; color: #0f172a;">Template 4: Classic Corporate Grid</span>
+            <span class="active-tag" id="tagTemplate4" style="background: #64748b; color: #fff; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; display: none;">ACTIVE</span>
+          </div>
+          <div style="font-size: 10.5px; color: #d97706; font-weight: 700; margin-bottom: 8px;">
+            🏛 Centered Header & 5-Column Grid
+          </div>
+
+          <!-- Miniature Mockup Preview -->
+          <div class="tmpl-mockup" id="mockupTmpl4">
+            <!-- Centered logo & title -->
+            <div style="text-align: center; margin-bottom: 4px;">
+              <div style="width: 14px; height: 6px; background: #94a3b8; border-radius: 1px; margin: 0 auto 2px;"></div>
+              <div style="width: 60px; height: 3px; background: #334155; border-radius: 1px; margin: 0 auto;"></div>
+            </div>
+            <!-- Solid PAYSLIP banner bar -->
+            <div class="mockup-net-bar" style="background: #1b3b5f; border-radius: 2px; height: 8px; margin-bottom: 4px;"></div>
+            <!-- 5-column bordered grid with photo box on right -->
+            <div style="display: flex; border: 1px solid #767676; height: 20px; margin-bottom: 4px; background: #fff;">
+              <div style="flex: 3; border-right: 1px solid #767676; display: flex; flex-direction: column; justify-content: space-around; padding: 1px;">
+                <div style="width: 80%; height: 2px; background: #cbd5e1;"></div>
+                <div style="width: 60%; height: 2px; background: #cbd5e1;"></div>
+              </div>
+              <div style="width: 16px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; font-size: 5px; color: #94a3b8;">📷</div>
+            </div>
+            <!-- Dual stacked net bars -->
+            <div style="border: 1px solid #767676; height: 8px; background: #f1f3f5; margin-bottom: 2px;"></div>
+            <div style="border: 1px solid #767676; height: 6px; background: #fef9e7; margin-bottom: 3px;"></div>
+            <div style="background: #37474f; border-radius: 2px; height: 6px;"></div>
+          </div>
+
+          <div style="font-size: 11px; color: #475569; line-height: 1.35; flex: 1;">
+            Traditional corporate design featuring centered company branding, solid PAYSLIP banner, 5-column bordered grid with prominent employee photo cell, and dual stacked net pay bars.
+          </div>
+
+          <!-- Color Swatches for Template 4 -->
+          <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+            <div style="font-size: 10.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Color Palette:</div>
+            <div class="tmpl-swatch-list">
+              <div class="swatch-circle active-swatch" data-template="template_4" data-theme="navy" style="background: #1b3b5f;" title="Navy Classic"></div>
+              <div class="swatch-circle" data-template="template_4" data-theme="emerald" style="background: #0f5132;" title="Forest Emerald"></div>
+              <div class="swatch-circle" data-template="template_4" data-theme="burgundy" style="background: #5c1d48;" title="Burgundy Wine"></div>
+              <span class="swatch-label" id="swatchLabelTmpl4" style="font-size: 11px; font-weight: 600; color: #1b3b5f; margin-left: 4px;">Navy Classic</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 5: TEMPLATE 5 (MODERN MINIMALIST CARD) -->
+        <div class="tmpl-card" id="cardTemplate5" data-template="template_5">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 13px; font-weight: 800; color: #0f172a;">Template 5: Modern Minimalist Card</span>
+            <span class="active-tag" id="tagTemplate5" style="background: #64748b; color: #fff; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; display: none;">ACTIVE</span>
+          </div>
+          <div style="font-size: 10.5px; color: #0284c7; font-weight: 700; margin-bottom: 8px;">
+            🗂 Framed Container & Compact Metrics
+          </div>
+
+          <!-- Miniature Mockup Preview -->
+          <div class="tmpl-mockup" id="mockupTmpl5" style="border: 1.5px solid #cbd5e1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <div style="display: flex; gap: 4px; align-items: center;">
+                <div style="width: 10px; height: 10px; background: #1b3b5f; border-radius: 2px;"></div>
+                <div style="width: 35px; height: 4px; background: #334155; border-radius: 1px;"></div>
+              </div>
+              <div class="mockup-light-badge" style="width: 28px; height: 10px; background: #dbeafe; border-radius: 3px;"></div>
+            </div>
+            <!-- Pill badge + colon details -->
+            <div class="mockup-tint-box" style="background: #f0f5fa; border-radius: 4px; height: 16px; margin-bottom: 4px; border: 1px solid #cbd5e1; padding: 2px 4px;">
+              <div class="mockup-net-bar" style="width: 24px; height: 4px; background: #1b3b5f; border-radius: 2px; margin-bottom: 2px;"></div>
+              <div style="width: 90%; height: 2px; background: #cbd5e1;"></div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
+            </div>
+            <!-- Dual separate card tables -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px;">
+              <div style="border: 1px solid #cbd5e1; height: 12px; border-radius: 2px; background: #fff;"></div>
+              <div style="border: 1px solid #cbd5e1; height: 12px; border-radius: 2px; background: #fff;"></div>
+            </div>
+            <!-- Soft net pay banner -->
+            <div class="mockup-light-badge" style="background: #dbeafe; border-radius: 3px; height: 10px;"></div>
+          </div>
+
+          <div style="font-size: 11px; color: #475569; line-height: 1.35; flex: 1;">
+            Modern framed card layout with left logo, right month pill, solid EMPLOYEE DETAILS badge with 2-column colon-aligned metadata, 4 metric cards, and soft net pay banner.
+          </div>
+
+          <!-- Color Swatches for Template 5 -->
+          <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+            <div style="font-size: 10.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Color Palette:</div>
+            <div class="tmpl-swatch-list">
+              <div class="swatch-circle active-swatch" data-template="template_5" data-theme="navy" style="background: #1b3b5f;" title="Navy Classic"></div>
+              <div class="swatch-circle" data-template="template_5" data-theme="emerald" style="background: #0f5132;" title="Forest Emerald"></div>
+              <div class="swatch-circle" data-template="template_5" data-theme="burgundy" style="background: #5c1d48;" title="Burgundy Wine"></div>
+              <span class="swatch-label" id="swatchLabelTmpl5" style="font-size: 11px; font-weight: 600; color: #1b3b5f; margin-left: 4px;">Navy Classic</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 6: TEMPLATE 6 (PROFESSIONAL ELEGANT) -->
+        <div class="tmpl-card" id="cardTemplate6" data-template="template_6">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 13px; font-weight: 800; color: #0f172a;">Template 6: Professional Elegant</span>
+            <span class="active-tag" id="tagTemplate6" style="background: #64748b; color: #fff; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; display: none;">ACTIVE</span>
+          </div>
+          <div style="font-size: 10.5px; color: #0f766e; font-weight: 700; margin-bottom: 8px;">
+            ✨ Elegant Bordered Card & Cash Banner
+          </div>
+
+          <!-- Miniature Mockup Preview -->
+          <div class="tmpl-mockup" id="mockupTmpl6" style="border: 1.5px solid #cbd5e1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <div style="display: flex; gap: 4px; align-items: center;">
+                <div style="width: 10px; height: 10px; background: #0f5132; border-radius: 2px;"></div>
+                <div style="width: 35px; height: 4px; background: #334155; border-radius: 1px;"></div>
+              </div>
+              <div class="mockup-light-badge" style="width: 28px; height: 10px; background: #d1fae5; border-radius: 3px;"></div>
+            </div>
+            <!-- Person icon badge + 5x2 list -->
+            <div class="mockup-tint-box" style="background: #e9f7ef; border-radius: 4px; height: 16px; margin-bottom: 4px; border: 1px solid #a3cfbb; padding: 2px 4px;">
+              <div class="mockup-net-bar" style="width: 26px; height: 4px; background: #0f5132; border-radius: 2px; margin-bottom: 2px;"></div>
+              <div style="width: 90%; height: 2px; background: #a3cfbb;"></div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
+              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px;">
+              <div style="border: 1px solid #a3cfbb; height: 12px; border-radius: 2px; background: #fff;"></div>
+              <div style="border: 1px solid #a3cfbb; height: 12px; border-radius: 2px; background: #fff;"></div>
+            </div>
+            <!-- Cash stack net banner -->
+            <div class="mockup-light-badge" style="background: #d1fae5; border-radius: 3px; height: 10px;"></div>
+          </div>
+
+          <div style="font-size: 11px; color: #475569; line-height: 1.35; flex: 1;">
+            Sophisticated framed layout featuring person icon employee badge, 5×2 colon-aligned metadata including Year & Month, metric cards, crisp table cards, and prominent cash net banner.
+          </div>
+
+          <!-- Color Swatches for Template 6 -->
+          <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+            <div style="font-size: 10.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Color Palette:</div>
+            <div class="tmpl-swatch-list">
+              <div class="swatch-circle active-swatch" data-template="template_6" data-theme="navy" style="background: #1b3b5f;" title="Navy Classic"></div>
+              <div class="swatch-circle" data-template="template_6" data-theme="emerald" style="background: #0f5132;" title="Forest Emerald"></div>
+              <div class="swatch-circle" data-template="template_6" data-theme="burgundy" style="background: #5c1d48;" title="Burgundy Wine"></div>
+              <span class="swatch-label" id="swatchLabelTmpl6" style="font-size: 11px; font-weight: 600; color: #1b3b5f; margin-left: 4px;">Navy Classic</span>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -896,10 +1902,16 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnCancelTemplateModal = document.getElementById('btnCancelTemplateModal');
   const btnApplyTemplate = document.getElementById('btnApplyTemplate');
   const modalSummaryTxt = document.getElementById('modalSummaryTxt');
-  const cardTemplate1 = document.getElementById('cardTemplate1');
-  const cardTemplate2 = document.getElementById('cardTemplate2');
-  const tagTemplate1 = document.getElementById('tagTemplate1');
-  const tagTemplate2 = document.getElementById('tagTemplate2');
+
+  // Templates Dictionary
+  const PAYSLIP_TEMPLATES = {
+    template_1: 'Modern Executive',
+    template_2: 'Modern Streamlined',
+    template_3: 'Premium Executive',
+    template_4: 'Classic Corporate Grid',
+    template_5: 'Modern Minimalist Card',
+    template_6: 'Professional Elegant'
+  };
 
   // Palette Definitions
   const COLOR_PALETTES = {
@@ -910,7 +1922,8 @@ document.addEventListener('DOMContentLoaded', function () {
       dark: '#0f233a',
       tint: '#f0f5fa',
       border: '#cbd5e1',
-      text_dark: '#0f233a'
+      text_dark: '#0f233a',
+      light_badge: '#dbeafe'
     },
     emerald: {
       id: 'emerald',
@@ -919,7 +1932,8 @@ document.addEventListener('DOMContentLoaded', function () {
       dark: '#0a3622',
       tint: '#e9f7ef',
       border: '#a3cfbb',
-      text_dark: '#0a3622'
+      text_dark: '#0a3622',
+      light_badge: '#d1fae5'
     },
     burgundy: {
       id: 'burgundy',
@@ -928,7 +1942,8 @@ document.addEventListener('DOMContentLoaded', function () {
       dark: '#3f1331',
       tint: '#f9edf4',
       border: '#d8b4cb',
-      text_dark: '#3f1331'
+      text_dark: '#3f1331',
+      light_badge: '#fce7f3'
     }
   };
 
@@ -969,18 +1984,16 @@ document.addEventListener('DOMContentLoaded', function () {
     if (e.target === templateModal) closeTemplateModal();
   });
 
-  // Clicking cards in modal
-  cardTemplate1.addEventListener('click', function (e) {
-    // If a swatch was clicked, handled by swatch listener
-    if (e.target.classList.contains('swatch-circle')) return;
-    modalTempTemplate = 'template_1';
-    syncModalUI();
-  });
-
-  cardTemplate2.addEventListener('click', function (e) {
-    if (e.target.classList.contains('swatch-circle')) return;
-    modalTempTemplate = 'template_2';
-    syncModalUI();
+  // Clicking template cards in modal
+  document.querySelectorAll('.tmpl-card').forEach(card => {
+    card.addEventListener('click', function (e) {
+      if (e.target.classList.contains('swatch-circle')) return;
+      const tmpl = this.dataset.template;
+      if (tmpl) {
+        modalTempTemplate = tmpl;
+        syncModalUI();
+      }
+    });
   });
 
   // Swatch selection in modal
@@ -1005,69 +2018,59 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   function syncModalUI() {
-    // Highlight Active Card
-    if (modalTempTemplate === 'template_1') {
-      cardTemplate1.classList.add('active-card');
-      cardTemplate2.classList.remove('active-card');
-      tagTemplate1.style.display = 'inline-block';
-      tagTemplate2.style.display = 'none';
-    } else {
-      cardTemplate2.classList.add('active-card');
-      cardTemplate1.classList.remove('active-card');
-      tagTemplate2.style.display = 'inline-block';
-      tagTemplate1.style.display = 'none';
-    }
-
-    // Update Swatch Active Rings & Mockup Colors
     const palette = COLOR_PALETTES[modalTempTheme] || COLOR_PALETTES['navy'];
 
-    // Update Card 1 Swatches
-    document.querySelectorAll('#cardTemplate1 .swatch-circle').forEach(sw => {
-      if (sw.dataset.theme === modalTempTheme) {
-        sw.classList.add('active-swatch');
+    // 1. Update Card Active Classes & Badges for all 6 cards
+    document.querySelectorAll('.tmpl-card').forEach(card => {
+      const tmpl = card.dataset.template;
+      const tag = card.querySelector('.active-tag');
+      if (tmpl === modalTempTemplate) {
+        card.classList.add('active-card');
+        if (tag) tag.style.display = 'inline-block';
       } else {
-        sw.classList.remove('active-swatch');
+        card.classList.remove('active-card');
+        if (tag) tag.style.display = 'none';
+      }
+
+      // Update swatch active state in each card
+      card.querySelectorAll('.swatch-circle').forEach(sw => {
+        if (sw.dataset.theme === modalTempTheme) {
+          sw.classList.add('active-swatch');
+        } else {
+          sw.classList.remove('active-swatch');
+        }
+      });
+
+      // Update swatch label in each card
+      const lbl = card.querySelector('.swatch-label');
+      if (lbl) {
+        lbl.innerText = palette.name;
+        lbl.style.color = palette.primary;
       }
     });
-    const lbl1 = document.getElementById('swatchLabelTmpl1');
-    if (lbl1) {
-      lbl1.innerText = palette.name;
-      lbl1.style.color = palette.primary;
-    }
 
-    // Update Card 2 Swatches
-    document.querySelectorAll('#cardTemplate2 .swatch-circle').forEach(sw => {
-      if (sw.dataset.theme === modalTempTheme) {
-        sw.classList.add('active-swatch');
-      } else {
-        sw.classList.remove('active-swatch');
-      }
-    });
-    const lbl2 = document.getElementById('swatchLabelTmpl2');
-    if (lbl2) {
-      lbl2.innerText = palette.name;
-      lbl2.style.color = palette.primary;
-    }
-
-    // Update Mockup Previews inside Modal
-    const activeMockupId = (modalTempTemplate === 'template_1') ? 'mockupTmpl1' : 'mockupTmpl2';
-    const mockEl = document.getElementById(activeMockupId);
-    if (mockEl) {
-      const pill = mockEl.querySelector('.mockup-pill-bar');
+    // 2. Update Mockup previews inside Modal for all 6 mockups
+    document.querySelectorAll('.tmpl-mockup').forEach(mock => {
+      const pill = mock.querySelector('.mockup-pill-bar');
       if (pill) pill.style.background = palette.primary;
-      const darkBadge = mockEl.querySelector('.mockup-dark-badge');
+      const darkBadge = mock.querySelector('.mockup-dark-badge');
       if (darkBadge) darkBadge.style.background = palette.dark;
-      const tintBox = mockEl.querySelector('.mockup-tint-box');
+      const tintBox = mock.querySelector('.mockup-tint-box');
       if (tintBox) {
         tintBox.style.background = palette.tint;
         tintBox.style.borderColor = palette.border;
       }
-      const netBar = mockEl.querySelector('.mockup-net-bar');
+      const netBar = mock.querySelector('.mockup-net-bar');
       if (netBar) netBar.style.background = palette.primary;
-    }
+      const lightBadge = mock.querySelector('.mockup-light-badge');
+      if (lightBadge) lightBadge.style.background = palette.light_badge;
+      mock.querySelectorAll('.mockup-circ-dot').forEach(d => {
+        d.style.background = palette.primary;
+      });
+    });
 
-    // Update Modal Summary Text
-    const tmplTitle = (modalTempTemplate === 'template_1') ? 'Modern Executive' : 'Modern Streamlined';
+    // 3. Update Modal Summary Text
+    const tmplTitle = PAYSLIP_TEMPLATES[modalTempTemplate] || 'Modern Executive';
     modalSummaryTxt.innerText = `${tmplTitle} • ${palette.name}`;
   }
 
@@ -1081,11 +2084,35 @@ document.addEventListener('DOMContentLoaded', function () {
       printablePayslipDoc.style.setProperty('--ps-tint', palette.tint);
       printablePayslipDoc.style.setProperty('--ps-border', palette.border);
       printablePayslipDoc.style.setProperty('--ps-text-dark', palette.text_dark);
+      printablePayslipDoc.style.setProperty('--ps-light-badge', palette.light_badge);
     }
+
+    // Determine target layout container ID
+    let activeLayoutId = 'tmplLayout_1_2';
+    if (tmpl === 'template_3') activeLayoutId = 'tmplLayout_3';
+    else if (tmpl === 'template_4') activeLayoutId = 'tmplLayout_4';
+    else if (tmpl === 'template_5') activeLayoutId = 'tmplLayout_5';
+    else if (tmpl === 'template_6') activeLayoutId = 'tmplLayout_6';
+
+    // Toggle active layout container
+    document.querySelectorAll('.tmpl-layout-container').forEach(cnt => {
+      if (cnt.id === activeLayoutId) {
+        cnt.classList.add('active-layout');
+        cnt.style.display = 'block';
+      } else {
+        cnt.classList.remove('active-layout');
+        cnt.style.display = 'none';
+      }
+    });
 
     // Toggle Signatory Block: Template 1 has it, Template 2 omits it
     if (signatorySection) {
       signatorySection.style.display = (tmpl === 'template_1') ? 'flex' : 'none';
+    }
+
+    // Re-populate if data already exists
+    if (lastPayslipData) {
+      populateAllLayouts(lastPayslipData);
     }
   }
 
@@ -1108,6 +2135,184 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  function setAllText(selector, text) {
+    document.querySelectorAll(selector).forEach(el => {
+      el.innerText = text;
+    });
+  }
+
+  function populateAllLayouts(p) {
+    if (!p) return;
+
+    // 1. Employee Details
+    setAllText('.ps-emp-name', p.employee_name || '-');
+    setAllText('.ps-emp-id', p.employee_id || '-');
+    setAllText('.ps-emp-desig', p.designation || '-');
+    setAllText('.ps-emp-dept', p.department || 'General');
+    setAllText('.ps-emp-email', p.email_id || '-');
+    setAllText('.ps-emp-phone', p.phone_number || p.mobile_number || '-');
+    setAllText('.ps-salary-basis', p.salary_basis_label || 'Day-Based');
+
+    // 2. Month Badge
+    let monthBadgeVal = 'OCT 2026';
+    let monthBadgeLong = 'OCTOBER 2026';
+    if (p.year_month) {
+      const parts = p.year_month.split('-');
+      if (parts.length === 2) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+        monthBadgeVal = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase();
+        monthBadgeLong = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
+      } else {
+        monthBadgeVal = p.year_month.toUpperCase();
+        monthBadgeLong = p.year_month.toUpperCase();
+      }
+    }
+    setAllText('.ps-header-month', monthBadgeVal);
+
+    // 3. Employee Photo Preview across all layouts
+    const photoSrc = p.employee_photo_url || (p.employee_photo ? `/uploads/${p.employee_photo}` : '');
+    document.querySelectorAll('.ps-emp-photo').forEach(img => {
+      if (photoSrc) {
+        img.src = photoSrc;
+        img.style.display = 'block';
+      } else {
+        img.src = '';
+        img.style.display = 'none';
+      }
+    });
+    document.querySelectorAll('.ps-emp-photo-placeholder').forEach(ph => {
+      ph.style.display = photoSrc ? 'none' : 'block';
+    });
+
+    // 4. Rate & Metric Cards
+    const st = (p.salary_type || 'daily').toLowerCase();
+    const shiftH = p.shift_hours || '08:00';
+    const bankName = p.bank_name || 'SBI';
+
+    let rateLbl = 'DAY SALARY';
+    let rateVal = formatCurrency(p.day_salary);
+    if (st === 'hourly') {
+      rateLbl = 'HOURS SALARY';
+      rateVal = formatCurrency(p.hours_salary);
+    } else if (st === 'half_day') {
+      rateLbl = 'HALF DAY SALARY';
+      rateVal = formatCurrency(p.half_day_salary);
+    }
+    setAllText('.ps-rate-lbl', rateLbl);
+    setAllText('.ps-rate-val', rateVal);
+    setAllText('.ps-shift-hours', shiftH);
+    setAllText('.ps-working-days', p.working_days_breakdown || `${p.working_days} Days`);
+    setAllText('.ps-total-days', `${p.total_days_of_month} Days (${p.leave_days} Leave)`);
+    setAllText('.ps-working-hours', p.total_working_hours || '00:00');
+    setAllText('.ps-bank-name', bankName);
+
+    // 5. Earnings & Deductions Tables
+    setAllText('.ps-basic-sal', formatCurrency(p.basic_salary));
+    setAllText('.ps-allowance', formatCurrency(p.allowance));
+    setAllText('.ps-incentive', formatCurrency(p.incentive));
+    setAllText('.ps-other-earn', formatCurrency(p.other_earnings));
+    setAllText('.ps-tot-earn', formatCurrency(p.total_earnings));
+
+    setAllText('.ps-paid-sal', formatCurrency(p.paid_salary));
+    setAllText('.ps-adv-repay', formatCurrency(p.advance_repayment));
+    setAllText('.ps-other-ded', formatCurrency(p.other_deductions));
+    const totDed = (p.total_deduction !== undefined) ? p.total_deduction : p.total_deductions;
+    setAllText('.ps-tot-ded', formatCurrency(totDed));
+
+    // 6. Net Pay Banner
+    const netNum = Number(p.net_pay || 0);
+    setAllText('.ps-net-pay', netNum.toLocaleString('en-IN'));
+    setAllText('.ps-net-words', (p.net_pay_in_words || '').trim() || 'Zero Rupees Only');
+
+    // 7. Dynamic Company Logo & Contact Info
+    const logoSrc = p.company_logo_url || (p.company_logo ? `/uploads/${p.company_logo}` : '');
+    const initialChar = ((p.company_name || 'A')[0]).toUpperCase();
+
+    document.querySelectorAll('.ps-comp-logo').forEach(img => {
+      if (logoSrc) {
+        img.src = logoSrc;
+        img.style.display = 'block';
+      } else {
+        img.src = '';
+        img.style.display = 'none';
+      }
+    });
+    document.querySelectorAll('.ps-comp-initial').forEach(init => {
+      init.innerText = initialChar;
+      init.style.display = logoSrc ? 'none' : 'inline-block';
+    });
+
+    if (p.company_name) setAllText('.ps-comp-name', p.company_name);
+    if (p.company_address) setAllText('.ps-comp-addr', p.company_address);
+    if (p.company_gstin) setAllText('.ps-comp-gstin', `GSTIN: ${p.company_gstin}`);
+
+    // Update contact rows with email, phone, and GSTIN
+    const parts = [];
+    if (p.company_email) parts.push(`<span>Email: ${p.company_email}</span>`);
+    if (p.company_phone) parts.push(`<span>Phone: ${p.company_phone}</span>`);
+    if (p.company_gstin) parts.push(`<span class="payslip-gstin-badge">GSTIN: ${p.company_gstin}</span>`);
+    const contactHtml = parts.length > 0 ? parts.join('<span style="opacity: 0.5;"> | </span>') : `<span>Email: argusattendance@gmail.com</span><span style="opacity:0.5;"> | </span><span>Phone: 9878787999</span><span style="opacity:0.5;"> | </span><span class="payslip-gstin-badge">GSTIN: 33AHZPG5373L2ZN</span>`;
+
+    document.querySelectorAll('.ps-comp-contact').forEach(c => {
+      c.innerHTML = contactHtml;
+    });
+
+    // Populate legacy IDs in Layout 1 & 2 for complete compatibility
+    const dEmp = document.getElementById('dispEmpName');
+    if (dEmp) dEmp.innerText = p.employee_name || '-';
+    const dId = document.getElementById('dispEmpId');
+    if (dId) dId.innerText = p.employee_id || '-';
+    const dDesig = document.getElementById('dispDesignation');
+    if (dDesig) dDesig.innerText = p.designation || '-';
+    const dDept = document.getElementById('dispDepartment');
+    if (dDept) dDept.innerText = p.department || 'General';
+    const dEmail = document.getElementById('dispEmail');
+    if (dEmail) dEmail.innerText = p.email_id || '-';
+    const dPhone = document.getElementById('dispPhone');
+    if (dPhone) dPhone.innerText = p.phone_number || p.mobile_number || '-';
+    const dBasis = document.getElementById('dispSalaryBasis');
+    if (dBasis) dBasis.innerText = p.salary_basis_label || 'Day-Based';
+    const dHdrMonth = document.getElementById('dispHeaderMonth');
+    if (dHdrMonth) dHdrMonth.innerText = monthBadgeVal;
+    const dRateLbl = document.getElementById('dispRateLbl');
+    if (dRateLbl) dRateLbl.innerText = rateLbl;
+    const dRateVal = document.getElementById('dispRateVal');
+    if (dRateVal) dRateVal.innerText = rateVal;
+    const dShiftH = document.getElementById('dispShiftHours');
+    if (dShiftH) dShiftH.innerText = shiftH;
+    const dWorkD = document.getElementById('dispWorkingDays');
+    if (dWorkD) dWorkD.innerText = p.working_days_breakdown || `${p.working_days} Days`;
+    const dTotD = document.getElementById('dispTotalDays');
+    if (dTotD) dTotD.innerText = `${p.total_days_of_month} Days (${p.leave_days} Leave)`;
+    const dWorkH = document.getElementById('dispWorkingHours');
+    if (dWorkH) dWorkH.innerText = p.total_working_hours || '00:00';
+    const dBank = document.getElementById('dispBankName');
+    if (dBank) dBank.innerText = bankName;
+
+    const dBasic = document.getElementById('dispBasicSalary');
+    if (dBasic) dBasic.innerText = formatCurrency(p.basic_salary);
+    const dAllow = document.getElementById('dispAllowance');
+    if (dAllow) dAllow.innerText = formatCurrency(p.allowance);
+    const dInc = document.getElementById('dispIncentive');
+    if (dInc) dInc.innerText = formatCurrency(p.incentive);
+    const dOthE = document.getElementById('dispOtherEarnings');
+    if (dOthE) dOthE.innerText = formatCurrency(p.other_earnings);
+    const dTotE = document.getElementById('dispTotalEarnings');
+    if (dTotE) dTotE.innerText = formatCurrency(p.total_earnings);
+    const dPaid = document.getElementById('dispPaidSalary');
+    if (dPaid) dPaid.innerText = formatCurrency(p.paid_salary);
+    const dAdv = document.getElementById('dispAdvRepayment');
+    if (dAdv) dAdv.innerText = formatCurrency(p.advance_repayment);
+    const dOthD = document.getElementById('dispOtherDeductions');
+    if (dOthD) dOthD.innerText = formatCurrency(p.other_deductions);
+    const dTotDded = document.getElementById('dispTotalDeductions');
+    if (dTotDded) dTotDded.innerText = formatCurrency(totDed);
+    const dNet = document.getElementById('dispNetPay');
+    if (dNet) dNet.innerText = netNum.toLocaleString('en-IN');
+    const dWords = document.getElementById('dispNetWords');
+    if (dWords) dWords.innerText = (p.net_pay_in_words || '').trim() || 'Zero Rupees Only';
+  }
+
   function generatePayslip() {
     const employee = selectPayslipEmployee.value;
     const month = selectPayslipMonth.value;
@@ -1122,117 +2327,8 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(p => {
         lastPayslipData = p;
 
-        // 1. Employee Details
-        document.getElementById('dispEmpName').innerText = p.employee_name || '-';
-        document.getElementById('dispEmpId').innerText = p.employee_id || '-';
-        document.getElementById('dispDesignation').innerText = p.designation || '-';
-        document.getElementById('dispDepartment').innerText = p.department || 'General';
-        document.getElementById('dispEmail').innerText = p.email_id || '-';
-        document.getElementById('dispPhone').innerText = p.phone_number || p.mobile_number || '-';
-        document.getElementById('dispSalaryBasis').innerText = p.salary_basis_label || 'Day-Based';
-
-        // 2. Month Badge
-        let monthBadgeVal = 'OCT 2026';
-        if (p.year_month) {
-          const parts = p.year_month.split('-');
-          if (parts.length === 2) {
-            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
-            monthBadgeVal = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase();
-          } else {
-            monthBadgeVal = p.year_month.toUpperCase();
-          }
-        }
-        document.getElementById('dispHeaderMonth').innerText = monthBadgeVal;
-
-        // 3. Employee Photo Preview
-        const empPhoto = document.getElementById('dispEmpPhoto');
-        const empPhotoPlaceholder = document.getElementById('dispEmpPhotoPlaceholder');
-        const photoSrc = p.employee_photo_url || (p.employee_photo ? `/uploads/${p.employee_photo}` : '');
-        if (photoSrc) {
-          empPhoto.src = photoSrc;
-          empPhoto.style.display = 'block';
-          if (empPhotoPlaceholder) empPhotoPlaceholder.style.display = 'none';
-        } else {
-          empPhoto.src = '';
-          empPhoto.style.display = 'none';
-          if (empPhotoPlaceholder) empPhotoPlaceholder.style.display = 'flex';
-        }
-
-        // 4. Rate & Metric Cards
-        const st = (p.salary_type || 'daily').toLowerCase();
-        const shiftH = p.shift_hours || '08:00';
-        const bankName = p.bank_name || 'SBI';
-
-        if (st === 'hourly') {
-          document.getElementById('dispRateLbl').innerText = 'HOURS SALARY';
-          document.getElementById('dispRateVal').innerText = formatCurrency(p.hours_salary);
-        } else if (st === 'half_day') {
-          document.getElementById('dispRateLbl').innerText = 'HALF DAY SALARY';
-          document.getElementById('dispRateVal').innerText = formatCurrency(p.half_day_salary);
-        } else {
-          document.getElementById('dispRateLbl').innerText = 'DAY SALARY';
-          document.getElementById('dispRateVal').innerText = formatCurrency(p.day_salary);
-        }
-        document.getElementById('dispShiftHours').innerText = shiftH;
-        document.getElementById('dispWorkingDays').innerText = p.working_days_breakdown || `${p.working_days} Days`;
-        document.getElementById('dispTotalDays').innerText = `${p.total_days_of_month} Days (${p.leave_days} Leave)`;
-        document.getElementById('dispWorkingHours').innerText = p.total_working_hours || '00:00';
-        document.getElementById('dispBankName').innerText = bankName;
-
-        // 5. Earnings & Deductions Tables
-        document.getElementById('dispBasicSalary').innerText = formatCurrency(p.basic_salary);
-        document.getElementById('dispAllowance').innerText = formatCurrency(p.allowance);
-        document.getElementById('dispIncentive').innerText = formatCurrency(p.incentive);
-        document.getElementById('dispOtherEarnings').innerText = formatCurrency(p.other_earnings);
-        document.getElementById('dispTotalEarnings').innerText = formatCurrency(p.total_earnings);
-
-        document.getElementById('dispPaidSalary').innerText = formatCurrency(p.paid_salary);
-        document.getElementById('dispAdvRepayment').innerText = formatCurrency(p.advance_repayment);
-        document.getElementById('dispOtherDeductions').innerText = formatCurrency(p.other_deductions);
-        const totDed = (p.total_deduction !== undefined) ? p.total_deduction : p.total_deductions;
-        document.getElementById('dispTotalDeductions').innerText = formatCurrency(totDed);
-
-        // 6. Net Pay Banner
-        const netNum = Number(p.net_pay || 0);
-        document.getElementById('dispNetPay').innerText = netNum.toLocaleString('en-IN');
-        document.getElementById('dispNetWords').innerText = (p.net_pay_in_words || '').trim() || 'Zero Rupees Only';
-
-        // 7. Dynamic Company Logo & Aligned Header Info
-        const logoEl = document.getElementById('dispCompanyLogo');
-        const initialEl = document.getElementById('dispCompanyInitial');
-        const logoSrc = p.company_logo_url || (p.company_logo ? `/uploads/${p.company_logo}` : '');
-        if (logoSrc) {
-          logoEl.src = logoSrc;
-          logoEl.style.display = 'block';
-          initialEl.style.display = 'none';
-        } else {
-          logoEl.src = '';
-          logoEl.style.display = 'none';
-          initialEl.innerText = ((p.company_name || 'A')[0]).toUpperCase();
-          initialEl.style.display = 'block';
-        }
-
-        if (p.company_name) {
-          document.getElementById('dispCompanyName').innerText = p.company_name;
-        }
-        if (p.company_address) {
-          document.getElementById('dispCompanyAddress').innerText = p.company_address;
-        }
-
-        // Clean Horizontal Alignment of Contact & GSTIN
-        const compContactEl = document.getElementById('dispCompanyContact');
-        if (compContactEl) {
-          const parts = [];
-          if (p.company_email) parts.push(`<span>Email: ${p.company_email}</span>`);
-          if (p.company_phone) parts.push(`<span>Phone: ${p.company_phone}</span>`);
-          if (p.company_gstin) parts.push(`<span class="payslip-gstin-badge">GSTIN: ${p.company_gstin}</span>`);
-          
-          if (parts.length > 0) {
-            compContactEl.innerHTML = parts.join('<span style="opacity: 0.5;"> | </span>');
-          } else {
-            compContactEl.innerHTML = `<span>Email: argusattendance@gmail.com</span><span style="opacity:0.5;"> | </span><span>Phone: 9878787999</span><span style="opacity:0.5;"> | </span><span class="payslip-gstin-badge">GSTIN: 33AHZPG5373L2ZN</span>`;
-          }
-        }
+        // Populate all layouts with the retrieved data
+        populateAllLayouts(p);
 
         // Apply current template layout & color scheme
         applyTemplateAndTheme(currentTemplate, currentTheme);
@@ -1269,6 +2365,7 @@ document.addEventListener('DOMContentLoaded', function () {
           --ps-tint: ${palette.tint};
           --ps-border: ${palette.border};
           --ps-text-dark: ${palette.text_dark};
+          --ps-light-badge: ${palette.light_badge};
         }
         * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 15px; color: #1e293b; }
