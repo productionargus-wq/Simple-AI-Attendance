@@ -115,7 +115,14 @@ document.addEventListener('DOMContentLoaded', function () {
       const hoursDisplay = isSub ? `-${escapeHtml(r.hours || '')}` : escapeHtml(r.hours || '');
       const rawStatus = r.status || '';
       const rawReason = (r.reason || '').trim();
-      const statusDisplay = rawReason ? `${rawStatus} (${rawReason})` : rawStatus;
+      let statusDisplay = rawStatus;
+      if (rawReason) {
+        if (rawReason.startsWith('(') && rawReason.endsWith(')')) {
+          statusDisplay = `${rawStatus} ${rawReason}`;
+        } else {
+          statusDisplay = `${rawStatus} (${rawReason})`;
+        }
+      }
 
       tr.innerHTML = `
         <td class="col-wrap" style="white-space: normal !important; word-break: break-word !important; min-width: 140px;">${escapeHtml(r.employee_name)}</td>
@@ -345,12 +352,14 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
       const id = entryIdInput.value;
+      const rInput = document.getElementById('inputReason');
+      const reasonVal = rInput ? rInput.value.trim() : (form.elements['reason'] ? form.elements['reason'].value.trim() : (reasonInput ? reasonInput.value.trim() : ''));
       const formData = {
         employee_name: empNameSelect.value,
         entry_date: entryDateInput.value,
         hours: hoursInput.value,
         status: statusSelect.value,
-        reason: reasonInput ? reasonInput.value.trim() : '',
+        reason: reasonVal,
         entry_type: (entryTypeInput ? entryTypeInput.value : 'Add')
       };
 
