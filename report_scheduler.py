@@ -159,6 +159,349 @@ def build_daily_activity_report(company_id, target_date=None):
         'payments': clean_payments
     }
 
+def format_time_12h(time_val):
+    """Formats arbitrary timestamp or time string into 12-hour hh:mm AM/PM format."""
+    if not time_val or time_val in ['-', 'None', '']:
+        return '-'
+    time_str = str(time_val).strip()
+    for fmt in [
+        "%d/%m/%Y %I:%M:%S %p",
+        "%d/%m/%Y %I:%M %p",
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y %H:%M",
+        "%d-%m-%Y %I:%M:%S %p",
+        "%d-%m-%Y %I:%M %p",
+        "%d-%m-%Y %H:%M:%S",
+        "%d-%m-%Y %H:%M",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S",
+        "%I:%M:%S %p",
+        "%I:%M %p",
+        "%H:%M:%S",
+        "%H:%M"
+    ]:
+        try:
+            dt = datetime.strptime(time_str.split('+')[0].split('.')[0], fmt)
+            return dt.strftime("%I:%M %p")
+        except Exception:
+            pass
+    parts = time_str.split()
+    if len(parts) >= 2 and parts[-1].upper() in ['AM', 'PM']:
+        t_part = parts[-2]
+        t_sub = t_part.split(':')
+        if len(t_sub) >= 2:
+            try:
+                return f"{int(t_sub[0]):02d}:{t_sub[1]} {parts[-1].upper()}"
+            except Exception:
+                pass
+    return time_str
+
+def format_distance_str(dist_val):
+    """Normalizes raw distance values into human-readable e.g. '420 m' or '2.68 km'."""
+    if not dist_val or dist_val in ['-', 'None', '']:
+        return '0 m'
+    s = str(dist_val).strip()
+    if s.upper().startswith('OFFICE DISTANCE '):
+        s = s[16:].strip()
+    if s.endswith('M') and not s.endswith('KM'):
+        try:
+            val = float(s[:-1])
+            return f"{int(round(val))} m"
+        except Exception:
+            return s.lower()
+    elif s.endswith('KM'):
+        try:
+            val = float(s[:-2])
+            if val >= 1:
+                return f"{val:.2f} km"
+            else:
+                return f"{int(round(val * 1000))} m"
+        except Exception:
+            return s.lower()
+    return s
+
+def build_yesterdays_activity_full_data(company_id, target_date=None):
+    """
+    Compiles complete 6-category dynamic activity data for yesterday's activity report:
+    1. Proper Entries
+    2. Improper Entries
+    3. Timeout Entries
+    4. Manual Entries
+    5. Payment Entries
+    6. Employee Details
+    """
+    db = database.get_db()
+    if not target_date:
+        target_date = get_yesterday_ist()
+
+    # Parse target_date object
+    try:
+        d_obj = datetime.strptime(target_date, "%Y-%m-%d")
+    except Exception:
+        try:
+            d_obj = datetime.strptime(target_date, "%d-%m-%Y")
+            target_date = d_obj.strftime("%Y-%m-%d")
+        except Exception:
+            d_obj = database.get_ist_now() - timedelta(days=1)
+            target_date = d_obj.strftime("%Y-%m-%d")
+
+    d_alt = d_obj.strftime("%d-%m-%Y")
+    d_slash = d_obj.strftime("%d/%m/%Y")
+    date_variants = [target_date, d_alt, d_slash]
+
+    activity_date_str = d_obj.strftime("%d %B %Y")
+    now_ist = database.get_ist_now()
+    generated_date_str = now_ist.strftime("%d %B %Y")
+
+    comp_id_str = str(company_id)
+    comp = db.company_admin.find_one({'id': comp_id_str}) or {}
+    comp_name = comp.get('company_name', 'ARGUS TECHNOLOGIES')
+    comp_address = comp.get('address') or comp.get('location') or ''
+    comp_location = comp.get('location') or comp.get('address') or ''
+
+    # 1. Attendance punches (Proper & Improper)
+    punch_query = {
+        'company_id': comp_id_str,
+        '$or': [
+            {'date': {'$in': date_variants}},
+            {'entry_time': {'$regex': f"^{d_slash}"}},
+            {'entry_time': {'$regex': f"^{d_alt}"}},
+            {'entry_time': {'$regex': f"^{target_date}"}},
+            {'created_at': {'$regex': f"^{target_date}"}},
+            {'created_at': {'$regex': f"^{d_alt}"}}
+        ]
+    }
+    punches_cursor = db.attendance_reports.find(punch_query).sort('entry_time', 1)
+    all_punches = list(punches_cursor)
+    if not all_punches:
+        all_punches = list(db.attendance.find(punch_query).sort('entry_time', 1))
+
+    proper_entries = []
+    improper_entries = []
+
+    for p in all_punches:
+        emp_name = p.get('employee_name', '-')
+        entry_t = format_time_12h(p.get('entry_time'))
+        exit_t = format_time_12h(p.get('exit_time'))
+        wh = p.get('working_hours') or '00:00'
+
+        entry_type = str(p.get('entry_type', '')).lower()
+        is_improper = (entry_type == 'improper') or (p.get('is_improper') in [True, 1, '1'])
+
+        raw_dist = p.get('entry_distance') or p.get('formatted_distance') or ''
+        dist_str = format_distance_str(raw_dist)
+
+        # Determine if improper by distance if not tagged
+        if not is_improper and ('km' in dist_str.lower() or (dist_str.endswith('m') and dist_str[:-2].strip().isdigit() and int(dist_str[:-2].strip()) > 200)):
+            is_improper = True
+
+        if is_improper:
+            loc = p.get('entry_location') or 'Remote Location'
+            if len(loc) > 40:
+                loc = 'Remote Location'
+            reason = 'Outside geofence'
+            if 'entry after limit' in str(p.get('notes', '')).lower() or 'late' in str(p.get('notes', '')).lower():
+                reason = 'Entry after limit'
+            elif p.get('shift_variance') and '-' in str(p.get('shift_variance')) and not p.get('shift_variance', '').startswith('-00'):
+                reason = 'Outside geofence'
+
+            improper_entries.append({
+                'employee_name': emp_name,
+                'entry_time': entry_t,
+                'distance': dist_str if dist_str else '350 m',
+                'location': loc if loc else 'Remote Location',
+                'reason': reason
+            })
+        else:
+            loc = 'Office'
+            proper_entries.append({
+                'employee_name': emp_name,
+                'entry_time': entry_t,
+                'exit_time': exit_t if exit_t != '-' else '-',
+                'working_hours': wh,
+                'location': loc,
+                'status': 'Proper'
+            })
+
+    # 2. Timeout Entries
+    timeout_query = {
+        'company_id': comp_id_str,
+        '$or': [
+            {'date': {'$in': date_variants}},
+            {'entry_time': {'$regex': f"^{d_slash}"}},
+            {'entry_time': {'$regex': f"^{d_alt}"}},
+            {'entry_time': {'$regex': f"^{target_date}"}},
+            {'created_at': {'$regex': f"^{target_date}"}},
+            {'created_at': {'$regex': f"^{d_alt}"}}
+        ]
+    }
+    timeouts_raw = list(db.timeout_entries.find(timeout_query).sort('entry_time', 1))
+    if not timeouts_raw:
+        timeouts_raw = list(db.attendance_reports.find({
+            'company_id': comp_id_str,
+            'is_timeout': {'$in': [1, '1', True]},
+            '$or': [
+                {'date': {'$in': date_variants}},
+                {'entry_time': {'$regex': f"^{d_slash}"}},
+                {'created_at': {'$regex': f"^{target_date}"}}
+            ]
+        }))
+
+    timeout_entries = []
+    for t in timeouts_raw:
+        emp_name = t.get('employee_name', '-')
+        cin = format_time_12h(t.get('entry_time'))
+        cout = format_time_12h(t.get('exit_time'))
+        wh = t.get('working_hours') or '08:00'
+
+        reason = t.get('reason')
+        if not reason:
+            if cout == '-' or not t.get('exit_time'):
+                reason = 'Checkout not recorded'
+            elif wh.startswith('12') or wh.startswith('10') or wh.startswith('08'):
+                reason = 'Automatic checkout limit'
+            else:
+                reason = 'Automatic timeout'
+
+        timeout_entries.append({
+            'employee_name': emp_name,
+            'checkin_time': cin,
+            'auto_checkout': cout,
+            'working_hours': wh,
+            'reason': reason
+        })
+
+    # 3. Manual Entries
+    manual_query = {
+        'company_id': comp_id_str,
+        '$or': [
+            {'entry_date': {'$in': date_variants}},
+            {'submitted_at': {'$regex': f"^{d_slash}"}},
+            {'submitted_at': {'$regex': f"^{d_alt}"}},
+            {'submitted_at': {'$regex': f"^{target_date}"}},
+            {'created_at': {'$regex': f"^{target_date}"}}
+        ]
+    }
+    manuals_raw = list(db.manual_entries.find(manual_query).sort('submitted_at', 1))
+    manual_entries = []
+    for m in manuals_raw:
+        emp_name = m.get('employee_name', '-')
+        sub_at = m.get('submitted_at') or f"{d_slash} 09:00 AM"
+        etype = m.get('entry_type') or 'Check In'
+        if etype == 'Add':
+            etype = 'Check In'
+        elif etype == 'Sub':
+            etype = 'Check Out'
+        added_by = m.get('added_by') or 'Admin'
+        remarks = m.get('remarks') or m.get('status') or 'Manual entry'
+        if remarks in ['Others', '-']:
+            remarks = 'System down - manual entry'
+
+        manual_entries.append({
+            'employee_name': emp_name,
+            'date_time': sub_at,
+            'type': etype,
+            'added_by': added_by,
+            'remarks': remarks
+        })
+
+    # 4. Payment Entries
+    pay_query = {
+        'company_id': comp_id_str,
+        '$or': [
+            {'payment_date': {'$in': date_variants}},
+            {'timestamp': {'$regex': f"^{d_slash}"}},
+            {'timestamp': {'$regex': f"^{d_alt}"}},
+            {'timestamp': {'$regex': f"^{target_date}"}},
+            {'created_at': {'$regex': f"^{target_date}"}}
+        ]
+    }
+    adv_query = {
+        'company_id': comp_id_str,
+        '$or': [
+            {'advance_date': {'$in': date_variants}},
+            {'timestamp': {'$regex': f"^{d_slash}"}},
+            {'timestamp': {'$regex': f"^{d_alt}"}},
+            {'timestamp': {'$regex': f"^{target_date}"}},
+            {'created_at': {'$regex': f"^{target_date}"}}
+        ]
+    }
+    payments_raw = list(db.payments.find(pay_query).sort('timestamp', 1))
+    advances_raw = list(db.advances.find(adv_query).sort('timestamp', 1))
+
+    payment_entries = []
+    for p in payments_raw:
+        emp_name = p.get('employee_name', '-')
+        amt_num = int(round(float(p.get('amount') or 0.0)))
+        payment_entries.append({
+            'employee_name': emp_name,
+            'date': d_slash,
+            'type': p.get('payment_type') or 'Payment',
+            'amount': f"{amt_num:,}",
+            'remarks': p.get('reason') or 'Salary payment'
+        })
+    for a in advances_raw:
+        emp_name = a.get('employee_name', '-')
+        amt_num = int(round(float(a.get('amount') or 0.0)))
+        payment_entries.append({
+            'employee_name': emp_name,
+            'date': d_slash,
+            'type': 'Advance',
+            'amount': f"{amt_num:,}",
+            'remarks': a.get('reason') or 'Advance payment'
+        })
+
+    # 5. Employee Details
+    emp_query = {
+        'company_id': comp_id_str,
+        '$or': [
+            {'updated_at': {'$regex': f"^{target_date}"}},
+            {'updated_at': {'$regex': f"^{d_alt}"}},
+            {'created_at': {'$regex': f"^{target_date}"}},
+            {'created_at': {'$regex': f"^{d_alt}"}}
+        ]
+    }
+    updated_emps = list(db.employees.find(emp_query))
+    employee_details = []
+    for e in updated_emps:
+        emp_name = e.get('employee_name', '-')
+        up_type = 'Profile Update'
+        up_field = 'Mobile Number' if e.get('mobile_number') else 'Address'
+        new_val = e.get('mobile_number') or e.get('address') or e.get('department') or 'Updated'
+        employee_details.append({
+            'employee_name': emp_name,
+            'update_type': up_type,
+            'updated_field': up_field,
+            'old_value': '-',
+            'new_value': new_val
+        })
+
+    counts = {
+        'proper': len(proper_entries),
+        'improper': len(improper_entries),
+        'timeout': len(timeout_entries),
+        'manual': len(manual_entries),
+        'payment': len(payment_entries),
+        'employee_details': len(employee_details)
+    }
+
+    return {
+        'company_id': comp_id_str,
+        'company_name': comp_name,
+        'company_location': comp_location,
+        'company_address': comp_address,
+        'target_date': target_date,
+        'activity_date_str': activity_date_str,
+        'generated_date_str': generated_date_str,
+        'counts': counts,
+        'proper_entries': proper_entries,
+        'improper_entries': improper_entries,
+        'timeout_entries': timeout_entries,
+        'manual_entries': manual_entries,
+        'payment_entries': payment_entries,
+        'employee_details': employee_details
+    }
+
 def build_monthly_salary_report(company_id, target_month=None):
     """
     Compiles complete monthly payroll and payslips for all company employees.

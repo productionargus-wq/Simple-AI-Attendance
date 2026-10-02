@@ -2,9 +2,9 @@ import io
 import os
 import base64
 from datetime import datetime
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import letter, A4, landscape
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.graphics.shapes import Drawing, Rect, Path
@@ -2905,6 +2905,505 @@ def generate_salary_report_pdf(data, company_info=None):
     doc.build(elements)
     buffer.seek(0)
     return buffer
+
+def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
+    """
+    Generates a pixel-perfect 2-page landscape 'Yesterday's Activity Report' PDF.
+    Page 1: Header, 6 KPI cards, Section 1 (Proper Entries), Section 2 (Improper Entries).
+    Page 2: Continued Header, Section 3 (Timeout), Section 4 (Manual), Section 5 (Payment), Section 6 (Employee Details), Footer.
+    """
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=52.44,
+        rightMargin=52.44,
+        topMargin=22.0,
+        bottomMargin=20.0
+    )
+
+    comp_info = company_info or {}
+    comp_name = activity_data.get('company_name') or comp_info.get('company_name') or "ARGUS TECHNOLOGIES"
+    comp_loc = activity_data.get('company_location') or comp_info.get('location') or comp_info.get('address') or ""
+    act_date_str = activity_data.get('activity_date_str') or "01 October 2026"
+    gen_date_str = activity_data.get('generated_date_str') or "02 October 2026"
+    counts = activity_data.get('counts') or {}
+
+    # Category Color Palettes
+    c_proper_bg = colors.HexColor('#e8f5e9')
+    c_proper_accent = colors.HexColor('#148a4b')
+
+    c_improper_bg = colors.HexColor('#ffebee')
+    c_improper_accent = colors.HexColor('#c62828')
+
+    c_timeout_bg = colors.HexColor('#fef3c7')
+    c_timeout_accent = colors.HexColor('#c67a00')
+
+    c_manual_bg = colors.HexColor('#f3e8ff')
+    c_manual_accent = colors.HexColor('#6c3cc5')
+
+    c_payment_bg = colors.HexColor('#fef9c3')
+    c_payment_accent = colors.HexColor('#b76a00')
+
+    c_emp_bg = colors.HexColor('#fce7f3')
+    c_emp_accent = colors.HexColor('#c1275d')
+
+    c_border = colors.HexColor('#d8e1ea')
+    c_banner_border = colors.HexColor('#d6dee8')
+    c_th_bg = colors.HexColor('#edf3f8')
+    c_th_text = colors.HexColor('#163a64')
+    c_grid = colors.HexColor('#cbd5e1')
+    c_row_alt = colors.HexColor('#f8fafc')
+    c_row_white = colors.HexColor('#ffffff')
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        'YARCompTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=18,
+        leading=21,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#123b78')
+    )
+    subtitle_style = ParagraphStyle(
+        'YARSubTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        leading=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#5b6b82')
+    )
+    doc_title_style = ParagraphStyle(
+        'YARDocTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=20,
+        leading=23,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#0b2f5b')
+    )
+    doc_cont_title_style = ParagraphStyle(
+        'YARDocContTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=14,
+        leading=17,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#123b78')
+    )
+    meta_date_style = ParagraphStyle(
+        'YARMetaDate',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        leading=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#5b6b82')
+    )
+
+    banner_left_style = ParagraphStyle(
+        'YARBannerLeft',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=10,
+        leading=12,
+        alignment=TA_LEFT,
+        textColor=colors.HexColor('#143a66')
+    )
+
+    th_center_style = ParagraphStyle(
+        'YARThCenter',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=6.8,
+        leading=8.5,
+        alignment=TA_CENTER,
+        textColor=c_th_text
+    )
+    th_left_style = ParagraphStyle(
+        'YARThLeft',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=6.8,
+        leading=8.5,
+        alignment=TA_LEFT,
+        textColor=c_th_text
+    )
+
+    td_center_style = ParagraphStyle(
+        'YARTdCenter',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=6.8,
+        leading=8.5,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#000000')
+    )
+    td_left_style = ParagraphStyle(
+        'YARTdLeft',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=6.8,
+        leading=8.5,
+        alignment=TA_LEFT,
+        textColor=colors.HexColor('#000000')
+    )
+    td_empty_style = ParagraphStyle(
+        'YARTdEmpty',
+        parent=styles['Normal'],
+        fontName='Helvetica-Oblique',
+        fontSize=6.8,
+        leading=8.5,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#64748b')
+    )
+
+    footer_style = ParagraphStyle(
+        'YARFooter',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=7,
+        leading=9,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#667085')
+    )
+
+    elements = []
+
+    # ==================== PAGE 1 ====================
+    # 1. Header
+    elements.append(Paragraph(comp_name.upper(), title_style))
+    elements.append(Spacer(1, 2))
+    if comp_loc:
+        elements.append(Paragraph(comp_loc.upper(), subtitle_style))
+        elements.append(Spacer(1, 1))
+    elements.append(Paragraph("ARGUS ATTENDANCE - VERSION 5.1", subtitle_style))
+    elements.append(Spacer(1, 3))
+    elements.append(Paragraph("YESTERDAY'S ACTIVITY REPORT", doc_title_style))
+    elements.append(Spacer(1, 3))
+    meta_text = f"Activity Date: {act_date_str} | Generated On: {gen_date_str}"
+    elements.append(Paragraph(meta_text, meta_date_style))
+    elements.append(Spacer(1, 9))
+
+    # 2. KPI Cards Row (6 Cards, each 122.83 pt wide)
+    kpi_categories = [
+        ("Proper Entries", counts.get('proper', len(activity_data.get('proper_entries', []))), c_proper_accent, c_proper_bg),
+        ("Improper Entries", counts.get('improper', len(activity_data.get('improper_entries', []))), c_improper_accent, c_improper_bg),
+        ("Timeout Entries", counts.get('timeout', len(activity_data.get('timeout_entries', []))), c_timeout_accent, c_timeout_bg),
+        ("Manual Entries", counts.get('manual', len(activity_data.get('manual_entries', []))), c_manual_accent, c_manual_bg),
+        ("Payment Entries", counts.get('payment', len(activity_data.get('payment_entries', []))), c_payment_accent, c_payment_bg),
+        ("Employee Details", counts.get('employee_details', len(activity_data.get('employee_details', []))), c_emp_accent, c_emp_bg),
+    ]
+
+    card_cells = []
+    for title, val, text_color, _ in kpi_categories:
+        c_title_style = ParagraphStyle(
+            f'KPITitle_{title}',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=7.2,
+            leading=9,
+            alignment=TA_CENTER,
+            textColor=text_color
+        )
+        c_val_style = ParagraphStyle(
+            f'KPIVal_{title}',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=15,
+            leading=17,
+            alignment=TA_CENTER,
+            textColor=text_color
+        )
+        cell_flow = [
+            Paragraph(title, c_title_style),
+            Spacer(1, 2),
+            Paragraph(str(val), c_val_style)
+        ]
+        card_cells.append(cell_flow)
+
+    kpi_col_widths = [122.83] * 6
+    kpi_table = Table([card_cells], colWidths=kpi_col_widths)
+    kpi_table_style = [
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 2),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+        ('BOX', (0, 0), (-1, -1), 0.75, c_border),
+        ('INNERGRID', (0, 0), (-1, -1), 0.75, c_border),
+    ]
+    for idx, (_, _, _, bg_color) in enumerate(kpi_categories):
+        kpi_table_style.append(('BACKGROUND', (idx, 0), (idx, 0), bg_color))
+    kpi_table.setStyle(TableStyle(kpi_table_style))
+    elements.append(kpi_table)
+    elements.append(Spacer(1, 10))
+
+    # Helper: Create Section Banner
+    def make_section_banner(section_title, total_count, accent_color, bg_color):
+        banner_right_style = ParagraphStyle(
+            f'YARBannerRight_{section_title}',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=10,
+            leading=12,
+            alignment=TA_RIGHT,
+            textColor=accent_color
+        )
+        banner_data = [[
+            Paragraph(section_title, banner_left_style),
+            Paragraph(f"Total: {total_count}", banner_right_style)
+        ]]
+        b_table = Table(banner_data, colWidths=[587.0, 150.0])
+        b_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), bg_color),
+            ('BOX', (0, 0), (-1, -1), 0.75, c_banner_border),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+        ]))
+        return b_table
+
+    # 3. Section 1: Proper Entries
+    proper_list = activity_data.get('proper_entries', [])
+    elements.append(make_section_banner("1. Proper Entries", len(proper_list), c_proper_accent, c_proper_bg))
+    elements.append(Spacer(1, 2))
+
+    s1_widths = [34.0, 123.0, 116.0, 116.0, 116.0, 116.0, 116.0]
+    s1_rows = [[
+        Paragraph("#", th_center_style),
+        Paragraph("Employee Name", th_left_style),
+        Paragraph("Entry Time", th_center_style),
+        Paragraph("Exit Time", th_center_style),
+        Paragraph("Working Hours", th_center_style),
+        Paragraph("Location", th_center_style),
+        Paragraph("Status", th_center_style)
+    ]]
+
+    if proper_list:
+        for idx, row in enumerate(proper_list[:12], 1):
+            s1_rows.append([
+                Paragraph(str(idx), td_center_style),
+                Paragraph(str(row.get('employee_name', '-')), td_left_style),
+                Paragraph(str(row.get('entry_time', '-')), td_center_style),
+                Paragraph(str(row.get('exit_time', '-')), td_center_style),
+                Paragraph(str(row.get('working_hours', '-')), td_center_style),
+                Paragraph(str(row.get('location', 'Office')), td_center_style),
+                Paragraph(str(row.get('status', 'Proper')), td_center_style),
+            ])
+    else:
+        s1_rows.append([
+            Paragraph("-", td_center_style),
+            Paragraph("No proper entries recorded for this date", td_empty_style),
+            Paragraph("", td_center_style),
+            Paragraph("", td_center_style),
+            Paragraph("", td_center_style),
+            Paragraph("", td_center_style),
+            Paragraph("", td_center_style),
+        ])
+
+    s1_table = Table(s1_rows, colWidths=s1_widths)
+    s1_style = [
+        ('BACKGROUND', (0, 0), (-1, 0), c_th_bg),
+        ('BOX', (0, 0), (-1, -1), 0.5, c_grid),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, c_grid),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+    ]
+    if not proper_list:
+        s1_style.append(('SPAN', (1, 1), (-1, 1)))
+    else:
+        for r_idx in range(1, len(s1_rows)):
+            bg = c_row_white if r_idx % 2 == 1 else c_row_alt
+            s1_style.append(('BACKGROUND', (0, r_idx), (-1, r_idx), bg))
+    s1_table.setStyle(TableStyle(s1_style))
+    elements.append(s1_table)
+    elements.append(Spacer(1, 10))
+
+    # 4. Section 2: Improper Entries
+    improper_list = activity_data.get('improper_entries', [])
+    elements.append(make_section_banner("2. Improper Entries", len(improper_list), c_improper_accent, c_improper_bg))
+    elements.append(Spacer(1, 2))
+
+    s2_widths = [34.0, 140.6, 140.6, 140.6, 140.6, 140.6]
+    s2_rows = [[
+        Paragraph("#", th_center_style),
+        Paragraph("Employee Name", th_left_style),
+        Paragraph("Entry Time", th_center_style),
+        Paragraph("Distance", th_center_style),
+        Paragraph("Location", th_center_style),
+        Paragraph("Reason", th_center_style)
+    ]]
+
+    if improper_list:
+        for idx, row in enumerate(improper_list[:12], 1):
+            s2_rows.append([
+                Paragraph(str(idx), td_center_style),
+                Paragraph(str(row.get('employee_name', '-')), td_left_style),
+                Paragraph(str(row.get('entry_time', '-')), td_center_style),
+                Paragraph(str(row.get('distance', '-')), td_center_style),
+                Paragraph(str(row.get('location', '-')), td_center_style),
+                Paragraph(str(row.get('reason', '-')), td_center_style),
+            ])
+    else:
+        s2_rows.append([
+            Paragraph("-", td_center_style),
+            Paragraph("No improper entries recorded for this date", td_empty_style),
+            Paragraph("", td_center_style),
+            Paragraph("", td_center_style),
+            Paragraph("", td_center_style),
+            Paragraph("", td_center_style),
+        ])
+
+    s2_table = Table(s2_rows, colWidths=s2_widths)
+    s2_style = [
+        ('BACKGROUND', (0, 0), (-1, 0), c_th_bg),
+        ('BOX', (0, 0), (-1, -1), 0.5, c_grid),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, c_grid),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+    ]
+    if not improper_list:
+        s2_style.append(('SPAN', (1, 1), (-1, 1)))
+    else:
+        for r_idx in range(1, len(s2_rows)):
+            bg = c_row_white if r_idx % 2 == 1 else c_row_alt
+            s2_style.append(('BACKGROUND', (0, r_idx), (-1, r_idx), bg))
+    s2_table.setStyle(TableStyle(s2_style))
+    elements.append(s2_table)
+
+    # PAGE 1 END -> PAGE BREAK
+    elements.append(PageBreak())
+
+    # ==================== PAGE 2 ====================
+    # Page 2 Header
+    elements.append(Paragraph("YESTERDAY'S ACTIVITY REPORT - Continued", doc_cont_title_style))
+    elements.append(Spacer(1, 2))
+    elements.append(Paragraph(f"Activity Date: {act_date_str}", meta_date_style))
+    elements.append(Spacer(1, 8))
+
+    # Helper: Generic 6-col section table
+    def build_6col_table(data_list, headers, col_keys, left_col_idx=1, empty_msg="No records found"):
+        t_rows = [[Paragraph(h, th_left_style if i == left_col_idx else th_center_style) for i, h in enumerate(headers)]]
+        if data_list:
+            for idx, r_data in enumerate(data_list[:12], 1):
+                row_cells = [Paragraph(str(idx), td_center_style)]
+                for c_idx, key in enumerate(col_keys):
+                    val = r_data.get(key, '-')
+                    st = td_left_style if (c_idx + 1) == left_col_idx else td_center_style
+                    row_cells.append(Paragraph(str(val), st))
+                t_rows.append(row_cells)
+        else:
+            t_rows.append([
+                Paragraph("-", td_center_style),
+                Paragraph(empty_msg, td_empty_style),
+                Paragraph("", td_center_style),
+                Paragraph("", td_center_style),
+                Paragraph("", td_center_style),
+                Paragraph("", td_center_style),
+            ])
+        tbl = Table(t_rows, colWidths=s2_widths)
+        tbl_st = [
+            ('BACKGROUND', (0, 0), (-1, 0), c_th_bg),
+            ('BOX', (0, 0), (-1, -1), 0.5, c_grid),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, c_grid),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+        ]
+        if not data_list:
+            tbl_st.append(('SPAN', (1, 1), (-1, 1)))
+        else:
+            for r_idx in range(1, len(t_rows)):
+                bg = c_row_white if r_idx % 2 == 1 else c_row_alt
+                tbl_st.append(('BACKGROUND', (0, r_idx), (-1, r_idx), bg))
+        tbl.setStyle(TableStyle(tbl_st))
+        return tbl
+
+    # 5. Section 3: Timeout Entries
+    timeout_list = activity_data.get('timeout_entries', [])
+    elements.append(make_section_banner("3. Timeout Entries", len(timeout_list), c_timeout_accent, c_timeout_bg))
+    elements.append(Spacer(1, 2))
+    t3 = build_6col_table(
+        timeout_list,
+        ["#", "Employee Name", "Check-in Time", "Auto Checkout", "Working Hours", "Reason"],
+        ["employee_name", "checkin_time", "auto_checkout", "working_hours", "reason"],
+        left_col_idx=1,
+        empty_msg="No timeout entries recorded for this date"
+    )
+    elements.append(t3)
+    elements.append(Spacer(1, 7))
+
+    # 6. Section 4: Manual Entries
+    manual_list = activity_data.get('manual_entries', [])
+    elements.append(make_section_banner("4. Manual Entries", len(manual_list), c_manual_accent, c_manual_bg))
+    elements.append(Spacer(1, 2))
+    t4 = build_6col_table(
+        manual_list,
+        ["#", "Employee Name", "Date & Time", "Type", "Added By", "Remarks"],
+        ["employee_name", "date_time", "type", "added_by", "remarks"],
+        left_col_idx=1,
+        empty_msg="No manual entries recorded for this date"
+    )
+    elements.append(t4)
+    elements.append(Spacer(1, 7))
+
+    # 7. Section 5: Payment Entries
+    payment_list = activity_data.get('payment_entries', [])
+    elements.append(make_section_banner("5. Payment Entries", len(payment_list), c_payment_accent, c_payment_bg))
+    elements.append(Spacer(1, 2))
+    t5 = build_6col_table(
+        payment_list,
+        ["#", "Employee Name", "Date", "Type", "Amount (Rs.)", "Remarks"],
+        ["employee_name", "date", "type", "amount", "remarks"],
+        left_col_idx=1,
+        empty_msg="No payment entries recorded for this date"
+    )
+    elements.append(t5)
+    elements.append(Spacer(1, 7))
+
+    # 8. Section 6: Employee Details
+    emp_list = activity_data.get('employee_details', [])
+    elements.append(make_section_banner("6. Employee Details", len(emp_list), c_emp_accent, c_emp_bg))
+    elements.append(Spacer(1, 2))
+    t6 = build_6col_table(
+        emp_list,
+        ["#", "Employee Name", "Update Type", "Updated Field", "Old Value", "New Value"],
+        ["employee_name", "update_type", "updated_field", "old_value", "new_value"],
+        left_col_idx=1,
+        empty_msg="No employee profile updates recorded for this date"
+    )
+    elements.append(t6)
+    elements.append(Spacer(1, 10))
+
+    # 9. Page 2 Footers
+    elements.append(Paragraph(
+        "Automatically generated by ARGUS Attendance and sent to the registered company email. Computer generated report - no signature required.",
+        footer_style
+    ))
+    elements.append(Spacer(1, 2))
+    elements.append(Paragraph(
+        "&copy; 2026 ARGUS Attendance | Version 5.1 | Powered by ArgusCNC(TM)",
+        footer_style
+    ))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
 
 
 

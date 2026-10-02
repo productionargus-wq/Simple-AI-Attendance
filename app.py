@@ -599,24 +599,14 @@ def dashboard():
 @login_required
 def api_dashboard_yesterday_activity_pdf():
     try:
-        from report_scheduler import get_yesterday_ist
+        from report_scheduler import get_yesterday_ist, build_yesterdays_activity_full_data
         comp_id = get_current_company_id()
         yesterday = get_yesterday_ist()
         company_info = get_current_company_info()
 
-        result = database.get_attendance_reports(
-            report_type='all',
-            start_date=yesterday,
-            end_date=yesterday,
-            limit=1000,
-            company_id=comp_id
-        )
-        data = result.get('data', []) if isinstance(result, dict) else []
-        title = f"Daily Activity Report - {yesterday}"
-        pdf_buffer = pdf_generator.generate_attendance_report_pdf(
-            title,
-            data,
-            is_simple=False,
+        activity_data = build_yesterdays_activity_full_data(comp_id, target_date=yesterday)
+        pdf_buffer = pdf_generator.generate_yesterdays_activity_report_pdf(
+            activity_data,
             company_info=company_info
         )
 
