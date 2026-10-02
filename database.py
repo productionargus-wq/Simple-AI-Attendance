@@ -1270,8 +1270,8 @@ def get_dashboard_stats(company_id=None):
 def process_company_timeout_entries(company_id=None):
     """
     Checks for employees who punched in and forgot to punch out.
-    If current IST time exceeds (entry_time + company.shift_hours),
-    automatically completes their punch-out according to the company shift time.
+    If current IST time exceeds (entry_time + shift_hours),
+    automatically completes their punch-out according to the shift time.
     """
     db = get_db()
     now = get_ist_now()
@@ -1288,21 +1288,29 @@ def process_company_timeout_entries(company_id=None):
     auto_count = 0
     
     for rep in pending_reps:
-        cid = rep.get('company_id', 'ARGUS_MASTER')
+        cid = str(rep.get('company_id', 'ARGUS_MASTER'))
+        emp_name = rep.get('employee_name', '')
+        
+        # Determine shift duration: prioritize employee shift, fallback to company shift
         if cid not in company_shifts:
-            comp = db.company_admin.find_one({'id': str(cid)})
+            comp = db.company_admin.find_one({'id': cid})
             company_shifts[cid] = comp.get('shift_hours', '08:00') if comp else '08:00'
             
-        shift_str = company_shifts[cid]
+        emp = db.employees.find_one({'employee_name': emp_name}) if emp_name else None
+        emp_shift = emp.get('shift_hours') if emp else None
+        shift_str = emp_shift if emp_shift and str(emp_shift).strip() else company_shifts.get(cid, '08:00')
+        
         shift_h = 8
         shift_m = 0
         try:
-            if ':' in shift_str:
-                sp = shift_str.split(':')
-                shift_h = int(sp[0])
-                shift_m = int(sp[1])
-            else:
-                shift_h = int(float(shift_str))
+            if shift_str:
+                s_clean = str(shift_str).strip()
+                if ':' in s_clean:
+                    sp = s_clean.split(':')
+                    shift_h = int(sp[0])
+                    shift_m = int(sp[1])
+                else:
+                    shift_h = int(float(s_clean))
         except Exception:
             shift_h = 8
             shift_m = 0
@@ -1315,7 +1323,16 @@ def process_company_timeout_entries(company_id=None):
             
         entry_time_str = rep.get('entry_time', '')
         entry_dt = None
-        for fmt in ['%d/%m/%Y %I:%M:%S %p', '%d/%m/%Y %H:%M:%S', '%Y-%m-%d %H:%M:%S', '%d-%m-%Y %I:%M:%S %p']:
+        for fmt in [
+            '%d/%m/%Y %I:%M:%S %p',
+            '%d/%m/%Y %I:%M %p',
+            '%d/%m/%Y %H:%M:%S',
+            '%d/%m/%Y %H:%M',
+            '%Y-%m-%d %H:%M:%S',
+            '%Y-%m-%d %I:%M:%S %p',
+            '%d-%m-%Y %I:%M:%S %p',
+            '%d-%m-%Y %H:%M:%S'
+        ]:
             try:
                 entry_dt = datetime.strptime(entry_time_str.strip(), fmt)
                 break
@@ -1333,13 +1350,11 @@ def process_company_timeout_entries(company_id=None):
             
         auto_exit_dt = entry_dt + timedelta(minutes=shift_mins)
         
-        # If current time is past scheduled shift exit, auto timeout punch-out
+        # If current time is strictly past scheduled shift exit, auto timeout punch-out
         if now >= auto_exit_dt:
             auto_exit_str = auto_exit_dt.strftime('%d/%m/%Y %I:%M:%S %p')
             working_hours_str = f"{shift_h:02d}:{shift_m:02d}"
             
-            emp_name = rep.get('employee_name', '')
-            emp = db.employees.find_one({'employee_name': emp_name})
             salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
             hourly_rate = float(emp.get('hourly_salary', 0.0)) if emp else 100.0
             day_rate = float(emp.get('day_salary', 0.0)) if emp else (hourly_rate * 8.0)
@@ -1361,7 +1376,7 @@ def process_company_timeout_entries(company_id=None):
                 {'$set': {
                     'exit_time': auto_exit_str,
                     'exit_distance': '0.0M (AUTO TIMEOUT)',
-                    'exit_location': f"Auto Punch-Out based on Company Shift Time ({shift_str})",
+                    'exit_location': f"Auto Punch-Out based on Shift Time ({shift_str})",
                     'working_hours': working_hours_str,
                     'shift_variance': '00:00',
                     'day_credit_type': day_credit_type,
@@ -1381,11 +1396,12 @@ def process_company_timeout_entries(company_id=None):
             if not db.timeout_entries.find_one(timeout_filter):
                 active_live = db.live_entries.find_one({
                     'company_id': str(cid),
-                    'employee_name': emp_name
-                }, sort=[('created_at', DESCENDING)])
+                    'employee_name': emp_name,
+                    'entry_time': entry_time_str
+                })
 
                 entry_t = active_live.get('entry_time', entry_time_str) if active_live else entry_time_str
-                entry_l = active_live.get('entry_location', 'OFFICE') if active_live else 'OFFICE'
+                entry_l = active_live.get('entry_location', rep.get('entry_location', 'OFFICE')) if active_live else rep.get('entry_location', 'OFFICE')
                 entry_d = active_live.get('entry_distance', 0.0) if active_live else 0.0
 
                 db.timeout_entries.insert_one({
@@ -1397,7 +1413,7 @@ def process_company_timeout_entries(company_id=None):
                     'working_hours': working_hours_str,
                     'site_name': 'OFFICE (AUTO TIMEOUT)',
                     'entry_location': entry_l,
-                    'exit_location': f"Auto Punch-Out based on Company Shift ({shift_str})",
+                    'exit_location': f"Auto Punch-Out based on Shift Time ({shift_str})",
                     'entry_distance': entry_d,
                     'exit_distance': '0.0M (AUTO TIMEOUT)',
                     'formatted_distance': '0.0M (AUTO TIMEOUT)',
@@ -1405,17 +1421,118 @@ def process_company_timeout_entries(company_id=None):
                     'created_at': now.isoformat()
                 })
 
-            # Remove from live_entries
+            # Remove from live_entries ONLY for this specific session
             db.live_entries.delete_many({
                 'company_id': str(cid),
-                'employee_name': emp_name
+                'employee_name': emp_name,
+                'entry_time': entry_time_str
             })
             auto_count += 1
             
     return auto_count
 
+def sync_live_and_timeout_entries(company_id=None):
+    """
+    Ensures db.live_entries contains ALL active punched-in employees currently on duty (exit_time == '----').
+    1. First runs process_company_timeout_entries to auto punch-out sessions that passed shift duration.
+    2. Synchronizes active uncompleted reports (exit_time == '----') into db.live_entries.
+    3. Purges stale entries from db.live_entries whose session has been punched out or timed out.
+    4. Removes any erroneously created timeout_entries that match an actively open session.
+    """
+    try:
+        db = get_db()
+        now = get_ist_now()
+        
+        # 1. Process any overdue timeouts first
+        process_company_timeout_entries(company_id=company_id)
+        
+        # 2. Find all active attendance reports with exit_time == '----'
+        rep_query = {'exit_time': '----'}
+        if company_id and company_id != 'ALL':
+            rep_query['company_id'] = str(company_id)
+            
+        open_reps = list(db.attendance_reports.find(rep_query))
+        open_session_keys = set()
+        
+        for rep in open_reps:
+            cid = str(rep.get('company_id', 'ARGUS_MASTER'))
+            emp_name = rep.get('employee_name')
+            entry_t = rep.get('entry_time')
+            if not emp_name or not entry_t:
+                continue
+                
+            session_key = (cid, emp_name, entry_t)
+            open_session_keys.add(session_key)
+            
+            # Parse distance
+            dist_num = 0.0
+            try:
+                d_val = rep.get('entry_distance', 0.0)
+                if isinstance(d_val, (int, float)):
+                    dist_num = float(d_val)
+                else:
+                    d_str = str(d_val).upper().replace('OFFICE DISTANCE', '').replace('KM', '').replace('M', '').strip()
+                    dist_num = float(d_str)
+                    if 'KM' in str(d_val).upper():
+                        dist_num *= 1000.0
+            except Exception:
+                dist_num = 0.0
+                
+            entry_loc = rep.get('entry_location') or get_company_full_address(cid)
+            formatted_dist = rep.get('entry_distance') if (rep.get('entry_distance') and 'OFFICE' in str(rep.get('entry_distance'))) else format_office_distance(dist_num)
+            
+            # Ensure in db.live_entries
+            db.live_entries.update_one(
+                {
+                    'company_id': cid,
+                    'employee_name': emp_name,
+                    'entry_time': entry_t
+                },
+                {
+                    '$setOnInsert': {
+                        'company_id': cid,
+                        'employee_id': str(rep.get('employee_id', '')),
+                        'employee_name': emp_name,
+                        'entry_time': entry_t,
+                        'site_name': 'OFFICE',
+                        'entry_location': entry_loc,
+                        'entry_distance': dist_num,
+                        'formatted_distance': formatted_dist,
+                        'user_lat': rep.get('entry_lat'),
+                        'user_lng': rep.get('entry_lng'),
+                        'is_timeout': 0,
+                        'created_at': rep.get('created_at', now.isoformat())
+                    }
+                },
+                upsert=True
+            )
+            
+            # If an errant record in timeout_entries matches this active session, remove it
+            db.timeout_entries.delete_many({
+                'company_id': cid,
+                'employee_name': emp_name,
+                'entry_time': entry_t
+            })
+            
+        # 3. Clean up any entries in live_entries that are no longer open in attendance_reports
+        live_query = {}
+        if company_id and company_id != 'ALL':
+            live_query['company_id'] = str(company_id)
+            
+        for live_doc in list(db.live_entries.find(live_query)):
+            cid = str(live_doc.get('company_id', 'ARGUS_MASTER'))
+            emp_name = live_doc.get('employee_name')
+            entry_t = live_doc.get('entry_time')
+            
+            # If not in open_session_keys, this session is no longer active!
+            if (cid, emp_name, entry_t) not in open_session_keys:
+                db.live_entries.delete_one({'_id': live_doc['_id']})
+                
+    except Exception as e:
+        print(f"Warning in sync_live_and_timeout_entries: {e}")
+
 def get_live_report_entries(tab='live', start_date=None, end_date=None, search=None, page=1, limit=10, company_id=None):
-    process_company_timeout_entries(company_id=company_id)
+    sync_live_and_timeout_entries(company_id=company_id)
     db = get_db()
     query = {}
     
@@ -1437,20 +1554,24 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
         
     if start_date:
         s_date = start_date.strip()
+        parts = s_date.split('-')
+        d_slash = f"{parts[2]}/{parts[1]}/{parts[0]}" if len(parts) == 3 else s_date
         query.setdefault('$and', []).append({
             '$or': [
                 {'created_at': {'$gte': s_date}},
-                {'entry_time': {'$gte': s_date}},
-                {'exit_time': {'$gte': s_date}}
+                {'entry_time': {'$regex': f"^{re.escape(d_slash)}"}},
+                {'exit_time': {'$regex': f"^{re.escape(d_slash)}"}}
             ]
         })
     if end_date:
         e_date = end_date.strip()
+        parts = e_date.split('-')
+        d_slash_e = f"{parts[2]}/{parts[1]}/{parts[0]}" if len(parts) == 3 else e_date
         query.setdefault('$and', []).append({
             '$or': [
                 {'created_at': {'$lte': e_date + 'T23:59:59'}},
-                {'entry_time': {'$lte': e_date + ' 23:59:59'}},
-                {'exit_time': {'$lte': e_date + ' 23:59:59'}}
+                {'entry_time': {'$regex': f"^{re.escape(d_slash_e)}"}},
+                {'exit_time': {'$regex': f"^{re.escape(d_slash_e)}"}}
             ]
         })
         
@@ -1531,58 +1652,7 @@ def sync_geofence_entry_types():
     except Exception as e:
         print(f"Warning in sync_geofence_entry_types: {e}")
 
-def sync_live_and_timeout_entries():
-    """
-    Ensures db.live_entries contains ONLY active punched-in employees currently on duty.
-    If an employee has already punched out today (or previously),
-    moves their completed session into db.timeout_entries and removes them from db.live_entries.
-    """
-    try:
-        db = get_db()
-        live_list = list(db.live_entries.find({}))
-        for entry in live_list:
-            emp_name = entry.get('employee_name')
-            cid = entry.get('company_id', 'ARGUS_MASTER')
-            entry_t = entry.get('entry_time', '')
-            
-            # Check if there is an attendance_report where exit_time != '----' for this employee
-            rep = db.attendance_reports.find_one({
-                'employee_name': emp_name,
-                'company_id': cid,
-                'exit_time': {'$exists': True, '$ne': '----'}
-            }, sort=[('created_at', DESCENDING)])
-            
-            if entry.get('is_timeout') == 1 or rep:
-                exit_t = rep.get('exit_time') if rep else entry.get('entry_time')
-                w_hrs = rep.get('working_hours', '00:00') if rep else '00:00'
-                exit_loc = rep.get('exit_location') if rep else entry.get('entry_location')
-                exit_dist = rep.get('exit_distance') if rep else entry.get('formatted_distance')
-                site_n = 'OFFICE (PUNCH OUT)'
-                if rep and rep.get('is_timeout') == 1:
-                    site_n = 'OFFICE (AUTO TIMEOUT)'
-                
-                # Insert into timeout_entries if not already there
-                if not db.timeout_entries.find_one({'company_id': cid, 'employee_name': emp_name, 'exit_time': exit_t}):
-                    db.timeout_entries.insert_one({
-                        'company_id': cid,
-                        'employee_id': entry.get('employee_id', ''),
-                        'employee_name': emp_name,
-                        'entry_time': entry_t,
-                        'exit_time': exit_t,
-                        'working_hours': w_hrs,
-                        'site_name': site_n,
-                        'entry_location': entry.get('entry_location', 'OFFICE'),
-                        'exit_location': exit_loc,
-                        'entry_distance': entry.get('entry_distance', 0.0),
-                        'exit_distance': exit_dist,
-                        'formatted_distance': exit_dist or entry.get('formatted_distance', ''),
-                        'is_timeout': 1,
-                        'created_at': entry.get('created_at', get_ist_now().isoformat())
-                    })
-                # Remove from live_entries
-                db.live_entries.delete_one({'_id': entry['_id']})
-    except Exception as e:
-        print(f"Warning syncing live and timeout entries: {e}")
+# Note: sync_live_and_timeout_entries is defined above with full session-aware auto-timeout & live-sync logic.
 
 def calculate_distance_meters(lat1, lon1, lat2=OFFICE_LAT, lon2=OFFICE_LNG):
     """Calculate distance in meters between two GPS coordinates using Haversine formula."""
