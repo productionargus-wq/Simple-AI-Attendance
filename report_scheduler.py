@@ -393,7 +393,7 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
         elif etype == 'Sub':
             etype = 'Check Out'
         added_by = m.get('added_by') or 'Admin'
-        remarks = m.get('remarks') or m.get('status') or 'Manual entry'
+        remarks = (m.get('reason') or '').strip() or m.get('remarks') or m.get('status') or 'Manual entry'
         if remarks in ['Others', '-']:
             remarks = 'System down - manual entry'
 

@@ -704,11 +704,14 @@ def generate_manual_entries_pdf(entries, company_info=None):
     
     for r in entries:
         sal = f"+{int(float(r.get('working_salary', 0)))}" if float(r.get('working_salary', 0)) > 0 else "0"
+        st_val = str(r.get('status', ''))
+        rs_val = str(r.get('reason', '') or '').strip()
+        status_display = f"{st_val} ({rs_val})" if rs_val else st_val
         table_data.append([
             Paragraph(str(r.get('employee_name', '')), cell_style),
             Paragraph(str(r.get('entry_date', '')), cell_style),
             Paragraph(str(r.get('hours', '')), cell_style),
-            Paragraph(str(r.get('status', '')), cell_style),
+            Paragraph(status_display, cell_style),
             Paragraph(str(r.get('submitted_at', '')), cell_style),
             Paragraph(str(int(float(r.get('hourly_rate', 0)))), cell_style),
             Paragraph(str(int(float(r.get('day_rate', 0)))), cell_style),

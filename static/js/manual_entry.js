@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const entryDateInput = document.getElementById('inputEntryDate');
   const hoursInput = document.getElementById('inputHours');
   const statusSelect = document.getElementById('inputStatus');
+  const reasonInput = document.getElementById('inputReason');
 
   // Export buttons
   const btnCopy = document.getElementById('btnCopyTable');
@@ -112,12 +113,15 @@ document.addEventListener('DOMContentLoaded', function () {
         salClass = 'salary-positive';
       }
       const hoursDisplay = isSub ? `-${escapeHtml(r.hours || '')}` : escapeHtml(r.hours || '');
+      const rawStatus = r.status || '';
+      const rawReason = (r.reason || '').trim();
+      const statusDisplay = rawReason ? `${rawStatus} (${rawReason})` : rawStatus;
 
       tr.innerHTML = `
         <td class="col-wrap" style="white-space: normal !important; word-break: break-word !important; min-width: 140px;">${escapeHtml(r.employee_name)}</td>
         <td>${escapeHtml(r.entry_date || '')}</td>
         <td>${hoursDisplay}</td>
-        <td>${escapeHtml(r.status || '')}</td>
+        <td class="col-wrap" style="white-space: normal !important; word-break: break-word !important; min-width: 120px;">${escapeHtml(statusDisplay)}</td>
         <td>${escapeHtml(r.submitted_at || '')}</td>
         <td>${Number(r.hourly_rate || 0).toFixed(0)}</td>
         <td>${Number(r.day_rate || 0).toFixed(0)}</td>
@@ -235,6 +239,7 @@ document.addEventListener('DOMContentLoaded', function () {
       entryDateInput.value = today;
       hoursInput.value = '04:00';
       statusSelect.value = 'Proper';
+      if (reasonInput) reasonInput.value = '';
       modal.classList.add('active');
     });
   }
@@ -310,6 +315,7 @@ document.addEventListener('DOMContentLoaded', function () {
       entryDateInput.value = d;
       hoursInput.value = entry.hours || '04:00';
       statusSelect.value = entry.status || 'Proper';
+      if (reasonInput) reasonInput.value = entry.reason || '';
 
       modal.classList.add('active');
     } catch (err) {
@@ -344,6 +350,7 @@ document.addEventListener('DOMContentLoaded', function () {
         entry_date: entryDateInput.value,
         hours: hoursInput.value,
         status: statusSelect.value,
+        reason: reasonInput ? reasonInput.value.trim() : '',
         entry_type: (entryTypeInput ? entryTypeInput.value : 'Add')
       };
 

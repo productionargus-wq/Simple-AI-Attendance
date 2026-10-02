@@ -2025,8 +2025,11 @@ def api_manual_entries_export_excel():
     writer.writerow(['NAME', 'DATE', 'HOURS', 'STATUS', 'SUBMITTED', 'HOURLY', 'DAY', 'HALF', 'WORKING SALARY'])
     for r in result['data']:
         sal = f"+{int(float(r.get('working_salary', 0)))}" if float(r.get('working_salary', 0)) > 0 else "0"
+        st_val = r.get('status', '')
+        rs_val = (r.get('reason') or '').strip()
+        status_display = f"{st_val} ({rs_val})" if rs_val else st_val
         writer.writerow([
-            r['employee_name'], r['entry_date'], r['hours'], r['status'],
+            r['employee_name'], r['entry_date'], r['hours'], status_display,
             r['submitted_at'], int(float(r['hourly_rate'])), int(float(r['day_rate'])),
             int(float(r['half_rate'])), sal
         ])

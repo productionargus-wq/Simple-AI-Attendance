@@ -2227,11 +2227,14 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         data = []
         for doc in cursor:
             c = clean_doc(doc)
+            m_status = c.get('status', 'Proper')
+            m_reason = (c.get('reason') or '').strip()
+            status_reason_str = f"{m_status} - {m_reason}" if m_reason else m_status
             data.append({
                 'employee_name': c.get('employee_name', ''),
                 'entry_time': c.get('submitted_at') or c.get('entry_date', ''),
                 'entry_distance': 'MANUAL ENTRY',
-                'entry_location': f"Manual Adjustment ({c.get('status', 'Proper')})",
+                'entry_location': f"Manual Adjustment ({status_reason_str})",
                 'entry_status': '-',
                 'exit_time': '----',
                 'exit_distance': '----',
@@ -2373,11 +2376,14 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
 
     for doc in db.manual_entries.find(m_query):
         c = clean_doc(doc)
+        m_status = c.get('status', 'Proper')
+        m_reason = (c.get('reason') or '').strip()
+        status_reason_str = f"{m_status} - {m_reason}" if m_reason else m_status
         combined.append({
             'employee_name': c.get('employee_name', ''),
             'entry_time': c.get('submitted_at') or c.get('entry_date', ''),
             'entry_distance': 'MANUAL ENTRY',
-            'entry_location': f"Manual Adjustment ({c.get('status', 'Proper')})",
+            'entry_location': f"Manual Adjustment ({status_reason_str})",
             'entry_status': '-',
             'exit_time': '----',
             'exit_distance': '----',
@@ -2663,6 +2669,7 @@ def get_manual_entries(from_date=None, to_date=None, status='All', search=None, 
             {'employee_name': reg},
             {'entry_date': reg},
             {'status': reg},
+            {'reason': reg},
             {'submitted_at': reg}
         ]
         
@@ -2757,6 +2764,7 @@ def create_manual_entry(data, company_id=None):
     now_ts = get_ist_now().strftime("%d-%m-%Y %I:%M:%S %p")
     entry_id = int(time.time() * 1000)
     
+    reason = str(data.get('reason') or '').strip()
     doc = {
         'id': entry_id,
         'company_id': assigned_company_id,
@@ -2765,6 +2773,7 @@ def create_manual_entry(data, company_id=None):
         'entry_date': data.get('entry_date', ''),
         'hours': hours_str,
         'status': status,
+        'reason': reason,
         'submitted_at': now_ts,
         'hourly_rate': hourly_rate,
         'day_rate': day_rate,
@@ -2844,11 +2853,13 @@ def update_manual_entry(entry_id, data):
     if entry_type.lower() == 'sub':
         working_salary = -abs(working_salary)
 
+    reason = str(data.get('reason') or '').strip()
     upd = {
         'employee_name': emp_name,
         'entry_date': data.get('entry_date', ''),
         'hours': hours_str,
         'status': status,
+        'reason': reason,
         'entry_type': entry_type,
         'mode': mode,
         'hourly_rate': hourly_rate,
