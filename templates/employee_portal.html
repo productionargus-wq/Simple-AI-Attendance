@@ -640,6 +640,7 @@
                     <div style="font-weight: 800; font-size: 15px;">✓ ${punchType} Successful!</div>
                     <div style="margin-top: 4px;"><strong>${data.employee_name}</strong></div>
                     <div style="font-size: 11px; color: #555; margin-top: 2px;">Distance: ${data.formatted_distance || '0m'} | Confidence: ${data.confidence}%</div>
+                    ${data.live_location ? `<div style="font-size: 11.5px; color: #065f46; margin-top: 3px; font-weight: 600;">📍 Location: ${data.live_location}</div>` : ''}
                     ${hoursInfo}
                   </div>
                 `;

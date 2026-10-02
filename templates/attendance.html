@@ -1024,12 +1024,15 @@
                     </div>
                     ${workingHoursHtml}
                   </div>
-                  <div class="punch-geo-badge">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                      <circle cx="12" cy="10" r="3"></circle>
-                    </svg>
-                    <span>${distInfo}</span>
+                  <div class="punch-geo-badge" style="display: flex; flex-direction: column; gap: 3px; align-items: flex-start; text-align: left;">
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                      </svg>
+                      <span>${distInfo}</span>
+                    </div>
+                    ${data.live_location ? `<div style="font-size: 11px; color: #475569; padding-left: 18px; line-height: 1.3;">📍 <strong>Location:</strong> ${escapeHtml(data.live_location)}</div>` : ''}
                   </div>
                 </div>
               </div>

@@ -141,8 +141,10 @@ document.addEventListener('DOMContentLoaded', function () {
         <td><strong>${escapeHtml(entry.employee_name)}</strong></td>
         <td>${escapeHtml(timeDisplay)}</td>
         <td>${siteBadge}</td>
-        <td>${escapeHtml(locDisplay)}</td>
-        <td>${escapeHtml(distDisplay)}</td>
+        <td title="${escapeHtml(locDisplay)}" style="max-width: 280px; word-break: break-word; font-size: 11.5px; line-height: 1.35;">
+          ${locDisplay && locDisplay !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${escapeHtml(locDisplay)}
+        </td>
+        <td title="${escapeHtml(locDisplay)}">${escapeHtml(distDisplay)}</td>
       `;
       tableBody.appendChild(tr);
     });

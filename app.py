@@ -1512,15 +1512,22 @@ def api_add_live_entry():
     if not employee_id or not employee_name:
         return jsonify({'error': 'Employee ID and name are required'}), 400
         
+    user_lat = data.get('latitude') or data.get('user_lat')
+    user_lng = data.get('longitude') or data.get('user_lng')
+    entry_loc = data.get('entry_location') or data.get('live_address')
+
     inserted_id = database.add_live_entry(
         employee_id=employee_id,
         employee_name=employee_name,
         entry_time=data.get('entry_time'),
         site_name=data.get('site_name', 'OFFICE'),
-        entry_location=data.get('entry_location', '515, Rabindranath Tagore Rd, Coimbatore'),
+        entry_location=entry_loc,
         entry_distance=float(data.get('entry_distance', 0.0)),
         is_timeout=int(data.get('is_timeout', 0)),
-        company_id=get_current_company_id()
+        user_lat=user_lat,
+        user_lng=user_lng,
+        company_id=get_current_company_id(),
+        live_address=data.get('live_address')
     )
     return jsonify({'success': True, 'id': inserted_id})
 
@@ -1650,6 +1657,7 @@ def api_face_recognize():
         user_lat = request.form.get('latitude')
         user_lng = request.form.get('longitude')
         client_time = request.form.get('client_time')
+        live_address = request.form.get('live_address') or request.form.get('location')
         
         # Enrich with employee details for dynamic punch card
         db = database.get_db()
@@ -1681,11 +1689,14 @@ def api_face_recognize():
             user_lat=user_lat,
             user_lng=user_lng,
             company_id=portal_company_id,
-            client_time=client_time
+            client_time=client_time,
+            live_address=live_address
         )
         result['live_entry_id'] = punch_res.get('live_id')
         result['punch_status'] = punch_res.get('status')
         result['formatted_distance'] = punch_res.get('formatted_dist')
+        result['live_location'] = punch_res.get('live_location')
+        result['entry_location'] = punch_res.get('live_location')
         result['punch_time'] = client_time or datetime.now().strftime('%d %b %Y, %I:%M:%S %p')
         if punch_res.get('working_hours'):
             result['working_hours'] = punch_res.get('working_hours')

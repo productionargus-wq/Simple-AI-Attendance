@@ -221,14 +221,18 @@ document.addEventListener('DOMContentLoaded', function () {
       const exitStatusVal = (r.is_manual || r.source === 'manual') ? '-' : (r.exit_status || '-');
 
       tr.innerHTML = `
-        <td>${escapeHtml(r.employee_name)}</td>
+        <td><strong>${escapeHtml(r.employee_name)}</strong></td>
         <td>${escapeHtml(r.entry_time || '')}</td>
-        <td>${escapeHtml(r.entry_distance || '')}</td>
-        <td>${escapeHtml(r.entry_location || '')}</td>
+        <td title="${escapeHtml(r.entry_location || '')}">${escapeHtml(r.entry_distance || '')}</td>
+        <td title="${escapeHtml(r.entry_location || '')}" style="max-width: 240px; word-break: break-word; font-size: 11.5px; line-height: 1.35;">
+          ${r.entry_location && r.entry_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${escapeHtml(r.entry_location || '')}
+        </td>
         <td style="text-align: center; white-space: nowrap;">${renderStatusBadge(entryStatusVal)}</td>
         <td>${escapeHtml(r.exit_time || '')}</td>
-        <td>${escapeHtml(r.exit_distance || '')}</td>
-        <td>${escapeHtml(r.exit_location || '')}</td>
+        <td title="${escapeHtml(r.exit_location || '')}">${escapeHtml(r.exit_distance || '')}</td>
+        <td title="${escapeHtml(r.exit_location || '')}" style="max-width: 240px; word-break: break-word; font-size: 11.5px; line-height: 1.35;">
+          ${r.exit_location && r.exit_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${escapeHtml(r.exit_location || '')}
+        </td>
         <td style="text-align: center; white-space: nowrap;">${renderStatusBadge(exitStatusVal)}</td>
         <td>${escapeHtml(r.working_hours || '')}</td>
         <td>${escapeHtml(r.shift_variance || '')}</td>

@@ -1465,13 +1465,17 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
         cid = c.get('company_id') or company_id
         full_addr = get_company_full_address(cid)
         if not c.get('entry_location') or str(c.get('entry_location')).strip() in ['OFFICE', '----', '']:
-            c['entry_location'] = full_addr
-        elif 'Premises' in str(c.get('entry_location')):
-            c['entry_location'] = full_addr
+            if c.get('user_lat') and c.get('user_lng'):
+                c['entry_location'] = reverse_geocode_coordinates(c['user_lat'], c['user_lng']) or full_addr
+            else:
+                c['entry_location'] = full_addr
             
         if c.get('exit_location') and str(c.get('exit_location')).strip() not in ['----', '-', '']:
-            if 'Premises' in str(c.get('exit_location')) or str(c.get('exit_location')).strip() == 'OFFICE':
-                c['exit_location'] = full_addr
+            if str(c.get('exit_location')).strip() == 'OFFICE':
+                if c.get('exit_lat') and c.get('exit_lng'):
+                    c['exit_location'] = reverse_geocode_coordinates(c['exit_lat'], c['exit_lng']) or full_addr
+                else:
+                    c['exit_location'] = full_addr
         data.append(c)
     return {
         'total': total,
@@ -1627,6 +1631,71 @@ def get_company_full_address(company_id):
 
 get_live_entries = get_live_report_entries
 
+_GEOCODE_CACHE = {}
+
+def reverse_geocode_coordinates(lat, lng, timeout=3.5):
+    """
+    Reverse-geocodes GPS (lat, lng) to the exact real-time physical address where employee punched.
+    Uses in-memory cache, OpenStreetMap Nominatim, and BigDataCloud fallback.
+    Returns the real-time physical address string or None if unresolvable.
+    """
+    if lat is None or lng is None:
+        return None
+    try:
+        flat = float(str(lat).strip())
+        flng = float(str(lng).strip())
+        if abs(flat) < 0.0001 and abs(flng) < 0.0001:
+            return None
+        if not (-90.0 <= flat <= 90.0 and -180.0 <= flng <= 180.0):
+            return None
+            
+        cache_key = f"{flat:.4f},{flng:.4f}"
+        if cache_key in _GEOCODE_CACHE:
+            return _GEOCODE_CACHE[cache_key]
+            
+        headers = {'User-Agent': 'ArgusAttendanceApp/2.1 (contact@argusattendance.com)'}
+        
+        # 1. OpenStreetMap Nominatim (Detailed address)
+        import urllib.request
+        import json
+        try:
+            nom_url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={flat}&lon={flng}&zoom=18&addressdetails=1"
+            req = urllib.request.Request(nom_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                display_name = data.get('display_name')
+                if display_name and len(display_name.strip()) > 3:
+                    resolved = display_name.strip()
+                    _GEOCODE_CACHE[cache_key] = resolved
+                    return resolved
+        except Exception:
+            pass
+
+        # 2. BigDataCloud Fallback
+        try:
+            bdc_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={flat}&longitude={flng}&localityLanguage=en"
+            req = urllib.request.Request(bdc_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                parts = []
+                for field in ['locality', 'city', 'principalSubdivision', 'postcode', 'countryName']:
+                    v = (data.get(field) or '').strip()
+                    if v and v not in parts:
+                        parts.append(v)
+                if parts:
+                    resolved = ", ".join(parts)
+                    _GEOCODE_CACHE[cache_key] = resolved
+                    return resolved
+        except Exception:
+            pass
+
+        # 3. Formatted GPS coordinates fallback
+        coord_loc = f"GPS: {flat:.5f}, {flng:.5f}"
+        _GEOCODE_CACHE[cache_key] = coord_loc
+        return coord_loc
+    except Exception:
+        return None
+
 def calculate_realistic_proximity(user_lat, user_lng, office_lat=OFFICE_LAT, office_lng=OFFICE_LNG):
     """Calculate distance in meters between user GPS coordinates and target office coordinates using precise Haversine formula."""
     if user_lat is None or user_lng is None:
@@ -1643,12 +1712,16 @@ def calculate_realistic_proximity(user_lat, user_lng, office_lat=OFFICE_LAT, off
     except Exception:
         return 0.0
 
-def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=None, entry_distance=0.0, is_timeout=0, user_lat=None, user_lng=None, company_id='ARGUS_MASTER', target_lat=None, target_lng=None):
+def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=None, entry_distance=0.0, is_timeout=0, user_lat=None, user_lng=None, company_id='ARGUS_MASTER', target_lat=None, target_lng=None, live_address=None):
     db = get_db()
     if not entry_time:
         entry_time = get_ist_now().strftime('%d/%m/%Y %I:%M:%S %p')
         
-    resolved_location = entry_location or get_company_full_address(company_id)
+    resolved_location = entry_location or live_address
+    if not resolved_location and user_lat is not None and user_lng is not None:
+        resolved_location = reverse_geocode_coordinates(user_lat, user_lng)
+    if not resolved_location:
+        resolved_location = get_company_full_address(company_id)
         
     calculated_meters = float(entry_distance or 0.0)
     if calculated_meters > 0.0:
@@ -1670,6 +1743,8 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
         'entry_location': resolved_location,
         'entry_distance': round(calculated_meters, 2),
         'formatted_distance': format_office_distance(calculated_meters),
+        'user_lat': user_lat,
+        'user_lng': user_lng,
         'is_timeout': int(is_timeout),
         'created_at': get_ist_now().isoformat()
     }
@@ -1677,12 +1752,12 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
     invalidate_dashboard_cache(doc.get('company_id'))
     return str(result.inserted_id)
 
-def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=None, company_id=None, client_time=None):
+def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=None, company_id=None, client_time=None, live_address=None):
     """
     Punch In / Punch Out Attendance Lifecycle Engine with Multi-Tenant Geolocation Support:
-    1. Records Live Entry in db.live_entries with company_id in 12-hour format (IST).
-    2. Resolves company office coordinates and full address from company_admin if tenant-owned.
-    3. Handles Punch In & Punch Out lifecycle under exact company_id.
+    1. Records Live Entry in db.live_entries with real-time location address and company_id in 12-hour format (IST).
+    2. Resolves company office coordinates and calculates proximity distance.
+    3. Handles Punch In & Punch Out lifecycle storing the exact live location address where punched.
     """
     db = get_db()
     now = get_ist_now()
@@ -1719,6 +1794,13 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     # Calculate proximity distance
     dist_meters = calculate_realistic_proximity(user_lat, user_lng, target_lat, target_lng)
     formatted_dist = format_office_distance(dist_meters)
+
+    # Resolve exact real-time live location address where employee punched
+    live_loc_str = (live_address.strip() if live_address and str(live_address).strip() else None)
+    if not live_loc_str and user_lat is not None and user_lng is not None:
+        live_loc_str = reverse_geocode_coordinates(user_lat, user_lng)
+    if not live_loc_str:
+        live_loc_str = loc_str
     
     salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
     hourly_rate = float(emp.get('hourly_salary', 0.0)) if emp else 100.0
@@ -1740,18 +1822,19 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     
     if not existing_rep or (existing_rep.get('exit_time') and existing_rep.get('exit_time') != '----'):
         # PUNCH IN:
-        # Create active Live Entry (Currently working)
+        # Create active Live Entry (Currently working) with exact real-time live location
         live_id = add_live_entry(
             employee_id=employee_id,
             employee_name=employee_name,
             entry_time=now_time_12,
             site_name='OFFICE',
-            entry_location=loc_str,
+            entry_location=live_loc_str,
             entry_distance=dist_meters,
             is_timeout=0,
             user_lat=user_lat,
             user_lng=user_lng,
-            company_id=comp_id
+            company_id=comp_id,
+            live_address=live_loc_str
         )
 
         # Geofencing threshold: 200 meters (<= 200m is proper, > 200m is improper)
@@ -1763,7 +1846,9 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'date': today_date,
             'entry_time': now_time_12,
             'entry_distance': formatted_dist,
-            'entry_location': loc_str,
+            'entry_location': live_loc_str,
+            'entry_lat': user_lat,
+            'entry_lng': user_lng,
             'exit_time': '----',
             'exit_distance': '----',
             'exit_location': '----',
@@ -1783,7 +1868,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             {'$set': {'company_id': comp_id, 'employee_name': employee_name, 'date': today_date, 'status': 'Present', 'updated_at': now}},
             upsert=True
         )
-        return {'status': 'punch_in', 'live_id': live_id, 'formatted_dist': formatted_dist}
+        return {'status': 'punch_in', 'live_id': live_id, 'formatted_dist': formatted_dist, 'live_location': live_loc_str}
         
     else:
         # PUNCH OUT: Update existing attendance report
@@ -1889,7 +1974,9 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         upd_data = {
             'exit_time': now_time_12,
             'exit_distance': formatted_dist,
-            'exit_location': loc_str,
+            'exit_location': live_loc_str,
+            'exit_lat': user_lat,
+            'exit_lng': user_lng,
             'working_hours': working_hours_str,
             'shift_variance': shift_variance_str,
             'salary_type': salary_type,
@@ -1908,8 +1995,8 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         }, sort=[('created_at', DESCENDING)])
         
         entry_time_val = active_live.get('entry_time', entry_time_str) if active_live else entry_time_str
-        entry_loc_val = active_live.get('entry_location', loc_str) if active_live else loc_str
-        entry_dist_val = active_live.get('entry_distance', dist_meters) if active_live else dist_meters
+        entry_loc_val = active_live.get('entry_location', existing_rep.get('entry_location', live_loc_str)) if active_live else existing_rep.get('entry_location', live_loc_str)
+        entry_dist_val = active_live.get('entry_distance', existing_rep.get('entry_distance', dist_meters)) if active_live else existing_rep.get('entry_distance', dist_meters)
 
         # 2. Store in timeout_entries
         timeout_doc = {
@@ -1921,10 +2008,14 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'working_hours': working_hours_str,
             'site_name': 'OFFICE (PUNCH OUT)',
             'entry_location': entry_loc_val,
-            'exit_location': loc_str,
+            'exit_location': live_loc_str,
             'entry_distance': entry_dist_val,
             'exit_distance': formatted_dist,
             'formatted_distance': formatted_dist,
+            'entry_lat': existing_rep.get('entry_lat'),
+            'entry_lng': existing_rep.get('entry_lng'),
+            'exit_lat': user_lat,
+            'exit_lng': user_lng,
             'is_timeout': 1,
             'created_at': now.isoformat()
         }
@@ -1944,7 +2035,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             upsert=True
         )
         invalidate_dashboard_cache(comp_id)
-        return {'status': 'punch_out', 'live_id': timeout_id, 'formatted_dist': formatted_dist, 'working_hours': working_hours_str}
+        return {'status': 'punch_out', 'live_id': timeout_id, 'formatted_dist': formatted_dist, 'working_hours': working_hours_str, 'live_location': live_loc_str}
 
 # ----------------- ATTENDANCE REPORTS ----------------- #
 
@@ -2144,13 +2235,17 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
             cid = c.get('company_id') or company_id
             full_addr = get_company_full_address(cid)
             if not c.get('entry_location') or str(c.get('entry_location')).strip() in ['OFFICE', '----', '']:
-                c['entry_location'] = full_addr
-            elif 'Premises' in str(c.get('entry_location')):
-                c['entry_location'] = full_addr
+                if c.get('entry_lat') and c.get('entry_lng'):
+                    c['entry_location'] = reverse_geocode_coordinates(c['entry_lat'], c['entry_lng']) or full_addr
+                else:
+                    c['entry_location'] = full_addr
 
             if c.get('exit_location') and str(c.get('exit_location')).strip() not in ['----', '-', '']:
-                if 'Premises' in str(c.get('exit_location')) or str(c.get('exit_location')).strip() == 'OFFICE':
-                    c['exit_location'] = full_addr
+                if str(c.get('exit_location')).strip() == 'OFFICE':
+                    if c.get('exit_lat') and c.get('exit_lng'):
+                        c['exit_location'] = reverse_geocode_coordinates(c['exit_lat'], c['exit_lng']) or full_addr
+                    else:
+                        c['exit_location'] = full_addr
 
             s_cfg = emp_shifts.get(c.get('employee_name', ''), {'start': '09:00 AM', 'end': '06:00 PM'})
             e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False)
@@ -2172,13 +2267,17 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         cid = c.get('company_id') or company_id
         full_addr = get_company_full_address(cid)
         if not c.get('entry_location') or str(c.get('entry_location')).strip() in ['OFFICE', '----', '']:
-            c['entry_location'] = full_addr
-        elif 'Premises' in str(c.get('entry_location')):
-            c['entry_location'] = full_addr
+            if c.get('entry_lat') and c.get('entry_lng'):
+                c['entry_location'] = reverse_geocode_coordinates(c['entry_lat'], c['entry_lng']) or full_addr
+            else:
+                c['entry_location'] = full_addr
 
         if c.get('exit_location') and str(c.get('exit_location')).strip() not in ['----', '-', '']:
-            if 'Premises' in str(c.get('exit_location')) or str(c.get('exit_location')).strip() == 'OFFICE':
-                c['exit_location'] = full_addr
+            if str(c.get('exit_location')).strip() == 'OFFICE':
+                if c.get('exit_lat') and c.get('exit_lng'):
+                    c['exit_location'] = reverse_geocode_coordinates(c['exit_lat'], c['exit_lng']) or full_addr
+                else:
+                    c['exit_location'] = full_addr
 
         s_cfg = emp_shifts.get(c.get('employee_name', ''), {'start': '09:00 AM', 'end': '06:00 PM'})
         e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False)
