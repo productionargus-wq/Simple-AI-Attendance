@@ -642,6 +642,77 @@
     transition: all 0.3s ease;
   }
 
+  /* Template 7 & 8 Custom Layout Styles */
+  .t7-container, .t8-container {
+    border: 1.5px solid var(--ps-border);
+    border-radius: 12px;
+    padding: 20px;
+    background: #ffffff;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s ease;
+  }
+  .t7-emp-grid {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 16px;
+    background: #ffffff;
+    border: 1px solid var(--ps-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 14px;
+    align-items: center;
+  }
+  .t8-emp-grid {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 16px;
+    background: var(--ps-tint);
+    border: 1px solid var(--ps-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 14px;
+    align-items: center;
+  }
+  .t7-att-card {
+    border: 1px solid var(--ps-border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 14px;
+    background: #ffffff;
+  }
+  .t7-att-hdr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f0fdf4;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 6px 14px;
+  }
+  .t7-att-badge {
+    background: #0f766e;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+  .t8-id-pill {
+    background: #f3e8ff;
+    border: 1px solid #d8b4fe;
+    border-radius: 8px;
+    padding: 6px 14px;
+    text-align: center;
+    display: inline-block;
+  }
+  .t8-att-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+  }
+
   /* Template Modal Styles */
   .tmpl-modal-backdrop {
     display: none;
@@ -1524,6 +1595,303 @@
       </div>
     </div>
 
+    <!-- ================= LAYOUT 7: MINT CORPORATE SUMMARY ================= -->
+    <div class="tmpl-layout-container" id="tmplLayout_7">
+      <div class="t7-container">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div class="payslip-logo-card">
+              <img class="ps-comp-logo" src="" alt="Logo" style="display: none;">
+              <span class="comp-initial ps-comp-initial" style="color: #0f766e;">A</span>
+            </div>
+            <div>
+              <div style="font-size: 16px; font-weight: 800; color: #0f172a; text-transform: uppercase;" class="ps-comp-name">{{ session.get('company_name') or 'HEXA TECHNOLOGIES' }}</div>
+              <div style="font-size: 9.5px; color: #475569; margin-top: 2px;" class="ps-comp-addr">SF NO. 515, BHARATHIYAR ROAD, GANAPATHY, COIMBATORE - 641 006</div>
+              <div style="font-size: 9px; color: #64748b; margin-top: 2px;" class="ps-comp-contact">Email: argusattendance@gmail.com | Phone: 9878787999 | GSTIN: 33AHZPG5373L2ZN</div>
+            </div>
+          </div>
+          <div style="background: var(--ps-light-badge); border: 1px solid var(--ps-border); border-radius: 8px; padding: 8px 16px; text-align: center; flex-shrink: 0;">
+            <div style="font-size: 8px; font-weight: 800; color: #065f46; letter-spacing: 0.5px;">MONTHLY PAYSLIP</div>
+            <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-top: 1px;" class="ps-header-month">OCT 2026</div>
+          </div>
+        </div>
+
+        <!-- Employee Details Card with Photo Frame -->
+        <div class="t7-emp-grid">
+          <div style="width: 100px; height: 115px; border-radius: 8px; overflow: hidden; border: 1px solid var(--ps-border); background: #f8fafc; display: flex; align-items: center; justify-content: center; position: relative;">
+            <img class="ps-emp-photo" src="" alt="Photo" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+            <div class="ps-emp-photo-placeholder" style="text-align: center; color: #94a3b8;">
+              <div style="font-size: 26px;">👤</div>
+              <div style="font-size: 8px; font-weight: 700; margin-top: 2px;">PHOTO</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size: 17px; font-weight: 800; color: #0f172a;" class="ps-emp-name">-</div>
+            <div style="font-size: 10.5px; font-weight: 700; color: #475569; margin-top: 1px;">
+              <span class="ps-emp-desig">-</span> &nbsp;|&nbsp; <span class="ps-emp-dept">General</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; font-size: 11px; margin-top: 8px;">
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">👤 Employee ID:</span><strong class="ps-emp-id">-</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">📅 Salary Basis:</span><strong class="ps-salary-basis">Hourly-Based</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">✉ Email ID:</span><strong class="ps-emp-email" style="font-size: 10px;">-</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">🕒 <span class="ps-rate-lbl">Hours Salary</span>:</span><strong class="ps-rate-val">Rs. 100</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">📞 Phone Number:</span><strong class="ps-emp-phone">-</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">⏱ Shift Hours:</span><strong class="ps-shift-hours">09:00</strong></div>
+              <div></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">🏦 Bank Name:</span><strong class="ps-bank-name">SBI</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attendance Summary Bar with Tab Header -->
+        <div class="t7-att-card">
+          <div class="t7-att-hdr">
+            <span class="t7-att-badge">📅 ATTENDANCE SUMMARY</span>
+            <span style="font-size: 11px; font-weight: 800; color: #0f172a;">Year & Month : <span class="ps-header-month">OCT 2026</span></span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); padding: 12px 16px; background: #f8fafc; gap: 14px; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 10px; border-right: 1px solid #e2e8f0; padding-right: 10px;">
+              <div style="font-size: 24px;">📅</div>
+              <div>
+                <div style="font-size: 9.5px; font-weight: 700; color: #64748b;">Working Days</div>
+                <div style="font-size: 18px; font-weight: 800; color: #0f172a;" class="ps-working-days">1</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; border-right: 1px solid #e2e8f0; padding-right: 10px;">
+              <div style="font-size: 24px;">🕒</div>
+              <div>
+                <div style="font-size: 9.5px; font-weight: 700; color: #64748b;">Total Working Hours</div>
+                <div style="font-size: 18px; font-weight: 800; color: #0f172a;" class="ps-working-hours">01:01</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="font-size: 24px;">🗓</div>
+              <div>
+                <div style="font-size: 9.5px; font-weight: 700; color: #64748b;">Total Days / Leave</div>
+                <div style="font-size: 15px; font-weight: 800; color: #0f172a;" class="ps-total-days">31 Days (30 Leave)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dual Separate Card Tables (Warm Amber Earnings & Coral Red Deductions) -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px;">
+          <!-- Left: Earnings -->
+          <div style="border: 1px solid #fcd34d; border-radius: 8px; overflow: hidden; background: #fff;">
+            <div style="background: #d97706; color: #fff; font-size: 11px; font-weight: 800; padding: 6px 12px; text-align: center; letter-spacing: 0.5px;">🪙 EARNINGS</div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 12px; background: #fffbeb; font-size: 9.5px; font-weight: 700; color: #64748b; border-bottom: 1px solid #fef3c7;">
+              <span>Particulars</span><span>Amount</span>
+            </div>
+            <div style="padding: 2px 0; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #fffbeb;"><span>Basic Salary</span><span style="font-weight: 700;" class="ps-basic-sal">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #fffbeb;"><span>Allowance</span><span style="font-weight: 700;" class="ps-allowance">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #fffbeb;"><span>Incentive</span><span style="font-weight: 700;" class="ps-incentive">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px;"><span>Others Earnings</span><span style="font-weight: 700;" class="ps-other-earn">Rs. 0</span></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 12px; background: #fef3c7; font-size: 11.5px; font-weight: 800; color: #d97706; border-top: 1px solid #fcd34d;">
+              <span>TOTAL EARNINGS</span><span class="ps-tot-earn">Rs. 0</span>
+            </div>
+          </div>
+          <!-- Right: Deductions -->
+          <div style="border: 1px solid #fecdd3; border-radius: 8px; overflow: hidden; background: #fff;">
+            <div style="background: #e15b5b; color: #fff; font-size: 11px; font-weight: 800; padding: 6px 12px; text-align: center; letter-spacing: 0.5px;">🧮 DEDUCTIONS</div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 12px; background: #fff1f2; font-size: 9.5px; font-weight: 700; color: #64748b; border-bottom: 1px solid #ffe4e6;">
+              <span>Particulars</span><span>Amount</span>
+            </div>
+            <div style="padding: 2px 0; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #fff1f2;"><span>Paid Salary</span><span style="font-weight: 700;" class="ps-paid-sal">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #fff1f2;"><span>Advance Repayment</span><span style="font-weight: 700;" class="ps-adv-repay">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #fff1f2;"><span>Other Deductions</span><span style="font-weight: 700;" class="ps-other-ded">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; visibility: hidden;"><span>-</span><span>-</span></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 12px; background: #ffe4e6; font-size: 11.5px; font-weight: 800; color: #e15b5b; border-top: 1px solid #fecdd3;">
+              <span>TOTAL DEDUCTIONS</span><span class="ps-tot-ded">Rs. 0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Net Pay Card with Money Bag Icon Badge -->
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px 18px; margin-top: 14px; display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 38px; height: 38px; border-radius: 50%; background: #047857; color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center;">💰</div>
+            <div>
+              <div style="font-size: 9px; font-weight: 700; color: #065f46; letter-spacing: 0.5px;">NET PAY</div>
+              <div style="font-size: 22px; font-weight: 800; color: #047857; margin-top: 1px;">Rs. <span class="ps-net-pay">0</span></div>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 9px; font-weight: 700; color: #475569; letter-spacing: 0.5px;">NET PAY IN WORDS</div>
+            <div style="font-size: 12px; font-weight: 700; color: #0f172a; margin-top: 2px;" class="ps-net-words">Zero Rupees Only</div>
+          </div>
+        </div>
+
+        <div style="background: #f0fdf4; border-radius: 4px; padding: 4px; text-align: center; font-size: 9px; color: #475569; margin-top: 8px;">
+          Net Pay = Total Earnings - Total Deduction
+        </div>
+
+        <div class="payslip-footer-bar" style="border-top: 1px solid var(--ps-border); margin-top: 12px;">
+          <div>Generated by ARGUS Attendance</div>
+          <div>Professional Payroll Document | © Argus Attendance | Version 5.1</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= LAYOUT 8: WAVE MODERN EXECUTIVE ================= -->
+    <div class="tmpl-layout-container" id="tmplLayout_8">
+      <div class="t8-container">
+        <!-- Top Wave Banner -->
+        <div style="margin: -20px -20px 10px -20px;">
+          <svg viewBox="0 0 1000 60" preserveAspectRatio="none" style="width: 100%; height: 45px; display: block;">
+            <path d="M0,0 L1000,0 L1000,30 C800,55 600,15 400,45 C200,65 100,20 0,35 Z" fill="var(--ps-primary)" opacity="0.85"></path>
+            <path d="M0,0 L1000,0 L1000,20 C850,45 650,20 450,40 C250,55 100,25 0,20 Z" fill="#93c5fd" opacity="0.6"></path>
+          </svg>
+        </div>
+
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div class="payslip-logo-card">
+              <img class="ps-comp-logo" src="" alt="Logo" style="display: none;">
+              <span class="comp-initial ps-comp-initial" style="color: var(--ps-primary);">A</span>
+            </div>
+            <div>
+              <div style="font-size: 16px; font-weight: 800; color: #0f172a; text-transform: uppercase;" class="ps-comp-name">{{ session.get('company_name') or 'HEXA TECHNOLOGIES' }}</div>
+              <div style="font-size: 9.5px; color: #475569; margin-top: 2px;" class="ps-comp-addr">SF NO. 515, BHARATHIYAR ROAD, GANAPATHY, COIMBATORE - 641 006</div>
+              <div style="font-size: 9px; color: #64748b; margin-top: 2px;" class="ps-comp-contact">Email: argusattendance@gmail.com | Phone: 9878787999 | GSTIN: 33AHZPG5373L2ZN</div>
+            </div>
+          </div>
+          <div style="background: var(--ps-light-badge); border: 1px solid var(--ps-border); border-radius: 8px; padding: 8px 16px; text-align: center; flex-shrink: 0;">
+            <div style="font-size: 8px; font-weight: 800; color: var(--ps-primary); letter-spacing: 0.5px;">MONTHLY PAYSLIP</div>
+            <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-top: 1px;" class="ps-header-month">OCT 2026</div>
+          </div>
+        </div>
+
+        <!-- Employee Details Card with Photo and Purple ID Pill -->
+        <div class="t8-emp-grid">
+          <div style="width: 100px; height: 115px; border-radius: 8px; overflow: hidden; border: 1px solid var(--ps-border); background: #ffffff; display: flex; align-items: center; justify-content: center; position: relative;">
+            <img class="ps-emp-photo" src="" alt="Photo" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+            <div class="ps-emp-photo-placeholder" style="text-align: center; color: #94a3b8;">
+              <div style="font-size: 26px;">👤</div>
+              <div style="font-size: 8px; font-weight: 700; margin-top: 2px;">PHOTO</div>
+            </div>
+          </div>
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <div style="font-size: 17px; font-weight: 800; color: #0f172a;" class="ps-emp-name">-</div>
+                <div style="font-size: 10.5px; font-weight: 700; color: #475569; margin-top: 1px;">
+                  <span class="ps-emp-desig">-</span> &nbsp;|&nbsp; <span class="ps-emp-dept">General</span>
+                </div>
+              </div>
+              <div class="t8-id-pill">
+                <div style="font-size: 8.5px; font-weight: 700; color: #7c3aed;">👤 Employee ID</div>
+                <div style="font-size: 12px; font-weight: 800; color: #581c87;" class="ps-emp-id">-</div>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; font-size: 11px; margin-top: 8px;">
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">✉ Email ID:</span><strong class="ps-emp-email" style="font-size: 10px;">-</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">📅 Salary Basis:</span><strong class="ps-salary-basis">Hourly-Based</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">📞 Phone Number:</span><strong class="ps-emp-phone">-</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">🕒 <span class="ps-rate-lbl">Hours Salary</span>:</span><strong class="ps-rate-val">Rs. 100</strong></div>
+              <div></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">⏱ Shift Hours:</span><strong class="ps-shift-hours">09:00</strong></div>
+              <div></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">🏦 Bank Name:</span><strong class="ps-bank-name">SBI</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attendance 4-Metric Grid -->
+        <div class="t8-att-grid">
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px;">
+            <div style="font-size: 9.5px; font-weight: 700; color: #2563eb; display: flex; align-items: center; gap: 5px;">📅 Working Days</div>
+            <div style="font-size: 17px; font-weight: 800; color: #0f172a; margin-top: 2px;" class="ps-working-days">1</div>
+          </div>
+          <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px;">
+            <div style="font-size: 9.5px; font-weight: 700; color: #d97706; display: flex; align-items: center; gap: 5px;">🕒 Total Working Hours</div>
+            <div style="font-size: 17px; font-weight: 800; color: #0f172a; margin-top: 2px;" class="ps-working-hours">01:01</div>
+          </div>
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px;">
+            <div style="font-size: 9.5px; font-weight: 700; color: #16a34a; display: flex; align-items: center; gap: 5px;">🗓 Total Days / Leave</div>
+            <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-top: 4px;" class="ps-total-days">31 Days (30 Leave)</div>
+          </div>
+          <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 10px 14px;">
+            <div style="font-size: 9.5px; font-weight: 700; color: #7c3aed; display: flex; align-items: center; gap: 5px;">📅 Year & Month</div>
+            <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 2px;" class="ps-header-month">OCT 2026</div>
+          </div>
+        </div>
+
+        <!-- Dual Tables (Royal Blue Earnings & Rich Purple Deductions) -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px;">
+          <!-- Left: Earnings -->
+          <div style="border: 1px solid #bfdbfe; border-radius: 8px; overflow: hidden; background: #fff;">
+            <div style="background: var(--ps-primary); color: #fff; font-size: 11px; font-weight: 800; padding: 6px 12px; text-align: center; letter-spacing: 0.5px;">🪙 EARNINGS</div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 12px; background: #eff6ff; font-size: 9.5px; font-weight: 700; color: #64748b; border-bottom: 1px solid #dbeafe;">
+              <span>Particulars</span><span>Amount</span>
+            </div>
+            <div style="padding: 2px 0; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Basic Salary</span><span style="font-weight: 700;" class="ps-basic-sal">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc; background: #f8fafc;"><span>Allowance</span><span style="font-weight: 700;" class="ps-allowance">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Incentive</span><span style="font-weight: 700;" class="ps-incentive">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; background: #f8fafc;"><span>Others Earnings</span><span style="font-weight: 700;" class="ps-other-earn">Rs. 0</span></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 12px; background: #dbeafe; font-size: 11.5px; font-weight: 800; color: var(--ps-primary); border-top: 1px solid #bfdbfe;">
+              <span>TOTAL EARNINGS</span><span class="ps-tot-earn">Rs. 0</span>
+            </div>
+          </div>
+          <!-- Right: Deductions -->
+          <div style="border: 1px solid #e9d5ff; border-radius: 8px; overflow: hidden; background: #fff;">
+            <div style="background: #7c3aed; color: #fff; font-size: 11px; font-weight: 800; padding: 6px 12px; text-align: center; letter-spacing: 0.5px;">🧮 DEDUCTIONS</div>
+            <div style="display: flex; justify-content: space-between; padding: 4px 12px; background: #faf5ff; font-size: 9.5px; font-weight: 700; color: #64748b; border-bottom: 1px solid #f3e8ff;">
+              <span>Particulars</span><span>Amount</span>
+            </div>
+            <div style="padding: 2px 0; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Paid Salary</span><span style="font-weight: 700;" class="ps-paid-sal">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc; background: #f8fafc;"><span>Advance Repayment</span><span style="font-weight: 700;" class="ps-adv-repay">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Other Deductions</span><span style="font-weight: 700;" class="ps-other-ded">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; visibility: hidden;"><span>-</span><span>-</span></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 12px; background: #f3e8ff; font-size: 11.5px; font-weight: 800; color: #7c3aed; border-top: 1px solid #e9d5ff;">
+              <span>TOTAL DEDUCTIONS</span><span class="ps-tot-ded">Rs. 0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Net Pay Card with Coin Stack Tile -->
+        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 18px; margin-top: 14px; display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 38px; height: 38px; border-radius: 8px; background: var(--ps-primary); color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center;">🪙</div>
+            <div>
+              <div style="font-size: 9px; font-weight: 700; color: var(--ps-primary); letter-spacing: 0.5px;">NET PAY</div>
+              <div style="font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 1px;">Rs. <span class="ps-net-pay">0</span></div>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 9px; font-weight: 700; color: #475569; letter-spacing: 0.5px;">NET PAY IN WORDS</div>
+            <div style="font-size: 12px; font-weight: 700; color: #0f172a; margin-top: 2px;" class="ps-net-words">Zero Rupees Only</div>
+          </div>
+        </div>
+
+        <div style="background: #fff1f2; border-radius: 4px; padding: 4px; text-align: center; font-size: 9px; color: #475569; margin-top: 8px;">
+          Net Pay = Total Earnings - Total Deduction
+        </div>
+
+        <div class="payslip-footer-bar" style="border-top: 1px solid var(--ps-border); margin-top: 12px;">
+          <div>Generated by ARGUS Attendance</div>
+          <div>Professional Payroll Document | © Argus Attendance | Version 5.1</div>
+        </div>
+
+        <!-- Bottom Wave Banner -->
+        <div style="margin: 10px -20px -20px -20px;">
+          <svg viewBox="0 0 1000 60" preserveAspectRatio="none" style="width: 100%; height: 40px; display: block;">
+            <path d="M0,35 C100,20 200,65 400,45 C600,15 800,55 1000,30 L1000,60 L0,60 Z" fill="var(--ps-primary)" opacity="0.85"></path>
+            <path d="M0,20 C100,25 250,55 450,40 C650,20 850,45 1000,20 L1000,60 L0,60 Z" fill="#93c5fd" opacity="0.6"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Action Buttons below Payslip Document -->
@@ -2186,6 +2554,205 @@
           </div>
         </div>
 
+        <!-- CARD 7: TEMPLATE 7 (MINT CORPORATE SUMMARY) -->
+        <div class="tmpl-card" id="cardTemplate7" data-template="template_7">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 13px; font-weight: 800; color: #0f172a;">Template 7: Mint Corporate Summary</span>
+            <span class="active-tag" id="tagTemplate7" style="background: #64748b; color: #fff; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; display: none;">ACTIVE</span>
+          </div>
+          <div style="font-size: 10.5px; color: #059669; font-weight: 700; margin-bottom: 8px;">
+            🌿 Mint Net Pay & Emerald Attendance Card
+          </div>
+
+          <!-- Miniature Mockup Preview -->
+          <div class="tmpl-mockup" id="mockupTmpl7">
+            <!-- Top Split Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 0.5px solid var(--mock-border); padding-bottom: 2.5px; margin-bottom: 3px;">
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <div style="width: 11px; height: 11px; background: var(--mock-primary); color: #ffffff; border-radius: 2px; font-size: 7px; font-weight: 800; display: flex; align-items: center; justify-content: center; line-height: 1; transition: background 0.25s;">A</div>
+                <div>
+                  <div style="font-size: 6.5px; font-weight: 800; color: #0f172a; line-height: 1;">ARGUS TECHNOLOGIES</div>
+                  <div style="font-size: 4.2px; color: #64748b; line-height: 1; margin-top: 1px;">COIMBATORE, TN</div>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 6.2px; font-weight: 900; color: var(--mock-primary); letter-spacing: 0.3px; transition: color 0.25s;">PAYSLIP</div>
+                <div style="font-size: 4.2px; color: #64748b; font-weight: 700;">OCTOBER 2026</div>
+              </div>
+            </div>
+
+            <!-- Employee Info with Photo on Left -->
+            <div style="background: #ffffff; border: 0.5px solid var(--mock-border); border-radius: 2.5px; padding: 2px 4px; display: flex; align-items: center; gap: 4px; margin-bottom: 3px; transition: border-color 0.25s;">
+              <div style="width: 14px; height: 14px; background: #f1f5f9; border: 0.5px solid #cbd5e1; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 6px; flex-shrink: 0; color: #64748b;">👤</div>
+              <div style="flex: 1; min-width: 0; font-size: 4.5px;">
+                <div style="display: flex; justify-content: space-between;"><strong style="color: #0f172a; font-size: 5.2px;">Rahul Sharma</strong><span style="color: var(--mock-primary); font-weight: 800;">EMP-104</span></div>
+                <div style="display: flex; justify-content: space-between; color: #64748b; margin-top: 0.5px;"><span>Dev • General</span><span>SBI • Day-Based</span></div>
+              </div>
+            </div>
+
+            <!-- Attendance Summary Card with Green Tab Header & 3 Metric Blocks -->
+            <div style="border: 0.5px solid #a7f3d0; border-radius: 2.5px; background: #f0fdf4; padding: 2px 3px; margin-bottom: 3px;">
+              <div style="font-size: 4.2px; font-weight: 800; color: #047857; margin-bottom: 1.5px; display: flex; align-items: center; gap: 2px;">
+                <span>📅</span><span>ATTENDANCE SUMMARY</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;">
+                <div style="background: #ffffff; border: 0.5px solid #d1fae5; border-radius: 2px; padding: 1px 2px; text-align: center;"><div style="font-size: 3.5px; color: #065f46;">SHIFT</div><strong style="font-size: 4.8px; color: #047857;">08:00</strong></div>
+                <div style="background: #ffffff; border: 0.5px solid #d1fae5; border-radius: 2px; padding: 1px 2px; text-align: center;"><div style="font-size: 3.5px; color: #065f46;">DAYS</div><strong style="font-size: 4.8px; color: #047857;">30 D</strong></div>
+                <div style="background: #ffffff; border: 0.5px solid #d1fae5; border-radius: 2px; padding: 1px 2px; text-align: center;"><div style="font-size: 3.5px; color: #065f46;">HOURS</div><strong style="font-size: 4.8px; color: #047857;">240h</strong></div>
+              </div>
+            </div>
+
+            <!-- Dual Table: Warm Orange Earnings & Soft Coral Deductions -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.5px; margin-bottom: 3px; font-size: 4.5px;">
+              <div style="border: 0.5px solid #fed7aa; border-radius: 2.5px; overflow: hidden; background: #ffffff;">
+                <div style="background: #ea580c; color: #ffffff; font-size: 4.6px; font-weight: 800; text-align: center; padding: 1.2px 0;">🪙 EARNINGS</div>
+                <div style="padding: 1px 2.5px;">
+                  <div style="display: flex; justify-content: space-between;"><span>Basic</span><strong>₹45k</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Allow</span><strong>₹10k</strong></div>
+                </div>
+                <div style="background: #ffedd5; padding: 1px 2.5px; font-weight: 800; color: #c2410c; display: flex; justify-content: space-between; border-top: 0.5px solid #fed7aa;"><span>TOT</span><span>₹55k</span></div>
+              </div>
+              <div style="border: 0.5px solid #fecdd3; border-radius: 2.5px; overflow: hidden; background: #ffffff;">
+                <div style="background: #e11d48; color: #ffffff; font-size: 4.6px; font-weight: 800; text-align: center; padding: 1.2px 0;">🧮 DEDUCTIONS</div>
+                <div style="padding: 1px 2.5px;">
+                  <div style="display: flex; justify-content: space-between;"><span>Paid</span><strong>₹0</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Adv</span><strong>₹5k</strong></div>
+                </div>
+                <div style="background: #ffe4e6; padding: 1px 2.5px; font-weight: 800; color: #be123c; display: flex; justify-content: space-between; border-top: 0.5px solid #fecdd3;"><span>TOT</span><span>₹5k</span></div>
+              </div>
+            </div>
+
+            <!-- Soft Mint Net Pay Card with Money Bag Icon -->
+            <div style="background: #dcfce7; border: 0.5px solid #86efac; border-radius: 2.5px; padding: 2px 4px; display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <div style="width: 11px; height: 11px; background: #16a34a; color: #ffffff; border-radius: 2px; font-size: 6px; display: flex; align-items: center; justify-content: center;">💰</div>
+                <div>
+                  <div style="font-size: 3.6px; font-weight: 800; color: #15803d;">NET PAY</div>
+                  <div style="font-size: 6.8px; font-weight: 900; color: #14532d; line-height: 1;">₹50,000</div>
+                </div>
+              </div>
+              <div style="font-size: 4px; font-weight: 700; color: #166534; text-align: right;">Fifty Thousand Only</div>
+            </div>
+          </div>
+
+          <div style="font-size: 11px; color: #475569; line-height: 1.35; flex: 1;">
+            Corporate summary design matching Template 7 with left employee photo, green attendance card, warm orange earnings, soft coral deductions, and mint green net pay banner with money bag icon.
+          </div>
+
+          <!-- Color Swatches for Template 7 -->
+          <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+            <div style="font-size: 10.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Color Palette:</div>
+            <div class="tmpl-swatch-list">
+              <div class="swatch-circle active-swatch" data-template="template_7" data-theme="navy" style="background: #1b3b5f;" title="Navy Classic"></div>
+              <div class="swatch-circle" data-template="template_7" data-theme="emerald" style="background: #0f5132;" title="Forest Emerald"></div>
+              <div class="swatch-circle" data-template="template_7" data-theme="burgundy" style="background: #5c1d48;" title="Burgundy Wine"></div>
+              <span class="swatch-label" id="swatchLabelTmpl7" style="font-size: 11px; font-weight: 600; color: #1b3b5f; margin-left: 4px;">Navy Classic</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 8: TEMPLATE 8 (WAVE MODERN EXECUTIVE) -->
+        <div class="tmpl-card" id="cardTemplate8" data-template="template_8">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 13px; font-weight: 800; color: #0f172a;">Template 8: Wave Modern Executive</span>
+            <span class="active-tag" id="tagTemplate8" style="background: #64748b; color: #fff; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; display: none;">ACTIVE</span>
+          </div>
+          <div style="font-size: 10.5px; color: #7c3aed; font-weight: 700; margin-bottom: 8px;">
+            🌊 Wave Accents & Colorful Metric Grid
+          </div>
+
+          <!-- Miniature Mockup Preview -->
+          <div class="tmpl-mockup" id="mockupTmpl8" style="overflow: hidden; position: relative;">
+            <!-- Top Wave Bar -->
+            <div style="height: 4px; background: linear-gradient(90deg, var(--mock-primary) 0%, #8b5cf6 50%, #38bdf8 100%); margin: -6px -6px 3px -6px; border-radius: 3px 3px 0 0;"></div>
+
+            <!-- Top Split Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 0.5px solid #e2e8f0; padding-bottom: 2.5px; margin-bottom: 3px;">
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <div style="width: 11px; height: 11px; background: var(--mock-primary); color: #ffffff; border-radius: 2px; font-size: 7px; font-weight: 800; display: flex; align-items: center; justify-content: center; line-height: 1; transition: background 0.25s;">A</div>
+                <div>
+                  <div style="font-size: 6.5px; font-weight: 800; color: #0f172a; line-height: 1;">ARGUS TECHNOLOGIES</div>
+                  <div style="font-size: 4.2px; color: #64748b; line-height: 1; margin-top: 1px;">COIMBATORE, TN</div>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 6.2px; font-weight: 900; color: #7c3aed; letter-spacing: 0.3px;">PAYSLIP</div>
+                <div style="font-size: 4.2px; color: #64748b; font-weight: 700;">OCTOBER 2026</div>
+              </div>
+            </div>
+
+            <!-- Employee Info with Purple ID Pill -->
+            <div style="background: #ffffff; border: 0.5px solid var(--mock-border); border-radius: 2.5px; padding: 2px 4px; display: flex; align-items: center; gap: 4px; margin-bottom: 3px; transition: border-color 0.25s;">
+              <div style="width: 14px; height: 14px; background: #f1f5f9; border: 0.5px solid #cbd5e1; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 6px; flex-shrink: 0; color: #64748b;">👤</div>
+              <div style="flex: 1; min-width: 0; font-size: 4.5px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="color: #0f172a; font-size: 5.2px;">Rahul Sharma</strong>
+                  <span style="background: #7c3aed; color: #ffffff; font-size: 4px; font-weight: 800; padding: 0.5px 3px; border-radius: 8px;">👤 EMP-104</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; color: #64748b; margin-top: 1px;"><span>Dev • General</span><span>SBI • Day-Based</span></div>
+              </div>
+            </div>
+
+            <!-- 4 Colorful Metric Cards -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin-bottom: 3px;">
+              <div style="background: #eff6ff; border: 0.5px solid #bfdbfe; border-radius: 2px; padding: 1px 1.5px; text-align: center;"><div style="font-size: 3.5px; color: #1d4ed8;">⏱ SHIFT</div><strong style="font-size: 4.8px; color: #1e40af;">08:00</strong></div>
+              <div style="background: #f0fdf4; border: 0.5px solid #bbf7d0; border-radius: 2px; padding: 1px 1.5px; text-align: center;"><div style="font-size: 3.5px; color: #15803d;">📅 DAYS</div><strong style="font-size: 4.8px; color: #166534;">30 D</strong></div>
+              <div style="background: #fefce8; border: 0.5px solid #fef08a; border-radius: 2px; padding: 1px 1.5px; text-align: center;"><div style="font-size: 3.5px; color: #a16207;">⏳ HOURS</div><strong style="font-size: 4.8px; color: #854d0e;">240h</strong></div>
+              <div style="background: #fff1f2; border: 0.5px solid #fecdd3; border-radius: 2px; padding: 1px 1.5px; text-align: center;"><div style="font-size: 3.5px; color: #be123c;">🏖 LEAVE</div><strong style="font-size: 4.8px; color: #9f1239;">0 D</strong></div>
+            </div>
+
+            <!-- Dual Table: Royal Blue Earnings & Deep Purple Deductions -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.5px; margin-bottom: 3px; font-size: 4.5px;">
+              <div style="border: 0.5px solid #bfdbfe; border-radius: 2.5px; overflow: hidden; background: #ffffff;">
+                <div style="background: #2563eb; color: #ffffff; font-size: 4.6px; font-weight: 800; text-align: center; padding: 1.2px 0;">🪙 EARNINGS</div>
+                <div style="padding: 1px 2.5px;">
+                  <div style="display: flex; justify-content: space-between;"><span>Basic</span><strong>₹45k</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Allow</span><strong>₹10k</strong></div>
+                </div>
+                <div style="background: #dbeafe; padding: 1px 2.5px; font-weight: 800; color: #1d4ed8; display: flex; justify-content: space-between; border-top: 0.5px solid #bfdbfe;"><span>TOT</span><span>₹55k</span></div>
+              </div>
+              <div style="border: 0.5px solid #ddd6fe; border-radius: 2.5px; overflow: hidden; background: #ffffff;">
+                <div style="background: #7c3aed; color: #ffffff; font-size: 4.6px; font-weight: 800; text-align: center; padding: 1.2px 0;">🧮 DEDUCTIONS</div>
+                <div style="padding: 1px 2.5px;">
+                  <div style="display: flex; justify-content: space-between;"><span>Paid</span><strong>₹0</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Adv</span><strong>₹5k</strong></div>
+                </div>
+                <div style="background: #ede9fe; padding: 1px 2.5px; font-weight: 800; color: #6d28d9; display: flex; justify-content: space-between; border-top: 0.5px solid #ddd6fe;"><span>TOT</span><span>₹5k</span></div>
+              </div>
+            </div>
+
+            <!-- Soft Blue Net Pay Card with Coin Stack Tile -->
+            <div style="background: #eff6ff; border: 0.5px solid #bfdbfe; border-radius: 2.5px; padding: 2px 4px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <div style="width: 11px; height: 11px; background: #1d4ed8; color: #ffffff; border-radius: 2px; font-size: 6px; display: flex; align-items: center; justify-content: center;">🪙</div>
+                <div>
+                  <div style="font-size: 3.6px; font-weight: 800; color: #1e40af;">NET PAY</div>
+                  <div style="font-size: 6.8px; font-weight: 900; color: #1e3a8a; line-height: 1;">₹50,000</div>
+                </div>
+              </div>
+              <div style="font-size: 4px; font-weight: 700; color: #1e40af; text-align: right;">Fifty Thousand Only</div>
+            </div>
+
+            <!-- Bottom Wave Bar -->
+            <div style="height: 3px; background: linear-gradient(90deg, #38bdf8 0%, #8b5cf6 50%, var(--mock-primary) 100%); margin: 2px -6px -6px -6px; border-radius: 0 0 3px 3px;"></div>
+          </div>
+
+          <div style="font-size: 11px; color: #475569; line-height: 1.35; flex: 1;">
+            Modern executive design with wave graphics, employee ID pill, 4-card attendance metrics, dual-colored tables, and blue net pay card with coin stack icon.
+          </div>
+
+          <!-- Color Swatches for Template 8 -->
+          <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+            <div style="font-size: 10.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Color Palette:</div>
+            <div class="tmpl-swatch-list">
+              <div class="swatch-circle active-swatch" data-template="template_8" data-theme="navy" style="background: #1b3b5f;" title="Navy Classic"></div>
+              <div class="swatch-circle" data-template="template_8" data-theme="emerald" style="background: #0f5132;" title="Forest Emerald"></div>
+              <div class="swatch-circle" data-template="template_8" data-theme="burgundy" style="background: #5c1d48;" title="Burgundy Wine"></div>
+              <span class="swatch-label" id="swatchLabelTmpl8" style="font-size: 11px; font-weight: 600; color: #1b3b5f; margin-left: 4px;">Navy Classic</span>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -2237,7 +2804,9 @@ document.addEventListener('DOMContentLoaded', function () {
     template_3: 'Premium Executive',
     template_4: 'Classic Corporate Grid',
     template_5: 'Modern Minimalist Card',
-    template_6: 'Professional Elegant'
+    template_6: 'Professional Elegant',
+    template_7: 'Mint Corporate Summary',
+    template_8: 'Wave Modern Executive'
   };
 
   // Palette Definitions
@@ -2411,6 +2980,8 @@ document.addEventListener('DOMContentLoaded', function () {
     else if (tmpl === 'template_4') activeLayoutId = 'tmplLayout_4';
     else if (tmpl === 'template_5') activeLayoutId = 'tmplLayout_5';
     else if (tmpl === 'template_6') activeLayoutId = 'tmplLayout_6';
+    else if (tmpl === 'template_7') activeLayoutId = 'tmplLayout_7';
+    else if (tmpl === 'template_8') activeLayoutId = 'tmplLayout_8';
 
     // Toggle active layout container
     document.querySelectorAll('.tmpl-layout-container').forEach(cnt => {

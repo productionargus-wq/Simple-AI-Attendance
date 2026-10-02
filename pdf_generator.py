@@ -7,6 +7,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.graphics.shapes import Drawing, Rect, Path
 
 def build_pdf_header(elements, company_info=None, title=None, subtitle=None):
     """Renders standardized dynamic company header across all generated PDF reports."""
@@ -2210,8 +2211,561 @@ def _build_payslip_professional_elegant(p, palette):
     buffer.seek(0)
     return buffer
 
+def _make_wave_drawing(width=540, height=22, wave_color=colors.HexColor('#93c5fd'), is_bottom=False):
+    """Generates decorative layered wave graphic for Template 8."""
+    d = Drawing(width, height)
+    d.add(Rect(0, 0, width, height, fillColor=colors.HexColor('#eff6ff'), strokeColor=None))
+    p = Path(fillColor=wave_color, strokeColor=None)
+    if not is_bottom:
+        p.moveTo(0, height)
+        p.curveTo(135, height - 12, 270, height + 4, 405, height - 8)
+        p.curveTo(470, height - 14, 510, height - 6, width, height - 10)
+        p.lineTo(width, height)
+        p.lineTo(0, height)
+    else:
+        p.moveTo(0, 0)
+        p.curveTo(135, 12, 270, -4, 405, 8)
+        p.curveTo(470, 14, 510, 6, width, 10)
+        p.lineTo(width, 0)
+        p.lineTo(0, 0)
+    p.closePath()
+    d.add(p)
+    return d
+
+def _build_payslip_template_7(p, palette):
+    """Builder for Template 7 (1st Uploaded Image): Mint Corporate Summary with photo, Attendance Summary tab, Orange/Coral dual tables, and green money bag net pay."""
+    f = _extract_payslip_fields(p)
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=26, bottomMargin=26)
+    elements = []
+
+    # 1. Header (Company Info + Month Box)
+    logo_img = get_rl_image(f['logo_ref'], max_width=50, max_height=42)
+    logo_cell = [logo_img] if logo_img else [Paragraph(f"<font size='16' color='#0f766e'><b>{f['comp_name'][:1]}</b></font>", ParagraphStyle('LogoInit7', alignment=TA_CENTER))]
+
+    hdr_center = [Paragraph(f"<b>{f['comp_name']}</b>", ParagraphStyle('H7Name', fontName='Helvetica-Bold', fontSize=13, leading=16, textColor=colors.HexColor('#0f172a')))]
+    if f['comp_addr']:
+        hdr_center.append(Paragraph(f['comp_addr'], ParagraphStyle('H7Addr', fontName='Helvetica', fontSize=7.5, leading=10, textColor=colors.HexColor('#475569'))))
+    if f['contact_str']:
+        hdr_center.append(Paragraph(f['contact_str'], ParagraphStyle('H7Contact', fontName='Helvetica', fontSize=6.8, leading=9, textColor=colors.HexColor('#64748b'))))
+
+    hdr_data = [[
+        logo_cell,
+        hdr_center,
+        [
+            Paragraph("<font size='6.5' color='#065f46'><b>MONTHLY PAYSLIP</b></font>", ParagraphStyle('H7B1', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
+            Paragraph(f"<b>{f['month_badge_val']}</b>", ParagraphStyle('H7B2', fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=TA_CENTER, textColor=colors.HexColor('#0f172a')))
+        ]
+    ]]
+    t_hdr = Table(hdr_data, colWidths=[52, 348, 140])
+    t_hdr.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BACKGROUND', (2, 0), (2, 0), palette['light_badge']),
+        ('ALIGN', (2, 0), (2, 0), 'CENTER'),
+        ('TOPPADDING', (2, 0), (2, 0), 8),
+        ('BOTTOMPADDING', (2, 0), (2, 0), 8),
+        ('BOX', (2, 0), (2, 0), 0.5, palette['border']),
+    ]))
+    elements.append(t_hdr)
+    elements.append(Spacer(1, 8))
+
+    # 2. Employee Details Card with Photo on Left
+    photo_img = get_rl_image(f['photo_ref'], max_width=82, max_height=98)
+    if photo_img:
+        photo_cell = [photo_img]
+    else:
+        photo_cell = [
+            Spacer(1, 24),
+            Paragraph("<font size='18' color='#94a3b8'>👤</font>", ParagraphStyle('PhotoPh7', alignment=TA_CENTER)),
+            Paragraph("<font size='6' color='#94a3b8'><b>PHOTO</b></font>", ParagraphStyle('PhotoTxt7', alignment=TA_CENTER, leading=8))
+        ]
+
+    lbl_s7 = ParagraphStyle('E7Lbl', fontName='Helvetica', fontSize=7.5, leading=10, textColor=colors.HexColor('#475569'))
+    val_s7 = ParagraphStyle('E7Val', fontName='Helvetica', fontSize=7.5, leading=10, textColor=colors.HexColor('#0f172a'))
+    val_sb7 = ParagraphStyle('E7ValB', fontName='Helvetica-Bold', fontSize=7.8, leading=10, textColor=colors.HexColor('#0f172a'))
+
+    emp_right_data = [
+        [Paragraph(f"<b>{f['emp_name']}</b>", ParagraphStyle('E7Name', fontName='Helvetica-Bold', fontSize=12.5, leading=15, textColor=colors.HexColor('#0f172a'))), "", "", "", "", ""],
+        [Paragraph(f"<font size='7.5' color='#475569'><b>{f['desig']} &nbsp;|&nbsp; {f['dept']}</b></font>", ParagraphStyle('E7Sub', fontName='Helvetica-Bold', leading=10)), "", "", "", "", ""],
+        [Paragraph("Employee ID", lbl_s7), ":", Paragraph(f['emp_id'], val_sb7), Paragraph("Salary Basis", lbl_s7), ":", Paragraph(f['basis_lbl'], val_s7)],
+        [Paragraph("Email ID", lbl_s7), ":", Paragraph(f['email'], val_s7), Paragraph(f['rate_lbl'].title(), lbl_s7), ":", Paragraph(f['rate_val'], val_sb7)],
+        [Paragraph("Phone Number", lbl_s7), ":", Paragraph(f['phone'], val_s7), Paragraph("Shift Hours", lbl_s7), ":", Paragraph(f['shift_h'], val_s7)],
+        [Paragraph("", lbl_s7), "", Paragraph("", val_s7), Paragraph("Bank Name", lbl_s7), ":", Paragraph(f['bank_display'], val_s7)]
+    ]
+    t_emp_right = Table(emp_right_data, colWidths=[75, 10, 130, 75, 10, 130])
+    t_emp_right.setStyle(TableStyle([
+        ('SPAN', (0, 0), (-1, 0)),
+        ('SPAN', (0, 1), (-1, 1)),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('ALIGN', (1, 2), (1, -1), 'CENTER'),
+        ('ALIGN', (4, 2), (4, -1), 'CENTER'),
+    ]))
+
+    t_emp_card = Table([[photo_cell, t_emp_right]], colWidths=[90, 450])
+    t_emp_card.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#f8fafc')),
+        ('BACKGROUND', (1, 0), (1, 0), colors.white),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (0, 0), 5),
+        ('RIGHTPADDING', (0, 0), (0, 0), 5),
+        ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+    ]))
+    elements.append(t_emp_card)
+    elements.append(Spacer(1, 8))
+
+    # 3. Attendance Summary Bar with Greenish Tab Title
+    att_hdr_data = [[
+        Paragraph("<font size='7' color='#ffffff'><b>📅 &nbsp;ATTENDANCE SUMMARY</b></font>", ParagraphStyle('AttHdrL7', fontName='Helvetica-Bold', leading=9, textColor=colors.white)),
+        Paragraph(f"<font size='7' color='#0f172a'><b>Year & Month : {f['month_badge_val']}</b></font>", ParagraphStyle('AttHdrR7', fontName='Helvetica-Bold', leading=9, alignment=TA_RIGHT))
+    ]]
+    t_att_hdr = Table(att_hdr_data, colWidths=[180, 360])
+    t_att_hdr.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#0f766e')),
+        ('BACKGROUND', (1, 0), (1, 0), colors.HexColor('#f0fdf4')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+
+    att_metrics_data = [[
+        [
+            Paragraph("<font size='6.5' color='#475569'><b>Working Days</b></font>", ParagraphStyle('AttM1Lbl', fontName='Helvetica-Bold', leading=8)),
+            Paragraph(f"<b>{f['working_days']}</b>", ParagraphStyle('AttM1Val', fontName='Helvetica-Bold', fontSize=12, leading=15, textColor=colors.HexColor('#0f172a')))
+        ],
+        [
+            Paragraph("<font size='6.5' color='#475569'><b>Total Working Hours</b></font>", ParagraphStyle('AttM2Lbl', fontName='Helvetica-Bold', leading=8)),
+            Paragraph(f"<b>{f['tot_work_h']}</b>", ParagraphStyle('AttM2Val', fontName='Helvetica-Bold', fontSize=12, leading=15, textColor=colors.HexColor('#0f172a')))
+        ],
+        [
+            Paragraph("<font size='6.5' color='#475569'><b>Total Days / Leave</b></font>", ParagraphStyle('AttM3Lbl', fontName='Helvetica-Bold', leading=8)),
+            Paragraph(f"<b>{f['tot_days']} Days ({f['leave_days']} Leave)</b>", ParagraphStyle('AttM3Val', fontName='Helvetica-Bold', fontSize=10, leading=13, textColor=colors.HexColor('#0f172a')))
+        ]
+    ]]
+    t_att_metrics = Table(att_metrics_data, colWidths=[180, 180, 180])
+    t_att_metrics.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LINEAFTER', (0, 0), (1, -1), 0.5, colors.HexColor('#e2e8f0')),
+    ]))
+
+    t_att_box = Table([[t_att_hdr], [t_att_metrics]], colWidths=[540])
+    t_att_box.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    elements.append(t_att_box)
+    elements.append(Spacer(1, 8))
+
+    # 4. Dual Separate Card Tables (Warm Amber Earnings & Coral Red Deductions)
+    earn_hdr_color = colors.HexColor('#d97706')
+    ded_hdr_color = colors.HexColor('#e15b5b')
+
+    earn_rows7 = [
+        [Paragraph("<font size='7' color='#ffffff'><b>🪙 &nbsp;EARNINGS</b></font>", ParagraphStyle('EH7', fontName='Helvetica-Bold', leading=9, alignment=TA_CENTER)), ""],
+        [Paragraph("<font size='6.5' color='#475569'><b>Particulars</b></font>", ParagraphStyle('EPart', fontName='Helvetica-Bold', leading=8)), Paragraph("<font size='6.5' color='#475569'><b>Amount</b></font>", ParagraphStyle('EAmt', fontName='Helvetica-Bold', leading=8, alignment=TA_RIGHT))],
+        [Paragraph("Basic Salary", lbl_s7), Paragraph(f"Rs. {f['basic_sal']}", val_sb7)],
+        [Paragraph("Allowance", lbl_s7), Paragraph(f"Rs. {f['allowance']}", val_sb7)],
+        [Paragraph("Incentive", lbl_s7), Paragraph(f"Rs. {f['incentive']}", val_sb7)],
+        [Paragraph("Others Earnings", lbl_s7), Paragraph(f"Rs. {f['other_earn']}", val_sb7)],
+        [Paragraph("<b>TOTAL EARNINGS</b>", ParagraphStyle('ETotL', fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=earn_hdr_color)), Paragraph(f"<b>Rs. {f['tot_earn']}</b>", ParagraphStyle('ETotR', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_RIGHT, textColor=earn_hdr_color))]
+    ]
+    t_left7 = Table(earn_rows7, colWidths=[175, 90])
+    t_left7.setStyle(TableStyle([
+        ('SPAN', (0, 0), (1, 0)),
+        ('BACKGROUND', (0, 0), (1, 0), earn_hdr_color),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#fffbeb')),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#fef3c7')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#fcd34d')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+        ('LINEBELOW', (0, 1), (-1, -2), 0.5, colors.HexColor('#fef3c7')),
+    ]))
+
+    ded_rows7 = [
+        [Paragraph("<font size='7' color='#ffffff'><b>🧮 &nbsp;DEDUCTIONS</b></font>", ParagraphStyle('DH7', fontName='Helvetica-Bold', leading=9, alignment=TA_CENTER)), ""],
+        [Paragraph("<font size='6.5' color='#475569'><b>Particulars</b></font>", ParagraphStyle('DPart', fontName='Helvetica-Bold', leading=8)), Paragraph("<font size='6.5' color='#475569'><b>Amount</b></font>", ParagraphStyle('DAmt', fontName='Helvetica-Bold', leading=8, alignment=TA_RIGHT))],
+        [Paragraph("Paid Salary", lbl_s7), Paragraph(f"Rs. {f['paid_sal']}", val_sb7)],
+        [Paragraph("Advance Repayment", lbl_s7), Paragraph(f"Rs. {f['adv_repay']}", val_sb7)],
+        [Paragraph("Other Deductions", lbl_s7), Paragraph(f"Rs. {f['other_ded']}", val_sb7)],
+        [Paragraph("", lbl_s7), Paragraph("", val_sb7)],
+        [Paragraph("<b>TOTAL DEDUCTIONS</b>", ParagraphStyle('DTotL', fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=ded_hdr_color)), Paragraph(f"<b>Rs. {f['tot_ded']}</b>", ParagraphStyle('DTotR', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_RIGHT, textColor=ded_hdr_color))]
+    ]
+    t_right7 = Table(ded_rows7, colWidths=[175, 90])
+    t_right7.setStyle(TableStyle([
+        ('SPAN', (0, 0), (1, 0)),
+        ('BACKGROUND', (0, 0), (1, 0), ded_hdr_color),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#fff1f2')),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#ffe4e6')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#fecdd3')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+        ('LINEBELOW', (0, 1), (-1, -2), 0.5, colors.HexColor('#ffe4e6')),
+    ]))
+
+    t_dual_wrapper7 = Table([[t_left7, "", t_right7]], colWidths=[265, 10, 265])
+    t_dual_wrapper7.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    elements.append(t_dual_wrapper7)
+    elements.append(Spacer(1, 8))
+
+    # 5. Net Pay Card with Money Bag Icon Badge
+    net_data7 = [[
+        [
+            Paragraph("<font size='6.5' color='#065f46'><b>💰 &nbsp;NET PAY</b></font>", ParagraphStyle('NL7', fontName='Helvetica-Bold', leading=8)),
+            Paragraph(f"<b>Rs. {f['net_pay_val']}</b>", ParagraphStyle('NV7', fontName='Helvetica-Bold', fontSize=16, leading=19, textColor=colors.HexColor('#047857')))
+        ],
+        [
+            Paragraph("<font size='6.5' color='#475569'><b>NET PAY IN WORDS</b></font>", ParagraphStyle('NWL7', fontName='Helvetica-Bold', leading=8, alignment=TA_CENTER)),
+            Paragraph(f"<b>{f['net_words_val']}</b>", ParagraphStyle('NWV7', fontName='Helvetica-Bold', fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=colors.HexColor('#0f172a')))
+        ]
+    ]]
+    t_net7 = Table(net_data7, colWidths=[200, 340])
+    t_net7.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ecfdf5')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ('LEFTPADDING', (0, 0), (0, 0), 14),
+        ('RIGHTPADDING', (1, 0), (1, 0), 14),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#a7f3d0')),
+    ]))
+    elements.append(t_net7)
+    elements.append(Spacer(1, 6))
+
+    # Footnote Pill
+    t_fn7 = Table([[Paragraph("Net Pay = Total Earnings - Total Deduction", ParagraphStyle('Fn7', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#475569')))]], colWidths=[540])
+    t_fn7.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0fdf4')),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    elements.append(t_fn7)
+    elements.append(Spacer(1, 8))
+
+    # Footer
+    footer_data7 = [[
+        Paragraph("Generated by ARGUS Attendance", ParagraphStyle('FtrL7', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
+        Paragraph("Professional Payroll Document", ParagraphStyle('FtrM7', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b'))),
+        Paragraph("© Argus Attendance | Version 5.1", ParagraphStyle('FtrR7', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_RIGHT, textColor=colors.HexColor('#64748b')))
+    ]]
+    t_ftr7 = Table(footer_data7, colWidths=[180, 180, 180])
+    t_ftr7.setStyle(TableStyle([
+        ('LINEABOVE', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    elements.append(t_ftr7)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+def _build_payslip_template_8(p, palette):
+    """Builder for Template 8 (2nd Uploaded Image): Wave Modern Executive with top/bottom wave banners, Purple ID pill badge, 4-card colorful attendance row, royal blue & purple tables, and coin stack net pay tile."""
+    f = _extract_payslip_fields(p)
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=20, bottomMargin=20)
+    elements = []
+
+    # 1. Top Decorative Curved Wave Graphic
+    wave_color = palette.get('primary', colors.HexColor('#1d4ed8'))
+    elements.append(_make_wave_drawing(width=540, height=20, wave_color=wave_color, is_bottom=False))
+    elements.append(Spacer(1, 4))
+
+    # 2. Company Header
+    logo_img = get_rl_image(f['logo_ref'], max_width=50, max_height=42)
+    logo_cell = [logo_img] if logo_img else [Paragraph(f"<font size='16' color='#1d4ed8'><b>{f['comp_name'][:1]}</b></font>", ParagraphStyle('LogoInit8', alignment=TA_CENTER))]
+
+    hdr_center = [Paragraph(f"<b>{f['comp_name']}</b>", ParagraphStyle('H8Name', fontName='Helvetica-Bold', fontSize=13, leading=16, textColor=colors.HexColor('#0f172a')))]
+    if f['comp_addr']:
+        hdr_center.append(Paragraph(f['comp_addr'], ParagraphStyle('H8Addr', fontName='Helvetica', fontSize=7.5, leading=10, textColor=colors.HexColor('#475569'))))
+    if f['contact_str']:
+        hdr_center.append(Paragraph(f['contact_str'], ParagraphStyle('H8Contact', fontName='Helvetica', fontSize=6.8, leading=9, textColor=colors.HexColor('#64748b'))))
+
+    hdr_data = [[
+        logo_cell,
+        hdr_center,
+        [
+            Paragraph("<font size='6.5' color='#1e40af'><b>MONTHLY PAYSLIP</b></font>", ParagraphStyle('H8B1', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
+            Paragraph(f"<b>{f['month_badge_val']}</b>", ParagraphStyle('H8B2', fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=TA_CENTER, textColor=colors.HexColor('#0f172a')))
+        ]
+    ]]
+    t_hdr = Table(hdr_data, colWidths=[52, 348, 140])
+    t_hdr.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BACKGROUND', (2, 0), (2, 0), palette['light_badge']),
+        ('ALIGN', (2, 0), (2, 0), 'CENTER'),
+        ('TOPPADDING', (2, 0), (2, 0), 8),
+        ('BOTTOMPADDING', (2, 0), (2, 0), 8),
+        ('BOX', (2, 0), (2, 0), 0.5, palette['border']),
+    ]))
+    elements.append(t_hdr)
+    elements.append(Spacer(1, 8))
+
+    # 3. Employee Details Card with Photo and Purple ID Pill Badge
+    photo_img = get_rl_image(f['photo_ref'], max_width=82, max_height=98)
+    if photo_img:
+        photo_cell = [photo_img]
+    else:
+        photo_cell = [
+            Spacer(1, 24),
+            Paragraph("<font size='18' color='#94a3b8'>👤</font>", ParagraphStyle('PhotoPh8', alignment=TA_CENTER)),
+            Paragraph("<font size='6' color='#94a3b8'><b>PHOTO</b></font>", ParagraphStyle('PhotoTxt8', alignment=TA_CENTER, leading=8))
+        ]
+
+    lbl_s8 = ParagraphStyle('E8Lbl', fontName='Helvetica', fontSize=7.5, leading=10, textColor=colors.HexColor('#475569'))
+    val_s8 = ParagraphStyle('E8Val', fontName='Helvetica', fontSize=7.5, leading=10, textColor=colors.HexColor('#0f172a'))
+    val_sb8 = ParagraphStyle('E8ValB', fontName='Helvetica-Bold', fontSize=7.8, leading=10, textColor=colors.HexColor('#0f172a'))
+
+    emp_right_data = [
+        [
+            Paragraph(f"<b>{f['emp_name']}</b>", ParagraphStyle('E8Name', fontName='Helvetica-Bold', fontSize=12.5, leading=15, textColor=colors.HexColor('#0f172a'))),
+            "", "",
+            [
+                Paragraph(f"<font size='6' color='#6b21a8'><b>👤 &nbsp;Employee ID</b></font>", ParagraphStyle('E8IdLbl', fontName='Helvetica-Bold', leading=8, alignment=TA_CENTER)),
+                Paragraph(f"<b>{f['emp_id']}</b>", ParagraphStyle('E8IdVal', fontName='Helvetica-Bold', fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=colors.HexColor('#581c87')))
+            ],
+            "", ""
+        ],
+        [Paragraph(f"<font size='7.5' color='#475569'><b>{f['desig']} &nbsp;|&nbsp; {f['dept']}</b></font>", ParagraphStyle('E8Sub', fontName='Helvetica-Bold', leading=10)), "", "", "", "", ""],
+        [Paragraph("Email ID", lbl_s8), ":", Paragraph(f['email'], val_s8), Paragraph("Salary Basis", lbl_s8), ":", Paragraph(f['basis_lbl'], val_s8)],
+        [Paragraph("Phone Number", lbl_s8), ":", Paragraph(f['phone'], val_s8), Paragraph(f['rate_lbl'].title(), lbl_s8), ":", Paragraph(f['rate_val'], val_sb8)],
+        [Paragraph("", lbl_s8), "", Paragraph("", val_s8), Paragraph("Shift Hours", lbl_s8), ":", Paragraph(f['shift_h'], val_s8)],
+        [Paragraph("", lbl_s8), "", Paragraph("", val_s8), Paragraph("Bank Name", lbl_s8), ":", Paragraph(f['bank_display'], val_s8)]
+    ]
+    t_emp_right = Table(emp_right_data, colWidths=[70, 10, 140, 75, 10, 135])
+    t_emp_right.setStyle(TableStyle([
+        ('SPAN', (0, 0), (2, 0)),
+        ('SPAN', (3, 0), (5, 0)),
+        ('SPAN', (0, 1), (2, 1)),
+        ('BACKGROUND', (3, 0), (5, 0), colors.HexColor('#f3e8ff')),
+        ('BOX', (3, 0), (5, 0), 0.5, colors.HexColor('#d8b4fe')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('ALIGN', (1, 2), (1, -1), 'CENTER'),
+        ('ALIGN', (4, 2), (4, -1), 'CENTER'),
+    ]))
+
+    t_emp_card = Table([[photo_cell, t_emp_right]], colWidths=[90, 450])
+    t_emp_card.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0f7ff')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#bfdbfe')),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (0, 0), 5),
+        ('RIGHTPADDING', (0, 0), (0, 0), 5),
+        ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+    ]))
+    elements.append(t_emp_card)
+    elements.append(Spacer(1, 8))
+
+    # 4. Attendance 4-Metric Grid
+    card_cell_style = ParagraphStyle('Att8CardLbl', fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#475569'))
+    val_big_style = ParagraphStyle('Att8CardVal', fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=colors.HexColor('#0f172a'))
+
+    att_4_data = [[
+        [
+            Paragraph("<font size='7' color='#2563eb'><b>📅 &nbsp;Working Days</b></font>", card_cell_style),
+            Paragraph(f"<b>{f['working_days']}</b>", val_big_style)
+        ],
+        [
+            Paragraph("<font size='7' color='#d97706'><b>🕒 &nbsp;Total Working Hours</b></font>", card_cell_style),
+            Paragraph(f"<b>{f['tot_work_h']}</b>", val_big_style)
+        ],
+        [
+            Paragraph("<font size='7' color='#16a34a'><b>🗓 &nbsp;Total Days / Leave</b></font>", card_cell_style),
+            Paragraph(f"<b>{f['tot_days']} Days ({f['leave_days']} Leave)</b>", ParagraphStyle('Att8LVal', fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.HexColor('#0f172a')))
+        ],
+        [
+            Paragraph("<font size='7' color='#7c3aed'><b>📅 &nbsp;Year & Month</b></font>", card_cell_style),
+            Paragraph(f"<b>{f['month_badge_val']}</b>", val_big_style)
+        ]
+    ]]
+    t_att_4 = Table(att_4_data, colWidths=[130, 135, 145, 130])
+    t_att_4.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#eff6ff')),
+        ('BACKGROUND', (1, 0), (1, 0), colors.HexColor('#fffbeb')),
+        ('BACKGROUND', (2, 0), (2, 0), colors.HexColor('#f0fdf4')),
+        ('BACKGROUND', (3, 0), (3, 0), colors.HexColor('#faf5ff')),
+        ('BOX', (0, 0), (0, 0), 0.5, colors.HexColor('#bfdbfe')),
+        ('BOX', (1, 0), (1, 0), 0.5, colors.HexColor('#fde68a')),
+        ('BOX', (2, 0), (2, 0), 0.5, colors.HexColor('#bbf7d0')),
+        ('BOX', (3, 0), (3, 0), 0.5, colors.HexColor('#e9d5ff')),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    elements.append(t_att_4)
+    elements.append(Spacer(1, 8))
+
+    # 5. Dual Tables (Royal Blue Earnings & Rich Purple Deductions)
+    earn_hdr8 = colors.HexColor('#1d4ed8')
+    ded_hdr8 = colors.HexColor('#7c3aed')
+
+    earn_rows8 = [
+        [Paragraph("<font size='7' color='#ffffff'><b>🪙 &nbsp;EARNINGS</b></font>", ParagraphStyle('EH8', fontName='Helvetica-Bold', leading=9, alignment=TA_CENTER)), ""],
+        [Paragraph("<font size='6.5' color='#475569'><b>Particulars</b></font>", ParagraphStyle('EPart8', fontName='Helvetica-Bold', leading=8)), Paragraph("<font size='6.5' color='#475569'><b>Amount</b></font>", ParagraphStyle('EAmt8', fontName='Helvetica-Bold', leading=8, alignment=TA_RIGHT))],
+        [Paragraph("Basic Salary", lbl_s8), Paragraph(f"Rs. {f['basic_sal']}", val_sb8)],
+        [Paragraph("Allowance", lbl_s8), Paragraph(f"Rs. {f['allowance']}", val_sb8)],
+        [Paragraph("Incentive", lbl_s8), Paragraph(f"Rs. {f['incentive']}", val_sb8)],
+        [Paragraph("Others Earnings", lbl_s8), Paragraph(f"Rs. {f['other_earn']}", val_sb8)],
+        [Paragraph("<b>TOTAL EARNINGS</b>", ParagraphStyle('ETotL8', fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=earn_hdr8)), Paragraph(f"<b>Rs. {f['tot_earn']}</b>", ParagraphStyle('ETotR8', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_RIGHT, textColor=earn_hdr8))]
+    ]
+    t_left8 = Table(earn_rows8, colWidths=[175, 90])
+    t_left8.setStyle(TableStyle([
+        ('SPAN', (0, 0), (1, 0)),
+        ('BACKGROUND', (0, 0), (1, 0), earn_hdr8),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#eff6ff')),
+        ('BACKGROUND', (0, 2), (-1, 2), colors.white),
+        ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#f8fafc')),
+        ('BACKGROUND', (0, 4), (-1, 4), colors.white),
+        ('BACKGROUND', (0, 5), (-1, 5), colors.HexColor('#f8fafc')),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#dbeafe')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#bfdbfe')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+        ('LINEBELOW', (0, 1), (-1, -2), 0.5, colors.HexColor('#e2e8f0')),
+    ]))
+
+    ded_rows8 = [
+        [Paragraph("<font size='7' color='#ffffff'><b>🧮 &nbsp;DEDUCTIONS</b></font>", ParagraphStyle('DH8', fontName='Helvetica-Bold', leading=9, alignment=TA_CENTER)), ""],
+        [Paragraph("<font size='6.5' color='#475569'><b>Particulars</b></font>", ParagraphStyle('DPart8', fontName='Helvetica-Bold', leading=8)), Paragraph("<font size='6.5' color='#475569'><b>Amount</b></font>", ParagraphStyle('DAmt8', fontName='Helvetica-Bold', leading=8, alignment=TA_RIGHT))],
+        [Paragraph("Paid Salary", lbl_s8), Paragraph(f"Rs. {f['paid_sal']}", val_sb8)],
+        [Paragraph("Advance Repayment", lbl_s8), Paragraph(f"Rs. {f['adv_repay']}", val_sb8)],
+        [Paragraph("Other Deductions", lbl_s8), Paragraph(f"Rs. {f['other_ded']}", val_sb8)],
+        [Paragraph("", lbl_s8), Paragraph("", val_sb8)],
+        [Paragraph("<b>TOTAL DEDUCTIONS</b>", ParagraphStyle('DTotL8', fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=ded_hdr8)), Paragraph(f"<b>Rs. {f['tot_ded']}</b>", ParagraphStyle('DTotR8', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_RIGHT, textColor=ded_hdr8))]
+    ]
+    t_right8 = Table(ded_rows8, colWidths=[175, 90])
+    t_right8.setStyle(TableStyle([
+        ('SPAN', (0, 0), (1, 0)),
+        ('BACKGROUND', (0, 0), (1, 0), ded_hdr8),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#faf5ff')),
+        ('BACKGROUND', (0, 2), (-1, 2), colors.white),
+        ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#faf5ff')),
+        ('BACKGROUND', (0, 4), (-1, 4), colors.white),
+        ('BACKGROUND', (0, 5), (-1, 5), colors.HexColor('#faf5ff')),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f3e8ff')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e9d5ff')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+        ('LINEBELOW', (0, 1), (-1, -2), 0.5, colors.HexColor('#f3e8ff')),
+    ]))
+
+    t_dual_wrapper8 = Table([[t_left8, "", t_right8]], colWidths=[265, 10, 265])
+    t_dual_wrapper8.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    elements.append(t_dual_wrapper8)
+    elements.append(Spacer(1, 8))
+
+    # 6. Net Pay Card with Coin Stack Tile
+    net_data8 = [[
+        [
+            Paragraph("<font size='6.5' color='#1e40af'><b>🪙 &nbsp;NET PAY</b></font>", ParagraphStyle('NL8', fontName='Helvetica-Bold', leading=8)),
+            Paragraph(f"<b>Rs. {f['net_pay_val']}</b>", ParagraphStyle('NV8', fontName='Helvetica-Bold', fontSize=16, leading=19, textColor=colors.HexColor('#1e3a8a')))
+        ],
+        [
+            Paragraph("<font size='6.5' color='#475569'><b>NET PAY IN WORDS</b></font>", ParagraphStyle('NWL8', fontName='Helvetica-Bold', leading=8, alignment=TA_CENTER)),
+            Paragraph(f"<b>{f['net_words_val']}</b>", ParagraphStyle('NWV8', fontName='Helvetica-Bold', fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=colors.HexColor('#0f172a')))
+        ]
+    ]]
+    t_net8 = Table(net_data8, colWidths=[200, 340])
+    t_net8.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#eff6ff')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ('LEFTPADDING', (0, 0), (0, 0), 14),
+        ('RIGHTPADDING', (1, 0), (1, 0), 14),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#bfdbfe')),
+    ]))
+    elements.append(t_net8)
+    elements.append(Spacer(1, 6))
+
+    # Footnote Pill
+    t_fn8 = Table([[Paragraph("Net Pay = Total Earnings - Total Deduction", ParagraphStyle('Fn8', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#475569')))]], colWidths=[540])
+    t_fn8.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fff1f2')),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    elements.append(t_fn8)
+    elements.append(Spacer(1, 6))
+
+    # Footer
+    footer_data8 = [[
+        Paragraph("Generated by ARGUS Attendance", ParagraphStyle('FtrL8', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
+        Paragraph("Professional Payroll Document", ParagraphStyle('FtrM8', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b'))),
+        Paragraph("© Argus Attendance | Version 5.1", ParagraphStyle('FtrR8', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_RIGHT, textColor=colors.HexColor('#64748b')))
+    ]]
+    t_ftr8 = Table(footer_data8, colWidths=[180, 180, 180])
+    t_ftr8.setStyle(TableStyle([
+        ('LINEABOVE', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    elements.append(t_ftr8)
+    elements.append(Spacer(1, 4))
+
+    # Bottom Decorative Curved Wave Graphic
+    elements.append(_make_wave_drawing(width=540, height=20, wave_color=wave_color, is_bottom=True))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
 def generate_payslip_pdf(p, template_id='template_1', theme='navy'):
-    """Main entry point: dispatches payslip PDF generation to the requested template (1..6) and theme."""
+    """Main entry point: dispatches payslip PDF generation to the requested template (1..8) and theme."""
     tmpl = str(template_id or 'template_1').lower().strip()
     theme_key = str(theme or 'navy').lower().strip()
     palette = PAYSLIP_THEMES.get(theme_key, PAYSLIP_THEMES['navy'])
@@ -2222,6 +2776,10 @@ def generate_payslip_pdf(p, template_id='template_1', theme='navy'):
         return _build_payslip_minimalist_card(p, palette)
     elif tmpl == 'template_6':
         return _build_payslip_professional_elegant(p, palette)
+    elif tmpl == 'template_7':
+        return _build_payslip_template_7(p, palette)
+    elif tmpl == 'template_8':
+        return _build_payslip_template_8(p, palette)
     elif tmpl == 'template_3':
         return _build_payslip_premium_executive(p, palette)
     else:
