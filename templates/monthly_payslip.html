@@ -530,7 +530,7 @@
       <label for="selectPayslipEmployee" style="font-size: 13px; font-weight: 700; color: #0f172a; white-space: nowrap; flex-shrink: 0;">Select Employee Name:</label>
       <select id="selectPayslipEmployee" class="table-filter-select" style="min-width: 170px; padding: 6px 12px; font-size: 13px;">
         {% for emp in employees %}
-        <option value="{{ emp }}" {% if emp == 'Ruban' %}selected{% endif %}>{{ emp }}</option>
+        <option value="{{ emp }}" {% if loop.first %}selected{% endif %}>{{ emp }}</option>
         {% endfor %}
       </select>
     </div>

@@ -611,7 +611,10 @@ def balance_report():
 @app.route('/payslip-preview')
 @login_required
 def monthly_payslip():
-    employees_res = database.get_all_employees(company_id=get_current_company_id(), limit=1000)
+    comp_id = get_current_company_id()
+    if session.get('role') == 'super_admin':
+        comp_id = 'ALL'
+    employees_res = database.get_all_employees(company_id=comp_id, limit=1000)
     employees = [e['employee_name'] for e in employees_res['data']]
     return render_template('monthly_payslip.html', active_tab='PAYSLIP PREVIEW', employees=employees)
 
@@ -2329,8 +2332,10 @@ def api_generate_payslip():
         month = datetime.now().strftime("%Y-%m")
         
     comp_id = get_current_company_id()
+    if session.get('role') == 'super_admin':
+        comp_id = None
     payslip = database.get_payslip_data(employee, month, company_id=comp_id)
-    database.save_generated_salary_report(payslip, company_id=comp_id)
+    database.save_generated_salary_report(payslip, company_id=payslip.get('company_id') or comp_id)
     return jsonify(payslip)
 
 @app.route('/api/payslip/export/pdf', methods=['GET'])
@@ -2343,8 +2348,10 @@ def api_export_payslip_pdf():
         month = datetime.now().strftime("%Y-%m")
     
     comp_id = get_current_company_id()
+    if session.get('role') == 'super_admin':
+        comp_id = None
     if not employee:
-        emp_res = database.get_all_employees(company_id=comp_id, limit=1)
+        emp_res = database.get_all_employees(company_id=comp_id or 'ALL', limit=1)
         if emp_res['data']:
             employee = emp_res['data'][0]['employee_name']
         else:

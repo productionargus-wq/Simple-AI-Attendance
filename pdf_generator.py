@@ -1116,7 +1116,8 @@ def generate_payslip_pdf(p, template_id='template_1', theme='navy'):
     elements = []
     
     # ----------------- 1. TOP HEADER PILL -----------------
-    logo_img = get_rl_image(p.get('company_logo') or p.get('company_logo_url'), max_width=44, max_height=44)
+    logo_ref = p.get('company_logo_data') or p.get('logo_data') or p.get('company_logo_url') or p.get('company_logo') or p.get('logo')
+    logo_img = get_rl_image(logo_ref, max_width=44, max_height=44)
     if logo_img:
         logo_cell_content = [logo_img]
     else:
@@ -1124,13 +1125,16 @@ def generate_payslip_pdf(p, template_id='template_1', theme='navy'):
         logo_cell_content = [Paragraph(f"<font size='16' color='#1b3b5f'><b>{comp_initial}</b></font>", ParagraphStyle('LogoInit', alignment=TA_CENTER))]
 
     comp_name = str(p.get('company_name') or 'ARGUS TECHNOLOGIES').upper()
-    comp_addr = str(p.get('company_address') or 'GANAPATHY, COIMBATORE').upper()
+    comp_addr = str(p.get('company_address') or '').upper()
     
     contact_bits = []
-    if p.get('company_email'): contact_bits.append(str(p['company_email']))
-    if p.get('company_phone'): contact_bits.append(str(p['company_phone']))
+    if p.get('company_email'): contact_bits.append(f"Email: {p['company_email']}")
+    elif p.get('email'): contact_bits.append(f"Email: {p['email']}")
+    if p.get('company_phone'): contact_bits.append(f"Phone: {p['company_phone']}")
+    elif p.get('phone'): contact_bits.append(f"Phone: {p['phone']}")
     if p.get('company_gstin'): contact_bits.append(f"GSTIN: {p['company_gstin']}")
-    contact_str = " | ".join(contact_bits) if contact_bits else "argusattendance@gmail.com | 9878787999 | GSTIN: 33AHZPG5373L2ZN"
+    elif p.get('gstin'): contact_bits.append(f"GSTIN: {p['gstin']}")
+    contact_str = " | ".join(contact_bits) if contact_bits else ""
 
     raw_ym = str(p.get('year_month', '')).strip()
     month_badge_val = "OCT 2026"
@@ -1141,14 +1145,18 @@ def generate_payslip_pdf(p, template_id='template_1', theme='navy'):
         except Exception:
             month_badge_val = raw_ym.upper()
 
+    hdr_center = [
+        Paragraph(f"<b>{comp_name}</b>", ParagraphStyle('HdrName', fontName='Helvetica-Bold', fontSize=12.5, leading=15, textColor=colors.white))
+    ]
+    if comp_addr:
+        hdr_center.append(Paragraph(comp_addr, ParagraphStyle('HdrAddr', fontName='Helvetica', fontSize=7.5, leading=10, textColor=colors.HexColor('#e2e8f0'))))
+    if contact_str:
+        hdr_center.append(Paragraph(contact_str, ParagraphStyle('HdrContact', fontName='Helvetica', fontSize=6.5, leading=9, textColor=colors.HexColor('#cbd5e1'))))
+
     hdr_data = [
         [
             logo_cell_content,
-            [
-                Paragraph(f"<b>{comp_name}</b>", ParagraphStyle('HdrName', fontName='Helvetica-Bold', fontSize=12.5, leading=15, textColor=colors.white)),
-                Paragraph(comp_addr, ParagraphStyle('HdrAddr', fontName='Helvetica', fontSize=7.5, leading=10, textColor=colors.HexColor('#e2e8f0'))),
-                Paragraph(contact_str, ParagraphStyle('HdrContact', fontName='Helvetica', fontSize=6.5, leading=9, textColor=colors.HexColor('#cbd5e1')))
-            ],
+            hdr_center,
             [
                 Paragraph("<font size='6.5' color='#cbd5e1'><b>MONTHLY PAYSLIP</b></font>", ParagraphStyle('HdrBadgeSub', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
                 Paragraph(f"<b>{month_badge_val}</b>", ParagraphStyle('HdrBadgeMain', fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=TA_CENTER, textColor=colors.white))
@@ -1172,36 +1180,64 @@ def generate_payslip_pdf(p, template_id='template_1', theme='navy'):
     elements.append(t_hdr)
     elements.append(Spacer(1, 10))
 
-    # ----------------- 2. EMPLOYEE DETAILS CARD -----------------
+    # ----------------- 2. EMPLOYEE DETAILS CARD (DYNAMIC WITH PHOTO) -----------------
     emp_name = str(p.get('employee_name') or 'EMPLOYEE').upper()
     emp_id = str(p.get('employee_id') or '-')
-    desig = str(p.get('designation') or 'STAFF').upper()
+    desig = str(p.get('designation') or '-').upper()
     dept = str(p.get('department') or 'GENERAL').upper()
     email = str(p.get('email_id') or '-')
     phone = str(p.get('phone_number') or p.get('mobile_number') or '-')
 
-    emp_data = [
-        [
-            Paragraph("<b>EMPLOYEE</b>", ParagraphStyle('EmpBadge', fontName='Helvetica-Bold', fontSize=8.5, leading=10, alignment=TA_CENTER, textColor=colors.white)),
+    photo_ref = p.get('employee_photo_data') or p.get('photo_data') or p.get('employee_photo_url') or p.get('employee_photo') or p.get('photo')
+    emp_photo_img = get_rl_image(photo_ref, max_width=44, max_height=44)
+
+    if emp_photo_img:
+        emp_data = [
             [
-                Paragraph(f"<b>{emp_name}</b>", ParagraphStyle('EmpName', fontName='Helvetica-Bold', fontSize=11.5, leading=14, textColor=palette['text_dark'])),
-                Paragraph(f"Employee ID {emp_id} &nbsp;|&nbsp; Designation {desig} &nbsp;|&nbsp; Department {dept}", ParagraphStyle('EmpLine1', fontName='Helvetica', fontSize=7.2, leading=9.5, textColor=palette['text_sub'])),
-                Paragraph(f"Email {email} &nbsp;|&nbsp; Phone {phone}", ParagraphStyle('EmpLine2', fontName='Helvetica', fontSize=7.2, leading=9.5, textColor=palette['text_sub']))
+                Paragraph("<b>EMPLOYEE</b>", ParagraphStyle('EmpBadge', fontName='Helvetica-Bold', fontSize=8.5, leading=10, alignment=TA_CENTER, textColor=colors.white)),
+                [
+                    Paragraph(f"<b>{emp_name}</b>", ParagraphStyle('EmpName', fontName='Helvetica-Bold', fontSize=11.5, leading=14, textColor=palette['text_dark'])),
+                    Paragraph(f"Employee ID: <b>{emp_id}</b> &nbsp;|&nbsp; Designation: <b>{desig}</b> &nbsp;|&nbsp; Department: <b>{dept}</b>", ParagraphStyle('EmpLine1', fontName='Helvetica', fontSize=7.2, leading=9.5, textColor=palette['text_sub'])),
+                    Paragraph(f"Email: <b>{email}</b> &nbsp;|&nbsp; Phone: <b>{phone}</b>", ParagraphStyle('EmpLine2', fontName='Helvetica', fontSize=7.2, leading=9.5, textColor=palette['text_sub']))
+                ],
+                emp_photo_img
             ]
         ]
-    ]
-
-    t_emp = Table(emp_data, colWidths=[75, 465])
-    t_emp.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), palette['tint']),
-        ('BACKGROUND', (0, 0), (0, 0), palette['primary']),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN', (0, 0), (0, 0), 'CENTER'),
-        ('BOX', (0, 0), (-1, -1), 0.5, palette['border']),
-        ('TOPPADDING', (0, 0), (-1, -1), 7),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
-        ('LEFTPADDING', (1, 0), (1, 0), 10),
-    ]))
+        t_emp = Table(emp_data, colWidths=[75, 415, 50])
+        t_emp.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), palette['tint']),
+            ('BACKGROUND', (0, 0), (0, 0), palette['primary']),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+            ('ALIGN', (2, 0), (2, 0), 'CENTER'),
+            ('BOX', (0, 0), (-1, -1), 0.5, palette['border']),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (1, 0), (1, 0), 10),
+            ('RIGHTPADDING', (2, 0), (2, 0), 6),
+        ]))
+    else:
+        emp_data = [
+            [
+                Paragraph("<b>EMPLOYEE</b>", ParagraphStyle('EmpBadge', fontName='Helvetica-Bold', fontSize=8.5, leading=10, alignment=TA_CENTER, textColor=colors.white)),
+                [
+                    Paragraph(f"<b>{emp_name}</b>", ParagraphStyle('EmpName', fontName='Helvetica-Bold', fontSize=11.5, leading=14, textColor=palette['text_dark'])),
+                    Paragraph(f"Employee ID: <b>{emp_id}</b> &nbsp;|&nbsp; Designation: <b>{desig}</b> &nbsp;|&nbsp; Department: <b>{dept}</b>", ParagraphStyle('EmpLine1', fontName='Helvetica', fontSize=7.2, leading=9.5, textColor=palette['text_sub'])),
+                    Paragraph(f"Email: <b>{email}</b> &nbsp;|&nbsp; Phone: <b>{phone}</b>", ParagraphStyle('EmpLine2', fontName='Helvetica', fontSize=7.2, leading=9.5, textColor=palette['text_sub']))
+                ]
+            ]
+        ]
+        t_emp = Table(emp_data, colWidths=[75, 465])
+        t_emp.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), palette['tint']),
+            ('BACKGROUND', (0, 0), (0, 0), palette['primary']),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+            ('BOX', (0, 0), (-1, -1), 0.5, palette['border']),
+            ('TOPPADDING', (0, 0), (-1, -1), 7),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+            ('LEFTPADDING', (1, 0), (1, 0), 10),
+        ]))
     elements.append(t_emp)
     elements.append(Spacer(1, 10))
 
@@ -1210,18 +1246,18 @@ def generate_payslip_pdf(p, template_id='template_1', theme='navy'):
     if st == 'hourly':
         basis_lbl = "Hourly-Based"
         rate_lbl = "HOURS SALARY"
-        rate_val = f"Rs. {p.get('hours_salary', p.get('hourly_salary', 0))}"
+        rate_val = f"Rs. {Number_format(p.get('hours_salary', p.get('hourly_salary', 0)))}"
     elif st == 'half_day':
         basis_lbl = "Half-Day Based"
         rate_lbl = "HALF DAY SALARY"
-        rate_val = f"Rs. {p.get('half_day_salary', 0)}"
+        rate_val = f"Rs. {Number_format(p.get('half_day_salary', 0))}"
     else:
         basis_lbl = "Daily-Based"
         rate_lbl = "DAY SALARY"
-        rate_val = f"Rs. {p.get('day_salary', 0)}"
+        rate_val = f"Rs. {Number_format(p.get('day_salary', 0))}"
 
-    shift_h = str(p.get('shift_hours') or '09:00')
-    working_days = str(p.get('working_days', 0))
+    shift_h = str(p.get('shift_hours') or '08:00')
+    working_days = str(p.get('working_days_breakdown') or f"{p.get('working_days', 0)} Days")
 
     metric_lbl_style = ParagraphStyle('MetLbl', fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#64748b'))
     metric_val_style = ParagraphStyle('MetVal', fontName='Helvetica-Bold', fontSize=10, leading=12, textColor=colors.HexColor('#0f172a'))
@@ -1253,16 +1289,23 @@ def generate_payslip_pdf(p, template_id='template_1', theme='navy'):
 
     # ----------------- 4. SUMMARY BAR -----------------
     tot_work_h = str(p.get('total_working_hours') or p.get('working_hours') or '00:00')
-    tot_days = p.get('total_days_of_month', 30)
+    tot_days = p.get('total_days_of_month', p.get('total_days', 30))
     leave_days = p.get('leave_days', 0)
-    bank_name = str(p.get('bank_name') or 'SBI')
+    bank_name = str(p.get('bank_name') or '').strip()
+    acct_num = str(p.get('account_number') or '').strip()
+    if bank_name and acct_num:
+        bank_display = f"{bank_name} (A/C: {acct_num})"
+    elif bank_name:
+        bank_display = bank_name
+    else:
+        bank_display = "—"
 
     summary_style = ParagraphStyle('SumTxt', fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#334155'))
     summary_data = [
         [
             Paragraph(f"Total Working Hours: <b>{tot_work_h}</b>", summary_style),
             Paragraph(f"Total Days / Leave: <b>{tot_days} Days ({leave_days} Leave)</b>", summary_style),
-            Paragraph(f"Bank: <b>{bank_name}</b>", ParagraphStyle('BankTxt', parent=summary_style, alignment=TA_CENTER))
+            Paragraph(f"Bank: <b>{bank_display}</b>", ParagraphStyle('BankTxt', parent=summary_style, alignment=TA_CENTER))
         ]
     ]
     t_summary = Table(summary_data, colWidths=[180, 240, 120])

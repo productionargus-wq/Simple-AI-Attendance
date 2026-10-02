@@ -3156,10 +3156,15 @@ def save_generated_salary_report(p, company_id=None):
 
 def get_payslip_data(employee_name, month_year, company_id=None):
     db = get_db()
-    emp_q = {'employee_name': employee_name}
-    if company_id and company_id != 'ALL':
-        emp_q['company_id'] = str(company_id)
-    emp = db.employees.find_one(emp_q)
+    emp = None
+    if company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
+        emp = db.employees.find_one({'employee_name': employee_name, 'company_id': str(company_id)})
+    if not emp:
+        emp = db.employees.find_one({'employee_name': employee_name})
+    if not emp and company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
+        emp = db.employees.find_one({'employee_name': {'$regex': f"^{re.escape(str(employee_name).strip())}$", '$options': 'i'}, 'company_id': str(company_id)})
+    if not emp:
+        emp = db.employees.find_one({'employee_name': {'$regex': f"^{re.escape(str(employee_name).strip())}$", '$options': 'i'}})
     
     try:
         parts = month_year.split('-')
@@ -3181,23 +3186,39 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     hours_salary = float(emp.get('hourly_salary', 0.0)) if emp else 0.0
     day_salary = float(emp.get('day_salary', 0.0)) if emp else 0.0
     half_salary = float(emp.get('half_day_salary', 0.0)) if emp else 0.0
-    assigned_company_id = str(company_id or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
+
+    # Dynamically resolve respective company based on employee's company assignment
+    emp_comp_id = str((emp.get('company_id') if (emp and emp.get('company_id')) else None) or company_id or 'ARGUS_MASTER')
+    assigned_company_id = emp_comp_id
+    emp_comp_name = emp.get('company_name') if emp else None
+
+    comp_doc = None
+    if emp_comp_id and emp_comp_id != 'ARGUS_MASTER':
+        comp_doc = db.company_admin.find_one({'id': emp_comp_id})
+        if not comp_doc:
+            comp_doc = db.company_admin.find_one(build_id_filter(emp_comp_id))
+    if not comp_doc and emp_comp_name:
+        comp_doc = db.company_admin.find_one({'company_name': emp_comp_name})
+    if not comp_doc and company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
+        comp_doc = db.company_admin.find_one({'id': str(company_id)})
+        if not comp_doc:
+            comp_doc = db.company_admin.find_one(build_id_filter(company_id))
+    if not comp_doc:
+        comp_doc = db.company_admin.find_one({'id': 'ARGUS_MASTER'})
+
     company_name = 'ARGUS TECHNOLOGIES'
     company_address = 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'
     comp_email = 'technologiesargus@gmail.com'
     comp_phone = '+91 98765 43210'
-    comp_doc = db.company_admin.find_one({'id': assigned_company_id}) if assigned_company_id else None
-    if not comp_doc and assigned_company_id and assigned_company_id != 'ARGUS_MASTER':
-        comp_doc = db.company_admin.find_one(build_id_filter(assigned_company_id))
-    if not comp_doc and emp and emp.get('company_name'):
-        comp_doc = db.company_admin.find_one({'company_name': emp.get('company_name')})
-    if not comp_doc and company_name:
-        comp_doc = db.company_admin.find_one({'company_name': company_name})
+    comp_gstin = '33AHZPG5373L2ZN'
+    comp_logo = ''
+    comp_logo_data = ''
+
     if comp_doc:
         company_name = comp_doc.get('company_name') or company_name
         comp_email = comp_doc.get('email') or comp_email
         comp_phone = comp_doc.get('phone') or comp_phone
-        comp_gstin = comp_doc.get('gstin') or comp_gstin
+        comp_gstin = comp_doc.get('gstin') or comp_doc.get('company_gstin') or comp_gstin
         loc = comp_doc.get('address') or comp_doc.get('location') or ''
         if loc:
             company_address = loc
@@ -3206,6 +3227,8 @@ def get_payslip_data(employee_name, month_year, company_id=None):
             lng = comp_doc.get('longitude')
             if lat and lng:
                 company_address = f"Location: Lat {lat}, Lng {lng}"
+        comp_logo = str(comp_doc.get('logo') or comp_doc.get('company_logo') or '')
+        comp_logo_data = str(comp_doc.get('logo_data') or '')
 
     shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
 
@@ -3516,7 +3539,9 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         'email_id': str(emp.get('email_id') or emp.get('email', '') if emp else ''),
         'department': str(emp.get('department', '') or 'General' if emp else 'General'),
         'employee_photo': str(emp.get('photo') or emp.get('photo_filename', '') if emp else ''),
-        'employee_photo_url': (emp.get('photo_data') if emp and emp.get('photo_data') else (f"/uploads/{emp.get('photo') or emp.get('photo_filename')}" if emp and (emp.get('photo') or emp.get('photo_filename')) else '')) if emp else '',
-        'company_logo': str(comp_doc.get('logo') or comp_doc.get('company_logo') or '' if comp_doc else ''),
-        'company_logo_url': (comp_doc.get('logo_data') if comp_doc and comp_doc.get('logo_data') else (f"/uploads/{comp_doc.get('logo') or comp_doc.get('company_logo')}" if comp_doc and (comp_doc.get('logo') or comp_doc.get('company_logo')) else '')) if comp_doc else ''
+        'employee_photo_data': str(emp.get('photo_data', '') if emp else ''),
+        'employee_photo_url': (emp.get('photo_data') if (emp and emp.get('photo_data')) else (f"/uploads/{emp.get('photo') or emp.get('photo_filename')}" if emp and (emp.get('photo') or emp.get('photo_filename')) else '')) if emp else '',
+        'company_logo': comp_logo,
+        'company_logo_data': comp_logo_data,
+        'company_logo_url': comp_logo_data if comp_logo_data else (f"/uploads/{comp_logo}" if comp_logo else '')
     }
