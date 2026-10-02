@@ -53,7 +53,7 @@
     <!-- Right Controls: Toggle Icons + Search Box -->
     <div class="toolbar-right-controls">
       <div class="view-toggle-wrapper">
-        <button type="button" class="btn-icon-view active" id="btnListView" title="List View" aria-label="List View">
+        <button type="button" class="btn-icon-view" id="btnListView" title="List View" aria-label="List View">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="8" y1="6" x2="21" y2="6"></line>
             <line x1="8" y1="12" x2="21" y2="12"></line>
@@ -63,7 +63,7 @@
             <line x1="3" y1="18" x2="3.01" y2="18"></line>
           </svg>
         </button>
-        <button type="button" class="btn-icon-view" id="btnGridView" title="Grid View" aria-label="Grid View">
+        <button type="button" class="btn-icon-view active" id="btnGridView" title="Grid View" aria-label="Grid View">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="7" height="7"></rect>
             <rect x="14" y="3" width="7" height="7"></rect>
@@ -80,7 +80,7 @@
     </div>
   </div>
 
-  <div class="table-responsive" id="employeeListSection">
+  <div class="table-responsive" id="employeeListSection" style="display: none;">
     <table class="employee-table" id="employeeDataTable">
       <thead>
         <tr>
@@ -105,7 +105,7 @@
   </div>
 
   <!-- Responsive Card Grid Section -->
-  <div id="employeeGridSection" class="employee-grid-container" style="display: none;">
+  <div id="employeeGridSection" class="employee-grid-container" style="display: grid;">
     <!-- Rendered dynamically via JavaScript -->
   </div>
 

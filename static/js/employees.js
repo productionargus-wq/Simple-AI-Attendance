@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnDownloadPdf = document.getElementById('btnDownloadPdf');
 
   // List vs Grid View Toggle Elements
-  let currentView = 'list';
+  let currentView = 'grid';
   let currentEmployees = [];
   const btnListView = document.getElementById('btnListView');
   const btnGridView = document.getElementById('btnGridView');
