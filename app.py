@@ -15,7 +15,7 @@ from PIL import Image, ImageOps
 
 load_dotenv()
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file, send_from_directory, Response, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file, send_from_directory, Response, session, make_response
 from functools import wraps
 from flask_cors import CORS
 import database
@@ -561,7 +561,113 @@ def dashboard():
         if comp and comp.get('company_name'):
             session['company_name'] = comp['company_name']
     stats = database.get_dashboard_stats(company_id=comp_id)
+
+    try:
+        from report_scheduler import get_yesterday_ist, get_previous_month_ist
+        yesterday_str = get_yesterday_ist()
+        prev_month_str = get_previous_month_ist()
+
+        try:
+            y_dt = datetime.strptime(yesterday_str, '%Y-%m-%d')
+            yesterday_display = y_dt.strftime('%d %b %Y')
+        except Exception:
+            yesterday_display = yesterday_str
+
+        try:
+            m_dt = datetime.strptime(prev_month_str, '%Y-%m')
+            prev_month_display = m_dt.strftime('%B %Y')
+        except Exception:
+            prev_month_display = prev_month_str
+
+        stats['yesterday_date'] = yesterday_str
+        stats['yesterday_display'] = yesterday_display
+        stats['previous_month'] = prev_month_str
+        stats['previous_month_display'] = prev_month_display
+    except Exception as e:
+        print(f"Error computing dashboard date badges: {e}")
+        stats['yesterday_date'] = ''
+        stats['yesterday_display'] = 'Yesterday'
+        stats['previous_month'] = ''
+        stats['previous_month_display'] = 'Previous Month'
+
     return render_template('dashboard.html', active_tab='DASHBOARD', stats=stats)
+
+@app.route('/api/dashboard/yesterday-activity/pdf', methods=['GET'])
+@login_required
+def api_dashboard_yesterday_activity_pdf():
+    try:
+        from report_scheduler import get_yesterday_ist
+        comp_id = get_current_company_id()
+        yesterday = get_yesterday_ist()
+        company_info = get_current_company_info()
+
+        result = database.get_attendance_reports(
+            report_type='all',
+            start_date=yesterday,
+            end_date=yesterday,
+            limit=1000,
+            company_id=comp_id
+        )
+        data = result.get('data', []) if isinstance(result, dict) else []
+        title = f"Daily Activity Report - {yesterday}"
+        pdf_buffer = pdf_generator.generate_attendance_report_pdf(
+            title,
+            data,
+            is_simple=False,
+            company_info=company_info
+        )
+
+        disposition_type = 'attachment' if request.args.get('download') == '1' else 'inline'
+        filename = f"yesterday_activity_{yesterday}.pdf"
+
+        resp = make_response(pdf_buffer.getvalue())
+        resp.headers['Content-Type'] = 'application/pdf'
+        resp.headers['Content-Disposition'] = f'{disposition_type}; filename="{filename}"'
+        resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return resp
+    except Exception as e:
+        print(f"Error generating yesterday activity PDF: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/dashboard/previous-month-salary/pdf', methods=['GET'])
+@login_required
+def api_dashboard_previous_month_salary_pdf():
+    try:
+        from report_scheduler import get_previous_month_ist, build_monthly_salary_report
+        comp_id = get_current_company_id()
+        prev_month = get_previous_month_ist()
+        company_info = get_current_company_info()
+
+        result = database.get_salary_reports(
+            start_month=prev_month,
+            end_month=prev_month,
+            limit=1000,
+            company_id=comp_id
+        )
+        data = result.get('data', []) if isinstance(result, dict) else []
+        if not data:
+            build_monthly_salary_report(comp_id, target_month=prev_month)
+            result = database.get_salary_reports(
+                start_month=prev_month,
+                end_month=prev_month,
+                limit=1000,
+                company_id=comp_id
+            )
+            data = result.get('data', []) if isinstance(result, dict) else []
+
+        pdf_buffer = pdf_generator.generate_salary_report_pdf(data, company_info=company_info)
+
+        disposition_type = 'attachment' if request.args.get('download') == '1' else 'inline'
+        filename = f"salary_report_{prev_month}.pdf"
+
+        resp = make_response(pdf_buffer.getvalue())
+        resp.headers['Content-Type'] = 'application/pdf'
+        resp.headers['Content-Disposition'] = f'{disposition_type}; filename="{filename}"'
+        resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return resp
+    except Exception as e:
+        print(f"Error generating previous month salary PDF: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/employee-details')
 @login_required

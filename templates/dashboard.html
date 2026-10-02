@@ -166,7 +166,7 @@
     </div>
   </div>
 
-  <!-- ROW 3: Three Cards (Today's Attendance, Department Wise Summary, Quick Actions) -->
+  <!-- ROW 3: Equal-Sized Bottom Cards (Today's Attendance & Department Wise Summary) -->
   <div class="dash-bottom-row">
 
     <!-- Card 1: Today's Attendance -->
@@ -273,96 +273,82 @@
       </div>
     </div>
 
-    <!-- Card 3: Quick Actions -->
-    <div class="dash-card card-quick-actions">
+  </div>
+
+  <!-- ROW 4: Inbuilt Dynamic PDF Viewers (Yesterday's Activity & Previous Month Salary Report) -->
+  <div class="dash-pdf-row">
+
+    <!-- Card 1: Yesterday's Activity -->
+    <div class="dash-pdf-card">
       <div class="card-head">
         <div class="card-title-group">
           <div class="card-title-icon text-blue">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
           </div>
-          <h3 class="card-title-text">Quick Actions</h3>
+          <h3 class="card-title-text">Yesterday's Activity</h3>
+          <span class="dash-pdf-badge">{{ stats.yesterday_display or stats.yesterday_date or 'Yesterday' }}</span>
+        </div>
+        <div class="dash-pdf-header-actions">
+          <a href="/api/dashboard/yesterday-activity/pdf" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" title="Open in new tab">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            Open
+          </a>
+          <a href="/api/dashboard/yesterday-activity/pdf?download=1" class="dash-pdf-btn-action btn-primary-action" title="Download PDF">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download
+          </a>
         </div>
       </div>
-      <div class="quick-actions-grid">
-        <!-- 1. Add Employee -->
-        <a href="{{ url_for('employee_details') }}" class="qa-btn qa-btn-blue">
-          <div class="qa-content">
-            <svg class="qa-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="8.5" cy="7" r="4"></circle>
-              <line x1="20" y1="8" x2="20" y2="14"></line>
-              <line x1="23" y1="11" x2="17" y2="11"></line>
-            </svg>
-            <span class="qa-label">Add Employee</span>
-          </div>
-          <span class="qa-arrow">&rarr;</span>
-        </a>
+      <div class="dash-pdf-container">
+        <iframe src="/api/dashboard/yesterday-activity/pdf#toolbar=0&navpanes=0" class="dash-pdf-frame" title="Yesterday's Activity Report" loading="lazy"></iframe>
+      </div>
+    </div>
 
-        <!-- 2. View Reports -->
-        <a href="{{ url_for('attendance_report') }}" class="qa-btn qa-btn-orange">
-          <div class="qa-content">
-            <svg class="qa-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="20" x2="18" y2="10"></line>
-              <line x1="12" y1="20" x2="12" y2="4"></line>
-              <line x1="6" y1="20" x2="6" y2="14"></line>
+    <!-- Card 2: Previous Month Salary Report -->
+    <div class="dash-pdf-card">
+      <div class="card-head">
+        <div class="card-title-group">
+          <div class="card-title-icon text-blue">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <line x1="2" y1="10" x2="22" y2="10"></line>
             </svg>
-            <span class="qa-label">View Reports</span>
           </div>
-          <span class="qa-arrow">&rarr;</span>
-        </a>
-
-        <!-- 3. Manual Entry -->
-        <a href="{{ url_for('manual_entry') }}" class="qa-btn qa-btn-green">
-          <div class="qa-content">
-            <svg class="qa-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 20h9"></path>
-              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          <h3 class="card-title-text">Previous Month Salary Report</h3>
+          <span class="dash-pdf-badge">{{ stats.previous_month_display or stats.previous_month or 'Previous Month' }}</span>
+        </div>
+        <div class="dash-pdf-header-actions">
+          <a href="/api/dashboard/previous-month-salary/pdf" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" title="Open in new tab">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
             </svg>
-            <span class="qa-label">Manual Entry</span>
-          </div>
-          <span class="qa-arrow">&rarr;</span>
-        </a>
-
-        <!-- 4. Payment Entry -->
-        <a href="{{ url_for('payment_entry') }}" class="qa-btn qa-btn-red">
-          <div class="qa-content">
-            <svg class="qa-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-              <line x1="1" y1="10" x2="23" y2="10"></line>
+            Open
+          </a>
+          <a href="/api/dashboard/previous-month-salary/pdf?download=1" class="dash-pdf-btn-action btn-primary-action" title="Download PDF">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
-            <span class="qa-label">Payment Entry</span>
-          </div>
-          <span class="qa-arrow">&rarr;</span>
-        </a>
-
-        <!-- 5. Generate Payslip -->
-        <a href="{{ url_for('monthly_payslip') }}" class="qa-btn qa-btn-purple">
-          <div class="qa-content">
-            <svg class="qa-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-            <span class="qa-label">Generate Payslip</span>
-          </div>
-          <span class="qa-arrow">&rarr;</span>
-        </a>
-
-        <!-- 6. Company Settings -->
-        <a href="{{ url_for('company_profile') }}" class="qa-btn qa-btn-violet">
-          <div class="qa-content">
-            <svg class="qa-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-            <span class="qa-label">Company Settings</span>
-          </div>
-          <span class="qa-arrow">&rarr;</span>
-        </a>
+            Download
+          </a>
+        </div>
+      </div>
+      <div class="dash-pdf-container">
+        <iframe src="/api/dashboard/previous-month-salary/pdf#toolbar=0&navpanes=0" class="dash-pdf-frame" title="Previous Month Salary Report" loading="lazy"></iframe>
       </div>
     </div>
 
