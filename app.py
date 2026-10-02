@@ -1034,6 +1034,11 @@ def api_delete_company_logo():
 @app.route('/api/employee/my-attendance', methods=['GET'])
 @employee_required
 def api_employee_my_attendance():
+    emp_id = session.get('employee_id')
+    curr_emp = database.get_employee_by_id(emp_id)
+    if curr_emp and curr_emp.get('permissions') and curr_emp['permissions'].get('attendance_history') is False:
+        return jsonify({'error': 'Attendance history view is disabled for your account.'}), 403
+
     emp_name = session.get('employee_name')
     comp_id = session.get('company_id')
     from_date = request.args.get('from_date', '').strip()
@@ -1051,6 +1056,11 @@ def api_employee_my_attendance():
 @app.route('/api/employee/my-payslip', methods=['GET'])
 @employee_required
 def api_employee_my_payslip():
+    emp_id = session.get('employee_id')
+    curr_emp = database.get_employee_by_id(emp_id)
+    if curr_emp and curr_emp.get('permissions') and curr_emp['permissions'].get('monthly_payslip') is False:
+        return jsonify({'error': 'Monthly payslip view is disabled for your account.'}), 403
+
     emp_name = session.get('employee_name')
     comp_id = session.get('company_id')
     month = request.args.get('month', '').strip()
@@ -1063,12 +1073,16 @@ def api_employee_my_payslip():
 @employee_required
 def api_employee_set_credentials():
     """Allows authenticated employee to create or update their portal password."""
+    emp_id = session.get('employee_id')
+    curr_emp = database.get_employee_by_id(emp_id)
+    if curr_emp and curr_emp.get('permissions') and curr_emp['permissions'].get('employee_credentials') is False:
+        return jsonify({'success': False, 'error': 'Credential updates are disabled for your account.'}), 403
+
     data = request.get_json(silent=True) or request.form.to_dict()
     new_password = str(data.get('password', '')).strip()
     if not new_password or len(new_password) < 4:
         return jsonify({'success': False, 'error': 'Password must be at least 4 characters long.'}), 400
     
-    emp_id = session.get('employee_id')
     success = database.set_employee_password(emp_id, new_password)
     if success:
         return jsonify({
@@ -1111,6 +1125,35 @@ def api_get_employee(emp_id):
     if not emp:
         return jsonify({'error': 'Employee not found'}), 404
     return jsonify(emp)
+
+def extract_employee_permissions(data, default_val=True):
+    raw_perms = data.get('permissions')
+    if isinstance(raw_perms, str):
+        try:
+            raw_perms = database.json.loads(raw_perms)
+        except Exception:
+            raw_perms = {}
+    if not isinstance(raw_perms, dict):
+        raw_perms = {}
+
+    def to_bool(val, fallback):
+        if val is None:
+            return fallback
+        if isinstance(val, bool):
+            return val
+        s = str(val).strip().lower()
+        if s in ('true', '1', 'yes', 'on'):
+            return True
+        if s in ('false', '0', 'no', 'off'):
+            return False
+        return fallback
+
+    return {
+        'punch_attendance': to_bool(data.get('perm_punch_attendance', raw_perms.get('punch_attendance')), default_val),
+        'attendance_history': to_bool(data.get('perm_attendance_history', raw_perms.get('attendance_history')), default_val),
+        'monthly_payslip': to_bool(data.get('perm_monthly_payslip', raw_perms.get('monthly_payslip')), default_val),
+        'employee_credentials': to_bool(data.get('perm_employee_credentials', raw_perms.get('employee_credentials')), default_val)
+    }
 
 @app.route('/api/employees', methods=['POST'])
 @login_required
@@ -1178,6 +1221,7 @@ def api_create_employee():
         if not (data.get('email_id') or '').strip():
             return jsonify({'error': 'Email ID is required'}), 400
             
+        data['permissions'] = extract_employee_permissions(data, default_val=True)
         emp_id = database.create_employee(data, company_id=get_current_company_id())
         success_msg = 'Employee created successfully'
         if face_registered:
@@ -1257,6 +1301,10 @@ def api_update_employee(emp_id):
             except Exception as b64_err:
                 print(f"Warning: processing base64 photo_data in update failed: {b64_err}")
                 
+        # Update permissions if permission fields or permissions dict was passed
+        if any(k in data for k in ['perm_punch_attendance', 'perm_attendance_history', 'perm_monthly_payslip', 'perm_employee_credentials', 'permissions']):
+            data['permissions'] = extract_employee_permissions(data, default_val=True)
+
         database.update_employee(emp_id, data)
         success_msg = 'Employee updated successfully'
         if face_registered:
@@ -1603,6 +1651,14 @@ def api_face_recognize():
         # Enrich with employee details for dynamic punch card
         db = database.get_db()
         emp_doc = db.employees.find_one(database.build_id_filter(emp_id)) or db.employees.find_one({'employee_name': emp_name})
+        
+        # Check if Punch Attendance is permitted for employee when punching from portal
+        if session.get('employee_logged_in') and emp_doc and emp_doc.get('permissions') and emp_doc['permissions'].get('punch_attendance') is False:
+            return jsonify({
+                'matched': False,
+                'message': 'Punch attendance is disabled for your account by your administrator.'
+            }), 403
+
         if emp_doc:
             result['employee_code'] = emp_doc.get('employee_id', emp_id)
             result['designation'] = emp_doc.get('designation', '') or 'Staff'

@@ -753,7 +753,15 @@ def get_employee_by_id(emp_id, company_id=None):
     if company_id and company_id != 'ALL':
         f = {'$and': [f, {'company_id': str(company_id)}]}
     doc = db.employees.find_one(f)
-    return clean_doc(doc)
+    cleaned = clean_doc(doc)
+    if cleaned and not cleaned.get('permissions'):
+        cleaned['permissions'] = {
+            'punch_attendance': True,
+            'attendance_history': True,
+            'monthly_payslip': True,
+            'employee_credentials': True
+        }
+    return cleaned
 
 def safe_float(val, default=0.0):
     """Safely converts string/number/empty to float without raising ValueError."""
@@ -821,6 +829,12 @@ def create_employee(data, company_id=None):
         'photo_filename': str(data.get('photo_filename') or data.get('photo') or '').strip(),
         'photo_data': str(data.get('photo_data') or '').strip(),
         'face_embedding': data.get('face_embedding', ''),
+        'permissions': data.get('permissions', {
+            'punch_attendance': True,
+            'attendance_history': True,
+            'monthly_payslip': True,
+            'employee_credentials': True
+        }),
         'created_at': get_ist_now(),
         'updated_at': get_ist_now()
     }
@@ -869,6 +883,8 @@ def update_employee(emp_id, data, company_id=None):
 
     if 'face_embedding' in data and data['face_embedding']:
         upd['face_embedding'] = data['face_embedding']
+    if 'permissions' in data and isinstance(data['permissions'], dict):
+        upd['permissions'] = data['permissions']
     if 'company_id' in data and data['company_id']:
         upd['company_id'] = str(data['company_id'])
         

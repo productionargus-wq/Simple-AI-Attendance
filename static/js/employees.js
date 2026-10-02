@@ -339,6 +339,17 @@ document.addEventListener('DOMContentLoaded', function () {
     if (captureStatusEl) captureStatusEl.textContent = '';
     const photoPreviewBox = document.getElementById('currentPhotoPreview');
     if (photoPreviewBox) photoPreviewBox.style.display = 'none';
+
+    // Reset Employee Permissions to all checked
+    const pPunch = document.getElementById('permPunchAttendance');
+    if (pPunch) pPunch.checked = true;
+    const pHist = document.getElementById('permAttendanceHistory');
+    if (pHist) pHist.checked = true;
+    const pPay = document.getElementById('permMonthlyPayslip');
+    if (pPay) pPay.checked = true;
+    const pCred = document.getElementById('permEmployeeCredentials');
+    if (pCred) pCred.checked = true;
+
     entryModal.classList.add('active');
   }
 
@@ -376,6 +387,17 @@ document.addEventListener('DOMContentLoaded', function () {
       const captureStatusEl = document.getElementById('captureStatus');
       if (captureStatusEl) captureStatusEl.textContent = '';
 
+      // Populate Employee Permissions (defaulting to true for backward compatibility)
+      const perms = emp.permissions || {};
+      const editPunch = document.getElementById('permPunchAttendance');
+      if (editPunch) editPunch.checked = perms.punch_attendance !== false;
+      const editHist = document.getElementById('permAttendanceHistory');
+      if (editHist) editHist.checked = perms.attendance_history !== false;
+      const editPay = document.getElementById('permMonthlyPayslip');
+      if (editPay) editPay.checked = perms.monthly_payslip !== false;
+      const editCred = document.getElementById('permEmployeeCredentials');
+      if (editCred) editCred.checked = perms.employee_credentials !== false;
+
       // Show existing photo preview if present
       const photoPreviewBox = document.getElementById('currentPhotoPreview');
       const editThumb = document.getElementById('editPhotoThumb');
@@ -405,6 +427,14 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnResetForm) {
     btnResetForm.addEventListener('click', function () {
       employeeForm.reset();
+      const pPunch = document.getElementById('permPunchAttendance');
+      if (pPunch) pPunch.checked = true;
+      const pHist = document.getElementById('permAttendanceHistory');
+      if (pHist) pHist.checked = true;
+      const pPay = document.getElementById('permMonthlyPayslip');
+      if (pPay) pPay.checked = true;
+      const pCred = document.getElementById('permEmployeeCredentials');
+      if (pCred) pCred.checked = true;
     });
   }
 
@@ -554,6 +584,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const empId = document.getElementById('formEmployeeId').value.trim();
       const formData = new FormData(employeeForm);
+
+      // Explicitly serialize employee portal permissions
+      const permPunch = document.getElementById('permPunchAttendance');
+      const permHist = document.getElementById('permAttendanceHistory');
+      const permPay = document.getElementById('permMonthlyPayslip');
+      const permCred = document.getElementById('permEmployeeCredentials');
+      formData.set('perm_punch_attendance', permPunch ? (permPunch.checked ? 'true' : 'false') : 'true');
+      formData.set('perm_attendance_history', permHist ? (permHist.checked ? 'true' : 'false') : 'true');
+      formData.set('perm_monthly_payslip', permPay ? (permPay.checked ? 'true' : 'false') : 'true');
+      formData.set('perm_employee_credentials', permCred ? (permCred.checked ? 'true' : 'false') : 'true');
 
       // Attach webcam captured photo if user took snapshot
       if (currentCapturedBlob) {

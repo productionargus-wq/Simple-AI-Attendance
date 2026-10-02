@@ -293,6 +293,23 @@
       <div><strong>Company:</strong> {{ company.company_name if company else 'Argus Technologies' }}</div>
     </div>
 
+    {% set emp_perms = employee.permissions if (employee and employee.permissions) else {} %}
+    {% set perm_punch = emp_perms.get('punch_attendance', True) %}
+    {% set perm_hist = emp_perms.get('attendance_history', True) %}
+    {% set perm_pay = emp_perms.get('monthly_payslip', True) %}
+    {% set perm_cred = emp_perms.get('employee_credentials', True) %}
+
+    {% if not (perm_punch or perm_hist or perm_pay or perm_cred) %}
+    <div class="portal-card" style="text-align: center; padding: 48px 20px; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 10px;">
+      <div style="font-size: 38px; margin-bottom: 12px;">🔒</div>
+      <h3 style="font-size: 17px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">Portal Access Restricted</h3>
+      <p style="font-size: 13px; color: #64748b; margin: 0; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.5;">
+        No active portal sections have been enabled for your employee account. If you believe this is in error, please contact your company administrator.
+      </p>
+    </div>
+    {% endif %}
+
+    {% if perm_punch %}
     <!-- Section 1: Camera Face Attendance Marking -->
     <div class="portal-card">
       <div class="portal-card-header">
@@ -321,7 +338,9 @@
         <div id="portalPunchResult" style="width: 100%; max-width: 440px; min-height: 40px; margin-top: 14px; text-align: center;"></div>
       </div>
     </div>
+    {% endif %}
 
+    {% if perm_hist %}
     <!-- Section 2: Attendance History -->
     <div class="portal-card">
       <div class="portal-card-header">
@@ -355,7 +374,9 @@
         </table>
       </div>
     </div>
+    {% endif %}
 
+    {% if perm_pay %}
     <!-- Section 3: Monthly Payslip & Salary -->
     <div class="portal-card">
       <div class="portal-card-header">
@@ -398,7 +419,9 @@
         </div>
       </div>
     </div>
+    {% endif %}
 
+    {% if perm_cred %}
     <!-- Section 4: My Credentials -->
     <div class="portal-card" style="margin-top: 20px;">
       <div class="portal-card-header">
@@ -452,6 +475,7 @@
         </form>
       </div>
     </div>
+    {% endif %}
 
   </main>
 
@@ -485,7 +509,7 @@
     updateClock();
     setInterval(updateClock, 1000);
 
-    // 2. Camera setup for face attendance
+    // 2. Camera setup for face attendance (if permitted)
     const video = document.getElementById('portalCameraFeed');
     const canvas = document.getElementById('portalCanvas');
     const placeholder = document.getElementById('portalCamPlaceholder');
@@ -497,34 +521,57 @@
     let userLat = null;
     let userLng = null;
 
-    // Detect user coordinates
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; },
-        (err) => { console.warn('Geolocation warning:', err.message); },
-        { enableHighAccuracy: true, timeout: 6000 }
-      );
-    }
+    if (video && btnPunch) {
+      // Detect user coordinates
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; },
+          (err) => { console.warn('Geolocation warning:', err.message); },
+          { enableHighAccuracy: true, timeout: 6000 }
+        );
+      }
 
-    async function startCamera() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-        });
-        video.srcObject = stream;
-        video.onloadedmetadata = function () {
-          placeholder.style.display = 'none';
-          btnPunch.disabled = false;
-        };
-        cameraActive = true;
-        if (btnPortalToggleCam) {
-          btnPortalToggleCam.textContent = '📷 Turn Camera Off';
-          btnPortalToggleCam.style.backgroundColor = '#3d6078';
+      async function startCamera() {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+          });
+          video.srcObject = stream;
+          video.onloadedmetadata = function () {
+            if (placeholder) placeholder.style.display = 'none';
+            btnPunch.disabled = false;
+          };
+          cameraActive = true;
+          if (btnPortalToggleCam) {
+            btnPortalToggleCam.textContent = '📷 Turn Camera Off';
+            btnPortalToggleCam.style.backgroundColor = '#3d6078';
+          }
+        } catch (err) {
+          if (placeholder) {
+            placeholder.textContent = 'Camera access denied or unavailable';
+            placeholder.style.color = '#dc3545';
+            placeholder.style.display = 'flex';
+          }
+          btnPunch.disabled = true;
+          cameraActive = false;
+          if (btnPortalToggleCam) {
+            btnPortalToggleCam.textContent = '📷 Turn Camera On';
+            btnPortalToggleCam.style.backgroundColor = '#198754';
+          }
         }
-      } catch (err) {
-        placeholder.textContent = 'Camera access denied or unavailable';
-        placeholder.style.color = '#dc3545';
-        placeholder.style.display = 'flex';
+      }
+
+      function stopCamera() {
+        if (stream) {
+          stream.getTracks().forEach(t => t.stop());
+          stream = null;
+        }
+        video.srcObject = null;
+        if (placeholder) {
+          placeholder.textContent = 'Camera is turned off. Click "Turn Camera On" to enable.';
+          placeholder.style.color = '#a0aec0';
+          placeholder.style.display = 'flex';
+        }
         btnPunch.disabled = true;
         cameraActive = false;
         if (btnPortalToggleCam) {
@@ -532,209 +579,222 @@
           btnPortalToggleCam.style.backgroundColor = '#198754';
         }
       }
-    }
 
-    function stopCamera() {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        stream = null;
-      }
-      video.srcObject = null;
-      placeholder.textContent = 'Camera is turned off. Click "Turn Camera On" to enable.';
-      placeholder.style.color = '#a0aec0';
-      placeholder.style.display = 'flex';
-      btnPunch.disabled = true;
-      cameraActive = false;
       if (btnPortalToggleCam) {
-        btnPortalToggleCam.textContent = '📷 Turn Camera On';
-        btnPortalToggleCam.style.backgroundColor = '#198754';
+        btnPortalToggleCam.addEventListener('click', function () {
+          if (cameraActive) {
+            stopCamera();
+          } else {
+            btnPortalToggleCam.textContent = '⏳ Starting...';
+            startCamera();
+          }
+        });
       }
-    }
 
-    if (btnPortalToggleCam) {
-      btnPortalToggleCam.addEventListener('click', function () {
-        if (cameraActive) {
-          stopCamera();
-        } else {
-          btnPortalToggleCam.textContent = '⏳ Starting...';
-          startCamera();
-        }
+      startCamera();
+
+      // Attendance punch
+      btnPunch.addEventListener('click', function () {
+        if (!stream) return;
+        btnPunch.disabled = true;
+        btnPunch.textContent = 'Verifying Face...';
+        if (punchResult) punchResult.innerHTML = '';
+
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(async function (blob) {
+          // Generate 12-hour client timestamp
+          const now = new Date();
+          const d = String(now.getDate()).padStart(2, '0');
+          const m = String(now.getMonth() + 1).padStart(2, '0');
+          const y = now.getFullYear();
+          let h = now.getHours();
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          h = h % 12 || 12;
+          const hStr = String(h).padStart(2, '0');
+          const minStr = String(now.getMinutes()).padStart(2, '0');
+          const secStr = String(now.getSeconds()).padStart(2, '0');
+          const clientTime12 = `${d}/${m}/${y} ${hStr}:${minStr}:${secStr} ${ampm}`;
+
+          const formData = new FormData();
+          formData.append('photo', blob, 'punch_frame.jpg');
+          formData.append('client_time', clientTime12);
+          if (userLat && userLng) {
+            formData.append('latitude', userLat);
+            formData.append('longitude', userLng);
+          }
+
+          try {
+            const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (data.matched) {
+              const punchType = data.punch_status === 'punch_out' ? 'Punch Out' : 'Punch In';
+              const hoursInfo = data.working_hours ? `<div style="font-size: 12px; margin-top: 2px;">Working Hours: <strong>${data.working_hours}</strong></div>` : '';
+              if (punchResult) {
+                punchResult.innerHTML = `
+                  <div style="background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; border-radius: 6px; padding: 12px; font-size: 13px;">
+                    <div style="font-weight: 800; font-size: 15px;">✓ ${punchType} Successful!</div>
+                    <div style="margin-top: 4px;"><strong>${data.employee_name}</strong></div>
+                    <div style="font-size: 11px; color: #555; margin-top: 2px;">Distance: ${data.formatted_distance || '0m'} | Confidence: ${data.confidence}%</div>
+                    ${hoursInfo}
+                  </div>
+                `;
+              }
+              // Refresh history if history section is present
+              if (typeof loadHistory === 'function') {
+                loadHistory();
+              }
+            } else {
+              if (punchResult) {
+                punchResult.innerHTML = `
+                  <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 12px; font-size: 13px;">
+                    <div style="font-weight: 700;">Face Not Recognized</div>
+                    <div style="font-size: 11px; margin-top: 2px;">${data.message || 'Please face the camera directly in good lighting.'}</div>
+                  </div>
+                `;
+              }
+            }
+          } catch (err) {
+            if (punchResult) {
+              punchResult.innerHTML = `
+                <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 12px; font-size: 12px;">
+                  Connection error. Please try again.
+                </div>
+              `;
+            }
+          }
+
+          btnPunch.disabled = false;
+          btnPunch.textContent = 'Mark My Attendance';
+          if (punchResult) {
+            setTimeout(() => { punchResult.innerHTML = ''; }, 6000);
+          }
+        }, 'image/jpeg', 0.9);
       });
     }
 
-    startCamera();
-
-    // Attendance punch
-    btnPunch.addEventListener('click', function () {
-      if (!stream) return;
-      btnPunch.disabled = true;
-      btnPunch.textContent = 'Verifying Face...';
-      punchResult.innerHTML = '';
-
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      canvas.toBlob(async function (blob) {
-        // Generate 12-hour client timestamp
-        const now = new Date();
-        const d = String(now.getDate()).padStart(2, '0');
-        const m = String(now.getMonth() + 1).padStart(2, '0');
-        const y = now.getFullYear();
-        let h = now.getHours();
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12;
-        const hStr = String(h).padStart(2, '0');
-        const minStr = String(now.getMinutes()).padStart(2, '0');
-        const secStr = String(now.getSeconds()).padStart(2, '0');
-        const clientTime12 = `${d}/${m}/${y} ${hStr}:${minStr}:${secStr} ${ampm}`;
-
-        const formData = new FormData();
-        formData.append('photo', blob, 'punch_frame.jpg');
-        formData.append('client_time', clientTime12);
-        if (userLat && userLng) {
-          formData.append('latitude', userLat);
-          formData.append('longitude', userLng);
-        }
-
-        try {
-          const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
-          const data = await res.json();
-
-          if (data.matched) {
-            const punchType = data.punch_status === 'punch_out' ? 'Punch Out' : 'Punch In';
-            const hoursInfo = data.working_hours ? `<div style="font-size: 12px; margin-top: 2px;">Working Hours: <strong>${data.working_hours}</strong></div>` : '';
-            punchResult.innerHTML = `
-              <div style="background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; border-radius: 6px; padding: 12px; font-size: 13px;">
-                <div style="font-weight: 800; font-size: 15px;">✓ ${punchType} Successful!</div>
-                <div style="margin-top: 4px;"><strong>${data.employee_name}</strong></div>
-                <div style="font-size: 11px; color: #555; margin-top: 2px;">Distance: ${data.formatted_distance || '0m'} | Confidence: ${data.confidence}%</div>
-                ${hoursInfo}
-              </div>
-            `;
-            // Refresh history
-            loadHistory();
-          } else {
-            punchResult.innerHTML = `
-              <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 12px; font-size: 13px;">
-                <div style="font-weight: 700;">Face Not Recognized</div>
-                <div style="font-size: 11px; margin-top: 2px;">${data.message || 'Please face the camera directly in good lighting.'}</div>
-              </div>
-            `;
-          }
-        } catch (err) {
-          punchResult.innerHTML = `
-            <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 12px; font-size: 12px;">
-              Connection error. Please try again.
-            </div>
-          `;
-        }
-
-        btnPunch.disabled = false;
-        btnPunch.textContent = 'Mark My Attendance';
-        setTimeout(() => { punchResult.innerHTML = ''; }, 6000);
-      }, 'image/jpeg', 0.9);
-    });
-
-    // 3. Load attendance history
+    // 3. Load attendance history (if permitted)
     const historyBody = document.getElementById('portalHistoryBody');
     const fromDateInput = document.getElementById('historyFromDate');
     const toDateInput = document.getElementById('historyToDate');
     const btnFilterHistory = document.getElementById('btnFilterHistory');
 
-    // Default current month
     const today = new Date();
     const curYear = today.getFullYear();
     const curMonth = String(today.getMonth() + 1).padStart(2, '0');
-    fromDateInput.value = `${curYear}-${curMonth}-01`;
-    toDateInput.value = today.toISOString().split('T')[0];
 
-    async function loadHistory() {
-      historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Loading...</td></tr>';
-      try {
-        const params = new URLSearchParams({
-          from_date: fromDateInput.value,
-          to_date: toDateInput.value
-        });
-        const res = await fetch(`/api/employee/my-attendance?${params.toString()}`);
-        const data = await res.json();
+    let loadHistory = null;
+    if (historyBody && fromDateInput && toDateInput) {
+      fromDateInput.value = `${curYear}-${curMonth}-01`;
+      toDateInput.value = today.toISOString().split('T')[0];
 
-        if (!data.data || data.data.length === 0) {
-          historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 24px; color: #6c757d;">No attendance records found for this period.</td></tr>';
-          return;
+      loadHistory = async function () {
+        historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+        try {
+          const params = new URLSearchParams({
+            from_date: fromDateInput.value,
+            to_date: toDateInput.value
+          });
+          const res = await fetch(`/api/employee/my-attendance?${params.toString()}`);
+          const data = await res.json();
+
+          if (!data.data || data.data.length === 0) {
+            historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 24px; color: #6c757d;">No attendance records found for this period.</td></tr>';
+            return;
+          }
+
+          historyBody.innerHTML = '';
+          data.data.forEach(r => {
+            const row = document.createElement('tr');
+            const isDone = r.exit_time && r.exit_time !== '----';
+            const statusBadge = isDone
+              ? '<span style="background-color: #d1e7dd; color: #0f5132; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 700;">Completed</span>'
+              : '<span style="background-color: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 700;">Punched In</span>';
+
+            row.innerHTML = `
+              <td style="font-weight: 700;">${r.entry_time || '-'}</td>
+              <td>${r.entry_location || '-'}</td>
+              <td>${r.entry_distance || '0m'}</td>
+              <td>${r.exit_time || '----'}</td>
+              <td>${r.exit_distance || '----'}</td>
+              <td style="font-weight: 700;">${r.working_hours || '00:00'}</td>
+              <td>${r.shift_variance || '----'}</td>
+              <td style="text-align: center;">${statusBadge}</td>
+            `;
+            historyBody.appendChild(row);
+          });
+        } catch (err) {
+          historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #dc3545;">Failed to load attendance history.</td></tr>';
         }
+      };
 
-        historyBody.innerHTML = '';
-        data.data.forEach(r => {
-          const row = document.createElement('tr');
-          const isDone = r.exit_time && r.exit_time !== '----';
-          const statusBadge = isDone
-            ? '<span style="background-color: #d1e7dd; color: #0f5132; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 700;">Completed</span>'
-            : '<span style="background-color: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 700;">Punched In</span>';
-
-          row.innerHTML = `
-            <td style="font-weight: 700;">${r.entry_time || '-'}</td>
-            <td>${r.entry_location || '-'}</td>
-            <td>${r.entry_distance || '0m'}</td>
-            <td>${r.exit_time || '----'}</td>
-            <td>${r.exit_distance || '----'}</td>
-            <td style="font-weight: 700;">${r.working_hours || '00:00'}</td>
-            <td>${r.shift_variance || '----'}</td>
-            <td style="text-align: center;">${statusBadge}</td>
-          `;
-          historyBody.appendChild(row);
-        });
-      } catch (err) {
-        historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #dc3545;">Failed to load attendance history.</td></tr>';
+      if (btnFilterHistory) {
+        btnFilterHistory.addEventListener('click', loadHistory);
       }
+      loadHistory();
     }
 
-    btnFilterHistory.addEventListener('click', loadHistory);
-    loadHistory();
-
-    // 4. Monthly Payslip
+    // 4. Monthly Payslip (if permitted)
     const payslipMonthInput = document.getElementById('payslipMonth');
     const btnLoadPayslip = document.getElementById('btnLoadPayslip');
     const btnDownloadPayslip = document.getElementById('btnDownloadPayslip');
-    payslipMonthInput.value = `${curYear}-${curMonth}`;
 
-    async function loadPayslip() {
-      const month = payslipMonthInput.value || `${curYear}-${curMonth}`;
-      try {
-        const res = await fetch(`/api/employee/my-payslip?month=${month}`);
-        const data = await res.json();
-        const p = data.payslip || data || {};
-        const basic = p.basic_salary !== undefined ? p.basic_salary : (p.basic_earnings || 0);
-        const deduct = p.total_deduction !== undefined ? p.total_deduction : (p.total_deductions || 0);
-        const net = p.net_pay !== undefined ? p.net_pay : (p.net_salary || 0);
-        const hrs = p.total_working_hours || p.working_hours || '00:00';
-        const daysLabel = p.working_days_breakdown || `${p.working_days || 0} Days`;
+    if (payslipMonthInput) {
+      payslipMonthInput.value = `${curYear}-${curMonth}`;
 
-        document.getElementById('psBasic').textContent = `₹${Number(basic).toLocaleString()}`;
-        document.getElementById('psAllowance').textContent = `₹${Number(p.allowance || 0).toLocaleString()}`;
-        document.getElementById('psIncentive').textContent = `₹${Number(p.incentive || 0).toLocaleString()}`;
-        document.getElementById('psTotalEarnings').textContent = `₹${Number(p.total_earnings || 0).toLocaleString()}`;
+      async function loadPayslip() {
+        const month = payslipMonthInput.value || `${curYear}-${curMonth}`;
+        try {
+          const res = await fetch(`/api/employee/my-payslip?month=${month}`);
+          const data = await res.json();
+          const p = data.payslip || data || {};
+          const basic = p.basic_salary !== undefined ? p.basic_salary : (p.basic_earnings || 0);
+          const deduct = p.total_deduction !== undefined ? p.total_deduction : (p.total_deductions || 0);
+          const net = p.net_pay !== undefined ? p.net_pay : (p.net_salary || 0);
+          const hrs = p.total_working_hours || p.working_hours || '00:00';
+          const daysLabel = p.working_days_breakdown || `${p.working_days || 0} Days`;
 
-        document.getElementById('psAdvanceRepay').textContent = `₹${Number(p.advance_repayment || 0).toLocaleString()}`;
-        document.getElementById('psOtherDeduct').textContent = `₹${Number(p.other_deductions || 0).toLocaleString()}`;
-        document.getElementById('psTotalDeduct').textContent = `₹${Number(deduct).toLocaleString()}`;
+          const elB = document.getElementById('psBasic');
+          if (elB) elB.textContent = `₹${Number(basic).toLocaleString()}`;
+          const elA = document.getElementById('psAllowance');
+          if (elA) elA.textContent = `₹${Number(p.allowance || 0).toLocaleString()}`;
+          const elI = document.getElementById('psIncentive');
+          if (elI) elI.textContent = `₹${Number(p.incentive || 0).toLocaleString()}`;
+          const elTE = document.getElementById('psTotalEarnings');
+          if (elTE) elTE.textContent = `₹${Number(p.total_earnings || 0).toLocaleString()}`;
 
-        document.getElementById('psNetSalary').textContent = `₹${Number(net).toLocaleString()}`;
-        document.getElementById('psWorkingDays').textContent = `Working Days: ${daysLabel} | Hours: ${hrs}`;
-      } catch (err) {
-        console.warn('Error loading payslip:', err);
+          const elAR = document.getElementById('psAdvanceRepay');
+          if (elAR) elAR.textContent = `₹${Number(p.advance_repayment || 0).toLocaleString()}`;
+          const elOD = document.getElementById('psOtherDeduct');
+          if (elOD) elOD.textContent = `₹${Number(p.other_deductions || 0).toLocaleString()}`;
+          const elTD = document.getElementById('psTotalDeduct');
+          if (elTD) elTD.textContent = `₹${Number(deduct).toLocaleString()}`;
+
+          const elNS = document.getElementById('psNetSalary');
+          if (elNS) elNS.textContent = `₹${Number(net).toLocaleString()}`;
+          const elWD = document.getElementById('psWorkingDays');
+          if (elWD) elWD.textContent = `Working Days: ${daysLabel} | Hours: ${hrs}`;
+        } catch (err) {
+          console.warn('Error loading payslip:', err);
+        }
+      }
+
+      if (btnLoadPayslip) {
+        btnLoadPayslip.addEventListener('click', loadPayslip);
+        loadPayslip();
+      }
+
+      if (btnDownloadPayslip) {
+        btnDownloadPayslip.addEventListener('click', function () {
+          const month = payslipMonthInput.value || `${curYear}-${curMonth}`;
+          window.open(`/api/payslip/export/pdf?month=${month}`, '_blank');
+        });
       }
     }
-
-    btnLoadPayslip.addEventListener('click', loadPayslip);
-    loadPayslip();
-
-    // Download PDF
-    btnDownloadPayslip.addEventListener('click', function () {
-      const month = payslipMonthInput.value || `${curYear}-${curMonth}`;
-      window.open(`/api/payslip/export/pdf?month=${month}`, '_blank');
-    });
 
     // ===== MY CREDENTIALS PASSWORD HANDLER =====
     const empCredForm = document.getElementById('employeeCredentialsForm');
