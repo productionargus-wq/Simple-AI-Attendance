@@ -2191,6 +2191,41 @@ def compute_entry_exit_status(entry_time_str, exit_time_str, shift_start='09:00 
 
     return entry_status, exit_status
 
+def extract_sort_timestamp(row):
+    if not row:
+        return '1970-01-01 00:00:00'
+    for val in [row.get('entry_time'), row.get('submitted_at'), row.get('created_at'), row.get('date'), row.get('entry_date')]:
+        if not val:
+            continue
+        if isinstance(val, datetime):
+            return val.strftime('%Y-%m-%d %H:%M:%S')
+        s = str(val).strip()
+        # DD/MM/YYYY or DD-MM-YYYY with time (e.g. 02/10/2026 02:33:07 PM or 02-10-2026 04:47:33 PM)
+        m_dmy = re.match(r'^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?', s, re.I)
+        if m_dmy:
+            day, month, year = int(m_dmy.group(1)), int(m_dmy.group(2)), int(m_dmy.group(3))
+            hour = int(m_dmy.group(4)) if m_dmy.group(4) else 0
+            minute = int(m_dmy.group(5)) if m_dmy.group(5) else 0
+            second = int(m_dmy.group(6)) if m_dmy.group(6) else 0
+            ampm = (m_dmy.group(7) or '').upper()
+            if ampm == 'PM' and hour < 12:
+                hour += 12
+            elif ampm == 'AM' and hour == 12:
+                hour = 0
+            return f'{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}'
+            
+        # ISO format: 2026-10-02T14:33:09... or 2026-10-02 14:33:09
+        m_iso = re.match(r'^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})', s)
+        if m_iso:
+            return f'{m_iso.group(1)}-{m_iso.group(2)}-{m_iso.group(3)} {m_iso.group(4)}:{m_iso.group(5)}:{m_iso.group(6)}'
+            
+        # YYYY-MM-DD
+        m_date = re.match(r'^(\d{4})-(\d{2})-(\d{2})', s)
+        if m_date:
+            return f'{m_date.group(1)}-{m_date.group(2)}-{m_date.group(3)} 00:00:00'
+            
+    return '1970-01-01 00:00:00'
+
 def get_attendance_reports(report_type='all', start_date=None, end_date=None, employee='All', search=None, page=1, limit=10, company_id=None):
     db = get_db()
 
@@ -2398,7 +2433,7 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         })
 
     # Sort descending by date/timestamp
-    combined.sort(key=lambda x: str(x.get('sort_key', '') or x.get('entry_time', '')), reverse=True)
+    combined.sort(key=lambda x: (extract_sort_timestamp(x), str(x.get('created_at', '') or x.get('id', ''))), reverse=True)
     total = len(combined)
 
     if limit and limit > 0:
@@ -2613,8 +2648,8 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
             'source': 'manual'
         })
 
-    # Sort descending by sort_key then entry_time
-    data.sort(key=lambda x: (x.get('sort_key', ''), x.get('entry_time', '')), reverse=True)
+    # Sort descending by normalized datetime
+    data.sort(key=lambda x: (extract_sort_timestamp(x), str(x.get('created_at', '') or x.get('id', ''))), reverse=True)
 
     # Compute Totals
     total_minutes = 0
