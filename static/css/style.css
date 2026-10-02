@@ -784,9 +784,7 @@ body.sidebar-collapsed .app-footer {
   border-right: 1px solid #e2e8f0 !important;
   color: #334155;
   vertical-align: middle !important;
-  white-space: nowrap !important;
-  word-break: normal !important;
-  word-wrap: normal !important;
+  white-space: nowrap;
   font-size: 11px;
   line-height: 1.35;
   box-sizing: border-box !important;
@@ -839,15 +837,45 @@ body.sidebar-collapsed .app-footer {
   font-size: 10px !important;
 }
 
-/* Allow address cells to wrap nicely with controlled min-width */
+/* Allow location, address, reason, and multi-line cells to wrap nicely across all tables */
+.employee-table td.col-location,
+.employee-table td.col-address,
+.employee-table td.col-wrap,
+.employee-table td.col-reason,
+.employee-table td.col-notes,
 .employee-table td[data-col="entry_location"],
 .employee-table td[data-col="exit_location"],
-.employee-table td.col-location {
-  min-width: 150px;
-  max-width: 250px;
+.employee-table td[data-col="site_name"],
+.employee-table td[data-col="reason"],
+.employee-table td[data-col="designation"],
+#liveReportTable td:nth-child(4),
+#attendanceStandardTable td:nth-child(4),
+#attendanceStandardTable td:nth-child(8),
+#portalAttendanceTable td:nth-child(2),
+#paymentTable td:nth-child(7) {
+  min-width: 220px !important;
+  max-width: 320px !important;
   white-space: normal !important;
   word-break: break-word !important;
-  line-height: 1.35;
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+  line-height: 1.4 !important;
+  vertical-align: middle !important;
+}
+
+/* Specific columns that must stay single-line without clipping */
+.employee-table td.col-nowrap,
+.employee-table td[data-col="entry_distance"],
+.employee-table td[data-col="exit_distance"],
+.employee-table td[data-col="entry_status"],
+.employee-table td[data-col="exit_status"],
+#liveReportTable td:nth-child(5),
+#attendanceStandardTable td:nth-child(3),
+#attendanceStandardTable td:nth-child(5),
+#attendanceStandardTable td:nth-child(7),
+#attendanceStandardTable td:nth-child(9) {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
 }
 
 .employee-table tr:hover {
@@ -866,8 +894,8 @@ body.sidebar-collapsed .app-footer {
 
 #companyDataTable th,
 #companyDataTable td {
-  word-break: normal !important;
-  word-wrap: normal !important;
+  word-break: normal;
+  word-wrap: normal;
 }
 
 #companyDataTable thead th {

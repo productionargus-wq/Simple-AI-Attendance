@@ -114,18 +114,18 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       tr.innerHTML = `
-        <td style="font-weight: 700; color: #0f172a;">${escapeHtml(emp.id)}</td>
+        <td style="font-weight: 700; color: #0f172a; white-space: nowrap;">${escapeHtml(emp.id)}</td>
         <td style="text-align: center; vertical-align: middle;">${photoHtml}</td>
-        <td><strong style="color: #0f172a;">${escapeHtml(emp.employee_name)}</strong></td>
-        <td style="color: #475569;">${escapeHtml(emp.designation || '')}</td>
-        <td>${badgeHtml}</td>
-        <td style="font-weight: 600;">₹${Number(emp.hourly_salary || 0).toFixed(2)}</td>
-        <td style="font-weight: 600;">₹${Number(emp.day_salary || 0).toFixed(0)}</td>
-        <td style="font-weight: 600;">₹${Number(emp.half_day_salary || 0).toFixed(0)}</td>
-        <td>${escapeHtml(emp.mobile_number || '')}</td>
-        <td>${escapeHtml(emp.email_id || '')}</td>
-        <td>${escapeHtml(emp.shift_hours || '-')}</td>
-        <td style="text-align: center;">
+        <td class="col-wrap" style="max-width: 180px; white-space: normal !important; word-break: break-word !important;"><strong style="color: #0f172a;">${escapeHtml(emp.employee_name)}</strong></td>
+        <td class="col-wrap" style="color: #475569; max-width: 160px; white-space: normal !important; word-break: break-word !important;">${escapeHtml(emp.designation || '')}</td>
+        <td style="white-space: nowrap;">${badgeHtml}</td>
+        <td style="font-weight: 600; white-space: nowrap;">₹${Number(emp.hourly_salary || 0).toFixed(2)}</td>
+        <td style="font-weight: 600; white-space: nowrap;">₹${Number(emp.day_salary || 0).toFixed(0)}</td>
+        <td style="font-weight: 600; white-space: nowrap;">₹${Number(emp.half_day_salary || 0).toFixed(0)}</td>
+        <td style="white-space: nowrap;">${escapeHtml(emp.mobile_number || '')}</td>
+        <td style="white-space: nowrap;">${escapeHtml(emp.email_id || '')}</td>
+        <td style="white-space: nowrap;">${escapeHtml(emp.shift_hours || '-')}</td>
+        <td style="text-align: center; white-space: nowrap;">
           <div class="table-actions">
             <button class="btn-action-icon btn-action-view" onclick="viewEmployee('${emp.id}')" title="View Details">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

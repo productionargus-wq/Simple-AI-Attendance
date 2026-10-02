@@ -717,14 +717,14 @@
               : '<span style="background-color: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 700;">Punched In</span>';
 
             row.innerHTML = `
-              <td style="font-weight: 700;">${r.entry_time || '-'}</td>
-              <td>${r.entry_location || '-'}</td>
-              <td>${r.entry_distance || '0m'}</td>
-              <td>${r.exit_time || '----'}</td>
-              <td>${r.exit_distance || '----'}</td>
-              <td style="font-weight: 700;">${r.working_hours || '00:00'}</td>
-              <td>${r.shift_variance || '----'}</td>
-              <td style="text-align: center;">${statusBadge}</td>
+              <td style="font-weight: 700; white-space: nowrap;">${r.entry_time || '-'}</td>
+              <td class="col-location" data-col="entry_location" title="${r.entry_location || ''}" style="min-width: 200px; max-width: 300px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">${r.entry_location && r.entry_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${r.entry_location || '-'}</td>
+              <td style="white-space: nowrap;">${r.entry_distance || '0m'}</td>
+              <td style="white-space: nowrap;">${r.exit_time || '----'}</td>
+              <td style="white-space: nowrap;">${r.exit_distance || '----'}</td>
+              <td style="font-weight: 700; white-space: nowrap;">${r.working_hours || '00:00'}</td>
+              <td style="white-space: nowrap;">${r.shift_variance || '----'}</td>
+              <td style="text-align: center; white-space: nowrap;">${statusBadge}</td>
             `;
             historyBody.appendChild(row);
           });

@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', function () {
     data.forEach(r => {
       rowsHtml += `
         <tr>
-          <td style="font-weight: 600;">${r.employee_name}</td>
+          <td class="col-wrap" style="font-weight: 600; white-space: normal !important; word-break: break-word !important; min-width: 140px;">${r.employee_name}</td>
           <td>${r.pay_period}</td>
           <td>${r.working_days}</td>
           <td>${r.working_hours}</td>

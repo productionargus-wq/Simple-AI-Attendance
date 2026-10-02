@@ -110,18 +110,18 @@
     <table class="employee-table" id="attendanceStandardTable">
       <thead>
         <tr>
-          <th data-col="employee_name">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
-          <th data-col="entry_time">ENTRY TIME <span class="sort-icon">⇅</span></th>
-          <th data-col="entry_distance">ENTRY DISTANCE <span class="sort-icon">⇅</span></th>
-          <th data-col="entry_location">ENTRY LOCATION <span class="sort-icon">⇅</span></th>
-          <th data-col="entry_status" style="text-align: center; min-width: 110px;">ENTRY STATUS <span class="sort-icon">⇅</span></th>
-          <th data-col="exit_time">EXIT TIME <span class="sort-icon">⇅</span></th>
-          <th data-col="exit_distance">EXIT DISTANCE <span class="sort-icon">⇅</span></th>
-          <th data-col="exit_location">EXIT LOCATION <span class="sort-icon">⇅</span></th>
-          <th data-col="exit_status" style="text-align: center; min-width: 110px;">EXIT STATUS <span class="sort-icon">⇅</span></th>
-          <th data-col="working_hours">WORKING HOURS <span class="sort-icon">⇅</span></th>
-          <th data-col="shift_variance">SHIFT VARIANCE <span class="sort-icon">⇅</span></th>
-          <th data-col="working_salary">WORKING SALARY <span class="sort-icon">⇅</span></th>
+          <th data-col="employee_name" style="min-width: 140px; white-space: nowrap;">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_time" style="min-width: 130px; white-space: nowrap;">ENTRY TIME <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_distance" style="min-width: 140px; white-space: nowrap;">ENTRY DISTANCE <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_location" style="min-width: 240px;">ENTRY LOCATION <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_status" style="text-align: center; min-width: 130px; white-space: nowrap;">ENTRY STATUS <span class="sort-icon">⇅</span></th>
+          <th data-col="exit_time" style="min-width: 130px; white-space: nowrap;">EXIT TIME <span class="sort-icon">⇅</span></th>
+          <th data-col="exit_distance" style="min-width: 140px; white-space: nowrap;">EXIT DISTANCE <span class="sort-icon">⇅</span></th>
+          <th data-col="exit_location" style="min-width: 240px;">EXIT LOCATION <span class="sort-icon">⇅</span></th>
+          <th data-col="exit_status" style="text-align: center; min-width: 130px; white-space: nowrap;">EXIT STATUS <span class="sort-icon">⇅</span></th>
+          <th data-col="working_hours" style="min-width: 110px; white-space: nowrap;">WORKING HOURS <span class="sort-icon">⇅</span></th>
+          <th data-col="shift_variance" style="min-width: 110px; white-space: nowrap;">SHIFT VARIANCE <span class="sort-icon">⇅</span></th>
+          <th data-col="working_salary" style="min-width: 110px; white-space: nowrap;">WORKING SALARY <span class="sort-icon">⇅</span></th>
         </tr>
       </thead>
       <tbody id="attendanceStandardTableBody">
@@ -210,5 +210,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/attendance_report.js') }}?v=6.0"></script>
+<script src="{{ url_for('static', filename='js/attendance_report.js') }}?v=6.1"></script>
 {% endblock %}

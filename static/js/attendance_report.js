@@ -221,22 +221,22 @@ document.addEventListener('DOMContentLoaded', function () {
       const exitStatusVal = (r.is_manual || r.source === 'manual') ? '-' : (r.exit_status || '-');
 
       tr.innerHTML = `
-        <td><strong>${escapeHtml(r.employee_name)}</strong></td>
-        <td>${escapeHtml(r.entry_time || '')}</td>
-        <td title="${escapeHtml(r.entry_location || '')}">${escapeHtml(r.entry_distance || '')}</td>
-        <td title="${escapeHtml(r.entry_location || '')}" style="max-width: 240px; word-break: break-word; font-size: 11.5px; line-height: 1.35;">
+        <td style="white-space: nowrap;"><strong>${escapeHtml(r.employee_name)}</strong></td>
+        <td style="white-space: nowrap;">${escapeHtml(r.entry_time || '')}</td>
+        <td class="col-nowrap" data-col="entry_distance" title="${escapeHtml(r.entry_location || '')}" style="white-space: nowrap !important; min-width: 130px;">${escapeHtml(r.entry_distance || '')}</td>
+        <td class="col-location" data-col="entry_location" title="${escapeHtml(r.entry_location || '')}" style="min-width: 220px; max-width: 320px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">
           ${r.entry_location && r.entry_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${escapeHtml(r.entry_location || '')}
         </td>
-        <td style="text-align: center; white-space: nowrap;">${renderStatusBadge(entryStatusVal)}</td>
-        <td>${escapeHtml(r.exit_time || '')}</td>
-        <td title="${escapeHtml(r.exit_location || '')}">${escapeHtml(r.exit_distance || '')}</td>
-        <td title="${escapeHtml(r.exit_location || '')}" style="max-width: 240px; word-break: break-word; font-size: 11.5px; line-height: 1.35;">
+        <td class="col-nowrap" data-col="entry_status" style="text-align: center; white-space: nowrap !important; min-width: 120px;">${renderStatusBadge(entryStatusVal)}</td>
+        <td style="white-space: nowrap;">${escapeHtml(r.exit_time || '')}</td>
+        <td class="col-nowrap" data-col="exit_distance" title="${escapeHtml(r.exit_location || '')}" style="white-space: nowrap !important; min-width: 130px;">${escapeHtml(r.exit_distance || '')}</td>
+        <td class="col-location" data-col="exit_location" title="${escapeHtml(r.exit_location || '')}" style="min-width: 220px; max-width: 320px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">
           ${r.exit_location && r.exit_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${escapeHtml(r.exit_location || '')}
         </td>
-        <td style="text-align: center; white-space: nowrap;">${renderStatusBadge(exitStatusVal)}</td>
-        <td>${escapeHtml(r.working_hours || '')}</td>
-        <td>${escapeHtml(r.shift_variance || '')}</td>
-        <td>${Number(r.working_salary || 0).toFixed(0)}</td>
+        <td class="col-nowrap" data-col="exit_status" style="text-align: center; white-space: nowrap !important; min-width: 120px;">${renderStatusBadge(exitStatusVal)}</td>
+        <td style="white-space: nowrap;">${escapeHtml(r.working_hours || '')}</td>
+        <td style="white-space: nowrap;">${escapeHtml(r.shift_variance || '')}</td>
+        <td style="white-space: nowrap;">${Number(r.working_salary || 0).toFixed(0)}</td>
       `;
       standardTableBody.appendChild(tr);
     });

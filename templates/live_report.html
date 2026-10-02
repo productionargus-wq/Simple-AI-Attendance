@@ -94,11 +94,11 @@
     <table class="employee-table" id="liveReportTable">
       <thead>
         <tr>
-          <th data-col="employee_name">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
-          <th data-col="entry_time" id="colTimeHeader">ENTRY TIME <span class="sort-icon">⇅</span></th>
-          <th data-col="site_name">SITE NAME <span class="sort-icon">⇅</span></th>
-          <th data-col="entry_location" id="colLocationHeader">ENTRY LOCATION <span class="sort-icon">⇅</span></th>
-          <th data-col="entry_distance" id="colDistanceHeader">ENTRY DISTANCE <span class="sort-icon">⇅</span></th>
+          <th data-col="employee_name" style="min-width: 140px; white-space: nowrap;">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_time" id="colTimeHeader" style="min-width: 140px; white-space: nowrap;">ENTRY TIME <span class="sort-icon">⇅</span></th>
+          <th data-col="site_name" style="min-width: 110px; white-space: nowrap;">SITE NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_location" id="colLocationHeader" style="min-width: 240px;">ENTRY LOCATION <span class="sort-icon">⇅</span></th>
+          <th data-col="entry_distance" id="colDistanceHeader" style="min-width: 160px; white-space: nowrap;">ENTRY DISTANCE <span class="sort-icon">⇅</span></th>
         </tr>
       </thead>
       <tbody id="liveReportTableBody">
@@ -118,5 +118,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/live_report.js') }}?v=3.0"></script>
+<script src="{{ url_for('static', filename='js/live_report.js') }}?v=3.1"></script>
 {% endblock %}

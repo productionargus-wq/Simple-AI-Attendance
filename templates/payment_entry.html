@@ -371,15 +371,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
       rowsHtml += `
         <tr>
-          <td>${r.timestamp}</td>
-          <td style="font-weight: 600;">${r.employee_name}</td>
-          <td>${r.payment_date}</td>
-          <td style="color: #0d6efd; font-weight: 700;">₹ ${parseFloat(r.amount).toFixed(2)}</td>
-          <td>${r.bank || '-'}</td>
-          <td>${r.payment_type}</td>
-          <td>${r.reason}</td>
-          <td>${receiptHtml}</td>
-          <td>
+          <td style="white-space: nowrap;">${r.timestamp}</td>
+          <td style="font-weight: 600; white-space: nowrap;">${r.employee_name}</td>
+          <td style="white-space: nowrap;">${r.payment_date}</td>
+          <td style="color: #0d6efd; font-weight: 700; white-space: nowrap;">₹ ${parseFloat(r.amount).toFixed(2)}</td>
+          <td style="white-space: nowrap;">${r.bank || '-'}</td>
+          <td style="white-space: nowrap;">${r.payment_type}</td>
+          <td class="col-reason" data-col="reason" title="${r.reason || ''}" style="min-width: 160px; max-width: 280px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; line-height: 1.4;">${r.reason || '-'}</td>
+          <td style="white-space: nowrap;">${receiptHtml}</td>
+          <td style="white-space: nowrap;">
             <button class="btn-action-manual-edit btn-edit-payment" data-id="${r.id}" title="Edit">Edit</button>
             <button class="btn-action-manual-del btn-del-payment" data-id="${r.id}" title="Delete">Del</button>
           </td>

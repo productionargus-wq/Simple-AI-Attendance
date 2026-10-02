@@ -138,13 +138,13 @@ document.addEventListener('DOMContentLoaded', function () {
       const distDisplay = (currentType === 'timeout' && entry.exit_distance && entry.exit_distance !== '----') ? entry.exit_distance : distStr;
 
       tr.innerHTML = `
-        <td><strong>${escapeHtml(entry.employee_name)}</strong></td>
-        <td>${escapeHtml(timeDisplay)}</td>
-        <td>${siteBadge}</td>
-        <td title="${escapeHtml(locDisplay)}" style="max-width: 280px; word-break: break-word; font-size: 11.5px; line-height: 1.35;">
+        <td style="white-space: nowrap;"><strong>${escapeHtml(entry.employee_name)}</strong></td>
+        <td style="white-space: nowrap;">${escapeHtml(timeDisplay)}</td>
+        <td style="white-space: nowrap;">${siteBadge}</td>
+        <td class="col-location" data-col="entry_location" title="${escapeHtml(locDisplay)}" style="min-width: 220px; max-width: 320px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">
           ${locDisplay && locDisplay !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${escapeHtml(locDisplay)}
         </td>
-        <td title="${escapeHtml(locDisplay)}">${escapeHtml(distDisplay)}</td>
+        <td class="col-nowrap" data-col="entry_distance" title="${escapeHtml(locDisplay)}" style="white-space: nowrap !important; min-width: 140px;">${escapeHtml(distDisplay)}</td>
       `;
       tableBody.appendChild(tr);
     });

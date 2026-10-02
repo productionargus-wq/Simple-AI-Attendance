@@ -244,9 +244,9 @@ document.addEventListener('DOMContentLoaded', function () {
     data.forEach(r => {
       rowsHtml += `
         <tr>
-          <td>${r.timestamp}</td>
-          <td style="font-weight: 600;">${r.employee_name}</td>
-          <td>${r.advance_date}</td>
+          <td style="white-space: nowrap;">${r.timestamp}</td>
+          <td class="col-wrap" style="font-weight: 600; white-space: normal !important; word-break: break-word !important; min-width: 140px;">${r.employee_name}</td>
+          <td style="white-space: nowrap;">${r.advance_date}</td>
           <td style="color: #0d6efd; font-weight: 700;">₹ ${parseFloat(r.amount).toFixed(2)}</td>
           <td>
             <div style="display: flex; gap: 6px; align-items: center;">

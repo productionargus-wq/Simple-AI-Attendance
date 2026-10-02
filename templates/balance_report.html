@@ -166,9 +166,9 @@ document.addEventListener('DOMContentLoaded', function () {
       const payAmt = r.payment_amount !== undefined ? r.payment_amount : (r.advance_repayment_amount || 0);
       rowsHtml += `
         <tr>
-          <td>${r.timestamp}</td>
-          <td style="font-weight: 600;">${r.name}</td>
-          <td>${r.date}</td>
+          <td style="white-space: nowrap;">${r.timestamp}</td>
+          <td class="col-wrap" style="font-weight: 600; white-space: normal !important; word-break: break-word !important; min-width: 140px;">${r.name}</td>
+          <td style="white-space: nowrap;">${r.date}</td>
           <td>₹ ${parseFloat(r.advance_amount).toFixed(2)}</td>
           <td>₹ ${parseFloat(payAmt).toFixed(2)}</td>
           <td style="font-weight: 700; color: #0d6efd;">₹ ${parseFloat(r.balance_amount).toFixed(2)}</td>

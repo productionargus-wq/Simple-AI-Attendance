@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const hoursDisplay = isSub ? `-${escapeHtml(r.hours || '')}` : escapeHtml(r.hours || '');
 
       tr.innerHTML = `
-        <td>${escapeHtml(r.employee_name)}</td>
+        <td class="col-wrap" style="white-space: normal !important; word-break: break-word !important; min-width: 140px;">${escapeHtml(r.employee_name)}</td>
         <td>${escapeHtml(r.entry_date || '')}</td>
         <td>${hoursDisplay}</td>
         <td>${escapeHtml(r.status || '')}</td>
