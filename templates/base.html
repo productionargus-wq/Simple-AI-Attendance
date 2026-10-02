@@ -6,7 +6,7 @@
   <title>{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }} - Attendance System</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261002_05">
 </head>
 <body class="page-{{ (active_tab or '') | lower | replace(' ', '-') }}">
 

@@ -238,7 +238,10 @@ def handle_exception(e):
 @app.after_request
 def add_performance_headers(response):
     if request.path.startswith('/static/'):
-        response.headers['Cache-Control'] = 'public, max-age=43200, stale-while-revalidate=86400'
+        if request.args.get('v'):
+            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        else:
+            response.headers['Cache-Control'] = 'no-cache, must-revalidate'
     elif response.status_code == 200 and request.method == 'GET' and not request.path.startswith('/api/'):
         response.headers['Cache-Control'] = 'no-cache, must-revalidate'
 

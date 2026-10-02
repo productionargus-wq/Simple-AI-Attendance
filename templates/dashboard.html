@@ -1,6 +1,174 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+  /* ----------------- DASHBOARD SYMMETRICAL 2-COLUMN LAYOUT ----------------- */
+  .dash-charts-row,
+  .dash-bottom-row,
+  .dash-pdf-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 16px !important;
+    margin-bottom: 24px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* All cards share identical card container styling */
+  .dash-card,
+  .dash-chart-card,
+  .dash-pdf-card {
+    background-color: #ffffff !important;
+    border-radius: 12px !important;
+    padding: 16px 20px !important;
+    border: 1px solid #eef2f6 !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Tables inside Today's Attendance & Department Summary */
+  .card-table-scroll {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 270px;
+    min-height: 200px;
+    width: 100%;
+  }
+
+  @media (min-width: 992px) {
+    .card-table-scroll {
+      overflow-x: hidden !important; /* Eliminates horizontal scrollbar on desktop */
+    }
+  }
+
+  .dash-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 12px !important;
+    table-layout: auto !important;
+  }
+
+  .dash-table thead th {
+    padding: 8px 6px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    white-space: nowrap !important;
+  }
+
+  .dash-table tbody td {
+    padding: 8px 6px !important;
+    color: #334155 !important;
+    border-bottom: 1px solid #f8fafc !important;
+    vertical-align: middle !important;
+    font-size: 12px !important;
+  }
+
+  /* PDF Card Specific Styling */
+  .dash-pdf-card {
+    min-height: 460px !important;
+  }
+
+  .dash-pdf-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 2px 9px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    border-radius: 12px !important;
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+    white-space: nowrap !important;
+    margin-left: 6px !important;
+  }
+
+  .dash-pdf-header-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .dash-pdf-btn-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 5px 12px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    text-decoration: none !important;
+    transition: all 0.15s ease !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #334155 !important;
+    background: #ffffff !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
+    line-height: 1.2 !important;
+  }
+
+  .dash-pdf-btn-action:hover {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
+  }
+
+  .dash-pdf-btn-action.btn-primary-action {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border-color: #2563eb !important;
+  }
+
+  .dash-pdf-btn-action.btn-primary-action:hover {
+    background: #1d4ed8 !important;
+    border-color: #1d4ed8 !important;
+    color: #ffffff !important;
+  }
+
+  .dash-pdf-container {
+    width: 100% !important;
+    height: 380px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+    background-color: #f8fafc !important;
+    margin-top: 10px !important;
+    position: relative !important;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.03) !important;
+    display: block !important;
+  }
+
+  .dash-pdf-frame {
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    display: block !important;
+    background: #ffffff !important;
+  }
+
+  /* Responsive layout */
+  @media (max-width: 992px) {
+    .dash-charts-row,
+    .dash-bottom-row,
+    .dash-pdf-row {
+      grid-template-columns: 1fr !important;
+      gap: 14px !important;
+    }
+    .card-table-scroll {
+      overflow-x: auto !important;
+    }
+    .dash-pdf-container {
+      height: 340px !important;
+    }
+  }
+</style>
+
 <div class="dash-container">
 
   <!-- ROW 1: 4 Stat Summary Cards -->
@@ -109,7 +277,7 @@
     </div>
   </div>
 
-  <!-- ROW 2: Two Interactive Charts -->
+  <!-- ROW 2: Two Interactive Charts (50% / 50%) -->
   <div class="dash-charts-row">
     <!-- Left: Last 7 Days Attendance -->
     <div class="dash-chart-card">
@@ -166,7 +334,7 @@
     </div>
   </div>
 
-  <!-- ROW 3: Equal-Sized Bottom Cards (Today's Attendance & Department Wise Summary) -->
+  <!-- ROW 3: Equal-Sized Bottom Cards (50% / 50% Matching Charts Above) -->
   <div class="dash-bottom-row">
 
     <!-- Card 1: Today's Attendance -->
@@ -275,11 +443,11 @@
 
   </div>
 
-  <!-- ROW 4: Inbuilt Dynamic PDF Viewers (Yesterday's Activity & Previous Month Salary Report) -->
+  <!-- ROW 4: Inbuilt Dynamic PDF Viewers (50% / 50% Symmetrical Matching Row 3 & Row 2) -->
   <div class="dash-pdf-row">
 
     <!-- Card 1: Yesterday's Activity -->
-    <div class="dash-pdf-card">
+    <div class="dash-card dash-pdf-card">
       <div class="card-head">
         <div class="card-title-group">
           <div class="card-title-icon text-blue">
@@ -292,7 +460,7 @@
           <span class="dash-pdf-badge">{{ stats.yesterday_display or stats.yesterday_date or 'Yesterday' }}</span>
         </div>
         <div class="dash-pdf-header-actions">
-          <a href="/api/dashboard/yesterday-activity/pdf" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" title="Open in new tab">
+          <a href="/api/dashboard/yesterday-activity/pdf" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" title="Open PDF in new tab">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
               <polyline points="15 3 21 3 21 9"></polyline>
@@ -300,7 +468,7 @@
             </svg>
             Open
           </a>
-          <a href="/api/dashboard/yesterday-activity/pdf?download=1" class="dash-pdf-btn-action btn-primary-action" title="Download PDF">
+          <a href="/api/dashboard/yesterday-activity/pdf?download=1" class="dash-pdf-btn-action btn-primary-action" title="Download PDF Report">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
@@ -311,12 +479,12 @@
         </div>
       </div>
       <div class="dash-pdf-container">
-        <iframe src="/api/dashboard/yesterday-activity/pdf#toolbar=0&navpanes=0" class="dash-pdf-frame" title="Yesterday's Activity Report" loading="lazy"></iframe>
+        <iframe src="/api/dashboard/yesterday-activity/pdf#toolbar=0&navpanes=0&scrollbar=1&view=FitH" class="dash-pdf-frame" title="Yesterday's Activity Report" loading="lazy"></iframe>
       </div>
     </div>
 
     <!-- Card 2: Previous Month Salary Report -->
-    <div class="dash-pdf-card">
+    <div class="dash-card dash-pdf-card">
       <div class="card-head">
         <div class="card-title-group">
           <div class="card-title-icon text-blue">
@@ -329,7 +497,7 @@
           <span class="dash-pdf-badge">{{ stats.previous_month_display or stats.previous_month or 'Previous Month' }}</span>
         </div>
         <div class="dash-pdf-header-actions">
-          <a href="/api/dashboard/previous-month-salary/pdf" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" title="Open in new tab">
+          <a href="/api/dashboard/previous-month-salary/pdf" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" title="Open PDF in new tab">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
               <polyline points="15 3 21 3 21 9"></polyline>
@@ -337,7 +505,7 @@
             </svg>
             Open
           </a>
-          <a href="/api/dashboard/previous-month-salary/pdf?download=1" class="dash-pdf-btn-action btn-primary-action" title="Download PDF">
+          <a href="/api/dashboard/previous-month-salary/pdf?download=1" class="dash-pdf-btn-action btn-primary-action" title="Download PDF Report">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
@@ -348,7 +516,7 @@
         </div>
       </div>
       <div class="dash-pdf-container">
-        <iframe src="/api/dashboard/previous-month-salary/pdf#toolbar=0&navpanes=0" class="dash-pdf-frame" title="Previous Month Salary Report" loading="lazy"></iframe>
+        <iframe src="/api/dashboard/previous-month-salary/pdf#toolbar=0&navpanes=0&scrollbar=1&view=FitH" class="dash-pdf-frame" title="Previous Month Salary Report" loading="lazy"></iframe>
       </div>
     </div>
 

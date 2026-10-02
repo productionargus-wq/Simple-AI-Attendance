@@ -3239,7 +3239,16 @@ body.page-dashboard .bottom-footer {
 /* Tables inside Dashboard Cards */
 .card-table-scroll {
   overflow-x: auto;
-  max-height: 250px;
+  overflow-y: auto;
+  max-height: 270px;
+  min-height: 200px;
+  width: 100%;
+}
+
+@media (min-width: 992px) {
+  .card-table-scroll {
+    overflow-x: hidden;
+  }
 }
 
 .dash-table {
