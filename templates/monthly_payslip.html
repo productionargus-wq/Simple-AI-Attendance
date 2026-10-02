@@ -715,12 +715,24 @@
   }
 
   .tmpl-mockup {
-    background: #f8fafc;
+    background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 8px 10px;
     margin-bottom: 10px;
     position: relative;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #1e293b;
+    user-select: none;
+    overflow: hidden;
+    --mock-primary: #1b3b5f;
+    --mock-dark: #0f233a;
+    --mock-tint: #f0f5fa;
+    --mock-border: #cbd5e1;
+    --mock-light-badge: #dbeafe;
+    --mock-text-dark: #0f233a;
+    transition: all 0.2s ease;
   }
 
   .tmpl-swatch-list {
@@ -1568,23 +1580,92 @@
 
           <!-- Miniature Mockup Preview -->
           <div class="tmpl-mockup" id="mockupTmpl1">
-            <div class="mockup-pill-bar" style="background: #1b3b5f; border-radius: 4px; height: 18px; margin-bottom: 5px; display: flex; align-items: center; padding: 0 6px; justify-content: space-between;">
-              <div style="width: 10px; height: 10px; background: #fff; border-radius: 2px;"></div>
-              <div style="width: 40px; height: 4px; background: rgba(255,255,255,0.7); border-radius: 2px;"></div>
-              <div class="mockup-dark-badge" style="width: 22px; height: 10px; background: #0f233a; border-radius: 2px;"></div>
+            <!-- Pill Header -->
+            <div class="mk-hdr-pill" style="background: var(--mock-primary); border-radius: 4px; padding: 3px 6px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; transition: background 0.25s;">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 12px; height: 12px; background: #ffffff; border-radius: 2px; color: var(--mock-primary); font-size: 7.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; line-height: 1;">A</div>
+                <div>
+                  <div style="font-size: 7px; font-weight: 800; color: #ffffff; line-height: 1.1; letter-spacing: 0.2px;">ARGUS TECHNOLOGIES</div>
+                  <div style="font-size: 4.8px; color: rgba(255,255,255,0.75); line-height: 1; margin-top: 1px;">SF 515 • GSTIN: 33AHZPG5373L2ZN</div>
+                </div>
+              </div>
+              <div style="background: rgba(255,255,255,0.2); border-radius: 3px; padding: 1.5px 4.5px; text-align: right;">
+                <div style="font-size: 3.8px; font-weight: 700; color: rgba(255,255,255,0.85); line-height: 1;">PAYSLIP</div>
+                <div style="font-size: 6px; font-weight: 800; color: #ffffff; line-height: 1;">OCT 2026</div>
+              </div>
             </div>
-            <div class="mockup-tint-box" style="background: #f0f5fa; border-radius: 4px; height: 13px; margin-bottom: 4px; border: 1px solid #cbd5e1;"></div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
+
+            <!-- Employee Box -->
+            <div style="background: var(--mock-tint); border: 1px solid var(--mock-border); border-radius: 3px; padding: 2.5px 5px; margin-bottom: 3.5px; display: flex; justify-content: space-between; align-items: center; transition: all 0.25s;">
+              <div>
+                <span style="background: var(--mock-primary); color: #ffffff; font-size: 4.8px; font-weight: 800; padding: 1px 3px; border-radius: 2px; margin-right: 3px; transition: background 0.25s;">EMP</span>
+                <strong style="font-size: 6.5px; color: #0f172a;">Rahul Sharma</strong>
+                <div style="font-size: 4.8px; color: #64748b; margin-top: 1px;">ID: EMP-104 | Developer | General</div>
+              </div>
+              <div style="width: 14px; height: 14px; background: #ffffff; border: 0.5px solid var(--mock-border); border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 6px; color: #94a3b8;">👤</div>
             </div>
-            <div style="border: 1px solid #cbd5e1; border-radius: 3px; height: 16px; margin-bottom: 4px; background: #fff;"></div>
-            <div class="mockup-net-bar" style="background: #1b3b5f; border-radius: 3px; height: 11px; margin-bottom: 4px;"></div>
-            <!-- Distinct Signatory underline in mockup -->
-            <div style="display: flex; justify-content: flex-end; padding-top: 2px;">
-              <div style="width: 55px; border-bottom: 1.5px solid #64748b; font-size: 6px; color: #64748b; text-align: center; padding-top: 2px;">Signatory</div>
+
+            <!-- 4 Metric Cards -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.5px; margin-bottom: 3.5px;">
+              <div style="background: #ffffff; border: 0.5px solid #e2e8f0; border-radius: 2.5px; padding: 1.5px; text-align: center;">
+                <div style="font-size: 4px; font-weight: 700; color: #64748b;">BASIS</div>
+                <div style="font-size: 5.5px; font-weight: 800; color: #0f172a;">Day</div>
+              </div>
+              <div style="background: #ffffff; border: 0.5px solid #e2e8f0; border-radius: 2.5px; padding: 1.5px; text-align: center;">
+                <div style="font-size: 4px; font-weight: 700; color: #64748b;">DAY SAL</div>
+                <div style="font-size: 5.5px; font-weight: 800; color: #0f172a;">₹2,000</div>
+              </div>
+              <div style="background: #ffffff; border: 0.5px solid #e2e8f0; border-radius: 2.5px; padding: 1.5px; text-align: center;">
+                <div style="font-size: 4px; font-weight: 700; color: #64748b;">SHIFT</div>
+                <div style="font-size: 5.5px; font-weight: 800; color: #0f172a;">08:00</div>
+              </div>
+              <div style="background: #ffffff; border: 0.5px solid #e2e8f0; border-radius: 2.5px; padding: 1.5px; text-align: center;">
+                <div style="font-size: 4px; font-weight: 700; color: #64748b;">DAYS</div>
+                <div style="font-size: 5.5px; font-weight: 800; color: #0f172a;">30 D</div>
+              </div>
+            </div>
+
+            <!-- Dual Table -->
+            <div style="border: 0.5px solid var(--mock-border); border-radius: 3px; overflow: hidden; margin-bottom: 3.5px; font-size: 4.8px; background: #ffffff; transition: border-color 0.25s;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                <div style="background: var(--mock-primary); color: #ffffff; font-weight: 800; font-size: 5.2px; padding: 1.5px 3px; text-align: center; transition: background 0.25s;">EARNINGS</div>
+                <div style="background: var(--mock-primary); color: #ffffff; font-weight: 800; font-size: 5.2px; padding: 1.5px 3px; text-align: center; border-left: 0.5px solid rgba(255,255,255,0.25); transition: background 0.25s;">DEDUCTIONS</div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                <div style="padding: 1px 3px; border-right: 0.5px solid #e2e8f0;">
+                  <div style="display: flex; justify-content: space-between;"><span>Basic Salary</span><strong>₹45,000</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Allowance</span><strong>₹10,000</strong></div>
+                </div>
+                <div style="padding: 1px 3px;">
+                  <div style="display: flex; justify-content: space-between;"><span>Paid Salary</span><strong>₹0</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Advance Repay</span><strong>₹5,000</strong></div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; background: var(--mock-tint); border-top: 0.5px solid var(--mock-border); font-weight: 800; color: var(--mock-primary); padding: 1px 3px; font-size: 4.8px; transition: all 0.25s;">
+                <div style="display: flex; justify-content: space-between; border-right: 0.5px solid var(--mock-border); padding-right: 3px;"><span>TOTAL</span><span>₹55,000</span></div>
+                <div style="display: flex; justify-content: space-between; padding-left: 3px;"><span>TOTAL</span><span>₹5,000</span></div>
+              </div>
+            </div>
+
+            <!-- Net Pay Banner -->
+            <div style="background: var(--mock-primary); border-radius: 3px; padding: 2px 5px; display: flex; justify-content: space-between; align-items: center; color: #ffffff; margin-bottom: 3.5px; transition: background 0.25s;">
+              <div>
+                <span style="font-size: 4.5px; opacity: 0.85; font-weight: 700;">NET PAY: </span>
+                <strong style="font-size: 7px;">₹50,000</strong>
+              </div>
+              <div style="font-size: 4.5px; opacity: 0.85;">Fifty Thousand Only</div>
+            </div>
+
+            <!-- Official Seal Stamp & Signatory Block -->
+            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 5px; padding-top: 1px;">
+              <div style="border: 1px dashed #2563eb; border-radius: 50%; width: 17px; height: 17px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #2563eb; line-height: 0.85; transform: rotate(-7deg); background: rgba(37,99,235,0.03); flex-shrink: 0;">
+                <span style="font-size: 3.2px; font-weight: 800;">ARGUS</span>
+                <span style="font-size: 2.8px; font-weight: 700;">SEAL ✔</span>
+              </div>
+              <div style="text-align: center; width: 62px; border-bottom: 0.8px solid #64748b; padding-bottom: 0.5px;">
+                <span style="font-size: 4.5px; font-style: italic; color: #0284c7; font-family: cursive;">Argus Admin</span>
+              </div>
+              <div style="font-size: 4.2px; font-weight: 700; color: #475569;">Signatory & Seal</div>
             </div>
           </div>
 
@@ -1616,23 +1697,89 @@
 
           <!-- Miniature Mockup Preview -->
           <div class="tmpl-mockup" id="mockupTmpl2">
-            <div class="mockup-pill-bar" style="background: #1b3b5f; border-radius: 4px; height: 18px; margin-bottom: 5px; display: flex; align-items: center; padding: 0 6px; justify-content: space-between;">
-              <div style="width: 10px; height: 10px; background: #fff; border-radius: 2px;"></div>
-              <div style="width: 40px; height: 4px; background: rgba(255,255,255,0.7); border-radius: 2px;"></div>
-              <div class="mockup-dark-badge" style="width: 22px; height: 10px; background: #0f233a; border-radius: 2px;"></div>
+            <!-- Pill Header -->
+            <div class="mk-hdr-pill" style="background: var(--mock-primary); border-radius: 4px; padding: 3px 6px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; transition: background 0.25s;">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 12px; height: 12px; background: #ffffff; border-radius: 2px; color: var(--mock-primary); font-size: 7.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; line-height: 1;">A</div>
+                <div>
+                  <div style="font-size: 7px; font-weight: 800; color: #ffffff; line-height: 1.1; letter-spacing: 0.2px;">ARGUS TECHNOLOGIES</div>
+                  <div style="font-size: 4.8px; color: rgba(255,255,255,0.75); line-height: 1; margin-top: 1px;">SF 515 • GSTIN: 33AHZPG5373L2ZN</div>
+                </div>
+              </div>
+              <div style="background: rgba(255,255,255,0.2); border-radius: 3px; padding: 1.5px 4.5px; text-align: right;">
+                <div style="font-size: 3.8px; font-weight: 700; color: rgba(255,255,255,0.85); line-height: 1;">PAYSLIP</div>
+                <div style="font-size: 6px; font-weight: 800; color: #ffffff; line-height: 1;">OCT 2026</div>
+              </div>
             </div>
-            <div class="mockup-tint-box" style="background: #f0f5fa; border-radius: 4px; height: 13px; margin-bottom: 4px; border: 1px solid #cbd5e1;"></div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px;"></div>
+
+            <!-- Employee Box -->
+            <div style="background: var(--mock-tint); border: 1px solid var(--mock-border); border-radius: 3px; padding: 2.5px 5px; margin-bottom: 3.5px; display: flex; justify-content: space-between; align-items: center; transition: all 0.25s;">
+              <div>
+                <span style="background: var(--mock-primary); color: #ffffff; font-size: 4.8px; font-weight: 800; padding: 1px 3px; border-radius: 2px; margin-right: 3px; transition: background 0.25s;">EMP</span>
+                <strong style="font-size: 6.5px; color: #0f172a;">Rahul Sharma</strong>
+                <div style="font-size: 4.8px; color: #64748b; margin-top: 1px;">ID: EMP-104 | Developer | General</div>
+              </div>
+              <div style="width: 14px; height: 14px; background: #ffffff; border: 0.5px solid var(--mock-border); border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 6px; color: #94a3b8;">👤</div>
             </div>
-            <div style="border: 1px solid #cbd5e1; border-radius: 3px; height: 16px; margin-bottom: 4px; background: #fff;"></div>
-            <div class="mockup-net-bar" style="background: #1b3b5f; border-radius: 3px; height: 11px; margin-bottom: 4px;"></div>
-            <!-- Digital auto-approved badge in mockup -->
-            <div style="display: flex; justify-content: flex-end; padding-top: 2px;">
-              <div style="font-size: 6px; color: #0284c7; font-weight: 700; text-align: center; padding-top: 2px;">Direct Paperless</div>
+
+            <!-- 4 Metric Cards -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.5px; margin-bottom: 3.5px;">
+              <div style="background: #ffffff; border: 0.5px solid #e2e8f0; border-radius: 2.5px; padding: 1.5px; text-align: center;">
+                <div style="font-size: 4px; font-weight: 700; color: #64748b;">BASIS</div>
+                <div style="font-size: 5.5px; font-weight: 800; color: #0f172a;">Day</div>
+              </div>
+              <div style="background: #ffffff; border: 0.5px solid #e2e8f0; border-radius: 2.5px; padding: 1.5px; text-align: center;">
+                <div style="font-size: 4px; font-weight: 700; color: #64748b;">DAY SAL</div>
+                <div style="font-size: 5.5px; font-weight: 800; color: #0f172a;">₹2,000</div>
+              </div>
+              <div style="background: #ffffff; border: 0.5px solid #e2e8f0; border-radius: 2.5px; padding: 1.5px; text-align: center;">
+                <div style="font-size: 4px; font-weight: 700; color: #64748b;">SHIFT</div>
+                <div style="font-size: 5.5px; font-weight: 800; color: #0f172a;">08:00</div>
+              </div>
+              <div style="background: #ffffff; border: 0.5px solid #e2e8f0; border-radius: 2.5px; padding: 1.5px; text-align: center;">
+                <div style="font-size: 4px; font-weight: 700; color: #64748b;">DAYS</div>
+                <div style="font-size: 5.5px; font-weight: 800; color: #0f172a;">30 D</div>
+              </div>
+            </div>
+
+            <!-- Dual Table -->
+            <div style="border: 0.5px solid var(--mock-border); border-radius: 3px; overflow: hidden; margin-bottom: 3.5px; font-size: 4.8px; background: #ffffff; transition: border-color 0.25s;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                <div style="background: var(--mock-primary); color: #ffffff; font-weight: 800; font-size: 5.2px; padding: 1.5px 3px; text-align: center; transition: background 0.25s;">EARNINGS</div>
+                <div style="background: var(--mock-primary); color: #ffffff; font-weight: 800; font-size: 5.2px; padding: 1.5px 3px; text-align: center; border-left: 0.5px solid rgba(255,255,255,0.25); transition: background 0.25s;">DEDUCTIONS</div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                <div style="padding: 1px 3px; border-right: 0.5px solid #e2e8f0;">
+                  <div style="display: flex; justify-content: space-between;"><span>Basic Salary</span><strong>₹45,000</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Allowance</span><strong>₹10,000</strong></div>
+                </div>
+                <div style="padding: 1px 3px;">
+                  <div style="display: flex; justify-content: space-between;"><span>Paid Salary</span><strong>₹0</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Advance Repay</span><strong>₹5,000</strong></div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; background: var(--mock-tint); border-top: 0.5px solid var(--mock-border); font-weight: 800; color: var(--mock-primary); padding: 1px 3px; font-size: 4.8px; transition: all 0.25s;">
+                <div style="display: flex; justify-content: space-between; border-right: 0.5px solid var(--mock-border); padding-right: 3px;"><span>TOTAL</span><span>₹55,000</span></div>
+                <div style="display: flex; justify-content: space-between; padding-left: 3px;"><span>TOTAL</span><span>₹5,000</span></div>
+              </div>
+            </div>
+
+            <!-- Net Pay Banner -->
+            <div style="background: var(--mock-primary); border-radius: 3px; padding: 2px 5px; display: flex; justify-content: space-between; align-items: center; color: #ffffff; margin-bottom: 3.5px; transition: background 0.25s;">
+              <div>
+                <span style="font-size: 4.5px; opacity: 0.85; font-weight: 700;">NET PAY: </span>
+                <strong style="font-size: 7px;">₹50,000</strong>
+              </div>
+              <div style="font-size: 4.5px; opacity: 0.85;">Fifty Thousand Only</div>
+            </div>
+
+            <!-- Paperless Digital Verification Badge & Barcode -->
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; border: 0.5px solid #86efac; border-radius: 2.5px; padding: 2px 4px;">
+              <div style="display: flex; align-items: center; gap: 3px; font-size: 4.8px; font-weight: 700; color: #15803d;">
+                <span>⚡</span>
+                <span>Paperless Digital Record • Valid Without Signature</span>
+              </div>
+              <div style="height: 6px; width: 24px; background: repeating-linear-gradient(90deg, #15803d 0px, #15803d 1px, transparent 1px, transparent 2px);"></div>
             </div>
           </div>
 
@@ -1664,25 +1811,81 @@
 
           <!-- Miniature Mockup Preview -->
           <div class="tmpl-mockup" id="mockupTmpl3">
-            <div class="mockup-pill-bar" style="background: #0f233a; border-radius: 4px; height: 18px; margin-bottom: 5px; display: flex; align-items: center; padding: 0 6px; justify-content: space-between;">
-              <div style="width: 10px; height: 10px; background: #fff; border-radius: 2px;"></div>
-              <div style="width: 40px; height: 4px; background: rgba(255,255,255,0.7); border-radius: 2px;"></div>
-              <div class="mockup-dark-badge" style="width: 22px; height: 10px; background: #1b3b5f; border-radius: 2px;"></div>
+            <!-- Dark Slate Pill Header -->
+            <div class="mk-hdr-pill" style="background: #0f233a; border-radius: 4px; padding: 3px 6px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 12px; height: 12px; background: #ffffff; border-radius: 2px; color: #0f233a; font-size: 7.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; line-height: 1;">A</div>
+                <div>
+                  <div style="font-size: 7px; font-weight: 800; color: #ffffff; line-height: 1.1; letter-spacing: 0.2px;">ARGUS TECHNOLOGIES</div>
+                  <div style="font-size: 4.8px; color: rgba(255,255,255,0.7); line-height: 1; margin-top: 1px;">SF 515 • GSTIN: 33AHZPG5373L2ZN</div>
+                </div>
+              </div>
+              <div style="background: var(--mock-primary); border-radius: 3px; padding: 1.5px 4.5px; text-align: right; transition: background 0.25s;">
+                <div style="font-size: 3.8px; font-weight: 700; color: rgba(255,255,255,0.85); line-height: 1;">PAYSLIP</div>
+                <div style="font-size: 6px; font-weight: 800; color: #ffffff; line-height: 1;">OCT 2026</div>
+              </div>
             </div>
-            <div class="mockup-tint-box" style="background: #f0f5fa; border-radius: 4px; height: 13px; margin-bottom: 4px; border: 1px solid #cbd5e1;"></div>
-            <!-- 4 metric cards with circular dot icons -->
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px; display: flex; align-items: center; padding-left: 2px;"><div class="mockup-circ-dot" style="width: 5px; height: 5px; border-radius: 50%; background: #1b3b5f;"></div></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px; display: flex; align-items: center; padding-left: 2px;"><div class="mockup-circ-dot" style="width: 5px; height: 5px; border-radius: 50%; background: #1b3b5f;"></div></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px; display: flex; align-items: center; padding-left: 2px;"><div class="mockup-circ-dot" style="width: 5px; height: 5px; border-radius: 50%; background: #1b3b5f;"></div></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 11px; border-radius: 2px; display: flex; align-items: center; padding-left: 2px;"><div class="mockup-circ-dot" style="width: 5px; height: 5px; border-radius: 50%; background: #1b3b5f;"></div></div>
+
+            <!-- Employee Box -->
+            <div style="background: var(--mock-tint); border: 1px solid var(--mock-border); border-radius: 3px; padding: 2.5px 5px; margin-bottom: 3.5px; display: flex; justify-content: space-between; align-items: center; transition: all 0.25s;">
+              <div>
+                <span style="background: #0f233a; color: #ffffff; font-size: 4.8px; font-weight: 800; padding: 1px 3px; border-radius: 2px; margin-right: 3px;">EMP</span>
+                <strong style="font-size: 6.5px; color: #0f172a;">Rahul Sharma</strong>
+                <div style="font-size: 4.8px; color: #64748b; margin-top: 1px;">ID: EMP-104 | Developer</div>
+              </div>
+              <div style="width: 14px; height: 14px; background: #ffffff; border: 0.5px solid var(--mock-border); border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 6px; color: #94a3b8;">👤</div>
             </div>
-            <!-- Dual tone header table -->
-            <div style="display: flex; height: 14px; margin-bottom: 4px; border: 1px solid #cbd5e1; border-radius: 3px; overflow: hidden;">
-              <div class="mockup-net-bar" style="flex: 1; background: #1b3b5f;"></div>
-              <div style="flex: 1; background: #1a2936;"></div>
+
+            <!-- 4 Circular Icon Metric Cards -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.5px; margin-bottom: 3.5px;">
+              <div style="background: #ffffff; border: 0.5px solid #e2e8f0; border-radius: 2.5px; padding: 1.5px 2px; display: flex; align-items: center; gap: 2px;">
+                <div class="mockup-circ-dot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--mock-primary); color: #ffffff; font-size: 4.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1; transition: background 0.25s;">₹</div>
+                <div style="min-width: 0;"><div style="font-size: 3.6px; color: #64748b;">BASIS</div><div style="font-size: 5px; font-weight: 800; color: #0f172a;">Day</div></div>
+              </div>
+              <div style="background: #ffffff; border: 0.5px solid #e2e8f0; border-radius: 2.5px; padding: 1.5px 2px; display: flex; align-items: center; gap: 2px;">
+                <div class="mockup-circ-dot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--mock-primary); color: #ffffff; font-size: 4.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1; transition: background 0.25s;">💼</div>
+                <div style="min-width: 0;"><div style="font-size: 3.6px; color: #64748b;">RATE</div><div style="font-size: 5px; font-weight: 800; color: #0f172a;">₹2,000</div></div>
+              </div>
+              <div style="background: #ffffff; border: 0.5px solid #e2e8f0; border-radius: 2.5px; padding: 1.5px 2px; display: flex; align-items: center; gap: 2px;">
+                <div class="mockup-circ-dot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--mock-primary); color: #ffffff; font-size: 4.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1; transition: background 0.25s;">⏱</div>
+                <div style="min-width: 0;"><div style="font-size: 3.6px; color: #64748b;">SHIFT</div><div style="font-size: 5px; font-weight: 800; color: #0f172a;">08:00</div></div>
+              </div>
+              <div style="background: #ffffff; border: 0.5px solid #e2e8f0; border-radius: 2.5px; padding: 1.5px 2px; display: flex; align-items: center; gap: 2px;">
+                <div class="mockup-circ-dot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--mock-primary); color: #ffffff; font-size: 4.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1; transition: background 0.25s;">📅</div>
+                <div style="min-width: 0;"><div style="font-size: 3.6px; color: #64748b;">DAYS</div><div style="font-size: 5px; font-weight: 800; color: #0f172a;">30 D</div></div>
+              </div>
             </div>
-            <div class="mockup-dark-badge" style="background: #0f233a; border-radius: 3px; height: 11px; margin-bottom: 2px;"></div>
+
+            <!-- Dual-Tone Split Table -->
+            <div style="border: 0.5px solid var(--mock-border); border-radius: 3px; overflow: hidden; margin-bottom: 3.5px; font-size: 4.8px; background: #ffffff; transition: border-color 0.25s;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                <div style="background: var(--mock-primary); color: #ffffff; font-weight: 800; font-size: 5.2px; padding: 1.5px 3px; text-align: center; transition: background 0.25s;">EARNINGS</div>
+                <div style="background: #1a2936; color: #ffffff; font-weight: 800; font-size: 5.2px; padding: 1.5px 3px; text-align: center; border-left: 0.5px solid rgba(255,255,255,0.2);">DEDUCTIONS</div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                <div style="padding: 1px 3px; border-right: 0.5px solid #e2e8f0;">
+                  <div style="display: flex; justify-content: space-between;"><span>Basic Salary</span><strong>₹45,000</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Allowance</span><strong>₹10,000</strong></div>
+                </div>
+                <div style="padding: 1px 3px;">
+                  <div style="display: flex; justify-content: space-between;"><span>Paid Salary</span><strong>₹0</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Advance Repay</span><strong>₹5,000</strong></div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; background: var(--mock-tint); border-top: 0.5px solid var(--mock-border); font-weight: 800; padding: 1px 3px; font-size: 4.8px; transition: all 0.25s;">
+                <div style="display: flex; justify-content: space-between; color: var(--mock-primary); border-right: 0.5px solid var(--mock-border); padding-right: 3px;"><span>TOTAL</span><span>₹55,000</span></div>
+                <div style="display: flex; justify-content: space-between; color: #1a2936; padding-left: 3px;"><span>TOTAL</span><span>₹5,000</span></div>
+              </div>
+            </div>
+
+            <!-- Dark Net Pay Container -->
+            <div style="background: #0f233a; border-radius: 3px; padding: 2.5px 5px; display: flex; justify-content: space-between; align-items: center; color: #ffffff;">
+              <div>
+                <span style="font-size: 4.5px; opacity: 0.85; font-weight: 700;">NET PAY: </span>
+                <strong style="font-size: 7px; color: #38bdf8;">₹50,000</strong>
+              </div>
+              <div style="font-size: 4.5px; opacity: 0.85;">Fifty Thousand Only</div>
+            </div>
           </div>
 
           <div style="font-size: 11px; color: #475569; line-height: 1.35; flex: 1;">
@@ -1713,25 +1916,68 @@
 
           <!-- Miniature Mockup Preview -->
           <div class="tmpl-mockup" id="mockupTmpl4">
-            <!-- Centered logo & title -->
-            <div style="text-align: center; margin-bottom: 4px;">
-              <div style="width: 14px; height: 6px; background: #94a3b8; border-radius: 1px; margin: 0 auto 2px;"></div>
-              <div style="width: 60px; height: 3px; background: #334155; border-radius: 1px; margin: 0 auto;"></div>
+            <!-- Centered Header -->
+            <div style="text-align: center; margin-bottom: 3.5px;">
+              <div style="font-size: 7.5px; font-weight: 800; color: #0f172a; letter-spacing: 0.2px; line-height: 1.1;">ARGUS TECHNOLOGIES</div>
+              <div style="font-size: 4.8px; color: #64748b; line-height: 1; margin-top: 1px;">SF 515, GANAPATHY, COIMBATORE • GSTIN: 33AHZPG5373L2ZN</div>
             </div>
+
             <!-- Solid PAYSLIP banner bar -->
-            <div class="mockup-net-bar" style="background: #1b3b5f; border-radius: 2px; height: 8px; margin-bottom: 4px;"></div>
-            <!-- 5-column bordered grid with photo box on right -->
-            <div style="display: flex; border: 1px solid #767676; height: 20px; margin-bottom: 4px; background: #fff;">
-              <div style="flex: 3; border-right: 1px solid #767676; display: flex; flex-direction: column; justify-content: space-around; padding: 1px;">
-                <div style="width: 80%; height: 2px; background: #cbd5e1;"></div>
-                <div style="width: 60%; height: 2px; background: #cbd5e1;"></div>
-              </div>
-              <div style="width: 16px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; font-size: 5px; color: #94a3b8;">📷</div>
+            <div style="background: var(--mock-primary); color: #ffffff; font-size: 5.5px; font-weight: 800; text-align: center; padding: 2px 0; border-radius: 2px; margin-bottom: 3px; letter-spacing: 0.4px; transition: background 0.25s;">
+              PAYSLIP FOR THE MONTH OF OCTOBER 2026
             </div>
+
+            <!-- 5-column bordered grid with photo box on right -->
+            <div style="display: flex; border: 0.5px solid #475569; border-radius: 2px; overflow: hidden; margin-bottom: 3px; background: #ffffff;">
+              <div style="flex: 1; font-size: 4.8px; padding: 2px 3px; border-right: 0.5px solid #475569;">
+                <div style="display: grid; grid-template-columns: 26px 1fr; gap: 1px; margin-bottom: 1px;"><span style="color: #64748b;">Emp Name:</span><strong>Rahul S.</strong></div>
+                <div style="display: grid; grid-template-columns: 26px 1fr; gap: 1px; margin-bottom: 1px;"><span style="color: #64748b;">Emp ID:</span><strong>EMP-104</strong></div>
+                <div style="display: grid; grid-template-columns: 26px 1fr; gap: 1px;"><span style="color: #64748b;">Desig:</span><strong>Developer</strong></div>
+              </div>
+              <div style="flex: 1; font-size: 4.8px; padding: 2px 3px; border-right: 0.5px solid #475569;">
+                <div style="display: grid; grid-template-columns: 26px 1fr; gap: 1px; margin-bottom: 1px;"><span style="color: #64748b;">Dept:</span><strong>General</strong></div>
+                <div style="display: grid; grid-template-columns: 26px 1fr; gap: 1px; margin-bottom: 1px;"><span style="color: #64748b;">Basis:</span><strong>Day-Based</strong></div>
+                <div style="display: grid; grid-template-columns: 26px 1fr; gap: 1px;"><span style="color: #64748b;">Days:</span><strong>30 Days</strong></div>
+              </div>
+              <!-- Dedicated Photo Cell spanning full height on right -->
+              <div style="width: 22px; background: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 6px; color: #64748b; font-weight: 700; flex-shrink: 0;">
+                <span>👤</span>
+                <span style="font-size: 3.5px; text-transform: uppercase;">PHOTO</span>
+              </div>
+            </div>
+
+            <!-- Bordered Classic Dual Table -->
+            <div style="border: 0.5px solid #475569; border-radius: 2px; overflow: hidden; font-size: 4.8px; margin-bottom: 3px; background: #ffffff;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; background: #f1f5f9; font-weight: 800; border-bottom: 0.5px solid #475569; text-align: center;">
+                <div style="padding: 1.5px; border-right: 0.5px solid #475569; color: var(--mock-primary); transition: color 0.25s;">EARNINGS</div>
+                <div style="padding: 1.5px; color: var(--mock-primary); transition: color 0.25s;">DEDUCTIONS</div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                <div style="padding: 1px 3px; border-right: 0.5px solid #475569;">
+                  <div style="display: flex; justify-content: space-between;"><span>Basic Salary</span><strong>₹45,000</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Allowance</span><strong>₹10,000</strong></div>
+                </div>
+                <div style="padding: 1px 3px;">
+                  <div style="display: flex; justify-content: space-between;"><span>Paid Salary</span><strong>₹0</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Advance Repay</span><strong>₹5,000</strong></div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; background: #f8fafc; border-top: 0.5px solid #475569; font-weight: 800; color: var(--mock-primary); padding: 1px 3px; transition: color 0.25s;">
+                <div style="display: flex; justify-content: space-between; border-right: 0.5px solid #475569; padding-right: 3px;"><span>TOTAL</span><span>₹55,000</span></div>
+                <div style="display: flex; justify-content: space-between; padding-left: 3px;"><span>TOTAL</span><span>₹5,000</span></div>
+              </div>
+            </div>
+
             <!-- Dual stacked net bars -->
-            <div style="border: 1px solid #767676; height: 8px; background: #f1f3f5; margin-bottom: 2px;"></div>
-            <div style="border: 1px solid #767676; height: 6px; background: #fef9e7; margin-bottom: 3px;"></div>
-            <div style="background: #37474f; border-radius: 2px; height: 6px;"></div>
+            <div style="border: 0.5px solid #475569; background: #f1f5f9; font-size: 5.8px; font-weight: 800; text-align: center; padding: 2px 0; color: #0f172a; margin-bottom: 1.5px;">
+              NET PAY : Rs. 50,000
+            </div>
+            <div style="border: 0.5px solid #475569; background: #fef9e7; font-size: 4.6px; font-weight: 700; text-align: center; padding: 1.5px 0; color: #854d0e; margin-bottom: 2px;">
+              NET PAY IN WORDS: Fifty Thousand Rupees Only
+            </div>
+            <div style="background: #1e293b; color: #94a3b8; font-size: 4px; text-align: center; padding: 1.5px 0; border-radius: 2px;">
+              ** ARGUS AUTOMATED PAYROLL • VALID WITHOUT SIGNATURE **
+            </div>
           </div>
 
           <div style="font-size: 11px; color: #475569; line-height: 1.35; flex: 1;">
@@ -1761,32 +2007,72 @@
           </div>
 
           <!-- Miniature Mockup Preview -->
-          <div class="tmpl-mockup" id="mockupTmpl5" style="border: 1.5px solid #cbd5e1;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <div style="display: flex; gap: 4px; align-items: center;">
-                <div style="width: 10px; height: 10px; background: #1b3b5f; border-radius: 2px;"></div>
-                <div style="width: 35px; height: 4px; background: #334155; border-radius: 1px;"></div>
+          <div class="tmpl-mockup" id="mockupTmpl5" style="border: 1.5px solid var(--mock-border);">
+            <!-- Top Split Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 0.5px solid #e2e8f0; padding-bottom: 3px; margin-bottom: 3.5px;">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 12px; height: 12px; background: var(--mock-primary); color: #ffffff; border-radius: 2px; font-size: 7.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; line-height: 1; transition: background 0.25s;">A</div>
+                <div>
+                  <div style="font-size: 7px; font-weight: 800; color: #0f172a; line-height: 1;">ARGUS TECHNOLOGIES</div>
+                  <div style="font-size: 4.8px; color: #64748b; line-height: 1; margin-top: 1px;">SF 515 • COIMBATORE</div>
+                </div>
               </div>
-              <div class="mockup-light-badge" style="width: 28px; height: 10px; background: #dbeafe; border-radius: 3px;"></div>
+              <div style="background: var(--mock-light-badge); border: 0.5px solid var(--mock-border); border-radius: 3px; padding: 1.5px 4px; text-align: right; transition: all 0.25s;">
+                <div style="font-size: 3.8px; font-weight: 800; color: var(--mock-primary); line-height: 1;">MONTHLY PAYSLIP</div>
+                <div style="font-size: 5.5px; font-weight: 800; color: var(--mock-primary); line-height: 1;">OCTOBER 2026</div>
+              </div>
             </div>
-            <!-- Pill badge + colon details -->
-            <div class="mockup-tint-box" style="background: #f0f5fa; border-radius: 4px; height: 16px; margin-bottom: 4px; border: 1px solid #cbd5e1; padding: 2px 4px;">
-              <div class="mockup-net-bar" style="width: 24px; height: 4px; background: #1b3b5f; border-radius: 2px; margin-bottom: 2px;"></div>
-              <div style="width: 90%; height: 2px; background: #cbd5e1;"></div>
+
+            <!-- Solid Badge & Colon Metadata List -->
+            <div style="background: var(--mock-tint); border: 0.5px solid var(--mock-border); border-radius: 3px; padding: 2.5px 5px; margin-bottom: 3.5px; transition: all 0.25s;">
+              <span style="background: var(--mock-primary); color: #ffffff; font-size: 4.8px; font-weight: 800; padding: 1px 3px; border-radius: 2px; display: inline-block; margin-bottom: 2px; transition: background 0.25s;">EMPLOYEE DETAILS</span>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1px 6px; font-size: 4.8px;">
+                <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">Name :</span><strong>Rahul Sharma</strong></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">Desig :</span><strong>Developer</strong></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">ID :</span><strong>EMP-104</strong></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">Bank :</span><strong>SBI</strong></div>
+              </div>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
+
+            <!-- 4 Stat Pills -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin-bottom: 3.5px;">
+              <div style="background: var(--mock-tint); border-radius: 2px; padding: 1.5px; text-align: center; border: 0.5px solid var(--mock-border); transition: all 0.25s;"><div style="font-size: 3.8px; color: #64748b;">SHIFT</div><strong style="font-size: 5.2px;">08:00</strong></div>
+              <div style="background: var(--mock-tint); border-radius: 2px; padding: 1.5px; text-align: center; border: 0.5px solid var(--mock-border); transition: all 0.25s;"><div style="font-size: 3.8px; color: #64748b;">DAYS</div><strong style="font-size: 5.2px;">30 D</strong></div>
+              <div style="background: var(--mock-tint); border-radius: 2px; padding: 1.5px; text-align: center; border: 0.5px solid var(--mock-border); transition: all 0.25s;"><div style="font-size: 3.8px; color: #64748b;">HOURS</div><strong style="font-size: 5.2px;">240h</strong></div>
+              <div style="background: var(--mock-tint); border-radius: 2px; padding: 1.5px; text-align: center; border: 0.5px solid var(--mock-border); transition: all 0.25s;"><div style="font-size: 3.8px; color: #64748b;">LEAVE</div><strong style="font-size: 5.2px;">0 D</strong></div>
             </div>
-            <!-- Dual separate card tables -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px;">
-              <div style="border: 1px solid #cbd5e1; height: 12px; border-radius: 2px; background: #fff;"></div>
-              <div style="border: 1px solid #cbd5e1; height: 12px; border-radius: 2px; background: #fff;"></div>
+
+            <!-- Dual Separate Card Tables -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-bottom: 3.5px; font-size: 4.8px;">
+              <div style="border: 0.5px solid var(--mock-border); border-radius: 3px; overflow: hidden; background: #ffffff; transition: border-color 0.25s;">
+                <div style="background: var(--mock-primary); color: #ffffff; font-size: 5px; font-weight: 800; text-align: center; padding: 1.5px 0; transition: background 0.25s;">EARNINGS</div>
+                <div style="padding: 1px 3px;">
+                  <div style="display: flex; justify-content: space-between;"><span>Basic</span><strong>₹45k</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Allow</span><strong>₹10k</strong></div>
+                </div>
+                <div style="background: var(--mock-light-badge); padding: 1px 3px; font-weight: 800; color: var(--mock-primary); display: flex; justify-content: space-between; border-top: 0.5px solid var(--mock-border); transition: all 0.25s;"><span>TOT</span><span>₹55k</span></div>
+              </div>
+              <div style="border: 0.5px solid var(--mock-border); border-radius: 3px; overflow: hidden; background: #ffffff; transition: border-color 0.25s;">
+                <div style="background: var(--mock-primary); color: #ffffff; font-size: 5px; font-weight: 800; text-align: center; padding: 1.5px 0; transition: background 0.25s;">DEDUCTIONS</div>
+                <div style="padding: 1px 3px;">
+                  <div style="display: flex; justify-content: space-between;"><span>Paid</span><strong>₹0</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Adv</span><strong>₹5k</strong></div>
+                </div>
+                <div style="background: var(--mock-light-badge); padding: 1px 3px; font-weight: 800; color: var(--mock-primary); display: flex; justify-content: space-between; border-top: 0.5px solid var(--mock-border); transition: all 0.25s;"><span>TOT</span><span>₹5k</span></div>
+              </div>
             </div>
-            <!-- Soft net pay banner -->
-            <div class="mockup-light-badge" style="background: #dbeafe; border-radius: 3px; height: 10px;"></div>
+
+            <!-- Soft Net Pay Banner -->
+            <div style="background: var(--mock-light-badge); border: 0.5px solid var(--mock-border); border-radius: 3px; padding: 2.5px 5px; display: flex; justify-content: space-between; align-items: center; transition: all 0.25s;">
+              <div>
+                <div style="font-size: 3.8px; font-weight: 700; color: #475569;">NET PAY</div>
+                <div style="font-size: 7.5px; font-weight: 800; color: var(--mock-primary); line-height: 1; transition: color 0.25s;">₹50,000</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 3.8px; font-weight: 700; color: #475569;">IN WORDS</div>
+                <div style="font-size: 4.8px; font-weight: 700; color: #0f172a;">Fifty Thousand Only</div>
+              </div>
+            </div>
           </div>
 
           <div style="font-size: 11px; color: #475569; line-height: 1.35; flex: 1;">
@@ -1816,31 +2102,72 @@
           </div>
 
           <!-- Miniature Mockup Preview -->
-          <div class="tmpl-mockup" id="mockupTmpl6" style="border: 1.5px solid #cbd5e1;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <div style="display: flex; gap: 4px; align-items: center;">
-                <div style="width: 10px; height: 10px; background: #0f5132; border-radius: 2px;"></div>
-                <div style="width: 35px; height: 4px; background: #334155; border-radius: 1px;"></div>
+          <div class="tmpl-mockup" id="mockupTmpl6" style="border: 1.5px solid var(--mock-border);">
+            <!-- Top Split Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 0.5px solid #e2e8f0; padding-bottom: 3px; margin-bottom: 3.5px;">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 12px; height: 12px; background: var(--mock-primary); color: #ffffff; border-radius: 2px; font-size: 7.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; line-height: 1; transition: background 0.25s;">A</div>
+                <div>
+                  <div style="font-size: 7px; font-weight: 800; color: #0f172a; line-height: 1;">ARGUS TECHNOLOGIES</div>
+                  <div style="font-size: 4.8px; color: #64748b; line-height: 1; margin-top: 1px;">SF 515 • COIMBATORE</div>
+                </div>
               </div>
-              <div class="mockup-light-badge" style="width: 28px; height: 10px; background: #d1fae5; border-radius: 3px;"></div>
+              <div style="background: var(--mock-light-badge); border: 0.5px solid var(--mock-border); border-radius: 3px; padding: 1.5px 4px; text-align: right; transition: all 0.25s;">
+                <div style="font-size: 3.8px; font-weight: 800; color: var(--mock-primary); line-height: 1;">MONTHLY PAYSLIP</div>
+                <div style="font-size: 5.5px; font-weight: 800; color: var(--mock-primary); line-height: 1;">OCTOBER 2026</div>
+              </div>
             </div>
-            <!-- Person icon badge + 5x2 list -->
-            <div class="mockup-tint-box" style="background: #e9f7ef; border-radius: 4px; height: 16px; margin-bottom: 4px; border: 1px solid #a3cfbb; padding: 2px 4px;">
-              <div class="mockup-net-bar" style="width: 26px; height: 4px; background: #0f5132; border-radius: 2px; margin-bottom: 2px;"></div>
-              <div style="width: 90%; height: 2px; background: #a3cfbb;"></div>
+
+            <!-- Person Icon Badge & 5x2 Colon Grid with Year & Month -->
+            <div style="background: var(--mock-tint); border: 0.5px solid var(--mock-border); border-radius: 3px; padding: 2.5px 5px; margin-bottom: 3.5px; transition: all 0.25s;">
+              <span style="background: var(--mock-primary); color: #ffffff; font-size: 4.8px; font-weight: 800; padding: 1px 3px; border-radius: 2px; display: inline-block; margin-bottom: 2px; transition: background 0.25s;">👤 EMPLOYEE DETAILS</span>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1px 6px; font-size: 4.8px;">
+                <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">Name :</span><strong>Rahul Sharma</strong></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">Phone :</span><strong>9878787999</strong></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">Emp ID :</span><strong>EMP-104</strong></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">Period :</span><strong style="color: var(--mock-primary); transition: color 0.25s;">OCT 2026</strong></div>
+              </div>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
-              <div style="background: #fff; border: 1px solid #e2e8f0; height: 10px; border-radius: 2px;"></div>
+
+            <!-- 4 Metric Cards -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin-bottom: 3.5px;">
+              <div style="background: var(--mock-tint); border-radius: 2px; padding: 1.5px; text-align: center; border: 0.5px solid var(--mock-border); transition: all 0.25s;"><div style="font-size: 3.8px; color: #64748b;">SHIFT</div><strong style="font-size: 5.2px;">08:00</strong></div>
+              <div style="background: var(--mock-tint); border-radius: 2px; padding: 1.5px; text-align: center; border: 0.5px solid var(--mock-border); transition: all 0.25s;"><div style="font-size: 3.8px; color: #64748b;">DAYS</div><strong style="font-size: 5.2px;">30 D</strong></div>
+              <div style="background: var(--mock-tint); border-radius: 2px; padding: 1.5px; text-align: center; border: 0.5px solid var(--mock-border); transition: all 0.25s;"><div style="font-size: 3.8px; color: #64748b;">HOURS</div><strong style="font-size: 5.2px;">240h</strong></div>
+              <div style="background: var(--mock-tint); border-radius: 2px; padding: 1.5px; text-align: center; border: 0.5px solid var(--mock-border); transition: all 0.25s;"><div style="font-size: 3.8px; color: #64748b;">LEAVE</div><strong style="font-size: 5.2px;">0 D</strong></div>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px;">
-              <div style="border: 1px solid #a3cfbb; height: 12px; border-radius: 2px; background: #fff;"></div>
-              <div style="border: 1px solid #a3cfbb; height: 12px; border-radius: 2px; background: #fff;"></div>
+
+            <!-- Dual Separate Card Tables -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-bottom: 3.5px; font-size: 4.8px;">
+              <div style="border: 0.5px solid var(--mock-border); border-radius: 3px; overflow: hidden; background: #ffffff; transition: border-color 0.25s;">
+                <div style="background: var(--mock-primary); color: #ffffff; font-size: 5px; font-weight: 800; text-align: center; padding: 1.5px 0; transition: background 0.25s;">EARNINGS</div>
+                <div style="padding: 1px 3px;">
+                  <div style="display: flex; justify-content: space-between;"><span>Basic</span><strong>₹45k</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Allow</span><strong>₹10k</strong></div>
+                </div>
+                <div style="background: var(--mock-light-badge); padding: 1px 3px; font-weight: 800; color: var(--mock-primary); display: flex; justify-content: space-between; border-top: 0.5px solid var(--mock-border); transition: all 0.25s;"><span>TOT</span><span>₹55k</span></div>
+              </div>
+              <div style="border: 0.5px solid var(--mock-border); border-radius: 3px; overflow: hidden; background: #ffffff; transition: border-color 0.25s;">
+                <div style="background: var(--mock-primary); color: #ffffff; font-size: 5px; font-weight: 800; text-align: center; padding: 1.5px 0; transition: background 0.25s;">DEDUCTIONS</div>
+                <div style="padding: 1px 3px;">
+                  <div style="display: flex; justify-content: space-between;"><span>Paid</span><strong>₹0</strong></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Adv</span><strong>₹5k</strong></div>
+                </div>
+                <div style="background: var(--mock-light-badge); padding: 1px 3px; font-weight: 800; color: var(--mock-primary); display: flex; justify-content: space-between; border-top: 0.5px solid var(--mock-border); transition: all 0.25s;"><span>TOT</span><span>₹5k</span></div>
+              </div>
             </div>
-            <!-- Cash stack net banner -->
-            <div class="mockup-light-badge" style="background: #d1fae5; border-radius: 3px; height: 10px;"></div>
+
+            <!-- Cash Stack Net Pay Banner -->
+            <div style="background: var(--mock-light-badge); border: 0.5px solid var(--mock-border); border-radius: 3px; padding: 2.5px 5px; display: flex; justify-content: space-between; align-items: center; transition: all 0.25s;">
+              <div>
+                <div style="font-size: 3.8px; font-weight: 700; color: #475569;">💵 NET PAY</div>
+                <div style="font-size: 7.5px; font-weight: 800; color: var(--mock-primary); line-height: 1; transition: color 0.25s;">₹50,000</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 3.8px; font-weight: 700; color: #475569;">IN WORDS</div>
+                <div style="font-size: 4.8px; font-weight: 700; color: #0f172a;">Fifty Thousand Only</div>
+              </div>
+            </div>
           </div>
 
           <div style="font-size: 11px; color: #475569; line-height: 1.35; flex: 1;">
@@ -1964,6 +2291,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Initial apply of saved template and theme
   applyTemplateAndTheme(currentTemplate, currentTheme);
+  syncModalUI();
 
   // ----------------- TEMPLATE MODAL HANDLERS -----------------
   btnChooseTemplate.addEventListener('click', function () {
@@ -2049,24 +2377,14 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
 
-    // 2. Update Mockup previews inside Modal for all 6 mockups
+    // 2. Update Mockup previews inside Modal for all 6 mockups via CSS custom properties
     document.querySelectorAll('.tmpl-mockup').forEach(mock => {
-      const pill = mock.querySelector('.mockup-pill-bar');
-      if (pill) pill.style.background = palette.primary;
-      const darkBadge = mock.querySelector('.mockup-dark-badge');
-      if (darkBadge) darkBadge.style.background = palette.dark;
-      const tintBox = mock.querySelector('.mockup-tint-box');
-      if (tintBox) {
-        tintBox.style.background = palette.tint;
-        tintBox.style.borderColor = palette.border;
-      }
-      const netBar = mock.querySelector('.mockup-net-bar');
-      if (netBar) netBar.style.background = palette.primary;
-      const lightBadge = mock.querySelector('.mockup-light-badge');
-      if (lightBadge) lightBadge.style.background = palette.light_badge;
-      mock.querySelectorAll('.mockup-circ-dot').forEach(d => {
-        d.style.background = palette.primary;
-      });
+      mock.style.setProperty('--mock-primary', palette.primary);
+      mock.style.setProperty('--mock-dark', palette.dark);
+      mock.style.setProperty('--mock-tint', palette.tint);
+      mock.style.setProperty('--mock-border', palette.border);
+      mock.style.setProperty('--mock-light-badge', palette.light_badge);
+      mock.style.setProperty('--mock-text-dark', palette.text_dark);
     });
 
     // 3. Update Modal Summary Text
