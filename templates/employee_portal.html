@@ -298,8 +298,9 @@
     {% set perm_hist = emp_perms.get('attendance_history', True) %}
     {% set perm_pay = emp_perms.get('monthly_payslip', True) %}
     {% set perm_cred = emp_perms.get('employee_credentials', True) %}
+    {% set perm_leave = emp_perms.get('leave_permission', True) %}
 
-    {% if not (perm_punch or perm_hist or perm_pay or perm_cred) %}
+    {% if not (perm_punch or perm_hist or perm_pay or perm_cred or perm_leave) %}
     <div class="portal-card" style="text-align: center; padding: 48px 20px; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 10px;">
       <div style="font-size: 38px; margin-bottom: 12px;">🔒</div>
       <h3 style="font-size: 17px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">Portal Access Restricted</h3>
@@ -376,6 +377,7 @@
     </div>
     {% endif %}
 
+    {% if perm_leave %}
     <!-- Section: Leave & Permission (Image 1) -->
     <div class="portal-card" id="leavePermissionSection" style="margin-top: 20px;">
       <div class="portal-card-header">
@@ -458,11 +460,12 @@
                   <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #64748b; white-space: nowrap;">DAYS / HOURS</th>
                   <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #64748b; text-align: center; white-space: nowrap;">STATUS</th>
                   <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #64748b; white-space: nowrap;">APPLIED ON</th>
+                  <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #64748b; text-align: center; white-space: nowrap;">ACTION</th>
                 </tr>
               </thead>
               <tbody id="empRequestsTableBody">
                 <tr>
-                  <td colspan="7" style="text-align: center; padding: 18px; color: #64748b; font-size: 12px;">Loading leave requests...</td>
+                  <td colspan="8" style="text-align: center; padding: 18px; color: #64748b; font-size: 12px;">Loading leave requests...</td>
                 </tr>
               </tbody>
             </table>
@@ -522,6 +525,7 @@
         </div>
       </div>
     </div>
+    {% endif %}
 
     {% if perm_pay %}
     <!-- Section 3: Monthly Payslip & Salary -->
@@ -635,12 +639,13 @@
               <line x1="8" y1="2" x2="8" y2="6"></line>
               <line x1="3" y1="10" x2="21" y2="10"></line>
             </svg>
-            <span style="font-weight: 800; font-size: 15px;">Apply for Leave</span>
+            <span style="font-weight: 800; font-size: 15px;" id="modalLeaveTitle">Apply for Leave</span>
           </div>
           <button type="button" class="modal-close-btn" id="closeLeaveModal" style="background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1;">&times;</button>
         </div>
 
         <form id="formApplyLeave">
+          <input type="hidden" id="editLeaveRequestId" name="edit_request_id" value="">
           <div style="padding: 20px;">
             <div id="leaveAlert" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; margin-bottom: 14px;"></div>
 
@@ -776,12 +781,13 @@
               <line x1="16" y1="13" x2="8" y2="13"></line>
               <line x1="16" y1="17" x2="8" y2="17"></line>
             </svg>
-            <span style="font-weight: 800; font-size: 15px;">Apply for Permission</span>
+            <span style="font-weight: 800; font-size: 15px;" id="modalPermTitle">Apply for Permission</span>
           </div>
           <button type="button" class="modal-close-btn" id="closePermModal" style="background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1;">&times;</button>
         </div>
 
         <form id="formApplyPermission">
+          <input type="hidden" id="editPermRequestId" name="edit_request_id" value="">
           <div style="padding: 20px;">
             <div id="permAlert" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; margin-bottom: 14px;"></div>
 
@@ -1463,11 +1469,19 @@
     }
 
     // Functions to open & close modals (both exposed on window for inline handlers & attached via event listeners)
-    function openLeaveModal() {
+    function openLeaveModal(isEdit = false) {
       if (modalApplyLeave) {
         if (leaveAlert) leaveAlert.style.display = 'none';
         modalApplyLeave.classList.add('active');
         modalApplyLeave.style.display = 'flex';
+        if (!isEdit) {
+          const editIdEl = document.getElementById('editLeaveRequestId');
+          if (editIdEl) editIdEl.value = '';
+          const titleEl = document.getElementById('modalLeaveTitle');
+          if (titleEl) titleEl.textContent = 'Apply for Leave';
+          const submitBtn = document.getElementById('btnSubmitLeave');
+          if (submitBtn) submitBtn.textContent = 'Submit Request';
+        }
       }
     }
     window.openLeaveModal = openLeaveModal;
@@ -1476,16 +1490,26 @@
       if (modalApplyLeave) {
         modalApplyLeave.classList.remove('active');
         modalApplyLeave.style.display = 'none';
+        const editIdEl = document.getElementById('editLeaveRequestId');
+        if (editIdEl) editIdEl.value = '';
       }
     }
     window.closeLeaveModalFunc = closeLeaveModalFunc;
 
-    function openPermModal() {
+    function openPermModal(isEdit = false) {
       if (modalApplyPermission) {
         if (permAlert) permAlert.style.display = 'none';
         modalApplyPermission.classList.add('active');
         modalApplyPermission.style.display = 'flex';
         calcPermDuration();
+        if (!isEdit) {
+          const editIdEl = document.getElementById('editPermRequestId');
+          if (editIdEl) editIdEl.value = '';
+          const titleEl = document.getElementById('modalPermTitle');
+          if (titleEl) titleEl.textContent = 'Apply for Permission';
+          const submitBtn = document.getElementById('btnSubmitPerm');
+          if (submitBtn) submitBtn.textContent = 'Submit Request';
+        }
       }
     }
     window.openPermModal = openPermModal;
@@ -1494,6 +1518,8 @@
       if (modalApplyPermission) {
         modalApplyPermission.classList.remove('active');
         modalApplyPermission.style.display = 'none';
+        const editIdEl = document.getElementById('editPermRequestId');
+        if (editIdEl) editIdEl.value = '';
       }
     }
     window.closePermModalFunc = closePermModalFunc;
@@ -1614,6 +1640,8 @@
     }
 
     // Load Requests Table
+    let cachedEmpRequests = [];
+
     async function loadLeaveRequests() {
       const tbody = document.getElementById('empRequestsTableBody');
       if (!tbody) return;
@@ -1621,14 +1649,16 @@
       try {
         const res = await fetch('/api/employee/leave-requests');
         if (!res.ok) {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 18px; color: #dc2626;">Failed to load requests.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 18px; color: #dc2626;">Failed to load requests.</td></tr>`;
           return;
         }
         const data = await res.json();
         if (!data.success || !data.requests || data.requests.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 22px; color: #94a3b8; font-size: 12.5px;">No leave or permission requests found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 22px; color: #94a3b8; font-size: 12.5px;">No leave or permission requests found.</td></tr>`;
           return;
         }
+
+        cachedEmpRequests = data.requests || [];
 
         tbody.innerHTML = data.requests.map((r, idx) => {
           let typeBadge = '';
@@ -1660,6 +1690,29 @@
             units = `${r.days_count || 1} Day${(r.days_count && r.days_count > 1) ? 's' : ''}`;
           }
 
+          const reqId = r.request_id || r.id || r._id;
+          let actionHtml = '';
+          if (st === 'pending') {
+            actionHtml = `
+              <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <button type="button" class="btn-action-icon" onclick="editEmpRequest('${escapeHtml(String(reqId))}')" title="Edit Request" style="background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; border-radius: 5px; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                </button>
+                <button type="button" class="btn-action-icon" onclick="deleteEmpRequest('${escapeHtml(String(reqId))}')" title="Delete Request" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 5px; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                </button>
+              </div>
+            `;
+          } else {
+            actionHtml = `<span style="color: #94a3b8; font-size: 13px; font-weight: 700;" title="Cannot edit or delete processed requests">—</span>`;
+          }
+
           return `
             <tr>
               <td style="padding: 10px; font-size: 11.5px; text-align: center; color: #64748b; font-weight: 600;">${idx + 1}</td>
@@ -1669,14 +1722,110 @@
               <td style="padding: 10px; font-size: 11.5px; color: #0284c7; font-weight: 700;">${escapeHtml(units)}</td>
               <td style="padding: 10px; font-size: 11.5px; text-align: center;">${statusBadge}</td>
               <td style="padding: 10px; font-size: 11px; color: #64748b;">${escapeHtml(r.applied_on || '-')}</td>
+              <td style="padding: 10px; font-size: 11px; text-align: center;">${actionHtml}</td>
             </tr>
           `;
         }).join('');
       } catch (err) {
         console.error('Error fetching leave requests:', err);
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 18px; color: #dc2626;">Error loading requests.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 18px; color: #dc2626;">Error loading requests.</td></tr>`;
       }
     }
+
+    window.editEmpRequest = function (id) {
+      const r = (cachedEmpRequests || []).find(x => String(x.request_id || x.id || x._id) === String(id));
+      if (!r) return;
+      if (r.status && r.status.toLowerCase() !== 'pending') {
+        alert('Cannot edit request that has already been ' + r.status);
+        return;
+      }
+
+      if (r.request_type === 'Permission') {
+        if (window.openPermModal) window.openPermModal();
+        const editIdInput = document.getElementById('editPermRequestId');
+        if (editIdInput) editIdInput.value = id;
+        const titleEl = document.getElementById('modalPermTitle');
+        if (titleEl) titleEl.textContent = 'Edit Permission Request';
+        const submitBtn = document.getElementById('btnSubmitPerm');
+        if (submitBtn) submitBtn.textContent = 'Update Request';
+
+        const dateInput = document.getElementById('permDate');
+        if (dateInput) dateInput.value = r.date || r.from_date || '';
+        const typeSelect = document.getElementById('permTypeSelect');
+        if (typeSelect) typeSelect.value = r.permission_type || 'Short Leave';
+        const fromT = document.getElementById('permFromTime');
+        if (fromT) fromT.value = r.from_time || '';
+        const toT = document.getElementById('permToTime');
+        if (toT) toT.value = r.to_time || '';
+        const reason = document.getElementById('permReason');
+        if (reason) {
+          reason.value = r.reason || '';
+          if (permReasonCounter) permReasonCounter.textContent = `${reason.value.length}/500`;
+        }
+        if (window.calcPermDuration) window.calcPermDuration();
+      } else {
+        if (window.openLeaveModal) window.openLeaveModal();
+        const editIdInput = document.getElementById('editLeaveRequestId');
+        if (editIdInput) editIdInput.value = id;
+        const titleEl = document.getElementById('modalLeaveTitle');
+        if (titleEl) titleEl.textContent = 'Edit Leave Request';
+        const submitBtn = document.getElementById('btnSubmitLeave');
+        if (submitBtn) submitBtn.textContent = 'Update Request';
+
+        const leaveTypeSel = document.getElementById('leaveTypeSelect');
+        if (leaveTypeSel) leaveTypeSel.value = r.leave_type || 'Casual Leave (CL)';
+        const fDate = document.getElementById('leaveFromDate');
+        if (fDate) fDate.value = r.from_date || '';
+        const tDate = document.getElementById('leaveToDate');
+        if (tDate) tDate.value = r.to_date || r.from_date || '';
+
+        if (r.session === 'Half Day') {
+          const rHalf = document.getElementById('radioHalfDay');
+          if (rHalf) { rHalf.checked = true; rHalf.dispatchEvent(new Event('change')); }
+        } else if (r.session === 'Full Day') {
+          const rFull = document.getElementById('radioFullDay');
+          if (rFull) { rFull.checked = true; rFull.dispatchEvent(new Event('change')); }
+        }
+
+        if (r.session === 'Hourly' || employeeSalaryType === 'hourly') {
+          if (leaveFromTime) leaveFromTime.value = r.from_time || r.leave_from_time || '09:00';
+          if (leaveToTime) leaveToTime.value = r.to_time || r.leave_to_time || '18:00';
+          if (window.calcHourlyDuration) window.calcHourlyDuration();
+        }
+
+        const reason = document.getElementById('leaveReason');
+        if (reason) {
+          reason.value = r.reason || '';
+          if (leaveReasonCounter) leaveReasonCounter.textContent = `${reason.value.length}/500`;
+        }
+      }
+    };
+
+    window.deleteEmpRequest = async function (id) {
+      const r = (cachedEmpRequests || []).find(x => String(x.request_id || x.id || x._id) === String(id));
+      if (r && r.status && r.status.toLowerCase() !== 'pending') {
+        alert('Cannot delete request that has already been ' + r.status);
+        return;
+      }
+      if (!confirm('Are you sure you want to delete this leave/permission request?')) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/employee/leave-requests/${encodeURIComponent(id)}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          loadLeaveBalances();
+          loadLeaveRequests();
+        } else {
+          alert(data.error || 'Failed to delete request.');
+        }
+      } catch (err) {
+        alert('Error deleting request.');
+      }
+    };
 
     function escapeHtml(text) {
       if (!text) return '';
@@ -1711,15 +1860,21 @@
           if (durMins < 0) durMins += 24 * 60;
           formData.set('duration_hours', (durMins / 60).toFixed(2));
         }
+
+        const editId = document.getElementById('editLeaveRequestId') ? document.getElementById('editLeaveRequestId').value : '';
+        const endpoint = editId ? `/api/employee/leave-requests/${encodeURIComponent(editId)}/edit` : '/api/employee/leave-requests/apply';
+
         try {
-          const res = await fetch('/api/employee/leave-requests/apply', {
+          const res = await fetch(endpoint, {
             method: 'POST',
             body: formData
           });
           const data = await res.json();
           if (data.success) {
-            showModalAlert(leaveAlert, data.message || 'Leave request submitted successfully!', 'success');
+            showModalAlert(leaveAlert, data.message || 'Leave request saved successfully!', 'success');
             formApplyLeave.reset();
+            const editIdEl = document.getElementById('editLeaveRequestId');
+            if (editIdEl) editIdEl.value = '';
             if (leaveReasonCounter) leaveReasonCounter.textContent = '0/500';
             loadLeaveBalances();
             loadLeaveRequests();
@@ -1728,7 +1883,7 @@
               if (leaveAlert) leaveAlert.style.display = 'none';
             }, 1400);
           } else {
-            showModalAlert(leaveAlert, data.message || 'Failed to submit leave request.', 'error');
+            showModalAlert(leaveAlert, data.error || data.message || 'Failed to submit leave request.', 'error');
           }
         } catch (err) {
           showModalAlert(leaveAlert, 'An error occurred while submitting.', 'error');
@@ -1746,15 +1901,20 @@
         if (submitBtn) submitBtn.disabled = true;
 
         const formData = new FormData(formApplyPermission);
+        const editId = document.getElementById('editPermRequestId') ? document.getElementById('editPermRequestId').value : '';
+        const endpoint = editId ? `/api/employee/leave-requests/${encodeURIComponent(editId)}/edit` : '/api/employee/permission-requests/apply';
+
         try {
-          const res = await fetch('/api/employee/permission-requests/apply', {
+          const res = await fetch(endpoint, {
             method: 'POST',
             body: formData
           });
           const data = await res.json();
           if (data.success) {
-            showModalAlert(permAlert, data.message || 'Permission request submitted successfully!', 'success');
+            showModalAlert(permAlert, data.message || 'Permission request saved successfully!', 'success');
             formApplyPermission.reset();
+            const editIdEl = document.getElementById('editPermRequestId');
+            if (editIdEl) editIdEl.value = '';
             if (permReasonCounter) permReasonCounter.textContent = '0/500';
             calcPermDuration();
             loadLeaveBalances();
@@ -1764,7 +1924,7 @@
               if (permAlert) permAlert.style.display = 'none';
             }, 1400);
           } else {
-            showModalAlert(permAlert, data.message || 'Failed to submit permission request.', 'error');
+            showModalAlert(permAlert, data.error || data.message || 'Failed to submit permission request.', 'error');
           }
         } catch (err) {
           showModalAlert(permAlert, 'An error occurred while submitting.', 'error');

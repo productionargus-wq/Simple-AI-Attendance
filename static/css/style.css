@@ -271,6 +271,25 @@ body.sidebar-collapsed .app-footer {
   opacity: 1;
 }
 
+.nav-count-badge {
+  background-color: #ef4444;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 700;
+  min-width: 19px;
+  height: 19px;
+  line-height: 19px;
+  padding: 0 5px;
+  border-radius: 10px;
+  text-align: center;
+  box-sizing: border-box;
+  margin-left: auto;
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.45);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .sidebar-logout-card {
   display: flex;
   align-items: center;

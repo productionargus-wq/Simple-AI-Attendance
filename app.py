@@ -212,18 +212,29 @@ def check_user_can_delete_entries():
 
 @app.context_processor
 def inject_delete_permissions():
-    """Injects delete permissions and system admin status into all templates dynamically."""
-    is_super = session.get('role') == 'super_admin'
+    """Injects delete permissions, system admin status, and pending leave count into all templates dynamically."""
+    role = session.get('role')
+    is_super = role == 'super_admin'
     comp_can_del = False
+    pending_cnt = 0
     if is_super:
         comp_can_del = True
-    elif session.get('role') == 'company_admin':
+        try:
+            pending_cnt = database.get_pending_leave_requests_count(None)
+        except Exception:
+            pending_cnt = 0
+    elif role == 'company_admin':
         comp_id = session.get('company_id')
         if comp_id:
             comp_can_del = database.can_company_delete_entries(comp_id)
+            try:
+                pending_cnt = database.get_pending_leave_requests_count(comp_id)
+            except Exception:
+                pending_cnt = 0
     return {
         'is_system_admin': is_super,
-        'can_delete_entries': comp_can_del
+        'can_delete_entries': comp_can_del,
+        'pending_leave_count': pending_cnt
     }
 
 import traceback
@@ -1422,6 +1433,127 @@ def api_employee_apply_permission():
         'request': new_req
     })
 
+@app.route('/api/employee/leave-requests/<request_id>', methods=['DELETE'])
+@employee_required
+def api_employee_delete_leave_request(request_id):
+    emp_id = session.get('employee_id')
+    res = database.delete_employee_leave_request(request_id, emp_id=emp_id)
+    if not res.get('success'):
+        return jsonify(res), 400
+    return jsonify(res)
+
+@app.route('/api/employee/leave-requests/<request_id>/edit', methods=['POST'])
+@employee_required
+def api_employee_edit_leave_request(request_id):
+    emp_id = session.get('employee_id')
+    data = request.form.to_dict()
+    
+    req = database.get_leave_request_by_id(request_id)
+    if not req:
+        return jsonify({'success': False, 'error': 'Request not found'}), 404
+
+    if str(req.get('status', 'Pending')).strip().lower() != 'pending':
+        return jsonify({'success': False, 'error': f"Cannot edit request that has already been {req.get('status')}"}), 400
+
+    updated_fields = {}
+    if req.get('request_type') == 'Permission':
+        perm_type = data.get('permission_type', 'Short Leave').strip()
+        perm_date = data.get('date', '').strip()
+        from_time = data.get('from_time', '').strip()
+        to_time = data.get('to_time', '').strip()
+        duration_str = data.get('duration', '02:00').strip()
+        reason = data.get('reason', '').strip()
+
+        duration_hours = 2.0
+        try:
+            clean_dur = duration_str.split(' ')[0]
+            if ':' in clean_dur:
+                hh, mm = clean_dur.split(':')
+                duration_hours = round(int(hh) + int(mm) / 60.0, 2)
+            else:
+                duration_hours = float(clean_dur)
+        except Exception:
+            duration_hours = 2.0
+
+        updated_fields = {
+            'permission_type': perm_type,
+            'date': perm_date,
+            'from_date': perm_date,
+            'to_date': perm_date,
+            'from_time': from_time,
+            'to_time': to_time,
+            'duration': duration_str,
+            'duration_str': duration_str,
+            'duration_hours': duration_hours,
+            'hours_count': duration_hours,
+            'reason': reason
+        }
+    else:
+        leave_type = data.get('leave_type', 'Casual Leave (CL)').strip()
+        session_type = data.get('session', 'Full Day').strip()
+        from_date = data.get('from_date', '').strip()
+        to_date = data.get('to_date', '').strip() or from_date
+        reason = data.get('reason', '').strip()
+
+        total_days = 1.0
+        if session_type == 'Half Day':
+            total_days = 0.5
+            to_date = from_date
+        elif session_type == 'Hourly':
+            total_days = 0.0
+            to_date = from_date
+        else:
+            try:
+                d1 = datetime.strptime(from_date, '%Y-%m-%d').date()
+                d2 = datetime.strptime(to_date, '%Y-%m-%d').date()
+                total_days = max(1.0, float((d2 - d1).days + 1))
+            except Exception:
+                total_days = 1.0
+
+        updated_fields = {
+            'leave_type': leave_type,
+            'session': session_type,
+            'from_date': from_date,
+            'to_date': to_date,
+            'total_days': total_days,
+            'days_count': total_days,
+            'reason': reason
+        }
+        if session_type == 'Hourly':
+            updated_fields['from_time'] = data.get('leave_from_time', '').strip()
+            updated_fields['to_time'] = data.get('leave_to_time', '').strip()
+            updated_fields['leave_from_time'] = data.get('leave_from_time', '').strip()
+            updated_fields['leave_to_time'] = data.get('leave_to_time', '').strip()
+            updated_fields['leave_duration'] = data.get('leave_duration', '').strip()
+            try:
+                updated_fields['duration_hours'] = float(data.get('duration_hours', 0))
+            except Exception:
+                updated_fields['duration_hours'] = 0.0
+
+    if 'attachment' in request.files:
+        file = request.files['attachment']
+        if file and file.filename:
+            fname = werkzeug.utils.secure_filename(file.filename) or 'doc'
+            base_name, ext = os.path.splitext(fname)
+            unique_fname = f"{base_name}_{int(time.time())}{ext}"
+            os.makedirs(LEAVES_FOLDER, exist_ok=True)
+            dest_path = os.path.join(LEAVES_FOLDER, unique_fname)
+            file.save(dest_path)
+            size_kb = round(os.path.getsize(dest_path) / 1024, 1)
+            updated_fields['attachments'] = [{
+                'filename': unique_fname,
+                'original_name': fname,
+                'file_url': f"/uploads/leaves/{unique_fname}",
+                'size_str': f"{size_kb} KB",
+                'mime_type': file.mimetype or 'application/octet-stream',
+                'uploaded_at': database.get_ist_now().strftime('%d %b %Y %I:%M %p')
+            }]
+
+    res = database.edit_employee_leave_request(request_id, emp_id, updated_fields)
+    if not res.get('success'):
+        return jsonify(res), 400
+    return jsonify(res)
+
 @app.route('/api/admin/leave-permission/stats', methods=['GET'])
 @login_required
 def api_admin_leave_stats():
@@ -1563,7 +1695,8 @@ def extract_employee_permissions(data, default_val=True):
         'punch_attendance': to_bool(data.get('perm_punch_attendance', raw_perms.get('punch_attendance')), default_val),
         'attendance_history': to_bool(data.get('perm_attendance_history', raw_perms.get('attendance_history')), default_val),
         'monthly_payslip': to_bool(data.get('perm_monthly_payslip', raw_perms.get('monthly_payslip')), default_val),
-        'employee_credentials': to_bool(data.get('perm_employee_credentials', raw_perms.get('employee_credentials')), default_val)
+        'employee_credentials': to_bool(data.get('perm_employee_credentials', raw_perms.get('employee_credentials')), default_val),
+        'leave_permission': to_bool(data.get('perm_leave_permission', raw_perms.get('leave_permission')), default_val)
     }
 
 @app.route('/api/employees', methods=['POST'])
@@ -1734,7 +1867,7 @@ def api_update_employee(emp_id):
 @app.route('/api/employees/<emp_id>', methods=['DELETE'])
 @login_required
 def api_delete_employee(emp_id):
-    if not check_user_can_delete_entries():
+    if not (session.get('role') in ['super_admin', 'company_admin'] or check_user_can_delete_entries()):
         return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     emp = database.get_employee_by_id(emp_id)
     if not emp:

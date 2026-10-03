@@ -4303,6 +4303,39 @@ def save_company_leave_policy(company_id, policy_data):
     # Also sync into company_admin if present
     q = {'id': str(company_id)} if str(company_id).isdigit() else {'$or': [{'id': str(company_id)}, build_id_filter(company_id)]}
     db.company_admin.update_one(q, {'$set': {'leave_policy': pol_doc}})
+
+    # Synchronize all existing leave balances for this company for current year
+    try:
+        curr_year = get_ist_now().year
+        bal_filter = {'year': int(curr_year)}
+        if str(company_id) not in ['DEFAULT', 'ALL', 'ARGUS_MASTER']:
+            bal_filter['company_id'] = str(company_id)
+        
+        existing_bals = list(db.leave_balances.find(bal_filter))
+        for b in existing_bals:
+            b_id = b['_id']
+            cl_used = float(b.get('casual_leave', {}).get('used', 0))
+            sl_used = float(b.get('sick_leave', {}).get('used', 0))
+            el_used = float(b.get('earned_leave', {}).get('used', 0))
+            ph_used = float(b.get('permission_hours', {}).get('used', 0.0))
+
+            db.leave_balances.update_one(
+                {'_id': b_id},
+                {'$set': {
+                    'casual_leave.total': cl,
+                    'casual_leave.available': max(0.0, round(cl - cl_used, 1)),
+                    'sick_leave.total': sl,
+                    'sick_leave.available': max(0.0, round(sl - sl_used, 1)),
+                    'earned_leave.total': el,
+                    'earned_leave.available': max(0.0, round(el - el_used, 1)),
+                    'permission_hours.total': ph,
+                    'permission_hours.available': max(0.0, round(ph - ph_used, 2)),
+                    'updated_at': get_ist_now()
+                }}
+            )
+    except Exception as e:
+        print("Error synchronizing leave balances on policy update:", e)
+
     return True
 
 def get_employee_leave_balance(emp_id, company_id=None, year=None):
@@ -4398,7 +4431,7 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None):
 
     for idx, emp in enumerate(employees):
         emp_id = str(emp.get('id') or emp.get('_id'))
-        emp_code = str(emp.get('employee_id') or emp.get('emp_id') or f"EMP{idx+1:03d}")
+        emp_code = str(emp.get('id') or emp.get('employee_id') or emp.get('emp_id') or emp_id)
         emp_name = str(emp.get('employee_name') or '')
         dept = str(emp.get('department') or 'General')
 
@@ -4827,3 +4860,76 @@ def get_approved_permissions_for_date(date_str, company_id=None):
         if p.get('employee_id'):
             result[str(p['employee_id'])] = cd
     return result
+
+def get_pending_leave_requests_count(company_id=None):
+    """
+    Returns the count of Pending leave & permission requests.
+    """
+    db = get_db()
+    query = {'status': 'Pending'}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', 'DEFAULT']:
+        query['company_id'] = str(company_id)
+    return db.leave_requests.count_documents(query)
+
+def delete_employee_leave_request(request_id, emp_id=None):
+    """
+    Deletes a leave or permission request submitted by an employee.
+    Enforces that status must be 'Pending'. If Approved or Rejected, deletion is blocked.
+    """
+    db = get_db()
+    q = {'$or': [
+        {'request_id': str(request_id)},
+        {'id': int(request_id) if str(request_id).isdigit() else str(request_id)},
+        {'id': str(request_id)},
+        build_id_filter(request_id)
+    ]}
+    req = db.leave_requests.find_one(q)
+    if not req:
+        return {'success': False, 'error': 'Request not found'}
+
+    # Verify ownership if emp_id provided
+    if emp_id:
+        req_emp = str(req.get('employee_id', ''))
+        req_code = str(req.get('employee_code', ''))
+        if str(emp_id) not in [req_emp, req_code]:
+            return {'success': False, 'error': 'Unauthorized: You can only delete your own requests'}
+
+    st = str(req.get('status', 'Pending')).strip().lower()
+    if st != 'pending':
+        return {'success': False, 'error': f'Cannot delete request that has already been {req.get("status")}'}
+
+    db.leave_requests.delete_one({'_id': req['_id']})
+    return {'success': True, 'message': 'Request deleted successfully'}
+
+def edit_employee_leave_request(request_id, emp_id, updated_fields):
+    """
+    Updates a leave or permission request submitted by an employee.
+    Enforces that status must be 'Pending'. If Approved or Rejected, editing is blocked.
+    """
+    db = get_db()
+    q = {'$or': [
+        {'request_id': str(request_id)},
+        {'id': int(request_id) if str(request_id).isdigit() else str(request_id)},
+        {'id': str(request_id)},
+        build_id_filter(request_id)
+    ]}
+    req = db.leave_requests.find_one(q)
+    if not req:
+        return {'success': False, 'error': 'Request not found'}
+
+    # Verify ownership if emp_id provided
+    if emp_id:
+        req_emp = str(req.get('employee_id', ''))
+        req_code = str(req.get('employee_code', ''))
+        if str(emp_id) not in [req_emp, req_code]:
+            return {'success': False, 'error': 'Unauthorized: You can only edit your own requests'}
+
+    st = str(req.get('status', 'Pending')).strip().lower()
+    if st != 'pending':
+        return {'success': False, 'error': f'Cannot edit request that has already been {req.get("status")}'}
+
+    updated_fields['updated_at'] = get_ist_now()
+    db.leave_requests.update_one({'_id': req['_id']}, {'$set': updated_fields})
+    updated_doc = db.leave_requests.find_one({'_id': req['_id']})
+    return {'success': True, 'message': 'Request updated successfully', 'request': clean_doc(updated_doc)}
+

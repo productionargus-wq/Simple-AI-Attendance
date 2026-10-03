@@ -63,6 +63,13 @@ document.addEventListener('DOMContentLoaded', function () {
       if (kpiApproved) kpiApproved.textContent = s.approved_today ?? 0;
       if (kpiRejected) kpiRejected.textContent = s.rejected_count ?? 0;
       if (kpiLowBal) kpiLowBal.textContent = s.low_balance_count ?? 0;
+
+      const sbBadge = document.getElementById('sidebarLeaveBadge');
+      if (sbBadge) {
+        const pc = s.pending_count ?? 0;
+        sbBadge.textContent = pc;
+        sbBadge.style.display = pc > 0 ? 'inline-flex' : 'none';
+      }
     } catch (err) {
       console.error('Error loading leave stats:', err);
     }
@@ -83,6 +90,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (policySL) policySL.value = p.sick_leave_annual ?? 12;
       if (policyEL) policyEL.value = p.earned_leave_annual ?? 12;
       if (policyPermHours) policyPermHours.value = p.permission_hours_monthly ?? 16;
+      renderBalancesTable();
     } catch (err) {
       console.error('Error loading leave policy:', err);
     }
@@ -123,6 +131,18 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
+
+  // Live dynamic update of Employee Leave Balances as policy inputs change
+  [policyCL, policySL, policyEL, policyPermHours].forEach(input => {
+    if (input) {
+      input.addEventListener('input', () => {
+        renderBalancesTable();
+      });
+      input.addEventListener('change', () => {
+        renderBalancesTable();
+      });
+    }
+  });
 
   function showPolicyAlert(msg, type) {
     if (!policyAlert) return;
@@ -180,24 +200,27 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
+    // Read live policy inputs if present
+    const liveCL = policyCL && policyCL.value !== '' ? parseInt(policyCL.value) : null;
+    const liveSL = policySL && policySL.value !== '' ? parseInt(policySL.value) : null;
+    const liveEL = policyEL && policyEL.value !== '' ? parseInt(policyEL.value) : null;
+    const livePerm = policyPermHours && policyPermHours.value !== '' ? parseInt(policyPermHours.value) : null;
+
     balancesTbody.innerHTML = filtered.map(b => {
-      const formatVal = (v, defaultVal) => {
-        if (v === undefined || v === null || v === '') return defaultVal;
-        const n = Number(v);
-        return isNaN(n) ? v : (Number.isInteger(n) ? n : n.toFixed(1));
-      };
+      const clUsed = Number(b.casual_leave_used || 0);
+      const slUsed = Number(b.sick_leave_used || 0);
+      const elUsed = Number(b.earned_leave_used || 0);
+      const permUsed = Number(b.permission_hours_used || 0);
 
-      const clAvail = formatVal(b.casual_leave_available !== undefined ? b.casual_leave_available : b.casual_leave_avail, 12);
-      const clTot = b.casual_leave_total || 12;
+      const clTot = liveCL !== null && !isNaN(liveCL) ? liveCL : (b.casual_leave_total || 12);
+      const slTot = liveSL !== null && !isNaN(liveSL) ? liveSL : (b.sick_leave_total || 12);
+      const elTot = liveEL !== null && !isNaN(liveEL) ? liveEL : (b.earned_leave_total || 18);
+      const permTot = livePerm !== null && !isNaN(livePerm) ? livePerm : (b.permission_hours_total || 16);
 
-      const slAvail = formatVal(b.sick_leave_available !== undefined ? b.sick_leave_available : b.sick_leave_avail, 12);
-      const slTot = b.sick_leave_total || 12;
-
-      const elAvail = formatVal(b.earned_leave_available !== undefined ? b.earned_leave_available : b.earned_leave_avail, 18);
-      const elTot = b.earned_leave_total || 18;
-
-      const permAvail = formatVal(b.permission_hours_available !== undefined ? b.permission_hours_available : b.permission_hours_avail, 16);
-      const permTot = b.permission_hours_total || 16;
+      const clAvail = Math.max(0, clTot - clUsed);
+      const slAvail = Math.max(0, slTot - slUsed);
+      const elAvail = Math.max(0, elTot - elUsed);
+      const permAvail = Math.max(0, permTot - permUsed);
 
       return `
         <tr style="border-bottom: 1px solid #f1f5f9;">

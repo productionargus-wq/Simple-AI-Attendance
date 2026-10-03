@@ -250,12 +250,6 @@ document.addEventListener('DOMContentLoaded', function () {
         <td class="col-location" data-col="exit_location" title="${escapeHtml(r.exit_location || '')}" style="min-width: 220px; max-width: 320px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">
           ${exitLocIcon}${escapeHtml(r.exit_location || '')}
         </td>
-        <td class="col-nowrap" data-col="entry_status" style="text-align: center; white-space: nowrap !important; min-width: 120px;">${renderStatusBadge(entryStatusVal)}</td>
-        <td style="white-space: nowrap;">${escapeHtml(r.exit_time || '')}</td>
-        <td class="col-nowrap" data-col="exit_distance" title="${escapeHtml(r.exit_location || '')}" style="white-space: nowrap !important; min-width: 130px;">${escapeHtml(r.exit_distance || '')}</td>
-        <td class="col-location" data-col="exit_location" title="${escapeHtml(r.exit_location || '')}" style="min-width: 220px; max-width: 320px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">
-          ${r.exit_location && r.exit_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${escapeHtml(r.exit_location || '')}
-        </td>
         <td class="col-nowrap" data-col="exit_status" style="text-align: center; white-space: nowrap !important; min-width: 120px;">${renderStatusBadge(exitStatusVal)}</td>
         <td style="white-space: nowrap;">${escapeHtml(r.working_hours || '')}</td>
         <td style="white-space: nowrap;">${escapeHtml(r.shift_variance || '')}</td>
