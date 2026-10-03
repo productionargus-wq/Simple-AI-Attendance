@@ -4323,7 +4323,8 @@ body.page-dashboard .bottom-footer {
 }
 
 .top-nav-logo-img,
-.portal-logo-img {
+.portal-logo-img,
+.default-profile-svg {
   width: 100%;
   height: 100%;
   border-radius: 50%;

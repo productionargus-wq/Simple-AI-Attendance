@@ -233,6 +233,7 @@ def inject_delete_permissions():
                 pending_cnt = 0
 
     # Resolve respective company logo dynamically
+    has_custom_logo = False
     logo_url = None
     target_comp_id = session.get('company_id')
     if not target_comp_id and is_super:
@@ -242,35 +243,32 @@ def inject_delete_permissions():
         try:
             comp_doc = database.get_company_by_id(target_comp_id)
             if comp_doc:
-                logo_url = comp_doc.get('logo_data') or (f"/uploads/{comp_doc['logo']}" if comp_doc.get('logo') else None)
+                if comp_doc.get('logo_data'):
+                    logo_url = comp_doc['logo_data']
+                    has_custom_logo = True
+                elif comp_doc.get('logo'):
+                    logo_url = f"/uploads/{comp_doc['logo']}"
+                    has_custom_logo = True
         except Exception:
             pass
 
-    if not logo_url:
-        try:
-            master_doc = database.get_company_by_id('ARGUS_MASTER')
-            if master_doc:
-                logo_url = master_doc.get('logo_data') or (f"/uploads/{master_doc['logo']}" if master_doc.get('logo') else None)
-        except Exception:
-            pass
-
-    if not logo_url:
-        logo_url = url_for('static', filename='images/argus_triangle_logo.png')
+    if not has_custom_logo:
+        logo_url = url_for('static', filename='images/default_profile.svg')
 
     return {
         'is_system_admin': is_super,
         'can_delete_entries': comp_can_del,
         'pending_leave_count': pending_cnt,
-        'current_company_logo_url': logo_url
+        'current_company_logo_url': logo_url,
+        'has_company_logo': has_custom_logo
     }
 
 import traceback
 from werkzeug.exceptions import HTTPException
 
-DEFAULT_AVATAR_SVG = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
-  <rect width="120" height="120" fill="#e2e8f0" rx="8"/>
-  <circle cx="60" cy="46" r="22" fill="#94a3b8"/>
-  <path d="M26 104c0-18.8 15.2-34 34-34s34 15.2 34 34" fill="#94a3b8"/>
+DEFAULT_AVATAR_SVG = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="100%" height="100%">
+  <circle cx="12" cy="12" r="12" fill="#f1f5f9"/>
+  <path fill="#64748b" fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd"/>
 </svg>'''
 
 @app.route('/favicon.ico')
