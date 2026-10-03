@@ -378,7 +378,7 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('inputJoiningDate').value = emp.joining_date || '';
       document.getElementById('inputAccountHolder').value = emp.account_holder_name || '';
       document.getElementById('inputUpi').value = emp.upi_number || '';
-      document.getElementById('inputBankName').value = emp.bank_name || '';
+      if (document.getElementById('inputBankName')) document.getElementById('inputBankName').value = emp.bank_name || '';
       document.getElementById('inputAccountNumber').value = emp.account_number || '';
       document.getElementById('inputIfsc').value = emp.ifsc_code || '';
       document.getElementById('inputShiftHours').value = emp.shift_hours || '09:00';
@@ -726,7 +726,6 @@ document.addEventListener('DOMContentLoaded', function () {
         ['JOINING DATE', emp.joining_date],
         ['ACCOUNT HOLDER NAME', emp.account_holder_name],
         ['UPI NUMBER', emp.upi_number],
-        ['BANK NAME', emp.bank_name],
         ['ACCOUNT NUMBER', emp.account_number],
         ['IFSC CODE', emp.ifsc_code],
         ['SHIFT HOURS', emp.shift_hours || '09:00'],

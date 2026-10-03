@@ -3242,7 +3242,7 @@ def get_payments(employee=None, start_date=None, end_date=None, bank=None, payme
     query = {'$and': conditions} if conditions else {}
         
     total = db.payments.count_documents(query)
-    cursor = db.payments.find(query).sort([("payment_date", DESCENDING), ("created_at", DESCENDING), ("id", DESCENDING), ("_id", DESCENDING)])
+    cursor = db.payments.find(query).sort([("created_at", DESCENDING), ("id", DESCENDING), ("_id", DESCENDING), ("payment_date", DESCENDING)])
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         

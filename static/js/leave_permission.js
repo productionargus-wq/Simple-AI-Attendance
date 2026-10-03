@@ -306,12 +306,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
       let statusBadge = '';
       const st = (r.status || 'Pending').toLowerCase();
+      const statusLabel = r.status || (st === 'approved' ? 'Approved' : (st === 'rejected' ? 'Rejected' : 'Pending'));
+      const remark = (r.admin_remark || '').trim();
+      const displayStatus = remark ? `${statusLabel} - ${remark}` : statusLabel;
+
       if (st === 'approved') {
-        statusBadge = `<span class="badge-status-approved">Approved</span>`;
+        statusBadge = `<span class="badge-status-approved" style="white-space: normal; line-height: 1.35; display: inline-block; text-align: center; max-width: 220px;" title="${escapeHtml(displayStatus)}">${escapeHtml(displayStatus)}</span>`;
       } else if (st === 'rejected') {
-        statusBadge = `<span class="badge-status-rejected">Rejected</span>`;
+        statusBadge = `<span class="badge-status-rejected" style="white-space: normal; line-height: 1.35; display: inline-block; text-align: center; max-width: 220px;" title="${escapeHtml(displayStatus)}">${escapeHtml(displayStatus)}</span>`;
       } else {
-        statusBadge = `<span class="badge-status-pending">Pending</span>`;
+        statusBadge = `<span class="badge-status-pending" style="white-space: normal; line-height: 1.35; display: inline-block; text-align: center; max-width: 220px;" title="${escapeHtml(displayStatus)}">${escapeHtml(displayStatus)}</span>`;
       }
 
       // Date / Period string
@@ -488,11 +492,41 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // Refresh All Data
-  function refreshAllData() {
-    loadStats();
-    loadPolicy();
-    loadBalances();
-    loadRequests();
+  async function refreshAllData() {
+    if (btnRefresh) {
+      btnRefresh.disabled = true;
+      btnRefresh.innerHTML = `
+        <svg class="spin-anim" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        Refreshing...
+      `;
+    }
+
+    try {
+      await Promise.all([
+        loadStats(),
+        loadPolicy(),
+        loadBalances(),
+        loadRequests()
+      ]);
+    } catch (err) {
+      console.error('Error refreshing leave data:', err);
+    } finally {
+      if (btnRefresh) {
+        btnRefresh.disabled = false;
+        btnRefresh.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          Refresh
+        `;
+      }
+    }
   }
 
   if (btnRefresh) {

@@ -4276,3 +4276,14 @@ body.page-dashboard .bottom-footer {
 .review-bal-green { background-color: #dcfce7; color: #15803d; }
 .review-bal-blue  { background-color: #e0f2fe; color: #0369a1; }
 .review-bal-gray  { background-color: #f1f5f9; color: #64748b; }
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spin-anim {
+  animation: spin 0.75s linear infinite;
+  display: inline-block;
+}
+

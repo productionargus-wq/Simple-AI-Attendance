@@ -354,22 +354,24 @@
       </div>
 
       <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-        <table class="employee-table" id="portalAttendanceTable" style="width: 100%; min-width: 650px;">
+        <table class="employee-table" id="portalAttendanceTable" style="width: 100%; min-width: 880px;">
           <thead>
             <tr>
-              <th>ENTRY TIME</th>
-              <th>ENTRY SITE / LOCATION</th>
-              <th>ENTRY DISTANCE</th>
-              <th>EXIT TIME</th>
-              <th>EXIT DISTANCE</th>
-              <th>WORKING HOURS</th>
-              <th>SHIFT VARIANCE</th>
-              <th style="text-align: center;">STATUS</th>
+              <th style="white-space: nowrap;">ENTRY TIME</th>
+              <th style="min-width: 180px;">ENTRY SITE / LOCATION</th>
+              <th style="white-space: nowrap;">ENTRY DISTANCE</th>
+              <th style="text-align: center; white-space: nowrap; min-width: 110px;">ENTRY STATUS</th>
+              <th style="white-space: nowrap;">EXIT TIME</th>
+              <th style="white-space: nowrap;">EXIT DISTANCE</th>
+              <th style="text-align: center; white-space: nowrap; min-width: 110px;">EXIT STATUS</th>
+              <th style="white-space: nowrap;">WORKING HOURS</th>
+              <th style="white-space: nowrap;">SHIFT VARIANCE</th>
+              <th style="text-align: center; white-space: nowrap;">STATUS</th>
             </tr>
           </thead>
           <tbody id="portalHistoryBody">
             <tr>
-              <td colspan="8" style="text-align: center; padding: 20px; color: #6c757d;">Loading attendance history...</td>
+              <td colspan="10" style="text-align: center; padding: 20px; color: #6c757d;">Loading attendance history...</td>
             </tr>
           </tbody>
         </table>
@@ -905,6 +907,64 @@
             </button>
           </div>
         </form>
+    <!-- ================= MODAL: VIEW REQUEST DETAILS ================= -->
+    <div class="modal-overlay" id="modalViewEmpRequest" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center;">
+      <div class="modal-box-leave" style="max-width: 520px; width: 95%; max-height: 90vh; overflow-y: auto; position: relative; background: #ffffff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);">
+        <div class="modal-header-leave" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: #0284c7; color: #fff; border-radius: 12px 12px 0 0;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 16px;">📄</span>
+            <span style="font-weight: 800; font-size: 15px;" id="viewReqTitle">Request Details</span>
+          </div>
+          <button type="button" class="modal-close-btn" id="closeViewReqModal" style="background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+
+        <div style="padding: 20px;">
+          <div id="viewReqStatusBanner" style="padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; font-weight: 700;"></div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; font-size: 12px;">
+            <div>
+              <div style="color: #64748b; font-size: 11px; font-weight: 600;">Request Type</div>
+              <div style="font-weight: 700; color: #0f172a; margin-top: 2px;" id="viewReqType">-</div>
+            </div>
+            <div>
+              <div style="color: #64748b; font-size: 11px; font-weight: 600;">Date / Period</div>
+              <div style="font-weight: 700; color: #0f172a; margin-top: 2px;" id="viewReqDate">-</div>
+            </div>
+            <div>
+              <div style="color: #64748b; font-size: 11px; font-weight: 600;">Duration / Units</div>
+              <div style="font-weight: 700; color: #0284c7; margin-top: 2px;" id="viewReqUnits">-</div>
+            </div>
+            <div>
+              <div style="color: #64748b; font-size: 11px; font-weight: 600;">Applied On</div>
+              <div style="font-weight: 600; color: #0f172a; margin-top: 2px;" id="viewReqApplied">-</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 16px; font-size: 12px;">
+            <div style="color: #64748b; font-size: 11px; font-weight: 600;">Reason</div>
+            <div style="padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-top: 4px; color: #334155;" id="viewReqReason">-</div>
+          </div>
+
+          <!-- Admin Review & Action Section -->
+          <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px;">
+            <div style="font-size: 11.5px; font-weight: 800; color: #334155; text-transform: uppercase; margin-bottom: 6px;">
+              Admin Review &amp; Action
+            </div>
+            <div style="font-size: 12px; color: #475569;" id="viewReqAdminReviewInfo">
+              Status: <strong id="viewReqAdminStatus">Pending</strong>
+            </div>
+            <div style="margin-top: 8px;">
+              <div style="font-size: 11px; color: #64748b; font-weight: 600;">Admin Remark / Feedback:</div>
+              <div style="font-size: 12.5px; font-weight: 600; color: #0f172a; margin-top: 2px;" id="viewReqAdminRemark">
+                No feedback provided yet.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+          <button type="button" class="btn-leave-cancel" id="btnCloseViewReqModalBtn" style="padding: 7px 18px; font-size: 12px;">Close</button>
+        </div>
       </div>
     </div>
   </main>
@@ -1139,7 +1199,7 @@
       toDateInput.value = today.toISOString().split('T')[0];
 
       loadHistory = async function () {
-        historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+        historyBody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">Loading...</td></tr>';
         try {
           const params = new URLSearchParams({
             from_date: fromDateInput.value,
@@ -1149,8 +1209,26 @@
           const data = await res.json();
 
           if (!data.data || data.data.length === 0) {
-            historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 24px; color: #6c757d;">No attendance records found for this period.</td></tr>';
+            historyBody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 24px; color: #6c757d;">No attendance records found for this period.</td></tr>';
             return;
+          }
+
+          function renderAttStatusPill(val) {
+            if (!val || val === '-' || val === '----') return '<span style="color: #94a3b8;">—</span>';
+            const lower = String(val).toLowerCase();
+            let bg = '#f1f5f9', color = '#475569';
+            if (lower.includes('on time')) {
+              bg = '#d1e7dd'; color = '#0f5132';
+            } else if (lower.includes('late')) {
+              bg = '#fee2e2'; color = '#dc2626';
+            } else if (lower.includes('early')) {
+              bg = '#e0f2fe'; color = '#0284c7';
+            } else if (lower.includes('overtime')) {
+              bg = '#ede9fe'; color = '#6d28d9';
+            } else if (lower.includes('leave')) {
+              bg = '#f3e8ff'; color = '#7e22ce';
+            }
+            return `<span style="background-color: ${bg}; color: ${color}; padding: 2.5px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 700; white-space: nowrap; display: inline-block;">${escapeHtml(String(val))}</span>`;
           }
 
           historyBody.innerHTML = '';
@@ -1165,8 +1243,10 @@
               <td style="font-weight: 700; white-space: nowrap;">${r.entry_time || '-'}</td>
               <td class="col-location" data-col="entry_location" title="${r.entry_location || ''}" style="min-width: 200px; max-width: 300px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">${r.entry_location && r.entry_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${r.entry_location || '-'}</td>
               <td style="white-space: nowrap;">${r.entry_distance || '0m'}</td>
+              <td style="text-align: center; white-space: nowrap;">${renderAttStatusPill(r.entry_status)}</td>
               <td style="white-space: nowrap;">${r.exit_time || '----'}</td>
               <td style="white-space: nowrap;">${r.exit_distance || '----'}</td>
+              <td style="text-align: center; white-space: nowrap;">${renderAttStatusPill(r.exit_status)}</td>
               <td style="font-weight: 700; white-space: nowrap;">${r.working_hours || '00:00'}</td>
               <td style="white-space: nowrap;">${r.shift_variance || '----'}</td>
               <td style="text-align: center; white-space: nowrap;">${statusBadge}</td>
@@ -1174,7 +1254,7 @@
             historyBody.appendChild(row);
           });
         } catch (err) {
-          historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #dc3545;">Failed to load attendance history.</td></tr>';
+          historyBody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px; color: #dc3545;">Failed to load attendance history.</td></tr>';
         }
       };
 
@@ -1671,12 +1751,16 @@
 
           let statusBadge = '';
           const st = (r.status || 'Pending').toLowerCase();
+          const statusLabel = r.status || (st === 'approved' ? 'Approved' : (st === 'rejected' ? 'Rejected' : 'Pending'));
+          const remark = (r.admin_remark || '').trim();
+          const displayStatus = remark ? `${statusLabel} - ${remark}` : statusLabel;
+
           if (st === 'approved') {
-            statusBadge = `<span class="badge-status-approved">Approved</span>`;
+            statusBadge = `<span class="badge-status-approved" style="white-space: normal; line-height: 1.35; display: inline-block; text-align: center; max-width: 220px;" title="${escapeHtml(displayStatus)}">${escapeHtml(displayStatus)}</span>`;
           } else if (st === 'rejected') {
-            statusBadge = `<span class="badge-status-rejected">Rejected</span>`;
+            statusBadge = `<span class="badge-status-rejected" style="white-space: normal; line-height: 1.35; display: inline-block; text-align: center; max-width: 220px;" title="${escapeHtml(displayStatus)}">${escapeHtml(displayStatus)}</span>`;
           } else {
-            statusBadge = `<span class="badge-status-pending">Pending</span>`;
+            statusBadge = `<span class="badge-status-pending" style="white-space: normal; line-height: 1.35; display: inline-block; text-align: center; max-width: 220px;" title="${escapeHtml(displayStatus)}">${escapeHtml(displayStatus)}</span>`;
           }
 
           const fromDate = r.from_date || r.date || '-';
@@ -1695,6 +1779,12 @@
           if (st === 'pending') {
             actionHtml = `
               <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <button type="button" class="btn-action-icon" onclick="viewEmpRequest('${escapeHtml(String(reqId))}')" title="View Details" style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 5px; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
                 <button type="button" class="btn-action-icon" onclick="editEmpRequest('${escapeHtml(String(reqId))}')" title="Edit Request" style="background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; border-radius: 5px; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -1710,7 +1800,17 @@
               </div>
             `;
           } else {
-            actionHtml = `<span style="color: #94a3b8; font-size: 13px; font-weight: 700;" title="Cannot edit or delete processed requests">—</span>`;
+            actionHtml = `
+              <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <button type="button" class="btn-action-icon" onclick="viewEmpRequest('${escapeHtml(String(reqId))}')" title="View Details" style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 5px; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+                <span style="color: #94a3b8; font-size: 13px; font-weight: 700;" title="Cannot edit or delete processed requests">—</span>
+              </div>
+            `;
           }
 
           return `
@@ -1731,6 +1831,89 @@
         tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 18px; color: #dc2626;">Error loading requests.</td></tr>`;
       }
     }
+
+    // View Request Details Modal Handlers
+    const modalViewEmpRequest = document.getElementById('modalViewEmpRequest');
+    const closeViewReqModal = document.getElementById('closeViewReqModal');
+    const btnCloseViewReqModalBtn = document.getElementById('btnCloseViewReqModalBtn');
+
+    function closeViewReqModalFunc() {
+      if (modalViewEmpRequest) {
+        modalViewEmpRequest.classList.remove('active');
+        modalViewEmpRequest.style.display = 'none';
+      }
+    }
+
+    if (closeViewReqModal) closeViewReqModal.addEventListener('click', closeViewReqModalFunc);
+    if (btnCloseViewReqModalBtn) btnCloseViewReqModalBtn.addEventListener('click', closeViewReqModalFunc);
+    if (modalViewEmpRequest) {
+      modalViewEmpRequest.addEventListener('click', function (e) {
+        if (e.target === modalViewEmpRequest) closeViewReqModalFunc();
+      });
+    }
+
+    window.viewEmpRequest = function (id) {
+      const r = (cachedEmpRequests || []).find(x => String(x.request_id || x.id || x._id) === String(id));
+      if (!r || !modalViewEmpRequest) return;
+
+      const titleEl = document.getElementById('viewReqTitle');
+      const bannerEl = document.getElementById('viewReqStatusBanner');
+      const typeEl = document.getElementById('viewReqType');
+      const dateEl = document.getElementById('viewReqDate');
+      const unitsEl = document.getElementById('viewReqUnits');
+      const appliedEl = document.getElementById('viewReqApplied');
+      const reasonEl = document.getElementById('viewReqReason');
+      const adminStatusEl = document.getElementById('viewReqAdminStatus');
+      const adminRemarkEl = document.getElementById('viewReqAdminRemark');
+
+      const st = (r.status || 'Pending').toLowerCase();
+      const stLabel = r.status || 'Pending';
+      const remark = (r.admin_remark || '').trim();
+
+      if (titleEl) titleEl.textContent = `Request: ${r.request_id || id}`;
+
+      if (bannerEl) {
+        if (st === 'approved') {
+          bannerEl.style.backgroundColor = '#ecfdf5';
+          bannerEl.style.color = '#065f46';
+          bannerEl.style.border = '1px solid #a7f3d0';
+          bannerEl.textContent = `Approved${remark ? ' — ' + remark : ''}`;
+        } else if (st === 'rejected') {
+          bannerEl.style.backgroundColor = '#fef2f2';
+          bannerEl.style.color = '#991b1b';
+          bannerEl.style.border = '1px solid #fecaca';
+          bannerEl.textContent = `Rejected${remark ? ' — ' + remark : ''}`;
+        } else {
+          bannerEl.style.backgroundColor = '#fffbeb';
+          bannerEl.style.color = '#92400e';
+          bannerEl.style.border = '1px solid #fde68a';
+          bannerEl.textContent = 'Pending Review';
+        }
+      }
+
+      if (typeEl) typeEl.textContent = r.request_type === 'Permission' ? 'Permission' : (r.leave_type || 'Leave');
+      const fromDate = r.from_date || r.date || '-';
+      const toDate = r.to_date || r.date || fromDate;
+      if (dateEl) dateEl.textContent = fromDate === toDate ? fromDate : `${fromDate} to ${toDate}`;
+
+      let units = '-';
+      if (r.request_type === 'Permission') {
+        units = `${r.duration || '01:00'} Hrs (${r.from_time || ''} - ${r.to_time || ''})`;
+      } else if (r.session === 'Hourly') {
+        units = `${r.leave_duration || r.duration_hours || '0'} Hrs (Hourly)`;
+      } else {
+        units = `${r.days_count || 1} Day(s) (${r.session || 'Full Day'})`;
+      }
+      if (unitsEl) unitsEl.textContent = units;
+      if (appliedEl) appliedEl.textContent = r.applied_on || '-';
+      if (reasonEl) reasonEl.textContent = r.reason || 'No reason specified';
+
+      if (adminStatusEl) adminStatusEl.textContent = stLabel;
+      if (adminRemarkEl) adminRemarkEl.textContent = remark || 'No remark / feedback provided by admin.';
+
+      modalViewEmpRequest.classList.add('active');
+      modalViewEmpRequest.style.display = 'flex';
+    };
 
     window.editEmpRequest = function (id) {
       const r = (cachedEmpRequests || []).find(x => String(x.request_id || x.id || x._id) === String(id));
