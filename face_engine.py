@@ -292,14 +292,15 @@ def calculate_confidence_percentage(similarity_score):
     - 0.60 is a solid match (~85%)
     - 0.80+ is an exact match (98-99.9%)
     """
-    if similarity_score < 0.20:
-        return round(max(0.0, similarity_score * 100), 1)
-    elif similarity_score < RECOGNITION_THRESHOLD:
-        return round(20.0 + (similarity_score - 0.20) * 200.0, 1)
+    score = float(similarity_score)
+    if score < 0.20:
+        return float(round(max(0.0, score * 100.0), 1))
+    elif score < RECOGNITION_THRESHOLD:
+        return float(round(20.0 + (score - 0.20) * 200.0, 1))
     else:
         # Match range [0.40, 1.0] -> [70.0%, 99.9%]
-        mapped = 70.0 + (similarity_score - 0.40) * (29.9 / 0.50)
-        return round(min(99.9, max(70.0, mapped)), 1)
+        mapped = 70.0 + (score - 0.40) * (29.9 / 0.50)
+        return float(round(min(99.9, max(70.0, mapped)), 1))
 
 
 def recognize_face(query_embedding, company_id=None):
@@ -329,24 +330,24 @@ def recognize_face(query_embedding, company_id=None):
     for emp in stored_embeddings:
         score = cosine_similarity(query_embedding, emp['embedding'])
         if score > highest_score:
-            highest_score = score
+            highest_score = float(score)
             best_match = emp
 
-    confidence_pct = calculate_confidence_percentage(highest_score)
+    confidence_pct = float(calculate_confidence_percentage(highest_score))
 
     if highest_score >= RECOGNITION_THRESHOLD and best_match:
         return {
             'matched': True,
-            'employee_id': best_match['id'],
-            'employee_name': best_match['employee_name'],
-            'confidence': confidence_pct,
-            'raw_score': round(highest_score, 4)
+            'employee_id': str(best_match['id']),
+            'employee_name': str(best_match['employee_name']),
+            'confidence': float(confidence_pct),
+            'raw_score': float(round(highest_score, 4))
         }
     else:
         return {
             'matched': False,
-            'confidence': confidence_pct,
-            'raw_score': round(max(0.0, highest_score), 4),
+            'confidence': float(confidence_pct),
+            'raw_score': float(round(max(0.0, float(highest_score)), 4)),
             'message': 'Face not recognized. Please face the camera directly and ensure good lighting.'
         }
 

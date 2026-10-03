@@ -801,6 +801,16 @@
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
 
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function updateLiveClock() {
       const now = new Date();
       const day = now.getDate();
@@ -905,20 +915,28 @@
       }
     });
 
-    // Helper: Geolocation retrieval with automatic fallback
+    // Helper: Geolocation retrieval with progressive 2-stage fallback (GPS -> Network/Cache -> null)
     function getUserLocation() {
       return new Promise((resolve) => {
         if (!navigator.geolocation) {
           resolve(null);
           return;
         }
+        // Stage 1: Fast attempt at high accuracy GPS (2 seconds timeout)
         navigator.geolocation.getCurrentPosition(
           (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
           (err) => {
-            console.log('Location retrieval skipped / GPS unavailable:', err.message);
-            resolve(null);
+            // Stage 2: Instant fallback to network/IP/cached position (1.5 seconds timeout)
+            navigator.geolocation.getCurrentPosition(
+              (fallbackPos) => resolve({ latitude: fallbackPos.coords.latitude, longitude: fallbackPos.coords.longitude }),
+              (fallbackErr) => {
+                console.log('Location retrieval skipped / GPS unavailable:', fallbackErr.message);
+                resolve(null);
+              },
+              { enableHighAccuracy: false, timeout: 1500, maximumAge: 60000 }
+            );
           },
-          { enableHighAccuracy: true, timeout: 4000, maximumAge: 0 }
+          { enableHighAccuracy: true, timeout: 2000, maximumAge: 30000 }
         );
       });
     }
@@ -935,7 +953,7 @@
       btnMarkText.textContent = 'Verifying Face...';
       punchContainer.style.display = 'none';
 
-      // Obtain current coordinates
+      // Obtain current coordinates (with fast fallback)
       const coords = await getUserLocation();
 
       // Capture frame from video canvas (mirrored)
@@ -977,7 +995,16 @@
 
         try {
           const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
-          const data = await res.json();
+          let data;
+          try {
+            data = await res.json();
+          } catch (jsonErr) {
+            throw new Error(`Server returned HTTP ${res.status}`);
+          }
+
+          if (!res.ok && !data.message) {
+            throw new Error(`Server error (${res.status})`);
+          }
 
           if (data.matched) {
             const isPunchOut = data.punch_status === 'punch_out';
@@ -993,7 +1020,7 @@
             const workingHoursHtml = data.working_hours ? `
               <div class="punch-grid-item">
                 <span class="punch-grid-label">Working Hours:</span>
-                <span class="punch-grid-value" style="color: #16a34a;">${data.working_hours}</span>
+                <span class="punch-grid-value" style="color: #16a34a;">${escapeHtml(data.working_hours)}</span>
               </div>
             ` : '';
 
@@ -1004,19 +1031,19 @@
                   <span class="punch-time-tag">${punchTime}</span>
                 </div>
                 <div class="punch-body">
-                  <div class="punch-emp-name">${empName}</div>
+                  <div class="punch-emp-name">${escapeHtml(empName)}</div>
                   <div class="punch-grid">
                     <div class="punch-grid-item">
                       <span class="punch-grid-label">ID:</span>
-                      <span class="punch-grid-value">${empCode}</span>
+                      <span class="punch-grid-value">${escapeHtml(empCode)}</span>
                     </div>
                     <div class="punch-grid-item">
                       <span class="punch-grid-label">Role:</span>
-                      <span class="punch-grid-value">${desig}</span>
+                      <span class="punch-grid-value">${escapeHtml(desig)}</span>
                     </div>
                     <div class="punch-grid-item">
                       <span class="punch-grid-label">Dept:</span>
-                      <span class="punch-grid-value">${dept}</span>
+                      <span class="punch-grid-value">${escapeHtml(dept)}</span>
                     </div>
                     <div class="punch-grid-item">
                       <span class="punch-grid-label">Biometric:</span>
@@ -1030,7 +1057,7 @@
                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                         <circle cx="12" cy="10" r="3"></circle>
                       </svg>
-                      <span>${distInfo}</span>
+                      <span>${escapeHtml(distInfo)}</span>
                     </div>
                     ${data.live_location ? `<div style="font-size: 11px; color: #475569; padding-left: 18px; line-height: 1.3;">📍 <strong>Location:</strong> ${escapeHtml(data.live_location)}</div>` : ''}
                   </div>
@@ -1040,17 +1067,17 @@
             punchContainer.style.display = 'block';
 
           } else {
-            // Face match failed
+            // Face match failed or friendly validation message
             const errMsg = data.message || 'Face not recognized in database.';
             punchContainer.innerHTML = `
               <div class="punch-card-failed">
                 <div class="punch-header">
-                  <span class="punch-badge-failed">⚠ Face Not Recognized</span>
+                  <span class="punch-badge-failed">⚠ ${res.status === 403 ? 'Punch Disabled' : 'Face Not Recognized'}</span>
                   <span class="punch-time-tag">${hoursStr}:${minutes}:${seconds} ${ampm}</span>
                 </div>
                 <div class="punch-body">
                   <div style="font-size: 13.5px; font-weight: 600; color: #991b1b;">
-                    ${errMsg}
+                    ${escapeHtml(errMsg)}
                   </div>
                   <div style="font-size: 12px; color: #64748b; margin-top: 3px;">
                     Please ensure good front-facing lighting and face the camera directly.
@@ -1062,13 +1089,14 @@
           }
 
         } catch (fetchErr) {
+          console.error('Mark Attendance error:', fetchErr);
           punchContainer.innerHTML = `
             <div class="punch-card-failed">
               <div class="punch-header">
-                <span class="punch-badge-failed">⚠ Connection Error</span>
+                <span class="punch-badge-failed">⚠ Attendance Notice</span>
               </div>
               <div style="font-size: 13px; color: #991b1b; padding-top: 4px;">
-                Unable to contact attendance server. Please try again.
+                ${escapeHtml(fetchErr.message || 'Unable to contact attendance server. Please try again.')}
               </div>
             </div>
           `;

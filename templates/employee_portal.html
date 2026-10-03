@@ -522,12 +522,18 @@
     let userLng = null;
 
     if (video && btnPunch) {
-      // Detect user coordinates
+      // Detect user coordinates with progressive fallback
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (pos) => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; },
-          (err) => { console.warn('Geolocation warning:', err.message); },
-          { enableHighAccuracy: true, timeout: 6000 }
+          (err) => {
+            navigator.geolocation.getCurrentPosition(
+              (pos2) => { userLat = pos2.coords.latitude; userLng = pos2.coords.longitude; },
+              (err2) => { console.warn('Geolocation fallback notice:', err2.message); },
+              { enableHighAccuracy: false, timeout: 2000, maximumAge: 60000 }
+            );
+          },
+          { enableHighAccuracy: true, timeout: 2000, maximumAge: 30000 }
         );
       }
 
@@ -629,7 +635,16 @@
 
           try {
             const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
-            const data = await res.json();
+            let data;
+            try {
+              data = await res.json();
+            } catch (jsonErr) {
+              throw new Error(`Server returned HTTP ${res.status}`);
+            }
+
+            if (!res.ok && !data.message) {
+              throw new Error(`Server error (${res.status})`);
+            }
 
             if (data.matched) {
               const punchType = data.punch_status === 'punch_out' ? 'Punch Out' : 'Punch In';
@@ -663,7 +678,7 @@
             if (punchResult) {
               punchResult.innerHTML = `
                 <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 12px; font-size: 12px;">
-                  Connection error. Please try again.
+                  ${err.message || 'Connection error. Please try again.'}
                 </div>
               `;
             }

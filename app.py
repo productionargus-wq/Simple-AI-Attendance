@@ -1740,76 +1740,95 @@ def api_face_recognize():
     Compares 128-d deep vector with stored embeddings using Cosine Similarity.
     Marks attendance & creates live entry with company-specific geofencing.
     """
-    if 'photo' not in request.files:
-        return jsonify({'error': 'Camera frame is required'}), 400
-        
-    file = request.files['photo']
-    file_bytes = file.read()
-    
-    query_embedding = get_face_engine().extract_face_embedding_from_image(file_bytes)
-    if not query_embedding:
-        return jsonify({
-            'matched': False,
-            'confidence': 0.0,
-            'message': 'No face detected in camera frame. Please face the camera directly in good lighting.'
-        })
+    try:
+        if 'photo' not in request.files:
+            return jsonify({'matched': False, 'message': 'Camera frame is required'}), 400
+            
+        file = request.files['photo']
+        file_bytes = file.read()
+        if not file_bytes:
+            return jsonify({'matched': False, 'message': 'Empty camera frame received. Please try again.'}), 400
 
-    # If marked from employee portal, scope search to employee's company
-    portal_company_id = session.get('company_id') if session.get('employee_logged_in') else None
-    result = get_face_engine().recognize_face(query_embedding, company_id=portal_company_id)
-    
-    if result.get('matched'):
-        emp_id = result['employee_id']
-        emp_name = result['employee_name']
-        
-        user_lat = request.form.get('latitude')
-        user_lng = request.form.get('longitude')
-        client_time = request.form.get('client_time')
-        live_address = request.form.get('live_address') or request.form.get('location')
-        
-        # Enrich with employee details for dynamic punch card
-        db = database.get_db()
-        emp_doc = db.employees.find_one(database.build_id_filter(emp_id)) or db.employees.find_one({'employee_name': emp_name})
-        
-        # Check if Punch Attendance is permitted for employee when punching from portal
-        if session.get('employee_logged_in') and emp_doc and emp_doc.get('permissions') and emp_doc['permissions'].get('punch_attendance') is False:
+        engine = get_face_engine()
+        if engine is None:
             return jsonify({
                 'matched': False,
-                'message': 'Punch attendance is disabled for your account by your administrator.'
-            }), 403
-
-        if emp_doc:
-            result['employee_code'] = emp_doc.get('employee_id', emp_id)
-            result['designation'] = emp_doc.get('designation', '') or 'Staff'
-            result['department'] = emp_doc.get('department', '') or 'General'
-            result['company_name'] = emp_doc.get('company_name', 'Argus Technologies')
-            result['shift_hours'] = emp_doc.get('shift_hours', '08:00')
-        else:
-            result['employee_code'] = emp_id
-            result['designation'] = 'Staff'
-            result['department'] = 'General'
-            result['company_name'] = 'Argus Technologies'
-
-        # Mark Attendance Punch In / Punch Out Lifecycle & Live Entry (Company-aware, 12-hour format)
-        punch_res = database.record_face_attendance(
-            employee_id=emp_id,
-            employee_name=emp_name,
-            user_lat=user_lat,
-            user_lng=user_lng,
-            company_id=portal_company_id,
-            client_time=client_time,
-            live_address=live_address
-        )
-        result['live_entry_id'] = punch_res.get('live_id')
-        result['punch_status'] = punch_res.get('status')
-        result['formatted_distance'] = punch_res.get('formatted_dist')
-        result['live_location'] = punch_res.get('live_location')
-        result['entry_location'] = punch_res.get('live_location')
-        result['punch_time'] = client_time or datetime.now().strftime('%d %b %Y, %I:%M:%S %p')
-        if punch_res.get('working_hours'):
-            result['working_hours'] = punch_res.get('working_hours')
+                'message': 'Face recognition engine is initializing or unavailable. Please try again in a few moments.'
+            }), 503
         
-    return jsonify(result)
+        query_embedding = engine.extract_face_embedding_from_image(file_bytes)
+        if not query_embedding:
+            return jsonify({
+                'matched': False,
+                'confidence': 0.0,
+                'message': 'No face detected in camera frame. Please face the camera directly in good lighting.'
+            })
+
+        # If marked from employee portal, scope search to employee's company
+        portal_company_id = session.get('company_id') if session.get('employee_logged_in') else None
+        result = engine.recognize_face(query_embedding, company_id=portal_company_id)
+        
+        if result.get('matched'):
+            emp_id = result['employee_id']
+            emp_name = result['employee_name']
+            
+            user_lat = request.form.get('latitude')
+            user_lng = request.form.get('longitude')
+            client_time = request.form.get('client_time')
+            live_address = request.form.get('live_address') or request.form.get('location')
+            
+            # Enrich with employee details for dynamic punch card
+            db = database.get_db()
+            emp_doc = db.employees.find_one(database.build_id_filter(emp_id)) or db.employees.find_one({'employee_name': emp_name})
+            
+            # Check if Punch Attendance is permitted for employee when punching from portal
+            if session.get('employee_logged_in') and emp_doc and emp_doc.get('permissions') and emp_doc['permissions'].get('punch_attendance') is False:
+                return jsonify({
+                    'matched': False,
+                    'message': 'Punch attendance is disabled for your account by your administrator.'
+                }), 403
+
+            if emp_doc:
+                result['employee_code'] = emp_doc.get('employee_id', emp_id)
+                result['designation'] = emp_doc.get('designation', '') or 'Staff'
+                result['department'] = emp_doc.get('department', '') or 'General'
+                result['company_name'] = emp_doc.get('company_name', 'Argus Technologies')
+                result['shift_hours'] = emp_doc.get('shift_hours', '08:00')
+            else:
+                result['employee_code'] = emp_id
+                result['designation'] = 'Staff'
+                result['department'] = 'General'
+                result['company_name'] = 'Argus Technologies'
+
+            # Mark Attendance Punch In / Punch Out Lifecycle & Live Entry (Company-aware, 12-hour format)
+            punch_res = database.record_face_attendance(
+                employee_id=emp_id,
+                employee_name=emp_name,
+                user_lat=user_lat,
+                user_lng=user_lng,
+                company_id=portal_company_id,
+                client_time=client_time,
+                live_address=live_address
+            )
+            result['live_entry_id'] = str(punch_res.get('live_id', ''))
+            result['punch_status'] = str(punch_res.get('status', ''))
+            result['formatted_distance'] = str(punch_res.get('formatted_dist', ''))
+            result['live_location'] = str(punch_res.get('live_location', ''))
+            result['entry_location'] = str(punch_res.get('live_location', ''))
+            result['punch_time'] = client_time or datetime.now().strftime('%d %b %Y, %I:%M:%S %p')
+            if punch_res.get('working_hours'):
+                result['working_hours'] = str(punch_res.get('working_hours'))
+            
+        clean_result = database.clean_doc(result)
+        return jsonify(clean_result)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'matched': False,
+            'message': f'Face recognition processing error: {str(e)}'
+        }), 500
 
 # ----------------- ATTENDANCE REPORTS API ROUTES ----------------- #
 

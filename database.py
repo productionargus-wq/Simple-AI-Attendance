@@ -57,24 +57,31 @@ def get_db():
     return get_mongo_client()[DB_NAME]
 
 def clean_doc(doc):
-    """Clean MongoDB document for JSON serialization recursively."""
+    """Clean MongoDB document and nested types for JSON serialization recursively."""
     if doc is None:
         return None
+    if hasattr(doc, 'item'):
+        return doc.item()
     if isinstance(doc, list):
         return [clean_doc(item) for item in doc]
+    if not isinstance(doc, dict):
+        return doc
     d = dict(doc)
     for k, v in list(d.items()):
         if isinstance(v, ObjectId):
             d[k] = str(v)
         elif isinstance(v, (datetime, date)):
             d[k] = v.isoformat()
+        elif hasattr(v, 'item'):
+            d[k] = v.item()
         elif isinstance(v, dict):
             d[k] = clean_doc(v)
         elif isinstance(v, list):
             d[k] = [
                 clean_doc(item) if isinstance(item, dict)
-                else (item.isoformat() if isinstance(item, (datetime, date))
-                      else (str(item) if isinstance(item, ObjectId) else item))
+                else (item.item() if hasattr(item, 'item')
+                      else (item.isoformat() if isinstance(item, (datetime, date))
+                            else (str(item) if isinstance(item, ObjectId) else item)))
                 for item in v
             ]
     if '_id' in d:
@@ -903,22 +910,23 @@ def delete_employee(emp_id, company_id=None):
 
 def get_all_face_embeddings(company_id=None):
     db = get_db()
-    q = {'face_embedding': {'$ne': '', '$exists': True}}
+    q = {'face_embedding': {'$nin': ['', 'null', None], '$exists': True}}
     if company_id and company_id != 'ALL':
         q['company_id'] = str(company_id)
     employees = db.employees.find(q)
     results = []
     for emp in employees:
         embedding_data = emp.get('face_embedding', '')
-        if embedding_data:
+        if embedding_data and embedding_data != 'null':
             try:
                 embedding = json.loads(embedding_data) if isinstance(embedding_data, str) else embedding_data
-                results.append({
-                    'id': str(emp.get('id', emp.get('_id', ''))),
-                    'employee_name': emp.get('employee_name', ''),
-                    'company_id': emp.get('company_id', 'ARGUS_MASTER'),
-                    'embedding': embedding
-                })
+                if embedding and isinstance(embedding, (list, tuple)) and len(embedding) > 0:
+                    results.append({
+                        'id': str(emp.get('id', emp.get('_id', ''))),
+                        'employee_name': emp.get('employee_name', ''),
+                        'company_id': emp.get('company_id', 'ARGUS_MASTER'),
+                        'embedding': [float(x) for x in embedding]
+                    })
             except Exception:
                 pass
     return results
