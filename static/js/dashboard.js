@@ -43,6 +43,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const elTotal = document.getElementById('statTotal');
     const elPresent = document.getElementById('statPresent');
     const elPresentPct = document.getElementById('statPresentPct');
+    const elOnLeave = document.getElementById('statOnLeave');
+    const elOnLeavePct = document.getElementById('statOnLeavePct');
     const elAbsent = document.getElementById('statAbsent');
     const elAbsentPct = document.getElementById('statAbsentPct');
     const elTimeout = document.getElementById('statTimeout');
@@ -51,6 +53,8 @@ document.addEventListener('DOMContentLoaded', function () {
     if (elTotal) elTotal.textContent = data.total !== undefined ? data.total : '0';
     if (elPresent) elPresent.textContent = data.present !== undefined ? data.present : '0';
     if (elPresentPct) elPresentPct.textContent = data.present_percent || (data.present_percentage ? data.present_percentage + '%' : '0.0%');
+    if (elOnLeave) elOnLeave.textContent = data.on_leave !== undefined ? data.on_leave : '0';
+    if (elOnLeavePct) elOnLeavePct.textContent = data.on_leave_percent || (data.on_leave_percentage ? data.on_leave_percentage + '%' : '0.0%');
     if (elAbsent) elAbsent.textContent = data.absent !== undefined ? data.absent : '0';
     if (elAbsentPct) elAbsentPct.textContent = data.absent_percent || (data.absent_percentage ? data.absent_percentage + '%' : '0.0%');
     if (elTimeout) elTimeout.textContent = data.timeout !== undefined ? data.timeout : '0';
@@ -373,6 +377,8 @@ document.addEventListener('DOMContentLoaded', function () {
         badgeHtml = '<span class="table-badge badge-present">Present</span>';
       } else if (row.status === 'Timeout') {
         badgeHtml = '<span class="table-badge badge-timeout">Timeout</span>';
+      } else if (row.status === 'On Leave' || row.status === 'Leave') {
+        badgeHtml = '<span class="table-badge badge-leave">On Leave</span>';
       } else {
         badgeHtml = '<span class="table-badge badge-absent">Absent</span>';
       }
@@ -396,7 +402,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!tbody) return;
 
     if (!deptList || deptList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No department summary data</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No department summary data</td></tr>`;
       return;
     }
 
@@ -405,6 +411,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <td class="font-semibold text-dark">${escapeHtml(dept.department || 'General')}</td>
         <td style="text-align: center; font-weight: 700;">${dept.total || 0}</td>
         <td style="text-align: center; color: #16a34a; font-weight: 700;">${dept.present || 0}</td>
+        <td style="text-align: center; color: #8b5cf6; font-weight: 700;">${dept.leave || 0}</td>
         <td style="text-align: center; color: #dc2626; font-weight: 700;">${dept.absent || 0}</td>
         <td style="text-align: center; color: #d97706; font-weight: 700;">${dept.timeout || 0}</td>
       </tr>

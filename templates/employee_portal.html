@@ -376,6 +376,153 @@
     </div>
     {% endif %}
 
+    <!-- Section: Leave & Permission (Image 1) -->
+    <div class="portal-card" id="leavePermissionSection" style="margin-top: 20px;">
+      <div class="portal-card-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 16px;">📅</span>
+          <span>Leave &amp; Permission</span>
+        </div>
+        <div style="font-size: 11px; font-weight: normal; color: #64748b;">
+          Apply for leave or permission and view your request status
+        </div>
+      </div>
+
+      <!-- Dual Action Cards (Image 1) -->
+      <div class="leave-action-grid">
+        <!-- 1. Apply for Leave -->
+        <div class="leave-action-card leave-card-blue" id="cardApplyLeave" role="button" tabindex="0">
+          <div class="leave-action-left">
+            <div class="leave-icon-circle icon-circle-blue">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+            </div>
+            <div>
+              <div class="leave-action-title">Apply for Leave</div>
+              <div class="leave-action-sub">Full Day Leave / Half Day Leave</div>
+            </div>
+          </div>
+          <button type="button" class="btn-circle-arrow btn-circle-blue" id="btnArrowLeave" title="Apply for Leave">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 2. Apply for Permission -->
+        <div class="leave-action-card leave-card-green" id="cardApplyPerm" role="button" tabindex="0">
+          <div class="leave-action-left">
+            <div class="leave-icon-circle icon-circle-green">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <div>
+              <div class="leave-action-title">Apply for Permission</div>
+              <div class="leave-action-sub">Short Leave / Work from Outside</div>
+            </div>
+          </div>
+          <button type="button" class="btn-circle-arrow btn-circle-green" id="btnArrowPerm" title="Apply for Permission">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Two Side-by-Side Sections: My Requests & My Leave Balance -->
+      <div class="leave-dual-section">
+        <!-- Left: My Requests Table -->
+        <div class="leave-requests-box">
+          <div class="leave-sub-header">
+            <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #1e293b; font-size: 13px;">
+              <span>📄</span>
+              <span>My Requests</span>
+            </div>
+            <a href="javascript:void(0)" id="linkViewAllRequests" style="font-size: 12px; font-weight: 700; color: #0284c7; text-decoration: none;">View All &rarr;</a>
+          </div>
+
+          <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <table class="employee-table" id="empRequestsTable" style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f8fafc;">
+                  <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #64748b; text-align: center; white-space: nowrap;">SL NO</th>
+                  <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #64748b; white-space: nowrap;">TYPE</th>
+                  <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #64748b; white-space: nowrap;">FROM DATE</th>
+                  <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #64748b; white-space: nowrap;">TO DATE</th>
+                  <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #64748b; white-space: nowrap;">DAYS / HOURS</th>
+                  <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #64748b; text-align: center; white-space: nowrap;">STATUS</th>
+                  <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #64748b; white-space: nowrap;">APPLIED ON</th>
+                </tr>
+              </thead>
+              <tbody id="empRequestsTableBody">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: 18px; color: #64748b; font-size: 12px;">Loading leave requests...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Right: My Leave Balance -->
+        <div class="leave-balance-box">
+          <div class="leave-sub-header">
+            <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #1e293b; font-size: 13px;">
+              <span>🥧</span>
+              <span>My Leave Balance</span>
+            </div>
+          </div>
+
+          <div class="balance-bars-wrapper" id="empLeaveBarsContainer">
+            <div class="balance-bar-item">
+              <div class="balance-bar-header">
+                <span>Casual Leave (CL)</span>
+                <strong id="barLabelCL">-- / --</strong>
+              </div>
+              <div class="balance-track">
+                <div class="balance-fill fill-blue" id="barFillCL" style="width: 0%;"></div>
+              </div>
+            </div>
+
+            <div class="balance-bar-item">
+              <div class="balance-bar-header">
+                <span>Sick Leave (SL)</span>
+                <strong id="barLabelSL">-- / --</strong>
+              </div>
+              <div class="balance-track">
+                <div class="balance-fill fill-teal" id="barFillSL" style="width: 0%;"></div>
+              </div>
+            </div>
+
+            <div class="balance-bar-item">
+              <div class="balance-bar-header">
+                <span>Earned Leave (EL)</span>
+                <strong id="barLabelEL">-- / --</strong>
+              </div>
+              <div class="balance-track">
+                <div class="balance-fill fill-indigo" id="barFillEL" style="width: 0%;"></div>
+              </div>
+            </div>
+
+            <div class="balance-bar-item">
+              <div class="balance-bar-header">
+                <span>Permission Hours</span>
+                <strong id="barLabelPerm">-- / --</strong>
+              </div>
+              <div class="balance-track">
+                <div class="balance-fill fill-purple" id="barFillPerm" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     {% if perm_pay %}
     <!-- Section 3: Monthly Payslip & Salary -->
     <div class="portal-card">
@@ -477,6 +624,265 @@
     </div>
     {% endif %}
 
+    <!-- ================= MODAL: APPLY FOR LEAVE (Image 2) ================= -->
+    <div class="modal-overlay" id="modalApplyLeave" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center;">
+      <div class="modal-box-leave" style="max-width: 600px; width: 95%; max-height: 90vh; overflow-y: auto; position: relative;">
+        <div class="modal-header-leave">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            <span style="font-weight: 800; font-size: 15px;">Apply for Leave</span>
+          </div>
+          <button type="button" class="modal-close-btn" id="closeLeaveModal" style="background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+
+        <form id="formApplyLeave">
+          <div style="padding: 20px;">
+            <div id="leaveAlert" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; margin-bottom: 14px;"></div>
+
+            <!-- Top Row: Employee Info (Left) & Leave Balance Box (Right) -->
+            <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; margin-bottom: 16px;">
+              <div>
+                <div style="margin-bottom: 10px;">
+                  <label class="form-label-leave">Employee Name</label>
+                  <input type="text" class="form-input-readonly" value="{{ employee.employee_name or session.get('employee_name') or '' }}" readonly>
+                </div>
+                <div>
+                  <label class="form-label-leave">Employee ID</label>
+                  <input type="text" class="form-input-readonly" value="{{ employee.employee_id or employee.emp_id or employee.id or session.get('employee_id') or '' }}" readonly>
+                </div>
+              </div>
+
+              <!-- Leave Balance Floating Box (Image 2) -->
+              <div class="modal-balance-box">
+                <div style="font-size: 11.5px; font-weight: 700; color: #0369a1; display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                  <span>🗄</span>
+                  <span>Leave Balance</span>
+                </div>
+                <div class="modal-bal-row">
+                  <span style="font-size: 11.5px; color: #334155;">Casual Leave (CL)</span>
+                  <span class="badge-bal-blue" id="modalBalCL">0 days</span>
+                </div>
+                <div class="modal-bal-row">
+                  <span style="font-size: 11.5px; color: #334155;">Sick Leave (SL)</span>
+                  <span class="badge-bal-green" id="modalBalSL">0 days</span>
+                </div>
+                <div class="modal-bal-row">
+                  <span style="font-size: 11.5px; color: #334155;">Earned Leave (EL)</span>
+                  <span class="badge-bal-yellow" id="modalBalEL">0 days</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Leave Type -->
+            <div style="margin-bottom: 14px;">
+              <label class="form-label-leave">Leave Type <span style="color: #dc2626;">*</span></label>
+              <select class="form-input-leave" id="leaveInputType" name="leave_type" required>
+                <option value="" disabled selected>-- Select Leave Type --</option>
+                <option value="Casual Leave (CL)">Casual Leave (CL)</option>
+                <option value="Sick Leave (SL)">Sick Leave (SL)</option>
+                <option value="Earned Leave (EL)">Earned Leave (EL)</option>
+              </select>
+            </div>
+
+            <!-- Dates: From Date & To Date -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+              <div>
+                <label class="form-label-leave">From Date <span style="color: #dc2626;">*</span></label>
+                <input type="date" class="form-input-leave" id="leaveFromDate" name="from_date" required>
+              </div>
+              <div>
+                <label class="form-label-leave">To Date <span style="color: #dc2626;">*</span></label>
+                <input type="date" class="form-input-leave" id="leaveToDate" name="to_date" required>
+              </div>
+            </div>
+
+            <!-- Session: Full Day / Half Day Radio Buttons -->
+            <div style="margin-bottom: 14px;">
+              <label class="form-label-leave">Session <span style="color: #dc2626;">*</span></label>
+              <div class="session-radio-group">
+                <label class="session-radio-label active" id="labelFullDay">
+                  <input type="radio" name="session" value="Full Day" checked style="accent-color: #0284c7;">
+                  <span>Full Day</span>
+                </label>
+                <label class="session-radio-label" id="labelHalfDay">
+                  <input type="radio" name="session" value="Half Day" style="accent-color: #0284c7;">
+                  <span>Half Day</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Reason -->
+            <div style="margin-bottom: 14px;">
+              <label class="form-label-leave">Reason <span style="color: #dc2626;">*</span></label>
+              <textarea class="form-input-leave" id="leaveReason" name="reason" rows="3" maxlength="500" placeholder="Enter reason for leave request..." required style="resize: vertical;"></textarea>
+              <div style="text-align: right; font-size: 11px; color: #94a3b8; margin-top: 3px;" id="leaveReasonCounter">0/500</div>
+            </div>
+
+            <!-- Attachment (Optional) -->
+            <div style="margin-bottom: 6px;">
+              <label class="form-label-leave">Attachment (Optional)</label>
+              <div class="file-upload-box">
+                <input type="file" id="leaveAttachment" name="attachment" accept=".pdf,.jpg,.jpeg,.png">
+                <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Upload supporting document (PDF, JPG, PNG) (Max 5 MB)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer-leave">
+            <button type="button" class="btn-leave-cancel" id="btnCancelLeave">Cancel</button>
+            <button type="submit" class="btn-leave-submit" id="btnSubmitLeave">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+              Submit Leave Request
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= MODAL: APPLY FOR PERMISSION (Image 3) ================= -->
+    <div class="modal-overlay" id="modalApplyPermission" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center;">
+      <div class="modal-box-perm" style="max-width: 580px; width: 95%; max-height: 90vh; overflow-y: auto; position: relative;">
+        <div class="modal-header-perm">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            <span style="font-weight: 800; font-size: 15px;">Apply for Permission</span>
+          </div>
+          <button type="button" class="modal-close-btn" id="closePermModal" style="background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+
+        <form id="formApplyPermission">
+          <div style="padding: 20px;">
+            <div id="permAlert" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; margin-bottom: 14px;"></div>
+
+            <!-- Employee Header Box (Image 3) -->
+            <div class="perm-emp-header-box">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <div>
+                  <div style="font-size: 10.5px; color: #64748b; font-weight: 600;">Employee Name</div>
+                  <div style="font-size: 13px; font-weight: 800; color: #0f172a;">{{ employee.employee_name or session.get('employee_name') or '' }}</div>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                <div>
+                  <div style="font-size: 10.5px; color: #64748b; font-weight: 600;">Employee ID</div>
+                  <div style="font-size: 13px; font-weight: 800; color: #0f172a;">{{ employee.employee_id or employee.emp_id or employee.id or session.get('employee_id') or '' }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Permission Type & Date -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+              <div>
+                <label class="form-label-leave">Permission Type <span style="color: #dc2626;">*</span></label>
+                <select class="form-input-leave" id="permInputType" name="permission_type" required>
+                  <option value="Short Leave" selected>Short Leave</option>
+                  <option value="Personal Work">Personal Work</option>
+                  <option value="Official Work">Official Work</option>
+                  <option value="Medical">Medical</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label-leave">Date <span style="color: #dc2626;">*</span></label>
+                <input type="date" class="form-input-leave" id="permDate" name="date" required>
+              </div>
+            </div>
+
+            <!-- Times: From Time & To Time -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+              <div>
+                <label class="form-label-leave">From Time <span style="color: #dc2626;">*</span></label>
+                <input type="time" class="form-input-leave" id="permFromTime" name="from_time" value="10:00" required>
+              </div>
+              <div>
+                <label class="form-label-leave">To Time <span style="color: #dc2626;">*</span></label>
+                <input type="time" class="form-input-leave" id="permToTime" name="to_time" value="12:00" required>
+              </div>
+            </div>
+
+            <!-- Duration (Auto calculated) -->
+            <div style="margin-bottom: 14px;">
+              <label class="form-label-leave">Duration</label>
+              <input type="text" class="form-input-readonly" id="permDuration" name="duration" value="02:00 (HH:MM)" readonly>
+            </div>
+
+            <!-- Reason -->
+            <div style="margin-bottom: 14px;">
+              <label class="form-label-leave">Reason <span style="color: #dc2626;">*</span></label>
+              <textarea class="form-input-leave" id="permReason" name="reason" rows="3" maxlength="500" placeholder="Enter reason for permission request..." required style="resize: vertical;"></textarea>
+              <div style="text-align: right; font-size: 11px; color: #94a3b8; margin-top: 3px;" id="permReasonCounter">0/500</div>
+            </div>
+
+            <!-- Attachment (Optional) -->
+            <div style="margin-bottom: 14px;">
+              <label class="form-label-leave">Attachment (Optional)</label>
+              <div class="file-upload-box">
+                <input type="file" id="permAttachment" name="attachment" accept=".pdf,.jpg,.jpeg,.png">
+                <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">PDF, JPG, PNG (Max 2 MB)</span>
+              </div>
+            </div>
+
+            <!-- Permission Balance Card (Image 3) -->
+            <div class="perm-balance-summary-box">
+              <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #0284c7; margin-bottom: 8px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span>Permission Balance</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: left;">
+                <div>
+                  <div style="font-size: 10.5px; color: #64748b;">Total Permission Hours</div>
+                  <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-top: 2px;" id="modalPermTotal">16:00 Hrs</div>
+                </div>
+                <div>
+                  <div style="font-size: 10.5px; color: #64748b;">Used</div>
+                  <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-top: 2px;" id="modalPermUsed">00:00 Hrs</div>
+                </div>
+                <div>
+                  <div style="font-size: 10.5px; color: #64748b;">Available</div>
+                  <div style="font-size: 13.5px; font-weight: 800; color: #16a34a; margin-top: 2px;" id="modalPermAvail">16:00 Hrs</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer-leave">
+            <button type="button" class="btn-leave-cancel" id="btnCancelPerm">Cancel</button>
+            <button type="submit" class="btn-perm-submit" id="btnSubmitPerm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+              Submit Permission Request
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </main>
 
   <footer style="background-color: #ffffff; display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; border-top: 1px solid #e2e8f0; margin-top: auto; font-size: 11.5px; color: #64748b; flex-wrap: wrap; gap: 8px;">
@@ -893,6 +1299,357 @@
       }
       credAlert.textContent = msg;
     }
+
+    // ==========================================
+    // 6. LEAVE & PERMISSION LOGIC (Employee UI)
+    // ==========================================
+    const modalApplyLeave = document.getElementById('modalApplyLeave');
+    const btnOpenApplyLeave = document.getElementById('btnOpenApplyLeave');
+    const closeLeaveModal = document.getElementById('closeLeaveModal');
+    const btnCancelLeave = document.getElementById('btnCancelLeave');
+    const formApplyLeave = document.getElementById('formApplyLeave');
+    const leaveAlert = document.getElementById('leaveAlert');
+
+    const modalApplyPermission = document.getElementById('modalApplyPermission');
+    const btnOpenApplyPermission = document.getElementById('btnOpenApplyPermission');
+    const closePermModal = document.getElementById('closePermModal');
+    const btnCancelPerm = document.getElementById('btnCancelPerm');
+    const formApplyPermission = document.getElementById('formApplyPermission');
+    const permAlert = document.getElementById('permAlert');
+
+    // Date inputs
+    const leaveFromDate = document.getElementById('leaveFromDate');
+    const leaveToDate = document.getElementById('leaveToDate');
+    const permDate = document.getElementById('permDate');
+    const permFromTime = document.getElementById('permFromTime');
+    const permToTime = document.getElementById('permToTime');
+    const permDuration = document.getElementById('permDuration');
+
+    // Session radios
+    const labelFullDay = document.getElementById('labelFullDay');
+    const labelHalfDay = document.getElementById('labelHalfDay');
+
+    // Set today's date as default
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (leaveFromDate) leaveFromDate.value = todayStr;
+    if (leaveToDate) leaveToDate.value = todayStr;
+    if (permDate) permDate.value = todayStr;
+
+    // Toggle Session Radio styling
+    if (labelFullDay && labelHalfDay) {
+      const radios = document.querySelectorAll('input[name="session"]');
+      radios.forEach(radio => {
+        radio.addEventListener('change', function () {
+          if (this.value === 'Full Day') {
+            labelFullDay.classList.add('active');
+            labelHalfDay.classList.remove('active');
+          } else {
+            labelHalfDay.classList.add('active');
+            labelFullDay.classList.remove('active');
+          }
+        });
+      });
+    }
+
+    // Character counters for reason textareas
+    const leaveReason = document.getElementById('leaveReason');
+    const leaveReasonCounter = document.getElementById('leaveReasonCounter');
+    if (leaveReason && leaveReasonCounter) {
+      leaveReason.addEventListener('input', function () {
+        leaveReasonCounter.textContent = `${this.value.length}/500`;
+      });
+    }
+
+    const permReason = document.getElementById('permReason');
+    const permReasonCounter = document.getElementById('permReasonCounter');
+    if (permReason && permReasonCounter) {
+      permReason.addEventListener('input', function () {
+        permReasonCounter.textContent = `${this.value.length}/500`;
+      });
+    }
+
+    // Permission duration calculation (HH:MM)
+    function calcPermDuration() {
+      if (!permFromTime || !permToTime || !permDuration) return;
+      const start = permFromTime.value;
+      const end = permToTime.value;
+      if (!start || !end) return;
+
+      const [sh, sm] = start.split(':').map(Number);
+      const [eh, em] = end.split(':').map(Number);
+      let diffMins = (eh * 60 + em) - (sh * 60 + sm);
+      if (diffMins < 0) diffMins += 24 * 60;
+
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      permDuration.value = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} (HH:MM)`;
+    }
+
+    if (permFromTime && permToTime) {
+      permFromTime.addEventListener('change', calcPermDuration);
+      permToTime.addEventListener('change', calcPermDuration);
+      calcPermDuration();
+    }
+
+    // Modal open & close
+    if (btnOpenApplyLeave && modalApplyLeave) {
+      btnOpenApplyLeave.addEventListener('click', () => {
+        if (leaveAlert) leaveAlert.style.display = 'none';
+        modalApplyLeave.style.display = 'flex';
+      });
+    }
+    if (closeLeaveModal && modalApplyLeave) {
+      closeLeaveModal.addEventListener('click', () => { modalApplyLeave.style.display = 'none'; });
+    }
+    if (btnCancelLeave && modalApplyLeave) {
+      btnCancelLeave.addEventListener('click', () => { modalApplyLeave.style.display = 'none'; });
+    }
+
+    if (btnOpenApplyPermission && modalApplyPermission) {
+      btnOpenApplyPermission.addEventListener('click', () => {
+        if (permAlert) permAlert.style.display = 'none';
+        modalApplyPermission.style.display = 'flex';
+        calcPermDuration();
+      });
+    }
+    if (closePermModal && modalApplyPermission) {
+      closePermModal.addEventListener('click', () => { modalApplyPermission.style.display = 'none'; });
+    }
+    if (btnCancelPerm && modalApplyPermission) {
+      btnCancelPerm.addEventListener('click', () => { modalApplyPermission.style.display = 'none'; });
+    }
+
+    // Close modals on outside click
+    window.addEventListener('click', (e) => {
+      if (modalApplyLeave && e.target === modalApplyLeave) modalApplyLeave.style.display = 'none';
+      if (modalApplyPermission && e.target === modalApplyPermission) modalApplyPermission.style.display = 'none';
+    });
+
+    // Helper alerts
+    function showModalAlert(el, msg, type) {
+      if (!el) return;
+      el.style.display = 'block';
+      if (type === 'success') {
+        el.style.backgroundColor = '#ecfdf5';
+        el.style.color = '#065f46';
+        el.style.border = '1px solid #a7f3d0';
+      } else {
+        el.style.backgroundColor = '#fef2f2';
+        el.style.color = '#991b1b';
+        el.style.border = '1px solid #fecaca';
+      }
+      el.textContent = msg;
+    }
+
+    // Load Leave Balances
+    async function loadLeaveBalances() {
+      try {
+        const res = await fetch('/api/employee/leave-balance');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.success) return;
+
+        const b = data.balances;
+        // Progress Bars
+        const clAvail = b.casual_leave_available ?? 0;
+        const clTot = b.casual_leave_total || 12;
+        const clPct = Math.min(100, Math.round((clAvail / clTot) * 100));
+        const elCL = document.getElementById('barLabelCL');
+        const fillCL = document.getElementById('barFillCL');
+        if (elCL) elCL.textContent = `${clAvail} / ${clTot} Days`;
+        if (fillCL) fillCL.style.width = `${clPct}%`;
+
+        const slAvail = b.sick_leave_available ?? 0;
+        const slTot = b.sick_leave_total || 12;
+        const slPct = Math.min(100, Math.round((slAvail / slTot) * 100));
+        const elSL = document.getElementById('barLabelSL');
+        const fillSL = document.getElementById('barFillSL');
+        if (elSL) elSL.textContent = `${slAvail} / ${slTot} Days`;
+        if (fillSL) fillSL.style.width = `${slPct}%`;
+
+        const elAvail = b.earned_leave_available ?? 0;
+        const elTot = b.earned_leave_total || 12;
+        const elPct = Math.min(100, Math.round((elAvail / elTot) * 100));
+        const elEL = document.getElementById('barLabelEL');
+        const fillEL = document.getElementById('barFillEL');
+        if (elEL) elEL.textContent = `${elAvail} / ${elTot} Days`;
+        if (fillEL) fillEL.style.width = `${elPct}%`;
+
+        const permAvail = b.permission_hours_available ?? 16;
+        const permTot = b.permission_hours_total || 16;
+        const permPct = Math.min(100, Math.round((permAvail / permTot) * 100));
+        const elPerm = document.getElementById('barLabelPerm');
+        const fillPerm = document.getElementById('barFillPerm');
+        if (elPerm) elPerm.textContent = `${permAvail} / ${permTot} Hrs`;
+        if (fillPerm) fillPerm.style.width = `${permPct}%`;
+
+        // Modal 1 Floating box badges
+        const mCL = document.getElementById('modalBalCL');
+        const mSL = document.getElementById('modalBalSL');
+        const mEL = document.getElementById('modalBalEL');
+        if (mCL) mCL.textContent = `${clAvail} days`;
+        if (mSL) mSL.textContent = `${slAvail} days`;
+        if (mEL) mEL.textContent = `${elAvail} days`;
+
+        // Modal 2 Permission summary
+        const mPT = document.getElementById('modalPermTotal');
+        const mPU = document.getElementById('modalPermUsed');
+        const mPA = document.getElementById('modalPermAvail');
+        if (mPT) mPT.textContent = `${permTot}:00 Hrs`;
+        if (mPU) mPU.textContent = `${b.permission_hours_used || 0}:00 Hrs`;
+        if (mPA) mPA.textContent = `${permAvail}:00 Hrs`;
+      } catch (err) {
+        console.error('Error fetching leave balances:', err);
+      }
+    }
+
+    // Load Requests Table
+    async function loadLeaveRequests() {
+      const tbody = document.getElementById('empRequestsTableBody');
+      if (!tbody) return;
+
+      try {
+        const res = await fetch('/api/employee/leave-requests');
+        if (!res.ok) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 18px; color: #dc2626;">Failed to load requests.</td></tr>`;
+          return;
+        }
+        const data = await res.json();
+        if (!data.success || !data.requests || data.requests.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 22px; color: #94a3b8; font-size: 12.5px;">No leave or permission requests found.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = data.requests.map((r, idx) => {
+          let typeBadge = '';
+          if (r.request_type === 'Permission') {
+            typeBadge = `<span class="badge-type-perm">Permission</span>`;
+          } else {
+            const shortType = r.leave_type ? r.leave_type.split(' ')[0] : 'Leave';
+            typeBadge = `<span class="badge-type-leave">${escapeHtml(shortType)}</span>`;
+          }
+
+          let statusBadge = '';
+          const st = (r.status || 'Pending').toLowerCase();
+          if (st === 'approved') {
+            statusBadge = `<span class="badge-status-approved">Approved</span>`;
+          } else if (st === 'rejected') {
+            statusBadge = `<span class="badge-status-rejected">Rejected</span>`;
+          } else {
+            statusBadge = `<span class="badge-status-pending">Pending</span>`;
+          }
+
+          const fromDate = r.from_date || r.date || '-';
+          const toDate = r.to_date || r.date || '-';
+          let units = '-';
+          if (r.request_type === 'Permission') {
+            units = `${r.duration || '01:00'} Hrs`;
+          } else {
+            units = `${r.days_count || 1} Day${(r.days_count && r.days_count > 1) ? 's' : ''}`;
+          }
+
+          return `
+            <tr>
+              <td style="padding: 10px; font-size: 11.5px; text-align: center; color: #64748b; font-weight: 600;">${idx + 1}</td>
+              <td style="padding: 10px; font-size: 11.5px;">${typeBadge}</td>
+              <td style="padding: 10px; font-size: 11.5px; color: #1e293b; font-weight: 500;">${escapeHtml(fromDate)}</td>
+              <td style="padding: 10px; font-size: 11.5px; color: #1e293b; font-weight: 500;">${escapeHtml(toDate)}</td>
+              <td style="padding: 10px; font-size: 11.5px; color: #0284c7; font-weight: 700;">${escapeHtml(units)}</td>
+              <td style="padding: 10px; font-size: 11.5px; text-align: center;">${statusBadge}</td>
+              <td style="padding: 10px; font-size: 11px; color: #64748b;">${escapeHtml(r.applied_on || '-')}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error fetching leave requests:', err);
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 18px; color: #dc2626;">Error loading requests.</td></tr>`;
+      }
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Submit Leave Form
+    if (formApplyLeave) {
+      formApplyLeave.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const submitBtn = document.getElementById('btnSubmitLeave');
+        if (submitBtn) submitBtn.disabled = true;
+
+        const formData = new FormData(formApplyLeave);
+        try {
+          const res = await fetch('/api/employee/leave-requests/apply', {
+            method: 'POST',
+            body: formData
+          });
+          const data = await res.json();
+          if (data.success) {
+            showModalAlert(leaveAlert, data.message || 'Leave request submitted successfully!', 'success');
+            formApplyLeave.reset();
+            if (leaveReasonCounter) leaveReasonCounter.textContent = '0/500';
+            loadLeaveBalances();
+            loadLeaveRequests();
+            setTimeout(() => {
+              modalApplyLeave.style.display = 'none';
+              if (leaveAlert) leaveAlert.style.display = 'none';
+            }, 1400);
+          } else {
+            showModalAlert(leaveAlert, data.message || 'Failed to submit leave request.', 'error');
+          }
+        } catch (err) {
+          showModalAlert(leaveAlert, 'An error occurred while submitting.', 'error');
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+        }
+      });
+    }
+
+    // Submit Permission Form
+    if (formApplyPermission) {
+      formApplyPermission.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const submitBtn = document.getElementById('btnSubmitPerm');
+        if (submitBtn) submitBtn.disabled = true;
+
+        const formData = new FormData(formApplyPermission);
+        try {
+          const res = await fetch('/api/employee/permission-requests/apply', {
+            method: 'POST',
+            body: formData
+          });
+          const data = await res.json();
+          if (data.success) {
+            showModalAlert(permAlert, data.message || 'Permission request submitted successfully!', 'success');
+            formApplyPermission.reset();
+            if (permReasonCounter) permReasonCounter.textContent = '0/500';
+            calcPermDuration();
+            loadLeaveBalances();
+            loadLeaveRequests();
+            setTimeout(() => {
+              modalApplyPermission.style.display = 'none';
+              if (permAlert) permAlert.style.display = 'none';
+            }, 1400);
+          } else {
+            showModalAlert(permAlert, data.message || 'Failed to submit permission request.', 'error');
+          }
+        } catch (err) {
+          showModalAlert(permAlert, 'An error occurred while submitting.', 'error');
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+        }
+      });
+    }
+
+    // Initial load for employee portal leave data
+    loadLeaveBalances();
+    loadLeaveRequests();
   });
   </script>
 

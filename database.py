@@ -1030,8 +1030,15 @@ def get_dashboard_stats(company_id=None):
     timeout_today = {t['employee_name']: t for t in db.timeout_entries.find({**t_filter, '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]})}
     combined_present = set(att_docs.keys()).union(set(ar_docs.keys())).union(set(live_docs.keys())).union(set(manual_docs.keys())).union(set(timeout_today.keys()))
     present_count = len(combined_present)
-    absent_count = max(0, total_employees - present_count)
+
+    # Approved leaves today integration
+    approved_leaves_today = get_approved_leaves_for_date(today_str, company_id=company_id)
+    on_leave_set = set(approved_leaves_today.keys()).difference(combined_present)
+    on_leave_count = len(on_leave_set)
+
+    absent_count = max(0, total_employees - present_count - on_leave_count)
     present_percentage = round((present_count / total_employees * 100), 1) if total_employees > 0 else 0.0
+    on_leave_percentage = round((on_leave_count / total_employees * 100), 1) if total_employees > 0 else 0.0
     absent_percentage = round((absent_count / total_employees * 100), 1) if total_employees > 0 else 0.0
     
     tout_filter = dict(t_filter)
@@ -1191,6 +1198,7 @@ def get_dashboard_stats(company_id=None):
     today_attendance = []
     present_names_set = set()
     timeout_names_set = set()
+    on_leave_names_set = set()
     
     def format_time_str(t_str):
         if not t_str or t_str == '-':
@@ -1251,6 +1259,12 @@ def get_dashboard_stats(company_id=None):
             hours = str(m.get('working_hours') or m.get('hours') or '-')
             status = 'Present'
             present_names_set.add(ename)
+        elif ename in approved_leaves_today or str(emp.get('id', '')) in approved_leaves_today:
+            l_info = approved_leaves_today.get(ename) or approved_leaves_today.get(str(emp.get('id', '')))
+            l_type = l_info.get('leave_type') or 'Leave'
+            hours = l_type
+            status = 'On Leave'
+            on_leave_names_set.add(ename)
             
         today_attendance.append({
             'employee_name': ename,
@@ -1261,7 +1275,7 @@ def get_dashboard_stats(company_id=None):
             'status': status
         })
         
-    status_order = {'Present': 0, 'Timeout': 1, 'Absent': 2}
+    status_order = {'Present': 0, 'On Leave': 1, 'Timeout': 2, 'Absent': 3}
     today_attendance.sort(key=lambda x: (status_order.get(x['status'], 3), x['employee_name']))
     for idx, item in enumerate(today_attendance, 1):
         item['index'] = idx
@@ -1273,13 +1287,15 @@ def get_dashboard_stats(company_id=None):
         if not dept:
             dept = 'General'
         if dept not in dept_map:
-            dept_map[dept] = {'department': dept, 'total': 0, 'present': 0, 'absent': 0, 'timeout': 0}
+            dept_map[dept] = {'department': dept, 'total': 0, 'present': 0, 'leave': 0, 'absent': 0, 'timeout': 0}
         dept_map[dept]['total'] += 1
         ename = emp.get('employee_name', '')
         if ename in timeout_names_set:
             dept_map[dept]['timeout'] += 1
         elif ename in present_names_set:
             dept_map[dept]['present'] += 1
+        elif ename in on_leave_names_set:
+            dept_map[dept]['leave'] += 1
         else:
             dept_map[dept]['absent'] += 1
             
@@ -1289,6 +1305,9 @@ def get_dashboard_stats(company_id=None):
     res = {
         'total': total_employees,
         'present': present_count,
+        'on_leave': on_leave_count,
+        'on_leave_percentage': on_leave_percentage,
+        'on_leave_percent': f"{on_leave_percentage}%",
         'absent': absent_count,
         'present_percentage': present_percentage,
         'present_percent': f"{present_percentage}%",
@@ -2528,6 +2547,45 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
             'entry_type': 'manual',
             'is_manual': True,
             'sort_key': str(c.get('entry_date') or c.get('created_at') or c.get('submitted_at') or '')
+        })
+
+    # Include approved leaves in 'all' reports
+    l_query = {'request_type': 'Leave', 'status': 'Approved'}
+    if company_id and company_id != 'ALL':
+        l_query['company_id'] = str(company_id)
+    if employee and employee != 'All':
+        l_query['employee_name'] = employee
+    if start_date:
+        l_query['to_date'] = {'$gte': start_date.strip()}
+    if end_date:
+        l_query.setdefault('from_date', {})['$lte'] = end_date.strip()
+    if search:
+        reg = {'$regex': re.escape(search), '$options': 'i'}
+        l_query['$or'] = [{'employee_name': reg}, {'leave_type': reg}, {'reason': reg}]
+
+    for doc in db.leave_requests.find(l_query):
+        c = clean_doc(doc)
+        l_type = c.get('leave_type', 'Casual Leave (CL)')
+        l_reason = (c.get('reason') or '').strip()
+        desc = f"Approved Leave ({l_type}) - {l_reason}" if l_reason else f"Approved Leave ({l_type})"
+        combined.append({
+            'id': c.get('id'),
+            'company_id': c.get('company_id'),
+            'employee_name': c.get('employee_name', ''),
+            'entry_time': c.get('from_date', ''),
+            'entry_distance': 'LEAVE',
+            'entry_location': desc,
+            'entry_status': 'Leave',
+            'exit_time': '----',
+            'exit_distance': '----',
+            'exit_location': '----',
+            'exit_status': '-',
+            'working_hours': '00:00' if c.get('session') != 'Half Day' else '04:00',
+            'shift_variance': '----',
+            'working_salary': 0.0,
+            'entry_type': 'leave',
+            'is_manual': True,
+            'sort_key': str(c.get('from_date') or c.get('created_at') or '')
         })
 
     # Sort descending by date/timestamp
@@ -3977,3 +4035,577 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         'company_logo_data': comp_logo_data,
         'company_logo_url': comp_logo_data if comp_logo_data else (f"/uploads/{comp_logo}" if comp_logo else '')
     }
+
+
+# ==============================================================================
+# LEAVE & PERMISSION MANAGEMENT ENGINE
+# ==============================================================================
+
+def get_company_leave_policy(company_id=None):
+    """Retrieves the default annual leave allocation policy for a company."""
+    default_policy = {
+        'casual_leave': 12,
+        'casual_leave_annual': 12,
+        'sick_leave': 12,
+        'sick_leave_annual': 12,
+        'earned_leave': 18,
+        'earned_leave_annual': 18,
+        'permission_hours': 16.0,
+        'permission_hours_monthly': 16
+    }
+    if not company_id or company_id == 'ALL':
+        return default_policy
+    db = get_db()
+    
+    # 1. Check dedicated leave_policies collection
+    pol_rec = db.leave_policies.find_one({'company_id': str(company_id)})
+    if pol_rec:
+        cl = int(pol_rec.get('casual_leave_annual', pol_rec.get('casual_leave', 12)))
+        sl = int(pol_rec.get('sick_leave_annual', pol_rec.get('sick_leave', 12)))
+        el = int(pol_rec.get('earned_leave_annual', pol_rec.get('earned_leave', 18)))
+        ph = float(pol_rec.get('permission_hours_monthly', pol_rec.get('permission_hours', 16.0)))
+        return {
+            'casual_leave': cl,
+            'casual_leave_annual': cl,
+            'sick_leave': sl,
+            'sick_leave_annual': sl,
+            'earned_leave': el,
+            'earned_leave_annual': el,
+            'permission_hours': ph,
+            'permission_hours_monthly': int(ph)
+        }
+
+    # 2. Check company_admin document
+    comp = db.company_admin.find_one(build_id_filter(company_id))
+    if not comp:
+        comp = db.companies.find_one(build_id_filter(company_id))
+    if not comp or 'leave_policy' not in comp:
+        return default_policy
+    pol = comp['leave_policy']
+    cl = int(pol.get('casual_leave_annual', pol.get('casual_leave', 12)))
+    sl = int(pol.get('sick_leave_annual', pol.get('sick_leave', 12)))
+    el = int(pol.get('earned_leave_annual', pol.get('earned_leave', 18)))
+    ph = float(pol.get('permission_hours_monthly', pol.get('permission_hours', 16.0)))
+    return {
+        'casual_leave': cl,
+        'casual_leave_annual': cl,
+        'sick_leave': sl,
+        'sick_leave_annual': sl,
+        'earned_leave': el,
+        'earned_leave_annual': el,
+        'permission_hours': ph,
+        'permission_hours_monthly': int(ph)
+    }
+
+def save_company_leave_policy(company_id, policy_data):
+    """Saves or updates the default annual leave allocation policy for a company."""
+    if not company_id or company_id == 'ALL':
+        company_id = 'DEFAULT'
+    db = get_db()
+    cl = int(policy_data.get('casual_leave_annual', policy_data.get('casual_leave', 12)))
+    sl = int(policy_data.get('sick_leave_annual', policy_data.get('sick_leave', 12)))
+    el = int(policy_data.get('earned_leave_annual', policy_data.get('earned_leave', 18)))
+    ph = float(policy_data.get('permission_hours_monthly', policy_data.get('permission_hours', 16.0)))
+
+    pol_doc = {
+        'company_id': str(company_id),
+        'casual_leave': cl,
+        'casual_leave_annual': cl,
+        'sick_leave': sl,
+        'sick_leave_annual': sl,
+        'earned_leave': el,
+        'earned_leave_annual': el,
+        'permission_hours': ph,
+        'permission_hours_monthly': int(ph),
+        'updated_at': get_ist_now()
+    }
+    db.leave_policies.update_one({'company_id': str(company_id)}, {'$set': pol_doc}, upsert=True)
+
+    # Also sync into company_admin if present
+    q = {'id': str(company_id)} if str(company_id).isdigit() else {'$or': [{'id': str(company_id)}, build_id_filter(company_id)]}
+    db.company_admin.update_one(q, {'$set': {'leave_policy': pol_doc}})
+    return True
+
+def get_employee_leave_balance(emp_id, company_id=None, year=None):
+    """
+    Retrieves or initializes the employee's leave balance document for the given year.
+    Returns: dict with casual_leave, sick_leave, earned_leave, permission_hours, compensatory_off
+    """
+    if not emp_id:
+        return None
+    db = get_db()
+    if year is None:
+        year = get_ist_now().year
+    
+    bal = db.leave_balances.find_one({
+        '$or': [
+            {'employee_id': str(emp_id)},
+            {'employee_id': int(emp_id) if str(emp_id).isdigit() else str(emp_id)}
+        ],
+        'year': int(year)
+    })
+    
+    if not bal:
+        # Initialize new balance using company policy
+        emp = db.employees.find_one(build_id_filter(emp_id))
+        comp_id = company_id or (emp.get('company_id') if emp else None)
+        pol = get_company_leave_policy(comp_id)
+
+        cl_tot = pol['casual_leave_annual']
+        sl_tot = pol['sick_leave_annual']
+        el_tot = pol['earned_leave_annual']
+        ph_tot = pol['permission_hours_monthly']
+
+        new_bal = {
+            'company_id': str(comp_id or 'DEFAULT'),
+            'employee_id': str(emp_id),
+            'year': int(year),
+            'casual_leave': {'total': cl_tot, 'used': 0, 'available': cl_tot},
+            'sick_leave': {'total': sl_tot, 'used': 0, 'available': sl_tot},
+            'earned_leave': {'total': el_tot, 'used': 0, 'available': el_tot},
+            'permission_hours': {'total': ph_tot, 'used': 0.0, 'available': ph_tot},
+            'compensatory_off': {'total': 6, 'used': 0, 'available': 6},
+            'created_at': get_ist_now(),
+            'updated_at': get_ist_now()
+        }
+        res = db.leave_balances.insert_one(new_bal)
+        new_bal['_id'] = res.inserted_id
+        bal = new_bal
+
+    bal = clean_doc(bal)
+    cl = bal.get('casual_leave', {})
+    sl = bal.get('sick_leave', {})
+    el = bal.get('earned_leave', {})
+    ph = bal.get('permission_hours', {})
+
+    bal['casual_leave_available'] = cl.get('available', 0)
+    bal['casual_leave_total'] = cl.get('total', 12)
+    bal['casual_leave_used'] = cl.get('used', 0)
+    bal['sick_leave_available'] = sl.get('available', 0)
+    bal['sick_leave_total'] = sl.get('total', 12)
+    bal['sick_leave_used'] = sl.get('used', 0)
+    bal['earned_leave_available'] = el.get('available', 0)
+    bal['earned_leave_total'] = el.get('total', 18)
+    bal['earned_leave_used'] = el.get('used', 0)
+    bal['permission_hours_available'] = ph.get('available', 16.0)
+    bal['permission_hours_total'] = ph.get('total', 16.0)
+    bal['permission_hours_used'] = ph.get('used', 0.0)
+    return bal
+
+def get_all_employees_leave_balances(company_id=None, year=None, search=None):
+    """
+    Returns list of all employees in company along with their leave balances.
+    Matches Image 4's Employee Leave Balance table.
+    """
+    db = get_db()
+    if year is None:
+        year = get_ist_now().year
+
+    e_query = {}
+    if company_id and company_id != 'ALL':
+        e_query['company_id'] = str(company_id)
+    
+    employees = list(db.employees.find(e_query).sort('employee_name', ASCENDING))
+    results = []
+
+    for idx, emp in enumerate(employees):
+        emp_id = str(emp.get('id') or emp.get('_id'))
+        emp_code = str(emp.get('employee_id') or emp.get('emp_id') or f"EMP{idx+1:03d}")
+        emp_name = str(emp.get('employee_name') or '')
+        dept = str(emp.get('department') or 'General')
+
+        if search:
+            s_low = str(search).lower().strip()
+            if not (s_low in emp_name.lower() or s_low in emp_code.lower() or s_low in dept.lower() or s_low in emp_id.lower()):
+                continue
+
+        bal = get_employee_leave_balance(emp_id, company_id=emp.get('company_id'), year=year)
+        
+        cl = bal.get('casual_leave', {})
+        sl = bal.get('sick_leave', {})
+        el = bal.get('earned_leave', {})
+        perm = bal.get('permission_hours', {})
+
+        results.append({
+            'sl_no': len(results) + 1,
+            'id': emp_id,
+            'employee_name': emp_name,
+            'employee_id': emp_code,
+            'department': dept,
+            'designation': emp.get('designation', ''),
+            'mobile_number': emp.get('mobile_number', ''),
+            'company_id': emp.get('company_id', ''),
+            'casual_leave': f"{cl.get('available', 0)} / {cl.get('total', 12)}",
+            'casual_leave_avail': cl.get('available', 0),
+            'casual_leave_total': cl.get('total', 12),
+            'sick_leave': f"{sl.get('available', 0)} / {sl.get('total', 12)}",
+            'sick_leave_avail': sl.get('available', 0),
+            'sick_leave_total': sl.get('total', 12),
+            'earned_leave': f"{el.get('available', 0)} / {el.get('total', 18)}",
+            'earned_leave_avail': el.get('available', 0),
+            'earned_leave_total': el.get('total', 18),
+            'permission_hours': f"{int(perm.get('available', 0))} / {int(perm.get('total', 16))}",
+            'permission_hours_avail': perm.get('available', 0.0),
+            'permission_hours_total': perm.get('total', 16.0),
+            'is_low_balance': (cl.get('available', 0) < 2 or sl.get('available', 0) < 2 or el.get('available', 0) < 2)
+        })
+
+    return results
+
+def get_next_leave_request_id():
+    """Generates an incremental integer ID for leave requests."""
+    db = get_db()
+    last = db.leave_requests.find_one(sort=[('id', DESCENDING)])
+    if last and isinstance(last.get('id'), int):
+        return last['id'] + 1
+    return 1001
+
+def submit_leave_request(req_data):
+    """
+    Submits a Full Day or Half Day Leave request from Employee Portal.
+    """
+    db = get_db()
+    now_ist = get_ist_now()
+    req_id = req_data.get('id') or get_next_leave_request_id()
+    request_id_code = str(req_data.get('request_id') or f"LR-{now_ist.year}-{req_id}")
+
+    session_type = req_data.get('session', 'Full Day')
+    from_date = str(req_data.get('from_date', '')).strip()
+    to_date = str(req_data.get('to_date', '')).strip() or from_date
+
+    # Calculate total days
+    total_days = 1.0
+    if session_type == 'Half Day':
+        total_days = 0.5
+        to_date = from_date
+    else:
+        try:
+            d1 = datetime.strptime(from_date, '%Y-%m-%d').date()
+            d2 = datetime.strptime(to_date, '%Y-%m-%d').date()
+            total_days = max(1.0, float((d2 - d1).days + 1))
+        except Exception:
+            total_days = 1.0
+
+    doc = {
+        'id': req_id,
+        'request_id': request_id_code,
+        'company_id': str(req_data.get('company_id', '')),
+        'employee_id': str(req_data.get('employee_id', '')),
+        'employee_code': str(req_data.get('employee_code', '')),
+        'employee_name': str(req_data.get('employee_name', '')),
+        'department': str(req_data.get('department', 'General')),
+        'designation': str(req_data.get('designation', '')),
+        'mobile_number': str(req_data.get('mobile_number', '')),
+        'request_type': 'Leave',
+        'leave_type': req_data.get('leave_type', 'Casual Leave (CL)'),
+        'session': session_type,
+        'from_date': from_date,
+        'to_date': to_date,
+        'total_days': total_days,
+        'days_count': total_days,
+        'from_time': None,
+        'to_time': None,
+        'duration_hours': None,
+        'reason': str(req_data.get('reason', '')).strip(),
+        'attachments': req_data.get('attachments', []),
+        'status': 'Pending',
+        'applied_on': now_ist.strftime('%Y-%m-%d %H:%M:%S'),
+        'applied_on_display': now_ist.strftime('%d %b %Y %I:%M %p'),
+        'reviewed_by': None,
+        'reviewed_at': None,
+        'admin_remark': None,
+        'created_at': now_ist,
+        'updated_at': now_ist
+    }
+    db.leave_requests.insert_one(doc)
+    return clean_doc(doc)
+
+def submit_permission_request(req_data):
+    """
+    Submits an Hourly Permission request from Employee Portal.
+    """
+    db = get_db()
+    now_ist = get_ist_now()
+    req_id = req_data.get('id') or get_next_leave_request_id()
+    request_id_code = str(req_data.get('request_id') or f"PR-{now_ist.year}-{req_id}")
+
+    perm_date = str(req_data.get('date', '')).strip()
+    from_time = str(req_data.get('from_time', '')).strip()
+    to_time = str(req_data.get('to_time', '')).strip()
+    duration_str = str(req_data.get('duration', '02:00')).strip()
+
+    # Parse duration in hours
+    duration_hours = 2.0
+    try:
+        clean_dur = duration_str.split(' ')[0]
+        if ':' in clean_dur:
+            hh, mm = clean_dur.split(':')
+            duration_hours = round(int(hh) + int(mm) / 60.0, 2)
+        else:
+            duration_hours = float(clean_dur)
+    except Exception:
+        duration_hours = 2.0
+
+    doc = {
+        'id': req_id,
+        'request_id': request_id_code,
+        'company_id': str(req_data.get('company_id', '')),
+        'employee_id': str(req_data.get('employee_id', '')),
+        'employee_code': str(req_data.get('employee_code', '')),
+        'employee_name': str(req_data.get('employee_name', '')),
+        'department': str(req_data.get('department', 'General')),
+        'designation': str(req_data.get('designation', '')),
+        'mobile_number': str(req_data.get('mobile_number', '')),
+        'request_type': 'Permission',
+        'leave_type': 'Permission',
+        'permission_type': req_data.get('permission_type', 'Short Leave'),
+        'session': None,
+        'from_date': perm_date,
+        'to_date': perm_date,
+        'date': perm_date,
+        'total_days': 0.0,
+        'from_time': from_time,
+        'to_time': to_time,
+        'duration': duration_str,
+        'duration_str': duration_str,
+        'duration_hours': duration_hours,
+        'hours_count': duration_hours,
+        'reason': str(req_data.get('reason', '')).strip(),
+        'attachments': req_data.get('attachments', []),
+        'status': 'Pending',
+        'applied_on': now_ist.strftime('%Y-%m-%d %H:%M:%S'),
+        'applied_on_display': now_ist.strftime('%d %b %Y %I:%M %p'),
+        'reviewed_by': None,
+        'reviewed_at': None,
+        'admin_remark': None,
+        'created_at': now_ist,
+        'updated_at': now_ist
+    }
+    db.leave_requests.insert_one(doc)
+    return clean_doc(doc)
+
+def get_leave_requests(company_id=None, employee_id=None, status=None, limit=50, page=1):
+    """Retrieves paginated list of leave & permission requests."""
+    db = get_db()
+    query = {}
+    if company_id and company_id != 'ALL':
+        query['company_id'] = str(company_id)
+    if employee_id:
+        query['$or'] = [{'employee_id': str(employee_id)}, {'employee_id': int(employee_id) if str(employee_id).isdigit() else str(employee_id)}]
+    if status and status != 'ALL':
+        query['status'] = status
+
+    total = db.leave_requests.count_documents(query)
+    skip = (int(page) - 1) * int(limit)
+    cursor = db.leave_requests.find(query).sort('created_at', DESCENDING).skip(skip).limit(int(limit))
+    
+    items = []
+    for doc in cursor:
+        items.append(clean_doc(doc))
+    return {
+        'total': total,
+        'page': int(page),
+        'limit': int(limit),
+        'requests': items
+    }
+
+def get_leave_request_by_id(request_id):
+    """Retrieves single leave request by request_id, id or _id."""
+    db = get_db()
+    q = {'$or': [
+        {'request_id': str(request_id)},
+        {'id': int(request_id) if str(request_id).isdigit() else str(request_id)},
+        {'id': str(request_id)},
+        build_id_filter(request_id)
+    ]}
+    doc = db.leave_requests.find_one(q)
+    return clean_doc(doc) if doc else None
+
+def update_leave_request_status(request_id, new_status, admin_remark=None, reviewer=None):
+    """
+    Approves or Rejects a leave request and updates employee leave balance.
+    """
+    db = get_db()
+    q = {'$or': [
+        {'request_id': str(request_id)},
+        {'id': int(request_id) if str(request_id).isdigit() else str(request_id)},
+        {'id': str(request_id)},
+        build_id_filter(request_id)
+    ]}
+    req = db.leave_requests.find_one(q)
+    if not req:
+        return {'success': False, 'error': 'Leave request not found'}
+
+    # Normalize status string
+    status_str = str(new_status).strip()
+    if status_str.lower() in ['approve', 'approved']:
+        normalized_status = 'Approved'
+    elif status_str.lower() in ['reject', 'rejected']:
+        normalized_status = 'Rejected'
+    else:
+        normalized_status = status_str
+
+    old_status = req.get('status', 'Pending')
+    if old_status == normalized_status:
+        return {'success': True, 'message': f'Status is already {normalized_status}'}
+
+    emp_id = req.get('employee_id')
+    comp_id = req.get('company_id')
+    now_ist = get_ist_now()
+    year = now_ist.year
+
+    # Balance deduction or restoration
+    if normalized_status == 'Approved' and old_status != 'Approved':
+        bal = get_employee_leave_balance(emp_id, company_id=comp_id, year=year)
+        if req.get('request_type') == 'Leave':
+            lt = (req.get('leave_type') or '').lower()
+            days = float(req.get('total_days', req.get('days_count', 1.0)))
+            if 'casual' in lt:
+                cat = 'casual_leave'
+            elif 'sick' in lt:
+                cat = 'sick_leave'
+            elif 'earned' in lt:
+                cat = 'earned_leave'
+            else:
+                cat = 'casual_leave'
+            
+            cur = bal.get(cat, {})
+            u = cur.get('used', 0) + days
+            t = cur.get('total', 12)
+            a = max(0, t - u)
+            db.leave_balances.update_one(
+                {'employee_id': str(emp_id), 'year': year},
+                {'$set': {f"{cat}.used": u, f"{cat}.available": a, 'updated_at': now_ist}}
+            )
+        elif req.get('request_type') == 'Permission':
+            dur = float(req.get('duration_hours', req.get('hours_count', 2.0)))
+            cur = bal.get('permission_hours', {})
+            u = round(cur.get('used', 0.0) + dur, 2)
+            t = cur.get('total', 16.0)
+            a = max(0.0, t - u)
+            db.leave_balances.update_one(
+                {'employee_id': str(emp_id), 'year': year},
+                {'$set': {'permission_hours.used': u, 'permission_hours.available': a, 'updated_at': now_ist}}
+            )
+
+    elif old_status == 'Approved' and normalized_status in ['Rejected', 'Pending']:
+        bal = get_employee_leave_balance(emp_id, company_id=comp_id, year=year)
+        if req.get('request_type') == 'Leave':
+            lt = (req.get('leave_type') or '').lower()
+            days = float(req.get('total_days', req.get('days_count', 1.0)))
+            if 'casual' in lt:
+                cat = 'casual_leave'
+            elif 'sick' in lt:
+                cat = 'sick_leave'
+            elif 'earned' in lt:
+                cat = 'earned_leave'
+            else:
+                cat = 'casual_leave'
+            
+            cur = bal.get(cat, {})
+            u = max(0, cur.get('used', 0) - days)
+            t = cur.get('total', 12)
+            a = max(0, t - u)
+            db.leave_balances.update_one(
+                {'employee_id': str(emp_id), 'year': year},
+                {'$set': {f"{cat}.used": u, f"{cat}.available": a, 'updated_at': now_ist}}
+            )
+        elif req.get('request_type') == 'Permission':
+            dur = float(req.get('duration_hours', req.get('hours_count', 2.0)))
+            cur = bal.get('permission_hours', {})
+            u = max(0.0, round(cur.get('used', 0.0) - dur, 2))
+            t = cur.get('total', 16.0)
+            a = max(0.0, t - u)
+            db.leave_balances.update_one(
+                {'employee_id': str(emp_id), 'year': year},
+                {'$set': {'permission_hours.used': u, 'permission_hours.available': a, 'updated_at': now_ist}}
+            )
+
+    upd = {
+        'status': normalized_status,
+        'admin_remark': admin_remark if admin_remark is not None else req.get('admin_remark'),
+        'reviewed_by': reviewer or 'System Administrator',
+        'reviewed_at': now_ist.strftime('%Y-%m-%d %H:%M:%S'),
+        'updated_at': now_ist
+    }
+    db.leave_requests.update_one(q, {'$set': upd})
+    return {'success': True, 'status': normalized_status, 'message': f'Request {normalized_status} successfully'}
+
+def get_admin_leave_stats(company_id=None):
+    """Returns the 4 KPI card metrics shown in Image 4."""
+    db = get_db()
+    query = {}
+    if company_id and company_id != 'ALL':
+        query['company_id'] = str(company_id)
+
+    today_str = get_ist_now().strftime('%Y-%m-%d')
+
+    pending_count = db.leave_requests.count_documents({**query, 'status': 'Pending'})
+    approved_today = db.leave_requests.count_documents({
+        **query,
+        'status': 'Approved',
+        'reviewed_at': {'$regex': f"^{today_str}"}
+    })
+    rejected_count = db.leave_requests.count_documents({**query, 'status': 'Rejected'})
+
+    all_bals = get_all_employees_leave_balances(company_id=company_id)
+    low_balance_count = sum(1 for b in all_bals if b.get('is_low_balance'))
+
+    return {
+        'pending_requests': pending_count,
+        'pending_count': pending_count,
+        'approved_today': approved_today,
+        'approved_count': approved_today,
+        'rejected': rejected_count,
+        'rejected_count': rejected_count,
+        'low_balance_employees': low_balance_count,
+        'low_balance_count': low_balance_count
+    }
+
+def get_approved_leaves_for_date(date_str, company_id=None):
+    """
+    Returns a dictionary of employees who have approved leave covering date_str (YYYY-MM-DD).
+    Key: employee_name (and employee_id), Value: leave doc.
+    """
+    db = get_db()
+    q = {
+        'request_type': 'Leave',
+        'status': 'Approved',
+        'from_date': {'$lte': date_str},
+        'to_date': {'$gte': date_str}
+    }
+    if company_id and company_id != 'ALL':
+        q['company_id'] = str(company_id)
+
+    leaves = list(db.leave_requests.find(q))
+    result = {}
+    for l in leaves:
+        cd = clean_doc(l)
+        if l.get('employee_name'):
+            result[l['employee_name']] = cd
+        if l.get('employee_id'):
+            result[str(l['employee_id'])] = cd
+    return result
+
+def get_approved_permissions_for_date(date_str, company_id=None):
+    """
+    Returns a dictionary of employees who have approved permission on date_str (YYYY-MM-DD).
+    """
+    db = get_db()
+    q = {
+        'request_type': 'Permission',
+        'status': 'Approved',
+        'from_date': date_str
+    }
+    if company_id and company_id != 'ALL':
+        q['company_id'] = str(company_id)
+
+    perms = list(db.leave_requests.find(q))
+    result = {}
+    for p in perms:
+        cd = clean_doc(p)
+        if p.get('employee_name'):
+            result[p['employee_name']] = cd
+        if p.get('employee_id'):
+            result[str(p['employee_id'])] = cd
+    return result

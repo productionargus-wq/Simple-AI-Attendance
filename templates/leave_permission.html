@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Banner -->
+<div class="content-banner-card">
+  <div class="banner-left">
+    <div class="banner-icon-badge" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <path d="M9 15l2 2 4-4"></path>
+      </svg>
+    </div>
+    <div class="banner-text-group">
+      <div class="banner-title">LEAVE &amp; PERMISSION MANAGEMENT</div>
+      <div class="banner-subtitle">Review incoming leave/permission requests, manage employee balances, and configure policy</div>
+    </div>
+  </div>
+
+  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px;">
+    {% if session.get('role') == 'super_admin' and companies %}
+    <select id="leaveCompanySelect" class="form-select" style="max-width: 220px; font-size: 12.5px; padding: 6px 12px; border-radius: 6px; border: 1.5px solid #cbd5e1; font-weight: 600;">
+      <option value="">All Companies</option>
+      {% for comp in companies %}
+      <option value="{{ comp.id }}">{{ comp.company_name }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+
+    <button class="btn-secondary-action" id="btnRefreshLeaveData" title="Refresh Data">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <polyline points="1 20 1 14 7 14"></polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+      </svg>
+      Refresh
+    </button>
+  </div>
+</div>
+
+<!-- 4 KPI Summary Cards (Image 4) -->
+<div class="leave-kpi-grid">
+  <!-- Card 1: Pending Requests -->
+  <div class="leave-kpi-card">
+    <div class="leave-kpi-icon kpi-icon-amber">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+    </div>
+    <div>
+      <div class="leave-kpi-title">Pending Requests</div>
+      <div class="leave-kpi-val" id="kpiPendingCount">0</div>
+      <div class="leave-kpi-sub">Awaiting admin review</div>
+    </div>
+  </div>
+
+  <!-- Card 2: Approved Today -->
+  <div class="leave-kpi-card">
+    <div class="leave-kpi-icon kpi-icon-green">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+    </div>
+    <div>
+      <div class="leave-kpi-title">Approved Today</div>
+      <div class="leave-kpi-val" id="kpiApprovedCount">0</div>
+      <div class="leave-kpi-sub">Leaves &amp; permissions approved</div>
+    </div>
+  </div>
+
+  <!-- Card 3: Rejected -->
+  <div class="leave-kpi-card">
+    <div class="leave-kpi-icon kpi-icon-red">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="15" y1="9" x2="9" y2="15"></line>
+        <line x1="9" y1="9" x2="15" y2="15"></line>
+      </svg>
+    </div>
+    <div>
+      <div class="leave-kpi-title">Rejected Requests</div>
+      <div class="leave-kpi-val" id="kpiRejectedCount">0</div>
+      <div class="leave-kpi-sub">Total rejected requests</div>
+    </div>
+  </div>
+
+  <!-- Card 4: Employees with Low Balance -->
+  <div class="leave-kpi-card">
+    <div class="leave-kpi-icon kpi-icon-blue">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+    </div>
+    <div>
+      <div class="leave-kpi-title">Low Balance (&lt; 3)</div>
+      <div class="leave-kpi-val" id="kpiLowBalCount">0</div>
+      <div class="leave-kpi-sub">Employees near limit</div>
+    </div>
+  </div>
+</div>
+
+<!-- Company Leave Policy Card (Image 4) -->
+<div class="leave-policy-card">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+    <div>
+      <div style="font-size: 14px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>Annual Leave Policy &amp; Allocation</span>
+      </div>
+      <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">
+        Define default annual paid leaves and monthly/annual permission quotas for employees
+      </div>
+    </div>
+    <div>
+      <button class="btn-primary-action" id="btnSavePolicy" style="padding: 7px 18px; font-size: 12px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        Save Policy
+      </button>
+    </div>
+  </div>
+
+  <div id="policyAlert" style="display: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-top: 10px;"></div>
+
+  <form id="formLeavePolicy">
+    <div class="leave-policy-grid">
+      <!-- Casual Leave -->
+      <div class="leave-policy-item">
+        <div class="policy-icon-round" style="background-color: #e0f2fe; color: #0284c7;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </div>
+        <div style="flex: 1;">
+          <div style="font-size: 11.5px; font-weight: 700; color: #334155;">Casual Leave (CL)</div>
+          <div class="policy-input-row">
+            <input type="number" id="policyCL" min="0" max="60" value="12" class="policy-input-num" required>
+            <span style="font-size: 11.5px; color: #64748b; font-weight: 600;">Days / Year</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sick Leave -->
+      <div class="leave-policy-item">
+        <div class="policy-icon-round" style="background-color: #dcfce7; color: #16a34a;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+          </svg>
+        </div>
+        <div style="flex: 1;">
+          <div style="font-size: 11.5px; font-weight: 700; color: #334155;">Sick Leave (SL)</div>
+          <div class="policy-input-row">
+            <input type="number" id="policySL" min="0" max="60" value="12" class="policy-input-num" required>
+            <span style="font-size: 11.5px; color: #64748b; font-weight: 600;">Days / Year</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Earned Leave -->
+      <div class="leave-policy-item">
+        <div class="policy-icon-round" style="background-color: #fef3c7; color: #d97706;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+        </div>
+        <div style="flex: 1;">
+          <div style="font-size: 11.5px; font-weight: 700; color: #334155;">Earned Leave (EL)</div>
+          <div class="policy-input-row">
+            <input type="number" id="policyEL" min="0" max="60" value="12" class="policy-input-num" required>
+            <span style="font-size: 11.5px; color: #64748b; font-weight: 600;">Days / Year</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Permission Hours -->
+      <div class="leave-policy-item">
+        <div class="policy-icon-round" style="background-color: #f3e8ff; color: #9333ea;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <div style="flex: 1;">
+          <div style="font-size: 11.5px; font-weight: 700; color: #334155;">Permission Hours</div>
+          <div class="policy-input-row">
+            <input type="number" id="policyPermHours" min="0" max="100" value="16" class="policy-input-num" required>
+            <span style="font-size: 11.5px; color: #64748b; font-weight: 600;">Hours / Month</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Employee Leave Balances Table Card (Image 4) -->
+<div class="table-card" style="margin-bottom: 20px;">
+  <div class="table-toolbar">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      <div style="font-size: 13.5px; font-weight: 800; color: #0f172a;">Employee Leave Balances</div>
+    </div>
+
+    <div class="search-box-wrapper" style="max-width: 280px;">
+      <input type="text" id="searchBalancesInput" class="search-input" placeholder="Search employee name or ID...">
+    </div>
+  </div>
+
+  <div class="table-responsive" style="overflow-x: auto; max-height: 380px;">
+    <table class="table-custom" id="leaveBalancesTable" style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">EMP ID</th>
+          <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">EMPLOYEE NAME</th>
+          <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">CASUAL LEAVE (CL)</th>
+          <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">SICK LEAVE (SL)</th>
+          <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">EARNED LEAVE (EL)</th>
+          <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">PERMISSION HOURS</th>
+        </tr>
+      </thead>
+      <tbody id="leaveBalancesTbody">
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 24px; color: #64748b; font-size: 12.5px;">Loading employee balances...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Recent Leave & Permission Requests Table Card (Image 4) -->
+<div class="table-card">
+  <div class="table-toolbar">
+    <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 11 12 14 22 4"></polyline>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+        </svg>
+        <div style="font-size: 13.5px; font-weight: 800; color: #0f172a;">Recent Requests</div>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="tab-toggle-container" style="margin-bottom: 0;">
+        <button class="btn-toggle-tab active req-tab-filter" data-status="">All</button>
+        <button class="btn-toggle-tab req-tab-filter" data-status="Pending">Pending</button>
+        <button class="btn-toggle-tab req-tab-filter" data-status="Approved">Approved</button>
+        <button class="btn-toggle-tab req-tab-filter" data-status="Rejected">Rejected</button>
+      </div>
+    </div>
+
+    <div class="search-box-wrapper" style="max-width: 280px;">
+      <input type="text" id="searchRequestsInput" class="search-input" placeholder="Search requests...">
+    </div>
+  </div>
+
+  <div class="table-responsive" style="overflow-x: auto;">
+    <table class="table-custom" id="leaveRequestsTable" style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 60px;">SL NO</th>
+          <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 110px;">TYPE</th>
+          <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">EMPLOYEE</th>
+          <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">DATE / PERIOD</th>
+          <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">REASON</th>
+          <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 100px;">ATTACHMENT</th>
+          <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 100px;">STATUS</th>
+          <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 140px;">ACTIONS</th>
+        </tr>
+      </thead>
+      <tbody id="leaveRequestsTbody">
+        <tr>
+          <td colspan="8" style="text-align: center; padding: 24px; color: #64748b; font-size: 12.5px;">Loading requests...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal: Quick Reject Remark -->
+<div class="modal-overlay" id="modalQuickReject" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; border-radius: 10px; width: 92%; max-width: 440px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden;">
+    <div style="background-color: #dc2626; color: #ffffff; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;">
+      <span style="font-weight: 700; font-size: 14px;">Reject Request</span>
+      <button type="button" id="closeQuickRejectBtn" style="background: none; border: none; color: #ffffff; font-size: 20px; cursor: pointer;">&times;</button>
+    </div>
+    <div style="padding: 18px;">
+      <p style="font-size: 12.5px; color: #475569; margin-bottom: 12px;">Please provide an admin remark/reason for rejecting this request:</p>
+      <input type="hidden" id="quickRejectReqId" value="">
+      <textarea id="quickRejectRemark" rows="3" class="form-input-leave" placeholder="Enter reason for rejection..." style="width: 100%; box-sizing: border-box;"></textarea>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+        <button type="button" id="cancelQuickRejectBtn" class="btn-leave-cancel">Cancel</button>
+        <button type="button" id="confirmQuickRejectBtn" style="background-color: #dc2626; color: #ffffff; border: none; border-radius: 6px; padding: 8px 16px; font-weight: 700; font-size: 12px; cursor: pointer;">
+          Confirm Rejection
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/leave_permission.js') }}"></script>
+{% endblock %}

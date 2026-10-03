@@ -1,0 +1,379 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Review Header Bar with Breadcrumb (Image 5) -->
+<div class="review-header-bar">
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <a href="{{ url_for('leave_permission') }}" class="btn-secondary-action" style="padding: 6px 14px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      Back to List
+    </a>
+    <div>
+      <div style="font-size: 11px; color: #64748b; font-weight: 600;">Leave &amp; Permission &nbsp;&gt;&nbsp; <span style="color: #0284c7;">Request Review</span></div>
+      <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 2px;">Request Details: {{ req.request_id }}</div>
+    </div>
+  </div>
+
+  <div>
+    {% set st = (req.status or 'Pending')|lower %}
+    {% if st == 'approved' %}
+    <span class="badge-status-approved" style="font-size: 13px; padding: 6px 16px;">Approved</span>
+    {% elif st == 'rejected' %}
+    <span class="badge-status-rejected" style="font-size: 13px; padding: 6px 16px;">Rejected</span>
+    {% else %}
+    <span class="badge-status-pending" style="font-size: 13px; padding: 6px 16px;">Pending Review</span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Employee Header Card (Image 5) -->
+<div class="review-emp-card">
+  <div class="review-emp-avatar">
+    <span style="font-size: 24px; font-weight: 800;">
+      {{ (req.employee_name or employee.employee_name or 'E')[0]|upper }}
+    </span>
+  </div>
+
+  <div style="flex: 1;">
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #0f172a;">{{ req.employee_name or employee.employee_name }}</h2>
+      <span style="background: #e2e8f0; color: #334155; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">
+        ID: {{ req.employee_id or employee.emp_id or employee.employee_id }}
+      </span>
+    </div>
+
+    <div style="display: flex; gap: 18px; margin-top: 8px; font-size: 12px; color: #64748b; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 5px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+        </svg>
+        <span>Department: <strong>{{ employee.department or 'Operations' }}</strong></span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 5px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <span>Designation: <strong>{{ employee.designation or 'Staff' }}</strong></span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 5px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+        </svg>
+        <span>Contact: <strong>{{ employee.mobile_number or employee.contact_no or employee.email_id or 'N/A' }}</strong></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 2-Column Main Layout Grid (Image 5) -->
+<div class="review-layout-grid">
+  <!-- LEFT COLUMN: Request Information & Attachments -->
+  <div>
+    <!-- Request Info Card -->
+    <div class="review-info-card">
+      <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <span>Request Information</span>
+      </div>
+
+      <table class="review-info-table">
+        <tbody>
+          <tr>
+            <td>Request ID</td>
+            <td><strong>{{ req.request_id }}</strong></td>
+          </tr>
+          <tr>
+            <td>Request Type</td>
+            <td>
+              {% if req.request_type == 'Permission' %}
+              <span class="badge-type-perm">Permission</span>
+              {% else %}
+              <span class="badge-type-leave">{{ req.leave_type or 'Leave' }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% if req.request_type == 'Permission' %}
+          <tr>
+            <td>Permission Type</td>
+            <td><strong>{{ req.permission_type or 'Short Leave' }}</strong></td>
+          </tr>
+          <tr>
+            <td>Date</td>
+            <td><strong>{{ req.date }}</strong></td>
+          </tr>
+          <tr>
+            <td>Time Window</td>
+            <td><strong>{{ req.from_time }} &nbsp;to&nbsp; {{ req.to_time }}</strong></td>
+          </tr>
+          <tr>
+            <td>Duration</td>
+            <td><strong style="color: #0284c7;">{{ req.duration }} (HH:MM)</strong></td>
+          </tr>
+          {% else %}
+          <tr>
+            <td>Leave Category</td>
+            <td><strong>{{ req.leave_type }}</strong></td>
+          </tr>
+          <tr>
+            <td>Date Range</td>
+            <td><strong>{{ req.from_date }} &nbsp;to&nbsp; {{ req.to_date }}</strong></td>
+          </tr>
+          <tr>
+            <td>Session</td>
+            <td><strong>{{ req.session or 'Full Day' }}</strong></td>
+          </tr>
+          <tr>
+            <td>Total Days</td>
+            <td><strong style="color: #0284c7;">{{ req.days_count }} Day(s)</strong></td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td>Applied On</td>
+            <td><span style="color: #64748b;">{{ req.applied_on }}</span></td>
+          </tr>
+          <tr>
+            <td>Reason</td>
+            <td>
+              <div style="background-color: #f8fafc; border-left: 3px solid #0284c7; padding: 10px 14px; border-radius: 4px; font-size: 13px; color: #1e293b; line-height: 1.5;">
+                {{ req.reason }}
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Attachments Card -->
+    <div class="review-info-card">
+      <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+        </svg>
+        <span>Supporting Attachments</span>
+      </div>
+
+      {% if req.attachments and req.attachments|length > 0 %}
+        {% for att in req.attachments %}
+        <div class="review-attachment-card">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 38px; height: 38px; border-radius: 6px; background-color: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #0284c7;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+            </div>
+            <div>
+              <div style="font-size: 13px; font-weight: 700; color: #0f172a;">{{ att.filename }}</div>
+              <div style="font-size: 11px; color: #64748b;">Uploaded with request</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <a href="{{ att.file_url }}" target="_blank" class="btn-secondary-action" style="padding: 5px 12px; font-size: 11.5px; text-decoration: none;">
+              View File
+            </a>
+            <a href="{{ att.file_url }}" download="{{ att.filename }}" class="btn-primary-action" style="padding: 5px 12px; font-size: 11.5px; text-decoration: none;">
+              Download
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      {% elif req.attachment_url %}
+        <div class="review-attachment-card">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 38px; height: 38px; border-radius: 6px; background-color: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #0284c7;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+            </div>
+            <div>
+              <div style="font-size: 13px; font-weight: 700; color: #0f172a;">Document Attachment</div>
+              <div style="font-size: 11px; color: #64748b;">Uploaded with request</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <a href="{{ req.attachment_url }}" target="_blank" class="btn-secondary-action" style="padding: 5px 12px; font-size: 11.5px; text-decoration: none;">
+              View File
+            </a>
+            <a href="{{ req.attachment_url }}" download class="btn-primary-action" style="padding: 5px 12px; font-size: 11.5px; text-decoration: none;">
+              Download
+            </a>
+          </div>
+        </div>
+      {% else %}
+        <div style="padding: 16px; text-align: center; color: #94a3b8; font-size: 12.5px; background-color: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1;">
+          No supporting document was attached with this request.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN: Leave Balance Summary & Admin Action Card -->
+  <div>
+    <!-- Leave Balance Summary Card (Image 5) -->
+    <div class="review-info-card">
+      <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 6v6l4 2"></path>
+        </svg>
+        <span>Leave Balance Summary</span>
+      </div>
+
+      <div class="review-bal-row">
+        <span style="font-weight: 600; color: #334155;">Casual Leave (CL)</span>
+        <span class="review-bal-pill review-bal-blue">
+          {{ balance.casual_leave_available or 0 }} / {{ balance.casual_leave_total or 12 }} Days
+        </span>
+      </div>
+
+      <div class="review-bal-row">
+        <span style="font-weight: 600; color: #334155;">Sick Leave (SL)</span>
+        <span class="review-bal-pill review-bal-green">
+          {{ balance.sick_leave_available or 0 }} / {{ balance.sick_leave_total or 12 }} Days
+        </span>
+      </div>
+
+      <div class="review-bal-row">
+        <span style="font-weight: 600; color: #334155;">Earned Leave (EL)</span>
+        <span class="review-bal-pill review-bal-blue">
+          {{ balance.earned_leave_available or 0 }} / {{ balance.earned_leave_total or 12 }} Days
+        </span>
+      </div>
+
+      <div class="review-bal-row" style="border-bottom: none;">
+        <span style="font-weight: 600; color: #334155;">Permission Hours</span>
+        <span class="review-bal-pill review-bal-gray" style="background-color: #f3e8ff; color: #7e22ce;">
+          {{ balance.permission_hours_available or 16 }} / {{ balance.permission_hours_total or 16 }} Hrs
+        </span>
+      </div>
+    </div>
+
+    <!-- Admin Action Card (Image 5) -->
+    <div class="review-info-card">
+      <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        <span>Admin Review &amp; Action</span>
+      </div>
+
+      <div id="reviewAlert" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; margin-bottom: 14px;"></div>
+
+      {% if req.reviewed_by or req.reviewed_at %}
+      <div style="background-color: #f1f5f9; padding: 10px 14px; border-radius: 6px; font-size: 12px; color: #475569; margin-bottom: 14px;">
+        Last updated by <strong>{{ req.reviewed_by or 'Admin' }}</strong> on <strong>{{ req.reviewed_at }}</strong>
+      </div>
+      {% endif %}
+
+      <div style="margin-bottom: 16px;">
+        <label class="form-label-leave">Admin Remark / Feedback</label>
+        <textarea id="reviewAdminRemark" class="form-input-leave" rows="3" placeholder="Enter comments, conditions, or rejection reason...">{{ req.admin_remark or '' }}</textarea>
+      </div>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" id="btnReviewApprove" class="btn-primary-action" style="flex: 1; justify-content: center; background-color: #16a34a; border-color: #16a34a;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Approve Request
+        </button>
+
+        <button type="button" id="btnReviewReject" class="btn-secondary-action" style="flex: 1; justify-content: center; background-color: #dc2626; color: #ffffff; border-color: #dc2626;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          Reject Request
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const reqId = "{{ req.request_id }}";
+  const btnApprove = document.getElementById('btnReviewApprove');
+  const btnReject = document.getElementById('btnReviewReject');
+  const adminRemark = document.getElementById('reviewAdminRemark');
+  const alertEl = document.getElementById('reviewAlert');
+
+  function showAlert(msg, type) {
+    if (!alertEl) return;
+    alertEl.style.display = 'block';
+    if (type === 'success') {
+      alertEl.style.backgroundColor = '#ecfdf5';
+      alertEl.style.color = '#065f46';
+      alertEl.style.border = '1px solid #a7f3d0';
+    } else {
+      alertEl.style.backgroundColor = '#fef2f2';
+      alertEl.style.color = '#991b1b';
+      alertEl.style.border = '1px solid #fecaca';
+    }
+    alertEl.textContent = msg;
+  }
+
+  async function handleAction(action) {
+    if (action === 'Reject' && (!adminRemark.value || !adminRemark.value.trim())) {
+      if (!confirm('Are you sure you want to reject without an admin remark?')) {
+        adminRemark.focus();
+        return;
+      }
+    }
+
+    if (btnApprove) btnApprove.disabled = true;
+    if (btnReject) btnReject.disabled = true;
+
+    try {
+      const res = await fetch(`/api/admin/leave-permission/requests/${reqId}/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: action,
+          admin_remark: adminRemark ? adminRemark.value.trim() : ''
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showAlert(data.message || `Request ${action}d successfully!`, 'success');
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      } else {
+        showAlert(data.error || 'Failed to update request status.', 'error');
+        if (btnApprove) btnApprove.disabled = false;
+        if (btnReject) btnReject.disabled = false;
+      }
+    } catch (err) {
+      console.error(err);
+      showAlert('An unexpected error occurred.', 'error');
+      if (btnApprove) btnApprove.disabled = false;
+      if (btnReject) btnReject.disabled = false;
+    }
+  }
+
+  if (btnApprove) {
+    btnApprove.addEventListener('click', () => handleAction('Approve'));
+  }
+  if (btnReject) {
+    btnReject.addEventListener('click', () => handleAction('Reject'));
+  }
+});
+</script>
+{% endblock %}

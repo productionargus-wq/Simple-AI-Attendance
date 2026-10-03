@@ -1,4 +1,5 @@
 import os
+import time
 import re
 import io
 import csv
@@ -15,7 +16,7 @@ from PIL import Image, ImageOps
 
 load_dotenv()
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file, send_from_directory, Response, session, make_response
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file, send_from_directory, Response, session, make_response, flash
 from functools import wraps
 from flask_cors import CORS
 import database
@@ -571,6 +572,30 @@ def manage_companies():
 def company_profile():
     role = session.get('role', 'company_admin')
     return render_template('company_profile.html', active_tab='COMPANY PROFILE', role=role)
+
+@app.route('/leave-permission')
+@login_required
+def leave_permission():
+    comp_id = get_current_company_id()
+    policy = database.get_company_leave_policy(comp_id)
+    stats = database.get_admin_leave_stats(company_id=comp_id)
+    companies = []
+    if session.get('role') == 'super_admin':
+        companies = database.get_all_companies()
+    return render_template('leave_permission.html', active_tab='LEAVE & PERMISSION', policy=policy, stats=stats, companies=companies)
+
+@app.route('/leave-permission/review/<request_id>')
+@login_required
+def leave_permission_review(request_id):
+    req = database.get_leave_request_by_id(request_id)
+    if not req:
+        flash('Leave request not found', 'danger')
+        return redirect(url_for('leave_permission'))
+    emp_id = req.get('employee_id')
+    comp_id = req.get('company_id')
+    emp = database.get_employee_by_id(emp_id)
+    bal = database.get_employee_leave_balance(emp_id, company_id=comp_id)
+    return render_template('leave_review.html', active_tab='LEAVE & PERMISSION', req=req, employee=emp or {}, balance=bal or {})
 
 @app.route('/employee/portal')
 @employee_required
@@ -1235,6 +1260,238 @@ def api_employee_set_credentials():
             'message': 'Your password has been saved successfully! You can now sign in using your email and password.'
         })
     return jsonify({'success': False, 'error': 'Failed to save password. Please try again.'}), 500
+
+# ----------------- LEAVE & PERMISSION API ROUTES ----------------- #
+
+LEAVES_FOLDER = os.path.join(app.config['UPLOAD_FOLDER'], 'leaves')
+try:
+    os.makedirs(LEAVES_FOLDER, exist_ok=True)
+except Exception:
+    pass
+
+@app.route('/uploads/leaves/<path:filename>')
+def serve_leave_attachment(filename):
+    return send_from_directory(LEAVES_FOLDER, filename)
+
+@app.route('/api/employee/leave-balance', methods=['GET'])
+@employee_required
+def api_employee_leave_balance():
+    emp_id = session.get('employee_id')
+    comp_id = session.get('company_id')
+    bal = database.get_employee_leave_balance(emp_id, company_id=comp_id)
+    return jsonify({'success': True, 'balance': bal, 'balances': bal})
+
+@app.route('/api/employee/leave-requests', methods=['GET'])
+@employee_required
+def api_employee_leave_requests():
+    emp_id = session.get('employee_id')
+    limit = int(request.args.get('limit', 20))
+    page = int(request.args.get('page', 1))
+    status = request.args.get('status', 'ALL')
+    res = database.get_leave_requests(employee_id=emp_id, status=status, limit=limit, page=page)
+    return jsonify({'success': True, 'requests': res['requests'], 'total': res['total']})
+
+@app.route('/api/employee/leave-requests/apply', methods=['POST'])
+@employee_required
+def api_employee_apply_leave():
+    emp_id = session.get('employee_id')
+    emp = database.get_employee_by_id(emp_id)
+    if not emp:
+        return jsonify({'success': False, 'error': 'Employee profile not found'}), 404
+
+    data = request.form.to_dict()
+    leave_type = data.get('leave_type', '').strip()
+    from_date = data.get('from_date', '').strip()
+    to_date = data.get('to_date', '').strip() or from_date
+    session_type = data.get('session', 'Full Day').strip()
+    reason = data.get('reason', '').strip()
+
+    if not leave_type or not from_date or not reason:
+        return jsonify({'success': False, 'error': 'Please fill in all required fields (Leave Type, Dates, Reason).'}), 400
+
+    attachments = []
+    if 'attachment' in request.files:
+        file = request.files['attachment']
+        if file and file.filename:
+            fname = werkzeug.utils.secure_filename(file.filename) or 'leave_doc'
+            base_name, ext = os.path.splitext(fname)
+            unique_fname = f"{base_name}_{int(time.time())}{ext}"
+            os.makedirs(LEAVES_FOLDER, exist_ok=True)
+            dest_path = os.path.join(LEAVES_FOLDER, unique_fname)
+            file.save(dest_path)
+            size_kb = round(os.path.getsize(dest_path) / 1024, 1)
+            attachments.append({
+                'filename': unique_fname,
+                'original_name': fname,
+                'file_url': f"/uploads/leaves/{unique_fname}",
+                'size_str': f"{size_kb} KB",
+                'mime_type': file.mimetype or 'application/octet-stream',
+                'uploaded_at': database.get_ist_now().strftime('%d %b %Y %I:%M %p')
+            })
+
+    req_doc = {
+        'company_id': emp.get('company_id') or session.get('company_id'),
+        'employee_id': emp_id,
+        'employee_code': emp.get('employee_id') or emp.get('emp_id') or str(emp_id),
+        'employee_name': emp.get('employee_name', ''),
+        'department': emp.get('department', 'General'),
+        'designation': emp.get('designation', ''),
+        'mobile_number': emp.get('mobile_number', ''),
+        'leave_type': leave_type,
+        'from_date': from_date,
+        'to_date': to_date,
+        'session': session_type,
+        'reason': reason,
+        'attachments': attachments
+    }
+    new_req = database.submit_leave_request(req_doc)
+    return jsonify({
+        'success': True,
+        'message': 'Your leave request has been submitted successfully!',
+        'request': new_req
+    })
+
+@app.route('/api/employee/permission-requests/apply', methods=['POST'])
+@employee_required
+def api_employee_apply_permission():
+    emp_id = session.get('employee_id')
+    emp = database.get_employee_by_id(emp_id)
+    if not emp:
+        return jsonify({'success': False, 'error': 'Employee profile not found'}), 404
+
+    data = request.form.to_dict()
+    perm_type = data.get('permission_type', 'Short Leave').strip()
+    perm_date = data.get('date', '').strip()
+    from_time = data.get('from_time', '').strip()
+    to_time = data.get('to_time', '').strip()
+    duration = data.get('duration', '02:00').strip()
+    reason = data.get('reason', '').strip()
+
+    if not perm_type or not perm_date or not from_time or not to_time:
+        return jsonify({'success': False, 'error': 'Please fill in all required fields (Permission Type, Date, Times).'}), 400
+
+    attachments = []
+    if 'attachment' in request.files:
+        file = request.files['attachment']
+        if file and file.filename:
+            fname = werkzeug.utils.secure_filename(file.filename) or 'perm_doc'
+            base_name, ext = os.path.splitext(fname)
+            unique_fname = f"{base_name}_{int(time.time())}{ext}"
+            os.makedirs(LEAVES_FOLDER, exist_ok=True)
+            dest_path = os.path.join(LEAVES_FOLDER, unique_fname)
+            file.save(dest_path)
+            size_kb = round(os.path.getsize(dest_path) / 1024, 1)
+            attachments.append({
+                'filename': unique_fname,
+                'original_name': fname,
+                'file_url': f"/uploads/leaves/{unique_fname}",
+                'size_str': f"{size_kb} KB",
+                'mime_type': file.mimetype or 'application/octet-stream',
+                'uploaded_at': database.get_ist_now().strftime('%d %b %Y %I:%M %p')
+            })
+
+    req_doc = {
+        'company_id': emp.get('company_id') or session.get('company_id'),
+        'employee_id': emp_id,
+        'employee_code': emp.get('employee_id') or emp.get('emp_id') or str(emp_id),
+        'employee_name': emp.get('employee_name', ''),
+        'department': emp.get('department', 'General'),
+        'designation': emp.get('designation', ''),
+        'mobile_number': emp.get('mobile_number', ''),
+        'permission_type': perm_type,
+        'date': perm_date,
+        'from_time': from_time,
+        'to_time': to_time,
+        'duration': duration,
+        'reason': reason,
+        'attachments': attachments
+    }
+    new_req = database.submit_permission_request(req_doc)
+    return jsonify({
+        'success': True,
+        'message': 'Your permission request has been submitted successfully!',
+        'request': new_req
+    })
+
+@app.route('/api/admin/leave-permission/stats', methods=['GET'])
+@login_required
+def api_admin_leave_stats():
+    comp_id = get_current_company_id()
+    stats = database.get_admin_leave_stats(company_id=comp_id)
+    return jsonify({'success': True, 'stats': stats})
+
+@app.route('/api/admin/leave-permission/policy', methods=['GET', 'POST'])
+@login_required
+def api_admin_leave_policy():
+    comp_id = get_current_company_id()
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or request.form.to_dict()
+        saved = database.save_company_leave_policy(comp_id, data)
+        return jsonify({
+            'success': saved,
+            'message': 'Leave policy saved successfully!',
+            'policy': database.get_company_leave_policy(comp_id)
+        })
+    pol = database.get_company_leave_policy(comp_id)
+    return jsonify({'success': True, 'policy': pol})
+
+@app.route('/api/admin/leave-permission/balances', methods=['GET'])
+@login_required
+def api_admin_leave_balances():
+    comp_id = get_current_company_id()
+    search = request.args.get('search', '').strip()
+    bals = database.get_all_employees_leave_balances(company_id=comp_id, search=search)
+    return jsonify({'success': True, 'balances': bals})
+
+@app.route('/api/admin/leave-permission/requests', methods=['GET'])
+@login_required
+def api_admin_leave_requests():
+    comp_id = get_current_company_id()
+    status = request.args.get('status', 'ALL')
+    limit = int(request.args.get('limit', 50))
+    page = int(request.args.get('page', 1))
+    emp_id = request.args.get('employee_id', None)
+    res = database.get_leave_requests(company_id=comp_id, employee_id=emp_id, status=status, limit=limit, page=page)
+    return jsonify({
+        'success': True,
+        'requests': res['requests'],
+        'total': res['total'],
+        'page': res['page'],
+        'limit': res['limit']
+    })
+
+@app.route('/api/admin/leave-permission/requests/<request_id>', methods=['GET'])
+@login_required
+def api_admin_leave_request_detail(request_id):
+    req = database.get_leave_request_by_id(request_id)
+    if not req:
+        return jsonify({'success': False, 'error': 'Leave request not found'}), 404
+    emp_id = req.get('employee_id')
+    comp_id = req.get('company_id')
+    emp = database.get_employee_by_id(emp_id)
+    bal = database.get_employee_leave_balance(emp_id, company_id=comp_id)
+    return jsonify({
+        'success': True,
+        'request': req,
+        'employee': emp or {},
+        'balance': bal or {}
+    })
+
+@app.route('/api/admin/leave-permission/requests/<request_id>/action', methods=['POST'])
+@login_required
+def api_admin_leave_request_action(request_id):
+    data = request.get_json(silent=True) or request.form.to_dict()
+    action = str(data.get('action') or data.get('status') or '').strip()
+    if action.lower() in ['approve', 'approved']:
+        action = 'Approved'
+    elif action.lower() in ['reject', 'rejected']:
+        action = 'Rejected'
+    else:
+        return jsonify({'success': False, 'error': "Action must be 'Approved' or 'Rejected'"}), 400
+    remark = data.get('admin_remark', '').strip()
+    reviewer = session.get('user') or 'Administrator'
+    res = database.update_leave_request_status(request_id, action, admin_remark=remark, reviewer=reviewer)
+    return jsonify(res)
 
 # ----------------- EMPLOYEE MANAGEMENT API ROUTES ----------------- #
 

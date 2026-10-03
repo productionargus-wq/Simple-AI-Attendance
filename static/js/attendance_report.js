@@ -187,6 +187,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     const txt = String(statusText).trim();
     const lower = txt.toLowerCase();
+    if (lower.includes('leave')) {
+      return `<span class="table-badge badge-leave">${escapeHtml(txt)}</span>`;
+    }
     let badgeClass = 'status-pill status-active';
     if (lower.includes('late')) {
       badgeClass = 'status-pill status-inactive';
@@ -217,8 +220,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     rows.forEach(r => {
       const tr = document.createElement('tr');
-      const entryStatusVal = (r.is_manual || r.source === 'manual') ? '-' : (r.entry_status || '-');
-      const exitStatusVal = (r.is_manual || r.source === 'manual') ? '-' : (r.exit_status || '-');
+      const isLeave = (r.is_leave || r.entry_distance === 'LEAVE' || r.entry_status === 'Leave');
+      const entryStatusVal = isLeave ? 'Leave' : ((r.is_manual || r.source === 'manual') ? '-' : (r.entry_status || '-'));
+      const exitStatusVal = isLeave ? 'Leave' : ((r.is_manual || r.source === 'manual') ? '-' : (r.exit_status || '-'));
       const isManual = (r.is_manual || r.entry_type === 'manual' || r.source === 'manual') ? true : false;
       const actionHtml = (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? `
         <td style="text-align: center; white-space: nowrap;">
@@ -226,12 +230,25 @@ document.addEventListener('DOMContentLoaded', function () {
         </td>
       ` : '';
 
+      const entryLocIcon = isLeave ? '<span style="color: #7e22ce; margin-right: 3px;">📝</span>' : (r.entry_location && r.entry_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : '');
+      const exitLocIcon = isLeave ? '<span style="color: #7e22ce; margin-right: 3px;">📅</span>' : (r.exit_location && r.exit_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : '');
+
       tr.innerHTML = `
         <td style="white-space: nowrap;"><strong>${escapeHtml(r.employee_name)}</strong></td>
         <td style="white-space: nowrap;">${escapeHtml(r.entry_time || '')}</td>
-        <td class="col-nowrap" data-col="entry_distance" title="${escapeHtml(r.entry_location || '')}" style="white-space: nowrap !important; min-width: 130px;">${escapeHtml(r.entry_distance || '')}</td>
+        <td class="col-nowrap" data-col="entry_distance" title="${escapeHtml(r.entry_location || '')}" style="white-space: nowrap !important; min-width: 130px;">
+          ${isLeave ? '<span class="table-badge badge-leave">LEAVE</span>' : escapeHtml(r.entry_distance || '')}
+        </td>
         <td class="col-location" data-col="entry_location" title="${escapeHtml(r.entry_location || '')}" style="min-width: 220px; max-width: 320px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">
-          ${r.entry_location && r.entry_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${escapeHtml(r.entry_location || '')}
+          ${entryLocIcon}${escapeHtml(r.entry_location || '')}
+        </td>
+        <td class="col-nowrap" data-col="entry_status" style="text-align: center; white-space: nowrap !important; min-width: 120px;">${renderStatusBadge(entryStatusVal)}</td>
+        <td style="white-space: nowrap;">${escapeHtml(r.exit_time || '')}</td>
+        <td class="col-nowrap" data-col="exit_distance" title="${escapeHtml(r.exit_location || '')}" style="white-space: nowrap !important; min-width: 130px;">
+          ${isLeave ? '<span class="table-badge badge-leave">LEAVE</span>' : escapeHtml(r.exit_distance || '')}
+        </td>
+        <td class="col-location" data-col="exit_location" title="${escapeHtml(r.exit_location || '')}" style="min-width: 220px; max-width: 320px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">
+          ${exitLocIcon}${escapeHtml(r.exit_location || '')}
         </td>
         <td class="col-nowrap" data-col="entry_status" style="text-align: center; white-space: nowrap !important; min-width: 120px;">${renderStatusBadge(entryStatusVal)}</td>
         <td style="white-space: nowrap;">${escapeHtml(r.exit_time || '')}</td>
