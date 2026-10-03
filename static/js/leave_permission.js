@@ -181,13 +181,22 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     balancesTbody.innerHTML = filtered.map(b => {
-      const clAvail = b.casual_leave_available ?? 0;
+      const formatVal = (v, defaultVal) => {
+        if (v === undefined || v === null || v === '') return defaultVal;
+        const n = Number(v);
+        return isNaN(n) ? v : (Number.isInteger(n) ? n : n.toFixed(1));
+      };
+
+      const clAvail = formatVal(b.casual_leave_available !== undefined ? b.casual_leave_available : b.casual_leave_avail, 12);
       const clTot = b.casual_leave_total || 12;
-      const slAvail = b.sick_leave_available ?? 0;
+
+      const slAvail = formatVal(b.sick_leave_available !== undefined ? b.sick_leave_available : b.sick_leave_avail, 12);
       const slTot = b.sick_leave_total || 12;
-      const elAvail = b.earned_leave_available ?? 0;
-      const elTot = b.earned_leave_total || 12;
-      const permAvail = b.permission_hours_available ?? 16;
+
+      const elAvail = formatVal(b.earned_leave_available !== undefined ? b.earned_leave_available : b.earned_leave_avail, 18);
+      const elTot = b.earned_leave_total || 18;
+
+      const permAvail = formatVal(b.permission_hours_available !== undefined ? b.permission_hours_available : b.permission_hours_avail, 16);
       const permTot = b.permission_hours_total || 16;
 
       return `

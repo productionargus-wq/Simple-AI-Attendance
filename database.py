@@ -4178,18 +4178,27 @@ def get_employee_leave_balance(emp_id, company_id=None, year=None):
     el = bal.get('earned_leave', {})
     ph = bal.get('permission_hours', {})
 
-    bal['casual_leave_available'] = cl.get('available', 0)
-    bal['casual_leave_total'] = cl.get('total', 12)
-    bal['casual_leave_used'] = cl.get('used', 0)
-    bal['sick_leave_available'] = sl.get('available', 0)
-    bal['sick_leave_total'] = sl.get('total', 12)
-    bal['sick_leave_used'] = sl.get('used', 0)
-    bal['earned_leave_available'] = el.get('available', 0)
-    bal['earned_leave_total'] = el.get('total', 18)
-    bal['earned_leave_used'] = el.get('used', 0)
-    bal['permission_hours_available'] = ph.get('available', 16.0)
-    bal['permission_hours_total'] = ph.get('total', 16.0)
-    bal['permission_hours_used'] = ph.get('used', 0.0)
+    def _fmt_val(v):
+        if isinstance(v, float) and v.is_integer():
+            return int(v)
+        return v
+
+    bal['casual_leave_available'] = _fmt_val(cl.get('available', 0))
+    bal['casual_leave_avail'] = bal['casual_leave_available']
+    bal['casual_leave_total'] = _fmt_val(cl.get('total', 12))
+    bal['casual_leave_used'] = _fmt_val(cl.get('used', 0))
+    bal['sick_leave_available'] = _fmt_val(sl.get('available', 0))
+    bal['sick_leave_avail'] = bal['sick_leave_available']
+    bal['sick_leave_total'] = _fmt_val(sl.get('total', 12))
+    bal['sick_leave_used'] = _fmt_val(sl.get('used', 0))
+    bal['earned_leave_available'] = _fmt_val(el.get('available', 0))
+    bal['earned_leave_avail'] = bal['earned_leave_available']
+    bal['earned_leave_total'] = _fmt_val(el.get('total', 18))
+    bal['earned_leave_used'] = _fmt_val(el.get('used', 0))
+    bal['permission_hours_available'] = _fmt_val(ph.get('available', 16.0))
+    bal['permission_hours_avail'] = bal['permission_hours_available']
+    bal['permission_hours_total'] = _fmt_val(ph.get('total', 16.0))
+    bal['permission_hours_used'] = _fmt_val(ph.get('used', 0.0))
     return bal
 
 def get_all_employees_leave_balances(company_id=None, year=None, search=None):
@@ -4226,6 +4235,28 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None):
         el = bal.get('earned_leave', {})
         perm = bal.get('permission_hours', {})
 
+        cl_avail = cl.get('available', 0)
+        if isinstance(cl_avail, float) and cl_avail.is_integer():
+            cl_avail = int(cl_avail)
+        cl_tot = cl.get('total', 12)
+
+        sl_avail = sl.get('available', 0)
+        if isinstance(sl_avail, float) and sl_avail.is_integer():
+            sl_avail = int(sl_avail)
+        sl_tot = sl.get('total', 12)
+
+        el_avail = el.get('available', 0)
+        if isinstance(el_avail, float) and el_avail.is_integer():
+            el_avail = int(el_avail)
+        el_tot = el.get('total', 18)
+
+        ph_avail = perm.get('available', 16.0)
+        if isinstance(ph_avail, float) and ph_avail.is_integer():
+            ph_avail = int(ph_avail)
+        ph_tot = perm.get('total', 16.0)
+        if isinstance(ph_tot, float) and ph_tot.is_integer():
+            ph_tot = int(ph_tot)
+
         results.append({
             'sl_no': len(results) + 1,
             'id': emp_id,
@@ -4235,18 +4266,26 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None):
             'designation': emp.get('designation', ''),
             'mobile_number': emp.get('mobile_number', ''),
             'company_id': emp.get('company_id', ''),
-            'casual_leave': f"{cl.get('available', 0)} / {cl.get('total', 12)}",
-            'casual_leave_avail': cl.get('available', 0),
-            'casual_leave_total': cl.get('total', 12),
-            'sick_leave': f"{sl.get('available', 0)} / {sl.get('total', 12)}",
-            'sick_leave_avail': sl.get('available', 0),
-            'sick_leave_total': sl.get('total', 12),
-            'earned_leave': f"{el.get('available', 0)} / {el.get('total', 18)}",
-            'earned_leave_avail': el.get('available', 0),
-            'earned_leave_total': el.get('total', 18),
-            'permission_hours': f"{int(perm.get('available', 0))} / {int(perm.get('total', 16))}",
-            'permission_hours_avail': perm.get('available', 0.0),
-            'permission_hours_total': perm.get('total', 16.0),
+            'casual_leave': f"{cl_avail} / {cl_tot} Days",
+            'casual_leave_avail': cl_avail,
+            'casual_leave_available': cl_avail,
+            'casual_leave_total': cl_tot,
+            'casual_leave_used': cl.get('used', 0),
+            'sick_leave': f"{sl_avail} / {sl_tot} Days",
+            'sick_leave_avail': sl_avail,
+            'sick_leave_available': sl_avail,
+            'sick_leave_total': sl_tot,
+            'sick_leave_used': sl.get('used', 0),
+            'earned_leave': f"{el_avail} / {el_tot} Days",
+            'earned_leave_avail': el_avail,
+            'earned_leave_available': el_avail,
+            'earned_leave_total': el_tot,
+            'earned_leave_used': el.get('used', 0),
+            'permission_hours': f"{ph_avail} / {ph_tot} Hrs",
+            'permission_hours_avail': ph_avail,
+            'permission_hours_available': ph_avail,
+            'permission_hours_total': ph_tot,
+            'permission_hours_used': perm.get('used', 0.0),
             'is_low_balance': (cl.get('available', 0) < 2 or sl.get('available', 0) < 2 or el.get('available', 0) < 2)
         })
 
