@@ -701,8 +701,8 @@
               </div>
             </div>
 
-            <!-- Session: Full Day / Half Day Radio Buttons -->
-            <div style="margin-bottom: 14px;">
+            <!-- Session: Full Day / Half Day Radio Buttons (Day-based / Half-day-based employees) -->
+            <div id="leaveSessionDayBased" style="margin-bottom: 14px;">
               <label class="form-label-leave">Session <span style="color: #dc2626;">*</span></label>
               <div class="session-radio-group">
                 <label class="session-radio-label active" id="labelFullDay">
@@ -713,6 +713,24 @@
                   <input type="radio" name="session" value="Half Day" style="accent-color: #0284c7;">
                   <span>Half Day</span>
                 </label>
+              </div>
+            </div>
+
+            <!-- Hourly Leave Fields (Hourly-based employees) -->
+            <div id="leaveSessionHourlyBased" style="display: none; margin-bottom: 14px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                <div>
+                  <label class="form-label-leave">From Time <span style="color: #dc2626;">*</span></label>
+                  <input type="time" class="form-input-leave" id="leaveFromTime" name="leave_from_time" value="09:00">
+                </div>
+                <div>
+                  <label class="form-label-leave">To Time <span style="color: #dc2626;">*</span></label>
+                  <input type="time" class="form-input-leave" id="leaveToTime" name="leave_to_time" value="18:00">
+                </div>
+              </div>
+              <div>
+                <label class="form-label-leave">Duration</label>
+                <input type="text" class="form-input-readonly" id="leaveDuration" name="leave_duration" value="09:00 (HH:MM)" readonly>
               </div>
             </div>
 
@@ -1344,6 +1362,23 @@
     const labelFullDay = document.getElementById('labelFullDay');
     const labelHalfDay = document.getElementById('labelHalfDay');
 
+    // Salary type detection for dynamic modal fields
+    const employeeSalaryType = '{{ (employee.salary_type or "hourly") | lower }}';
+    const leaveSessionDayBased = document.getElementById('leaveSessionDayBased');
+    const leaveSessionHourlyBased = document.getElementById('leaveSessionHourlyBased');
+    const leaveFromTime = document.getElementById('leaveFromTime');
+    const leaveToTime = document.getElementById('leaveToTime');
+    const leaveDuration = document.getElementById('leaveDuration');
+
+    // Toggle Leave modal fields based on salary type
+    if (employeeSalaryType === 'hourly') {
+      if (leaveSessionDayBased) leaveSessionDayBased.style.display = 'none';
+      if (leaveSessionHourlyBased) leaveSessionHourlyBased.style.display = 'block';
+    } else {
+      if (leaveSessionDayBased) leaveSessionDayBased.style.display = 'block';
+      if (leaveSessionHourlyBased) leaveSessionHourlyBased.style.display = 'none';
+    }
+
     // Set today's date as default
     const todayStr = new Date().toISOString().split('T')[0];
     if (leaveFromDate) leaveFromDate.value = todayStr;
@@ -1364,6 +1399,27 @@
           }
         });
       });
+    }
+
+    // Leave duration calculation for hourly employees (HH:MM)
+    function calcLeaveDuration() {
+      if (!leaveFromTime || !leaveToTime || !leaveDuration) return;
+      const start = leaveFromTime.value;
+      const end = leaveToTime.value;
+      if (!start || !end) return;
+      const [sh, sm] = start.split(':').map(Number);
+      const [eh, em] = end.split(':').map(Number);
+      let diffMins = (eh * 60 + em) - (sh * 60 + sm);
+      if (diffMins < 0) diffMins += 24 * 60;
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      leaveDuration.value = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} (HH:MM)`;
+    }
+
+    if (leaveFromTime && leaveToTime) {
+      leaveFromTime.addEventListener('change', calcLeaveDuration);
+      leaveToTime.addEventListener('change', calcLeaveDuration);
+      calcLeaveDuration();
     }
 
     // Character counters for reason textareas
@@ -1598,6 +1654,8 @@
           let units = '-';
           if (r.request_type === 'Permission') {
             units = `${r.duration || '01:00'} Hrs`;
+          } else if (r.session === 'Hourly') {
+            units = `${r.leave_duration || r.duration_hours || '0'} Hrs`;
           } else {
             units = `${r.days_count || 1} Day${(r.days_count && r.days_count > 1) ? 's' : ''}`;
           }
@@ -1638,6 +1696,21 @@
         if (submitBtn) submitBtn.disabled = true;
 
         const formData = new FormData(formApplyLeave);
+        // For hourly employees, inject session type and duration
+        if (employeeSalaryType === 'hourly') {
+          formData.set('session', 'Hourly');
+          if (leaveFromTime) formData.set('leave_from_time', leaveFromTime.value);
+          if (leaveToTime) formData.set('leave_to_time', leaveToTime.value);
+          if (leaveDuration) formData.set('leave_duration', leaveDuration.value);
+          // Calculate hours for backend
+          const fromVal = leaveFromTime ? leaveFromTime.value : '09:00';
+          const toVal = leaveToTime ? leaveToTime.value : '18:00';
+          const [fh, fm] = fromVal.split(':').map(Number);
+          const [th, tm] = toVal.split(':').map(Number);
+          let durMins = (th * 60 + tm) - (fh * 60 + fm);
+          if (durMins < 0) durMins += 24 * 60;
+          formData.set('duration_hours', (durMins / 60).toFixed(2));
+        }
         try {
           const res = await fetch('/api/employee/leave-requests/apply', {
             method: 'POST',

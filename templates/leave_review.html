@@ -135,10 +135,21 @@
             <td>Session</td>
             <td><strong>{{ req.session or 'Full Day' }}</strong></td>
           </tr>
+          {% if req.session == 'Hourly' %}
+          <tr>
+            <td>Time Window</td>
+            <td><strong>{{ req.leave_from_time or '09:00' }} &nbsp;to&nbsp; {{ req.leave_to_time or '18:00' }}</strong></td>
+          </tr>
+          <tr>
+            <td>Duration</td>
+            <td><strong style="color: #0284c7;">{{ req.leave_duration or req.duration_hours or '0' }} Hrs</strong></td>
+          </tr>
+          {% else %}
           <tr>
             <td>Total Days</td>
             <td><strong style="color: #0284c7;">{{ req.days_count }} Day(s)</strong></td>
           </tr>
+          {% endif %}
           {% endif %}
           <tr>
             <td>Applied On</td>

@@ -298,8 +298,13 @@ document.addEventListener('DOMContentLoaded', function () {
       } else {
         const fromDate = r.from_date || '-';
         const toDate = r.to_date || fromDate;
-        const count = `${r.days_count || 1} Day${(r.days_count && r.days_count > 1) ? 's' : ''}`;
-        datePeriod = `<strong>${escapeHtml(fromDate)}</strong>${toDate !== fromDate ? ' to <strong>' + escapeHtml(toDate) + '</strong>' : ''}<br><span style="font-size: 11px; color: #0284c7; font-weight: 700;">${count} (${escapeHtml(r.session || 'Full Day')})</span>`;
+        if (r.session === 'Hourly') {
+          const durLabel = r.leave_duration || (r.duration_hours ? r.duration_hours + ' Hrs' : '-');
+          datePeriod = `<strong>${escapeHtml(fromDate)}</strong>${toDate !== fromDate ? ' to <strong>' + escapeHtml(toDate) + '</strong>' : ''}<br><span style="font-size: 11px; color: #0284c7; font-weight: 700;">${escapeHtml(durLabel)} (Hourly)</span>`;
+        } else {
+          const count = `${r.days_count || 1} Day${(r.days_count && r.days_count > 1) ? 's' : ''}`;
+          datePeriod = `<strong>${escapeHtml(fromDate)}</strong>${toDate !== fromDate ? ' to <strong>' + escapeHtml(toDate) + '</strong>' : ''}<br><span style="font-size: 11px; color: #0284c7; font-weight: 700;">${count} (${escapeHtml(r.session || 'Full Day')})</span>`;
+        }
       }
 
       // Attachment button

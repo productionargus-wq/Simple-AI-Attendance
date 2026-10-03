@@ -1344,6 +1344,15 @@ def api_employee_apply_leave():
         'reason': reason,
         'attachments': attachments
     }
+    # For hourly employees, store time-based leave details
+    if session_type == 'Hourly':
+        req_doc['leave_from_time'] = data.get('leave_from_time', '').strip()
+        req_doc['leave_to_time'] = data.get('leave_to_time', '').strip()
+        req_doc['leave_duration'] = data.get('leave_duration', '').strip()
+        try:
+            req_doc['duration_hours'] = float(data.get('duration_hours', 0))
+        except (ValueError, TypeError):
+            req_doc['duration_hours'] = 0.0
     new_req = database.submit_leave_request(req_doc)
     return jsonify({
         'success': True,
