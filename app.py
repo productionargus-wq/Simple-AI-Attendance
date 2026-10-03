@@ -1970,16 +1970,21 @@ def api_export_excel():
     output = io.StringIO()
     writer = csv.writer(output)
     time_header = 'EXIT TIME' if entry_type == 'timeout' else 'ENTRY TIME'
-    writer.writerow(['EMPLOYEE NAME', time_header, 'SITE NAME', 'ENTRY LOCATION', 'ENTRY DISTANCE'])
+    loc_header = 'EXIT LOCATION' if entry_type == 'timeout' else 'ENTRY LOCATION'
+    dist_header = 'EXIT DISTANCE' if entry_type == 'timeout' else 'ENTRY DISTANCE'
+    status_header = 'EXIT STATUS' if entry_type == 'timeout' else 'ENTRY STATUS'
+    writer.writerow(['EMPLOYEE NAME', time_header, loc_header, dist_header, status_header])
     for r in result.get('data', []):
         time_val = (r.get('exit_time') if entry_type == 'timeout' and r.get('exit_time') else r.get('entry_time', '')) or '----'
-        dist_val = r.get('formatted_distance') or (f"OFFICE DISTANCE {r.get('entry_distance', 0)}M" if r.get('entry_distance') is not None else '----')
+        loc_val = (r.get('exit_location') if entry_type == 'timeout' and r.get('exit_location') else r.get('entry_location', '')) or '----'
+        dist_val = (r.get('exit_distance') if entry_type == 'timeout' and r.get('exit_distance') and r.get('exit_distance') != '----' else (r.get('formatted_distance') or (f"OFFICE DISTANCE {r.get('entry_distance', 0)}M" if r.get('entry_distance') is not None else '----')))
+        status_val = (r.get('exit_status') if entry_type == 'timeout' else r.get('entry_status')) or '-'
         writer.writerow([
             r.get('employee_name', ''),
             time_val,
-            r.get('site_name', '----') or '----',
-            r.get('entry_location', '----') or '----',
-            dist_val
+            loc_val,
+            dist_val,
+            status_val
         ])
         
     output.seek(0)

@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const colTimeHeader = document.getElementById('colTimeHeader');
   const colLocationHeader = document.getElementById('colLocationHeader');
   const colDistanceHeader = document.getElementById('colDistanceHeader');
+  const colStatusHeader = document.getElementById('colStatusHeader');
   
   const startDateInput = document.getElementById('startDate');
   const endDateInput = document.getElementById('endDate');
@@ -58,6 +59,9 @@ document.addEventListener('DOMContentLoaded', function () {
       if (colDistanceHeader) {
         colDistanceHeader.innerHTML = 'ENTRY DISTANCE <span class="sort-icon">⇅</span>';
       }
+      if (colStatusHeader) {
+        colStatusHeader.innerHTML = 'ENTRY STATUS <span class="sort-icon">⇅</span>';
+      }
     } else {
       pageTitle.textContent = 'TIMEOUT ENTRIES';
       reportSubtitle.textContent = 'Displays employees who have punched out (manual punch-out and automatic checkout).';
@@ -71,6 +75,9 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       if (colDistanceHeader) {
         colDistanceHeader.innerHTML = 'EXIT DISTANCE <span class="sort-icon">⇅</span>';
+      }
+      if (colStatusHeader) {
+        colStatusHeader.innerHTML = 'EXIT STATUS <span class="sort-icon">⇅</span>';
       }
     }
 
@@ -102,6 +109,28 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  function renderStatusBadge(statusText) {
+    if (!statusText || statusText === '-' || statusText === '----') {
+      return '<span style="color: #64748b; font-weight: 600;">-</span>';
+    }
+    const txt = String(statusText).trim();
+    const lower = txt.toLowerCase();
+    if (lower.includes('leave')) {
+      return `<span class="table-badge badge-leave">${escapeHtml(txt)}</span>`;
+    }
+    let badgeClass = 'status-pill status-active';
+    if (lower.includes('late')) {
+      badgeClass = 'status-pill status-inactive';
+    } else if (lower.includes('early')) {
+      badgeClass = 'status-pill status-blue';
+    } else if (lower.includes('overtime')) {
+      badgeClass = 'status-pill status-blue';
+    } else if (lower.includes('on time')) {
+      badgeClass = 'status-pill status-active';
+    }
+    return `<span class="${badgeClass}">${escapeHtml(txt)}</span>`;
+  }
+
   function renderRows(entries) {
     if (!tableBody) return;
     tableBody.innerHTML = '';
@@ -126,16 +155,9 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const timeDisplay = (currentType === 'timeout' && entry.exit_time) ? entry.exit_time : (entry.entry_time || '----');
-
-      let siteBadge = escapeHtml(entry.site_name || '----');
-      if (entry.site_name && entry.site_name.includes('PUNCH OUT')) {
-        siteBadge = `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px;">${escapeHtml(entry.site_name)}</span>`;
-      } else if (entry.site_name && entry.site_name.includes('AUTO TIMEOUT')) {
-        siteBadge = `<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px;">${escapeHtml(entry.site_name)}</span>`;
-      }
-
       const locDisplay = (currentType === 'timeout' && entry.exit_location) ? entry.exit_location : (entry.entry_location || '----');
       const distDisplay = (currentType === 'timeout' && entry.exit_distance && entry.exit_distance !== '----') ? entry.exit_distance : distStr;
+      const statusDisplay = (currentType === 'timeout' && entry.exit_status) ? entry.exit_status : (entry.entry_status || '-');
 
       const actionHtml = (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? `
         <td style="text-align: center; white-space: nowrap;">
@@ -146,11 +168,11 @@ document.addEventListener('DOMContentLoaded', function () {
       tr.innerHTML = `
         <td style="white-space: nowrap;"><strong>${escapeHtml(entry.employee_name)}</strong></td>
         <td style="white-space: nowrap;">${escapeHtml(timeDisplay)}</td>
-        <td style="white-space: nowrap;">${siteBadge}</td>
         <td class="col-location" data-col="entry_location" title="${escapeHtml(locDisplay)}" style="min-width: 220px; max-width: 320px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">
           ${locDisplay && locDisplay !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${escapeHtml(locDisplay)}
         </td>
         <td class="col-nowrap" data-col="entry_distance" title="${escapeHtml(locDisplay)}" style="white-space: nowrap !important; min-width: 140px;">${escapeHtml(distDisplay)}</td>
+        <td class="col-nowrap" data-col="entry_status" style="text-align: center; white-space: nowrap !important; min-width: 120px;">${renderStatusBadge(statusDisplay)}</td>
         ${actionHtml}
       `;
       tableBody.appendChild(tr);

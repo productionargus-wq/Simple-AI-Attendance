@@ -445,13 +445,14 @@ def generate_live_report_pdf(title, entries, company_info=None):
     time_col_title = "EXIT TIME" if is_timeout_pdf else "ENTRY TIME"
     loc_col_title = "EXIT LOCATION" if is_timeout_pdf else "ENTRY LOCATION"
     dist_col_title = "EXIT DISTANCE" if is_timeout_pdf else "ENTRY DISTANCE"
+    status_col_title = "EXIT STATUS" if is_timeout_pdf else "ENTRY STATUS"
     table_data = [
         [
             Paragraph("EMPLOYEE NAME", header_style),
             Paragraph(time_col_title, header_style),
-            Paragraph("SITE NAME", header_style),
             Paragraph(loc_col_title, header_style),
-            Paragraph(dist_col_title, header_style)
+            Paragraph(dist_col_title, header_style),
+            Paragraph(status_col_title, header_style)
         ]
     ]
     
@@ -459,12 +460,13 @@ def generate_live_report_pdf(title, entries, company_info=None):
         t_val = row.get('exit_time') if is_timeout_pdf and row.get('exit_time') else row.get('entry_time', '')
         l_val = row.get('exit_location') if is_timeout_pdf and row.get('exit_location') else row.get('entry_location', '')
         d_val = row.get('exit_distance') if is_timeout_pdf and row.get('exit_distance') and row.get('exit_distance') != '----' else (row.get('formatted_distance') or str(row.get('entry_distance', '0')))
+        s_val = (row.get('exit_status') if is_timeout_pdf else row.get('entry_status')) or '-'
         table_data.append([
             Paragraph(str(row.get('employee_name', '')), cell_style),
             Paragraph(str(t_val), cell_style),
-            Paragraph(str(row.get('site_name', '')), cell_style),
             Paragraph(str(l_val), cell_style),
-            Paragraph(str(d_val), cell_style)
+            Paragraph(str(d_val), cell_style),
+            Paragraph(str(s_val), cell_style)
         ])
         
     if len(table_data) == 1:
@@ -476,7 +478,7 @@ def generate_live_report_pdf(title, entries, company_info=None):
             Paragraph("", cell_style)
         ])
         
-    col_widths = [90, 80, 60, 240, 80]
+    col_widths = [110, 85, 195, 80, 80]
     t = Table(table_data, colWidths=col_widths)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EDF1F5')),

@@ -32,6 +32,37 @@ def get_ist_now():
     """Returns the current timezone-aware datetime in Indian Standard Time (IST)."""
     return datetime.now(IST)
 
+def get_default_two_month_range():
+    """
+    Returns (start_date_str, end_date_str, start_month_str, end_month_str)
+    covering the previous month (from day 1) through the present month.
+    e.g., if today is October 2026:
+    start_date_str = '2026-09-01'
+    end_date_str = '2026-10-31'
+    start_month_str = '2026-09'
+    end_month_str = '2026-10'
+    """
+    now = get_ist_now()
+    cur_year = now.year
+    cur_month = now.month
+    
+    if cur_month == 1:
+        prev_year = cur_year - 1
+        prev_month = 12
+    else:
+        prev_year = cur_year
+        prev_month = cur_month - 1
+        
+    start_date_str = f"{prev_year:04d}-{prev_month:02d}-01"
+    _, last_day_cur = calendar.monthrange(cur_year, cur_month)
+    end_date_str = f"{cur_year:04d}-{cur_month:02d}-{last_day_cur:02d}"
+    
+    start_month_str = f"{prev_year:04d}-{prev_month:02d}"
+    end_month_str = f"{cur_year:04d}-{cur_month:02d}"
+    
+    return start_date_str, end_date_str, start_month_str, end_month_str
+
+
 MONGODB_URI = os.environ.get(
     "MONGODB_URI",
     "mongodb+srv://philipmatthew26_db_user:7hTlWrbaxxMOBKCn@cluster0.895ioy2.mongodb.net/?retryWrites=true&w=majority"
@@ -1601,6 +1632,22 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
         
     target_coll = db.timeout_entries if tab == 'timeout' else db.live_entries
 
+    if not start_date and not end_date:
+        def_start, _, _, _ = get_default_two_month_range()
+        start_date = def_start
+
+    # Pre-load employee shift hours for dynamic status computation
+    emp_shifts = {}
+    emp_q = {}
+    if company_id and company_id != 'ALL':
+        emp_q['company_id'] = str(company_id)
+    for emp_d in db.employees.find(emp_q, {'employee_name': 1, 'shift_start': 1, 'shift_end': 1}):
+        if emp_d.get('employee_name'):
+            emp_shifts[emp_d['employee_name']] = {
+                'start': emp_d.get('shift_start', '09:00 AM') or '09:00 AM',
+                'end': emp_d.get('shift_end', '06:00 PM') or '06:00 PM'
+            }
+
     if search:
         reg = {'$regex': re.escape(search), '$options': 'i'}
         query['$or'] = [
@@ -1657,6 +1704,12 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
                     c['exit_location'] = reverse_geocode_coordinates(c['exit_lat'], c['exit_lng']) or full_addr
                 else:
                     c['exit_location'] = full_addr
+
+        s_cfg = emp_shifts.get(c.get('employee_name', ''), {'start': '09:00 AM', 'end': '06:00 PM'})
+        e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False)
+        c['entry_status'] = e_status
+        c['exit_status'] = x_status
+
         data.append(c)
     return {
         'total': total,
@@ -2343,6 +2396,10 @@ def extract_sort_timestamp(row):
 def get_attendance_reports(report_type='all', start_date=None, end_date=None, employee='All', search=None, page=1, limit=10, company_id=None):
     db = get_db()
 
+    if not start_date and not end_date:
+        def_start, _, _, _ = get_default_two_month_range()
+        start_date = def_start
+
     # Pre-load employee shift hours for dynamic status computation
     emp_shifts = {}
     emp_q = {}
@@ -2623,6 +2680,10 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
             return f"{m2.group(3)}-{m2.group(2)}-{m2.group(1)}"
         return ''
 
+    if not start_date and not end_date:
+        def_start, _, _, _ = get_default_two_month_range()
+        start_date = def_start
+
     s_iso = extract_iso_date(start_date) if start_date else ''
     e_iso = extract_iso_date(end_date) if end_date else ''
 
@@ -2853,6 +2914,10 @@ def get_manual_entries(from_date=None, to_date=None, status='All', search=None, 
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
         
+    if not from_date and not to_date:
+        def_start, _, _, _ = get_default_two_month_range()
+        from_date = def_start
+
     if from_date:
         query['entry_date'] = {'$gte': from_date}
     if to_date:
@@ -3494,6 +3559,10 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
         
+    if not start_month and not end_month:
+        _, _, def_start_month, _ = get_default_two_month_range()
+        start_month = def_start_month
+
     if start_month:
         query['pay_period'] = {'$gte': start_month}
     if end_month:
