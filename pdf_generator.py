@@ -1157,6 +1157,13 @@ def _extract_payslip_fields(p):
     tot_work_h = str(p.get('total_working_hours') or p.get('working_hours') or '00:00')
     tot_days = p.get('total_days_of_month', p.get('total_days', 30))
     leave_days = p.get('leave_days', 0)
+    paid_leave_days = p.get('paid_leave_days', 0)
+    absent_days_lop = p.get('absent_days_lop', 0)
+    leave_breakdown = p.get('leave_breakdown', '')
+    if paid_leave_days > 0 or absent_days_lop > 0:
+        leave_label = leave_breakdown or f"{int(paid_leave_days)} Paid, {int(absent_days_lop)} LOP"
+    else:
+        leave_label = f"{leave_days} Leave"
     bank_name = str(p.get('bank_name') or '').strip()
     acct_num = str(p.get('account_number') or '').strip()
     if bank_name and acct_num:
@@ -1201,6 +1208,7 @@ def _extract_payslip_fields(p):
         'tot_work_h': tot_work_h,
         'tot_days': tot_days,
         'leave_days': leave_days,
+        'leave_label': leave_label,
         'bank_display': bank_display,
         'bank_name': bank_name,
         'basic_sal': basic_sal,
@@ -1340,7 +1348,7 @@ def _build_payslip_modern_executive(p, template_id, palette):
     summary_style = ParagraphStyle('SumTxt', fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#334155'))
     summary_data = [[
         Paragraph(f"Total Working Hours: <b>{f['tot_work_h']}</b>", summary_style),
-        Paragraph(f"Total Days / Leave: <b>{f['tot_days']} Days ({f['leave_days']} Leave)</b>", summary_style),
+        Paragraph(f"Total Days / Leave: <b>{f['tot_days']} Days ({f['leave_label']})</b>", summary_style),
         Paragraph(f"Bank: <b>{f['bank_display']}</b>", ParagraphStyle('BankTxt', parent=summary_style, alignment=TA_CENTER))
     ]]
     t_summary = Table(summary_data, colWidths=[180, 240, 120])
@@ -1568,7 +1576,7 @@ def _build_payslip_premium_executive(p, palette):
     summary_style = ParagraphStyle('SumTxt3', fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#334155'))
     summary_data = [[
         Paragraph(f"Total Working Hours: <b>{f['tot_work_h']}</b>", summary_style),
-        Paragraph(f"Total Days / Leave: <b>{f['tot_days']} Days ({f['leave_days']} Leave)</b>", summary_style),
+        Paragraph(f"Total Days / Leave: <b>{f['tot_days']} Days ({f['leave_label']})</b>", summary_style),
         Paragraph(f"Bank: <b>{f['bank_display']}</b>", ParagraphStyle('BankTxt3', parent=summary_style, alignment=TA_CENTER))
     ]]
     t_summary = Table(summary_data, colWidths=[180, 240, 120])
@@ -1708,7 +1716,7 @@ def _build_payslip_classic_grid(p, palette):
         [Paragraph("Email ID", cell_l), Paragraph(f['email'], cell_v), Paragraph("Phone Number", cell_l), Paragraph(f['phone'], cell_v), ""],
         [Paragraph("Shift Hours", cell_l), Paragraph(f['shift_h'], cell_v), Paragraph("Bank Name", cell_l), Paragraph(f['bank_name'] or '—', cell_v), ""],
         [Paragraph("Year & Month", cell_l), Paragraph(f['month_badge_val'], cell_v), Paragraph("Working Days", cell_l), Paragraph(f['working_days'], cell_v), ""],
-        [Paragraph("Total Working Hours", cell_l), Paragraph(f['tot_work_h'], cell_v), Paragraph("Total Days / Leave", cell_l), Paragraph(f"{f['tot_days']} Days ({f['leave_days']} Leave)", cell_v), ""]
+        [Paragraph("Total Working Hours", cell_l), Paragraph(f['tot_work_h'], cell_v), Paragraph("Total Days / Leave", cell_l), Paragraph(f"{f['tot_days']} Days ({f['leave_label']})", cell_v), ""]
     ]
     t_grid = Table(grid_data, colWidths=[115, 115, 115, 115, 80])
     t_grid.setStyle(TableStyle([
@@ -1872,7 +1880,7 @@ def _build_payslip_minimalist_card(p, palette):
         [Paragraph("SHIFT HOURS", m_lbl_s), Paragraph(f"<b>{f['shift_h']}</b>", m_val_s)],
         [Paragraph("WORKING DAYS", m_lbl_s), Paragraph(f"<b>{f['working_days']}</b>", m_val_s)],
         [Paragraph("TOTAL WORKING HOURS", m_lbl_s), Paragraph(f"<b>{f['tot_work_h']}</b>", m_val_s)],
-        [Paragraph("TOTAL DAYS / LEAVE", m_lbl_s), Paragraph(f"<b>{f['tot_days']} Days ({f['leave_days']} Leave)</b>", m_val_s)]
+        [Paragraph("TOTAL DAYS / LEAVE", m_lbl_s), Paragraph(f"<b>{f['tot_days']} Days ({f['leave_label']})</b>", m_val_s)]
     ]]
     t_cards = Table(cards_data, colWidths=[135, 135, 135, 135])
     t_cards.setStyle(TableStyle([
@@ -2084,7 +2092,7 @@ def _build_payslip_professional_elegant(p, palette):
         [Paragraph("SHIFT HOURS", m_lbl_s), Paragraph(f"<b>{f['shift_h']}</b>", m_val_s)],
         [Paragraph("WORKING DAYS", m_lbl_s), Paragraph(f"<b>{f['working_days']}</b>", m_val_s)],
         [Paragraph("TOTAL WORKING HOURS", m_lbl_s), Paragraph(f"<b>{f['tot_work_h']}</b>", m_val_s)],
-        [Paragraph("TOTAL DAYS / LEAVE", m_lbl_s), Paragraph(f"<b>{f['tot_days']} Days ({f['leave_days']} Leave)</b>", m_val_s)]
+        [Paragraph("TOTAL DAYS / LEAVE", m_lbl_s), Paragraph(f"<b>{f['tot_days']} Days ({f['leave_label']})</b>", m_val_s)]
     ]]
     t_cards = Table(cards_data, colWidths=[135, 135, 135, 135])
     t_cards.setStyle(TableStyle([
@@ -2354,7 +2362,7 @@ def _build_payslip_template_7(p, palette):
         ],
         [
             Paragraph("<font size='6.5' color='#475569'><b>Total Days / Leave</b></font>", ParagraphStyle('AttM3Lbl', fontName='Helvetica-Bold', leading=8)),
-            Paragraph(f"<b>{f['tot_days']} Days ({f['leave_days']} Leave)</b>", ParagraphStyle('AttM3Val', fontName='Helvetica-Bold', fontSize=10, leading=13, textColor=colors.HexColor('#0f172a')))
+            Paragraph(f"<b>{f['tot_days']} Days ({f['leave_label']})</b>", ParagraphStyle('AttM3Val', fontName='Helvetica-Bold', fontSize=10, leading=13, textColor=colors.HexColor('#0f172a')))
         ]
     ]]
     t_att_metrics = Table(att_metrics_data, colWidths=[180, 180, 180])
@@ -2615,7 +2623,7 @@ def _build_payslip_template_8(p, palette):
         ],
         [
             Paragraph("<font size='7' color='#16a34a'><b>🗓 &nbsp;Total Days / Leave</b></font>", card_cell_style),
-            Paragraph(f"<b>{f['tot_days']} Days ({f['leave_days']} Leave)</b>", ParagraphStyle('Att8LVal', fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.HexColor('#0f172a')))
+            Paragraph(f"<b>{f['tot_days']} Days ({f['leave_label']})</b>", ParagraphStyle('Att8LVal', fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.HexColor('#0f172a')))
         ],
         [
             Paragraph("<font size='7' color='#7c3aed'><b>📅 &nbsp;Year & Month</b></font>", card_cell_style),

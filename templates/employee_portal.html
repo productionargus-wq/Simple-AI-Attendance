@@ -1199,7 +1199,20 @@
           const elNS = document.getElementById('psNetSalary');
           if (elNS) elNS.textContent = `₹${Number(net).toLocaleString()}`;
           const elWD = document.getElementById('psWorkingDays');
-          if (elWD) elWD.textContent = `Working Days: ${daysLabel} | Hours: ${hrs}`;
+          if (elWD) {
+            let leaveInfo = '';
+            const paidLeave = p.paid_leave_days || 0;
+            const lopDays = p.absent_days_lop || 0;
+            const totalLeave = p.leave_days || 0;
+            if (paidLeave > 0 || lopDays > 0) {
+              leaveInfo = ` | Leave: ${p.leave_breakdown || (paidLeave + ' Paid, ' + lopDays + ' LOP')}`;
+            } else if (totalLeave > 0) {
+              leaveInfo = ` | Leave: ${totalLeave}`;
+            }
+            const permHrs = p.permission_hours_used || 0;
+            const permInfo = permHrs > 0 ? ` | Perm: ${permHrs}h` : '';
+            elWD.textContent = `Working Days: ${daysLabel} | Hours: ${hrs}${leaveInfo}${permInfo}`;
+          }
         } catch (err) {
           console.warn('Error loading payslip:', err);
         }

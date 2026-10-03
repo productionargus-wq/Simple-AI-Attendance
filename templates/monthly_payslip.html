@@ -3091,7 +3091,15 @@ document.addEventListener('DOMContentLoaded', function () {
     setAllText('.ps-rate-val', rateVal);
     setAllText('.ps-shift-hours', shiftH);
     setAllText('.ps-working-days', p.working_days_breakdown || `${p.working_days} Days`);
-    setAllText('.ps-total-days', `${p.total_days_of_month} Days (${p.leave_days} Leave)`);
+    // Leave breakdown: show Paid Leave vs LOP when available
+    const paidLeaveDays = p.paid_leave_days || 0;
+    const lopDays = p.absent_days_lop || 0;
+    const totalLeave = p.leave_days || 0;
+    let leaveLabel = `${totalLeave} Leave`;
+    if (paidLeaveDays > 0 || lopDays > 0) {
+      leaveLabel = p.leave_breakdown || `${paidLeaveDays} Paid, ${lopDays} LOP`;
+    }
+    setAllText('.ps-total-days', `${p.total_days_of_month} Days (${leaveLabel})`);
     setAllText('.ps-working-hours', p.total_working_hours || '00:00');
     setAllText('.ps-bank-name', bankName);
 
@@ -3172,7 +3180,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const dWorkD = document.getElementById('dispWorkingDays');
     if (dWorkD) dWorkD.innerText = p.working_days_breakdown || `${p.working_days} Days`;
     const dTotD = document.getElementById('dispTotalDays');
-    if (dTotD) dTotD.innerText = `${p.total_days_of_month} Days (${p.leave_days} Leave)`;
+    if (dTotD) dTotD.innerText = `${p.total_days_of_month} Days (${leaveLabel})`;
     const dWorkH = document.getElementById('dispWorkingHours');
     if (dWorkH) dWorkH.innerText = p.total_working_hours || '00:00';
     const dBank = document.getElementById('dispBankName');

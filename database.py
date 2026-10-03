@@ -2,6 +2,7 @@ import os
 import time
 import json
 import re
+import calendar
 from datetime import datetime, date, timedelta, timezone
 from dotenv import load_dotenv
 from pymongo import MongoClient, ASCENDING, DESCENDING
@@ -3961,6 +3962,107 @@ def get_payslip_data(employee_name, month_year, company_id=None):
     net_pay = max(0.0, round(total_earnings - total_deduction, 2))
         
     leave_days = max(0, total_days - working_days)
+    
+    # 4. Query approved leave requests for this employee & month
+    approved_leave_query = {
+        'employee_name': employee_name,
+        'request_type': 'Leave',
+        'status': 'Approved',
+        '$or': [
+            {'from_date': {'$regex': f'^{month_year}'}},
+            {'to_date': {'$regex': f'^{month_year}'}}
+        ]
+    }
+    if assigned_company_id and assigned_company_id not in ['ALL', 'ARGUS_MASTER']:
+        approved_leave_query['company_id'] = str(assigned_company_id)
+
+    approved_leaves = list(db.leave_requests.find(approved_leave_query))
+
+    try:
+        y, m = int(month_year.split('-')[0]), int(month_year.split('-')[1])
+        month_start = date(y, m, 1)
+        month_end = date(y, m, calendar.monthrange(y, m)[1])
+    except:
+        month_start = month_end = None
+
+    paid_leave_days = 0.0
+    paid_leave_half_days = 0
+    paid_leave_details = []  # list of {'date': ..., 'type': ..., 'days': ...}
+
+    for lv in approved_leaves:
+        try:
+            fd = datetime.strptime(lv.get('from_date', ''), '%Y-%m-%d').date()
+            td = datetime.strptime(lv.get('to_date', lv.get('from_date', '')), '%Y-%m-%d').date()
+        except:
+            continue
+        
+        session = lv.get('session', 'Full Day')
+        leave_type = lv.get('leave_type', 'Casual Leave (CL)')
+        
+        if session == 'Half Day':
+            # Half day leave = 0.5 day
+            if month_start and month_end and month_start <= fd <= month_end:
+                d_str = fd.strftime('%Y-%m-%d')
+                # Only count if employee didn't already work a full day
+                if daily_minutes.get(d_str, 0) < shift_target_minutes:
+                    paid_leave_days += 0.5
+                    paid_leave_half_days += 1
+                    paid_leave_details.append({'date': d_str, 'type': leave_type, 'days': 0.5, 'session': 'Half Day'})
+        else:
+            # Full day - iterate each date in the range
+            current = max(fd, month_start) if month_start else fd
+            end = min(td, month_end) if month_end else td
+            while current <= end:
+                d_str = current.strftime('%Y-%m-%d')
+                # Only count as paid leave if employee did NOT punch in that day
+                if daily_minutes.get(d_str, 0) == 0:
+                    paid_leave_days += 1.0
+                    paid_leave_details.append({'date': d_str, 'type': leave_type, 'days': 1.0, 'session': 'Full Day'})
+                current += timedelta(days=1)
+
+    approved_perm_query = {
+        'employee_name': employee_name,
+        'request_type': 'Permission',
+        'status': 'Approved',
+        '$or': [
+            {'from_date': {'$regex': f'^{month_year}'}},
+            {'date': {'$regex': f'^{month_year}'}}
+        ]
+    }
+    if assigned_company_id and assigned_company_id not in ['ALL', 'ARGUS_MASTER']:
+        approved_perm_query['company_id'] = str(assigned_company_id)
+
+    approved_perms = list(db.leave_requests.find(approved_perm_query))
+    permission_hours_used = 0.0
+    permission_details = []
+    for pm in approved_perms:
+        dur = float(pm.get('duration_hours', pm.get('hours_count', 0)))
+        permission_hours_used += dur
+        permission_details.append({
+            'date': pm.get('date') or pm.get('from_date', ''),
+            'hours': dur,
+            'type': pm.get('permission_type', 'Short Leave')
+        })
+
+    paid_leave_salary = 0.0
+    if paid_leave_days > 0:
+        if salary_type == 'daily':
+            paid_leave_salary = round((paid_leave_days * day_salary), 2)
+        elif salary_type == 'half_day':
+            paid_leave_salary = round((paid_leave_days * 2 * effective_half), 2)  # each day = 2 half-day units
+        elif salary_type == 'hourly':
+            paid_leave_salary = round((paid_leave_days * shift_target_minutes / 60.0) * hours_salary, 2)
+        else:
+            if day_salary > 0:
+                paid_leave_salary = round((paid_leave_days * day_salary), 2)
+            elif hours_salary > 0:
+                paid_leave_salary = round((paid_leave_days * shift_target_minutes / 60.0) * hours_salary, 2)
+        basic_salary = round(basic_salary + paid_leave_salary, 2)
+
+    total_earnings = round(basic_salary + allowance + incentive + other_earnings, 2)
+    net_pay = max(0.0, round(total_earnings - total_deduction, 2))
+    absent_days_lop = max(0, leave_days - paid_leave_days)
+
     net_pay_in_words = number_to_words(net_pay)
     
     basis_labels = {
@@ -4033,7 +4135,15 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         'employee_photo_url': (emp.get('photo_data') if (emp and emp.get('photo_data')) else (f"/uploads/{emp.get('photo') or emp.get('photo_filename')}" if emp and (emp.get('photo') or emp.get('photo_filename')) else '')) if emp else '',
         'company_logo': comp_logo,
         'company_logo_data': comp_logo_data,
-        'company_logo_url': comp_logo_data if comp_logo_data else (f"/uploads/{comp_logo}" if comp_logo else '')
+        'company_logo_url': comp_logo_data if comp_logo_data else (f"/uploads/{comp_logo}" if comp_logo else ''),
+        'paid_leave_days': paid_leave_days,
+        'paid_leave_half_days': paid_leave_half_days,
+        'paid_leave_salary': int(round(paid_leave_salary)),
+        'paid_leave_details': paid_leave_details,
+        'absent_days_lop': absent_days_lop,
+        'permission_hours_used': permission_hours_used,
+        'permission_details': permission_details,
+        'leave_breakdown': f"{int(paid_leave_days)} Paid, {int(absent_days_lop)} LOP" if (paid_leave_days > 0 or absent_days_lop > 0) else f"{leave_days} Leave",
     }
 
 
