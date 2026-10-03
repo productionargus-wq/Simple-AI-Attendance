@@ -81,12 +81,13 @@
           <th style="min-width: 70px; text-align: center; white-space: nowrap;">LIMIT</th>
           <th style="min-width: 80px; text-align: center; white-space: nowrap;">STATUS</th>
           <th style="min-width: 110px; text-align: center; white-space: nowrap;">AUTO REPORTS</th>
+          <th style="min-width: 165px; text-align: center; white-space: nowrap;">DELETE ENTRIES</th>
           <th style="min-width: 115px; text-align: center; white-space: nowrap;">ACTIONS</th>
         </tr>
       </thead>
       <tbody id="companyTableBody">
         <tr>
-          <td colspan="12" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
+          <td colspan="13" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
         </tr>
       </tbody>
     </table>
@@ -196,6 +197,15 @@
               <option value="true" selected>Enabled (Send Emails)</option>
               <option value="false">Disabled (No Emails)</option>
             </select>
+          </div>
+
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label">Delete Entries Permission</label>
+            <select class="form-input" id="inputCanDeleteEntries" name="can_delete_entries">
+              <option value="false" selected>Disabled (Delete buttons hidden in company UI)</option>
+              <option value="true">Enabled (Allow deleting entries in company UI)</option>
+            </select>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Controls whether delete buttons are visible and usable in this company's UI.</span>
           </div>
         </div>
       </div>
@@ -336,6 +346,11 @@
         <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
           <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Auto Email Reports</div>
           <div id="viewCompanyReportsBadge" style="margin-top: 4px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; grid-column: span 2;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Delete Entries Permission</div>
+          <div id="viewCompanyDeleteEntriesBadge" style="margin-top: 4px;">-</div>
         </div>
       </div>
     </div>

@@ -377,6 +377,7 @@ def create_company(data):
         'employee_limit': int(data.get('employee_limit') or data.get('employee_count') or 50),
         'shift_hours': str(data.get('shift_hours') or '08:00').strip(),
         'auto_email_reports': bool(data.get('auto_email_reports', True)),
+        'can_delete_entries': str(data.get('can_delete_entries', False)).lower() in ['true', '1', 'yes'],
         'registered_date': reg_date_str,
         'created_at': now_ist,
         'updated_at': now_ist
@@ -451,6 +452,8 @@ def get_all_companies(search='', page=1, limit=10):
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
+        if 'can_delete_entries' not in c:
+            c['can_delete_entries'] = False
             
         c['registered_date'] = format_company_reg_date(c.get('registered_date') or c.get('created_at'))
         companies.append(c)
@@ -478,6 +481,8 @@ def get_company_by_id(comp_id):
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
+        if 'can_delete_entries' not in c:
+            c['can_delete_entries'] = False
         c['registered_date'] = format_company_reg_date(c.get('registered_date') or c.get('created_at'))
         return c
     return None
@@ -561,11 +566,13 @@ def update_company(comp_id, data):
             upd['registered_date'] = m_str
     if 'auto_email_reports' in data:
         upd['auto_email_reports'] = bool(data['auto_email_reports'])
+    if 'can_delete_entries' in data:
+        upd['can_delete_entries'] = str(data['can_delete_entries']).lower() in ['true', '1', 'yes']
     if 'logo' in data:
         upd['logo'] = str(data['logo']).strip()
     if 'logo_data' in data:
         upd['logo_data'] = str(data['logo_data']).strip()
-    db.company_admin.update_one({'id': str(comp_id)}, {'$set': upd})
+    db.company_admin.update_one(build_id_filter(comp_id), {'$set': upd})
     return True
 
 def toggle_company_auto_reports(comp_id, enabled=None):
@@ -579,10 +586,35 @@ def toggle_company_auto_reports(comp_id, enabled=None):
     db.company_admin.update_one({'id': str(comp_id)}, {'$set': {'auto_email_reports': new_val, 'updated_at': datetime.now()}})
     return new_val
 
+def can_company_delete_entries(comp_id):
+    """Checks whether a company has permission to delete attendance / report entries."""
+    if not comp_id:
+        return False
+    db = get_db()
+    comp = db.company_admin.find_one({'id': str(comp_id)})
+    if not comp:
+        comp = db.company_admin.find_one(build_id_filter(comp_id))
+    if not comp:
+        return False
+    return bool(comp.get('can_delete_entries', False))
+
+def toggle_company_delete_entries(comp_id, enabled=None):
+    """Toggles or sets the entry deletion permission for a company."""
+    db = get_db()
+    comp = db.company_admin.find_one({'id': str(comp_id)})
+    if not comp:
+        comp = db.company_admin.find_one(build_id_filter(comp_id))
+    if not comp:
+        return None
+    current_val = bool(comp.get('can_delete_entries', False))
+    new_val = not current_val if enabled is None else bool(str(enabled).lower() in ['true', '1', 'yes'])
+    db.company_admin.update_one({'_id': comp['_id']}, {'$set': {'can_delete_entries': new_val, 'updated_at': get_ist_now()}})
+    return new_val
+
 def delete_company(comp_id):
     """Removes company from company_admin."""
     db = get_db()
-    db.company_admin.delete_one({'id': str(comp_id)})
+    db.company_admin.delete_one(build_id_filter(comp_id))
     return True
 
 def get_company_reports_summary():

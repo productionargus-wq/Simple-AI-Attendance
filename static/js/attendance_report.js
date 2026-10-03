@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!rows || rows.length === 0) {
       standardTableBody.innerHTML = `
         <tr>
-          <td colspan="${window.IS_SYSTEM_ADMIN ? 13 : 12}" style="text-align: center; color: #555; padding: 25px;">
+          <td colspan="${(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? 13 : 12}" style="text-align: center; color: #555; padding: 25px;">
             No data available in table
           </td>
         </tr>
@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const entryStatusVal = (r.is_manual || r.source === 'manual') ? '-' : (r.entry_status || '-');
       const exitStatusVal = (r.is_manual || r.source === 'manual') ? '-' : (r.exit_status || '-');
       const isManual = (r.is_manual || r.entry_type === 'manual' || r.source === 'manual') ? true : false;
-      const actionHtml = window.IS_SYSTEM_ADMIN ? `
+      const actionHtml = (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? `
         <td style="text-align: center; white-space: nowrap;">
           <button class="btn-action-del" data-id="${escapeHtml(r.id || r._id)}" data-manual="${isManual}" data-name="${escapeHtml(r.employee_name)}" title="Delete record" style="padding: 3px 8px; font-size: 11px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; font-weight: 600;">Del</button>
         </td>
@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!rows || rows.length === 0) {
       simpleTableBody.innerHTML = `
         <tr>
-          <td colspan="${window.IS_SYSTEM_ADMIN ? 8 : 7}" style="text-align: center; color: #555; padding: 25px;">
+          <td colspan="${(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? 8 : 7}" style="text-align: center; color: #555; padding: 25px;">
             No data available in table
           </td>
         </tr>
@@ -309,7 +309,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const isManual = (r.is_manual || r.source === 'manual') ? true : false;
-      const actionHtml = window.IS_SYSTEM_ADMIN ? `
+      const actionHtml = (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? `
         <td style="text-align: center; white-space: nowrap;">
           <button class="btn-action-del" data-id="${escapeHtml(r.id || r._id)}" data-manual="${isManual}" data-name="${escapeHtml(r.employee_name)}" title="Delete record" style="padding: 3px 8px; font-size: 11px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; font-weight: 600;">Del</button>
         </td>

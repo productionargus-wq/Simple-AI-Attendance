@@ -8,7 +8,8 @@
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261002_07">
   <script>
-    window.IS_SYSTEM_ADMIN = {{ 'true' if session.get('role') == 'super_admin' else 'false' }};
+    window.IS_SYSTEM_ADMIN = {{ 'true' if is_system_admin else 'false' }};
+    window.CAN_DELETE_ENTRIES = {{ 'true' if can_delete_entries else 'false' }};
   </script>
 </head>
 <body class="page-{{ (active_tab or '') | lower | replace(' ', '-') }}">

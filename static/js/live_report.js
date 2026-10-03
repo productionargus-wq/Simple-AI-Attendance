@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!entries || entries.length === 0) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="${window.IS_SYSTEM_ADMIN ? 6 : 5}" style="text-align: center; color: #555; padding: 25px; font-size: 13px;">
+          <td colspan="${(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? 6 : 5}" style="text-align: center; color: #555; padding: 25px; font-size: 13px;">
             No data available in table
           </td>
         </tr>
@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const locDisplay = (currentType === 'timeout' && entry.exit_location) ? entry.exit_location : (entry.entry_location || '----');
       const distDisplay = (currentType === 'timeout' && entry.exit_distance && entry.exit_distance !== '----') ? entry.exit_distance : distStr;
 
-      const actionHtml = window.IS_SYSTEM_ADMIN ? `
+      const actionHtml = (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? `
         <td style="text-align: center; white-space: nowrap;">
           <button class="btn-action-del" data-id="${escapeHtml(entry.id || entry._id)}" data-name="${escapeHtml(entry.employee_name)}" title="Delete entry" style="padding: 3px 8px; font-size: 11px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; font-weight: 600;">Del</button>
         </td>

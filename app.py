@@ -197,6 +197,34 @@ def employee_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def check_user_can_delete_entries():
+    """Checks whether the currently logged-in user can delete attendance/report entries."""
+    if not session.get('admin_logged_in'):
+        return False
+    if session.get('role') == 'super_admin':
+        return True
+    if session.get('role') == 'company_admin':
+        comp_id = session.get('company_id')
+        if comp_id and database.can_company_delete_entries(comp_id):
+            return True
+    return False
+
+@app.context_processor
+def inject_delete_permissions():
+    """Injects delete permissions and system admin status into all templates dynamically."""
+    is_super = session.get('role') == 'super_admin'
+    comp_can_del = False
+    if is_super:
+        comp_can_del = True
+    elif session.get('role') == 'company_admin':
+        comp_id = session.get('company_id')
+        if comp_id:
+            comp_can_del = database.can_company_delete_entries(comp_id)
+    return {
+        'is_system_admin': is_super,
+        'can_delete_entries': comp_can_del
+    }
+
 import traceback
 from werkzeug.exceptions import HTTPException
 
@@ -790,6 +818,21 @@ def api_toggle_company_auto_reports(comp_id):
         'company_id': comp_id,
         'auto_email_reports': new_state,
         'message': f"Automatic email reports {'enabled' if new_state else 'disabled'} successfully."
+    })
+
+@app.route('/api/companies/<comp_id>/toggle-delete-entries', methods=['POST'])
+@super_admin_required
+def api_toggle_company_delete_entries(comp_id):
+    data = request.get_json(silent=True) or {}
+    enabled = data.get('enabled')
+    new_state = database.toggle_company_delete_entries(comp_id, enabled)
+    if new_state is None:
+        return jsonify({'success': False, 'error': 'Company not found'}), 404
+    return jsonify({
+        'success': True,
+        'company_id': comp_id,
+        'can_delete_entries': new_state,
+        'message': f"Delete entries feature {'enabled' if new_state else 'disabled'} successfully."
     })
 
 @app.route('/api/companies/reports', methods=['GET'])
@@ -1423,8 +1466,10 @@ def api_update_employee(emp_id):
         return jsonify({'error': f'Failed to update employee: {str(e)}'}), 500
 
 @app.route('/api/employees/<emp_id>', methods=['DELETE'])
-@super_admin_required
+@login_required
 def api_delete_employee(emp_id):
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     emp = database.get_employee_by_id(emp_id)
     if not emp:
         return jsonify({'error': 'Employee not found'}), 404
@@ -1631,8 +1676,10 @@ def api_add_live_entry():
     return jsonify({'success': True, 'id': inserted_id})
 
 @app.route('/api/live-entries/<entry_id>', methods=['DELETE'])
-@super_admin_required
+@login_required
 def api_delete_live_entry(entry_id):
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     entry_type = request.args.get('type', 'live')
     success = database.delete_live_report_entry(entry_id, entry_type=entry_type, company_id=get_current_company_id())
     if not success:
@@ -1877,8 +1924,10 @@ def api_update_attendance_records():
     return jsonify({'success': True, 'message': 'Attendance records updated successfully'})
 
 @app.route('/api/attendance-reports/<report_id>', methods=['DELETE'])
-@super_admin_required
+@login_required
 def api_delete_attendance_report(report_id):
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     is_manual = request.args.get('is_manual', 'false').lower() in ['true', '1', 'yes']
     success = database.delete_attendance_report(report_id, is_manual=is_manual, company_id=get_current_company_id())
     if not success:
@@ -2032,8 +2081,10 @@ def api_update_manual_entry(entry_id):
     return jsonify({'success': True, 'message': 'Manual entry updated successfully'})
 
 @app.route('/api/manual-entries/<entry_id>', methods=['DELETE'])
-@super_admin_required
+@login_required
 def api_delete_manual_entry(entry_id):
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     entry = database.get_manual_entry_by_id(entry_id)
     if not entry:
         return jsonify({'error': 'Manual entry not found'}), 404
@@ -2194,8 +2245,10 @@ def api_update_payment(payment_id):
     return jsonify({'success': True, 'message': 'Payment updated successfully'})
 
 @app.route('/api/payments/<payment_id>', methods=['DELETE'])
-@super_admin_required
+@login_required
 def api_delete_payment(payment_id):
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     p = database.get_payment_by_id(payment_id)
     if not p:
         return jsonify({'error': 'Payment not found'}), 404
@@ -2329,8 +2382,10 @@ def api_update_advance(advance_id):
     return jsonify({'success': True, 'message': 'Advance updated successfully'})
 
 @app.route('/api/advances/<advance_id>', methods=['DELETE'])
-@super_admin_required
+@login_required
 def api_delete_advance(advance_id):
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     a = database.get_advance_by_id(advance_id)
     if not a:
         return jsonify({'error': 'Advance not found'}), 404

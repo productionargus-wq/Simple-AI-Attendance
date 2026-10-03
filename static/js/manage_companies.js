@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const inputCompanyShiftHours = document.getElementById('inputShiftHours');
   const inputRegisteredDate = document.getElementById('inputRegisteredDate');
   const inputAutoEmailReports = document.getElementById('inputAutoEmailReports');
+  const inputCanDeleteEntries = document.getElementById('inputCanDeleteEntries');
 
   function formatDateForDateInput(val) {
     if (!val || val === '-') return new Date().toISOString().split('T')[0];
@@ -77,6 +78,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const viewCompanyEmployees = document.getElementById('viewCompanyEmployees');
   const viewCompanyStatusBadge = document.getElementById('viewCompanyStatusBadge');
   const viewCompanyReportsBadge = document.getElementById('viewCompanyReportsBadge');
+  const viewCompanyDeleteEntriesBadge = document.getElementById('viewCompanyDeleteEntriesBadge');
 
   function formatDisplayDate(dateStr) {
     if (!dateStr || dateStr === '-') return '-';
@@ -123,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!data.companies || data.companies.length === 0) {
         companyTableBody.innerHTML = `
           <tr>
-            <td colspan="12" style="text-align: center; padding: 28px; color: #6c757d;">
+            <td colspan="13" style="text-align: center; padding: 28px; color: #6c757d;">
               No registered companies found. Click <strong>+ Add Company</strong> above to register a new tenant.
             </td>
           </tr>
@@ -163,6 +165,22 @@ document.addEventListener('DOMContentLoaded', function () {
               <span>OFF</span>
             </button>`;
 
+        const isDeleteEnabled = comp.can_delete_entries === true;
+        const deleteEntriesBadge = isDeleteEnabled
+          ? `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Delete Entries: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Delete Enabled</span>
+            </button>`
+          : `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Delete Entries: DISABLED (Click to turn on)" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+              </svg>
+              <span>Enable Delete Entries</span>
+            </button>`;
+
         const formattedDate = formatDisplayDate(comp.registered_date);
         const regDateDisplay = formattedDate && formattedDate !== '-'
           ? `<span style="display: inline-block; background-color: #f1f5f9; color: #334155; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap;">${escapeHtml(formattedDate)}</span>`
@@ -198,6 +216,7 @@ document.addEventListener('DOMContentLoaded', function () {
           </td>
           <td style="text-align: center; white-space: nowrap;">${statusBadge}</td>
           <td style="text-align: center; white-space: nowrap;">${autoReportsBadge}</td>
+          <td style="text-align: center; white-space: nowrap;">${deleteEntriesBadge}</td>
           <td style="text-align: center; white-space: nowrap;">
             <div class="table-actions">
               <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
@@ -263,6 +282,39 @@ document.addEventListener('DOMContentLoaded', function () {
         });
       });
 
+      // Attach delete entries toggle handlers
+      document.querySelectorAll('.btn-toggle-delete-entries').forEach(btn => {
+        btn.addEventListener('click', async function () {
+          const compId = this.getAttribute('data-id');
+          const compName = this.getAttribute('data-name');
+          const currentState = this.getAttribute('data-state') === 'true';
+          const nextState = !currentState;
+
+          this.disabled = true;
+          this.style.opacity = '0.6';
+
+          try {
+            const res = await fetch(`/api/companies/${compId}/toggle-delete-entries`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enabled: nextState })
+            });
+            const resp = await res.json();
+            if (resp.success) {
+              loadCompanies(currentPage);
+            } else {
+              alert(`Error: ${resp.error || 'Failed to update delete entries permission'}`);
+              this.disabled = false;
+              this.style.opacity = '1';
+            }
+          } catch (err) {
+            alert('Network error while updating delete entries permission.');
+            this.disabled = false;
+            this.style.opacity = '1';
+          }
+        });
+      });
+
       // Attach view handlers
       document.querySelectorAll('.btn-action-view').forEach(btn => {
         btn.addEventListener('click', async function () {
@@ -304,6 +356,12 @@ document.addEventListener('DOMContentLoaded', function () {
               : `<span class="status-pill status-inactive">Disabled</span>`;
           }
 
+          if (viewCompanyDeleteEntriesBadge) {
+            viewCompanyDeleteEntriesBadge.innerHTML = (comp.can_delete_entries === true)
+              ? `<span class="status-pill status-active">Enabled</span>`
+              : `<span class="status-pill status-inactive">Disabled</span>`;
+          }
+
           if (viewCompanyModal) {
             viewCompanyModal.classList.add('active');
           }
@@ -335,6 +393,7 @@ document.addEventListener('DOMContentLoaded', function () {
           if (inputCompanyShiftHours) inputCompanyShiftHours.value = comp.shift_hours || '08:00';
           if (inputRegisteredDate) inputRegisteredDate.value = formatDateForDateInput(comp.registered_date);
           if (inputAutoEmailReports) inputAutoEmailReports.value = (comp.auto_email_reports !== false) ? 'true' : 'false';
+          if (inputCanDeleteEntries) inputCanDeleteEntries.value = (comp.can_delete_entries === true) ? 'true' : 'false';
 
           companyModal.classList.add('active');
         });
@@ -426,6 +485,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inputCompanyShiftHours) inputCompanyShiftHours.value = '08:00';
       if (inputRegisteredDate) inputRegisteredDate.value = new Date().toISOString().split('T')[0];
       if (inputAutoEmailReports) inputAutoEmailReports.value = 'true';
+      if (inputCanDeleteEntries) inputCanDeleteEntries.value = 'false';
       companyModal.classList.add('active');
     });
   }
@@ -493,7 +553,8 @@ document.addEventListener('DOMContentLoaded', function () {
         employee_limit: parseInt(formData.get('employee_limit'), 10) || 50,
         shift_hours: (formData.get('shift_hours') || '08:00').trim(),
         registered_date: formData.get('registered_date') || '',
-        auto_email_reports: formData.get('auto_email_reports') === 'true'
+        auto_email_reports: formData.get('auto_email_reports') === 'true',
+        can_delete_entries: formData.get('can_delete_entries') === 'true'
       };
 
       const btnSave = btnSaveCompany || document.getElementById('btnSaveCompany');
