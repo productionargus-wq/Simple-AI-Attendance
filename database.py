@@ -887,6 +887,7 @@ def create_employee(data, company_id=None):
         'email_id': data.get('email_id', '').strip(),
         'aadhar_number': data.get('aadhar_number', '').strip(),
         'emergency_contact': data.get('emergency_contact', '').strip(),
+        'date_of_birth': str(data.get('date_of_birth') or data.get('dob') or '').strip(),
         'joining_date': data.get('joining_date', '').strip(),
         'account_holder_name': data.get('account_holder_name', '').strip(),
         'upi_number': data.get('upi_number', '').strip(),
@@ -928,7 +929,7 @@ def update_employee(emp_id, data, company_id=None):
 
     text_fields = [
         'employee_name', 'department', 'designation', 'mobile_number', 'email_id',
-        'aadhar_number', 'emergency_contact', 'joining_date', 'account_holder_name',
+        'aadhar_number', 'emergency_contact', 'date_of_birth', 'dob', 'joining_date', 'account_holder_name',
         'upi_number', 'bank_name', 'account_number', 'ifsc_code', 'shift_hours',
         'shift_start', 'shift_end'
     ]

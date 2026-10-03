@@ -178,11 +178,21 @@
             <input type="number" step="any" min="0" class="form-input" id="inputHourlySalary" name="hourly_salary" placeholder="Amount (e.g. 100)">
           </div>
 
-          <!-- Row 4: Joining Date & Shift Details -->
+          <!-- Row 4: Personal Dates & Contact -->
+          <div class="form-group">
+            <label class="form-label">Date of Birth</label>
+            <input type="date" class="form-input" id="inputDob" name="date_of_birth" placeholder="mm/dd/yyyy">
+          </div>
           <div class="form-group">
             <label class="form-label">Joining Date</label>
             <input type="date" class="form-input" id="inputJoiningDate" name="joining_date" placeholder="mm/dd/yyyy">
           </div>
+          <div class="form-group">
+            <label class="form-label">Emergency Contact</label>
+            <input type="text" class="form-input" id="inputEmergency" name="emergency_contact" placeholder="Number">
+          </div>
+
+          <!-- Row 5: Shift Details -->
           <div class="form-group">
             <label class="form-label">Shift Start</label>
             <input type="text" class="form-input" id="inputShiftStart" name="shift_start" placeholder="09:00 AM" value="09:00 AM">
@@ -191,22 +201,16 @@
             <label class="form-label">Shift End</label>
             <input type="text" class="form-input" id="inputShiftEnd" name="shift_end" placeholder="06:00 PM" value="06:00 PM">
           </div>
-
-          <!-- Row 5: Shift Hours & Identity -->
           <div class="form-group">
             <label class="form-label">Shift Hours</label>
             <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="Example 09:00" value="09:00">
           </div>
+
+          <!-- Row 6: Identity & Banking -->
           <div class="form-group">
             <label class="form-label">Aadhar Number</label>
             <input type="text" class="form-input" id="inputAadhar" name="aadhar_number" placeholder="Number">
           </div>
-          <div class="form-group">
-            <label class="form-label">Emergency Contact</label>
-            <input type="text" class="form-input" id="inputEmergency" name="emergency_contact" placeholder="Number">
-          </div>
-
-          <!-- Row 6: Banking Details -->
           <div class="form-group">
             <label class="form-label">Account Holder Name</label>
             <input type="text" class="form-input" id="inputAccountHolder" name="account_holder_name" placeholder="Account Holder Name">
@@ -215,12 +219,12 @@
             <label class="form-label">Account Number</label>
             <input type="text" class="form-input" id="inputAccountNumber" name="account_number" placeholder="Account Number">
           </div>
+
+          <!-- Row 7: Banking & UPI -->
           <div class="form-group">
             <label class="form-label">IFSC Code</label>
             <input type="text" class="form-input" id="inputIfsc" name="ifsc_code" placeholder="IFSC Code">
           </div>
-
-          <!-- Row 7: UPI -->
           <div class="form-group">
             <label class="form-label">UPI Number</label>
             <input type="text" class="form-input" id="inputUpi" name="upi_number" placeholder="UPI Number">
@@ -387,5 +391,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261003_1745"></script>
+<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261003_1750"></script>
 {% endblock %}

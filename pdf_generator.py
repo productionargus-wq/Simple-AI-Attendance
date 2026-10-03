@@ -212,6 +212,7 @@ def generate_employee_pdf(emp):
         ("EMAIL ID", str(emp.get('email_id', ''))),
         ("AADHAR NUMBER", str(emp.get('aadhar_number', ''))),
         ("EMERGENCY CONTACT", str(emp.get('emergency_contact', ''))),
+        ("DATE OF BIRTH", str(emp.get('date_of_birth') or emp.get('dob') or '-')),
         ("JOINING DATE", str(emp.get('joining_date', ''))),
         ("ACCOUNT HOLDER NAME", str(emp.get('account_holder_name', ''))),
         ("UPI NUMBER", str(emp.get('upi_number', ''))),

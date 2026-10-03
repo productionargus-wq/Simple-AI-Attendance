@@ -517,6 +517,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('formEmployeeId').value = '';
     document.getElementById('entryModalTitle').textContent = 'Employee Detail Entry';
     document.getElementById('inputSalaryType').value = 'daily';
+    const inDob = document.getElementById('inputDob');
+    if (inDob) inDob.value = '';
     const inStart = document.getElementById('inputShiftStart');
     const inEnd = document.getElementById('inputShiftEnd');
     if (inStart) inStart.value = '09:00 AM';
@@ -565,6 +567,8 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('inputEmail').value = emp.email_id || '';
       document.getElementById('inputAadhar').value = emp.aadhar_number || '';
       document.getElementById('inputEmergency').value = emp.emergency_contact || '';
+      const inDob = document.getElementById('inputDob');
+      if (inDob) inDob.value = emp.date_of_birth || emp.dob || '';
       document.getElementById('inputJoiningDate').value = emp.joining_date || '';
       document.getElementById('inputAccountHolder').value = emp.account_holder_name || '';
       document.getElementById('inputUpi').value = emp.upi_number || '';
@@ -624,6 +628,8 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnResetForm) {
     btnResetForm.addEventListener('click', function () {
       employeeForm.reset();
+      const inDob = document.getElementById('inputDob');
+      if (inDob) inDob.value = '';
       const pPunch = document.getElementById('permPunchAttendance');
       if (pPunch) pPunch.checked = true;
       const pHist = document.getElementById('permAttendanceHistory');
@@ -957,6 +963,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ['EMAIL ID', emp.email_id],
         ['AADHAR NUMBER', emp.aadhar_number],
         ['EMERGENCY CONTACT', emp.emergency_contact],
+        ['DATE OF BIRTH', emp.date_of_birth || emp.dob || '-'],
         ['JOINING DATE', emp.joining_date],
         ['ACCOUNT HOLDER NAME', emp.account_holder_name],
         ['UPI NUMBER', emp.upi_number],
