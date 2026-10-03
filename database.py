@@ -904,8 +904,10 @@ def create_employee(data, company_id=None):
             'punch_attendance': True,
             'attendance_history': True,
             'monthly_payslip': True,
-            'employee_credentials': True
+            'employee_credentials': True,
+            'leave_permission': True
         }),
+        'documents': data.get('documents', []),
         'created_at': get_ist_now(),
         'updated_at': get_ist_now()
     }
@@ -956,6 +958,8 @@ def update_employee(emp_id, data, company_id=None):
         upd['face_embedding'] = data['face_embedding']
     if 'permissions' in data and isinstance(data['permissions'], dict):
         upd['permissions'] = data['permissions']
+    if 'documents' in data and isinstance(data['documents'], list):
+        upd['documents'] = data['documents']
     if 'company_id' in data and data['company_id']:
         upd['company_id'] = str(data['company_id'])
         

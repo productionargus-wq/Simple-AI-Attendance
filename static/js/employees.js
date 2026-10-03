@@ -317,6 +317,193 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // ================= EMPLOYEE DOCUMENTS MANAGEMENT =================
+  const employeeDocsContainer = document.getElementById('employeeDocsContainer');
+  const btnAddDocRowTop = document.getElementById('btnAddDocRowTop');
+  let currentExistingDocs = [];
+
+  function renderEmployeeDocuments(existingDocs = []) {
+    if (!employeeDocsContainer) return;
+    employeeDocsContainer.innerHTML = '';
+    currentExistingDocs = Array.isArray(existingDocs) ? [...existingDocs] : [];
+
+    // Render existing saved documents
+    currentExistingDocs.forEach((doc, idx) => {
+      const row = createExistingDocRow(doc, idx);
+      employeeDocsContainer.appendChild(row);
+    });
+
+    // Always append at least 1 new upload row
+    addNewDocumentRow();
+  }
+
+  function createExistingDocRow(doc, idx) {
+    const row = document.createElement('div');
+    row.className = 'doc-entry-row existing-doc-row';
+    row.dataset.docId = doc.id || idx;
+
+    const docName = doc.document_name || doc.filename || 'Document';
+    const docUrl = doc.file_url || (doc.filename ? `/static/uploads/employee_documents/${doc.filename}` : '#');
+    const docExt = doc.file_type ? doc.file_type.toUpperCase() : 'FILE';
+
+    row.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 170px;">
+        <span style="font-size: 13px;">📄</span>
+        <input type="text" class="form-input doc-title-input existing-doc-title" value="${escapeHtml(docName)}" placeholder="Document Name" style="font-weight: 600;">
+        <span style="font-size: 10px; background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${escapeHtml(docExt)}</span>
+      </div>
+      <div class="doc-upload-box">
+        <a href="${escapeHtml(docUrl)}" target="_blank" class="btn-doc-view" title="View attached document">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span>View</span>
+        </a>
+        <button type="button" class="btn-doc-remove btn-remove-existing" title="Delete document">
+          &times;
+        </button>
+      </div>
+    `;
+
+    const removeBtn = row.querySelector('.btn-remove-existing');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', function () {
+        currentExistingDocs = currentExistingDocs.filter(d => (d.id || '') !== (doc.id || ''));
+        row.remove();
+        if (employeeDocsContainer.querySelectorAll('.doc-entry-row').length === 0) {
+          addNewDocumentRow();
+        }
+      });
+    }
+
+    return row;
+  }
+
+  function addNewDocumentRow() {
+    if (!employeeDocsContainer) return;
+
+    const row = document.createElement('div');
+    row.className = 'doc-entry-row new-doc-row';
+
+    row.innerHTML = `
+      <input type="text" class="form-input doc-title-input new-doc-title" placeholder="Document Name (e.g. Aadhar Card)">
+      <div class="doc-upload-box">
+        <input type="file" class="doc-file-input" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style="display: none;">
+        <button type="button" class="btn-doc-choose">
+          📁 Choose File
+        </button>
+        <span class="doc-file-status">No file chosen</span>
+        <button type="button" class="btn-doc-view btn-preview-new-doc" style="display: none;" title="Preview uploaded document">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span>View</span>
+        </button>
+        <button type="button" class="btn-doc-add" title="Add another document row">
+          +
+        </button>
+        <button type="button" class="btn-doc-remove btn-remove-new-row" title="Remove this row">
+          &times;
+        </button>
+      </div>
+    `;
+
+    const fileInput = row.querySelector('.doc-file-input');
+    const chooseBtn = row.querySelector('.btn-doc-choose');
+    const statusSpan = row.querySelector('.doc-file-status');
+    const previewBtn = row.querySelector('.btn-preview-new-doc');
+    const titleInput = row.querySelector('.new-doc-title');
+    const addBtn = row.querySelector('.btn-doc-add');
+    const removeBtn = row.querySelector('.btn-remove-new-row');
+
+    let currentFileObj = null;
+
+    if (chooseBtn && fileInput) {
+      chooseBtn.addEventListener('click', function () {
+        fileInput.click();
+      });
+    }
+
+    if (fileInput) {
+      fileInput.addEventListener('change', function () {
+        if (fileInput.files && fileInput.files[0]) {
+          const file = fileInput.files[0];
+          currentFileObj = file;
+          const sizeKb = Math.round(file.size / 1024);
+          statusSpan.textContent = `${file.name} (${sizeKb} KB)`;
+          statusSpan.title = file.name;
+          statusSpan.style.color = '#0284c7';
+          statusSpan.style.fontWeight = '700';
+
+          // Auto-fill document title if empty
+          if (!titleInput.value.trim()) {
+            const rawName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+            titleInput.value = rawName.replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          }
+
+          // Display the View icon immediately
+          if (previewBtn) {
+            previewBtn.style.display = 'inline-flex';
+          }
+        } else {
+          currentFileObj = null;
+          statusSpan.textContent = 'No file chosen';
+          statusSpan.style.color = '#64748b';
+          statusSpan.style.fontWeight = '500';
+          if (previewBtn) {
+            previewBtn.style.display = 'none';
+          }
+        }
+      });
+    }
+
+    // View icon click: instant preview
+    if (previewBtn) {
+      previewBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (currentFileObj) {
+          const blobUrl = URL.createObjectURL(currentFileObj);
+          window.open(blobUrl, '_blank');
+        }
+      });
+    }
+
+    // Inline + button: add new row below
+    if (addBtn) {
+      addBtn.addEventListener('click', function () {
+        addNewDocumentRow();
+      });
+    }
+
+    // Remove button: delete this row
+    if (removeBtn) {
+      removeBtn.addEventListener('click', function () {
+        const totalRows = employeeDocsContainer.querySelectorAll('.doc-entry-row').length;
+        if (totalRows > 1) {
+          row.remove();
+        } else {
+          fileInput.value = '';
+          currentFileObj = null;
+          statusSpan.textContent = 'No file chosen';
+          statusSpan.style.color = '#64748b';
+          statusSpan.style.fontWeight = '500';
+          titleInput.value = '';
+          if (previewBtn) previewBtn.style.display = 'none';
+        }
+      });
+    }
+
+    employeeDocsContainer.appendChild(row);
+  }
+
+  if (btnAddDocRowTop) {
+    btnAddDocRowTop.addEventListener('click', function () {
+      addNewDocumentRow();
+    });
+  }
+
   // ================= ADD / EDIT MODAL LOGIC =================
   if (btnOpenNewEntry) {
     btnOpenNewEntry.addEventListener('click', function () {
@@ -351,6 +538,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (pCred) pCred.checked = true;
     const pLeave = document.getElementById('permLeavePermission');
     if (pLeave) pLeave.checked = true;
+
+    // Reset Employee Documents to 1 empty row
+    renderEmployeeDocuments([]);
 
     entryModal.classList.add('active');
   }
@@ -416,6 +606,9 @@ document.addEventListener('DOMContentLoaded', function () {
         photoPreviewBox.style.display = 'none';
       }
 
+      // Render Employee Documents
+      renderEmployeeDocuments(emp.documents || []);
+
       entryModal.classList.add('active');
     } catch (err) {
       alert('Error fetching employee details: ' + err.message);
@@ -439,6 +632,9 @@ document.addEventListener('DOMContentLoaded', function () {
       if (pPay) pPay.checked = true;
       const pCred = document.getElementById('permEmployeeCredentials');
       if (pCred) pCred.checked = true;
+      const pLeave = document.getElementById('permLeavePermission');
+      if (pLeave) pLeave.checked = true;
+      renderEmployeeDocuments([]);
     });
   }
 
@@ -601,6 +797,44 @@ document.addEventListener('DOMContentLoaded', function () {
       formData.set('perm_employee_credentials', permCred ? (permCred.checked ? 'true' : 'false') : 'true');
       formData.set('perm_leave_permission', permLeave ? (permLeave.checked ? 'true' : 'false') : 'true');
 
+      // Explicitly serialize employee documents
+      if (employeeDocsContainer) {
+        // 1. Retained existing documents
+        const existingRows = employeeDocsContainer.querySelectorAll('.existing-doc-row');
+        const retainedDocs = [];
+        existingRows.forEach(er => {
+          const docId = er.dataset.docId;
+          const titleEl = er.querySelector('.existing-doc-title');
+          const matchedDoc = currentExistingDocs.find(d => String(d.id || '') === String(docId));
+          if (matchedDoc) {
+            const updatedDoc = { ...matchedDoc };
+            if (titleEl && titleEl.value.trim()) {
+              updatedDoc.document_name = titleEl.value.trim();
+            }
+            retainedDocs.push(updatedDoc);
+          }
+        });
+        formData.set('existing_documents', JSON.stringify(retainedDocs));
+
+        // 2. Newly uploaded documents
+        const newRows = employeeDocsContainer.querySelectorAll('.new-doc-row');
+        let newDocCount = 0;
+        newRows.forEach(nr => {
+          const fInput = nr.querySelector('.doc-file-input');
+          const tInput = nr.querySelector('.new-doc-title');
+          if (fInput && fInput.files && fInput.files[0]) {
+            const file = fInput.files[0];
+            const title = tInput ? tInput.value.trim() : '';
+            formData.append(`doc_file_${newDocCount}`, file);
+            formData.append(`doc_title_${newDocCount}`, title);
+            formData.append('doc_files[]', file);
+            formData.append('doc_titles[]', title);
+            newDocCount++;
+          }
+        });
+        formData.set('doc_count', String(newDocCount));
+      }
+
       // Attach webcam captured photo if user took snapshot
       if (currentCapturedBlob) {
         formData.set('photo', currentCapturedBlob, 'face_capture.jpg');
@@ -734,11 +968,33 @@ document.addEventListener('DOMContentLoaded', function () {
         ['RECORD CREATED AT', formattedCreated]
       ];
 
+      // Attached documents
+      const docs = emp.documents || [];
+      let docsHtml = '<span style="color: #94a3b8; font-style: italic;">No documents attached</span>';
+      if (Array.isArray(docs) && docs.length > 0) {
+        docsHtml = `<div style="display: flex; flex-direction: column; gap: 6px;">` + docs.map(d => {
+          const dName = escapeHtml(d.document_name || d.filename || 'Document');
+          const dUrl = escapeHtml(d.file_url || (d.filename ? `/static/uploads/employee_documents/${d.filename}` : '#'));
+          const dExt = escapeHtml(d.file_type ? d.file_type.toUpperCase() : 'FILE');
+          return `<div style="display: inline-flex; align-items: center; gap: 8px;">
+            <span style="font-weight: 600; color: #1e293b;">${dName}</span>
+            <span style="font-size: 10px; background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${dExt}</span>
+            <a href="${dUrl}" target="_blank" class="btn-doc-view" style="padding: 3px 8px; font-size: 11px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg> View
+            </a>
+          </div>`;
+        }).join('') + `</div>`;
+      }
+      fields.push(['EMPLOYEE DOCUMENTS', docsHtml]);
+
       fields.forEach(([label, val]) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="info-label">${label}</td>
-          <td>${val ? (label === 'PHOTO' ? val : escapeHtml(String(val))) : '-'}</td>
+          <td>${val ? (label === 'PHOTO' || label === 'EMPLOYEE DOCUMENTS' ? val : escapeHtml(String(val))) : '-'}</td>
         `;
         tbody.appendChild(tr);
       });

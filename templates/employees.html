@@ -240,7 +240,25 @@
             </div>
           </div>
 
-          <!-- Row 8: Employee Permissions -->
+          <!-- Row 8: Employee Documents -->
+          <div class="form-group" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <div>
+                <label class="form-label" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Employee Documents</label>
+                <div style="font-size: 11px; color: #64748b; font-weight: 500; margin-top: 2px;">
+                  Attach identity proofs, certificates, and employment documents (PDF, DOCX, JPG, PNG, etc.)
+                </div>
+              </div>
+              <button type="button" id="btnAddDocRowTop" class="btn-submit" style="padding: 5px 12px; font-size: 11px; background-color: #3d6078; display: inline-flex; align-items: center; gap: 4px;">
+                <span>+ Add Document</span>
+              </button>
+            </div>
+            <div id="employeeDocsContainer" style="display: flex; flex-direction: column; gap: 8px;">
+              <!-- Dynamic document rows rendered via JavaScript -->
+            </div>
+          </div>
+
+          <!-- Row 9: Employee Permissions -->
           <div class="form-group" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
               <label class="form-label" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Employee Permissions</label>
@@ -369,5 +387,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261002_1730"></script>
+<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261003_1745"></script>
 {% endblock %}

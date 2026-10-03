@@ -3,6 +3,8 @@ import time
 import re
 import io
 import csv
+import json
+import uuid
 import gzip
 import secrets
 import base64
@@ -117,6 +119,74 @@ except Exception as e:
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+DOCUMENTS_FOLDER = os.path.join(app.config['UPLOAD_FOLDER'], 'employee_documents')
+try:
+    os.makedirs(DOCUMENTS_FOLDER, exist_ok=True)
+except Exception as e:
+    print(f"Warning: Could not create employee_documents directory: {e}")
+
+ALLOWED_DOCUMENT_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'}
+
+def allowed_document_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_DOCUMENT_EXTENSIONS
+
+def process_uploaded_employee_documents(req_form, req_files, emp_id_prefix='doc'):
+    """Processes uploaded employee documents from form data and files."""
+    documents = []
+    
+    # 1. Process indexed rows: doc_title_X and doc_file_X
+    try:
+        doc_count = int(req_form.get('doc_count', 100))
+    except Exception:
+        doc_count = 100
+
+    for i in range(doc_count):
+        file_key = f'doc_file_{i}'
+        title_key = f'doc_title_{i}'
+        if file_key in req_files:
+            f = req_files[file_key]
+            if f and f.filename and allowed_document_file(f.filename):
+                title = req_form.get(title_key, '').strip()
+                clean_fname = werkzeug.utils.secure_filename(f.filename) or 'document'
+                ext = clean_fname.rsplit('.', 1)[1].lower() if '.' in clean_fname else 'dat'
+                uniq_name = f"{emp_id_prefix}_{int(time.time())}_{uuid.uuid4().hex[:6]}_{clean_fname}"
+                save_path = os.path.join(DOCUMENTS_FOLDER, uniq_name)
+                f.save(save_path)
+                documents.append({
+                    'id': str(uuid.uuid4())[:8],
+                    'document_name': title or clean_fname.rsplit('.', 1)[0].replace('_', ' ').title(),
+                    'filename': uniq_name,
+                    'file_url': f"/static/uploads/employee_documents/{uniq_name}",
+                    'file_type': ext,
+                    'uploaded_at': database.get_ist_now()
+                })
+
+    # 2. Also check list format: doc_files / doc_files[]
+    list_files = req_files.getlist('doc_files') or req_files.getlist('doc_files[]')
+    list_titles = req_form.getlist('doc_titles') or req_form.getlist('doc_titles[]')
+    for idx, f in enumerate(list_files):
+        if f and f.filename and allowed_document_file(f.filename):
+            title = list_titles[idx].strip() if idx < len(list_titles) else ''
+            clean_fname = werkzeug.utils.secure_filename(f.filename) or 'document'
+            ext = clean_fname.rsplit('.', 1)[1].lower() if '.' in clean_fname else 'dat'
+            uniq_name = f"{emp_id_prefix}_{int(time.time())}_{uuid.uuid4().hex[:6]}_{clean_fname}"
+            save_path = os.path.join(DOCUMENTS_FOLDER, uniq_name)
+            f.save(save_path)
+            documents.append({
+                'id': str(uuid.uuid4())[:8],
+                'document_name': title or clean_fname.rsplit('.', 1)[0].replace('_', ' ').title(),
+                'filename': uniq_name,
+                'file_url': f"/static/uploads/employee_documents/{uniq_name}",
+                'file_type': ext,
+                'uploaded_at': database.get_ist_now()
+            })
+
+    return documents
+
+@app.route('/uploads/employee_documents/<path:filename>')
+def uploaded_employee_document(filename):
+    return send_from_directory(DOCUMENTS_FOLDER, filename)
 
 # ----------------- MULTI-TENANT RBAC HELPERS & DECORATORS ----------------- #
 
@@ -1791,6 +1861,14 @@ def api_create_employee():
             return jsonify({'error': 'Email ID is required'}), 400
             
         data['permissions'] = extract_employee_permissions(data, default_val=True)
+        
+        # Process uploaded employee documents
+        try:
+            data['documents'] = process_uploaded_employee_documents(request.form, request.files, emp_id_prefix='emp')
+        except Exception as doc_err:
+            print(f"Warning: processing employee documents failed: {doc_err}")
+            data['documents'] = []
+
         emp_id = database.create_employee(data, company_id=get_current_company_id())
         success_msg = 'Employee created successfully'
         if face_registered:
@@ -1873,6 +1951,29 @@ def api_update_employee(emp_id):
         # Update permissions if permission fields or permissions dict was passed
         if any(k in data for k in ['perm_punch_attendance', 'perm_attendance_history', 'perm_monthly_payslip', 'perm_employee_credentials', 'permissions']):
             data['permissions'] = extract_employee_permissions(data, default_val=True)
+
+        # Process existing and new employee documents
+        existing_docs = []
+        if 'existing_documents' in request.form:
+            try:
+                raw_docs = request.form.get('existing_documents')
+                if raw_docs:
+                    parsed = json.loads(raw_docs)
+                    if isinstance(parsed, list):
+                        existing_docs = parsed
+            except Exception as doc_ex:
+                print(f"Warning: parsing existing_documents failed: {doc_ex}")
+        elif emp and isinstance(emp.get('documents'), list) and not any(k.startswith('doc_') for k in request.files.keys()):
+            existing_docs = emp.get('documents', [])
+
+        try:
+            new_docs = process_uploaded_employee_documents(request.form, request.files, emp_id_prefix=emp_id)
+        except Exception as doc_err:
+            print(f"Warning: processing new documents failed: {doc_err}")
+            new_docs = []
+
+        if existing_docs or new_docs or 'existing_documents' in request.form:
+            data['documents'] = existing_docs + new_docs
 
         database.update_employee(emp_id, data)
         success_msg = 'Employee updated successfully'
