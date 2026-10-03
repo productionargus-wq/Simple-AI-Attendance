@@ -391,7 +391,7 @@
       <!-- Dual Action Cards (Image 1) -->
       <div class="leave-action-grid">
         <!-- 1. Apply for Leave -->
-        <div class="leave-action-card leave-card-blue" id="cardApplyLeave" role="button" tabindex="0">
+        <div class="leave-action-card leave-card-blue" id="cardApplyLeave" role="button" tabindex="0" onclick="if(window.openLeaveModal) window.openLeaveModal();">
           <div class="leave-action-left">
             <div class="leave-icon-circle icon-circle-blue">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -406,7 +406,7 @@
               <div class="leave-action-sub">Full Day Leave / Half Day Leave</div>
             </div>
           </div>
-          <button type="button" class="btn-circle-arrow btn-circle-blue" id="btnArrowLeave" title="Apply for Leave">
+          <button type="button" class="btn-circle-arrow btn-circle-blue" id="btnArrowLeave" title="Apply for Leave" onclick="event.stopPropagation(); if(window.openLeaveModal) window.openLeaveModal();">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
@@ -414,7 +414,7 @@
         </div>
 
         <!-- 2. Apply for Permission -->
-        <div class="leave-action-card leave-card-green" id="cardApplyPerm" role="button" tabindex="0">
+        <div class="leave-action-card leave-card-green" id="cardApplyPerm" role="button" tabindex="0" onclick="if(window.openPermModal) window.openPermModal();">
           <div class="leave-action-left">
             <div class="leave-icon-circle icon-circle-green">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -427,7 +427,7 @@
               <div class="leave-action-sub">Short Leave / Work from Outside</div>
             </div>
           </div>
-          <button type="button" class="btn-circle-arrow btn-circle-green" id="btnArrowPerm" title="Apply for Permission">
+          <button type="button" class="btn-circle-arrow btn-circle-green" id="btnArrowPerm" title="Apply for Permission" onclick="event.stopPropagation(); if(window.openPermModal) window.openPermModal();">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
@@ -625,7 +625,7 @@
     {% endif %}
 
     <!-- ================= MODAL: APPLY FOR LEAVE (Image 2) ================= -->
-    <div class="modal-overlay" id="modalApplyLeave" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center;">
+    <div class="modal-overlay" id="modalApplyLeave" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center;">
       <div class="modal-box-leave" style="max-width: 600px; width: 95%; max-height: 90vh; overflow-y: auto; position: relative;">
         <div class="modal-header-leave">
           <div style="display: flex; align-items: center; gap: 10px;">
@@ -748,7 +748,7 @@
     </div>
 
     <!-- ================= MODAL: APPLY FOR PERMISSION (Image 3) ================= -->
-    <div class="modal-overlay" id="modalApplyPermission" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center;">
+    <div class="modal-overlay" id="modalApplyPermission" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center;">
       <div class="modal-box-perm" style="max-width: 580px; width: 95%; max-height: 90vh; overflow-y: auto; position: relative;">
         <div class="modal-header-perm">
           <div style="display: flex; align-items: center; gap: 10px;">
@@ -1304,14 +1304,16 @@
     // 6. LEAVE & PERMISSION LOGIC (Employee UI)
     // ==========================================
     const modalApplyLeave = document.getElementById('modalApplyLeave');
-    const btnOpenApplyLeave = document.getElementById('btnOpenApplyLeave');
+    const cardApplyLeave = document.getElementById('cardApplyLeave');
+    const btnArrowLeave = document.getElementById('btnArrowLeave');
     const closeLeaveModal = document.getElementById('closeLeaveModal');
     const btnCancelLeave = document.getElementById('btnCancelLeave');
     const formApplyLeave = document.getElementById('formApplyLeave');
     const leaveAlert = document.getElementById('leaveAlert');
 
     const modalApplyPermission = document.getElementById('modalApplyPermission');
-    const btnOpenApplyPermission = document.getElementById('btnOpenApplyPermission');
+    const cardApplyPerm = document.getElementById('cardApplyPerm');
+    const btnArrowPerm = document.getElementById('btnArrowPerm');
     const closePermModal = document.getElementById('closePermModal');
     const btnCancelPerm = document.getElementById('btnCancelPerm');
     const formApplyPermission = document.getElementById('formApplyPermission');
@@ -1391,38 +1393,77 @@
       calcPermDuration();
     }
 
-    // Modal open & close
-    if (btnOpenApplyLeave && modalApplyLeave) {
-      btnOpenApplyLeave.addEventListener('click', () => {
+    // Functions to open & close modals (both exposed on window for inline handlers & attached via event listeners)
+    function openLeaveModal() {
+      if (modalApplyLeave) {
         if (leaveAlert) leaveAlert.style.display = 'none';
+        modalApplyLeave.classList.add('active');
         modalApplyLeave.style.display = 'flex';
-      });
+      }
     }
-    if (closeLeaveModal && modalApplyLeave) {
-      closeLeaveModal.addEventListener('click', () => { modalApplyLeave.style.display = 'none'; });
-    }
-    if (btnCancelLeave && modalApplyLeave) {
-      btnCancelLeave.addEventListener('click', () => { modalApplyLeave.style.display = 'none'; });
-    }
+    window.openLeaveModal = openLeaveModal;
 
-    if (btnOpenApplyPermission && modalApplyPermission) {
-      btnOpenApplyPermission.addEventListener('click', () => {
+    function closeLeaveModalFunc() {
+      if (modalApplyLeave) {
+        modalApplyLeave.classList.remove('active');
+        modalApplyLeave.style.display = 'none';
+      }
+    }
+    window.closeLeaveModalFunc = closeLeaveModalFunc;
+
+    function openPermModal() {
+      if (modalApplyPermission) {
         if (permAlert) permAlert.style.display = 'none';
+        modalApplyPermission.classList.add('active');
         modalApplyPermission.style.display = 'flex';
         calcPermDuration();
+      }
+    }
+    window.openPermModal = openPermModal;
+
+    function closePermModalFunc() {
+      if (modalApplyPermission) {
+        modalApplyPermission.classList.remove('active');
+        modalApplyPermission.style.display = 'none';
+      }
+    }
+    window.closePermModalFunc = closePermModalFunc;
+
+    // Attach event listeners to Cards and Arrow buttons
+    if (cardApplyLeave) cardApplyLeave.addEventListener('click', openLeaveModal);
+    if (btnArrowLeave) {
+      btnArrowLeave.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openLeaveModal();
       });
     }
-    if (closePermModal && modalApplyPermission) {
-      closePermModal.addEventListener('click', () => { modalApplyPermission.style.display = 'none'; });
+
+    if (closeLeaveModal) closeLeaveModal.addEventListener('click', closeLeaveModalFunc);
+    if (btnCancelLeave) btnCancelLeave.addEventListener('click', closeLeaveModalFunc);
+
+    if (cardApplyPerm) cardApplyPerm.addEventListener('click', openPermModal);
+    if (btnArrowPerm) {
+      btnArrowPerm.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openPermModal();
+      });
     }
-    if (btnCancelPerm && modalApplyPermission) {
-      btnCancelPerm.addEventListener('click', () => { modalApplyPermission.style.display = 'none'; });
-    }
+
+    if (closePermModal) closePermModal.addEventListener('click', closePermModalFunc);
+    if (btnCancelPerm) btnCancelPerm.addEventListener('click', closePermModalFunc);
 
     // Close modals on outside click
     window.addEventListener('click', (e) => {
-      if (modalApplyLeave && e.target === modalApplyLeave) modalApplyLeave.style.display = 'none';
-      if (modalApplyPermission && e.target === modalApplyPermission) modalApplyPermission.style.display = 'none';
+      if (modalApplyLeave && e.target === modalApplyLeave) closeLeaveModalFunc();
+      if (modalApplyPermission && e.target === modalApplyPermission) closePermModalFunc();
+    });
+
+    // Close modals on Escape key
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeLeaveModalFunc();
+        closePermModalFunc();
+      }
     });
 
     // Helper alerts
@@ -1597,7 +1638,7 @@
             loadLeaveBalances();
             loadLeaveRequests();
             setTimeout(() => {
-              modalApplyLeave.style.display = 'none';
+              closeLeaveModalFunc();
               if (leaveAlert) leaveAlert.style.display = 'none';
             }, 1400);
           } else {
@@ -1633,7 +1674,7 @@
             loadLeaveBalances();
             loadLeaveRequests();
             setTimeout(() => {
-              modalApplyPermission.style.display = 'none';
+              closePermModalFunc();
               if (permAlert) permAlert.style.display = 'none';
             }, 1400);
           } else {
