@@ -255,14 +255,13 @@
       {{ (company.company_name if company and company.company_name else session.get('company_name') or 'ARGUS TECHNOLOGIES') | upper }}
     </div>
 
-    <div class="portal-nav-right">
-      <div class="portal-user-badge" style="text-align: right; font-size: 12px;">
-        <div class="portal-user-name" style="font-weight: 800; color: #ffffff;">{{ employee.employee_name if employee else 'Employee' }}</div>
-        <div class="portal-company-tag" style="color: #ffd166; font-size: 11px;">{{ company.company_name if company else 'Argus Technologies' }}</div>
-      </div>
+    <div class="portal-nav-right" style="display: flex; align-items: center; gap: 14px;">
       <a href="/logout" class="portal-btn-logout" style="background-color: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 6px 14px; font-size: 11px; font-weight: 700; text-decoration: none;">
         Logout
       </a>
+      <div class="portal-logo-circle" title="{{ company.company_name if company and company.company_name else (session.get('company_name') or 'Company Logo') }}">
+        <img src="{{ current_company_logo_url }}" alt="Company Logo" class="portal-logo-img" onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/argus_triangle_logo.png') }}';">
+      </div>
     </div>
   </header>
 

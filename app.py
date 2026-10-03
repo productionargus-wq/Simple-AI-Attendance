@@ -212,7 +212,7 @@ def check_user_can_delete_entries():
 
 @app.context_processor
 def inject_delete_permissions():
-    """Injects delete permissions, system admin status, and pending leave count into all templates dynamically."""
+    """Injects delete permissions, system admin status, pending leave count, and dynamic company logo into all templates dynamically."""
     role = session.get('role')
     is_super = role == 'super_admin'
     comp_can_del = False
@@ -231,10 +231,37 @@ def inject_delete_permissions():
                 pending_cnt = database.get_pending_leave_requests_count(comp_id)
             except Exception:
                 pending_cnt = 0
+
+    # Resolve respective company logo dynamically
+    logo_url = None
+    target_comp_id = session.get('company_id')
+    if not target_comp_id and is_super:
+        target_comp_id = 'ARGUS_MASTER'
+
+    if target_comp_id:
+        try:
+            comp_doc = database.get_company_by_id(target_comp_id)
+            if comp_doc:
+                logo_url = comp_doc.get('logo_data') or (f"/uploads/{comp_doc['logo']}" if comp_doc.get('logo') else None)
+        except Exception:
+            pass
+
+    if not logo_url:
+        try:
+            master_doc = database.get_company_by_id('ARGUS_MASTER')
+            if master_doc:
+                logo_url = master_doc.get('logo_data') or (f"/uploads/{master_doc['logo']}" if master_doc.get('logo') else None)
+        except Exception:
+            pass
+
+    if not logo_url:
+        logo_url = url_for('static', filename='images/argus_triangle_logo.png')
+
     return {
         'is_system_admin': is_super,
         'can_delete_entries': comp_can_del,
-        'pending_leave_count': pending_cnt
+        'pending_leave_count': pending_cnt,
+        'current_company_logo_url': logo_url
     }
 
 import traceback

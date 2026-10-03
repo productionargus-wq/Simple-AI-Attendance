@@ -28,8 +28,10 @@
       <div class="nav-title">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
     </div>
     
-    <div class="nav-right">
-      <!-- Clean top right navbar -->
+    <div class="nav-right" style="display: flex; align-items: center; justify-content: flex-end;">
+      <div class="top-nav-logo-circle" title="{{ session.get('company_name') or 'Company Logo' }}">
+        <img src="{{ current_company_logo_url }}" alt="Company Logo" class="top-nav-logo-img" onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/argus_triangle_logo.png') }}';">
+      </div>
     </div>
   </header>
 
