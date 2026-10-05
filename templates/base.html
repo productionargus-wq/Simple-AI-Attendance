@@ -131,9 +131,9 @@
         </a>
         {% endif %}
         {% if session.get('role') == 'super_admin' %}
-        <a href="{{ url_for('admin_support_tickets') }}" class="nav-item-btn {% if active_tab == 'SUPPORT TICKETS' %}active{% endif %}">
+        <a href="{{ url_for('admin_support_tickets') }}" class="nav-item-btn {% if active_tab in ['SUPPORT & HELP', 'SUPPORT TICKETS'] %}active{% endif %}">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
-          <span style="flex: 1;">Support Tickets</span>
+          <span style="flex: 1;">Support & Help</span>
           <span class="nav-count-badge" id="sidebarAdminSupportBadge" {% if not admin_support_count %}style="display: none;"{% endif %}>{{ admin_support_count or 0 }}</span>
         </a>
         {% endif %}
