@@ -262,6 +262,71 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
     comp_address = comp.get('address') or comp.get('location') or ''
     comp_location = comp.get('location') or comp.get('address') or ''
 
+    # Cache active company employees for salary calculation and absent analysis
+    emp_docs = list(db.employees.find({'company_id': comp_id_str}))
+    emp_map = {e.get('employee_name'): e for e in emp_docs if e.get('employee_name')}
+
+    def calculate_employee_working_salary(emp_info, working_hours_str, punch_doc=None):
+        if punch_doc:
+            for k in ['working_salary', 'salary_earned', 'salary']:
+                if punch_doc.get(k) is not None:
+                    try:
+                        return float(punch_doc[k])
+                    except (ValueError, TypeError):
+                        pass
+        if not emp_info:
+            return 0.0
+        stype = str(emp_info.get('salary_type') or 'hourly').strip().lower()
+        hr_rate = float(emp_info.get('hourly_salary') or 0.0)
+        d_rate = float(emp_info.get('day_salary') or 0.0)
+        h_rate = float(emp_info.get('half_day_salary') or 0.0)
+        if hr_rate <= 0 and d_rate > 0:
+            hr_rate = d_rate / 8.0
+
+        shift_str = emp_info.get('shift_hours', '08:00') or '08:00'
+        shift_mins = 480
+        try:
+            sp = str(shift_str).split(':')
+            shift_mins = int(sp[0]) * 60 + int(sp[1])
+        except Exception:
+            shift_mins = 480
+        if shift_mins <= 0:
+            shift_mins = 480
+        half_shift = max(1, shift_mins // 2)
+
+        tot_mins = 0
+        try:
+            parts = str(working_hours_str or '').split(':')
+            if len(parts) >= 2:
+                tot_mins = int(parts[0]) * 60 + int(parts[1])
+        except Exception:
+            tot_mins = 0
+
+        if tot_mins <= 0:
+            return 0.0
+
+        if stype == 'hourly':
+            return round((tot_mins / 60.0) * hr_rate, 2)
+        elif stype == 'daily':
+            if tot_mins >= shift_mins:
+                return round(d_rate, 2)
+            elif tot_mins >= half_shift:
+                eff_h = h_rate if h_rate > 0 else (d_rate / 2.0)
+                return round(eff_h, 2)
+            else:
+                eff_hr = hr_rate if hr_rate > 0 else (d_rate / (shift_mins / 60.0))
+                return round((tot_mins / 60.0) * eff_hr, 2)
+        elif stype == 'half_day':
+            eff_h = h_rate if h_rate > 0 else (d_rate / 2.0 if d_rate > 0 else hr_rate * 4.0)
+            if tot_mins >= shift_mins:
+                return round(eff_h * 2.0, 2)
+            elif tot_mins >= half_shift:
+                return round(eff_h, 2)
+            else:
+                return round((tot_mins / float(half_shift)) * eff_h, 2)
+        else:
+            return round((tot_mins / 60.0) * hr_rate, 2)
+
     # 1. Attendance punches (Proper & Improper)
     punch_query = {
         'company_id': comp_id_str,
@@ -298,6 +363,8 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
         if not is_improper and ('km' in dist_str.lower() or (dist_str.endswith('m') and dist_str[:-2].strip().isdigit() and int(dist_str[:-2].strip()) > 200)):
             is_improper = True
 
+        emp_info = emp_map.get(emp_name)
+
         if is_improper:
             loc = p.get('entry_location') or 'Remote Location'
             if len(loc) > 40:
@@ -308,20 +375,38 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
             elif p.get('shift_variance') and '-' in str(p.get('shift_variance')) and not p.get('shift_variance', '').startswith('-00'):
                 reason = 'Outside geofence'
 
+            entry_status = p.get('entry_status')
+            exit_status = p.get('exit_status')
+            if not entry_status or entry_status == '-' or not exit_status or exit_status == '-':
+                calc_e_stat, calc_x_stat = database.compute_entry_exit_status(
+                    p.get('entry_time'),
+                    p.get('exit_time')
+                )
+                if not entry_status or entry_status == '-':
+                    entry_status = calc_e_stat
+                if not exit_status or exit_status == '-':
+                    exit_status = calc_x_stat
+
             improper_entries.append({
                 'employee_name': emp_name,
                 'entry_time': entry_t,
+                'entry_status': entry_status or 'On Time',
+                'exit_time': exit_t if exit_t != '-' else '-',
+                'exit_status': exit_status or '-',
                 'distance': dist_str if dist_str else '350 m',
                 'location': loc if loc else 'Remote Location',
                 'reason': reason
             })
         else:
             loc = 'Office'
+            ws_val = calculate_employee_working_salary(emp_info, wh, p)
             proper_entries.append({
                 'employee_name': emp_name,
                 'entry_time': entry_t,
                 'exit_time': exit_t if exit_t != '-' else '-',
                 'working_hours': wh,
+                'working_salary': f"Rs. {ws_val:,.0f}" if ws_val > 0 else "Rs. 0",
+                'working_salary_val': ws_val,
                 'location': loc,
                 'status': 'Proper'
             })
@@ -389,7 +474,25 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
     manual_entries = []
     for m in manuals_raw:
         emp_name = m.get('employee_name', '-')
-        sub_at = m.get('submitted_at') or f"{d_slash} 09:00 AM"
+        raw_date = m.get('entry_date') or m.get('date') or ''
+        date_display = '-'
+        if raw_date:
+            try:
+                raw_str = str(raw_date).strip()
+                if '-' in raw_str:
+                    parts = raw_str.split('-')
+                    if len(parts[0]) == 4:  # YYYY-MM-DD
+                        date_display = f"{parts[2]}/{parts[1]}/{parts[0]}"
+                    else:  # DD-MM-YYYY
+                        date_display = f"{parts[0]}/{parts[1]}/{parts[2]}"
+                elif '/' in raw_str:
+                    date_display = raw_str
+            except Exception:
+                date_display = str(raw_date)
+        if date_display == '-':
+            date_display = d_slash
+
+        hours_val = m.get('hours') or m.get('working_hours') or '08:00'
         etype = m.get('entry_type') or 'Check In'
         if etype == 'Add':
             etype = 'Check In'
@@ -402,15 +505,119 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
         if remarks in ['Others', '-']:
             remarks = 'System down - manual entry'
 
+        # Working salary computation
+        if m.get('working_salary') is not None:
+            try:
+                ws_num = float(m['working_salary'])
+            except Exception:
+                ws_num = 0.0
+        elif m.get('amount') is not None:
+            try:
+                ws_num = float(m['amount'])
+            except Exception:
+                ws_num = 0.0
+        else:
+            ws_num = calculate_employee_working_salary(emp_map.get(emp_name), hours_val)
+
+        ws_disp = f"Rs. {abs(ws_num):,.0f}"
+        if ws_num < 0 or str(m.get('entry_type', '')).lower() == 'sub':
+            ws_disp = f"-Rs. {abs(ws_num):,.0f}"
+
         manual_entries.append({
             'employee_name': emp_name,
-            'date_time': sub_at,
+            'date': date_display,
+            'hours': hours_val,
+            'working_salary': ws_disp,
             'type': etype,
             'added_by': added_by,
             'remarks': remarks
         })
 
-    # 4. Payment Entries
+    # 4. Leave & Permissions Entries
+    leave_query = {
+        'company_id': comp_id_str,
+        '$or': [
+            {'request_type': 'Leave', 'from_date': {'$lte': target_date}, 'to_date': {'$gte': target_date}},
+            {'request_type': 'Leave', 'from_date': {'$in': date_variants}},
+            {'request_type': 'Permission', 'from_date': {'$in': date_variants}},
+            {'request_type': 'Permission', 'date': {'$in': date_variants}}
+        ]
+    }
+    leaves_raw = list(db.leave_requests.find(leave_query).sort('created_at', 1))
+    leave_entries = []
+    for lr in leaves_raw:
+        ename = lr.get('employee_name', '-')
+        req_type = lr.get('request_type', 'Leave')
+        l_type = lr.get('leave_type') or lr.get('permission_type') or req_type
+
+        if req_type == 'Permission':
+            dur = lr.get('duration_str') or lr.get('duration')
+            if not dur and lr.get('duration_hours'):
+                dur = f"{lr.get('duration_hours')} hrs"
+            if not dur:
+                dur = "1 hr"
+        else:
+            session = lr.get('session')
+            days_c = lr.get('total_days') or lr.get('days_count') or 1.0
+            if session == 'Half Day':
+                dur = "0.5 Day (Half Day)"
+            elif days_c == 1.0 or days_c == 1:
+                dur = "1 Day (Full Day)"
+            else:
+                dur = f"{days_c} Days"
+
+        reason = lr.get('reason') or '-'
+        status = lr.get('status') or 'Approved'
+
+        leave_entries.append({
+            'name': ename,
+            'type': l_type,
+            'duration': dur,
+            'reason': reason,
+            'status': status
+        })
+
+    # 5. Absent Report Entries
+    present_names = set()
+    for p in proper_entries:
+        if p.get('employee_name') and p['employee_name'] != '-':
+            present_names.add(p['employee_name'])
+    for ip in improper_entries:
+        if ip.get('employee_name') and ip['employee_name'] != '-':
+            present_names.add(ip['employee_name'])
+    for to in timeout_entries:
+        if to.get('employee_name') and to['employee_name'] != '-':
+            present_names.add(to['employee_name'])
+    for me in manual_entries:
+        if me.get('employee_name') and me['employee_name'] != '-':
+            present_names.add(me['employee_name'])
+
+    approved_leave_names = set()
+    for lr in leave_entries:
+        if str(lr.get('status')).lower() == 'approved' and 'leave' in str(lr.get('type', '')).lower():
+            approved_leave_names.add(lr.get('name'))
+
+    active_emps = list(db.employees.find({
+        'company_id': comp_id_str,
+        'status': {'$nin': ['inactive', 'Inactive', 'Disabled', 'Terminated']}
+    }).sort('employee_name', 1))
+
+    absent_entries = []
+    for e in active_emps:
+        ename = e.get('employee_name', '-')
+        if ename not in present_names and ename not in approved_leave_names:
+            dept = e.get('department') or '-'
+            desig = e.get('designation') or '-'
+            shift_time = e.get('shift_time') or e.get('shift_hours') or '09:00 AM - 06:00 PM'
+            absent_entries.append({
+                'employee_name': ename,
+                'department': dept,
+                'designation': desig,
+                'shift': shift_time,
+                'status': 'Absent'
+            })
+
+    # 6. Payment Entries
     pay_query = {
         'company_id': comp_id_str,
         '$or': [
@@ -459,7 +666,7 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
             'remarks': a.get('reason') or 'Advance payment'
         })
 
-    # 5. Employee Details
+    # 7. Employee Details
     emp_query = {
         'company_id': comp_id_str,
         '$or': [
@@ -489,6 +696,8 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
         'improper': len(improper_entries),
         'timeout': len(timeout_entries),
         'manual': len(manual_entries),
+        'leave_permissions': len(leave_entries),
+        'absent': len(absent_entries),
         'payment': len(payment_entries),
         'employee_details': len(employee_details)
     }
@@ -506,6 +715,8 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
         'improper_entries': improper_entries,
         'timeout_entries': timeout_entries,
         'manual_entries': manual_entries,
+        'leave_entries': leave_entries,
+        'absent_entries': absent_entries,
         'payment_entries': payment_entries,
         'employee_details': employee_details
     }

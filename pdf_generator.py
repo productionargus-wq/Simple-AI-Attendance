@@ -2959,6 +2959,12 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
     c_manual_bg = colors.HexColor('#f3e8ff')
     c_manual_accent = colors.HexColor('#6c3cc5')
 
+    c_leave_bg = colors.HexColor('#e0f2fe')
+    c_leave_accent = colors.HexColor('#0284c7')
+
+    c_absent_bg = colors.HexColor('#ffe4e6')
+    c_absent_accent = colors.HexColor('#e11d48')
+
     c_payment_bg = colors.HexColor('#fef9c3')
     c_payment_accent = colors.HexColor('#b76a00')
 
@@ -3077,6 +3083,42 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
         alignment=TA_CENTER,
         textColor=colors.HexColor('#64748b')
     )
+    td_approved_style = ParagraphStyle(
+        'YARTdApproved',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=6.8,
+        leading=8.5,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#15803d')
+    )
+    td_rejected_style = ParagraphStyle(
+        'YARTdRejected',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=6.8,
+        leading=8.5,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#b91c1c')
+    )
+    td_pending_style = ParagraphStyle(
+        'YARTdPending',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=6.8,
+        leading=8.5,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#b45309')
+    )
+    td_absent_style = ParagraphStyle(
+        'YARTdAbsent',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=6.8,
+        leading=8.5,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#dc2626')
+    )
 
     footer_style = ParagraphStyle(
         'YARFooter',
@@ -3105,12 +3147,14 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
     elements.append(Paragraph(meta_text, meta_date_style))
     elements.append(Spacer(1, 9))
 
-    # 2. KPI Cards Row (6 Cards, each 122.83 pt wide)
+    # 2. KPI Cards Row (8 Cards, each 92.125 pt wide)
     kpi_categories = [
         ("Proper Entries", counts.get('proper', len(activity_data.get('proper_entries', []))), c_proper_accent, c_proper_bg),
         ("Improper Entries", counts.get('improper', len(activity_data.get('improper_entries', []))), c_improper_accent, c_improper_bg),
         ("Timeout Entries", counts.get('timeout', len(activity_data.get('timeout_entries', []))), c_timeout_accent, c_timeout_bg),
         ("Manual Entries", counts.get('manual', len(activity_data.get('manual_entries', []))), c_manual_accent, c_manual_bg),
+        ("Leave & Perm.", counts.get('leave_permissions', len(activity_data.get('leave_entries', []))), c_leave_accent, c_leave_bg),
+        ("Absent", counts.get('absent', len(activity_data.get('absent_entries', []))), c_absent_accent, c_absent_bg),
         ("Payment Entries", counts.get('payment', len(activity_data.get('payment_entries', []))), c_payment_accent, c_payment_bg),
         ("Employee Details", counts.get('employee_details', len(activity_data.get('employee_details', []))), c_emp_accent, c_emp_bg),
     ]
@@ -3121,8 +3165,8 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
             f'KPITitle_{title}',
             parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=7.2,
-            leading=9,
+            fontSize=6.5,
+            leading=8,
             alignment=TA_CENTER,
             textColor=text_color
         )
@@ -3130,24 +3174,24 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
             f'KPIVal_{title}',
             parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=15,
-            leading=17,
+            fontSize=13.5,
+            leading=15,
             alignment=TA_CENTER,
             textColor=text_color
         )
         cell_flow = [
             Paragraph(title, c_title_style),
-            Spacer(1, 2),
+            Spacer(1, 1),
             Paragraph(str(val), c_val_style)
         ]
         card_cells.append(cell_flow)
 
-    kpi_col_widths = [122.83] * 6
+    kpi_col_widths = [92.125] * 8
     kpi_table = Table([card_cells], colWidths=kpi_col_widths)
     kpi_table_style = [
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('LEFTPADDING', (0, 0), (-1, -1), 2),
         ('RIGHTPADDING', (0, 0), (-1, -1), 2),
         ('BOX', (0, 0), (-1, -1), 0.75, c_border),
@@ -3157,7 +3201,7 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
         kpi_table_style.append(('BACKGROUND', (idx, 0), (idx, 0), bg_color))
     kpi_table.setStyle(TableStyle(kpi_table_style))
     elements.append(kpi_table)
-    elements.append(Spacer(1, 10))
+    elements.append(Spacer(1, 9))
 
     # Helper: Create Section Banner
     def make_section_banner(section_title, total_count, accent_color, bg_color):
@@ -3186,151 +3230,40 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
         ]))
         return b_table
 
-    # 3. Section 1: Proper Entries
-    proper_list = activity_data.get('proper_entries', [])
-    elements.append(make_section_banner("1. Proper Entries", len(proper_list), c_proper_accent, c_proper_bg))
-    elements.append(Spacer(1, 2))
-
-    s1_widths = [34.0, 123.0, 116.0, 116.0, 116.0, 116.0, 116.0]
-    s1_rows = [[
-        Paragraph("#", th_center_style),
-        Paragraph("Employee Name", th_left_style),
-        Paragraph("Entry Time", th_center_style),
-        Paragraph("Exit Time", th_center_style),
-        Paragraph("Working Hours", th_center_style),
-        Paragraph("Location", th_center_style),
-        Paragraph("Status", th_center_style)
-    ]]
-
-    if proper_list:
-        for idx, row in enumerate(proper_list[:12], 1):
-            s1_rows.append([
-                Paragraph(str(idx), td_center_style),
-                Paragraph(str(row.get('employee_name', '-')), td_left_style),
-                Paragraph(str(row.get('entry_time', '-')), td_center_style),
-                Paragraph(str(row.get('exit_time', '-')), td_center_style),
-                Paragraph(str(row.get('working_hours', '-')), td_center_style),
-                Paragraph(str(row.get('location', 'Office')), td_center_style),
-                Paragraph(str(row.get('status', 'Proper')), td_center_style),
-            ])
-    else:
-        s1_rows.append([
-            Paragraph("-", td_center_style),
-            Paragraph("No proper entries recorded for this date", td_empty_style),
-            Paragraph("", td_center_style),
-            Paragraph("", td_center_style),
-            Paragraph("", td_center_style),
-            Paragraph("", td_center_style),
-            Paragraph("", td_center_style),
-        ])
-
-    s1_table = Table(s1_rows, colWidths=s1_widths)
-    s1_style = [
-        ('BACKGROUND', (0, 0), (-1, 0), c_th_bg),
-        ('BOX', (0, 0), (-1, -1), 0.5, c_grid),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, c_grid),
-        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
-    ]
-    if not proper_list:
-        s1_style.append(('SPAN', (1, 1), (-1, 1)))
-    else:
-        for r_idx in range(1, len(s1_rows)):
-            bg = c_row_white if r_idx % 2 == 1 else c_row_alt
-            s1_style.append(('BACKGROUND', (0, r_idx), (-1, r_idx), bg))
-    s1_table.setStyle(TableStyle(s1_style))
-    elements.append(s1_table)
-    elements.append(Spacer(1, 10))
-
-    # 4. Section 2: Improper Entries
-    improper_list = activity_data.get('improper_entries', [])
-    elements.append(make_section_banner("2. Improper Entries", len(improper_list), c_improper_accent, c_improper_bg))
-    elements.append(Spacer(1, 2))
-
-    s2_widths = [34.0, 140.6, 140.6, 140.6, 140.6, 140.6]
-    s2_rows = [[
-        Paragraph("#", th_center_style),
-        Paragraph("Employee Name", th_left_style),
-        Paragraph("Entry Time", th_center_style),
-        Paragraph("Distance", th_center_style),
-        Paragraph("Location", th_center_style),
-        Paragraph("Reason", th_center_style)
-    ]]
-
-    if improper_list:
-        for idx, row in enumerate(improper_list[:12], 1):
-            s2_rows.append([
-                Paragraph(str(idx), td_center_style),
-                Paragraph(str(row.get('employee_name', '-')), td_left_style),
-                Paragraph(str(row.get('entry_time', '-')), td_center_style),
-                Paragraph(str(row.get('distance', '-')), td_center_style),
-                Paragraph(str(row.get('location', '-')), td_center_style),
-                Paragraph(str(row.get('reason', '-')), td_center_style),
-            ])
-    else:
-        s2_rows.append([
-            Paragraph("-", td_center_style),
-            Paragraph("No improper entries recorded for this date", td_empty_style),
-            Paragraph("", td_center_style),
-            Paragraph("", td_center_style),
-            Paragraph("", td_center_style),
-            Paragraph("", td_center_style),
-        ])
-
-    s2_table = Table(s2_rows, colWidths=s2_widths)
-    s2_style = [
-        ('BACKGROUND', (0, 0), (-1, 0), c_th_bg),
-        ('BOX', (0, 0), (-1, -1), 0.5, c_grid),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, c_grid),
-        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
-    ]
-    if not improper_list:
-        s2_style.append(('SPAN', (1, 1), (-1, 1)))
-    else:
-        for r_idx in range(1, len(s2_rows)):
-            bg = c_row_white if r_idx % 2 == 1 else c_row_alt
-            s2_style.append(('BACKGROUND', (0, r_idx), (-1, r_idx), bg))
-    s2_table.setStyle(TableStyle(s2_style))
-    elements.append(s2_table)
-
-    # PAGE 1 END -> PAGE BREAK
-    elements.append(PageBreak())
-
-    # ==================== PAGE 2 ====================
-    # Page 2 Header
-    elements.append(Paragraph("YESTERDAY'S ACTIVITY REPORT - Continued", doc_cont_title_style))
-    elements.append(Spacer(1, 2))
-    elements.append(Paragraph(f"Activity Date: {act_date_str}", meta_date_style))
-    elements.append(Spacer(1, 8))
-
-    # Helper: Generic 6-col section table
-    def build_6col_table(data_list, headers, col_keys, left_col_idx=1, empty_msg="No records found"):
+    # Helper: Custom Table Builder
+    def build_custom_table(data_list, headers, col_keys, col_widths, left_col_idx=1, empty_msg="No records found", status_col_idx=None, absent_col_idx=None):
         t_rows = [[Paragraph(h, th_left_style if i == left_col_idx else th_center_style) for i, h in enumerate(headers)]]
         if data_list:
             for idx, r_data in enumerate(data_list[:12], 1):
                 row_cells = [Paragraph(str(idx), td_center_style)]
                 for c_idx, key in enumerate(col_keys):
                     val = r_data.get(key, '-')
-                    st = td_left_style if (c_idx + 1) == left_col_idx else td_center_style
+                    col_num = c_idx + 1
+                    if status_col_idx == col_num:
+                        val_str = str(val).lower()
+                        if 'approved' in val_str:
+                            st = td_approved_style
+                        elif 'rejected' in val_str:
+                            st = td_rejected_style
+                        elif 'pending' in val_str:
+                            st = td_pending_style
+                        else:
+                            st = td_center_style
+                    elif absent_col_idx == col_num:
+                        st = td_absent_style
+                    elif col_num == left_col_idx:
+                        st = td_left_style
+                    else:
+                        st = td_center_style
                     row_cells.append(Paragraph(str(val), st))
                 t_rows.append(row_cells)
         else:
-            t_rows.append([
-                Paragraph("-", td_center_style),
-                Paragraph(empty_msg, td_empty_style),
-                Paragraph("", td_center_style),
-                Paragraph("", td_center_style),
-                Paragraph("", td_center_style),
-                Paragraph("", td_center_style),
-            ])
-        tbl = Table(t_rows, colWidths=s2_widths)
+            empty_row = [Paragraph("-", td_center_style), Paragraph(empty_msg, td_empty_style)]
+            for _ in range(len(headers) - 2):
+                empty_row.append(Paragraph("", td_center_style))
+            t_rows.append(empty_row)
+
+        tbl = Table(t_rows, colWidths=col_widths)
         tbl_st = [
             ('BACKGROUND', (0, 0), (-1, 0), c_th_bg),
             ('BOX', (0, 0), (-1, -1), 0.5, c_grid),
@@ -3350,63 +3283,171 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
         tbl.setStyle(TableStyle(tbl_st))
         return tbl
 
+    # 3. Section 1: Proper Entries (with Working Salary)
+    proper_list = activity_data.get('proper_entries', [])
+    elements.append(make_section_banner("1. Proper Entries", len(proper_list), c_proper_accent, c_proper_bg))
+    elements.append(Spacer(1, 2))
+    s1_widths = [30.0, 147.0, 80.0, 80.0, 80.0, 90.0, 110.0, 120.0]
+    s1_headers = ["#", "Employee Name", "Entry Time", "Exit Time", "Working Hours", "Working Salary", "Location", "Status"]
+    s1_keys = ["employee_name", "entry_time", "exit_time", "working_hours", "working_salary", "location", "status"]
+    t1 = build_custom_table(
+        proper_list,
+        s1_headers,
+        s1_keys,
+        s1_widths,
+        left_col_idx=1,
+        empty_msg="No proper entries recorded for this date"
+    )
+    elements.append(t1)
+    elements.append(Spacer(1, 8))
+
+    # 4. Section 2: Improper Entries (with Entry Status, Exit Time, Exit Status)
+    improper_list = activity_data.get('improper_entries', [])
+    elements.append(make_section_banner("2. Improper Entries", len(improper_list), c_improper_accent, c_improper_bg))
+    elements.append(Spacer(1, 2))
+    s2_widths = [25.0, 120.0, 65.0, 75.0, 65.0, 75.0, 62.0, 95.0, 155.0]
+    s2_headers = ["#", "Employee Name", "Entry Time", "Entry Status", "Exit Time", "Exit Status", "Distance", "Location", "Reason"]
+    s2_keys = ["employee_name", "entry_time", "entry_status", "exit_time", "exit_status", "distance", "location", "reason"]
+    t2 = build_custom_table(
+        improper_list,
+        s2_headers,
+        s2_keys,
+        s2_widths,
+        left_col_idx=1,
+        empty_msg="No improper entries recorded for this date"
+    )
+    elements.append(t2)
+
+    # PAGE 1 END -> PAGE BREAK
+    elements.append(PageBreak())
+
+    # ==================== PAGE 2 ====================
+    # Page 2 Header
+    elements.append(Paragraph("YESTERDAY'S ACTIVITY REPORT - Continued", doc_cont_title_style))
+    elements.append(Spacer(1, 2))
+    elements.append(Paragraph(f"Activity Date: {act_date_str}", meta_date_style))
+    elements.append(Spacer(1, 7))
+
     # 5. Section 3: Timeout Entries
     timeout_list = activity_data.get('timeout_entries', [])
     elements.append(make_section_banner("3. Timeout Entries", len(timeout_list), c_timeout_accent, c_timeout_bg))
     elements.append(Spacer(1, 2))
-    t3 = build_6col_table(
+    s3_widths = [30.0, 147.0, 120.0, 120.0, 120.0, 200.0]
+    s3_headers = ["#", "Employee Name", "Check-in Time", "Auto Checkout", "Working Hours", "Reason"]
+    s3_keys = ["employee_name", "checkin_time", "auto_checkout", "working_hours", "reason"]
+    t3 = build_custom_table(
         timeout_list,
-        ["#", "Employee Name", "Check-in Time", "Auto Checkout", "Working Hours", "Reason"],
-        ["employee_name", "checkin_time", "auto_checkout", "working_hours", "reason"],
+        s3_headers,
+        s3_keys,
+        s3_widths,
         left_col_idx=1,
         empty_msg="No timeout entries recorded for this date"
     )
     elements.append(t3)
     elements.append(Spacer(1, 7))
 
-    # 6. Section 4: Manual Entries
+    # 6. Section 4: Manual Entries (with Date, Hours, Working Salary)
     manual_list = activity_data.get('manual_entries', [])
     elements.append(make_section_banner("4. Manual Entries", len(manual_list), c_manual_accent, c_manual_bg))
     elements.append(Spacer(1, 2))
-    t4 = build_6col_table(
+    s4_widths = [25.0, 125.0, 75.0, 55.0, 85.0, 65.0, 72.0, 235.0]
+    s4_headers = ["#", "Employee Name", "Date", "Hours", "Working Salary", "Type", "Added By", "Remarks"]
+    s4_keys = ["employee_name", "date", "hours", "working_salary", "type", "added_by", "remarks"]
+    t4 = build_custom_table(
         manual_list,
-        ["#", "Employee Name", "Date & Time", "Type", "Added By", "Remarks"],
-        ["employee_name", "date_time", "type", "added_by", "remarks"],
+        s4_headers,
+        s4_keys,
+        s4_widths,
         left_col_idx=1,
         empty_msg="No manual entries recorded for this date"
     )
     elements.append(t4)
     elements.append(Spacer(1, 7))
 
-    # 7. Section 5: Payment Entries
-    payment_list = activity_data.get('payment_entries', [])
-    elements.append(make_section_banner("5. Payment Entries", len(payment_list), c_payment_accent, c_payment_bg))
+    # 7. Section 5: Leave & Permissions (NEW)
+    leave_list = activity_data.get('leave_entries', [])
+    elements.append(make_section_banner("5. Leave & Permissions", len(leave_list), c_leave_accent, c_leave_bg))
     elements.append(Spacer(1, 2))
-    t5 = build_6col_table(
+    s5_widths = [25.0, 145.0, 120.0, 85.0, 252.0, 110.0]
+    s5_headers = ["#", "Name", "Type", "Duration", "Reason", "Status"]
+    s5_keys = ["name", "type", "duration", "reason", "status"]
+    t5 = build_custom_table(
+        leave_list,
+        s5_headers,
+        s5_keys,
+        s5_widths,
+        left_col_idx=1,
+        empty_msg="No leave or permission requests recorded for this date",
+        status_col_idx=5
+    )
+    elements.append(t5)
+
+    # PAGE 2 END -> PAGE BREAK
+    elements.append(PageBreak())
+
+    # ==================== PAGE 3 ====================
+    # Page 3 Header
+    elements.append(Paragraph("YESTERDAY'S ACTIVITY REPORT - Continued", doc_cont_title_style))
+    elements.append(Spacer(1, 2))
+    elements.append(Paragraph(f"Activity Date: {act_date_str}", meta_date_style))
+    elements.append(Spacer(1, 7))
+
+    # 8. Section 6: Absent Report (NEW)
+    absent_list = activity_data.get('absent_entries', [])
+    elements.append(make_section_banner("6. Absent Report", len(absent_list), c_absent_accent, c_absent_bg))
+    elements.append(Spacer(1, 2))
+    s6_widths = [25.0, 160.0, 135.0, 135.0, 142.0, 140.0]
+    s6_headers = ["#", "Employee Name", "Department", "Designation", "Shift", "Status"]
+    s6_keys = ["employee_name", "department", "designation", "shift", "status"]
+    t6 = build_custom_table(
+        absent_list,
+        s6_headers,
+        s6_keys,
+        s6_widths,
+        left_col_idx=1,
+        empty_msg="No unexcused absences recorded for this date",
+        absent_col_idx=5
+    )
+    elements.append(t6)
+    elements.append(Spacer(1, 7))
+
+    # 9. Section 7: Payment Entries
+    payment_list = activity_data.get('payment_entries', [])
+    elements.append(make_section_banner("7. Payment Entries", len(payment_list), c_payment_accent, c_payment_bg))
+    elements.append(Spacer(1, 2))
+    s7_widths = [30.0, 147.0, 100.0, 100.0, 110.0, 250.0]
+    s7_headers = ["#", "Employee Name", "Date", "Type", "Amount (Rs.)", "Remarks"]
+    s7_keys = ["employee_name", "date", "type", "amount", "remarks"]
+    t7 = build_custom_table(
         payment_list,
-        ["#", "Employee Name", "Date", "Type", "Amount (Rs.)", "Remarks"],
-        ["employee_name", "date", "type", "amount", "remarks"],
+        s7_headers,
+        s7_keys,
+        s7_widths,
         left_col_idx=1,
         empty_msg="No payment entries recorded for this date"
     )
-    elements.append(t5)
+    elements.append(t7)
     elements.append(Spacer(1, 7))
 
-    # 8. Section 6: Employee Details
+    # 10. Section 8: Employee Details
     emp_list = activity_data.get('employee_details', [])
-    elements.append(make_section_banner("6. Employee Details", len(emp_list), c_emp_accent, c_emp_bg))
+    elements.append(make_section_banner("8. Employee Details", len(emp_list), c_emp_accent, c_emp_bg))
     elements.append(Spacer(1, 2))
-    t6 = build_6col_table(
+    s8_widths = [30.0, 147.0, 130.0, 130.0, 130.0, 170.0]
+    s8_headers = ["#", "Employee Name", "Update Type", "Updated Field", "Old Value", "New Value"]
+    s8_keys = ["employee_name", "update_type", "updated_field", "old_value", "new_value"]
+    t8 = build_custom_table(
         emp_list,
-        ["#", "Employee Name", "Update Type", "Updated Field", "Old Value", "New Value"],
-        ["employee_name", "update_type", "updated_field", "old_value", "new_value"],
+        s8_headers,
+        s8_keys,
+        s8_widths,
         left_col_idx=1,
         empty_msg="No employee profile updates recorded for this date"
     )
-    elements.append(t6)
+    elements.append(t8)
     elements.append(Spacer(1, 10))
 
-    # 9. Page 2 Footers
+    # 11. Page Footers
     elements.append(Paragraph(
         "Automatically generated by ARGUS Attendance and sent to the registered company email. Computer generated report - no signature required.",
         footer_style
