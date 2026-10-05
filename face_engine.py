@@ -329,39 +329,47 @@ def recognize_face(query_embedding, company_id=None):
             'message': 'No face detected in camera frame. Please face the camera directly in good lighting.'
         }
 
-    stored_embeddings = database.get_all_face_embeddings(company_id=company_id)
-    if not stored_embeddings:
+    try:
+        stored_embeddings = database.get_all_face_embeddings(company_id=company_id)
+        if not stored_embeddings:
+            return {
+                'matched': False,
+                'confidence': 0.0,
+                'message': 'No registered face biometrics found in database. Please enroll employee face photo in the Admin Portal.'
+            }
+
+        best_match = None
+        highest_score = -1.0
+
+        for emp in stored_embeddings:
+            score = cosine_similarity(query_embedding, emp.get('embedding', []))
+            if score > highest_score:
+                highest_score = float(score)
+                best_match = emp
+
+        confidence_pct = float(calculate_confidence_percentage(highest_score))
+
+        if highest_score >= RECOGNITION_THRESHOLD and best_match:
+            return {
+                'matched': True,
+                'employee_id': str(best_match['id']),
+                'employee_name': str(best_match['employee_name']),
+                'confidence': float(confidence_pct),
+                'raw_score': float(round(highest_score, 4))
+            }
+        else:
+            return {
+                'matched': False,
+                'confidence': float(confidence_pct),
+                'raw_score': float(round(max(0.0, float(highest_score)), 4)),
+                'message': 'Face not recognized. Please face the camera directly in good lighting and try again.'
+            }
+    except Exception as e:
+        print(f"recognize_face error: {e}")
         return {
             'matched': False,
             'confidence': 0.0,
-            'message': 'No registered face embeddings in database.'
-        }
-
-    best_match = None
-    highest_score = -1.0
-
-    for emp in stored_embeddings:
-        score = cosine_similarity(query_embedding, emp['embedding'])
-        if score > highest_score:
-            highest_score = float(score)
-            best_match = emp
-
-    confidence_pct = float(calculate_confidence_percentage(highest_score))
-
-    if highest_score >= RECOGNITION_THRESHOLD and best_match:
-        return {
-            'matched': True,
-            'employee_id': str(best_match['id']),
-            'employee_name': str(best_match['employee_name']),
-            'confidence': float(confidence_pct),
-            'raw_score': float(round(highest_score, 4))
-        }
-    else:
-        return {
-            'matched': False,
-            'confidence': float(confidence_pct),
-            'raw_score': float(round(max(0.0, float(highest_score)), 4)),
-            'message': 'Face not recognized. Please face the camera directly and ensure good lighting.'
+            'message': 'Face recognition biometrics processing error. Please face the camera directly and try again.'
         }
 
 

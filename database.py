@@ -2007,6 +2007,11 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     2. Resolves company office coordinates and calculates proximity distance.
     3. Handles Punch In & Punch Out lifecycle storing the exact live location address where punched.
     """
+    if user_lat is not None and str(user_lat).strip().lower() in ['undefined', 'null', '', 'none']:
+        user_lat = None
+    if user_lng is not None and str(user_lng).strip().lower() in ['undefined', 'null', '', 'none']:
+        user_lng = None
+
     db = get_db()
     now = get_ist_now()
     now_time_12 = client_time.strip() if client_time and client_time.strip() else now.strftime('%d/%m/%Y %I:%M:%S %p')
@@ -2046,7 +2051,10 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     # Resolve exact real-time live location address where employee punched
     live_loc_str = (live_address.strip() if live_address and str(live_address).strip() else None)
     if not live_loc_str and user_lat is not None and user_lng is not None:
-        live_loc_str = reverse_geocode_coordinates(user_lat, user_lng)
+        try:
+            live_loc_str = reverse_geocode_coordinates(user_lat, user_lng)
+        except Exception:
+            live_loc_str = None
     if not live_loc_str:
         live_loc_str = loc_str
     

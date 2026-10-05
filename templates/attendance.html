@@ -995,15 +995,20 @@
 
         try {
           const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
-          let data;
+          let data = {};
           try {
             data = await res.json();
           } catch (jsonErr) {
-            throw new Error(`Server returned HTTP ${res.status}`);
+            data = {
+              matched: false,
+              message: res.status >= 500
+                ? 'Face recognition service temporarily busy. Please wait a moment and try again.'
+                : 'Unable to process biometric frame. Please try again.'
+            };
           }
 
-          if (!res.ok && !data.message) {
-            throw new Error(`Server error (${res.status})`);
+          if (!data || typeof data !== 'object') {
+            data = { matched: false, message: 'Unexpected server response. Please try again.' };
           }
 
           if (data.matched) {
@@ -1068,11 +1073,13 @@
 
           } else {
             // Face match failed or friendly validation message
-            const errMsg = data.message || 'Face not recognized in database.';
+            const errMsg = data.message || data.error || 'Face not recognized in database.';
+            const isNoFace = errMsg.toLowerCase().includes('no face');
+            const badgeText = res.status === 403 ? 'Punch Disabled' : (isNoFace ? 'No Face Detected' : 'Biometric Verification');
             punchContainer.innerHTML = `
               <div class="punch-card-failed">
                 <div class="punch-header">
-                  <span class="punch-badge-failed">⚠ ${res.status === 403 ? 'Punch Disabled' : 'Face Not Recognized'}</span>
+                  <span class="punch-badge-failed">⚠ ${escapeHtml(badgeText)}</span>
                   <span class="punch-time-tag">${hoursStr}:${minutes}:${seconds} ${ampm}</span>
                 </div>
                 <div class="punch-body">
@@ -1080,7 +1087,7 @@
                     ${escapeHtml(errMsg)}
                   </div>
                   <div style="font-size: 12px; color: #64748b; margin-top: 3px;">
-                    Please ensure good front-facing lighting and face the camera directly.
+                    Please ensure good front-facing lighting, face the camera directly, and ensure your photo is enrolled in the employee profile.
                   </div>
                 </div>
               </div>

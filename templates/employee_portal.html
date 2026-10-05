@@ -1131,15 +1131,20 @@
 
           try {
             const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
-            let data;
+            let data = {};
             try {
               data = await res.json();
             } catch (jsonErr) {
-              throw new Error(`Server returned HTTP ${res.status}`);
+              data = {
+                matched: false,
+                message: res.status >= 500
+                  ? 'Face recognition service temporarily busy. Please wait a moment and try again.'
+                  : 'Unable to process biometric frame. Please try again.'
+              };
             }
 
-            if (!res.ok && !data.message) {
-              throw new Error(`Server error (${res.status})`);
+            if (!data || typeof data !== 'object') {
+              data = { matched: false, message: 'Unexpected server response. Please try again.' };
             }
 
             if (data.matched) {
