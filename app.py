@@ -14,7 +14,7 @@ import requests
 import werkzeug.utils
 import zipfile
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from dotenv import load_dotenv
 from PIL import Image, ImageOps
 
@@ -49,6 +49,12 @@ def get_face_engine():
 app = Flask(__name__)
 CORS(app)
 app.secret_key = 'argus-tech-secret-key-2026'
+
+# Session persistence: keep user logged in until explicit logout (365 days)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', os.path.join(BASE_DIR, 'static', 'uploads'))
@@ -418,6 +424,145 @@ def add_performance_headers(response):
             pass
     return response
 
+@app.before_request
+def ensure_persistent_session():
+    """Keeps the session alive for 365 days across browser restarts until explicit logout."""
+    if session.get('admin_logged_in') or session.get('employee_logged_in'):
+        session.permanent = True
+
+# ----------------- UNIVERSAL EXCEL & CSV EXPORT HELPERS ----------------- #
+
+def format_export_cell(val):
+    """Formats cell values cleanly: dates to readable IST, numbers preserved, ISO timestamps parsed."""
+    if val is None:
+        return ''
+    if isinstance(val, (int, float)):
+        return val
+    if isinstance(val, (datetime, date)):
+        if isinstance(val, datetime):
+            return val.strftime('%d/%m/%Y %I:%M %p')
+        return val.strftime('%d/%m/%Y')
+    val_str = str(val).strip()
+    # Check if ISO timestamp like 2026-10-05T06:49:21.866000
+    if re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', val_str):
+        try:
+            clean_iso = val_str.replace('Z', '').split('+')[0]
+            dt = datetime.fromisoformat(clean_iso)
+            return dt.strftime('%d/%m/%Y %I:%M %p')
+        except Exception:
+            return val_str
+    return val_str
+
+def export_table_data(headers, rows, filename_base, export_format='excel', sheet_name='Data'):
+    """
+    Universal table export handler:
+    - If export_format is 'excel': Generates an openpyxl .xlsx workbook with dynamic column widths
+      (auto-expanded so dates/times NEVER show '########'), professional header styling, and cell borders.
+    - If export_format is 'csv': Generates UTF-8 with BOM (.csv) for Excel compatibility.
+    """
+    clean_rows = []
+    for row in rows:
+        clean_rows.append([format_export_cell(v) for v in row])
+
+    is_csv = str(export_format).strip().lower() == 'csv'
+
+    if is_csv:
+        output = io.StringIO()
+        # UTF-8 BOM (\ufeff) ensures Excel opens special symbols (e.g. ₹, dashes) cleanly
+        output.write('\ufeff')
+        writer = csv.writer(output)
+        writer.writerow(headers)
+        for r in clean_rows:
+            writer.writerow(r)
+        output.seek(0)
+        filename = f"{filename_base}.csv" if not filename_base.endswith('.csv') else filename_base
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+
+    # Generate real styled .xlsx
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = str(sheet_name)[:31]
+    ws.views.sheetView[0].showGridLines = True
+
+    # Header styling (professional dark navy/slate fill, bold white font)
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    header_border = Border(
+        left=Side(style="thin", color="0F172A"),
+        right=Side(style="thin", color="0F172A"),
+        top=Side(style="thin", color="0F172A"),
+        bottom=Side(style="medium", color="0F172A")
+    )
+    cell_border = Border(
+        left=Side(style="thin", color="E2E8F0"),
+        right=Side(style="thin", color="E2E8F0"),
+        top=Side(style="thin", color="E2E8F0"),
+        bottom=Side(style="thin", color="E2E8F0")
+    )
+    zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+
+    ws.append(headers)
+    ws.row_dimensions[1].height = 28
+
+    for col_idx in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+        cell.border = header_border
+
+    data_font = Font(name="Calibri", size=10)
+    for row_num, row_data in enumerate(clean_rows, 2):
+        ws.row_dimensions[row_num].height = 20
+        is_even = (row_num % 2 == 0)
+        for col_num, val in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col_num, value=val)
+            cell.font = data_font
+            cell.border = cell_border
+            if not is_even:
+                cell.fill = zebra_fill
+            # Align numbers to right, dates/status/short codes center, strings left
+            val_str = str(val if val is not None else '')
+            if isinstance(val, (int, float)) or (re.match(r'^-?[\d,]+(\.\d+)?$', val_str) and not val_str.startswith('0') and len(val_str) < 15):
+                cell.alignment = Alignment(horizontal="right", vertical="center")
+            elif any(k in headers[col_num - 1].lower() for k in ['date', 'time', 'status', 'sl no', 'id']):
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    # Auto-adjust column widths with extra padding (min 15, max 50) so dates/times NEVER show '#####'
+    for col in ws.columns:
+        col_letter = get_column_letter(col[0].column)
+        col_idx = col[0].column - 1
+        header_text = headers[col_idx] if col_idx < len(headers) else ''
+        max_len = len(str(header_text))
+        for cell in col:
+            v_str = str(cell.value if cell.value is not None else '')
+            if '\n' in v_str:
+                v_str = max(v_str.split('\n'), key=len)
+            max_len = max(max_len, len(v_str))
+        ws.column_dimensions[col_letter].width = min(max(max_len + 5, 15), 50)
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    filename = f"{filename_base}.xlsx" if not filename_base.endswith('.xlsx') else filename_base
+    return Response(
+        out.getvalue(),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
 # ----------------- AUTHENTICATION & PAGE ROUTES ----------------- #
 
 @app.route('/')
@@ -442,6 +587,7 @@ def login():
         if isinstance(result, dict) and result.get('success'):
             admin_user = result['admin']
             session.clear()
+            session.permanent = True
             session['admin_logged_in'] = True
             session['admin_username'] = admin_user.get('username', 'Admin')
             session['admin_email'] = admin_user.get('email', 'technologiesargus@gmail.com')
@@ -556,6 +702,7 @@ def google_callback():
         admin_user = database.validate_admin_login(google_email)
         if admin_user:
             session.clear()
+            session.permanent = True
             session['admin_logged_in'] = True
             session['admin_username'] = admin_user.get('username', 'Admin')
             session['admin_email'] = admin_user.get('email', 'technologiesargus@gmail.com')
@@ -572,6 +719,7 @@ def google_callback():
         company = database.validate_company_login(google_email)
         if company:
             session.clear()
+            session.permanent = True
             session['admin_logged_in'] = True
             session['admin_username'] = company.get('company_name', 'Company Admin')
             session['role'] = 'company_admin'
@@ -588,6 +736,7 @@ def google_callback():
         employee = database.validate_employee_login(google_email)
         if employee:
             session.clear()
+            session.permanent = True
             session['employee_logged_in'] = True
             session['role'] = 'employee'
             session['employee_id'] = str(employee.get('id', employee.get('_id', '')))
@@ -623,6 +772,7 @@ def company_login():
         if isinstance(result, dict) and result.get('success'):
             company = result['company']
             session.clear()
+            session.permanent = True
             session['admin_logged_in'] = True
             session['admin_username'] = company.get('company_name', 'Company Admin')
             session['role'] = 'company_admin'
@@ -659,6 +809,7 @@ def employee_login():
         if isinstance(result, dict) and result.get('success'):
             employee = result['employee']
             session.clear()
+            session.permanent = True
             session['employee_logged_in'] = True
             session['role'] = 'employee'
             session['employee_id'] = str(employee.get('id', employee.get('_id', '')))
@@ -1006,11 +1157,10 @@ def api_companies_export_excel():
     search = request.args.get('search', '').strip()
     result = database.get_all_companies(search=search, limit=10000)
     
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['SL NO', 'COMPANY NAME', 'GSTIN', 'EMAIL', 'PHONE', 'ADDRESS', 'LATITUDE', 'LONGITUDE', 'SHIFT HOURS', 'EMPLOYEES', 'EMPLOYEE LIMIT', 'STATUS'])
+    headers = ['SL NO', 'COMPANY NAME', 'GSTIN', 'EMAIL', 'PHONE', 'ADDRESS', 'LATITUDE', 'LONGITUDE', 'SHIFT HOURS', 'EMPLOYEES', 'EMPLOYEE LIMIT', 'STATUS']
+    rows = []
     for idx, c in enumerate(result['data'], 1):
-        writer.writerow([
+        rows.append([
             idx,
             c.get('company_name', ''),
             c.get('gstin', ''),
@@ -1024,13 +1174,8 @@ def api_companies_export_excel():
             c.get('employee_limit', 50),
             c.get('status', 'Active')
         ])
-    output.seek(0)
-    filename = "registered_companies.csv"
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={filename}"}
-    )
+    fmt = 'csv' if request.path.endswith('/csv') else 'excel'
+    return export_table_data(headers, rows, "registered_companies", export_format=fmt, sheet_name="Companies")
 
 @app.route('/api/companies/export/pdf', methods=['GET'])
 @super_admin_required
@@ -2073,13 +2218,12 @@ def api_employees_export_excel():
     comp_id = get_current_company_id()
     result = database.get_all_employees(search=search, limit=10000, company_id=comp_id)
     
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['SL NO', 'EMPLOYEE ID', 'EMPLOYEE NAME', 'SALARY BASIS', 'HOURLY SALARY', 'DAY SALARY', 'HALF DAY SALARY', 'MOBILE NUMBER', 'SHIFT HOURS', 'BANK NAME', 'ACCOUNT NUMBER', 'DATE OF JOINING'])
+    headers = ['SL NO', 'EMPLOYEE ID', 'EMPLOYEE NAME', 'SALARY BASIS', 'HOURLY SALARY', 'DAY SALARY', 'HALF DAY SALARY', 'MOBILE NUMBER', 'SHIFT HOURS', 'BANK NAME', 'ACCOUNT NUMBER', 'DATE OF JOINING']
+    rows = []
     for idx, emp in enumerate(result['data'], 1):
         st = str(emp.get('salary_type', 'hourly')).lower()
         st_label = 'Hourly' if st == 'hourly' else ('Day-Based' if st == 'daily' else 'Half-Day')
-        writer.writerow([
+        rows.append([
             idx,
             emp.get('id', ''),
             emp.get('employee_name', ''),
@@ -2093,13 +2237,8 @@ def api_employees_export_excel():
             emp.get('account_number', ''),
             emp.get('joining_date', '') or emp.get('date_of_joining', '')
         ])
-    output.seek(0)
-    filename = "employee_directory.csv"
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={filename}"}
-    )
+    fmt = 'csv' if request.path.endswith('/csv') else 'excel'
+    return export_table_data(headers, rows, "employee_directory", export_format=fmt, sheet_name="Employees")
 
 @app.route('/api/employees/export/pdf', methods=['GET'])
 @login_required
@@ -2270,19 +2409,18 @@ def api_export_excel():
         company_id=get_current_company_id()
     )
     
-    output = io.StringIO()
-    writer = csv.writer(output)
     time_header = 'EXIT TIME' if entry_type == 'timeout' else 'ENTRY TIME'
     loc_header = 'EXIT LOCATION' if entry_type == 'timeout' else 'ENTRY LOCATION'
     dist_header = 'EXIT DISTANCE' if entry_type == 'timeout' else 'ENTRY DISTANCE'
     status_header = 'EXIT STATUS' if entry_type == 'timeout' else 'ENTRY STATUS'
-    writer.writerow(['EMPLOYEE NAME', time_header, loc_header, dist_header, status_header])
+    headers = ['EMPLOYEE NAME', time_header, loc_header, dist_header, status_header]
+    rows = []
     for r in result.get('data', []):
         time_val = (r.get('exit_time') if entry_type == 'timeout' and r.get('exit_time') else r.get('entry_time', '')) or '----'
         loc_val = (r.get('exit_location') if entry_type == 'timeout' and r.get('exit_location') else r.get('entry_location', '')) or '----'
         dist_val = (r.get('exit_distance') if entry_type == 'timeout' and r.get('exit_distance') and r.get('exit_distance') != '----' else (r.get('formatted_distance') or (f"OFFICE DISTANCE {r.get('entry_distance', 0)}M" if r.get('entry_distance') is not None else '----')))
         status_val = (r.get('exit_status') if entry_type == 'timeout' else r.get('entry_status')) or '-'
-        writer.writerow([
+        rows.append([
             r.get('employee_name', ''),
             time_val,
             loc_val,
@@ -2290,13 +2428,9 @@ def api_export_excel():
             status_val
         ])
         
-    output.seek(0)
-    filename = f"{entry_type}_entries_report.csv"
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={filename}"}
-    )
+    fmt = 'csv' if request.path.endswith('/csv') else 'excel'
+    sheet_title = "Timeout Entries" if entry_type == 'timeout' else "Live Entries"
+    return export_table_data(headers, rows, f"{entry_type}_entries_report", export_format=fmt, sheet_name=sheet_title)
 
 @app.route('/api/live-entries/export/pdf', methods=['GET'])
 @login_required
@@ -2518,14 +2652,12 @@ def api_attendance_export_excel():
     employee = request.args.get('employee', 'All').strip()
     comp_id = get_current_company_id()
     
-    output = io.StringIO()
-    writer = csv.writer(output)
-    
+    rows = []
     if report_type in ['simple', 'compact']:
         result = database.get_attendance_simple_table(employee=employee, start_date=start_date, end_date=end_date, company_id=comp_id)
-        writer.writerow(['EMPLOYEE NAME', 'ENTRY TIME', 'EXIT TIME', 'WORKING HOURS', 'SHIFT VARIANCE', 'WORKING SALARY', 'STATUS'])
+        headers = ['EMPLOYEE NAME', 'ENTRY TIME', 'EXIT TIME', 'WORKING HOURS', 'SHIFT VARIANCE', 'WORKING SALARY', 'STATUS']
         for r in result.get('data', []):
-            writer.writerow([
+            rows.append([
                 r.get('employee_name', ''),
                 r.get('entry_time', ''),
                 r.get('exit_time', '') or '',
@@ -2534,13 +2666,12 @@ def api_attendance_export_excel():
                 r.get('working_salary', 0),
                 r.get('status', 'Manual')
             ])
-        writer.writerow([])
-        writer.writerow(['TOTAL', '', '', result.get('total_working_hours', '00:00'), '----', result.get('total_working_salary', '0.00'), ''])
+        rows.append(['TOTAL', '', '', result.get('total_working_hours', '00:00'), '----', result.get('total_working_salary', '0.00'), ''])
     else:
         result = database.get_attendance_reports(report_type=report_type, start_date=start_date, end_date=end_date, employee=employee, limit=10000, company_id=comp_id)
-        writer.writerow(['EMPLOYEE NAME', 'ENTRY TIME', 'ENTRY DISTANCE', 'ENTRY LOCATION', 'ENTRY STATUS', 'EXIT TIME', 'EXIT DISTANCE', 'EXIT LOCATION', 'EXIT STATUS', 'WORKING HOURS', 'SHIFT VARIANCE', 'WORKING SALARY'])
+        headers = ['EMPLOYEE NAME', 'ENTRY TIME', 'ENTRY DISTANCE', 'ENTRY LOCATION', 'ENTRY STATUS', 'EXIT TIME', 'EXIT DISTANCE', 'EXIT LOCATION', 'EXIT STATUS', 'WORKING HOURS', 'SHIFT VARIANCE', 'WORKING SALARY']
         for r in result.get('data', []):
-            writer.writerow([
+            rows.append([
                 r.get('employee_name', ''),
                 r.get('entry_time', '') or '',
                 r.get('entry_distance', '----') or '----',
@@ -2555,13 +2686,8 @@ def api_attendance_export_excel():
                 r.get('working_salary', 0) if r.get('working_salary') is not None else 0
             ])
             
-    output.seek(0)
-    filename = f"attendance_{report_type}_report.csv"
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={filename}"}
-    )
+    fmt = 'csv' if request.path.endswith('/csv') else 'excel'
+    return export_table_data(headers, rows, f"attendance_{report_type}_report", export_format=fmt, sheet_name="Attendance")
 
 @app.route('/api/attendance-reports/export/pdf', methods=['GET'])
 @login_required
@@ -2682,27 +2808,21 @@ def api_manual_entries_export_excel():
         company_id=get_current_company_id()
     )
     
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['NAME', 'DATE', 'HOURS', 'STATUS', 'SUBMITTED', 'HOURLY', 'DAY', 'HALF', 'WORKING SALARY'])
+    headers = ['NAME', 'DATE', 'HOURS', 'STATUS', 'SUBMITTED', 'HOURLY', 'DAY', 'HALF', 'WORKING SALARY']
+    rows = []
     for r in result['data']:
         sal = f"+{int(float(r.get('working_salary', 0)))}" if float(r.get('working_salary', 0)) > 0 else "0"
         st_val = r.get('status', '')
         rs_val = (r.get('reason') or '').strip()
         status_display = f"{st_val} ({rs_val})" if rs_val else st_val
-        writer.writerow([
-            r['employee_name'], r['entry_date'], r['hours'], status_display,
-            r['submitted_at'], int(float(r['hourly_rate'])), int(float(r['day_rate'])),
-            int(float(r['half_rate'])), sal
+        rows.append([
+            r.get('employee_name', ''), r.get('entry_date', ''), r.get('hours', ''), status_display,
+            r.get('submitted_at', ''), int(float(r.get('hourly_rate', 0))), int(float(r.get('day_rate', 0))),
+            int(float(r.get('half_rate', 0))), sal
         ])
         
-    output.seek(0)
-    filename = "manual_entries_report.csv"
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={filename}"}
-    )
+    fmt = 'csv' if request.path.endswith('/csv') else 'excel'
+    return export_table_data(headers, rows, "manual_entries_report", export_format=fmt, sheet_name="Manual Entries")
 
 @app.route('/api/manual-entries/export/pdf', methods=['GET'])
 @login_required
@@ -2852,26 +2972,20 @@ def api_payments_export_excel():
         company_id=get_current_company_id()
     )
     
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['TIMESTAMP', 'EMPLOYEE', 'DATE', 'AMOUNT', 'BANK', 'PAYMENT TYPE', 'STATUS'])
+    headers = ['TIMESTAMP', 'EMPLOYEE', 'DATE', 'AMOUNT', 'BANK', 'PAYMENT TYPE', 'STATUS']
+    rows = []
     for r in result['data']:
         st = r.get('status') or r.get('reason') or 'Payment'
         rs = r.get('reason') if r.get('status') else ''
         disp_st = f"{st} - {rs}" if rs else st
-        writer.writerow([
-            r['timestamp'], r['employee_name'], r['payment_date'],
-            f"{float(r['amount']):.2f}", r['bank'] or '-',
-            r['payment_type'], disp_st
+        rows.append([
+            r.get('timestamp', ''), r.get('employee_name', ''), r.get('payment_date', ''),
+            float(r.get('amount', 0)), r.get('bank') or '-',
+            r.get('payment_type', ''), disp_st
         ])
         
-    output.seek(0)
-    filename = "payment_management_report.csv"
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={filename}"}
-    )
+    fmt = 'csv' if request.path.endswith('/csv') else 'excel'
+    return export_table_data(headers, rows, "payment_management_report", export_format=fmt, sheet_name="Payments")
 
 @app.route('/api/payments/export/pdf', methods=['GET'])
 @login_required
@@ -2983,22 +3097,16 @@ def api_advances_export_excel():
         company_id=get_current_company_id()
     )
     
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['TIMESTAMP', 'EMPLOYEE', 'DATE', 'AMOUNT'])
+    headers = ['TIMESTAMP', 'EMPLOYEE', 'DATE', 'AMOUNT']
+    rows = []
     for r in result['data']:
-        writer.writerow([
-            r['timestamp'], r['employee_name'], r['advance_date'],
-            f"{float(r['amount']):.2f}"
+        rows.append([
+            r.get('timestamp', ''), r.get('employee_name', ''), r.get('advance_date', ''),
+            float(r.get('amount', 0))
         ])
         
-    output.seek(0)
-    filename = "advance_management_report.csv"
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={filename}"}
-    )
+    fmt = 'csv' if request.path.endswith('/csv') else 'excel'
+    return export_table_data(headers, rows, "advance_management_report", export_format=fmt, sheet_name="Advances")
 
 @app.route('/api/advances/export/pdf', methods=['GET'])
 @login_required
@@ -3052,26 +3160,20 @@ def api_balance_report_export_excel():
     employee = request.args.get('employee', 'All').strip()
     result = database.get_balance_report(employee=employee, limit=10000, company_id=get_current_company_id())
     
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['DATE&TIME', 'NAME', 'DATE', 'ADVANCE AMOUNT', 'REPAYMENT AMOUNT', 'BALANCE AMOUNT'])
+    headers = ['DATE&TIME', 'NAME', 'DATE', 'ADVANCE AMOUNT', 'REPAYMENT AMOUNT', 'BALANCE AMOUNT']
+    rows = []
     for r in result['data']:
         pay_amt = r.get('payment_amount', r.get('advance_repayment_amount', 0.0))
-        writer.writerow([
-            r['timestamp'], r['name'], r['date'],
-            f"{float(r['advance_amount']):.2f}",
-            f"{float(pay_amt):.2f}",
-            f"{float(r['balance_amount']):.2f}"
+        rows.append([
+            r.get('timestamp', ''), r.get('name', ''), r.get('date', ''),
+            float(r.get('advance_amount', 0)),
+            float(pay_amt),
+            float(r.get('balance_amount', 0))
         ])
-    writer.writerow([])
-    writer.writerow(['TOTAL ADVANCE', f"{result['total_advance']:.2f}", 'TOTAL REPAYMENT', f"{result.get('total_payment', result.get('total_repayment', 0.0)):.2f}", 'BALANCE AMOUNT', f"{result['balance_amount']:.2f}"])
-    output.seek(0)
-    filename = "advance_summary.csv"
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={filename}"}
-    )
+    rows.append([])
+    rows.append(['TOTAL ADVANCE', float(result.get('total_advance', 0)), 'TOTAL REPAYMENT', float(result.get('total_payment', result.get('total_repayment', 0.0))), 'BALANCE AMOUNT', float(result.get('balance_amount', 0))])
+    fmt = 'csv' if request.path.endswith('/csv') else 'excel'
+    return export_table_data(headers, rows, "advance_summary", export_format=fmt, sheet_name="Advance Summary")
 
 @app.route('/api/advance-summary/export/pdf', methods=['GET'])
 @app.route('/api/balance-report/export/pdf', methods=['GET'])
@@ -3186,30 +3288,24 @@ def api_salary_reports_export_excel():
         company_id=get_current_company_id()
     )
     
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow([
+    headers = [
         'EMPLOYEE NAME', 'PAY PERIOD', 'WORKING DAYS', 'WORKING HOURS',
         'ALLOWANCE', 'INCENTIVE', 'OTHER EARNINGS', 'BASIC EARNINGS',
         'TOTAL EARNINGS', 'PAID SALARY', 'ADVANCE REPAYMENT', 'OTHER DEDUCTIONS',
         'TOTAL DEDUCTIONS', 'NET SALARY'
-    ])
+    ]
+    rows = []
     for r in result['data']:
-        writer.writerow([
-            r['employee_name'], r['pay_period'], r['working_days'], r['working_hours'],
-            int(float(r['allowance'])), int(float(r['incentive'])), int(float(r['other_earnings'])),
-            int(float(r['basic_earnings'])), int(float(r['total_earnings'])), int(float(r['paid_salary'])),
-            int(float(r['advance_repayment'])), int(float(r['other_deductions'])), int(float(r['total_deductions'])),
-            int(float(r['net_salary']))
+        rows.append([
+            r.get('employee_name', ''), r.get('pay_period', ''), r.get('working_days', ''), r.get('working_hours', ''),
+            int(float(r.get('allowance', 0))), int(float(r.get('incentive', 0))), int(float(r.get('other_earnings', 0))),
+            int(float(r.get('basic_earnings', 0))), int(float(r.get('total_earnings', 0))), int(float(r.get('paid_salary', 0))),
+            int(float(r.get('advance_repayment', 0))), int(float(r.get('other_deductions', 0))), int(float(r.get('total_deductions', 0))),
+            int(float(r.get('net_salary', 0)))
         ])
         
-    output.seek(0)
-    filename = "salary_report.csv"
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={filename}"}
-    )
+    fmt = 'csv' if request.path.endswith('/csv') else 'excel'
+    return export_table_data(headers, rows, "salary_report", export_format=fmt, sheet_name="Salary Report")
 
 @app.route('/api/salary-reports/export/pdf', methods=['GET'])
 @login_required
@@ -3651,32 +3747,26 @@ def api_admin_support_export():
     )
     tickets = result['tickets']
 
-    if export_format in ['csv', 'excel']:
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(['Ticket ID', 'Date & Time', 'Company Name', 'Raised By', 'Subject', 'Description', 'Status', 'Attachments Count', 'Created At'])
-        for t in tickets:
-            writer.writerow([
-                t.get('ticket_id', ''),
-                t.get('date_time_str', ''),
-                t.get('company_name', ''),
-                t.get('raised_by', ''),
-                t.get('subject', ''),
-                t.get('description', ''),
-                t.get('status', ''),
-                len(t.get('attachments', [])),
-                t.get('created_at', '')
-            ])
-        output.seek(0)
-        ext = 'csv'
-        filename = f"Support_Tickets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{ext}"
-        return Response(
-            output.getvalue(),
-            mimetype="text/csv",
-            headers={"Content-Disposition": f"attachment;filename={filename}"}
-        )
+    if export_format not in ['csv', 'excel']:
+        return jsonify({'success': False, 'error': 'Unsupported export format'}), 400
 
-    return jsonify({'success': False, 'error': 'Unsupported export format'}), 400
+    headers = ['Ticket ID', 'Date & Time', 'Company Name', 'Raised By', 'Subject', 'Description', 'Status', 'Attachments Count', 'Created At']
+    rows = []
+    for t in tickets:
+        rows.append([
+            t.get('ticket_id', ''),
+            t.get('date_time_str', ''),
+            t.get('company_name', ''),
+            t.get('raised_by', ''),
+            t.get('subject', ''),
+            t.get('description', ''),
+            t.get('status', ''),
+            len(t.get('attachments', [])),
+            t.get('created_at', '')
+        ])
+
+    filename = f"Support_Tickets_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    return export_table_data(headers, rows, filename, export_format=export_format, sheet_name="Support Tickets")
 
 # Attachment Download and Download-All (ZIP)
 @app.route('/api/support/attachment/<ticket_id>/<filename>', methods=['GET'])
