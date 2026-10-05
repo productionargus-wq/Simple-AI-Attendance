@@ -2941,7 +2941,7 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
 
     comp_info = company_info or {}
     comp_name = activity_data.get('company_name') or comp_info.get('company_name') or "ARGUS TECHNOLOGIES"
-    comp_loc = activity_data.get('company_location') or comp_info.get('location') or comp_info.get('address') or ""
+    comp_loc = activity_data.get('company_location') or activity_data.get('company_address') or comp_info.get('company_address') or comp_info.get('location') or comp_info.get('address') or ""
     act_date_str = activity_data.get('activity_date_str') or "01 October 2026"
     gen_date_str = activity_data.get('generated_date_str') or "02 October 2026"
     counts = activity_data.get('counts') or {}

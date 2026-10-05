@@ -759,18 +759,28 @@ def dashboard():
 def api_dashboard_yesterday_activity_pdf():
     try:
         from report_scheduler import get_yesterday_ist, build_yesterdays_activity_full_data
-        comp_id = get_current_company_id()
-        yesterday = get_yesterday_ist()
-        company_info = get_current_company_info()
+        role = session.get('role')
+        req_comp_id = request.args.get('company_id')
+        current_comp_id = get_current_company_id()
 
-        activity_data = build_yesterdays_activity_full_data(comp_id, target_date=yesterday)
+        # Support company_id override for super_admin or company_admin accessing own company
+        if req_comp_id and (role == 'super_admin' or req_comp_id == current_comp_id):
+            comp_id = req_comp_id
+            company_info = database.get_company_by_id(comp_id) or get_current_company_info()
+        else:
+            comp_id = current_comp_id
+            company_info = get_current_company_info()
+
+        target_date = request.args.get('date') or get_yesterday_ist()
+
+        activity_data = build_yesterdays_activity_full_data(comp_id, target_date=target_date)
         pdf_buffer = pdf_generator.generate_yesterdays_activity_report_pdf(
             activity_data,
             company_info=company_info
         )
 
         disposition_type = 'attachment' if request.args.get('download') == '1' else 'inline'
-        filename = f"yesterday_activity_{yesterday}.pdf"
+        filename = f"yesterday_activity_{target_date}.pdf"
 
         resp = make_response(pdf_buffer.getvalue())
         resp.headers['Content-Type'] = 'application/pdf'
