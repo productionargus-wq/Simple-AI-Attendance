@@ -3314,7 +3314,7 @@ def support_center():
     
     current_ist = database.get_ist_now().strftime('%d/%m/%Y %I:%M %p')
     return render_template('support_company.html',
-                           active_tab='SUPPORT',
+                           active_tab='SUPPORT & HELP',
                            company_id=comp_id,
                            company_name=comp_name,
                            current_time_str=current_ist)
