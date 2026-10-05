@@ -12,6 +12,7 @@ import threading
 import urllib.parse
 import requests
 import werkzeug.utils
+import zipfile
 from datetime import datetime
 from dotenv import load_dotenv
 from PIL import Image, ImageOps
@@ -287,12 +288,18 @@ def inject_delete_permissions():
     is_super = role == 'super_admin'
     comp_can_del = False
     pending_cnt = 0
+    support_open_count = 0
+    admin_support_count = 0
     if is_super:
         comp_can_del = True
         try:
             pending_cnt = database.get_pending_leave_requests_count(None)
         except Exception:
             pending_cnt = 0
+        try:
+            admin_support_count = database.get_support_badge_count(None)
+        except Exception:
+            admin_support_count = 0
     elif role == 'company_admin':
         comp_id = session.get('company_id')
         if comp_id:
@@ -301,6 +308,10 @@ def inject_delete_permissions():
                 pending_cnt = database.get_pending_leave_requests_count(comp_id)
             except Exception:
                 pending_cnt = 0
+            try:
+                support_open_count = database.get_support_badge_count(comp_id)
+            except Exception:
+                support_open_count = 0
 
     # Resolve respective company logo dynamically
     has_custom_logo = False
@@ -329,6 +340,8 @@ def inject_delete_permissions():
         'is_system_admin': is_super,
         'can_delete_entries': comp_can_del,
         'pending_leave_count': pending_cnt,
+        'support_open_count': support_open_count,
+        'admin_support_count': admin_support_count,
         'current_company_logo_url': logo_url,
         'has_company_logo': has_custom_logo
     }
@@ -3265,6 +3278,440 @@ def api_admin_email_logs():
         q['company_id'] = company_id
     logs = list(db.email_logs.find(q).sort('_id', -1).limit(limit))
     return jsonify({'logs': database.clean_doc(logs)})
+
+# ==============================================================================
+# SUPPORT AND SUPPORT TICKETS ROUTES & APIS
+# ==============================================================================
+
+SUPPORT_UPLOADS_FOLDER = os.path.join(app.config['UPLOAD_FOLDER'], 'support_tickets')
+try:
+    os.makedirs(SUPPORT_UPLOADS_FOLDER, exist_ok=True)
+except Exception as e:
+    print(f"Warning: Could not create support_tickets upload folder: {e}")
+
+ALLOWED_SUPPORT_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'xls', 'xlsx', 'csv', 'doc', 'docx', 'txt'}
+
+def allowed_support_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_SUPPORT_EXTENSIONS
+
+def _format_file_size(bytes_size):
+    if bytes_size < 1024:
+        return f"{bytes_size} B"
+    elif bytes_size < 1024 * 1024:
+        return f"{round(bytes_size / 1024, 1)} KB"
+    else:
+        return f"{round(bytes_size / (1024 * 1024), 1)} MB"
+
+@app.route('/support')
+@login_required
+def support_center():
+    """Renders the Company Support Center page with 3 cards, raise ticket, my tickets, and demo videos."""
+    comp_id = session.get('company_id') or 'ARGUS_MASTER'
+    comp_name = session.get('company_name')
+    if not comp_name:
+        comp_doc = database.get_company_by_id(comp_id)
+        comp_name = comp_doc.get('company_name', 'Company') if comp_doc else 'Company'
+    
+    current_ist = database.get_ist_now().strftime('%d/%m/%Y %I:%M %p')
+    return render_template('support_company.html',
+                           active_tab='SUPPORT',
+                           company_id=comp_id,
+                           company_name=comp_name,
+                           current_time_str=current_ist)
+
+@app.route('/admin/support-tickets')
+@super_admin_required
+def admin_support_tickets():
+    """Renders the System Admin Support Tickets Dashboard."""
+    companies = database.get_all_companies()
+    return render_template('support_admin.html',
+                           active_tab='SUPPORT TICKETS',
+                           companies=companies)
+
+@app.route('/api/support/tickets', methods=['GET'])
+@login_required
+def api_company_support_tickets():
+    """Returns tickets for the logged-in company admin."""
+    comp_id = session.get('company_id') or 'ARGUS_MASTER'
+    status_filter = request.args.get('status', 'all')
+    search = request.args.get('search', '')
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 10))
+
+    result = database.get_company_support_tickets(
+        company_id=comp_id,
+        status=status_filter,
+        search=search,
+        page=page,
+        limit=limit
+    )
+    return jsonify({
+        'success': True,
+        'tickets': result['tickets'],
+        'counts': result['counts'],
+        'total': result['total'],
+        'page': result['page'],
+        'limit': result['limit']
+    })
+
+@app.route('/api/support/ticket', methods=['POST'])
+@login_required
+def api_create_support_ticket():
+    """Creates a new support ticket with attachments."""
+    comp_id = session.get('company_id') or 'ARGUS_MASTER'
+    comp_name = session.get('company_name')
+    if not comp_name:
+        comp_doc = database.get_company_by_id(comp_id)
+        comp_name = comp_doc.get('company_name', 'Company') if comp_doc else 'Company'
+
+    subject = request.form.get('subject', '').strip()
+    description = request.form.get('description', '').strip()
+
+    if not subject or not description:
+        return jsonify({'success': False, 'error': 'Subject and Description are required.'}), 400
+
+    raised_by = session.get('user_name') or f"Admin ({comp_name[:10]})"
+    role = session.get('role', 'company_admin')
+
+    # Process attachments
+    attachments = []
+    comp_upload_dir = os.path.join(SUPPORT_UPLOADS_FOLDER, str(comp_id))
+    os.makedirs(comp_upload_dir, exist_ok=True)
+
+    uploaded_files = request.files.getlist('attachments')
+    for f in uploaded_files:
+        if f and f.filename and allowed_support_file(f.filename):
+            clean_filename = werkzeug.utils.secure_filename(f.filename) or 'file'
+            uniq_filename = f"{int(time.time())}_{uuid.uuid4().hex[:6]}_{clean_filename}"
+            target_path = os.path.join(comp_upload_dir, uniq_filename)
+            f.save(target_path)
+
+            file_size = os.path.getsize(target_path) if os.path.exists(target_path) else 0
+            ext = clean_filename.rsplit('.', 1)[1].lower() if '.' in clean_filename else ''
+
+            attachments.append({
+                'id': f"att_{uuid.uuid4().hex[:8]}",
+                'filename': uniq_filename,
+                'original_name': f.filename,
+                'file_path': target_path,
+                'file_size_bytes': file_size,
+                'file_size_display': _format_file_size(file_size),
+                'extension': ext
+            })
+
+    ticket = database.create_support_ticket(
+        company_id=comp_id,
+        company_name=comp_name,
+        raised_by=raised_by,
+        subject=subject,
+        description=description,
+        attachments=attachments,
+        role=role
+    )
+
+    return jsonify({
+        'success': True,
+        'message': f'Ticket {ticket["ticket_id"]} submitted successfully!',
+        'ticket': ticket
+    })
+
+@app.route('/api/support/ticket/<ticket_id>', methods=['GET'])
+@login_required
+def api_get_support_ticket(ticket_id):
+    """Fetches details of a specific ticket."""
+    comp_id = None if session.get('role') == 'super_admin' else (session.get('company_id') or 'ARGUS_MASTER')
+    ticket = database.get_support_ticket_by_id(ticket_id, company_id=comp_id)
+    if not ticket:
+        return jsonify({'success': False, 'error': 'Ticket not found or unauthorized access.'}), 404
+    return jsonify({'success': True, 'ticket': ticket})
+
+@app.route('/api/support/ticket/<ticket_id>/reply', methods=['POST'])
+@login_required
+def api_reply_support_ticket(ticket_id):
+    """Posts a reply message to the ticket conversation thread."""
+    role = session.get('role')
+    comp_id = None if role == 'super_admin' else (session.get('company_id') or 'ARGUS_MASTER')
+    ticket = database.get_support_ticket_by_id(ticket_id, company_id=comp_id)
+    if not ticket:
+        return jsonify({'success': False, 'error': 'Ticket not found or unauthorized.'}), 404
+
+    message = request.form.get('message', '').strip()
+    if not message:
+        return jsonify({'success': False, 'error': 'Message content cannot be empty.'}), 400
+
+    # Sender resolution
+    if role == 'super_admin':
+        sender_name = session.get('user_name', 'Super Admin')
+        sender_role = 'super_admin'
+        badge = None
+    else:
+        sender_name = session.get('user_name') or f"Admin ({ticket.get('company_name', 'Company')[:10]})"
+        sender_role = 'company_admin'
+        badge = None
+
+    # Handle any uploaded attachments in reply
+    attachments = []
+    ticket_comp_id = ticket.get('company_id', 'ARGUS_MASTER')
+    comp_upload_dir = os.path.join(SUPPORT_UPLOADS_FOLDER, str(ticket_comp_id))
+    os.makedirs(comp_upload_dir, exist_ok=True)
+
+    uploaded_files = request.files.getlist('attachments')
+    for f in uploaded_files:
+        if f and f.filename and allowed_support_file(f.filename):
+            clean_filename = werkzeug.utils.secure_filename(f.filename) or 'file'
+            uniq_filename = f"{int(time.time())}_{uuid.uuid4().hex[:6]}_{clean_filename}"
+            target_path = os.path.join(comp_upload_dir, uniq_filename)
+            f.save(target_path)
+
+            file_size = os.path.getsize(target_path) if os.path.exists(target_path) else 0
+            ext = clean_filename.rsplit('.', 1)[1].lower() if '.' in clean_filename else ''
+
+            attachments.append({
+                'id': f"att_{uuid.uuid4().hex[:8]}",
+                'filename': uniq_filename,
+                'original_name': f.filename,
+                'file_path': target_path,
+                'file_size_bytes': file_size,
+                'file_size_display': _format_file_size(file_size),
+                'extension': ext
+            })
+
+    # Status update if super admin reply
+    new_status = None
+    if role == 'super_admin' and ticket.get('status') == 'Open':
+        new_status = 'In Progress'
+
+    res = database.add_support_ticket_message(
+        ticket_id=ticket['ticket_id'],
+        sender_name=sender_name,
+        sender_role=sender_role,
+        message_text=message,
+        attachments=attachments,
+        new_status=new_status,
+        badge=badge,
+        company_id=comp_id
+    )
+
+    if not res.get('success'):
+        return jsonify(res), 400
+
+    return jsonify({
+        'success': True,
+        'message': 'Reply sent successfully.',
+        'ticket': res['ticket']
+    })
+
+@app.route('/api/support/ticket/<ticket_id>/resolve', methods=['POST'])
+@login_required
+def api_resolve_support_ticket(ticket_id):
+    """Marks ticket as resolved."""
+    role = session.get('role')
+    comp_id = None if role == 'super_admin' else (session.get('company_id') or 'ARGUS_MASTER')
+    ticket = database.get_support_ticket_by_id(ticket_id, company_id=comp_id)
+    if not ticket:
+        return jsonify({'success': False, 'error': 'Ticket not found or unauthorized.'}), 404
+
+    remark = request.json.get('remark') if request.is_json else request.form.get('remark')
+    user_name = session.get('user_name', 'Admin')
+
+    res = database.update_support_ticket_status(
+        ticket_id=ticket['ticket_id'],
+        new_status='Resolved',
+        updated_by_name=user_name,
+        updated_by_role=role,
+        remark=remark or "Ticket marked as resolved.",
+        company_id=comp_id
+    )
+    return jsonify(res)
+
+@app.route('/api/support/ticket/<ticket_id>/reopen', methods=['POST'])
+@login_required
+def api_reopen_support_ticket(ticket_id):
+    """Reopens a resolved or closed ticket."""
+    role = session.get('role')
+    comp_id = None if role == 'super_admin' else (session.get('company_id') or 'ARGUS_MASTER')
+    ticket = database.get_support_ticket_by_id(ticket_id, company_id=comp_id)
+    if not ticket:
+        return jsonify({'success': False, 'error': 'Ticket not found or unauthorized.'}), 404
+
+    remark = request.json.get('remark') if request.is_json else request.form.get('remark')
+    user_name = session.get('user_name', 'Admin')
+
+    res = database.update_support_ticket_status(
+        ticket_id=ticket['ticket_id'],
+        new_status='Open',
+        updated_by_name=user_name,
+        updated_by_role=role,
+        remark=remark or "Ticket reopened for further assistance.",
+        company_id=comp_id
+    )
+    return jsonify(res)
+
+@app.route('/api/support/demo-videos', methods=['GET'])
+@login_required
+def api_get_demo_videos():
+    """Returns the list of 8 demo video chapters with learning objectives."""
+    videos = database.get_demo_videos()
+    return jsonify({'success': True, 'videos': videos})
+
+@app.route('/api/support/badge-count', methods=['GET'])
+@login_required
+def api_get_support_badge_count():
+    """Returns live open ticket count for sidebar badges."""
+    role = session.get('role')
+    comp_id = None if role == 'super_admin' else (session.get('company_id') or 'ARGUS_MASTER')
+    count = database.get_support_badge_count(comp_id)
+    return jsonify({'success': True, 'count': count})
+
+# Admin Support Ticket APIs
+@app.route('/api/admin/support/tickets', methods=['GET'])
+@super_admin_required
+def api_admin_support_tickets():
+    """Returns tickets across all companies for super admin dashboard."""
+    comp_filter = request.args.get('company_id', '')
+    status_filter = request.args.get('status', 'all')
+    search = request.args.get('search', '')
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 10))
+
+    result = database.get_all_support_tickets(
+        company_filter=comp_filter,
+        status_filter=status_filter,
+        search=search,
+        page=page,
+        limit=limit
+    )
+    return jsonify({
+        'success': True,
+        'tickets': result['tickets'],
+        'counts': result['counts'],
+        'companies': result['companies'],
+        'total': result['total'],
+        'page': result['page'],
+        'limit': result['limit']
+    })
+
+@app.route('/api/admin/support/ticket/<ticket_id>/status', methods=['POST'])
+@super_admin_required
+def api_admin_update_ticket_status(ticket_id):
+    """Updates status of any ticket with admin remark."""
+    data = request.get_json(silent=True) or request.form
+    new_status = (data.get('status') or '').strip()
+    remark = (data.get('remark') or '').strip()
+
+    if not new_status:
+        return jsonify({'success': False, 'error': 'Status is required.'}), 400
+
+    admin_name = session.get('user_name', 'Super Admin')
+    res = database.update_support_ticket_status(
+        ticket_id=ticket_id,
+        new_status=new_status,
+        updated_by_name=admin_name,
+        updated_by_role='super_admin',
+        remark=remark or f"Status updated to {new_status} by Super Admin."
+    )
+    return jsonify(res)
+
+@app.route('/api/admin/support/export', methods=['GET'])
+@super_admin_required
+def api_admin_support_export():
+    """Exports tickets in CSV or Excel format."""
+    export_format = request.args.get('format', 'csv').lower()
+    comp_filter = request.args.get('company_id', '')
+    status_filter = request.args.get('status', 'all')
+    search = request.args.get('search', '')
+
+    result = database.get_all_support_tickets(
+        company_filter=comp_filter,
+        status_filter=status_filter,
+        search=search,
+        page=1,
+        limit=5000
+    )
+    tickets = result['tickets']
+
+    if export_format in ['csv', 'excel']:
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Ticket ID', 'Date & Time', 'Company Name', 'Raised By', 'Subject', 'Description', 'Status', 'Attachments Count', 'Created At'])
+        for t in tickets:
+            writer.writerow([
+                t.get('ticket_id', ''),
+                t.get('date_time_str', ''),
+                t.get('company_name', ''),
+                t.get('raised_by', ''),
+                t.get('subject', ''),
+                t.get('description', ''),
+                t.get('status', ''),
+                len(t.get('attachments', [])),
+                t.get('created_at', '')
+            ])
+        output.seek(0)
+        ext = 'csv'
+        filename = f"Support_Tickets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{ext}"
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment;filename={filename}"}
+        )
+
+    return jsonify({'success': False, 'error': 'Unsupported export format'}), 400
+
+# Attachment Download and Download-All (ZIP)
+@app.route('/api/support/attachment/<ticket_id>/<filename>', methods=['GET'])
+@login_required
+def api_get_support_attachment(ticket_id, filename):
+    """Serves individual ticket attachment."""
+    role = session.get('role')
+    comp_id = None if role == 'super_admin' else (session.get('company_id') or 'ARGUS_MASTER')
+    ticket = database.get_support_ticket_by_id(ticket_id, company_id=comp_id)
+    if not ticket:
+        return jsonify({'error': 'Ticket not found or unauthorized.'}), 404
+
+    target_comp_id = ticket.get('company_id', 'ARGUS_MASTER')
+    folder = os.path.join(SUPPORT_UPLOADS_FOLDER, str(target_comp_id))
+    file_path = os.path.join(folder, werkzeug.utils.secure_filename(filename))
+
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'Attachment file not found.'}), 404
+
+    as_attachment = request.args.get('download', '0') == '1'
+    return send_file(file_path, as_attachment=as_attachment)
+
+@app.route('/api/support/attachment/<ticket_id>/download-all', methods=['GET'])
+@login_required
+def api_download_all_attachments(ticket_id):
+    """Zips all attachments belonging to ticket and downloads them in one go."""
+    role = session.get('role')
+    comp_id = None if role == 'super_admin' else (session.get('company_id') or 'ARGUS_MASTER')
+    ticket = database.get_support_ticket_by_id(ticket_id, company_id=comp_id)
+    if not ticket:
+        return jsonify({'error': 'Ticket not found or unauthorized.'}), 404
+
+    attachments = ticket.get('attachments', [])
+    if not attachments:
+        return jsonify({'error': 'No attachments found for this ticket.'}), 400
+
+    target_comp_id = ticket.get('company_id', 'ARGUS_MASTER')
+    folder = os.path.join(SUPPORT_UPLOADS_FOLDER, str(target_comp_id))
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for att in attachments:
+            fname = att.get('filename')
+            orig_name = att.get('original_name', fname)
+            fpath = os.path.join(folder, fname) if fname else None
+            if fpath and os.path.exists(fpath):
+                zip_file.write(fpath, arcname=orig_name)
+
+    zip_buffer.seek(0)
+    zip_filename = f"Ticket_{ticket.get('ticket_id', ticket_id)}_Attachments.zip"
+    return send_file(
+        zip_buffer,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=zip_filename
+    )
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

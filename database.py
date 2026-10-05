@@ -4938,3 +4938,469 @@ def edit_employee_leave_request(request_id, emp_id, updated_fields):
     updated_doc = db.leave_requests.find_one({'_id': req['_id']})
     return {'success': True, 'message': 'Request updated successfully', 'request': clean_doc(updated_doc)}
 
+
+# =========================================================================
+# SUPPORT TICKETS & DEMO VIDEOS SYSTEM
+# =========================================================================
+
+DEFAULT_DEMO_VIDEOS = [
+    {
+        'chapter': 1,
+        'title': '1. Employee Details',
+        'duration': '08:24',
+        'duration_seconds': 504,
+        'subtitle': 'Learn how to add, edit and manage employee records.',
+        'description': 'In this video, you will learn how to manage employee details in ARGUS Attendance. This includes adding new employees, editing existing records, setting designations, updating phone numbers, activating or deactivating employees, and more.',
+        'what_you_will_learn': [
+            'Add a new employee',
+            'Edit employee details',
+            'Set designation and department',
+            'Update phone number and join date',
+            'Activate or deactivate employee',
+            'Manage employee records efficiently'
+        ],
+        'video_url': '/static/videos/demo_employee_details.mp4',
+        'poster_url': '/static/images/demo_thumb_1.jpg'
+    },
+    {
+        'chapter': 2,
+        'title': '2. Live Report',
+        'duration': '06:15',
+        'duration_seconds': 375,
+        'subtitle': 'View and understand live attendance data.',
+        'description': 'In this video, you will learn how to monitor real-time facial check-ins, detect improper geofence punches, verify on-duty staffing levels, and review live entry and exit records as they happen throughout the work shift.',
+        'what_you_will_learn': [
+            'Monitor live attendance feeds in real time',
+            'Filter attendance by department and shifts',
+            'Detect and audit improper or remote location punches',
+            'Verify check-in timestamps and facial match logs',
+            'Track on-duty staffing numbers across branches'
+        ],
+        'video_url': '/static/videos/demo_live_report.mp4',
+        'poster_url': '/static/images/demo_thumb_2.jpg'
+    },
+    {
+        'chapter': 3,
+        'title': '3. Attendance Report',
+        'duration': '07:30',
+        'duration_seconds': 450,
+        'subtitle': 'Generate and export attendance reports.',
+        'description': 'Master the comprehensive attendance reporting suite. Learn how to filter punch histories by custom date ranges, audit daily presence vs absences, review shift variances, and export reports in PDF and Excel formats.',
+        'what_you_will_learn': [
+            'Generate custom date range attendance reports',
+            'Analyze punch variance, late arrivals, and early departures',
+            'Audit working hours and shift compliance',
+            'Export formatted attendance registers to Excel and PDF',
+            'Review organization-wide attendance trends'
+        ],
+        'video_url': '/static/videos/demo_attendance_report.mp4',
+        'poster_url': '/static/images/demo_thumb_3.jpg'
+    },
+    {
+        'chapter': 4,
+        'title': '4. Manual Entry',
+        'duration': '05:48',
+        'duration_seconds': 348,
+        'subtitle': 'Add or update attendance manually.',
+        'description': 'Discover when and how to record manual attendance entries for forgotten punches, off-site client visits, hardware maintenance, or special time adjustments while maintaining audit integrity and manager accountability.',
+        'what_you_will_learn': [
+            'Create manual check-in and check-out records',
+            'Configure Add or Deduct entry types',
+            'Calculate manual working hours and pro-rated salary',
+            'Provide mandatory audit reasons and remarks',
+            'Track and audit all manual entry submissions'
+        ],
+        'video_url': '/static/videos/demo_manual_entry.mp4',
+        'poster_url': '/static/images/demo_thumb_4.jpg'
+    },
+    {
+        'chapter': 5,
+        'title': '5. Payment Entry',
+        'duration': '08:10',
+        'duration_seconds': 490,
+        'subtitle': 'Record and manage payment entries.',
+        'description': 'Understand how to record employee salary advances, manage emergency loans, log installment repayments, and maintain real-time employee advance balance tracking integrated with monthly payroll.',
+        'what_you_will_learn': [
+            'Record salary advance disbursements',
+            'Log repayment installments and adjustments',
+            'Track live outstanding advance balances per employee',
+            'Verify automatic payslip deduction linking',
+            'Download transaction receipts and payment histories'
+        ],
+        'video_url': '/static/videos/demo_payment_entry.mp4',
+        'poster_url': '/static/images/demo_thumb_5.jpg'
+    },
+    {
+        'chapter': 6,
+        'title': '6. Payslip Preview',
+        'duration': '06:52',
+        'duration_seconds': 412,
+        'subtitle': 'View and preview employee payslips.',
+        'description': 'A complete walkthrough of the payslip preview engine. Learn how working days, paid leaves, statutory deductions, incentives, advance repayments, and net pay are calculated and previewed before final payroll closure.',
+        'what_you_will_learn': [
+            'Preview individual monthly payslips',
+            'Inspect earnings breakdown: basic, allowances, incentives',
+            'Verify advance deduction and leave deductions',
+            'Review net pay calculations and numbers in words',
+            'Generate and download pixel-perfect payslip PDFs'
+        ],
+        'video_url': '/static/videos/demo_payslip_preview.mp4',
+        'poster_url': '/static/images/demo_thumb_6.jpg'
+    },
+    {
+        'chapter': 7,
+        'title': '7. Salary Report',
+        'duration': '07:18',
+        'duration_seconds': 438,
+        'subtitle': 'Generate salary reports for your organization.',
+        'description': 'Learn how to generate organization-wide monthly payroll summaries, audit departmental wage expenditures, review bank payment sheets, and lock finalized payroll batches for executive sign-off.',
+        'what_you_will_learn': [
+            'Compile organization-wide monthly payroll sheets',
+            'Review total payouts, deductions, and advance summaries',
+            'Filter payroll reports by department and designation',
+            'Export comprehensive payroll sheets to Excel and PDF',
+            'Finalize and lock monthly payroll reports'
+        ],
+        'video_url': '/static/videos/demo_salary_report.mp4',
+        'poster_url': '/static/images/demo_thumb_7.jpg'
+    },
+    {
+        'chapter': 8,
+        'title': '8. Company Profile',
+        'duration': '04:36',
+        'duration_seconds': 276,
+        'subtitle': 'Manage your company information and settings.',
+        'description': 'Configure company profile essentials: upload company branding logo, setup GPS office geofence coordinates and radius, define official work shifts and grace limits, and configure automated report emails.',
+        'what_you_will_learn': [
+            'Upload and update company logo branding',
+            'Configure office GPS geofence latitude, longitude, and radius',
+            'Setup standard work shifts and grace periods',
+            'Manage contact credentials and company GST details',
+            'Enable or customize automated daily and monthly report emails'
+        ],
+        'video_url': '/static/videos/demo_company_profile.mp4',
+        'poster_url': '/static/images/demo_thumb_8.jpg'
+    }
+]
+
+def seed_demo_videos_if_needed():
+    """Seeds the 8 demo video chapters into db.demo_videos if empty."""
+    db = get_db()
+    if db.demo_videos.count_documents({}) == 0:
+        for v in DEFAULT_DEMO_VIDEOS:
+            doc = dict(v)
+            doc['created_at'] = get_ist_now().isoformat()
+            db.demo_videos.insert_one(doc)
+
+def get_demo_videos():
+    """Returns all demo video chapters sorted by chapter number."""
+    db = get_db()
+    seed_demo_videos_if_needed()
+    videos = list(db.demo_videos.find({}).sort('chapter', ASCENDING))
+    return [clean_doc(v) for v in videos]
+
+def generate_support_ticket_id():
+    """Generates sequential support ticket ID e.g. SUP-000101, SUP-000102."""
+    db = get_db()
+    last = db.support_tickets.find_one({}, sort=[('ticket_id', DESCENDING)])
+    if last and last.get('ticket_id'):
+        try:
+            num = int(str(last['ticket_id']).split('-')[-1])
+            return f"SUP-{num + 1:06d}"
+        except Exception:
+            pass
+    cnt = db.support_tickets.count_documents({})
+    return f"SUP-{cnt + 101:06d}"
+
+def create_support_ticket(company_id, company_name, raised_by, subject, description, attachments=None, role='company_admin'):
+    """
+    Creates a new support ticket and logs the initial message in conversation history.
+    """
+    db = get_db()
+    now_ist = get_ist_now()
+    ticket_id = generate_support_ticket_id()
+    clean_atts = attachments or []
+
+    initial_msg = {
+        'id': f"msg_{int(time.time()*1000)}",
+        'sender_name': raised_by or 'Company User',
+        'sender_role': role,
+        'sender_avatar': (raised_by[:1].upper() if raised_by else 'A'),
+        'avatar_bg': '#ef4444' if role == 'company_admin' else '#8b5cf6',
+        'message': description.strip(),
+        'badge': 'Ticket Raised',
+        'attachments': clean_atts,
+        'created_at': now_ist.isoformat(),
+        'created_at_display': now_ist.strftime('%d/%m/%Y %I:%M %p')
+    }
+
+    doc = {
+        'ticket_id': ticket_id,
+        'company_id': str(company_id),
+        'company_name': company_name,
+        'raised_by': raised_by,
+        'raised_by_role': role,
+        'date_time_str': now_ist.strftime('%d/%m/%Y %I:%M %p'),
+        'subject': subject.strip(),
+        'description': description.strip(),
+        'status': 'Open',
+        'priority': 'Medium',
+        'attachments': clean_atts,
+        'messages': [initial_msg],
+        'created_at': now_ist,
+        'updated_at': now_ist,
+        'resolved_at': None
+    }
+
+    db.support_tickets.insert_one(doc)
+    return clean_doc(doc)
+
+def get_company_support_tickets(company_id, status=None, search=None, page=1, limit=10):
+    """
+    Returns support tickets for a specific company with status filtering, search, and pagination.
+    """
+    db = get_db()
+    comp_id_str = str(company_id)
+    base_filter = {'company_id': comp_id_str}
+
+    # Live tab counts for this company
+    all_count = db.support_tickets.count_documents(base_filter)
+    open_count = db.support_tickets.count_documents({**base_filter, 'status': 'Open'})
+    in_progress_count = db.support_tickets.count_documents({**base_filter, 'status': 'In Progress'})
+    resolved_count = db.support_tickets.count_documents({**base_filter, 'status': 'Resolved'})
+    closed_count = db.support_tickets.count_documents({**base_filter, 'status': 'Closed'})
+
+    counts = {
+        'all': all_count,
+        'open': open_count,
+        'in_progress': in_progress_count,
+        'resolved': resolved_count,
+        'closed': closed_count
+    }
+
+    query = dict(base_filter)
+    if status and str(status).lower() != 'all':
+        query['status'] = {'$regex': f"^{re.escape(status)}$", '$options': 'i'}
+
+    if search and str(search).strip():
+        s_regex = {'$regex': re.escape(str(search).strip()), '$options': 'i'}
+        query['$or'] = [
+            {'ticket_id': s_regex},
+            {'subject': s_regex},
+            {'description': s_regex},
+            {'raised_by': s_regex}
+        ]
+
+    total_filtered = db.support_tickets.count_documents(query)
+    skip = max(0, (page - 1) * limit)
+    cursor = db.support_tickets.find(query).sort('created_at', DESCENDING).skip(skip).limit(limit)
+    tickets = [clean_doc(t) for t in cursor]
+
+    return {
+        'tickets': tickets,
+        'total': total_filtered,
+        'counts': counts,
+        'page': page,
+        'limit': limit
+    }
+
+def get_all_support_tickets(company_filter=None, status_filter=None, search=None, page=1, limit=10):
+    """
+    Returns support tickets across ALL companies for Super Admin with multi-tenant filtering.
+    """
+    db = get_db()
+    all_count = db.support_tickets.count_documents({})
+    open_count = db.support_tickets.count_documents({'status': 'Open'})
+    in_progress_count = db.support_tickets.count_documents({'status': 'In Progress'})
+    resolved_count = db.support_tickets.count_documents({'status': 'Resolved'})
+    closed_count = db.support_tickets.count_documents({'status': 'Closed'})
+
+    counts = {
+        'all': all_count,
+        'open': open_count,
+        'in_progress': in_progress_count,
+        'resolved': resolved_count,
+        'closed': closed_count
+    }
+
+    query = {}
+    if company_filter and str(company_filter).lower() not in ['all', 'all companies', '']:
+        query['$or'] = [
+            {'company_id': str(company_filter)},
+            {'company_name': str(company_filter)}
+        ]
+
+    if status_filter and str(status_filter).lower() not in ['all', 'all status', '']:
+        query['status'] = {'$regex': f"^{re.escape(status_filter)}$", '$options': 'i'}
+
+    if search and str(search).strip():
+        s_regex = {'$regex': re.escape(str(search).strip()), '$options': 'i'}
+        search_or = [
+            {'ticket_id': s_regex},
+            {'company_name': s_regex},
+            {'subject': s_regex},
+            {'description': s_regex},
+            {'raised_by': s_regex}
+        ]
+        if '$or' in query:
+            query = {'$and': [query, {'$or': search_or}]}
+        else:
+            query['$or'] = search_or
+
+    total_filtered = db.support_tickets.count_documents(query)
+    skip = max(0, (page - 1) * limit)
+    cursor = db.support_tickets.find(query).sort('created_at', DESCENDING).skip(skip).limit(limit)
+    tickets = [clean_doc(t) for t in cursor]
+
+    companies_cursor = db.company_admin.find({}, {'id': 1, 'company_name': 1})
+    companies_list = [{'id': c.get('id'), 'company_name': c.get('company_name', 'Company')} for c in companies_cursor]
+
+    return {
+        'tickets': tickets,
+        'total': total_filtered,
+        'counts': counts,
+        'companies': companies_list,
+        'page': page,
+        'limit': limit
+    }
+
+def get_support_ticket_by_id(ticket_id, company_id=None):
+    """
+    Returns single ticket with complete attachments and conversation messages.
+    """
+    db = get_db()
+    t_id_str = str(ticket_id).strip()
+    q = {'$or': [
+        {'ticket_id': t_id_str},
+        {'ticket_id': t_id_str.upper()}
+    ]}
+    if ObjectId.is_valid(t_id_str):
+        q['$or'].append({'_id': ObjectId(t_id_str)})
+
+    ticket = db.support_tickets.find_one(q)
+    if not ticket:
+        return None
+
+    if company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
+        if str(ticket.get('company_id')) != str(company_id):
+            return None
+
+    return clean_doc(ticket)
+
+def add_support_ticket_message(ticket_id, sender_name, sender_role, message_text, attachments=None, new_status=None, badge=None, company_id=None):
+    """
+    Adds a new message/reply into ticket's conversation thread and optionally updates status.
+    """
+    db = get_db()
+    ticket = get_support_ticket_by_id(ticket_id, company_id=company_id)
+    if not ticket:
+        return {'success': False, 'error': 'Ticket not found or unauthorized'}
+
+    now_ist = get_ist_now()
+    clean_atts = attachments or []
+
+    avatar_letter = (sender_name[:1].upper() if sender_name else 'U')
+    avatar_bg = '#8b5cf6' if sender_role == 'super_admin' else '#ef4444'
+
+    new_msg = {
+        'id': f"msg_{int(time.time()*1000)}",
+        'sender_name': sender_name,
+        'sender_role': sender_role,
+        'sender_avatar': avatar_letter,
+        'avatar_bg': avatar_bg,
+        'message': str(message_text).strip(),
+        'badge': badge,
+        'attachments': clean_atts,
+        'created_at': now_ist.isoformat(),
+        'created_at_display': now_ist.strftime('%d/%m/%Y %I:%M %p')
+    }
+
+    update_fields = {
+        'updated_at': now_ist
+    }
+
+    push_data = {'messages': new_msg}
+    if clean_atts:
+        push_data['attachments'] = {'$each': clean_atts}
+
+    if new_status:
+        update_fields['status'] = new_status
+        if new_status.lower() == 'resolved':
+            update_fields['resolved_at'] = now_ist
+        elif new_status.lower() in ['open', 'in progress']:
+            update_fields['resolved_at'] = None
+
+    db.support_tickets.update_one(
+        {'ticket_id': ticket['ticket_id']},
+        {
+            '$push': push_data,
+            '$set': update_fields
+        }
+    )
+
+    updated_ticket = db.support_tickets.find_one({'ticket_id': ticket['ticket_id']})
+    return {'success': True, 'ticket': clean_doc(updated_ticket), 'message': new_msg}
+
+def update_support_ticket_status(ticket_id, new_status, updated_by_name, updated_by_role, remark=None, company_id=None):
+    """
+    Updates the status of a ticket (Open, In Progress, Resolved, Closed).
+    """
+    db = get_db()
+    ticket = get_support_ticket_by_id(ticket_id, company_id=company_id)
+    if not ticket:
+        return {'success': False, 'error': 'Ticket not found or unauthorized'}
+
+    now_ist = get_ist_now()
+    old_status = ticket.get('status', 'Open')
+    status_clean = str(new_status).strip().title()
+    if status_clean.lower() == 'in progress':
+        status_clean = 'In Progress'
+
+    update_fields = {
+        'status': status_clean,
+        'updated_at': now_ist
+    }
+    if status_clean == 'Resolved':
+        update_fields['resolved_at'] = now_ist
+    elif status_clean in ['Open', 'In Progress']:
+        update_fields['resolved_at'] = None
+
+    badge = status_clean if status_clean in ['In Progress', 'Resolved', 'Closed'] else None
+    audit_text = remark or f"Ticket status changed from {old_status} to {status_clean}."
+    status_msg = {
+        'id': f"msg_{int(time.time()*1000)}",
+        'sender_name': updated_by_name,
+        'sender_role': updated_by_role,
+        'sender_avatar': updated_by_name[:1].upper() if updated_by_name else 'S',
+        'avatar_bg': '#8b5cf6' if updated_by_role == 'super_admin' else '#ef4444',
+        'message': audit_text,
+        'badge': badge,
+        'attachments': [],
+        'created_at': now_ist.isoformat(),
+        'created_at_display': now_ist.strftime('%d/%m/%Y %I:%M %p')
+    }
+
+    db.support_tickets.update_one(
+        {'ticket_id': ticket['ticket_id']},
+        {
+            '$set': update_fields,
+            '$push': {'messages': status_msg}
+        }
+    )
+
+    updated_ticket = db.support_tickets.find_one({'ticket_id': ticket['ticket_id']})
+    return {'success': True, 'ticket': clean_doc(updated_ticket)}
+
+def get_support_badge_count(company_id=None):
+    """
+    Returns un-resolved ticket count for sidebar badge.
+    If company_id: open + in progress count for that company.
+    If None / Super Admin: open + in progress count across all companies.
+    """
+    db = get_db()
+    q = {'status': {'$in': ['Open', 'In Progress']}}
+    if company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
+        q['company_id'] = str(company_id)
+    return db.support_tickets.count_documents(q)
+
+

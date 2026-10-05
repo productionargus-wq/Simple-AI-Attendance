@@ -1,0 +1,1700 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="admin-support-container">
+  <!-- LIST VIEW PANEL -->
+  <div id="adminTicketsListView">
+    <!-- Top Banner -->
+    <div class="content-banner-card">
+      <div class="banner-left">
+        <div class="banner-icon-badge" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+          </svg>
+        </div>
+        <div class="banner-text-group">
+          <div class="banner-title">SUPPORT TICKETS</div>
+          <div class="banner-subtitle">Manage and resolve support tickets from all companies.</div>
+        </div>
+      </div>
+      <div class="banner-actions">
+        <button type="button" class="btn-primary-action" onclick="exportAdminTickets('csv')" title="Export tickets">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Export
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Table Card (Image 3 Top Panel) -->
+    <div class="admin-table-card">
+      <!-- Status Tabs Bar -->
+      <div class="status-tabs-nav">
+        <button type="button" class="status-tab-btn active" data-status="all" onclick="filterAdminByStatusTab('all', this)">
+          All <span class="tab-badge-pill" id="admCntAll">0</span>
+        </button>
+        <button type="button" class="status-tab-btn" data-status="Open" onclick="filterAdminByStatusTab('Open', this)">
+          Open <span class="tab-badge-pill pill-open" id="admCntOpen">0</span>
+        </button>
+        <button type="button" class="status-tab-btn" data-status="In Progress" onclick="filterAdminByStatusTab('In Progress', this)">
+          In Progress <span class="tab-badge-pill pill-progress" id="admCntProgress">0</span>
+        </button>
+        <button type="button" class="status-tab-btn" data-status="Resolved" onclick="filterAdminByStatusTab('Resolved', this)">
+          Resolved <span class="tab-badge-pill pill-resolved" id="admCntResolved">0</span>
+        </button>
+        <button type="button" class="status-tab-btn" data-status="Closed" onclick="filterAdminByStatusTab('Closed', this)">
+          Closed <span class="tab-badge-pill pill-closed" id="admCntClosed">0</span>
+        </button>
+      </div>
+
+      <!-- Advanced Filter & Export Toolbar (Image 3) -->
+      <div class="admin-toolbar-grid">
+        <div class="toolbar-left-group">
+          <!-- Show Entries -->
+          <div class="entries-select-wrapper">
+            <span>Show</span>
+            <select id="admEntriesSelect" onchange="changeAdminEntriesLimit(this.value)">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+            <span>entries</span>
+          </div>
+
+          <!-- Export Buttons: Copy, CSV, Excel, PDF, Print -->
+          <div class="table-export-buttons">
+            <button type="button" class="btn-tool-export" onclick="copyAdminTicketsTable()" title="Copy to clipboard">Copy</button>
+            <button type="button" class="btn-tool-export" onclick="exportAdminTickets('csv')" title="Export CSV">CSV</button>
+            <button type="button" class="btn-tool-export btn-tool-excel" onclick="exportAdminTickets('excel')" title="Export Excel">Excel</button>
+            <button type="button" class="btn-tool-export btn-tool-pdf" onclick="window.print()" title="Print / PDF">PDF</button>
+            <button type="button" class="btn-tool-export" onclick="window.print()" title="Print">Print</button>
+          </div>
+        </div>
+
+        <div class="toolbar-right-group">
+          <!-- Filter Company -->
+          <select id="admFilterCompany" class="filter-dropdown" onchange="handleAdminFilterChange()">
+            <option value="">Filter Company</option>
+            {% for c in companies %}
+            <option value="{{ c.id }}">{{ c.company_name }}</option>
+            {% endfor %}
+          </select>
+
+          <!-- Filter Status -->
+          <select id="admFilterStatus" class="filter-dropdown" onchange="handleAdminFilterChange()">
+            <option value="">Filter Status</option>
+            <option value="Open">Open</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Resolved">Resolved</option>
+            <option value="Closed">Closed</option>
+          </select>
+
+          <!-- Search Box -->
+          <div class="adm-search-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="admSearchInput" placeholder="Search..." onkeyup="handleAdminSearchDebounce()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Tickets Data Table -->
+      <div class="table-responsive-wrapper">
+        <table class="modern-custom-table" id="adminTicketsTable">
+          <thead>
+            <tr>
+              <th style="width: 45px;">#</th>
+              <th style="width: 110px;">Ticket ID</th>
+              <th style="width: 140px;">Date &amp; Time</th>
+              <th style="width: 180px;">Company Name</th>
+              <th style="width: 200px;">Subject</th>
+              <th>Description (Preview)</th>
+              <th style="width: 110px;">Status</th>
+              <th style="width: 100px;">Attachments</th>
+              <th style="width: 130px;">Raised By</th>
+              <th style="width: 160px; text-align: center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminTicketsTableBody">
+            <tr>
+              <td colspan="10" class="loading-empty-state">
+                <div class="spinner-inline"></div>
+                Loading support tickets...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="tickets-pagination" id="adminTicketsPagination">
+        <span class="pagination-info" id="admPaginationInfo">Showing 0 to 0 of 0 entries</span>
+        <div class="pagination-controls" id="admPaginationControls"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAILS VIEW PANEL (Image 3 Bottom Panels) -->
+  <div id="adminTicketDetailsView" style="display: none;">
+    <!-- Details Top Bar -->
+    <div class="details-nav-bar">
+      <button type="button" class="btn-back-tickets" onclick="backToAdminTicketsList()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        Back to Tickets
+      </button>
+
+      <!-- Status Dropdown Selector -->
+      <div class="admin-status-dropdown-wrap">
+        <span class="status-dropdown-label">Status :</span>
+        <select id="admDetailStatusSelect" class="status-select-badge" onchange="updateTicketStatusFromSelect(this.value)">
+          <option value="Open">Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Resolved">Resolved</option>
+          <option value="Closed">Closed</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Header Card -->
+    <div class="content-banner-card" style="margin-bottom: 20px;">
+      <div class="banner-left">
+        <div class="banner-icon-badge" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </div>
+        <div class="banner-text-group">
+          <div class="banner-title">TICKET DETAILS</div>
+          <div class="banner-subtitle">View complete information, attachments and conversation.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 Column Details Layout -->
+    <div class="admin-details-grid">
+      <!-- Left Column: Info & Attachments -->
+      <div class="admin-details-col-left">
+        <!-- Info Card -->
+        <div class="details-section-card">
+          <div class="section-card-title">Ticket Information</div>
+          <div class="ticket-info-grid">
+            <div class="info-cell">
+              <span class="info-cell-label">Ticket ID</span>
+              <span class="info-cell-val font-semibold text-blue" id="admDTicketId">--</span>
+            </div>
+            <div class="info-cell">
+              <span class="info-cell-label">Company</span>
+              <span class="info-cell-val font-semibold" id="admDCompanyName">--</span>
+            </div>
+            <div class="info-cell">
+              <span class="info-cell-label">Raised By</span>
+              <span class="info-cell-val" id="admDRaisedBy">--</span>
+            </div>
+            <div class="info-cell">
+              <span class="info-cell-label">Date &amp; Time</span>
+              <span class="info-cell-val" id="admDDateTime">--</span>
+            </div>
+            <div class="info-cell full-width">
+              <span class="info-cell-label">Status</span>
+              <div>
+                <span class="status-pill" id="admDStatusBadge">Open</span>
+              </div>
+            </div>
+            <div class="info-cell full-width">
+              <span class="info-cell-label">Subject</span>
+              <span class="info-cell-val font-medium" id="admDSubject">--</span>
+            </div>
+            <div class="info-cell full-width">
+              <span class="info-cell-label">Description</span>
+              <div class="info-cell-desc" id="admDDescription">--</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attachments Card -->
+        <div class="details-section-card">
+          <div class="attachments-card-header">
+            <div class="section-card-title" style="margin-bottom: 0;">Attachments</div>
+            <a href="javascript:void(0)" class="btn-download-all" id="admBtnDownloadAll" onclick="downloadAllAdminTicketAttachments()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Download All
+            </a>
+          </div>
+          <div class="attachments-items-list" id="admDAttachmentsList"></div>
+        </div>
+      </div>
+
+      <!-- Right Column: Conversation Thread & Add Update -->
+      <div class="admin-details-col-right">
+        <div class="details-section-card timeline-card">
+          <div class="section-card-title">Conversation / Updates</div>
+          
+          <!-- Conversation Timeline -->
+          <div class="conversation-thread-box" id="admDConversationThread"></div>
+
+          <!-- Add an Update Section (Image 3) -->
+          <div class="reply-input-box" id="admUpdateSection">
+            <div class="reply-box-title" id="admUpdateBoxTitle">Add an Update</div>
+            <form id="admUpdateForm" onsubmit="submitAdminTicketUpdate(event)">
+              <textarea id="admUpdateMessageText" class="reply-textarea" rows="3" placeholder="Type your message here..."></textarea>
+              
+              <div class="reply-toolbar-row">
+                <div class="reply-attachment-area">
+                  <button type="button" class="btn-reply-attach" id="admBtnAttach" onclick="document.getElementById('admUpdateFileInput').click()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                    </svg>
+                    Attach
+                  </button>
+                  <input type="file" id="admUpdateFileInput" multiple accept=".png,.jpg,.jpeg,.pdf,.xls,.xlsx,.csv,.doc,.docx" style="display: none;" onchange="handleAdminReplyFilesSelect(this)">
+                  <div class="reply-files-chips" id="admUpdateFilesChips"></div>
+                </div>
+
+                <button type="submit" class="btn-send-reply" id="admBtnSendUpdate">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                  Send Update
+                </button>
+              </div>
+            </form>
+
+            <!-- Bottom Action Buttons: Reopen and Mark as Resolved -->
+            <div class="admin-detail-footer-actions">
+              <button type="button" class="btn-reopen-ticket" id="admBtnReopenTicket" onclick="reopenAdminTicket()" style="display: none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <polyline points="1 20 1 14 7 14"></polyline>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                Reopen Ticket
+              </button>
+
+              <button type="button" class="btn-resolve-ticket" id="admBtnResolveTicket" onclick="resolveAdminTicket()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Mark as Resolved
+              </button>
+
+              <span class="resolved-badge-label" id="admBadgeResolved" style="display: none;">
+                ✓ Resolved
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK STATUS UPDATE MODAL -->
+<div class="modal-backdrop-custom" id="quickStatusModal" style="display: none;">
+  <div class="ticket-modal-dialog" style="width: 450px;">
+    <div class="ticket-modal-header">
+      <div class="modal-header-left">
+        <h3 class="modal-ticket-title">Update Ticket Status</h3>
+      </div>
+      <button type="button" class="btn-modal-close" onclick="closeQuickStatusModal()">✕</button>
+    </div>
+    <div style="padding: 20px;">
+      <input type="hidden" id="quickModalTicketId">
+      <div class="form-group-custom">
+        <label class="form-label-custom">New Status</label>
+        <select id="quickModalStatus" class="form-input-custom">
+          <option value="Open">Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Resolved">Resolved</option>
+          <option value="Closed">Closed</option>
+        </select>
+      </div>
+      <div class="form-group-custom">
+        <label class="form-label-custom">Admin Remark (Optional)</label>
+        <textarea id="quickModalRemark" class="form-input-custom form-textarea-custom" rows="3" placeholder="Enter reason or remark..."></textarea>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn-secondary-action" onclick="closeQuickStatusModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" onclick="submitQuickStatusUpdate()">Save Update</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ==========================================================================
+   SYSTEM ADMIN SUPPORT TICKETS STYLES (MATCHES IMAGE 3)
+   ========================================================================== */
+.admin-support-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+.admin-table-card {
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+/* Status Tabs Nav */
+.status-tabs-nav {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1.5px solid #e2e8f0;
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+}
+.status-tab-btn {
+  background: none;
+  border: none;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+.status-tab-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.status-tab-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+}
+.tab-badge-pill {
+  background: #cbd5e1;
+  color: #1e293b;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.status-tab-btn.active .tab-badge-pill {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+.pill-open { background: #fee2e2; color: #dc2626; }
+.pill-progress { background: #fef3c7; color: #d97706; }
+.pill-resolved { background: #dcfce7; color: #16a34a; }
+.pill-closed { background: #f1f5f9; color: #475569; }
+
+/* Advanced Toolbar Grid */
+.admin-toolbar-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.toolbar-left-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.entries-select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #475569;
+}
+.entries-select-wrapper select {
+  padding: 4px 8px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  outline: none;
+}
+.table-export-buttons {
+  display: flex;
+  gap: 4px;
+}
+.btn-tool-export {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-tool-export:hover {
+  background: #f1f5f9;
+}
+.btn-tool-excel {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #16a34a;
+}
+.btn-tool-excel:hover {
+  background: #dcfce7;
+}
+.btn-tool-pdf {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+.btn-tool-pdf:hover {
+  background: #fee2e2;
+}
+
+.toolbar-right-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.filter-dropdown {
+  padding: 6px 12px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: #1e293b;
+  font-weight: 500;
+  background: #ffffff;
+  outline: none;
+  min-width: 140px;
+}
+.filter-dropdown:focus {
+  border-color: #0284c7;
+}
+.adm-search-box {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 10px;
+  width: 180px;
+}
+.adm-search-box input {
+  border: none;
+  outline: none;
+  font-size: 12px;
+  width: 100%;
+}
+
+/* Modern Custom Table Styles */
+.table-responsive-wrapper {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+.modern-custom-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+.modern-custom-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  padding: 12px 14px;
+  border-bottom: 1.5px solid #e2e8f0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.modern-custom-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  vertical-align: middle;
+}
+.modern-custom-table tr:hover {
+  background: #f8fafc;
+}
+.table-desc-preview {
+  color: #64748b;
+  font-size: 12px;
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.status-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: center;
+}
+.status-open { background: #fee2e2; color: #dc2626; }
+.status-inprogress { background: #fef3c7; color: #d97706; }
+.status-resolved { background: #dcfce7; color: #16a34a; }
+.status-closed { background: #f1f5f9; color: #475569; }
+
+.attachment-count-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #475569;
+}
+
+/* Actions in Table */
+.adm-actions-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.btn-adm-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  padding: 5px 9px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-adm-view {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+.btn-adm-view:hover {
+  background: #0284c7;
+  color: #ffffff;
+}
+.btn-adm-update {
+  background: #fef3c7;
+  color: #d97706;
+}
+.btn-adm-update:hover {
+  background: #d97706;
+  color: #ffffff;
+}
+.btn-adm-resolve {
+  background: #dcfce7;
+  color: #16a34a;
+}
+.btn-adm-resolve:hover {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+/* Pagination */
+.tickets-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  font-size: 12px;
+  color: #64748b;
+}
+.pagination-controls {
+  display: flex;
+  gap: 5px;
+}
+.page-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #334155;
+}
+.page-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+/* ==========================================================================
+   DETAILS VIEW SCREEN (IMAGE 3 BOTTOM)
+   ========================================================================== */
+.details-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.btn-back-tickets {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-back-tickets:hover {
+  background: #f1f5f9;
+  border-color: #0284c7;
+  color: #0284c7;
+}
+.admin-status-dropdown-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.status-dropdown-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+}
+.status-select-badge {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  cursor: pointer;
+  outline: none;
+}
+
+/* 2 Column Details Layout */
+.admin-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 850px) {
+  .admin-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.details-section-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+.section-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 14px;
+}
+.ticket-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.info-cell {
+  display: flex;
+  flex-direction: column;
+}
+.info-cell.full-width {
+  grid-column: span 2;
+}
+.info-cell-label {
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.info-cell-val {
+  font-size: 13px;
+  color: #1e293b;
+}
+.font-semibold { font-weight: 700; }
+.text-blue { color: #0284c7; }
+.info-cell-desc {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  color: #334155;
+  line-height: 1.45;
+  max-height: 130px;
+  overflow-y: auto;
+}
+
+/* Attachments */
+.attachments-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.btn-download-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f1f5f9;
+  color: #0284c7;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 5px;
+  text-decoration: none;
+}
+.btn-download-all:hover {
+  background: #e0f2fe;
+}
+.attachments-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.attachment-row-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+.att-row-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+.att-file-icon {
+  color: #0284c7;
+  flex-shrink: 0;
+}
+.att-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+.att-size {
+  font-size: 11px;
+  color: #64748b;
+}
+.att-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-att-action {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 11.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn-att-action:hover {
+  background: #f1f5f9;
+  color: #0284c7;
+}
+
+/* Conversation Thread */
+.timeline-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.conversation-thread-box {
+  flex: 1;
+  max-height: 420px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 4px;
+  margin-bottom: 14px;
+}
+.thread-msg-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.thread-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.thread-content {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  flex: 1;
+}
+.thread-content-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+.thread-sender-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.thread-time {
+  font-size: 11px;
+  color: #94a3b8;
+}
+.thread-badge-event {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+.thread-msg-text {
+  font-size: 12.5px;
+  color: #334155;
+  line-height: 1.45;
+  margin: 0;
+}
+.thread-msg-att-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.thread-att-chip {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  color: #0284c7;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Admin Add Update Section */
+.reply-input-box {
+  border-top: 1.5px solid #e2e8f0;
+  padding-top: 14px;
+}
+.reply-box-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 6px;
+}
+.reply-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12.5px;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+}
+.reply-textarea:focus {
+  border-color: #0284c7;
+}
+.reply-textarea:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+.reply-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+.reply-attachment-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-reply-attach {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.reply-files-chips {
+  display: inline-flex;
+  gap: 4px;
+  font-size: 11px;
+  color: #64748b;
+}
+.btn-send-reply {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 5px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-send-reply:hover {
+  background: #0369a1;
+}
+.btn-send-reply:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+/* Admin Detail Footer Actions */
+.admin-detail-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #e2e8f0;
+}
+.btn-reopen-ticket {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-reopen-ticket:hover {
+  background: #f1f5f9;
+  border-color: #0284c7;
+  color: #0284c7;
+}
+.btn-resolve-ticket {
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-resolve-ticket:hover {
+  background: #15803d;
+}
+.resolved-badge-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #dcfce7;
+  color: #16a34a;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+
+/* Modal for quick status */
+.modal-backdrop-custom {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ticket-modal-dialog {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ticket-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1.5px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+}
+.btn-modal-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #64748b;
+  cursor: pointer;
+}
+.form-group-custom {
+  margin-bottom: 14px;
+}
+.form-label-custom {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 5px;
+  display: block;
+}
+.form-input-custom {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+.form-input-custom:focus {
+  border-color: #0284c7;
+}
+
+.spinner-inline {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #cbd5e1;
+  border-top-color: #0284c7;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.loading-empty-state {
+  text-align: center;
+  padding: 30px !important;
+  color: #64748b;
+  font-size: 13px;
+}
+</style>
+
+<script>
+// Global Admin State
+let admStatusTab = 'all';
+let admSelectedCompany = '';
+let admSelectedStatus = '';
+let admSearchQuery = '';
+let admPage = 1;
+let admLimit = 10;
+let admSearchTimeout = null;
+let currentAdminActiveTicket = null;
+let admReplyFiles = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+  fetchAdminTickets();
+});
+
+// Status Tabs Bar
+function filterAdminByStatusTab(status, btnElement) {
+  admStatusTab = status;
+  admPage = 1;
+  document.querySelectorAll('.status-tab-btn').forEach(b => b.classList.remove('active'));
+  btnElement.classList.add('active');
+  fetchAdminTickets();
+}
+
+function handleAdminFilterChange() {
+  admSelectedCompany = document.getElementById('admFilterCompany').value;
+  admSelectedStatus = document.getElementById('admFilterStatus').value;
+  admPage = 1;
+  fetchAdminTickets();
+}
+
+function changeAdminEntriesLimit(newLimit) {
+  admLimit = parseInt(newLimit, 10);
+  admPage = 1;
+  fetchAdminTickets();
+}
+
+function handleAdminSearchDebounce() {
+  clearTimeout(admSearchTimeout);
+  admSearchTimeout = setTimeout(() => {
+    admSearchQuery = document.getElementById('admSearchInput').value.trim();
+    admPage = 1;
+    fetchAdminTickets();
+  }, 350);
+}
+
+// Fetch Admin Tickets
+async function fetchAdminTickets() {
+  const tbody = document.getElementById('adminTicketsTableBody');
+  tbody.innerHTML = `<tr><td colspan="10" class="loading-empty-state"><div class="spinner-inline"></div>Loading tickets...</td></tr>`;
+
+  try {
+    const effStatus = admSelectedStatus || (admStatusTab !== 'all' ? admStatusTab : '');
+    const params = new URLSearchParams({
+      company_id: admSelectedCompany,
+      status: effStatus || 'all',
+      search: admSearchQuery,
+      page: admPage,
+      limit: admLimit
+    });
+
+    const res = await fetch(`/api/admin/support/tickets?${params.toString()}`);
+    const data = await res.json();
+
+    if (!data.success) {
+      tbody.innerHTML = `<tr><td colspan="10" class="loading-empty-state" style="color: #ef4444;">Failed to load tickets.</td></tr>`;
+      return;
+    }
+
+    // Update Counts Badges
+    const counts = data.counts || {};
+    document.getElementById('admCntAll').innerText = counts.all || 0;
+    document.getElementById('admCntOpen').innerText = counts.open || 0;
+    document.getElementById('admCntProgress').innerText = counts.in_progress || 0;
+    document.getElementById('admCntResolved').innerText = counts.resolved || 0;
+    document.getElementById('admCntClosed').innerText = counts.closed || 0;
+
+    const tickets = data.tickets || [];
+    if (tickets.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" class="loading-empty-state">No support tickets found matching criteria.</td></tr>`;
+      document.getElementById('admPaginationInfo').innerText = 'Showing 0 to 0 of 0 entries';
+      document.getElementById('admPaginationControls').innerHTML = '';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    tickets.forEach((t, idx) => {
+      const rowIdx = (admPage - 1) * admLimit + (idx + 1);
+      const statusClass = getStatusBadgeClass(t.status);
+      const attCount = (t.attachments && t.attachments.length) || 0;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-weight: 600; color: #64748b;">${rowIdx}</td>
+        <td style="font-weight: 700; color: #0284c7; cursor: pointer;" onclick="viewAdminTicketDetails('${t.ticket_id}')">
+          ${t.ticket_id}
+        </td>
+        <td style="font-weight: 500;">${escapeHtml(t.date_time_str || '')}</td>
+        <td style="font-weight: 700; color: #1e293b;">${escapeHtml(t.company_name || 'ARGUS TECHNOLOGIES')}</td>
+        <td style="font-weight: 600;">${escapeHtml(t.subject || '')}</td>
+        <td>
+          <div class="table-desc-preview" title="${escapeHtml(t.description || '')}">
+            ${escapeHtml(t.description || '')}
+          </div>
+        </td>
+        <td>
+          <span class="status-pill ${statusClass}">${escapeHtml(t.status || 'Open')}</span>
+        </td>
+        <td>
+          <span class="attachment-count-cell">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+            ${attCount}
+          </span>
+        </td>
+        <td style="font-size: 12px; color: #475569;">${escapeHtml(t.raised_by || 'Admin')}</td>
+        <td style="text-align: center;">
+          <div class="adm-actions-group">
+            <button type="button" class="btn-adm-action btn-adm-view" onclick="viewAdminTicketDetails('${t.ticket_id}')" title="View Ticket">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              View
+            </button>
+            <button type="button" class="btn-adm-action btn-adm-update" onclick="openQuickStatusModal('${t.ticket_id}', '${t.status}')" title="Update Status">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+              Update
+            </button>
+            <button type="button" class="btn-adm-action btn-adm-resolve" onclick="quickResolveTicket('${t.ticket_id}')" title="Quick Resolve">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Resolve
+            </button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    renderAdminPagination(data.total, data.page, data.limit);
+
+  } catch (err) {
+    console.error('Error fetching admin tickets:', err);
+    tbody.innerHTML = `<tr><td colspan="10" class="loading-empty-state" style="color: #ef4444;">Error fetching data.</td></tr>`;
+  }
+}
+
+function getStatusBadgeClass(status) {
+  const s = (status || '').toLowerCase();
+  if (s === 'open') return 'status-open';
+  if (s === 'in progress') return 'status-inprogress';
+  if (s === 'resolved') return 'status-resolved';
+  if (s === 'closed') return 'status-closed';
+  return 'status-open';
+}
+
+function renderAdminPagination(total, page, limit) {
+  const start = total === 0 ? 0 : (page - 1) * limit + 1;
+  const end = Math.min(page * limit, total);
+  document.getElementById('admPaginationInfo').innerText = `Showing ${start} to ${end} of ${total} entries`;
+
+  const totalPages = Math.ceil(total / limit);
+  const controls = document.getElementById('admPaginationControls');
+  controls.innerHTML = '';
+
+  if (totalPages <= 1) return;
+
+  for (let i = 1; i <= totalPages; i++) {
+    const btn = document.createElement('button');
+    btn.className = `page-btn ${i === page ? 'active' : ''}`;
+    btn.innerText = i;
+    btn.onclick = () => {
+      admPage = i;
+      fetchAdminTickets();
+    };
+    controls.appendChild(btn);
+  }
+}
+
+// --------------------------------------------------------------------------
+// ADMIN TICKET DETAILS VIEW (IMAGE 3 BOTTOM)
+// --------------------------------------------------------------------------
+async function viewAdminTicketDetails(ticketId) {
+  try {
+    const res = await fetch(`/api/support/ticket/${ticketId}`);
+    const data = await res.json();
+    if (!data.success || !data.ticket) {
+      alert('Could not retrieve ticket details.');
+      return;
+    }
+
+    currentAdminActiveTicket = data.ticket;
+    populateAdminDetailsView(data.ticket);
+
+    // Switch panels
+    document.getElementById('adminTicketsListView').style.display = 'none';
+    document.getElementById('adminTicketDetailsView').style.display = 'block';
+
+  } catch (err) {
+    console.error('Error opening admin ticket details:', err);
+    alert('Failed to load ticket details.');
+  }
+}
+
+function backToAdminTicketsList() {
+  document.getElementById('adminTicketDetailsView').style.display = 'none';
+  document.getElementById('adminTicketsListView').style.display = 'block';
+  currentAdminActiveTicket = null;
+  fetchAdminTickets();
+  updateSidebarAdminSupportBadge();
+}
+
+function populateAdminDetailsView(t) {
+  document.getElementById('admDTicketId').innerText = t.ticket_id;
+  document.getElementById('admDCompanyName').innerText = t.company_name || 'ARGUS TECHNOLOGIES';
+  document.getElementById('admDRaisedBy').innerText = t.raised_by || 'Admin';
+  document.getElementById('admDDateTime').innerText = t.date_time_str || '';
+  document.getElementById('admDSubject').innerText = t.subject || '';
+  document.getElementById('admDDescription').innerText = t.description || '';
+
+  // Status Badge and Select Dropdown
+  const stBadge = document.getElementById('admDStatusBadge');
+  stBadge.innerText = t.status || 'Open';
+  stBadge.className = `status-pill ${getStatusBadgeClass(t.status)}`;
+  document.getElementById('admDetailStatusSelect').value = t.status || 'Open';
+
+  // Attachments List
+  const attList = document.getElementById('admDAttachmentsList');
+  attList.innerHTML = '';
+  const attachments = t.attachments || [];
+
+  if (attachments.length === 0) {
+    attList.innerHTML = '<div style="font-size: 12px; color: #94a3b8; padding: 4px 0;">No attachments provided.</div>';
+    document.getElementById('admBtnDownloadAll').style.display = 'none';
+  } else {
+    document.getElementById('admBtnDownloadAll').style.display = 'inline-flex';
+    attachments.forEach(att => {
+      const card = document.createElement('div');
+      card.className = 'attachment-row-card';
+      const fileUrl = `/api/support/attachment/${t.ticket_id}/${encodeURIComponent(att.filename)}`;
+      card.innerHTML = `
+        <div class="att-row-left">
+          <div class="att-file-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          </div>
+          <div>
+            <div class="att-name" title="${escapeHtml(att.original_name)}">${escapeHtml(att.original_name)}</div>
+            <div class="att-size">${att.file_size_display || ''}</div>
+          </div>
+        </div>
+        <div class="att-row-actions">
+          <a href="${fileUrl}" target="_blank" class="btn-att-action">View</a>
+          <a href="${fileUrl}?download=1" class="btn-att-action">Download</a>
+        </div>
+      `;
+      attList.appendChild(card);
+    });
+  }
+
+  // Conversation Thread
+  const thread = document.getElementById('admDConversationThread');
+  thread.innerHTML = '';
+  const messages = t.messages || [];
+
+  messages.forEach(msg => {
+    const isSuper = msg.sender_role === 'super_admin';
+    const avatarBg = msg.avatar_bg || (isSuper ? '#8b5cf6' : '#ef4444');
+    const avatarLetter = msg.sender_avatar || (isSuper ? 'S' : 'A');
+
+    const msgItem = document.createElement('div');
+    msgItem.className = 'thread-msg-item';
+
+    let eventPill = '';
+    if (msg.badge) {
+      eventPill = `<span class="thread-badge-event ${getStatusBadgeClass(msg.badge)}">${escapeHtml(msg.badge)}</span>`;
+    }
+
+    let attChipsHtml = '';
+    if (msg.attachments && msg.attachments.length > 0) {
+      attChipsHtml = '<div class="thread-msg-att-chips">';
+      msg.attachments.forEach(att => {
+        const aUrl = `/api/support/attachment/${t.ticket_id}/${encodeURIComponent(att.filename || att)}`;
+        const aName = att.original_name || att.filename || 'Attachment';
+        attChipsHtml += `<a href="${aUrl}" target="_blank" class="thread-att-chip">📎 ${escapeHtml(aName)}</a>`;
+      });
+      attChipsHtml += '</div>';
+    }
+
+    msgItem.innerHTML = `
+      <div class="thread-avatar" style="background: ${avatarBg};">${avatarLetter}</div>
+      <div class="thread-content">
+        <div class="thread-content-header">
+          <div>
+            <span class="thread-sender-name">${escapeHtml(msg.sender_name)}</span>
+            ${eventPill}
+          </div>
+          <span class="thread-time">${escapeHtml(msg.created_at_display || '')}</span>
+        </div>
+        <p class="thread-msg-text">${escapeHtml(msg.message || '')}</p>
+        ${attChipsHtml}
+      </div>
+    `;
+    thread.appendChild(msgItem);
+  });
+
+  setTimeout(() => {
+    thread.scrollTop = thread.scrollHeight;
+  }, 50);
+
+  // Update Box State depending on Resolved or Open (Image 3 Bottom Right comparison)
+  const isResolved = (t.status || '').toLowerCase() === 'resolved';
+  const textarea = document.getElementById('admUpdateMessageText');
+  const btnSend = document.getElementById('admBtnSendUpdate');
+  const btnAttach = document.getElementById('admBtnAttach');
+
+  if (isResolved) {
+    textarea.value = '';
+    textarea.placeholder = 'Ticket is resolved. You can reopen if needed.';
+    textarea.disabled = true;
+    btnSend.disabled = true;
+    btnAttach.disabled = true;
+    document.getElementById('admBtnReopenTicket').style.display = 'inline-flex';
+    document.getElementById('admBtnResolveTicket').style.display = 'none';
+    document.getElementById('admBadgeResolved').style.display = 'inline-flex';
+  } else {
+    textarea.disabled = false;
+    textarea.placeholder = 'Type your message here...';
+    btnSend.disabled = false;
+    btnAttach.disabled = false;
+    document.getElementById('admBtnReopenTicket').style.display = 'none';
+    document.getElementById('admBtnResolveTicket').style.display = 'inline-flex';
+    document.getElementById('admBadgeResolved').style.display = 'none';
+  }
+}
+
+function handleAdminReplyFilesSelect(input) {
+  const files = Array.from(input.files);
+  for (const f of files) {
+    if (f.size > 10 * 1024 * 1024) {
+      alert(`File "${f.name}" exceeds 10 MB limit.`);
+      continue;
+    }
+    admReplyFiles.push(f);
+  }
+  const chips = document.getElementById('admUpdateFilesChips');
+  chips.innerText = admReplyFiles.length > 0 ? `${admReplyFiles.length} file(s) attached` : '';
+  input.value = '';
+}
+
+async function submitAdminTicketUpdate(e) {
+  e.preventDefault();
+  if (!currentAdminActiveTicket) return;
+
+  const msg = document.getElementById('admUpdateMessageText').value.trim();
+  if (!msg) {
+    alert('Please enter your update message.');
+    return;
+  }
+
+  const btn = document.getElementById('admBtnSendUpdate');
+  btn.disabled = true;
+
+  const formData = new FormData();
+  formData.append('message', msg);
+  admReplyFiles.forEach(f => formData.append('attachments', f));
+
+  try {
+    const res = await fetch(`/api/support/ticket/${currentAdminActiveTicket.ticket_id}/reply`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('admUpdateMessageText').value = '';
+      admReplyFiles = [];
+      document.getElementById('admUpdateFilesChips').innerText = '';
+      currentAdminActiveTicket = data.ticket;
+      populateAdminDetailsView(data.ticket);
+    } else {
+      alert(data.error || 'Failed to post update.');
+    }
+  } catch (err) {
+    console.error('Error posting admin update:', err);
+    alert('Network error while posting update.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function updateTicketStatusFromSelect(newStatus) {
+  if (!currentAdminActiveTicket) return;
+  try {
+    const res = await fetch(`/api/admin/support/ticket/${currentAdminActiveTicket.ticket_id}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus, remark: `Status updated to ${newStatus} by Super Admin.` })
+    });
+    const data = await res.json();
+    if (data.success) {
+      currentAdminActiveTicket = data.ticket;
+      populateAdminDetailsView(data.ticket);
+      updateSidebarAdminSupportBadge();
+    } else {
+      alert(data.error || 'Failed to update status.');
+    }
+  } catch (err) {
+    console.error('Error updating status:', err);
+  }
+}
+
+async function resolveAdminTicket() {
+  if (!currentAdminActiveTicket) return;
+  if (!confirm(`Are you sure you want to mark Ticket ${currentAdminActiveTicket.ticket_id} as Resolved?`)) return;
+
+  try {
+    const res = await fetch(`/api/admin/support/ticket/${currentAdminActiveTicket.ticket_id}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Resolved', remark: 'Ticket marked as resolved by Super Admin.' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      currentAdminActiveTicket = data.ticket;
+      populateAdminDetailsView(data.ticket);
+      updateSidebarAdminSupportBadge();
+    } else {
+      alert(data.error || 'Failed to resolve ticket.');
+    }
+  } catch (err) {
+    console.error('Error resolving admin ticket:', err);
+  }
+}
+
+async function reopenAdminTicket() {
+  if (!currentAdminActiveTicket) return;
+  if (!confirm(`Do you want to reopen Ticket ${currentAdminActiveTicket.ticket_id}?`)) return;
+
+  try {
+    const res = await fetch(`/api/admin/support/ticket/${currentAdminActiveTicket.ticket_id}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Open', remark: 'Ticket reopened by Super Admin.' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      currentAdminActiveTicket = data.ticket;
+      populateAdminDetailsView(data.ticket);
+      updateSidebarAdminSupportBadge();
+    } else {
+      alert(data.error || 'Failed to reopen ticket.');
+    }
+  } catch (err) {
+    console.error('Error reopening admin ticket:', err);
+  }
+}
+
+function downloadAllAdminTicketAttachments() {
+  if (!currentAdminActiveTicket) return;
+  window.open(`/api/support/attachment/${currentAdminActiveTicket.ticket_id}/download-all`, '_blank');
+}
+
+// --------------------------------------------------------------------------
+// QUICK STATUS UPDATE MODAL (TABLE ACTIONS)
+// --------------------------------------------------------------------------
+function openQuickStatusModal(ticketId, currentStatus) {
+  document.getElementById('quickModalTicketId').value = ticketId;
+  document.getElementById('quickModalStatus').value = currentStatus || 'Open';
+  document.getElementById('quickModalRemark').value = '';
+  document.getElementById('quickStatusModal').style.display = 'flex';
+}
+
+function closeQuickStatusModal() {
+  document.getElementById('quickStatusModal').style.display = 'none';
+}
+
+async function submitQuickStatusUpdate() {
+  const ticketId = document.getElementById('quickModalTicketId').value;
+  const status = document.getElementById('quickModalStatus').value;
+  const remark = document.getElementById('quickModalRemark').value.trim();
+
+  try {
+    const res = await fetch(`/api/admin/support/ticket/${ticketId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: status, remark: remark })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeQuickStatusModal();
+      fetchAdminTickets();
+      updateSidebarAdminSupportBadge();
+    } else {
+      alert(data.error || 'Failed to update status.');
+    }
+  } catch (err) {
+    console.error('Error updating status:', err);
+  }
+}
+
+async function quickResolveTicket(ticketId) {
+  if (!confirm(`Are you sure you want to mark Ticket ${ticketId} as Resolved?`)) return;
+  try {
+    const res = await fetch(`/api/admin/support/ticket/${ticketId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Resolved', remark: 'Ticket resolved directly from dashboard.' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      fetchAdminTickets();
+      updateSidebarAdminSupportBadge();
+    } else {
+      alert(data.error || 'Failed to resolve ticket.');
+    }
+  } catch (err) {
+    console.error('Quick resolve error:', err);
+  }
+}
+
+// --------------------------------------------------------------------------
+// EXPORT & COPY ACTIONS
+// --------------------------------------------------------------------------
+function exportAdminTickets(format) {
+  const effStatus = admSelectedStatus || (admStatusTab !== 'all' ? admStatusTab : '');
+  const url = `/api/admin/support/export?format=${format}&company_id=${encodeURIComponent(admSelectedCompany)}&status=${encodeURIComponent(effStatus)}&search=${encodeURIComponent(admSearchQuery)}`;
+  window.open(url, '_blank');
+}
+
+function copyAdminTicketsTable() {
+  const table = document.getElementById('adminTicketsTable');
+  let range, sel;
+  if (document.createRange && window.getSelection) {
+    range = document.createRange();
+    sel = window.getSelection();
+    sel.removeAllRanges();
+    try {
+      range.selectNodeContents(table);
+      sel.addRange(range);
+      document.execCommand('copy');
+      sel.removeAllRanges();
+      alert('Support tickets table copied to clipboard!');
+    } catch (e) {
+      alert('Failed to copy table.');
+    }
+  }
+}
+
+// --------------------------------------------------------------------------
+// SIDEBAR BADGE UPDATE
+// --------------------------------------------------------------------------
+async function updateSidebarAdminSupportBadge() {
+  try {
+    const res = await fetch('/api/support/badge-count');
+    const data = await res.json();
+    if (data.success) {
+      const badge = document.getElementById('sidebarAdminSupportBadge');
+      if (badge) {
+        if (data.count > 0) {
+          badge.innerText = data.count;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Badge update error:', e);
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>
+{% endblock %}
