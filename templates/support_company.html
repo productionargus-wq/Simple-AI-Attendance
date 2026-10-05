@@ -304,64 +304,129 @@
             <div class="video-duration-badge" id="activeVideoDuration">08:24</div>
           </div>
 
-          <!-- Video Container -->
-          <div class="video-player-frame">
-            <video id="demoHtml5Video" controls poster="/static/images/video_poster_default.jpg" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+          <!-- Video Container (16:9 Frame) -->
+          <div class="video-player-frame" id="demoVideoPlayerFrame">
+            <video id="demoHtml5Video" controls style="width: 100%; height: 100%; object-fit: cover; display: none;">
               <source id="demoVideoSource" src="" type="video/mp4">
               Your browser does not support the video tag.
             </video>
-            <!-- Simulated Video Player Screen (Matching Image 2 exactly) -->
+            
+            <!-- Dynamic Software Mockup Screen -->
             <div class="video-canvas-screen" id="simulatedVideoScreen">
-              <div class="screen-watermark">
-                <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="ARGUS" class="watermark-logo">
-                <span class="watermark-text">ARGUS ATTENDANCE</span>
+              <!-- Rendered dynamic software UI container -->
+              <div class="mockup-viewport" id="mockupViewport">
+                <!-- Dynamically generated module UI -->
               </div>
-              <div class="screen-center-play" onclick="playCurrentDemoVideo()">
-                <div class="play-pulse-circle">
-                  <svg width="34" height="34" viewBox="0 0 24 24" fill="#ffffff" stroke="#ffffff" stroke-width="1"><polygon points="8 5 19 12 8 19 8 5"></polygon></svg>
+
+              <!-- Centered Dark Translucent Play Button Overlay (YouTube / LMS Style) -->
+              <div class="screen-center-play-wrapper" id="screenCenterPlayWrapper" onclick="toggleDemoVideoPlayback()">
+                <div class="screen-center-play-circle" id="screenCenterPlayCircle">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="#ffffff"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>
                 </div>
               </div>
-              <div class="screen-bottom-overlay">
-                <div class="screen-chapter-label" id="screenChapterLabel">Chapter 1: Employee Details Management</div>
-                <div class="screen-time-label" id="screenTimeLabel">00:00 / 08:24</div>
+
+              <!-- Video Control Bar Overlay (Bottom) -->
+              <div class="video-controls-bottom-bar" id="videoControlsBottomBar">
+                <!-- Play/Pause Button -->
+                <button type="button" class="v-ctl-btn" id="btnPlayPauseToggle" onclick="toggleDemoVideoPlayback()" title="Play / Pause">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" id="iconPlayPause"><polygon points="6 4 19 12 6 20 6 4"></polygon></svg>
+                </button>
+                
+                <!-- Volume Button -->
+                <button type="button" class="v-ctl-btn" id="btnVolumeToggle" onclick="toggleDemoVolume()" title="Mute / Unmute">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="iconVolume">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                  </svg>
+                </button>
+
+                <!-- Current Time / Duration -->
+                <span class="v-ctl-time" id="vCtlTimeDisplay">0:00 / 08:24</span>
+
+                <!-- Progress Track & Seekbar -->
+                <div class="v-seek-bar-track" id="vSeekBarTrack" onclick="handleSeekbarClick(event)">
+                  <div class="v-seek-bar-fill" id="vSeekBarFill" style="width: 0%;"></div>
+                  <div class="v-seek-bar-thumb" id="vSeekBarThumb" style="left: 0%;"></div>
+                </div>
+
+                <!-- Right Controls: CC, Settings, Miniplayer, Fullscreen -->
+                <div class="v-ctl-right-group">
+                  <button type="button" class="v-ctl-btn v-btn-badge" title="Closed Captions">CC</button>
+                  <button type="button" class="v-ctl-btn" title="Settings">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="3"></circle>
+                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                  </button>
+                  <button type="button" class="v-ctl-btn" title="Miniplayer">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                      <rect x="12" y="10" width="7" height="6" rx="1"></rect>
+                    </svg>
+                  </button>
+                  <button type="button" class="v-ctl-btn" onclick="togglePlayerFullscreen()" title="Fullscreen">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- About This Video Card -->
-          <div class="video-info-box">
-            <div class="info-box-header">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="16" x2="12" y2="12"></line>
-                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-              </svg>
-              About this video
+          <!-- 2-Column Curriculum Cards: About this video + What you will learn (Image 2) -->
+          <div class="video-curriculum-grid">
+            <!-- Left Card: About this video -->
+            <div class="video-info-box">
+              <div class="info-box-header">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                About this video
+              </div>
+              <p class="info-box-desc" id="activeVideoDesc">
+                In this video, you will learn how to manage employee details in ARGUS Attendance. This includes adding new employees, editing existing records, setting designations, updating phone numbers, activating or deactivating employees, and more.
+              </p>
             </div>
-            <p class="info-box-desc" id="activeVideoDesc">
-              This comprehensive tutorial covers the complete Employee Details module in ARGUS Attendance. You will learn how to add single or bulk employees, capture and synchronize face embeddings, set shifts and salary configurations, configure department metadata, and upload employee verification documents.
-            </p>
+
+            <!-- Right Card: What you will learn -->
+            <div class="video-learning-box">
+              <div class="learning-box-header">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 18h6"></path>
+                  <path d="M10 22h4"></path>
+                  <path d="M12 2a7 7 0 0 0-7 7c0 2.5 1.5 4.5 3 6h8c1.5-1.5 3-3.5 3-6a7 7 0 0 0-7-7z"></path>
+                </svg>
+                What you will learn:
+              </div>
+              <ul class="learning-checklist" id="activeVideoLearningList">
+                <!-- Checklist items -->
+              </ul>
+            </div>
           </div>
 
-          <!-- What You Will Learn Card -->
-          <div class="video-learning-box">
-            <div class="learning-box-header">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="9 11 12 14 22 4"></polyline>
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-              </svg>
-              What you will learn
-            </div>
-            <ul class="learning-checklist" id="activeVideoLearningList">
-              <!-- Checklist items -->
-            </ul>
-          </div>
-
-          <!-- More Videos Carousel Strip (Bottom) -->
+          <!-- More Videos Carousel Strip (Image 2 Bottom) -->
           <div class="more-videos-bar">
-            <div class="more-videos-title">More Videos</div>
+            <div class="more-videos-header">
+              <div class="more-videos-title">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                </svg>
+                More Videos
+              </div>
+              <button type="button" class="btn-more-scroll" onclick="scrollMoreVideos('right')" title="Next videos">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
             <div class="more-videos-scroll" id="moreVideosContainer">
-              <!-- Carousel cards -->
+              <!-- Carousel cards with miniature software UI mockups -->
             </div>
           </div>
         </div>
@@ -559,6 +624,15 @@
   border-color: #0284c7;
   background: #f8fafc;
   box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
+.support-hero-card.active-videos {
+  border-color: #16a34a !important;
+  background: #f0fdf4 !important;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25) !important;
+}
+.support-hero-card.active-videos .hero-icon-box {
+  background: #16a34a !important;
+  color: #ffffff !important;
 }
 .hero-card-left {
   display: flex;
@@ -1060,8 +1134,9 @@
   border-color: #cbd5e1;
 }
 .chapter-item-card.active-chapter {
-  background: #f0fdf4;
-  border-color: #86efac;
+  background: #f8fafc;
+  border: 1.5px solid #0284c7;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.12);
 }
 .chapter-card-left {
   display: flex;
@@ -1069,19 +1144,20 @@
   gap: 10px;
 }
 .chapter-card-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: #f1f5f9;
-  color: #64748b;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #e0f2fe;
+  color: #0284c7;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: all 0.2s ease;
 }
 .chapter-item-card.active-chapter .chapter-card-icon {
-  background: #dcfce7;
-  color: #16a34a;
+  background: #0284c7;
+  color: #ffffff;
 }
 .chapter-card-title {
   font-size: 13px;
@@ -1138,7 +1214,7 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  margin-bottom: 22px;
+  margin-bottom: 20px;
 }
 .video-canvas-screen {
   position: absolute;
@@ -1146,74 +1222,358 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  overflow: hidden;
+  background: #f8fafc;
+}
+.mockup-viewport {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+  position: relative;
+  user-select: none;
+}
+
+/* Software Mockup Styles Inside Video */
+.mockup-top-nav {
+  height: 32px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
+  justify-content: space-between;
+  padding: 0 12px;
+  flex-shrink: 0;
 }
-.screen-watermark {
-  position: absolute;
-  top: 16px;
-  left: 16px;
+.mockup-nav-left {
   display: flex;
   align-items: center;
   gap: 8px;
-  opacity: 0.7;
 }
-.watermark-logo {
-  height: 22px;
+.mockup-nav-logo {
+  height: 16px;
 }
-.watermark-text {
-  color: #ffffff;
-  font-size: 12px;
+.mockup-nav-brand {
+  font-size: 9px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.04em;
+}
+.mockup-nav-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+}
+.mockup-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mockup-avatar-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #f1f5f9;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  color: #334155;
 }
-.screen-center-play {
-  width: 72px;
-  height: 72px;
+.mockup-avatar-circle {
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
-  background: rgba(2, 132, 199, 0.9);
+  background: #0284c7;
+  color: #ffffff;
+  font-size: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 0 8px rgba(2, 132, 199, 0.25);
-  transition: all 0.3s ease;
+  font-weight: 800;
 }
-.screen-center-play:hover {
-  transform: scale(1.08);
+
+.mockup-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  background: #f8fafc;
+}
+.mockup-sidebar {
+  width: 110px;
+  background: #0f172a;
+  padding: 8px 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.mockup-side-item {
+  font-size: 8px;
+  font-weight: 600;
+  color: #94a3b8;
+  padding: 4px 6px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.mockup-side-item.active {
   background: #0284c7;
-  box-shadow: 0 0 0 12px rgba(2, 132, 199, 0.35);
+  color: #ffffff;
+  font-weight: 700;
 }
-.screen-bottom-overlay {
+.mockup-content {
+  flex: 1;
+  padding: 10px 14px 44px; /* leave bottom space for control bar */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mockup-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mockup-header-text h4 {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+.mockup-header-text p {
+  font-size: 8px;
+  color: #64748b;
+  margin: 1px 0 0;
+}
+.mockup-btn-primary {
+  background: #0284c7;
+  color: #ffffff;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: none;
+}
+.mockup-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 8px;
+}
+.mockup-search-input {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 7.5px;
+  width: 140px;
+  color: #64748b;
+}
+.mockup-select {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 7.5px;
+  color: #334155;
+}
+.mockup-table-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.mockup-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 7.5px;
+}
+.mockup-table th {
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 700;
+  padding: 4px 6px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+.mockup-table td {
+  padding: 3.5px 6px;
+  border-bottom: 1px solid #f8fafc;
+  color: #1e293b;
+  white-space: nowrap;
+}
+.mockup-pill-green {
+  background: #dcfce7;
+  color: #16a34a;
+  font-size: 7px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+.mockup-pill-amber {
+  background: #fef3c7;
+  color: #d97706;
+  font-size: 7px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+.mockup-pill-red {
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 7px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+.mockup-pill-blue {
+  background: #e0f2fe;
+  color: #0284c7;
+  font-size: 7px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+
+/* Center Play Button Overlay */
+.screen-center-play-wrapper {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.screen-center-play-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.screen-center-play-circle svg {
+  margin-left: 4px;
+}
+.screen-center-play-wrapper:hover .screen-center-play-circle {
+  transform: scale(1.1);
+  background: rgba(2, 132, 199, 0.95);
+  box-shadow: 0 6px 25px rgba(2, 132, 199, 0.45);
+}
+
+/* Video Control Bar Overlay (Bottom) */
+.video-controls-bottom-bar {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 12px 18px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  height: 44px;
+  padding: 0 16px;
+  background: linear-gradient(transparent, rgba(15, 23, 42, 0.88) 30%, #0f172a 100%);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
+  z-index: 20;
   color: #ffffff;
-  font-size: 12.5px;
 }
-.screen-chapter-label {
-  font-weight: 600;
+.v-ctl-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: opacity 0.15s ease;
 }
-.screen-time-label {
+.v-ctl-btn:hover {
+  opacity: 0.8;
+}
+.v-ctl-time {
+  font-size: 11.5px;
   font-weight: 700;
-  color: #93c5fd;
+  color: #ffffff;
+  white-space: nowrap;
+}
+.v-seek-bar-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  position: relative;
+  cursor: pointer;
+  transition: height 0.15s ease;
+}
+.v-seek-bar-track:hover {
+  height: 6px;
+}
+.v-seek-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: #0284c7;
+  border-radius: 2px;
+}
+.v-seek-bar-thumb {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+.v-seek-bar-track:hover .v-seek-bar-thumb {
+  opacity: 1;
+}
+.v-ctl-right-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.v-btn-badge {
+  font-size: 10px;
+  font-weight: 800;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1;
 }
 
-/* About & Learning boxes */
+/* 2-Column Curriculum Cards (Image 2) */
+.video-curriculum-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+@media (max-width: 850px) {
+  .video-curriculum-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .video-info-box, .video-learning-box {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 16px 18px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 .info-box-header, .learning-box-header {
   font-size: 13.5px;
@@ -1236,7 +1596,7 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 .learning-checklist li {
   display: flex;
@@ -1247,69 +1607,114 @@
   line-height: 1.4;
 }
 .check-icon {
-  color: #16a34a;
+  color: #0284c7;
   flex-shrink: 0;
   margin-top: 2px;
 }
 
-/* More Videos Carousel */
+/* More Videos Carousel (Image 2 Bottom) */
 .more-videos-bar {
-  margin-top: 20px;
+  margin-top: 10px;
+}
+.more-videos-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
 .more-videos-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-more-scroll {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
   color: #475569;
-  margin-bottom: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-more-scroll:hover {
+  border-color: #0284c7;
+  color: #0284c7;
+  background: #f0f9ff;
 }
 .more-videos-scroll {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   overflow-x: auto;
-  padding-bottom: 6px;
+  padding-bottom: 8px;
+  scroll-behavior: smooth;
 }
 .more-video-card {
-  min-width: 170px;
+  min-width: 175px;
+  max-width: 175px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 10px;
+  padding: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .more-video-card:hover {
   border-color: #0284c7;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12);
 }
 .more-video-thumb {
-  height: 75px;
-  background: #1e293b;
-  border-radius: 5px;
+  height: 85px;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+.more-thumb-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  margin-bottom: 8px;
-  position: relative;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
 .more-thumb-duration {
   position: absolute;
   bottom: 4px;
   right: 4px;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(15, 23, 42, 0.85);
   color: #ffffff;
-  font-size: 10px;
-  padding: 1px 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
   border-radius: 3px;
 }
 .more-video-card-title {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   color: #1e293b;
   line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ==========================================================================
@@ -1778,10 +2183,13 @@ function switchSupportTab(tabKey) {
   currentTab = tabKey;
   
   // Highlight hero card
-  document.querySelectorAll('.support-hero-card').forEach(c => c.classList.remove('active-hero'));
+  document.querySelectorAll('.support-hero-card').forEach(c => {
+    c.classList.remove('active-hero');
+    c.classList.remove('active-videos');
+  });
   if (tabKey === 'raise') document.getElementById('heroCardRaise').classList.add('active-hero');
   if (tabKey === 'tickets') document.getElementById('heroCardTickets').classList.add('active-hero');
-  if (tabKey === 'videos') document.getElementById('heroCardVideos').classList.add('active-hero');
+  if (tabKey === 'videos') document.getElementById('heroCardVideos').classList.add('active-videos');
 
   // Toggle view panels
   document.getElementById('viewRaiseTicket').style.display = tabKey === 'raise' ? 'block' : 'none';
@@ -2282,8 +2690,14 @@ function downloadAllTicketAttachments() {
 }
 
 // --------------------------------------------------------------------------
-// DEMO VIDEOS HUB LOGIC (IMAGE 2)
+// DEMO VIDEOS HUB LOGIC (IMAGE 2 PIXEL-PERFECT IMPLEMENTATION)
 // --------------------------------------------------------------------------
+let isSimulatedPlaying = false;
+let simulatedPlaySeconds = 0;
+let simulatedDurationSeconds = 504;
+let simulatedPlayInterval = null;
+let isSimulatedMuted = false;
+
 async function loadDemoVideos() {
   try {
     const res = await fetch('/api/support/demo-videos');
@@ -2313,7 +2727,7 @@ function renderChaptersList() {
     item.innerHTML = `
       <div class="chapter-card-left">
         <div class="chapter-card-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 19 12 6 20 6 4"></polygon></svg>
         </div>
         <div>
           <div class="chapter-card-title">${escapeHtml(v.title)}</div>
@@ -2326,31 +2740,59 @@ function renderChaptersList() {
   });
 }
 
+function parseDurationToSeconds(durStr) {
+  if (!durStr) return 300;
+  const parts = durStr.split(':').map(Number);
+  if (parts.length === 2) return (parts[0] * 60) + parts[1];
+  if (parts.length === 3) return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+  return 300;
+}
+
+function formatSeconds(secs) {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
 function selectDemoVideoChapter(idx) {
   activeVideoIndex = idx;
   const v = allDemoVideos[idx];
   if (!v) return;
+
+  // Stop previous playback
+  pauseDemoPlayback();
+  simulatedPlaySeconds = 0;
+  simulatedDurationSeconds = parseDurationToSeconds(v.duration);
 
   // Highlight active chapter
   document.querySelectorAll('.chapter-item-card').forEach((el, i) => {
     el.classList.toggle('active-chapter', i === idx);
   });
 
-  // Update Main Details
+  // Update Main Headings & Duration
   document.getElementById('activeVideoTitle').innerText = v.title;
-  document.getElementById('activeVideoSubtitle').innerText = v.subtitle || '';
-  document.getElementById('activeVideoDuration').innerText = v.duration || '05:00';
-  document.getElementById('activeVideoDesc').innerText = v.description || '';
-  document.getElementById('screenChapterLabel').innerText = `Chapter ${idx + 1}: ${v.title.replace(/^[0-9]+\.\s*/, '')}`;
-  document.getElementById('screenTimeLabel').innerText = `00:00 / ${v.duration || '08:00'}`;
+  document.getElementById('activeVideoSubtitle').innerText = v.subtitle || `Learn how to use ${v.title.replace(/^[0-9]+\.\s*/, '')} in ARGUS Attendance.`;
+  document.getElementById('activeVideoDuration').innerText = v.duration || '08:24';
+  document.getElementById('vCtlTimeDisplay').innerText = `0:00 / ${v.duration || '08:24'}`;
+  document.getElementById('vSeekBarFill').style.width = '0%';
+  document.getElementById('vSeekBarThumb').style.left = '0%';
+
+  // Render high-fidelity software UI mockup for this chapter
+  renderChapterMockup(idx);
+
+  // Update Description
+  document.getElementById('activeVideoDesc').innerText = v.description || 
+    `In this video, you will learn how to manage ${v.title.replace(/^[0-9]+\.\s*/, '')} in ARGUS Attendance. This includes configuration, workflow operations, export options, and best practices.`;
 
   // Update Checklist
   const checkList = document.getElementById('activeVideoLearningList');
   checkList.innerHTML = '';
   const items = v.what_you_will_learn || [
-    'Complete step-by-step navigation and practical workflow.',
-    'Common errors, troubleshooting tips, and best practices.',
-    'Exporting reports and verifying audit logs dynamically.'
+    `Navigate the ${v.title.replace(/^[0-9]+\.\s*/, '')} module seamlessly`,
+    'Step-by-step practical operations and management workflows',
+    'Configuring system rules, filters and custom preferences',
+    'Troubleshooting common errors and ensuring data accuracy',
+    'Exporting reports to CSV, Excel, and PDF formats'
   ];
   items.forEach(pt => {
     const li = document.createElement('li');
@@ -2366,45 +2808,681 @@ function selectDemoVideoChapter(idx) {
   const screen = document.getElementById('simulatedVideoScreen');
   html5Vid.pause();
   html5Vid.style.display = 'none';
-  screen.style.display = 'flex';
+  screen.style.display = 'block';
+
+  // Highlight center play button
+  document.getElementById('screenCenterPlayWrapper').style.opacity = '1';
+  document.getElementById('screenCenterPlayWrapper').style.pointerEvents = 'auto';
+  updatePlayButtonIcon(false);
 }
 
-function playCurrentDemoVideo() {
+// --------------------------------------------------------------------------
+// HIGH-FIDELITY SOFTWARE UI MOCKUP RENDERER
+// --------------------------------------------------------------------------
+function renderChapterMockup(idx) {
+  const viewport = document.getElementById('mockupViewport');
+  const compName = '{{ company_name or "HEXA TECHNOLOGIES" }}';
+  const initial = compName ? compName.charAt(0).toUpperCase() : 'H';
+
+  // Module Names mapped to active sidebar highlight
+  const sideModules = [
+    { name: 'Dashboard', icon: '📊' },
+    { name: 'Employee Details', icon: '👥', activeFor: 0 },
+    { name: 'Live Report', icon: '📡', activeFor: 1 },
+    { name: 'Attendance Report', icon: '📋', activeFor: 2 },
+    { name: 'Manual Entry', icon: '✏️', activeFor: 3 },
+    { name: 'Payment Entry', icon: '💳', activeFor: 4 },
+    { name: 'Payslip Preview', icon: '📄', activeFor: 5 },
+    { name: 'Salary Report', icon: '📈', activeFor: 6 },
+    { name: 'Company Profile', icon: '🏢', activeFor: 7 }
+  ];
+
+  let sidebarItemsHtml = '';
+  sideModules.forEach(m => {
+    const isActive = m.activeFor === idx;
+    sidebarItemsHtml += `
+      <div class="mockup-side-item ${isActive ? 'active' : ''}">
+        <span>${m.icon}</span>
+        <span>${m.name}</span>
+      </div>
+    `;
+  });
+
+  // Render Module-Specific Main Body Content
+  let moduleBodyHtml = '';
+
+  if (idx === 0) {
+    // CHAPTER 1: EMPLOYEE DETAILS (MATCHES IMAGE 2 SCREENSHOT EXACTLY)
+    moduleBodyHtml = `
+      <div class="mockup-header-row">
+        <div class="mockup-header-text">
+          <h4>Employee Details</h4>
+          <p>Manage your employees, add new employees, and update their information.</p>
+        </div>
+        <button type="button" class="mockup-btn-primary">+ Add Employee</button>
+      </div>
+      <div class="mockup-filter-row">
+        <input type="text" class="mockup-search-input" placeholder="🔍 Search employees by name, ID..." readonly>
+        <select class="mockup-select"><option>All Departments</option></select>
+        <select class="mockup-select"><option>All Status</option></select>
+        <span style="font-size: 8px; color: #64748b; cursor: pointer;">🔄</span>
+      </div>
+      <div class="mockup-table-box">
+        <table class="mockup-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Employee ID</th>
+              <th>Employee Name</th>
+              <th>Designation</th>
+              <th>Department</th>
+              <th>Phone Number</th>
+              <th>Join Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td style="font-weight: 700; color: #0284c7;">EMP001</td>
+              <td style="font-weight: 600;">John Smith</td>
+              <td>Manager</td>
+              <td>Administration</td>
+              <td>9876543210</td>
+              <td>12/01/2023</td>
+              <td><span class="mockup-pill-green">Active</span></td>
+              <td>✏️ 👁️</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td style="font-weight: 700; color: #0284c7;">EMP002</td>
+              <td style="font-weight: 600;">Sarah Johnson</td>
+              <td>HR Executive</td>
+              <td>Human Resources</td>
+              <td>9876543211</td>
+              <td>15/02/2023</td>
+              <td><span class="mockup-pill-green">Active</span></td>
+              <td>✏️ 👁️</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td style="font-weight: 700; color: #0284c7;">EMP003</td>
+              <td style="font-weight: 600;">Michael Brown</td>
+              <td>Software Engineer</td>
+              <td>IT</td>
+              <td>9876543212</td>
+              <td>10/03/2023</td>
+              <td><span class="mockup-pill-green">Active</span></td>
+              <td>✏️ 👁️</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td style="font-weight: 700; color: #0284c7;">EMP004</td>
+              <td style="font-weight: 600;">Emily Davis</td>
+              <td>Accountant</td>
+              <td>Finance</td>
+              <td>9876543213</td>
+              <td>22/03/2023</td>
+              <td><span class="mockup-pill-amber">Inactive</span></td>
+              <td>✏️ 👁️</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td style="font-weight: 700; color: #0284c7;">EMP005</td>
+              <td style="font-weight: 600;">David Wilson</td>
+              <td>Sales Executive</td>
+              <td>Sales</td>
+              <td>9876543214</td>
+              <td>18/04/2023</td>
+              <td><span class="mockup-pill-green">Active</span></td>
+              <td>✏️ 👁️</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else if (idx === 1) {
+    // CHAPTER 2: LIVE REPORT
+    moduleBodyHtml = `
+      <div class="mockup-header-row">
+        <div class="mockup-header-text">
+          <h4>Live Report &amp; Face Recognition Monitor</h4>
+          <p>Real-time employee attendance feed with biometric validation.</p>
+        </div>
+        <span style="font-size: 7.5px; background: #dcfce7; color: #16a34a; font-weight: 700; padding: 2px 6px; border-radius: 4px;">● Live Feed Active</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+        <div style="background: #ffffff; padding: 4px 6px; border-radius: 3px; border: 1px solid #e2e8f0;">
+          <div style="font-size: 7px; color: #64748b;">Total Staff</div>
+          <div style="font-size: 11px; font-weight: 800; color: #0f172a;">42</div>
+        </div>
+        <div style="background: #ffffff; padding: 4px 6px; border-radius: 3px; border: 1px solid #e2e8f0;">
+          <div style="font-size: 7px; color: #64748b;">Present Today</div>
+          <div style="font-size: 11px; font-weight: 800; color: #16a34a;">38</div>
+        </div>
+        <div style="background: #ffffff; padding: 4px 6px; border-radius: 3px; border: 1px solid #e2e8f0;">
+          <div style="font-size: 7px; color: #64748b;">Late Entries</div>
+          <div style="font-size: 11px; font-weight: 800; color: #d97706;">3</div>
+        </div>
+        <div style="background: #ffffff; padding: 4px 6px; border-radius: 3px; border: 1px solid #e2e8f0;">
+          <div style="font-size: 7px; color: #64748b;">On Leave</div>
+          <div style="font-size: 11px; font-weight: 800; color: #0284c7;">1</div>
+        </div>
+      </div>
+      <div class="mockup-table-box">
+        <table class="mockup-table">
+          <thead>
+            <tr>
+              <th>Punch Time</th>
+              <th>Employee Name</th>
+              <th>Department</th>
+              <th>Status</th>
+              <th>Camera Device</th>
+              <th>Face Match</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight: 700;">09:02:14 AM</td>
+              <td style="font-weight: 600;">John Smith</td>
+              <td>Administration</td>
+              <td><span class="mockup-pill-green">PUNCH IN</span></td>
+              <td>Main Gate Cam 01</td>
+              <td style="color: #16a34a; font-weight: 700;">99.4%</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700;">09:14:32 AM</td>
+              <td style="font-weight: 600;">Sarah Johnson</td>
+              <td>Human Resources</td>
+              <td><span class="mockup-pill-green">PUNCH IN</span></td>
+              <td>Turnstile 02</td>
+              <td style="color: #16a34a; font-weight: 700;">98.8%</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700;">09:28:45 AM</td>
+              <td style="font-weight: 600;">Michael Brown</td>
+              <td>IT Department</td>
+              <td><span class="mockup-pill-amber">LATE ENTRY</span></td>
+              <td>Reception Cam</td>
+              <td style="color: #16a34a; font-weight: 700;">97.5%</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700;">01:05:10 PM</td>
+              <td style="font-weight: 600;">David Wilson</td>
+              <td>Sales</td>
+              <td><span class="mockup-pill-blue">PUNCH OUT</span></td>
+              <td>Main Gate Cam 01</td>
+              <td style="color: #16a34a; font-weight: 700;">99.1%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else if (idx === 2) {
+    // CHAPTER 3: ATTENDANCE REPORT
+    moduleBodyHtml = `
+      <div class="mockup-header-row">
+        <div class="mockup-header-text">
+          <h4>Attendance Report</h4>
+          <p>Consolidated calendar grid and daily attendance status matrix.</p>
+        </div>
+        <div style="display: flex; gap: 4px;">
+          <button type="button" class="mockup-btn-primary" style="background: #16a34a;">Excel</button>
+          <button type="button" class="mockup-btn-primary" style="background: #dc2626;">PDF</button>
+        </div>
+      </div>
+      <div class="mockup-filter-row">
+        <input type="text" class="mockup-search-input" value="01/10/2026 - 31/10/2026" style="width: 110px;" readonly>
+        <select class="mockup-select"><option>All Departments</option></select>
+        <select class="mockup-select"><option>General Shift</option></select>
+      </div>
+      <div class="mockup-table-box">
+        <table class="mockup-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>01</th><th>02</th><th>03</th><th>04</th><th>05</th><th>06</th><th>07</th><th>08</th><th>09</th><th>10</th>
+              <th>P</th><th>A</th><th>WO</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight: 700; color: #0284c7;">EMP001</td>
+              <td style="font-weight: 600;">John Smith</td>
+              <td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-blue">WO</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-blue">WO</span></td><td><span class="mockup-pill-green">P</span></td>
+              <td style="font-weight: 700; color: #16a34a;">8</td><td>0</td><td style="color: #0284c7;">2</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700; color: #0284c7;">EMP002</td>
+              <td style="font-weight: 600;">Sarah Johnson</td>
+              <td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-amber">L</span></td><td><span class="mockup-pill-blue">WO</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-red">A</span></td><td><span class="mockup-pill-blue">WO</span></td><td><span class="mockup-pill-green">P</span></td>
+              <td style="font-weight: 700; color: #16a34a;">7</td><td style="color: #dc2626; font-weight: 700;">1</td><td style="color: #0284c7;">2</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700; color: #0284c7;">EMP003</td>
+              <td style="font-weight: 600;">Michael Brown</td>
+              <td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-blue">WO</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-green">P</span></td><td><span class="mockup-pill-blue">WO</span></td><td><span class="mockup-pill-green">P</span></td>
+              <td style="font-weight: 700; color: #16a34a;">8</td><td>0</td><td style="color: #0284c7;">2</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else if (idx === 3) {
+    // CHAPTER 4: MANUAL ENTRY
+    moduleBodyHtml = `
+      <div class="mockup-header-row">
+        <div class="mockup-header-text">
+          <h4>Manual Entry Management</h4>
+          <p>Add and review offline or corrected employee punches.</p>
+        </div>
+        <button type="button" class="mockup-btn-primary">+ Add Manual Entry</button>
+      </div>
+      <div style="background: #ffffff; border: 1.5px solid #0284c7; border-radius: 5px; padding: 8px 12px; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.1);">
+        <div style="font-size: 8.5px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Record Attendance Modal</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 7.5px;">
+          <div><label style="color: #64748b;">Employee</label><input type="text" class="mockup-search-input" value="EMP002 - Sarah Johnson" style="width: 100%;" readonly></div>
+          <div><label style="color: #64748b;">Date</label><input type="text" class="mockup-search-input" value="02/10/2026" style="width: 100%;" readonly></div>
+          <div><label style="color: #64748b;">In Time</label><input type="text" class="mockup-search-input" value="09:30 AM" style="width: 100%;" readonly></div>
+          <div><label style="color: #64748b;">Out Time</label><input type="text" class="mockup-search-input" value="06:30 PM (9.0 hrs)" style="width: 100%;" readonly></div>
+          <div style="grid-column: span 2;"><label style="color: #64748b;">Working Salary &amp; Reason</label><input type="text" class="mockup-search-input" value="₹900.00 | Biometric Terminal Sync Issue" style="width: 100%;" readonly></div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 4px; margin-top: 6px;">
+          <button type="button" style="background: #f1f5f9; border: 1px solid #cbd5e1; font-size: 7.5px; padding: 2px 6px; border-radius: 3px;">Cancel</button>
+          <button type="button" class="mockup-btn-primary">✓ Save Entry</button>
+        </div>
+      </div>
+    `;
+  } else if (idx === 4) {
+    // CHAPTER 5: PAYMENT ENTRY
+    moduleBodyHtml = `
+      <div class="mockup-header-row">
+        <div class="mockup-header-text">
+          <h4>Payment &amp; Advance Entry</h4>
+          <p>Track employee advance requests, loans, and recovery settlements.</p>
+        </div>
+        <button type="button" class="mockup-btn-primary">+ Add Advance</button>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+        <div style="background: #ffffff; padding: 4px 6px; border-radius: 3px; border: 1px solid #e2e8f0;">
+          <div style="font-size: 7px; color: #64748b;">Total Advances</div>
+          <div style="font-size: 11px; font-weight: 800; color: #0284c7;">₹45,000</div>
+        </div>
+        <div style="background: #ffffff; padding: 4px 6px; border-radius: 3px; border: 1px solid #e2e8f0;">
+          <div style="font-size: 7px; color: #64748b;">Recovered</div>
+          <div style="font-size: 11px; font-weight: 800; color: #16a34a;">₹30,000</div>
+        </div>
+        <div style="background: #ffffff; padding: 4px 6px; border-radius: 3px; border: 1px solid #e2e8f0;">
+          <div style="font-size: 7px; color: #64748b;">Balance Due</div>
+          <div style="font-size: 11px; font-weight: 800; color: #d97706;">₹15,000</div>
+        </div>
+      </div>
+      <div class="mockup-table-box">
+        <table class="mockup-table">
+          <thead>
+            <tr>
+              <th>Voucher #</th>
+              <th>Date</th>
+              <th>Employee Name</th>
+              <th>Type</th>
+              <th>Amount</th>
+              <th>Mode</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight: 700; color: #0284c7;">VCH-1041</td>
+              <td>02/10/2026</td>
+              <td style="font-weight: 600;">John Smith</td>
+              <td>Salary Advance</td>
+              <td style="font-weight: 700;">₹10,000</td>
+              <td>Bank Transfer</td>
+              <td><span class="mockup-pill-green">Active</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700; color: #0284c7;">VCH-1042</td>
+              <td>03/10/2026</td>
+              <td style="font-weight: 600;">Sarah Johnson</td>
+              <td>Festival Advance</td>
+              <td style="font-weight: 700;">₹5,000</td>
+              <td>Cash</td>
+              <td><span class="mockup-pill-green">Active</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700; color: #0284c7;">VCH-1043</td>
+              <td>05/10/2026</td>
+              <td style="font-weight: 600;">Michael Brown</td>
+              <td>Medical Advance</td>
+              <td style="font-weight: 700;">₹8,000</td>
+              <td>UPI</td>
+              <td><span class="mockup-pill-blue">Settled</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else if (idx === 5) {
+    // CHAPTER 6: PAYSLIP PREVIEW
+    moduleBodyHtml = `
+      <div class="mockup-header-row">
+        <div class="mockup-header-text">
+          <h4>Monthly Payslip Preview</h4>
+          <p>Official corporate payslip format with dynamic earnings and deductions.</p>
+        </div>
+        <button type="button" class="mockup-btn-primary">📥 Download Payslip PDF</button>
+      </div>
+      <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px 12px; font-size: 7.5px;">
+        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
+          <div><span style="font-weight: 800; color: #0f172a;">${escapeHtml(compName)}</span><div style="font-size: 6.5px; color: #64748b;">Payslip for Month: October 2026</div></div>
+          <div style="text-align: right; font-weight: 700; color: #0284c7;">EMP001 - John Smith</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <div style="font-weight: 700; color: #16a34a; border-bottom: 1px solid #f1f5f9; padding-bottom: 2px;">EARNINGS</div>
+            <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>Basic Salary:</span><span style="font-weight: 600;">₹22,000</span></div>
+            <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>House Rent (HRA):</span><span style="font-weight: 600;">₹5,000</span></div>
+            <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>Approved Paid Leaves (2):</span><span style="font-weight: 600;">₹1,500</span></div>
+            <div style="display: flex; justify-content: space-between; font-weight: 700; border-top: 1px solid #e2e8f0; padding-top: 2px;"><span>Total Earnings:</span><span>₹28,500</span></div>
+          </div>
+          <div>
+            <div style="font-weight: 700; color: #dc2626; border-bottom: 1px solid #f1f5f9; padding-bottom: 2px;">DEDUCTIONS</div>
+            <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>Advance Salary Recovery:</span><span style="font-weight: 600;">₹2,000</span></div>
+            <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>Loss of Pay (LOP 0 Days):</span><span style="font-weight: 600;">₹0</span></div>
+            <div style="display: flex; justify-content: space-between; font-weight: 700; border-top: 1px solid #e2e8f0; padding-top: 2px;"><span>Total Deductions:</span><span>₹2,000</span></div>
+          </div>
+        </div>
+        <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 3px; padding: 3px 6px; margin-top: 6px; display: flex; justify-content: space-between; font-weight: 800; color: #16a34a;">
+          <span>Net Payable Salary:</span>
+          <span>₹26,500 (Rupees Twenty Six Thousand Five Hundred Only)</span>
+        </div>
+      </div>
+    `;
+  } else if (idx === 6) {
+    // CHAPTER 7: SALARY REPORT
+    moduleBodyHtml = `
+      <div class="mockup-header-row">
+        <div class="mockup-header-text">
+          <h4>Consolidated Salary Report</h4>
+          <p>Monthly payroll register, bank transfer file, and email dispatch.</p>
+        </div>
+        <div style="display: flex; gap: 4px;">
+          <button type="button" class="mockup-btn-primary" style="background: #0284c7;">Dispatch Emails</button>
+          <button type="button" class="mockup-btn-primary" style="background: #16a34a;">Bank CSV</button>
+        </div>
+      </div>
+      <div class="mockup-table-box">
+        <table class="mockup-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Employee Name</th>
+              <th>Dept</th>
+              <th>Work Days</th>
+              <th>Basic Pay</th>
+              <th>Gross</th>
+              <th>Deductions</th>
+              <th>Net Salary</th>
+              <th>Email Slip</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight: 700; color: #0284c7;">EMP001</td>
+              <td style="font-weight: 600;">John Smith</td>
+              <td>Admin</td>
+              <td>26 / 31</td>
+              <td>₹22,000</td>
+              <td>₹28,500</td>
+              <td style="color: #dc2626;">₹2,000</td>
+              <td style="font-weight: 800; color: #16a34a;">₹26,500</td>
+              <td><span class="mockup-pill-green">Sent</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700; color: #0284c7;">EMP002</td>
+              <td style="font-weight: 600;">Sarah Johnson</td>
+              <td>HR</td>
+              <td>25 / 31</td>
+              <td>₹20,000</td>
+              <td>₹25,000</td>
+              <td style="color: #dc2626;">₹1,500</td>
+              <td style="font-weight: 800; color: #16a34a;">₹23,500</td>
+              <td><span class="mockup-pill-green">Sent</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700; color: #0284c7;">EMP003</td>
+              <td style="font-weight: 600;">Michael Brown</td>
+              <td>IT</td>
+              <td>26 / 31</td>
+              <td>₹30,000</td>
+              <td>₹38,000</td>
+              <td style="color: #dc2626;">₹3,000</td>
+              <td style="font-weight: 800; color: #16a34a;">₹35,000</td>
+              <td><span class="mockup-pill-green">Sent</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else {
+    // CHAPTER 8: COMPANY PROFILE
+    moduleBodyHtml = `
+      <div class="mockup-header-row">
+        <div class="mockup-header-text">
+          <h4>Company Profile &amp; Policies</h4>
+          <p>Organization metadata, branding logo, and attendance working hours.</p>
+        </div>
+        <button type="button" class="mockup-btn-primary">💾 Save Settings</button>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 7.5px;">
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 10px;">
+          <div style="font-weight: 800; color: #0f172a; margin-bottom: 4px;">Company Information</div>
+          <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 4px;">
+            <div style="width: 24px; height: 24px; border-radius: 50%; background: #0284c7; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800;">${initial}</div>
+            <div><div style="font-weight: 700;">${escapeHtml(compName)}</div><div style="font-size: 6.5px; color: #64748b;">GSTIN: 33AABCA0000A1Z5</div></div>
+          </div>
+          <div><label style="color: #64748b;">Address:</label> <span style="font-weight: 500;">Bharathiyar Road, Coimbatore</span></div>
+        </div>
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 10px;">
+          <div style="font-weight: 800; color: #0f172a; margin-bottom: 4px;">Shift Timings &amp; Rules</div>
+          <div><label style="color: #64748b;">General Shift:</label> <span style="font-weight: 700;">09:00 AM - 06:00 PM (9.0 hrs)</span></div>
+          <div><label style="color: #64748b;">Grace Period:</label> <span style="font-weight: 600;">15 Minutes</span></div>
+          <div><label style="color: #64748b;">Half Day Threshold:</label> <span style="font-weight: 600;">240 Minutes (4.0 hrs)</span></div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Assemble Complete Mockup HTML
+  viewport.innerHTML = `
+    <!-- Top Mini Navbar -->
+    <div class="mockup-top-nav">
+      <div class="mockup-nav-left">
+        <img src="/static/images/argus_triangle_logo.png" class="mockup-nav-logo" alt="Argus">
+        <span class="mockup-nav-brand">ARGUS ATTENDANCE</span>
+      </div>
+      <div class="mockup-nav-title">${escapeHtml(compName)}</div>
+      <div class="mockup-nav-right">
+        <span style="font-size: 10px;">🔔</span>
+        <div class="mockup-avatar-pill">
+          <div class="mockup-avatar-circle">${initial}</div>
+          <span>${escapeHtml(compName)}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body Layout -->
+    <div class="mockup-body">
+      <!-- Mini Sidebar -->
+      <div class="mockup-sidebar">
+        ${sidebarItemsHtml}
+      </div>
+
+      <!-- Main Mockup Page Content -->
+      <div class="mockup-content">
+        ${moduleBodyHtml}
+      </div>
+    </div>
+  `;
+}
+
+// --------------------------------------------------------------------------
+// VIDEO PLAYBACK SIMULATION & CONTROLS
+// --------------------------------------------------------------------------
+function toggleDemoVideoPlayback() {
   const v = allDemoVideos[activeVideoIndex];
   if (!v) return;
 
   const html5Vid = document.getElementById('demoHtml5Video');
-  const screen = document.getElementById('simulatedVideoScreen');
-  const source = document.getElementById('demoVideoSource');
-
   if (v.video_url) {
-    source.src = v.video_url;
-    html5Vid.load();
-    screen.style.display = 'none';
-    html5Vid.style.display = 'block';
-    html5Vid.play().catch(e => console.log('Autoplay blocked:', e));
+    if (html5Vid.paused) {
+      document.getElementById('simulatedVideoScreen').style.display = 'none';
+      html5Vid.style.display = 'block';
+      html5Vid.play().catch(e => console.log(e));
+    } else {
+      html5Vid.pause();
+    }
+    return;
+  }
+
+  // Toggle Simulated Playback
+  if (isSimulatedPlaying) {
+    pauseDemoPlayback();
   } else {
-    // Interactive feedback when simulated video demo played
-    alert(`Now playing Demo Video: "${v.title}"\n\nDuration: ${v.duration}\n\nVideo player active.`);
+    playDemoPlayback();
   }
 }
 
+function playDemoPlayback() {
+  isSimulatedPlaying = true;
+  updatePlayButtonIcon(true);
+
+  // Fade out center play button
+  const centerBtn = document.getElementById('screenCenterPlayWrapper');
+  centerBtn.style.opacity = '0';
+  centerBtn.style.pointerEvents = 'none';
+
+  clearInterval(simulatedPlayInterval);
+  simulatedPlayInterval = setInterval(() => {
+    simulatedPlaySeconds++;
+    if (simulatedPlaySeconds > simulatedDurationSeconds) {
+      simulatedPlaySeconds = 0;
+      pauseDemoPlayback();
+      return;
+    }
+    updatePlaybackProgressUI();
+  }, 1000);
+}
+
+function pauseDemoPlayback() {
+  isSimulatedPlaying = false;
+  clearInterval(simulatedPlayInterval);
+  updatePlayButtonIcon(false);
+
+  const centerBtn = document.getElementById('screenCenterPlayWrapper');
+  if (centerBtn) {
+    centerBtn.style.opacity = '1';
+    centerBtn.style.pointerEvents = 'auto';
+  }
+}
+
+function updatePlaybackProgressUI() {
+  const pct = Math.min(100, (simulatedPlaySeconds / simulatedDurationSeconds) * 100);
+  document.getElementById('vSeekBarFill').style.width = `${pct}%`;
+  document.getElementById('vSeekBarThumb').style.left = `${pct}%`;
+
+  const v = allDemoVideos[activeVideoIndex];
+  const durStr = v ? v.duration : '08:24';
+  document.getElementById('vCtlTimeDisplay').innerText = `${formatSeconds(simulatedPlaySeconds)} / ${durStr}`;
+}
+
+function updatePlayButtonIcon(playing) {
+  const icon = document.getElementById('iconPlayPause');
+  if (!icon) return;
+  if (playing) {
+    icon.innerHTML = `<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>`;
+  } else {
+    icon.innerHTML = `<polygon points="6 4 19 12 6 20 6 4"></polygon>`;
+  }
+}
+
+function handleSeekbarClick(e) {
+  const track = document.getElementById('vSeekBarTrack');
+  const rect = track.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const pct = Math.max(0, Math.min(1, clickX / rect.width));
+
+  simulatedPlaySeconds = Math.floor(pct * simulatedDurationSeconds);
+  updatePlaybackProgressUI();
+}
+
+function toggleDemoVolume() {
+  isSimulatedMuted = !isSimulatedMuted;
+  const icon = document.getElementById('iconVolume');
+  if (isSimulatedMuted) {
+    icon.innerHTML = `<line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>`;
+  } else {
+    icon.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>`;
+  }
+}
+
+function togglePlayerFullscreen() {
+  const frame = document.getElementById('demoVideoPlayerFrame');
+  if (!document.fullscreenElement) {
+    frame.requestFullscreen().catch(err => console.log('Fullscreen error:', err));
+  } else {
+    document.exitFullscreen().catch(err => console.log(err));
+  }
+}
+
+// --------------------------------------------------------------------------
+// MORE VIDEOS CAROUSEL STRIP (IMAGE 2 BOTTOM)
+// --------------------------------------------------------------------------
 function renderMoreVideosCarousel() {
   const container = document.getElementById('moreVideosContainer');
   container.innerHTML = '';
+
   allDemoVideos.forEach((v, idx) => {
     const card = document.createElement('div');
     card.className = 'more-video-card';
-    card.onclick = () => selectDemoVideoChapter(idx);
+    card.onclick = () => {
+      selectDemoVideoChapter(idx);
+      document.getElementById('demoVideoPlayerFrame').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
+    // Color theme per module for crisp distinct thumbnails
+    const colors = ['#0284c7', '#16a34a', '#8b5cf6', '#d97706', '#059669', '#2563eb', '#dc2626', '#475569'];
+    const barColor = colors[idx % colors.length];
+
     card.innerHTML = `
       <div class="more-video-thumb">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-        <span class="more-thumb-duration">${v.duration}</span>
+        <div style="position: absolute; top: 0; left: 0; right: 0; height: 18px; background: #ffffff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; padding: 0 6px; gap: 4px;">
+          <div style="width: 5px; height: 5px; border-radius: 50%; background: ${barColor};"></div>
+          <span style="font-size: 7px; font-weight: 800; color: #0f172a;">ARGUS</span>
+        </div>
+        <div style="position: absolute; top: 22px; left: 6px; right: 6px; bottom: 6px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 3px; display: flex; flex-direction: column; gap: 3px; padding: 3px;">
+          <div style="height: 4px; width: 45%; background: ${barColor}; border-radius: 1px;"></div>
+          <div style="height: 3px; width: 85%; background: #e2e8f0; border-radius: 1px;"></div>
+          <div style="height: 3px; width: 70%; background: #e2e8f0; border-radius: 1px;"></div>
+          <div style="height: 3px; width: 90%; background: #e2e8f0; border-radius: 1px;"></div>
+        </div>
+        <div class="more-thumb-play">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#ffffff"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>
+        </div>
+        <span class="more-thumb-duration">${v.duration || '05:00'}</span>
       </div>
       <div class="more-video-card-title">${escapeHtml(v.title)}</div>
     `;
     container.appendChild(card);
   });
+}
+
+function scrollMoreVideos(direction) {
+  const container = document.getElementById('moreVideosContainer');
+  const scrollAmount = direction === 'left' ? -220 : 220;
+  container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
 }
 
 // --------------------------------------------------------------------------
