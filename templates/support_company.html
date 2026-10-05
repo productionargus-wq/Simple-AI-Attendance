@@ -2883,12 +2883,17 @@ function selectDemoVideoChapter(idx) {
     checkList.appendChild(li);
   });
 
-  // Reset video player display
+  // Reset video player display & set source
   const html5Vid = document.getElementById('demoHtml5Video');
+  const source = document.getElementById('demoVideoSource');
   const screen = document.getElementById('simulatedVideoScreen');
   html5Vid.pause();
   html5Vid.style.display = 'none';
   screen.style.display = 'block';
+  if (v.video_url) {
+    source.src = v.video_url;
+    html5Vid.load();
+  }
 
   // Highlight center play button
   document.getElementById('screenCenterPlayWrapper').style.opacity = '1';
@@ -3416,14 +3421,34 @@ function toggleDemoVideoPlayback() {
   if (!v) return;
 
   const html5Vid = document.getElementById('demoHtml5Video');
+  const source = document.getElementById('demoVideoSource');
   if (v.video_url) {
     if (html5Vid.paused) {
+      if (!source.getAttribute('src') || source.getAttribute('src') !== v.video_url) {
+        source.src = v.video_url;
+        html5Vid.load();
+      }
       document.getElementById('simulatedVideoScreen').style.display = 'none';
       html5Vid.style.display = 'block';
       html5Vid.play().catch(e => console.log(e));
+      updatePlayButtonIcon(true);
     } else {
       html5Vid.pause();
+      updatePlayButtonIcon(false);
     }
+    html5Vid.onended = () => {
+      html5Vid.style.display = 'none';
+      document.getElementById('simulatedVideoScreen').style.display = 'block';
+      document.getElementById('screenCenterPlayWrapper').style.opacity = '1';
+      document.getElementById('screenCenterPlayWrapper').style.pointerEvents = 'auto';
+      updatePlayButtonIcon(false);
+    };
+    html5Vid.onpause = () => {
+      updatePlayButtonIcon(false);
+    };
+    html5Vid.onplay = () => {
+      updatePlayButtonIcon(true);
+    };
     return;
   }
 
