@@ -590,6 +590,16 @@
   flex-direction: column;
   gap: 20px;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.support-view-panel {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* 3 Hero Action Navigation Cards */
@@ -688,6 +698,8 @@
   border: 1px solid #e2e8f0;
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  box-sizing: border-box;
+  max-width: 100%;
 }
 .form-card-header, .table-card-header, .demo-videos-header-card {
   display: flex;
@@ -1074,8 +1086,12 @@
    ========================================================================== */
 .demo-player-grid {
   display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 20px;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 @media (max-width: 950px) {
   .demo-player-grid {
@@ -1086,10 +1102,22 @@
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 18px;
-  max-height: 800px;
+  padding: 16px;
+  height: fit-content;
+  max-height: calc(100vh - 120px);
   display: flex;
   flex-direction: column;
+  position: sticky;
+  top: 14px;
+  align-self: start;
+  box-sizing: border-box;
+  min-width: 0;
+}
+@media (max-width: 950px) {
+  .demo-chapters-sidebar {
+    position: static;
+    max-height: 380px;
+  }
 }
 .chapters-header {
   display: flex;
@@ -1118,6 +1146,12 @@
   flex-direction: column;
   gap: 8px;
   overflow-y: auto;
+  max-height: calc(100vh - 200px);
+}
+@media (max-width: 950px) {
+  .chapters-list {
+    max-height: 300px;
+  }
 }
 .chapter-item-card {
   padding: 10px 12px;
@@ -1179,12 +1213,29 @@
   font-weight: 600;
 }
 
+/* Demo Content Main & Video Main Card */
+.demo-content-main {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.video-main-card {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 18px 20px;
+}
+
 /* Video Player Frame */
 .video-title-bar {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 16px;
+  gap: 12px;
 }
 .active-video-heading {
   font-size: 19px;
@@ -1204,35 +1255,44 @@
   font-weight: 700;
   padding: 4px 10px;
   border-radius: 6px;
+  flex-shrink: 0;
 }
 
 .video-player-frame {
   position: relative;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   aspect-ratio: 16 / 9;
   background: #0f172a;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   margin-bottom: 20px;
+  box-sizing: border-box;
 }
 .video-canvas-screen {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
+  max-width: 100%;
   height: 100%;
   overflow: hidden;
   background: #f8fafc;
+  box-sizing: border-box;
 }
 .mockup-viewport {
   width: 100%;
+  max-width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
   background: #f8fafc;
   position: relative;
   user-select: none;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Software Mockup Styles Inside Video */
@@ -1300,9 +1360,11 @@
   display: flex;
   overflow: hidden;
   background: #f8fafc;
+  min-width: 0;
+  max-width: 100%;
 }
 .mockup-sidebar {
-  width: 110px;
+  width: 95px;
   background: #0f172a;
   padding: 8px 5px;
   display: flex;
@@ -1328,7 +1390,11 @@
 }
 .mockup-content {
   flex: 1;
-  padding: 10px 14px 44px; /* leave bottom space for control bar */
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px 42px; /* leave bottom space for control bar */
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1386,7 +1452,9 @@
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 4px;
-  overflow: hidden;
+  overflow-x: auto;
+  max-width: 100%;
+  width: 100%;
 }
 .mockup-table {
   width: 100%;
@@ -1478,13 +1546,15 @@
   left: 0;
   right: 0;
   height: 44px;
-  padding: 0 16px;
+  padding: 0 12px;
   background: linear-gradient(transparent, rgba(15, 23, 42, 0.88) 30%, #0f172a 100%);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   z-index: 20;
   color: #ffffff;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 .v-ctl-btn {
   background: none;
@@ -1497,18 +1567,21 @@
   padding: 4px;
   border-radius: 4px;
   transition: opacity 0.15s ease;
+  flex-shrink: 0;
 }
 .v-ctl-btn:hover {
   opacity: 0.8;
 }
 .v-ctl-time {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .v-seek-bar-track {
   flex: 1;
+  min-width: 30px;
   height: 4px;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 2px;
@@ -1545,7 +1618,8 @@
 .v-ctl-right-group {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .v-btn-badge {
   font-size: 10px;
@@ -1559,11 +1633,15 @@
 /* 2-Column Curriculum Cards (Image 2) */
 .video-curriculum-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
   margin-bottom: 20px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
-@media (max-width: 850px) {
+@media (max-width: 1050px) {
   .video-curriculum-grid {
     grid-template-columns: 1fr;
   }
@@ -1572,8 +1650,12 @@
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 16px 18px;
+  padding: 14px 16px;
   margin-bottom: 0;
+  min-width: 0;
+  box-sizing: border-box;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 .info-box-header, .learning-box-header {
   font-size: 13.5px;
@@ -1615,6 +1697,10 @@
 /* More Videos Carousel (Image 2 Bottom) */
 .more-videos-bar {
   margin-top: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .more-videos-header {
   display: flex;
@@ -1650,14 +1736,20 @@
 }
 .more-videos-scroll {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   overflow-x: auto;
   padding-bottom: 8px;
   scroll-behavior: smooth;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .more-video-card {
-  min-width: 175px;
-  max-width: 175px;
+  min-width: 160px;
+  max-width: 160px;
+  width: 160px;
+  flex-shrink: 0;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
@@ -1667,6 +1759,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  box-sizing: border-box;
 }
 .more-video-card:hover {
   border-color: #0284c7;
