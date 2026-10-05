@@ -3325,7 +3325,7 @@ def admin_support_tickets():
     """Renders the System Admin Support Tickets Dashboard."""
     companies = database.get_all_companies()
     return render_template('support_admin.html',
-                           active_tab='SUPPORT & HELP',
+                           active_tab='SUPPORT TICKETS',
                            companies=companies)
 
 @app.route('/api/support/tickets', methods=['GET'])
