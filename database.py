@@ -776,7 +776,8 @@ def set_employee_password(emp_id_or_email, plain_password):
 # ----------------- EMPLOYEE OPERATIONS ----------------- #
 
 def generate_employee_id():
-    return str(int(time.time() * 1000))
+    import secrets
+    return f"{int(time.time() * 1000)}{secrets.randbelow(100):02d}"
 
 def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc', page=1, limit=10):
     db = get_db()
@@ -855,14 +856,19 @@ def create_employee(data, company_id=None):
     if not email_id:
         raise ValueError('Email ID is required.')
 
-    emp_id = str(data.get('id') or '').strip() or generate_employee_id()
+    emp_id = str(data.get('id') or '').strip()
+    if not emp_id or db.employees.find_one({'id': emp_id}):
+        emp_id = generate_employee_id()
     assigned_company_id = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
 
     # Enforce Employee Count registration limit for tenant companies
     if assigned_company_id != 'ARGUS_MASTER':
         comp = db.company_admin.find_one(build_id_filter(assigned_company_id))
         if comp:
-            limit = int(comp.get('employee_limit') or comp.get('employee_count') or 50)
+            try:
+                limit = int(comp.get('employee_limit') or comp.get('employee_count') or 50)
+            except (ValueError, TypeError):
+                limit = 50
             current_count = db.employees.count_documents({'company_id': assigned_company_id})
             if current_count >= limit:
                 comp_name = comp.get('company_name', assigned_company_id)

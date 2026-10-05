@@ -60,7 +60,9 @@ def ensure_models_available():
     if not os.path.exists(YUNET_PATH):
         print(f"Downloading YuNet model to {YUNET_PATH}...")
         try:
-            urllib.request.urlretrieve(YUNET_URL, YUNET_PATH)
+            req = urllib.request.Request(YUNET_URL, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=15) as resp, open(YUNET_PATH, 'wb') as out_f:
+                out_f.write(resp.read())
             print("YuNet model downloaded successfully.")
         except Exception as e:
             print(f"Error downloading YuNet: {e}")
@@ -68,7 +70,9 @@ def ensure_models_available():
     if not os.path.exists(SFACE_PATH):
         print(f"Downloading SFace model to {SFACE_PATH}...")
         try:
-            urllib.request.urlretrieve(SFACE_URL, SFACE_PATH)
+            req = urllib.request.Request(SFACE_URL, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=15) as resp, open(SFACE_PATH, 'wb') as out_f:
+                out_f.write(resp.read())
             print("SFace model downloaded successfully.")
         except Exception as e:
             print(f"Error downloading SFace: {e}")
@@ -212,6 +216,15 @@ def extract_face_embedding_from_image(image_bytes_or_path):
 
         if img is None:
             return None
+
+        # Auto-downscale large images to max 640px to ensure lightning-fast detection (<250ms)
+        h, w = img.shape[:2]
+        max_dim = max(h, w)
+        if max_dim > 640:
+            scale = 640.0 / float(max_dim)
+            new_w = max(1, int(w * scale))
+            new_h = max(1, int(h * scale))
+            img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
         recognizer = get_recognizer()
 

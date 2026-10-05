@@ -13,6 +13,7 @@ import urllib.parse
 import requests
 import werkzeug.utils
 import zipfile
+import traceback
 from datetime import datetime
 from dotenv import load_dotenv
 from PIL import Image, ImageOps
@@ -106,6 +107,8 @@ def _background_startup():
         fe = get_face_engine()
         if fe:
             fe.ensure_models_available()
+            fe.get_detector(320, 240)
+            fe.get_recognizer()
             fe.auto_sync_stored_employee_embeddings()
     except Exception as e:
         print(f"Warning: background face sync error: {e}")
@@ -160,28 +163,29 @@ def process_uploaded_employee_documents(req_form, req_files, emp_id_prefix='doc'
                     'filename': uniq_name,
                     'file_url': f"/static/uploads/employee_documents/{uniq_name}",
                     'file_type': ext,
-                    'uploaded_at': database.get_ist_now()
+                    'uploaded_at': database.get_ist_now().strftime('%d/%m/%Y %I:%M %p')
                 })
 
-    # 2. Also check list format: doc_files / doc_files[]
-    list_files = req_files.getlist('doc_files') or req_files.getlist('doc_files[]')
-    list_titles = req_form.getlist('doc_titles') or req_form.getlist('doc_titles[]')
-    for idx, f in enumerate(list_files):
-        if f and f.filename and allowed_document_file(f.filename):
-            title = list_titles[idx].strip() if idx < len(list_titles) else ''
-            clean_fname = werkzeug.utils.secure_filename(f.filename) or 'document'
-            ext = clean_fname.rsplit('.', 1)[1].lower() if '.' in clean_fname else 'dat'
-            uniq_name = f"{emp_id_prefix}_{int(time.time())}_{uuid.uuid4().hex[:6]}_{clean_fname}"
-            save_path = os.path.join(DOCUMENTS_FOLDER, uniq_name)
-            f.save(save_path)
-            documents.append({
-                'id': str(uuid.uuid4())[:8],
-                'document_name': title or clean_fname.rsplit('.', 1)[0].replace('_', ' ').title(),
-                'filename': uniq_name,
-                'file_url': f"/static/uploads/employee_documents/{uniq_name}",
-                'file_type': ext,
-                'uploaded_at': database.get_ist_now()
-            })
+    # 2. Fallback check for list format (only if no indexed files found)
+    if not documents:
+        list_files = req_files.getlist('doc_files') or req_files.getlist('doc_files[]')
+        list_titles = req_form.getlist('doc_titles') or req_form.getlist('doc_titles[]')
+        for idx, f in enumerate(list_files):
+            if f and f.filename and allowed_document_file(f.filename):
+                title = list_titles[idx].strip() if idx < len(list_titles) else ''
+                clean_fname = werkzeug.utils.secure_filename(f.filename) or 'document'
+                ext = clean_fname.rsplit('.', 1)[1].lower() if '.' in clean_fname else 'dat'
+                uniq_name = f"{emp_id_prefix}_{int(time.time())}_{uuid.uuid4().hex[:6]}_{clean_fname}"
+                save_path = os.path.join(DOCUMENTS_FOLDER, uniq_name)
+                f.save(save_path)
+                documents.append({
+                    'id': str(uuid.uuid4())[:8],
+                    'document_name': title or clean_fname.rsplit('.', 1)[0].replace('_', ' ').title(),
+                    'filename': uniq_name,
+                    'file_url': f"/static/uploads/employee_documents/{uniq_name}",
+                    'file_type': ext,
+                    'uploaded_at': database.get_ist_now().strftime('%d/%m/%Y %I:%M %p')
+                })
 
     return documents
 
@@ -1836,19 +1840,20 @@ def api_create_employee():
                 try:
                     file_bytes = file.read()
                     if file_bytes:
-                        # Extract 128-d face embedding immediately for AI attendance
+                        # 1. Optimize photo first (auto-orient, resize to max 600x600, convert to RGB JPEG)
+                        unique_filename, photo_data_url, optimized_bytes = process_uploaded_photo(file_bytes, file.filename)
+                        photo_filename = unique_filename
+                        
+                        # 2. Extract 128-d face embedding from optimized image (lightning-fast <250ms)
                         fe = get_face_engine()
                         if fe and hasattr(fe, 'extract_face_embedding_from_image'):
                             try:
-                                embedding = fe.extract_face_embedding_from_image(file_bytes)
+                                embedding = fe.extract_face_embedding_from_image(optimized_bytes)
                                 if embedding:
-                                    data['face_embedding'] = database.json.dumps(embedding)
+                                    data['face_embedding'] = json.dumps(embedding)
                                     face_registered = True
                             except Exception as fe_err:
                                 print(f"Warning: face embedding extraction error: {fe_err}")
-                        
-                        unique_filename, photo_data_url, _ = process_uploaded_photo(file_bytes, file.filename)
-                        photo_filename = unique_filename
                 except Exception as pe:
                     print(f"Warning: photo processing error: {pe}")
                 
@@ -1858,17 +1863,21 @@ def api_create_employee():
                 raw_b64 = str(data['photo_data'])
                 header, b64_part = raw_b64.split(',', 1)
                 img_bytes = base64.b64decode(b64_part)
+                
+                # 1. Optimize photo first
+                unique_filename, photo_data_url, optimized_bytes = process_uploaded_photo(img_bytes, 'face_capture.jpg')
+                photo_filename = unique_filename
+                
+                # 2. Extract 128-d face embedding from optimized image
                 fe = get_face_engine()
                 if fe and hasattr(fe, 'extract_face_embedding_from_image'):
                     try:
-                        embedding = fe.extract_face_embedding_from_image(img_bytes)
+                        embedding = fe.extract_face_embedding_from_image(optimized_bytes)
                         if embedding:
-                            data['face_embedding'] = database.json.dumps(embedding)
+                            data['face_embedding'] = json.dumps(embedding)
                             face_registered = True
                     except Exception as fe_err:
                         print(f"Warning: face embedding extraction error: {fe_err}")
-                unique_filename, photo_data_url, _ = process_uploaded_photo(img_bytes, 'face_capture.jpg')
-                photo_filename = unique_filename
             except Exception as b64_err:
                 print(f"Warning: processing base64 photo_data failed: {b64_err}")
 
@@ -1905,8 +1914,11 @@ def api_create_employee():
     except ValueError as ve:
         return jsonify({'error': str(ve)}), 400
     except Exception as e:
+        err_str = str(e)
+        if 'duplicate key' in err_str.lower() or 'e11000' in err_str.lower():
+            return jsonify({'error': 'An employee with this ID or email is already registered.'}), 400
         print("Error in api_create_employee:", traceback.format_exc())
-        return jsonify({'error': f'Failed to create employee: {str(e)}'}), 500
+        return jsonify({'error': f'Failed to create employee: {err_str}'}), 500
 
 @app.route('/api/employees/<emp_id>', methods=['PUT', 'POST'])
 @login_required
@@ -1932,20 +1944,22 @@ def api_update_employee(emp_id):
                 try:
                     file_bytes = file.read()
                     if file_bytes:
-                        fe = get_face_engine()
-                        if fe and hasattr(fe, 'extract_face_embedding_from_image'):
-                            try:
-                                embedding = fe.extract_face_embedding_from_image(file_bytes)
-                                if embedding:
-                                    data['face_embedding'] = database.json.dumps(embedding)
-                                    face_registered = True
-                            except Exception as fe_err:
-                                print(f"Warning: face embedding extraction error: {fe_err}")
-                        
-                        unique_filename, photo_data_url, _ = process_uploaded_photo(file_bytes, file.filename)
+                        # 1. Optimize photo first (auto-orient, resize to max 600x600, convert to RGB JPEG)
+                        unique_filename, photo_data_url, optimized_bytes = process_uploaded_photo(file_bytes, file.filename)
                         data['photo_filename'] = unique_filename
                         data['photo'] = unique_filename
                         data['photo_data'] = photo_data_url
+                        
+                        # 2. Extract 128-d face embedding from optimized image (lightning-fast <250ms)
+                        fe = get_face_engine()
+                        if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                            try:
+                                embedding = fe.extract_face_embedding_from_image(optimized_bytes)
+                                if embedding:
+                                    data['face_embedding'] = json.dumps(embedding)
+                                    face_registered = True
+                            except Exception as fe_err:
+                                print(f"Warning: face embedding extraction error: {fe_err}")
                 except Exception as pe:
                     print(f"Warning: photo processing error: {pe}")
                 
@@ -1955,19 +1969,23 @@ def api_update_employee(emp_id):
                 raw_b64 = str(data['photo_data'])
                 header, b64_part = raw_b64.split(',', 1)
                 img_bytes = base64.b64decode(b64_part)
-                fe = get_face_engine()
-                if fe and hasattr(fe, 'extract_face_embedding_from_image'):
-                    try:
-                        embedding = fe.extract_face_embedding_from_image(img_bytes)
-                        if embedding:
-                            data['face_embedding'] = database.json.dumps(embedding)
-                            face_registered = True
-                    except Exception as fe_err:
-                        print(f"Warning: face embedding extraction from photo_data error: {fe_err}")
-                unique_filename, photo_data_url, _ = process_uploaded_photo(img_bytes, 'face_capture.jpg')
+                
+                # 1. Optimize photo first
+                unique_filename, photo_data_url, optimized_bytes = process_uploaded_photo(img_bytes, 'face_capture.jpg')
                 data['photo_filename'] = unique_filename
                 data['photo'] = unique_filename
                 data['photo_data'] = photo_data_url
+                
+                # 2. Extract face embedding from optimized image
+                fe = get_face_engine()
+                if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                    try:
+                        embedding = fe.extract_face_embedding_from_image(optimized_bytes)
+                        if embedding:
+                            data['face_embedding'] = json.dumps(embedding)
+                            face_registered = True
+                    except Exception as fe_err:
+                        print(f"Warning: face embedding extraction from photo_data error: {fe_err}")
             except Exception as b64_err:
                 print(f"Warning: processing base64 photo_data in update failed: {b64_err}")
                 
@@ -2010,8 +2028,11 @@ def api_update_employee(emp_id):
     except ValueError as ve:
         return jsonify({'error': str(ve)}), 400
     except Exception as e:
+        err_str = str(e)
+        if 'duplicate key' in err_str.lower() or 'e11000' in err_str.lower():
+            return jsonify({'error': 'An employee with this ID or email is already registered.'}), 400
         print("Error in api_update_employee:", traceback.format_exc())
-        return jsonify({'error': f'Failed to update employee: {str(e)}'}), 500
+        return jsonify({'error': f'Failed to update employee: {err_str}'}), 500
 
 @app.route('/api/employees/<emp_id>', methods=['DELETE'])
 @login_required

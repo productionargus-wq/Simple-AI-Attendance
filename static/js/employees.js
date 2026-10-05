@@ -833,8 +833,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const title = tInput ? tInput.value.trim() : '';
             formData.append(`doc_file_${newDocCount}`, file);
             formData.append(`doc_title_${newDocCount}`, title);
-            formData.append('doc_files[]', file);
-            formData.append('doc_titles[]', title);
             newDocCount++;
           }
         });
@@ -844,17 +842,6 @@ document.addEventListener('DOMContentLoaded', function () {
       // Attach webcam captured photo if user took snapshot
       if (currentCapturedBlob) {
         formData.set('photo', currentCapturedBlob, 'face_capture.jpg');
-        try {
-          const canvas = document.getElementById('faceRegCanvas');
-          if (canvas) {
-            const cData = canvas.toDataURL('image/jpeg', 0.9);
-            if (cData && cData.startsWith('data:image')) {
-              formData.set('photo_data', cData);
-            }
-          }
-        } catch (cErr) {
-          console.warn('Canvas toDataURL fallback failed:', cErr);
-        }
       }
 
       const url = empId ? `/api/employees/${empId}` : '/api/employees';
