@@ -1026,10 +1026,10 @@
             navigator.geolocation.getCurrentPosition(
               (pos2) => { userLat = pos2.coords.latitude; userLng = pos2.coords.longitude; },
               (err2) => { console.warn('Geolocation fallback notice:', err2.message); },
-              { enableHighAccuracy: false, timeout: 2000, maximumAge: 60000 }
+              { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
             );
           },
-          { enableHighAccuracy: true, timeout: 2000, maximumAge: 30000 }
+          { enableHighAccuracy: true, timeout: 6000, maximumAge: 180000 }
         );
       }
 

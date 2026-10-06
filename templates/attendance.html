@@ -915,28 +915,62 @@
       }
     });
 
-    // Helper: Geolocation retrieval with progressive 2-stage fallback (GPS -> Network/Cache -> null)
+    // Helper: Geolocation pre-warming & robust retrieval
+    let prewarmedCoords = null;
+    function warmUpGeolocation() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          prewarmedCoords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, timestamp: Date.now() };
+        },
+        () => {
+          navigator.geolocation.getCurrentPosition(
+            (fallbackPos) => {
+              prewarmedCoords = { latitude: fallbackPos.coords.latitude, longitude: fallbackPos.coords.longitude, timestamp: Date.now() };
+            },
+            () => {},
+            { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
+          );
+        },
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 180000 }
+      );
+    }
+    // Start geolocation warm-up on page load
+    warmUpGeolocation();
+
     function getUserLocation() {
+      // 1. Fast path: If pre-warmed coordinates are available within 5 minutes, return immediately!
+      if (prewarmedCoords && (Date.now() - prewarmedCoords.timestamp < 300000)) {
+        return Promise.resolve(prewarmedCoords);
+      }
       return new Promise((resolve) => {
         if (!navigator.geolocation) {
-          resolve(null);
+          resolve(prewarmedCoords || null);
           return;
         }
-        // Stage 1: Fast attempt at high accuracy GPS (2 seconds timeout)
+        // Stage 1: Attempt GPS / high accuracy (5 seconds timeout)
         navigator.geolocation.getCurrentPosition(
-          (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+          (pos) => {
+            const c = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, timestamp: Date.now() };
+            prewarmedCoords = c;
+            resolve(c);
+          },
           (err) => {
-            // Stage 2: Instant fallback to network/IP/cached position (1.5 seconds timeout)
+            // Stage 2: Fallback to network/IP/cached position (4 seconds timeout)
             navigator.geolocation.getCurrentPosition(
-              (fallbackPos) => resolve({ latitude: fallbackPos.coords.latitude, longitude: fallbackPos.coords.longitude }),
+              (fallbackPos) => {
+                const fc = { latitude: fallbackPos.coords.latitude, longitude: fallbackPos.coords.longitude, timestamp: Date.now() };
+                prewarmedCoords = fc;
+                resolve(fc);
+              },
               (fallbackErr) => {
                 console.log('Location retrieval skipped / GPS unavailable:', fallbackErr.message);
-                resolve(null);
+                resolve(prewarmedCoords || null);
               },
-              { enableHighAccuracy: false, timeout: 1500, maximumAge: 60000 }
+              { enableHighAccuracy: false, timeout: 4000, maximumAge: 600000 }
             );
           },
-          { enableHighAccuracy: true, timeout: 2000, maximumAge: 30000 }
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 180000 }
         );
       });
     }

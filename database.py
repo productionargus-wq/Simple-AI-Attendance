@@ -395,13 +395,21 @@ def create_company(data):
 
     coords_locked = bool(lat is not None and lng is not None and str(lat).strip() != '' and str(lng).strip() != '')
 
+    address_val = data.get('address', '').strip()
+    if not address_val and lat is not None and lng is not None:
+        try:
+            address_val = reverse_geocode_coordinates(lat, lng) or ''
+        except Exception:
+            address_val = ''
+
     doc = {
         'id': comp_id,
         'company_name': data.get('company_name', '').strip(),
         'gstin': data.get('gstin', '').strip().upper(),
         'email': email,
         'phone': data.get('phone', '').strip(),
-        'address': data.get('address', '').strip(),
+        'address': address_val,
+        'location': address_val,
         'latitude': lat,
         'longitude': lng,
         'coordinates_locked': coords_locked,
@@ -576,6 +584,16 @@ def update_company(comp_id, data):
             upd['coordinates_locked_at'] = get_ist_now()
         elif cur_lat is None and cur_lng is None and ('latitude' in upd and 'longitude' in upd):
             upd['coordinates_locked'] = False
+
+    if not upd.get('address'):
+        comp_cur = db.company_admin.find_one(build_id_filter(comp_id))
+        c_lat = upd.get('latitude', comp_cur.get('latitude') if comp_cur else None)
+        c_lng = upd.get('longitude', comp_cur.get('longitude') if comp_cur else None)
+        if c_lat is not None and c_lng is not None and not (comp_cur and comp_cur.get('address')):
+            resolved = reverse_geocode_coordinates(c_lat, c_lng)
+            if resolved:
+                upd['address'] = resolved
+                upd['location'] = resolved
     if 'coordinates_locked_at' in data:
         upd['coordinates_locked_at'] = data['coordinates_locked_at']
     if 'status' in data and data['status']:
@@ -2007,16 +2025,41 @@ def format_office_distance(meters):
         return "OFFICE DISTANCE 0.0M"
 
 def get_company_full_address(company_id):
-    """Returns the registered full address string for a company."""
-    if not company_id or company_id == 'ARGUS_MASTER':
-        db = get_db()
-        comp = db.company_admin.find_one({'id': 'ARGUS_MASTER'})
-        return (comp.get('address') if comp else None) or OFFICE_LOCATION_STR
+    """Returns the registered full address string for a company, auto-resolving coordinates if needed."""
     db = get_db()
+    if not company_id or str(company_id).strip() in ['ARGUS_MASTER', 'ALL', '']:
+        comp = db.company_admin.find_one({'id': 'ARGUS_MASTER'})
+        if comp and (comp.get('address') or comp.get('location')):
+            return (comp.get('address') or comp.get('location')).strip()
+        return OFFICE_LOCATION_STR
+
     comp = db.company_admin.find_one({'id': str(company_id)})
+    if not comp:
+        comp = db.company_admin.find_one(build_id_filter(company_id))
+
     if comp:
-        return comp.get('address') or comp.get('location') or OFFICE_LOCATION_STR
-    return OFFICE_LOCATION_STR
+        addr = (comp.get('address') or comp.get('location') or '').strip()
+        # If company has an actual custom address (and not the generic master fallback)
+        if addr and addr not in [OFFICE_LOCATION_STR, '----', '']:
+            return addr
+
+        # Auto-resolve from company registered coordinates if available
+        lat = comp.get('latitude')
+        lng = comp.get('longitude')
+        if lat is not None and lng is not None:
+            resolved = reverse_geocode_coordinates(lat, lng)
+            if resolved:
+                try:
+                    db.company_admin.update_one({'_id': comp['_id']}, {'$set': {'address': resolved, 'location': resolved}})
+                except Exception:
+                    pass
+                return resolved
+
+        c_name = (comp.get('company_name') or '').strip()
+        if c_name:
+            return f"{c_name} Office"
+
+    return "Company Office"
 
 get_live_entries = get_live_report_entries
 
