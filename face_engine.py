@@ -23,8 +23,11 @@ Key Features:
 import os
 import sys
 import json
+import threading
 import urllib.request
 import database
+
+_detector_lock = threading.Lock()
 
 try:
     import numpy as np
@@ -84,32 +87,33 @@ def get_detector(width=320, height=240):
     if cv2 is None or not hasattr(cv2, 'FaceDetectorYN'):
         return None
 
-    if _detector is None:
-        ensure_models_available()
-        if not os.path.exists(YUNET_PATH):
-            return None
-        try:
-            _detector = cv2.FaceDetectorYN.create(
-                model=YUNET_PATH,
-                config="",
-                input_size=(width, height),
-                score_threshold=0.5,
-                nms_threshold=0.3,
-                top_k=5000
-            )
-            _detector_size = (width, height)
-        except Exception as e:
-            print(f"Error creating YuNet detector: {e}")
-            _detector = None
+    with _detector_lock:
+        if _detector is None:
+            ensure_models_available()
+            if not os.path.exists(YUNET_PATH):
+                return None
+            try:
+                _detector = cv2.FaceDetectorYN.create(
+                    model=YUNET_PATH,
+                    config="",
+                    input_size=(width, height),
+                    score_threshold=0.5,
+                    nms_threshold=0.3,
+                    top_k=5000
+                )
+                _detector_size = (width, height)
+            except Exception as e:
+                print(f"Error creating YuNet detector: {e}")
+                _detector = None
 
-    if _detector is not None and _detector_size != (width, height):
-        try:
-            _detector.setInputSize((width, height))
-            _detector_size = (width, height)
-        except Exception:
-            pass
+        if _detector is not None and _detector_size != (width, height):
+            try:
+                _detector.setInputSize((width, height))
+                _detector_size = (width, height)
+            except Exception:
+                pass
 
-    return _detector
+        return _detector
 
 
 def get_recognizer():
@@ -118,17 +122,18 @@ def get_recognizer():
     if cv2 is None or not hasattr(cv2, 'FaceRecognizerSF'):
         return None
 
-    if _recognizer is None:
-        ensure_models_available()
-        if not os.path.exists(SFACE_PATH):
-            return None
-        try:
-            _recognizer = cv2.FaceRecognizerSF.create(model=SFACE_PATH, config="")
-        except Exception as e:
-            print(f"Error creating SFace recognizer: {e}")
-            _recognizer = None
+    with _detector_lock:
+        if _recognizer is None:
+            ensure_models_available()
+            if not os.path.exists(SFACE_PATH):
+                return None
+            try:
+                _recognizer = cv2.FaceRecognizerSF.create(model=SFACE_PATH, config="")
+            except Exception as e:
+                print(f"Error creating SFace recognizer: {e}")
+                _recognizer = None
 
-    return _recognizer
+        return _recognizer
 
 
 def apply_clahe_enhancement(img):
@@ -153,46 +158,59 @@ def detect_face_deep(img):
     Returns the best face descriptor (15 values: bbox + 5 landmarks + score) or None.
     """
     h, w = img.shape[:2]
-    detector = get_detector(w, h)
-    if detector is None:
+    with _detector_lock:
+        detector = get_detector(w, h)
+        if detector is None:
+            return None
+
+        # Pass 1: Direct detection
+        try:
+            ret, faces = detector.detect(img)
+            if ret and faces is not None and len(faces) > 0:
+                # Pick the face with largest area / highest score
+                return max(faces, key=lambda f: (f[2] * f[3], f[14]))
+        except Exception:
+            pass
+
+        # Pass 2: CLAHE lighting enhancement
+        try:
+            enhanced = apply_clahe_enhancement(img)
+            ret, faces = detector.detect(enhanced)
+            if ret and faces is not None and len(faces) > 0:
+                return max(faces, key=lambda f: (f[2] * f[3], f[14]))
+        except Exception:
+            pass
+
+        # Pass 3: Scaled detection if frame is very large or very small
+        target_w, target_h = 640, 480
+        if w != target_w or h != target_h:
+            try:
+                scaled = cv2.resize(img, (target_w, target_h))
+                detector.setInputSize((target_w, target_h))
+                ret, faces = detector.detect(scaled)
+                # Restore detector size
+                detector.setInputSize((w, h))
+                if ret and faces is not None and len(faces) > 0:
+                    best = max(faces, key=lambda f: (f[2] * f[3], f[14]))
+                    # Scale coordinates back to original image size
+                    sx = w / float(target_w)
+                    sy = h / float(target_h)
+                    scaled_face = best.copy()
+                    scaled_face[0] *= sx
+                    scaled_face[1] *= sy
+                    scaled_face[2] *= sx
+                    scaled_face[3] *= sy
+                    for k in range(4, 14, 2):
+                        scaled_face[k] *= sx
+                        scaled_face[k + 1] *= sy
+                    return scaled_face
+            except Exception:
+                try:
+                    detector.setInputSize((w, h))
+                except Exception:
+                    pass
+
         return None
-
-    # Pass 1: Direct detection
-    ret, faces = detector.detect(img)
-    if ret and faces is not None and len(faces) > 0:
-        # Pick the face with largest area / highest score
-        return max(faces, key=lambda f: (f[2] * f[3], f[14]))
-
-    # Pass 2: CLAHE lighting enhancement
-    enhanced = apply_clahe_enhancement(img)
-    ret, faces = detector.detect(enhanced)
-    if ret and faces is not None and len(faces) > 0:
-        return max(faces, key=lambda f: (f[2] * f[3], f[14]))
-
-    # Pass 3: Scaled detection if frame is very large or very small
-    target_w, target_h = 640, 480
-    if w != target_w or h != target_h:
-        scaled = cv2.resize(img, (target_w, target_h))
-        detector.setInputSize((target_w, target_h))
-        ret, faces = detector.detect(scaled)
-        # Restore detector size
-        detector.setInputSize((w, h))
-        if ret and faces is not None and len(faces) > 0:
-            best = max(faces, key=lambda f: (f[2] * f[3], f[14]))
-            # Scale coordinates back to original image size
-            sx = w / float(target_w)
-            sy = h / float(target_h)
-            scaled_face = best.copy()
-            scaled_face[0] *= sx
-            scaled_face[1] *= sy
-            scaled_face[2] *= sx
-            scaled_face[3] *= sy
-            for k in range(4, 14, 2):
-                scaled_face[k] *= sx
-                scaled_face[k + 1] *= sy
-            return scaled_face
-
-    return None
 
 
 def extract_face_embedding_from_image(image_bytes_or_path):
@@ -233,9 +251,10 @@ def extract_face_embedding_from_image(image_bytes_or_path):
 
         if face is not None and recognizer is not None:
             try:
-                # SFace geometric alignment using 5 facial landmarks
-                aligned_face = recognizer.alignCrop(img, face)
-                raw_feature = recognizer.feature(aligned_face)
+                with _detector_lock:
+                    # SFace geometric alignment using 5 facial landmarks
+                    aligned_face = recognizer.alignCrop(img, face)
+                    raw_feature = recognizer.feature(aligned_face)
 
                 # L2 normalize
                 norm = np.linalg.norm(raw_feature)

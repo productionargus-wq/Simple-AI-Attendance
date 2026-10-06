@@ -381,12 +381,14 @@ def favicon():
 def handle_500(e):
     err = traceback.format_exc()
     print("500 Internal Error:", err)
-    if request.path == '/api/face/recognize':
+    req_path = getattr(request, 'path', '') or ''
+    if req_path.startswith('/api/face/recognize') or getattr(request, 'endpoint', None) == 'api_face_recognize':
         return jsonify({
             'matched': False,
-            'message': 'Face recognition processing temporarily busy. Please ensure good lighting and face the camera directly.'
+            'confidence': 0.0,
+            'message': 'Face recognition processing temporarily busy. Please wait a moment and try again.'
         }), 200
-    if request.path.startswith('/api/'):
+    if req_path.startswith('/api/'):
         return jsonify({
             'error': 'Internal server error',
             'message': 'A temporary server processing error occurred. Please try again.',
@@ -396,18 +398,20 @@ def handle_500(e):
 
 @app.errorhandler(Exception)
 def handle_exception(e):
+    req_path = getattr(request, 'path', '') or ''
+    if req_path.startswith('/api/face/recognize') or getattr(request, 'endpoint', None) == 'api_face_recognize':
+        return jsonify({
+            'matched': False,
+            'confidence': 0.0,
+            'message': 'Face recognition processing temporarily busy. Please wait a moment and try again.'
+        }), 200
     if isinstance(e, HTTPException):
-        if request.path.startswith('/api/'):
+        if req_path.startswith('/api/'):
             return jsonify({'error': e.description, 'message': e.description}), e.code
         return e
     err = traceback.format_exc()
     print("Unhandled Exception:", err)
-    if request.path == '/api/face/recognize':
-        return jsonify({
-            'matched': False,
-            'message': 'Face recognition processing temporarily busy. Please ensure good lighting and face the camera directly.'
-        }), 200
-    if request.path.startswith('/api/'):
+    if req_path.startswith('/api/'):
         return jsonify({
             'error': 'Server error',
             'message': 'A temporary server processing error occurred. Please try again.',
