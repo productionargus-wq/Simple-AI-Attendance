@@ -104,6 +104,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const compId = getSelectedCompanyId();
       const payload = {
+        company_id: compId,
         casual_leave_annual: parseInt(policyCL.value) || 0,
         sick_leave_annual: parseInt(policySL.value) || 0,
         earned_leave_annual: parseInt(policyEL.value) || 0,
@@ -119,13 +120,19 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         const data = await res.json();
         if (data.success) {
-          showPolicyAlert(data.message || 'Leave policy updated successfully!', 'success');
-          loadBalances();
+          showPolicyAlert(data.message || 'Leave policy saved and persisted successfully!', 'success');
+          if (data.policy) {
+            if (policyCL) policyCL.value = data.policy.casual_leave_annual ?? policyCL.value;
+            if (policySL) policySL.value = data.policy.sick_leave_annual ?? policySL.value;
+            if (policyEL) policyEL.value = data.policy.earned_leave_annual ?? policyEL.value;
+            if (policyPermHours) policyPermHours.value = data.policy.permission_hours_monthly ?? policyPermHours.value;
+          }
+          await loadBalances();
         } else {
           showPolicyAlert(data.error || 'Failed to save leave policy.', 'error');
         }
       } catch (err) {
-        showPolicyAlert('Error saving policy.', 'error');
+        showPolicyAlert('Error saving policy: ' + err.message, 'error');
       } finally {
         btnSavePolicy.disabled = false;
       }

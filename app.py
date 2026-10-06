@@ -293,15 +293,17 @@ def check_user_can_delete_entries():
 
 @app.context_processor
 def inject_delete_permissions():
-    """Injects delete permissions, system admin status, pending leave count, and dynamic company logo into all templates dynamically."""
+    """Injects delete permissions, system admin status, support access, pending leave count, and dynamic company logo into all templates dynamically."""
     role = session.get('role')
     is_super = role == 'super_admin'
     comp_can_del = False
+    company_support_enabled = False
     pending_cnt = 0
     support_open_count = 0
     admin_support_count = 0
     if is_super:
         comp_can_del = True
+        company_support_enabled = True
         try:
             pending_cnt = database.get_pending_leave_requests_count(None)
         except Exception:
@@ -314,6 +316,7 @@ def inject_delete_permissions():
         comp_id = session.get('company_id')
         if comp_id:
             comp_can_del = database.can_company_delete_entries(comp_id)
+            company_support_enabled = database.is_company_support_enabled(comp_id)
             try:
                 pending_cnt = database.get_pending_leave_requests_count(comp_id)
             except Exception:
@@ -349,6 +352,7 @@ def inject_delete_permissions():
     return {
         'is_system_admin': is_super,
         'can_delete_entries': comp_can_del,
+        'company_support_enabled': company_support_enabled,
         'pending_leave_count': pending_cnt,
         'support_open_count': support_open_count,
         'admin_support_count': admin_support_count,
@@ -377,6 +381,11 @@ def favicon():
 def handle_500(e):
     err = traceback.format_exc()
     print("500 Internal Error:", err)
+    if request.path == '/api/face/recognize':
+        return jsonify({
+            'matched': False,
+            'message': 'Face recognition processing temporarily busy. Please ensure good lighting and face the camera directly.'
+        }), 200
     if request.path.startswith('/api/'):
         return jsonify({
             'error': 'Internal server error',
@@ -393,6 +402,11 @@ def handle_exception(e):
         return e
     err = traceback.format_exc()
     print("Unhandled Exception:", err)
+    if request.path == '/api/face/recognize':
+        return jsonify({
+            'matched': False,
+            'message': 'Face recognition processing temporarily busy. Please ensure good lighting and face the camera directly.'
+        }), 200
     if request.path.startswith('/api/'):
         return jsonify({
             'error': 'Server error',
@@ -434,9 +448,26 @@ def add_performance_headers(response):
 
 @app.before_request
 def ensure_persistent_session():
-    """Keeps the session alive for 365 days across browser restarts until explicit logout."""
+    """Keeps the session alive for 365 days across browser restarts, and evicts deactivated tenants."""
     if session.get('admin_logged_in') or session.get('employee_logged_in'):
         session.permanent = True
+
+        role = session.get('role')
+        if role in ['company_admin', 'employee']:
+            comp_id = session.get('company_id')
+            if comp_id and str(comp_id).strip() not in ['ALL', 'ARGUS_MASTER']:
+                # Allow static assets and explicit logout without interception
+                if not request.path.startswith('/static') and request.endpoint not in ['static', 'logout', 'favicon']:
+                    if not database.is_company_active(comp_id):
+                        session.clear()
+                        if request.path.startswith('/api/'):
+                            return jsonify({
+                                'success': False,
+                                'error': 'COMPANY_DEACTIVATED',
+                                'message': 'This company account has been deactivated. Please contact System Administrator.'
+                            }), 403
+                        flash('Your company account has been deactivated. Please contact System Administrator.', 'danger')
+                        return redirect(url_for('login'))
 
 # ----------------- UNIVERSAL EXCEL & CSV EXPORT HELPERS ----------------- #
 
@@ -459,6 +490,13 @@ def format_export_cell(val):
             return dt.strftime('%d/%m/%Y %I:%M %p')
         except Exception:
             return val_str
+    # Check if date like 2026-10-05
+    if re.match(r'^\d{4}-\d{2}-\d{2}$', val_str):
+        try:
+            dt = datetime.strptime(val_str, '%Y-%m-%d')
+            return dt.strftime('%d/%m/%Y')
+        except Exception:
+            return val_str
     return val_str
 
 def export_table_data(headers, rows, filename_base, export_format='excel', sheet_name='Data'):
@@ -467,6 +505,8 @@ def export_table_data(headers, rows, filename_base, export_format='excel', sheet
     - If export_format is 'excel': Generates an openpyxl .xlsx workbook with dynamic column widths
       (auto-expanded so dates/times NEVER show '########'), professional header styling, and cell borders.
     - If export_format is 'csv': Generates UTF-8 with BOM (.csv) for Excel compatibility.
+    - Bulletproof fallback: If openpyxl encounters any error or missing dependency, gracefully
+      returns a clean CSV response so the client NEVER receives an HTTP 500 error.
     """
     clean_rows = []
     for row in rows:
@@ -491,85 +531,107 @@ def export_table_data(headers, rows, filename_base, export_format='excel', sheet
         )
 
     # Generate real styled .xlsx
-    import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = str(sheet_name)[:31]
-    ws.views.sheetView[0].showGridLines = True
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = str(sheet_name)[:31]
+        try:
+            ws.views.sheetView[0].showGridLines = True
+        except Exception:
+            try:
+                ws.sheet_view.showGridLines = True
+            except Exception:
+                pass
 
-    # Header styling (professional dark navy/slate fill, bold white font)
-    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
-    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        # Header styling (professional dark navy/slate fill, bold white font)
+        header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+        header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-    header_border = Border(
-        left=Side(style="thin", color="0F172A"),
-        right=Side(style="thin", color="0F172A"),
-        top=Side(style="thin", color="0F172A"),
-        bottom=Side(style="medium", color="0F172A")
-    )
-    cell_border = Border(
-        left=Side(style="thin", color="E2E8F0"),
-        right=Side(style="thin", color="E2E8F0"),
-        top=Side(style="thin", color="E2E8F0"),
-        bottom=Side(style="thin", color="E2E8F0")
-    )
-    zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+        header_border = Border(
+            left=Side(style="thin", color="0F172A"),
+            right=Side(style="thin", color="0F172A"),
+            top=Side(style="thin", color="0F172A"),
+            bottom=Side(style="medium", color="0F172A")
+        )
+        cell_border = Border(
+            left=Side(style="thin", color="E2E8F0"),
+            right=Side(style="thin", color="E2E8F0"),
+            top=Side(style="thin", color="E2E8F0"),
+            bottom=Side(style="thin", color="E2E8F0")
+        )
+        zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
 
-    ws.append(headers)
-    ws.row_dimensions[1].height = 28
+        ws.append(headers)
+        ws.row_dimensions[1].height = 28
 
-    for col_idx in range(1, len(headers) + 1):
-        cell = ws.cell(row=1, column=col_idx)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_align
-        cell.border = header_border
+        for col_idx in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=col_idx)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+            cell.border = header_border
 
-    data_font = Font(name="Calibri", size=10)
-    for row_num, row_data in enumerate(clean_rows, 2):
-        ws.row_dimensions[row_num].height = 20
-        is_even = (row_num % 2 == 0)
-        for col_num, val in enumerate(row_data, 1):
-            cell = ws.cell(row=row_num, column=col_num, value=val)
-            cell.font = data_font
-            cell.border = cell_border
-            if not is_even:
-                cell.fill = zebra_fill
-            # Align numbers to right, dates/status/short codes center, strings left
-            val_str = str(val if val is not None else '')
-            if isinstance(val, (int, float)) or (re.match(r'^-?[\d,]+(\.\d+)?$', val_str) and not val_str.startswith('0') and len(val_str) < 15):
-                cell.alignment = Alignment(horizontal="right", vertical="center")
-            elif any(k in headers[col_num - 1].lower() for k in ['date', 'time', 'status', 'sl no', 'id']):
-                cell.alignment = Alignment(horizontal="center", vertical="center")
-            else:
-                cell.alignment = Alignment(horizontal="left", vertical="center")
+        data_font = Font(name="Calibri", size=10)
+        for row_num, row_data in enumerate(clean_rows, 2):
+            ws.row_dimensions[row_num].height = 20
+            is_even = (row_num % 2 == 0)
+            for col_num, val in enumerate(row_data, 1):
+                cell = ws.cell(row=row_num, column=col_num, value=val)
+                cell.font = data_font
+                cell.border = cell_border
+                if not is_even:
+                    cell.fill = zebra_fill
+                # Align numbers to right, dates/status/short codes center, strings left
+                val_str = str(val if val is not None else '')
+                if isinstance(val, (int, float)) or (re.match(r'^-?[\d,]+(\.\d+)?$', val_str) and not val_str.startswith('0') and len(val_str) < 15):
+                    cell.alignment = Alignment(horizontal="right", vertical="center")
+                elif any(k in (headers[col_num - 1] if col_num - 1 < len(headers) else '').lower() for k in ['date', 'time', 'status', 'sl no', 'id']):
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                else:
+                    cell.alignment = Alignment(horizontal="left", vertical="center")
 
-    # Auto-adjust column widths with extra padding (min 15, max 50) so dates/times NEVER show '#####'
-    for col in ws.columns:
-        col_letter = get_column_letter(col[0].column)
-        col_idx = col[0].column - 1
-        header_text = headers[col_idx] if col_idx < len(headers) else ''
-        max_len = len(str(header_text))
-        for cell in col:
-            v_str = str(cell.value if cell.value is not None else '')
-            if '\n' in v_str:
-                v_str = max(v_str.split('\n'), key=len)
-            max_len = max(max_len, len(v_str))
-        ws.column_dimensions[col_letter].width = min(max(max_len + 5, 15), 50)
+        # Auto-adjust column widths with extra padding (min 16, max 55) so dates/times NEVER show '#####'
+        for col_idx, col in enumerate(ws.columns, 1):
+            col_letter = get_column_letter(col_idx)
+            header_text = headers[col_idx - 1] if col_idx - 1 < len(headers) else ''
+            max_len = len(str(header_text))
+            for cell in col:
+                v_str = str(cell.value if cell.value is not None else '')
+                if '\n' in v_str:
+                    v_str = max(v_str.split('\n'), key=len)
+                max_len = max(max_len, len(v_str))
+            ws.column_dimensions[col_letter].width = min(max(max_len + 5, 16), 55)
 
-    out = io.BytesIO()
-    wb.save(out)
-    out.seek(0)
-    filename = f"{filename_base}.xlsx" if not filename_base.endswith('.xlsx') else filename_base
-    return Response(
-        out.getvalue(),
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
+        out = io.BytesIO()
+        wb.save(out)
+        out.seek(0)
+        filename = f"{filename_base}.xlsx" if not filename_base.endswith('.xlsx') else filename_base
+        return Response(
+            out.getvalue(),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as exc:
+        print(f"Warning: openpyxl export failed ({exc}), falling back to CSV export: {traceback.format_exc()}")
+        output = io.StringIO()
+        output.write('\ufeff')
+        writer = csv.writer(output)
+        writer.writerow(headers)
+        for r in clean_rows:
+            writer.writerow(r)
+        output.seek(0)
+        filename = f"{filename_base}.csv" if not filename_base.endswith('.csv') else filename_base
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+
 
 # ----------------- AUTHENTICATION & PAGE ROUTES ----------------- #
 
@@ -725,7 +787,11 @@ def google_callback():
 
     elif login_type == 'company':
         company = database.validate_company_login(google_email)
-        if company:
+        if isinstance(company, dict) and company.get('error') == 'COMPANY_DEACTIVATED':
+            return render_oauth_error(
+                "Access Denied: This company account has been deactivated. Please contact System Administrator."
+            )
+        elif company and isinstance(company, dict) and company.get('id'):
             session.clear()
             session.permanent = True
             session['admin_logged_in'] = True
@@ -742,7 +808,11 @@ def google_callback():
 
     elif login_type == 'employee':
         employee = database.validate_employee_login(google_email)
-        if employee:
+        if isinstance(employee, dict) and employee.get('error') == 'COMPANY_DEACTIVATED':
+            return render_oauth_error(
+                "Access Denied: Your company account has been deactivated. Please contact System Administrator."
+            )
+        elif employee and isinstance(employee, dict) and (employee.get('id') or employee.get('_id')):
             session.clear()
             session.permanent = True
             session['employee_logged_in'] = True
@@ -790,7 +860,9 @@ def company_login():
             return redirect(url_for('dashboard'))
         else:
             err_code = result.get('error') if isinstance(result, dict) else None
-            if err_code == 'PASSWORD_NOT_SET':
+            if err_code == 'COMPANY_DEACTIVATED':
+                error_msg = result.get('message') or 'Access Denied: This company account has been deactivated. Please contact System Administrator.'
+            elif err_code == 'PASSWORD_NOT_SET':
                 error_msg = "Password has not been set yet. First-time access? Please click 'Continue with Google' below to verify your account and set your password in Company Profile."
             elif err_code == 'NOT_REGISTERED':
                 error_msg = 'Access Denied: This email is not registered as a company administrator. Please contact Argus Support.'
@@ -830,7 +902,9 @@ def employee_login():
             return redirect(url_for('employee_portal'))
         else:
             err_code = result.get('error') if isinstance(result, dict) else None
-            if err_code == 'PASSWORD_NOT_SET':
+            if err_code == 'COMPANY_DEACTIVATED':
+                error_msg = result.get('message') or 'Access Denied: Your company account has been deactivated. Please contact System Administrator.'
+            elif err_code == 'PASSWORD_NOT_SET':
                 error_msg = "Password has not been set yet. First-time access? Please click 'Continue with Google' below to verify your account and set your password in My Credentials."
             elif err_code == 'NOT_REGISTERED':
                 error_msg = 'Access Denied: Email not registered with any organisation. Please contact your company HR.'
@@ -1117,10 +1191,29 @@ def api_update_company(comp_id):
 @super_admin_required
 def api_delete_company(comp_id):
     try:
-        database.delete_company(comp_id)
-        return jsonify({'success': True, 'message': 'Company deleted successfully'})
+        res = database.delete_company(comp_id)
+        return jsonify({
+            'success': True,
+            'message': res.get('message', 'Company and all associated records deleted successfully.'),
+            'details': res
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/companies/<comp_id>/toggle-support', methods=['POST'])
+@super_admin_required
+def api_toggle_company_support(comp_id):
+    data = request.get_json(silent=True) or {}
+    enabled = data.get('enabled')
+    new_state = database.toggle_company_support(comp_id, enabled)
+    if new_state is None:
+        return jsonify({'success': False, 'error': 'Company not found'}), 404
+    return jsonify({
+        'success': True,
+        'company_id': comp_id,
+        'support_enabled': new_state,
+        'message': f"Support feature {'enabled' if new_state else 'disabled'} successfully."
+    })
 
 @app.route('/api/companies/<comp_id>/toggle-auto-reports', methods=['POST'])
 @super_admin_required
@@ -1165,7 +1258,7 @@ def api_companies_export_excel():
     search = request.args.get('search', '').strip()
     result = database.get_all_companies(search=search, limit=10000)
     
-    headers = ['SL NO', 'COMPANY NAME', 'GSTIN', 'EMAIL', 'PHONE', 'ADDRESS', 'LATITUDE', 'LONGITUDE', 'SHIFT HOURS', 'EMPLOYEES', 'EMPLOYEE LIMIT', 'STATUS']
+    headers = ['SL NO', 'COMPANY NAME', 'GSTIN', 'EMAIL', 'PHONE', 'ADDRESS', 'LATITUDE', 'LONGITUDE', 'SHIFT HOURS', 'EMPLOYEES', 'EMPLOYEE LIMIT', 'STATUS', 'SUPPORT']
     rows = []
     for idx, c in enumerate(result['data'], 1):
         rows.append([
@@ -1180,7 +1273,8 @@ def api_companies_export_excel():
             c.get('shift_hours', '08:00'),
             c.get('employee_count', 0),
             c.get('employee_limit', 50),
-            c.get('status', 'Active')
+            c.get('status', 'Active'),
+            'Enabled' if c.get('support_enabled') else 'Disabled'
         ])
     fmt = 'csv' if request.path.endswith('/csv') else 'excel'
     return export_table_data(headers, rows, "registered_companies", export_format=fmt, sheet_name="Companies")
@@ -1833,6 +1927,9 @@ def api_employee_edit_leave_request(request_id):
 @login_required
 def api_admin_leave_stats():
     comp_id = get_current_company_id()
+    req_comp = request.args.get('company_id')
+    if req_comp and session.get('role') == 'super_admin':
+        comp_id = req_comp
     stats = database.get_admin_leave_stats(company_id=comp_id)
     return jsonify({'success': True, 'stats': stats})
 
@@ -1841,13 +1938,19 @@ def api_admin_leave_stats():
 def api_admin_leave_policy():
     comp_id = get_current_company_id()
     if request.method == 'POST':
-        data = request.get_json(silent=True) or request.form.to_dict()
+        data = request.get_json(silent=True) or request.form.to_dict() or {}
+        req_comp = data.get('company_id') or request.args.get('company_id')
+        if req_comp and session.get('role') == 'super_admin':
+            comp_id = req_comp
         saved = database.save_company_leave_policy(comp_id, data)
         return jsonify({
             'success': saved,
-            'message': 'Leave policy saved successfully!',
+            'message': 'Annual leave policy saved and persisted successfully!',
             'policy': database.get_company_leave_policy(comp_id)
         })
+    req_comp = request.args.get('company_id')
+    if req_comp and session.get('role') == 'super_admin':
+        comp_id = req_comp
     pol = database.get_company_leave_policy(comp_id)
     return jsonify({'success': True, 'policy': pol})
 
@@ -1855,6 +1958,9 @@ def api_admin_leave_policy():
 @login_required
 def api_admin_leave_balances():
     comp_id = get_current_company_id()
+    req_comp = request.args.get('company_id')
+    if req_comp and session.get('role') == 'super_admin':
+        comp_id = req_comp
     search = request.args.get('search', '').strip()
     bals = database.get_all_employees_leave_balances(company_id=comp_id, search=search)
     return jsonify({'success': True, 'balances': bals})
@@ -1863,6 +1969,9 @@ def api_admin_leave_balances():
 @login_required
 def api_admin_leave_requests():
     comp_id = get_current_company_id()
+    req_comp = request.args.get('company_id')
+    if req_comp and session.get('role') == 'super_admin':
+        comp_id = req_comp
     status = request.args.get('status', 'ALL')
     limit = int(request.args.get('limit', 50))
     page = int(request.args.get('page', 1))
@@ -1984,9 +2093,25 @@ def api_create_employee():
         else:
             data = request.form.to_dict() or {}
             
-        photo_filename = ''
-        photo_data_url = ''
+        photo_filename = str(data.get('photo_filename') or data.get('photo') or '')
+        photo_data_url = str(data.get('photo_data') or '')
         face_registered = False
+
+        # 0. Check if pre-extracted face embedding was passed (from instant camera capture)
+        if data.get('face_embedding'):
+            try:
+                raw_emb = data['face_embedding']
+                if isinstance(raw_emb, str):
+                    parsed = json.loads(raw_emb)
+                    if isinstance(parsed, list) and len(parsed) > 0:
+                        data['face_embedding'] = json.dumps(parsed)
+                        face_registered = True
+                elif isinstance(raw_emb, list) and len(raw_emb) > 0:
+                    data['face_embedding'] = json.dumps(raw_emb)
+                    face_registered = True
+            except Exception as emb_e:
+                print("Warning: parsing pre-generated face_embedding:", emb_e)
+
         if 'photo' in request.files:
             file = request.files['photo']
             if file and file.filename and allowed_file(file.filename):
@@ -1997,16 +2122,17 @@ def api_create_employee():
                         unique_filename, photo_data_url, optimized_bytes = process_uploaded_photo(file_bytes, file.filename)
                         photo_filename = unique_filename
                         
-                        # 2. Extract 128-d face embedding from optimized image (lightning-fast <250ms)
-                        fe = get_face_engine()
-                        if fe and hasattr(fe, 'extract_face_embedding_from_image'):
-                            try:
-                                embedding = fe.extract_face_embedding_from_image(optimized_bytes)
-                                if embedding:
-                                    data['face_embedding'] = json.dumps(embedding)
-                                    face_registered = True
-                            except Exception as fe_err:
-                                print(f"Warning: face embedding extraction error: {fe_err}")
+                        # 2. Extract 128-d face embedding if not already supplied
+                        if not face_registered:
+                            fe = get_face_engine()
+                            if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                                try:
+                                    embedding = fe.extract_face_embedding_from_image(optimized_bytes)
+                                    if embedding:
+                                        data['face_embedding'] = json.dumps(embedding)
+                                        face_registered = True
+                                except Exception as fe_err:
+                                    print(f"Warning: face embedding extraction error: {fe_err}")
                 except Exception as pe:
                     print(f"Warning: photo processing error: {pe}")
                 
@@ -2021,16 +2147,17 @@ def api_create_employee():
                 unique_filename, photo_data_url, optimized_bytes = process_uploaded_photo(img_bytes, 'face_capture.jpg')
                 photo_filename = unique_filename
                 
-                # 2. Extract 128-d face embedding from optimized image
-                fe = get_face_engine()
-                if fe and hasattr(fe, 'extract_face_embedding_from_image'):
-                    try:
-                        embedding = fe.extract_face_embedding_from_image(optimized_bytes)
-                        if embedding:
-                            data['face_embedding'] = json.dumps(embedding)
-                            face_registered = True
-                    except Exception as fe_err:
-                        print(f"Warning: face embedding extraction error: {fe_err}")
+                # 2. Extract 128-d face embedding if not already supplied
+                if not face_registered:
+                    fe = get_face_engine()
+                    if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                        try:
+                            embedding = fe.extract_face_embedding_from_image(optimized_bytes)
+                            if embedding:
+                                data['face_embedding'] = json.dumps(embedding)
+                                face_registered = True
+                        except Exception as fe_err:
+                            print(f"Warning: face embedding extraction error: {fe_err}")
             except Exception as b64_err:
                 print(f"Warning: processing base64 photo_data failed: {b64_err}")
 
@@ -2091,6 +2218,22 @@ def api_update_employee(emp_id):
             return jsonify({'error': 'Email ID is required'}), 400
             
         face_registered = False
+
+        # 0. Check if pre-extracted face embedding was passed
+        if data.get('face_embedding'):
+            try:
+                raw_emb = data['face_embedding']
+                if isinstance(raw_emb, str):
+                    parsed = json.loads(raw_emb)
+                    if isinstance(parsed, list) and len(parsed) > 0:
+                        data['face_embedding'] = json.dumps(parsed)
+                        face_registered = True
+                elif isinstance(raw_emb, list) and len(raw_emb) > 0:
+                    data['face_embedding'] = json.dumps(raw_emb)
+                    face_registered = True
+            except Exception as emb_e:
+                print("Warning: parsing pre-generated face_embedding in update:", emb_e)
+
         if 'photo' in request.files:
             file = request.files['photo']
             if file and file.filename and allowed_file(file.filename):
@@ -2103,16 +2246,17 @@ def api_update_employee(emp_id):
                         data['photo'] = unique_filename
                         data['photo_data'] = photo_data_url
                         
-                        # 2. Extract 128-d face embedding from optimized image (lightning-fast <250ms)
-                        fe = get_face_engine()
-                        if fe and hasattr(fe, 'extract_face_embedding_from_image'):
-                            try:
-                                embedding = fe.extract_face_embedding_from_image(optimized_bytes)
-                                if embedding:
-                                    data['face_embedding'] = json.dumps(embedding)
-                                    face_registered = True
-                            except Exception as fe_err:
-                                print(f"Warning: face embedding extraction error: {fe_err}")
+                        # 2. Extract 128-d face embedding if not already provided
+                        if not face_registered:
+                            fe = get_face_engine()
+                            if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                                try:
+                                    embedding = fe.extract_face_embedding_from_image(optimized_bytes)
+                                    if embedding:
+                                        data['face_embedding'] = json.dumps(embedding)
+                                        face_registered = True
+                                except Exception as fe_err:
+                                    print(f"Warning: face embedding extraction error: {fe_err}")
                 except Exception as pe:
                     print(f"Warning: photo processing error: {pe}")
                 
@@ -2141,6 +2285,7 @@ def api_update_employee(emp_id):
                         print(f"Warning: face embedding extraction from photo_data error: {fe_err}")
             except Exception as b64_err:
                 print(f"Warning: processing base64 photo_data in update failed: {b64_err}")
+
                 
         # Update permissions if permission fields or permissions dict was passed
         if any(k in data for k in ['perm_punch_attendance', 'perm_attendance_history', 'perm_monthly_payslip', 'perm_employee_credentials', 'permissions']):
@@ -2467,6 +2612,75 @@ def api_export_pdf():
 
 # ----------------- ZERO-IMAGE FACE RECOGNITION API ----------------- #
 
+@app.route('/api/face/extract-biometrics', methods=['POST'])
+@login_required
+def api_face_extract_biometrics():
+    """
+    Extracts 128-dimensional AI face biometrics in real-time during photo capture or file upload.
+    Optimizes photo, runs deep neural face detection (YuNet + SFace), and returns the 128-d embedding
+    and persistent photo data URL immediately.
+    """
+    try:
+        file_bytes = None
+        orig_filename = 'face_capture.jpg'
+
+        if 'photo' in request.files:
+            file = request.files['photo']
+            if file and file.filename:
+                file_bytes = file.read()
+                orig_filename = file.filename
+
+        if not file_bytes:
+            data = request.get_json(silent=True) or request.form.to_dict()
+            photo_data = data.get('photo_data') or data.get('photo') or ''
+            if photo_data and 'base64,' in str(photo_data):
+                try:
+                    _, b64_str = str(photo_data).split('base64,', 1)
+                    file_bytes = base64.b64decode(b64_str)
+                except Exception as b_err:
+                    print("Error decoding base64 photo in extract-biometrics:", b_err)
+
+        if not file_bytes:
+            return jsonify({
+                'success': False,
+                'error': 'No image data received. Please look directly at the camera and take a clear snapshot.'
+            }), 400
+
+        # 1. Optimize photo (600x600 LANCZOS, EXIF transpose, RGB JPEG, persistent base64)
+        unique_filename, photo_data_url, optimized_bytes = process_uploaded_photo(file_bytes, orig_filename)
+
+        # 2. Extract 128-d embedding via deep learning engine (YuNet + SFace)
+        fe = get_face_engine()
+        embedding = None
+        if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+            try:
+                embedding = fe.extract_face_embedding_from_image(optimized_bytes)
+            except Exception as fe_err:
+                print("Warning: face embedding extraction error:", fe_err)
+
+        if not embedding:
+            return jsonify({
+                'success': False,
+                'error': 'No face detected in the photo. Please ensure your face is well-lit, clearly visible, and facing the camera directly, then try again.',
+                'photo_filename': unique_filename,
+                'photo_data': photo_data_url
+            }), 400
+
+        return jsonify({
+            'success': True,
+            'embedding': embedding,
+            'photo_filename': unique_filename,
+            'photo_data': photo_data_url,
+            'vector_length': len(embedding),
+            'message': 'AI Face Biometrics generated successfully! (128-d Vector Ready)'
+        })
+    except Exception as e:
+        print("Error in api_face_extract_biometrics:", traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': f'Face biometrics generation failed: {str(e)}'
+        }), 500
+
 @app.route('/api/face/enroll', methods=['POST'])
 @login_required
 def api_face_enroll():
@@ -2504,22 +2718,48 @@ def api_face_recognize():
     Marks attendance & creates live entry with company-specific geofencing.
     """
     try:
-        if 'photo' not in request.files:
-            return jsonify({'matched': False, 'message': 'Camera frame is required. Please face the camera and try again.'}), 400
-            
-        file = request.files['photo']
-        file_bytes = file.read()
+        file_bytes = None
+        if 'photo' in request.files:
+            file = request.files['photo']
+            if file and file.filename:
+                file_bytes = file.read()
+
         if not file_bytes:
-            return jsonify({'matched': False, 'message': 'Empty camera frame received. Please try again.'}), 400
+            data_dict = request.get_json(silent=True) or request.form.to_dict()
+            photo_data = data_dict.get('photo_data') or data_dict.get('photo') or ''
+            if photo_data and 'base64,' in str(photo_data):
+                try:
+                    _, b64_str = str(photo_data).split('base64,', 1)
+                    file_bytes = base64.b64decode(b64_str)
+                except Exception:
+                    pass
+            elif photo_data and isinstance(photo_data, str) and len(photo_data) > 100:
+                try:
+                    file_bytes = base64.b64decode(photo_data)
+                except Exception:
+                    pass
+
+        if not file_bytes:
+            return jsonify({
+                'matched': False,
+                'confidence': 0.0,
+                'message': 'Camera frame is required. Please face the camera and try again.'
+            }), 200
 
         engine = get_face_engine()
         if engine is None:
             return jsonify({
                 'matched': False,
+                'confidence': 0.0,
                 'message': 'Face recognition engine is initializing or unavailable. Please try again in a few moments.'
             }), 200
         
-        query_embedding = engine.extract_face_embedding_from_image(file_bytes)
+        try:
+            query_embedding = engine.extract_face_embedding_from_image(file_bytes)
+        except Exception as fe_err:
+            traceback.print_exc()
+            query_embedding = None
+
         if not query_embedding:
             return jsonify({
                 'matched': False,
@@ -2529,7 +2769,15 @@ def api_face_recognize():
 
         # If marked from employee portal, scope search to employee's company
         portal_company_id = session.get('company_id') if session.get('employee_logged_in') else None
-        result = engine.recognize_face(query_embedding, company_id=portal_company_id)
+        try:
+            result = engine.recognize_face(query_embedding, company_id=portal_company_id)
+        except Exception as rf_err:
+            traceback.print_exc()
+            result = {
+                'matched': False,
+                'confidence': 0.0,
+                'message': 'Face recognition matching error. Please try again.'
+            }
         
         if result.get('matched'):
             emp_id = result['employee_id']
@@ -2548,6 +2796,15 @@ def api_face_recognize():
             db = database.get_db()
             emp_doc = db.employees.find_one(database.build_id_filter(emp_id)) or db.employees.find_one({'employee_name': emp_name})
             
+            # Check company deactivation
+            emp_comp_id = (emp_doc.get('company_id') if emp_doc else None) or portal_company_id
+            if emp_comp_id and str(emp_comp_id).strip() not in ['ALL', 'ARGUS_MASTER']:
+                if not database.is_company_active(emp_comp_id):
+                    return jsonify({
+                        'matched': False,
+                        'message': 'This company account has been deactivated. Biometric attendance cannot be recorded.'
+                    }), 200
+
             # Check if Punch Attendance is permitted for employee when punching from portal
             if session.get('employee_logged_in') and emp_doc and emp_doc.get('permissions') and emp_doc['permissions'].get('punch_attendance') is False:
                 return jsonify({
@@ -3304,6 +3561,8 @@ def api_get_salary_reports():
 
 @app.route('/api/salary-reports/export/excel', methods=['GET'])
 @app.route('/api/salary-reports/export/csv', methods=['GET'])
+@app.route('/api/salary/export/excel', methods=['GET'])
+@app.route('/api/salary/export/csv', methods=['GET'])
 @login_required
 def api_salary_reports_export_excel():
     start_month = request.args.get('start_month', '').strip()
@@ -3452,6 +3711,10 @@ def _format_file_size(bytes_size):
 def support_center():
     """Renders the Company Support Center page with 3 cards, raise ticket, my tickets, and demo videos."""
     comp_id = session.get('company_id') or 'ARGUS_MASTER'
+    if session.get('role') == 'company_admin' and not database.is_company_support_enabled(comp_id):
+        flash('Support & Help is currently disabled for your organization. Please contact System Administrator.', 'warning')
+        return redirect(url_for('dashboard'))
+
     comp_name = session.get('company_name')
     if not comp_name:
         comp_doc = database.get_company_by_id(comp_id)

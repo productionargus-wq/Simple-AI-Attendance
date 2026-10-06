@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 import json
 import re
@@ -405,11 +406,12 @@ def create_company(data):
         'longitude': lng,
         'coordinates_locked': coords_locked,
         'coordinates_locked_at': now_ist if coords_locked else None,
-        'status': data.get('status', 'Active').strip(),
+        'status': 'Deactive' if str(data.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active',
         'employee_limit': int(data.get('employee_limit') or data.get('employee_count') or 50),
         'shift_hours': str(data.get('shift_hours') or '08:00').strip(),
         'auto_email_reports': bool(data.get('auto_email_reports', True)),
         'can_delete_entries': str(data.get('can_delete_entries', False)).lower() in ['true', '1', 'yes'],
+        'support_enabled': str(data.get('support_enabled', False)).lower() in ['true', '1', 'yes'],
         'registered_date': reg_date_str,
         'created_at': now_ist,
         'updated_at': now_ist
@@ -486,6 +488,8 @@ def get_all_companies(search='', page=1, limit=10):
             c['auto_email_reports'] = True
         if 'can_delete_entries' not in c:
             c['can_delete_entries'] = False
+        c['support_enabled'] = bool(c.get('support_enabled', False))
+        c['status'] = 'Deactive' if str(c.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active'
             
         c['registered_date'] = format_company_reg_date(c.get('registered_date') or c.get('created_at'))
         companies.append(c)
@@ -515,6 +519,8 @@ def get_company_by_id(comp_id):
             c['auto_email_reports'] = True
         if 'can_delete_entries' not in c:
             c['can_delete_entries'] = False
+        c['support_enabled'] = bool(c.get('support_enabled', False))
+        c['status'] = 'Deactive' if str(c.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active'
         c['registered_date'] = format_company_reg_date(c.get('registered_date') or c.get('created_at'))
         return c
     return None
@@ -573,7 +579,10 @@ def update_company(comp_id, data):
     if 'coordinates_locked_at' in data:
         upd['coordinates_locked_at'] = data['coordinates_locked_at']
     if 'status' in data and data['status']:
-        upd['status'] = str(data['status']).strip()
+        st = str(data['status']).strip()
+        upd['status'] = 'Deactive' if st.lower() in ['inactive', 'deactive'] else 'Active'
+    if 'support_enabled' in data:
+        upd['support_enabled'] = str(data['support_enabled']).lower() in ['true', '1', 'yes']
     if 'employee_limit' in data or 'employee_count' in data:
         lim = data.get('employee_limit') or data.get('employee_count')
         if lim:
@@ -643,11 +652,128 @@ def toggle_company_delete_entries(comp_id, enabled=None):
     db.company_admin.update_one({'_id': comp['_id']}, {'$set': {'can_delete_entries': new_val, 'updated_at': get_ist_now()}})
     return new_val
 
-def delete_company(comp_id):
-    """Removes company from company_admin."""
+def is_company_active(comp_id):
+    """Checks whether a company is active. Returns False if marked Deactive or Inactive."""
+    if not comp_id or str(comp_id).strip() in ['ALL', 'ARGUS_MASTER']:
+        return True
     db = get_db()
-    db.company_admin.delete_one(build_id_filter(comp_id))
-    return True
+    cid_str = str(comp_id).strip()
+    comp = db.company_admin.find_one({'id': cid_str})
+    if not comp:
+        comp = db.company_admin.find_one(build_id_filter(cid_str))
+    if not comp:
+        return False
+    status = str(comp.get('status', 'Active')).strip().lower()
+    return status not in ['deactive', 'inactive', 'disabled']
+
+def is_company_support_enabled(comp_id):
+    """Checks whether Support & Help is enabled for a company. Defaults to False."""
+    if not comp_id or str(comp_id).strip() in ['ALL', 'ARGUS_MASTER']:
+        return True  # System Administrator always has access
+    db = get_db()
+    cid_str = str(comp_id).strip()
+    comp = db.company_admin.find_one({'id': cid_str})
+    if not comp:
+        comp = db.company_admin.find_one(build_id_filter(cid_str))
+    if not comp:
+        return False
+    return bool(comp.get('support_enabled', False))
+
+def toggle_company_support(comp_id, enabled=None):
+    """Toggles or sets the support feature permission for a company."""
+    if not comp_id:
+        return None
+    db = get_db()
+    cid_str = str(comp_id).strip()
+    comp = db.company_admin.find_one({'id': cid_str})
+    if not comp:
+        comp = db.company_admin.find_one(build_id_filter(cid_str))
+    if not comp:
+        return None
+    current_val = bool(comp.get('support_enabled', False))
+    new_val = not current_val if enabled is None else (str(enabled).lower() in ['true', '1', 'yes'])
+    db.company_admin.update_one({'_id': comp['_id']}, {'$set': {'support_enabled': new_val, 'updated_at': get_ist_now()}})
+    return new_val
+
+def delete_company(comp_id):
+    """
+    Cascading delete: Completely removes the company and all associated records:
+    - company_admin
+    - employees
+    - attendance
+    - attendance_reports
+    - live_entries
+    - timeout_entries
+    - manual_entries
+    - leave_requests
+    - leave_balances
+    - leave_policies
+    - payments
+    - advances
+    - salary_reports
+    - support_tickets
+    Also removes support ticket upload folders and invalidates dashboard caches.
+    """
+    if not comp_id:
+        raise ValueError("Company ID is required for deletion.")
+    
+    db = get_db()
+    cid_str = str(comp_id).strip()
+    
+    comp_doc = db.company_admin.find_one({'id': cid_str})
+    if not comp_doc:
+        comp_doc = db.company_admin.find_one(build_id_filter(cid_str))
+    
+    if not comp_doc:
+        raise ValueError(f"Company '{cid_str}' not found.")
+        
+    actual_id = str(comp_doc.get('id') or cid_str)
+    comp_obj_id = comp_doc['_id']
+    comp_name = comp_doc.get('company_name', 'Company')
+    
+    tenant_filter = {'company_id': actual_id}
+    
+    counts = {}
+    counts['employees'] = db.employees.delete_many(tenant_filter).deleted_count
+    counts['attendance'] = db.attendance.delete_many(tenant_filter).deleted_count
+    counts['attendance_reports'] = db.attendance_reports.delete_many(tenant_filter).deleted_count
+    counts['live_entries'] = db.live_entries.delete_many(tenant_filter).deleted_count
+    counts['timeout_entries'] = db.timeout_entries.delete_many(tenant_filter).deleted_count
+    counts['manual_entries'] = db.manual_entries.delete_many(tenant_filter).deleted_count
+    counts['leave_requests'] = db.leave_requests.delete_many(tenant_filter).deleted_count
+    counts['leave_balances'] = db.leave_balances.delete_many(tenant_filter).deleted_count
+    counts['leave_policies'] = db.leave_policies.delete_many(tenant_filter).deleted_count
+    counts['payments'] = db.payments.delete_many(tenant_filter).deleted_count
+    counts['advances'] = db.advances.delete_many(tenant_filter).deleted_count
+    counts['salary_reports'] = db.salary_reports.delete_many(tenant_filter).deleted_count
+    counts['support_tickets'] = db.support_tickets.delete_many(tenant_filter).deleted_count
+    
+    # Remove company document
+    counts['company'] = db.company_admin.delete_one({'_id': comp_obj_id}).deleted_count
+    
+    # Also remove uploaded support ticket attachments on disk
+    try:
+        support_uploads_dir = os.path.join(os.path.dirname(__file__), 'static', 'uploads', 'support_tickets', actual_id)
+        if os.path.exists(support_uploads_dir):
+            shutil.rmtree(support_uploads_dir, ignore_errors=True)
+    except Exception as fs_err:
+        print(f"Warning: could not delete support uploads directory: {fs_err}")
+        
+    # Invalidate dashboard metrics caches
+    try:
+        invalidate_dashboard_cache(actual_id)
+    except Exception:
+        pass
+        
+    total_purged = sum(counts.values())
+    return {
+        'success': True,
+        'company_id': actual_id,
+        'company_name': comp_name,
+        'deleted_counts': counts,
+        'total_records_deleted': total_purged,
+        'message': f"Company '{comp_name}' and all associated {total_purged} records deleted successfully."
+    }
 
 def get_company_reports_summary():
     """Generates platform-wide company summary metrics for Super Admin."""
@@ -701,6 +827,16 @@ def validate_company_login(email, password=None):
         return None if password is None else {'success': False, 'error': 'NOT_REGISTERED'}
     company = clean_doc(doc)
     
+    st = str(company.get('status', 'Active')).strip().lower()
+    if st in ['deactive', 'inactive', 'disabled']:
+        return {
+            'success': False,
+            'error': 'COMPANY_DEACTIVATED',
+            'status': 'Deactive',
+            'company': company,
+            'message': 'This company account has been deactivated. Please contact System Administrator.'
+        }
+
     if password is None:
         # Google OAuth flow - password not required
         return company
@@ -741,9 +877,21 @@ def validate_employee_login(email, password=None):
     comp_id = emp.get('company_id')
     if comp_id and comp_id != 'ARGUS_MASTER':
         comp = db.company_admin.find_one({'id': str(comp_id)})
-        emp['company_name'] = comp.get('company_name') if comp else 'Client Company'
-        emp['company_lat'] = comp.get('latitude') if comp else 11.02980
-        emp['company_lng'] = comp.get('longitude') if comp else 76.97400
+        if not comp:
+            comp = db.company_admin.find_one(build_id_filter(comp_id))
+        if comp:
+            st = str(comp.get('status', 'Active')).strip().lower()
+            if st in ['deactive', 'inactive', 'disabled']:
+                return {
+                    'success': False,
+                    'error': 'COMPANY_DEACTIVATED',
+                    'status': 'Deactive',
+                    'employee': emp,
+                    'message': 'Your company account has been deactivated. Please contact System Administrator.'
+                }
+            emp['company_name'] = comp.get('company_name') if comp else 'Client Company'
+            emp['company_lat'] = comp.get('latitude') if comp else 11.02980
+            emp['company_lng'] = comp.get('longitude') if comp else 76.97400
     else:
         emp['company_name'] = 'ARGUS TECHNOLOGIES'
         emp['company_lat'] = 11.02980
@@ -4240,7 +4388,13 @@ def get_payslip_data(employee_name, month_year, company_id=None):
 # ==============================================================================
 
 def get_company_leave_policy(company_id=None):
-    """Retrieves the default annual leave allocation policy for a company."""
+    """
+    Retrieves the company's annual leave policy.
+    Checks:
+    1. Dedicated db.leave_policies collection (specific tenant or global DEFAULT/ARGUS_MASTER)
+    2. Embedded leave_policy in db.company_admin / db.companies
+    3. Global system fallback
+    """
     default_policy = {
         'casual_leave': 12,
         'casual_leave_annual': 12,
@@ -4251,17 +4405,36 @@ def get_company_leave_policy(company_id=None):
         'permission_hours': 16.0,
         'permission_hours_monthly': 16
     }
-    if not company_id or company_id == 'ALL':
-        return default_policy
     db = get_db()
-    
-    # 1. Check dedicated leave_policies collection
-    pol_rec = db.leave_policies.find_one({'company_id': str(company_id)})
+    # Check if a global default policy is stored in database
+    global_rec = db.leave_policies.find_one({'company_id': {'$in': ['DEFAULT', 'ALL', 'ARGUS_MASTER']}})
+    if global_rec:
+        default_policy = {
+            'casual_leave': int(global_rec.get('casual_leave_annual', global_rec.get('casual_leave', 12))),
+            'casual_leave_annual': int(global_rec.get('casual_leave_annual', global_rec.get('casual_leave', 12))),
+            'sick_leave': int(global_rec.get('sick_leave_annual', global_rec.get('sick_leave', 12))),
+            'sick_leave_annual': int(global_rec.get('sick_leave_annual', global_rec.get('sick_leave', 12))),
+            'earned_leave': int(global_rec.get('earned_leave_annual', global_rec.get('earned_leave', 18))),
+            'earned_leave_annual': int(global_rec.get('earned_leave_annual', global_rec.get('earned_leave', 18))),
+            'permission_hours': float(global_rec.get('permission_hours_monthly', global_rec.get('permission_hours', 16.0))),
+            'permission_hours_monthly': int(float(global_rec.get('permission_hours_monthly', global_rec.get('permission_hours', 16.0))))
+        }
+
+    if not company_id or str(company_id).upper() in ['ALL', 'ARGUS_MASTER', 'DEFAULT', '']:
+        return default_policy
+
+    # 1. Check dedicated leave_policies collection for this specific tenant
+    pol_rec = db.leave_policies.find_one({
+        '$or': [
+            {'company_id': str(company_id)},
+            {'company_id': int(company_id) if str(company_id).isdigit() else str(company_id)}
+        ]
+    })
     if pol_rec:
-        cl = int(pol_rec.get('casual_leave_annual', pol_rec.get('casual_leave', 12)))
-        sl = int(pol_rec.get('sick_leave_annual', pol_rec.get('sick_leave', 12)))
-        el = int(pol_rec.get('earned_leave_annual', pol_rec.get('earned_leave', 18)))
-        ph = float(pol_rec.get('permission_hours_monthly', pol_rec.get('permission_hours', 16.0)))
+        cl = int(pol_rec.get('casual_leave_annual', pol_rec.get('casual_leave', default_policy['casual_leave'])))
+        sl = int(pol_rec.get('sick_leave_annual', pol_rec.get('sick_leave', default_policy['sick_leave'])))
+        el = int(pol_rec.get('earned_leave_annual', pol_rec.get('earned_leave', default_policy['earned_leave'])))
+        ph = float(pol_rec.get('permission_hours_monthly', pol_rec.get('permission_hours', default_policy['permission_hours'])))
         return {
             'casual_leave': cl,
             'casual_leave_annual': cl,
@@ -4277,36 +4450,38 @@ def get_company_leave_policy(company_id=None):
     comp = db.company_admin.find_one(build_id_filter(company_id))
     if not comp:
         comp = db.companies.find_one(build_id_filter(company_id))
-    if not comp or 'leave_policy' not in comp:
-        return default_policy
-    pol = comp['leave_policy']
-    cl = int(pol.get('casual_leave_annual', pol.get('casual_leave', 12)))
-    sl = int(pol.get('sick_leave_annual', pol.get('sick_leave', 12)))
-    el = int(pol.get('earned_leave_annual', pol.get('earned_leave', 18)))
-    ph = float(pol.get('permission_hours_monthly', pol.get('permission_hours', 16.0)))
-    return {
-        'casual_leave': cl,
-        'casual_leave_annual': cl,
-        'sick_leave': sl,
-        'sick_leave_annual': sl,
-        'earned_leave': el,
-        'earned_leave_annual': el,
-        'permission_hours': ph,
-        'permission_hours_monthly': int(ph)
-    }
+    if comp and 'leave_policy' in comp and isinstance(comp['leave_policy'], dict):
+        pol = comp['leave_policy']
+        cl = int(pol.get('casual_leave_annual', pol.get('casual_leave', default_policy['casual_leave'])))
+        sl = int(pol.get('sick_leave_annual', pol.get('sick_leave', default_policy['sick_leave'])))
+        el = int(pol.get('earned_leave_annual', pol.get('earned_leave', default_policy['earned_leave'])))
+        ph = float(pol.get('permission_hours_monthly', pol.get('permission_hours', default_policy['permission_hours'])))
+        return {
+            'casual_leave': cl,
+            'casual_leave_annual': cl,
+            'sick_leave': sl,
+            'sick_leave_annual': sl,
+            'earned_leave': el,
+            'earned_leave_annual': el,
+            'permission_hours': ph,
+            'permission_hours_monthly': int(ph)
+        }
+
+    return default_policy
 
 def save_company_leave_policy(company_id, policy_data):
     """Saves or updates the default annual leave allocation policy for a company."""
-    if not company_id or company_id == 'ALL':
-        company_id = 'DEFAULT'
     db = get_db()
+    is_global = not company_id or str(company_id).upper() in ['ALL', 'ARGUS_MASTER', 'DEFAULT', '']
+    storage_comp_id = 'DEFAULT' if is_global else str(company_id)
+
     cl = int(policy_data.get('casual_leave_annual', policy_data.get('casual_leave', 12)))
     sl = int(policy_data.get('sick_leave_annual', policy_data.get('sick_leave', 12)))
     el = int(policy_data.get('earned_leave_annual', policy_data.get('earned_leave', 18)))
     ph = float(policy_data.get('permission_hours_monthly', policy_data.get('permission_hours', 16.0)))
 
     pol_doc = {
-        'company_id': str(company_id),
+        'company_id': storage_comp_id,
         'casual_leave': cl,
         'casual_leave_annual': cl,
         'sick_leave': sl,
@@ -4317,41 +4492,79 @@ def save_company_leave_policy(company_id, policy_data):
         'permission_hours_monthly': int(ph),
         'updated_at': get_ist_now()
     }
-    db.leave_policies.update_one({'company_id': str(company_id)}, {'$set': pol_doc}, upsert=True)
+    if is_global:
+        db.leave_policies.update_one({'company_id': 'DEFAULT'}, {'$set': pol_doc}, upsert=True)
+        db.leave_policies.update_one({'company_id': 'ARGUS_MASTER'}, {'$set': pol_doc}, upsert=True)
+        db.leave_policies.update_one({'company_id': 'ALL'}, {'$set': pol_doc}, upsert=True)
+    else:
+        db.leave_policies.update_one({'company_id': storage_comp_id}, {'$set': pol_doc}, upsert=True)
+        if storage_comp_id.isdigit():
+            db.leave_policies.update_one({'company_id': int(storage_comp_id)}, {'$set': pol_doc}, upsert=True)
 
-    # Also sync into company_admin if present
-    q = {'id': str(company_id)} if str(company_id).isdigit() else {'$or': [{'id': str(company_id)}, build_id_filter(company_id)]}
-    db.company_admin.update_one(q, {'$set': {'leave_policy': pol_doc}})
+        q = {'id': int(storage_comp_id)} if storage_comp_id.isdigit() else build_id_filter(storage_comp_id)
+        db.company_admin.update_one(q, {'$set': {'leave_policy': pol_doc}})
 
-    # Synchronize all existing leave balances for this company for current year
+    # Synchronize all existing and new leave balances for this company for current year
     try:
         curr_year = get_ist_now().year
-        bal_filter = {'year': int(curr_year)}
-        if str(company_id) not in ['DEFAULT', 'ALL', 'ARGUS_MASTER']:
-            bal_filter['company_id'] = str(company_id)
-        
-        existing_bals = list(db.leave_balances.find(bal_filter))
-        for b in existing_bals:
-            b_id = b['_id']
-            cl_used = float(b.get('casual_leave', {}).get('used', 0))
-            sl_used = float(b.get('sick_leave', {}).get('used', 0))
-            el_used = float(b.get('earned_leave', {}).get('used', 0))
-            ph_used = float(b.get('permission_hours', {}).get('used', 0.0))
+        emp_query = {}
+        if not is_global:
+            emp_query = {
+                '$or': [
+                    {'company_id': storage_comp_id},
+                    {'company_id': int(storage_comp_id) if storage_comp_id.isdigit() else storage_comp_id}
+                ]
+            }
+        employees = list(db.employees.find(emp_query))
+        for emp in employees:
+            e_id = str(emp.get('id') or emp.get('_id'))
+            c_id = str(emp.get('company_id') or storage_comp_id)
+            bal = db.leave_balances.find_one({
+                '$or': [
+                    {'employee_id': e_id},
+                    {'employee_id': int(e_id) if e_id.isdigit() else e_id}
+                ],
+                'year': int(curr_year)
+            })
+            if bal:
+                cl_obj = bal.get('casual_leave') or {}
+                sl_obj = bal.get('sick_leave') or {}
+                el_obj = bal.get('earned_leave') or {}
+                ph_obj = bal.get('permission_hours') or {}
 
-            db.leave_balances.update_one(
-                {'_id': b_id},
-                {'$set': {
-                    'casual_leave.total': cl,
-                    'casual_leave.available': max(0.0, round(cl - cl_used, 1)),
-                    'sick_leave.total': sl,
-                    'sick_leave.available': max(0.0, round(sl - sl_used, 1)),
-                    'earned_leave.total': el,
-                    'earned_leave.available': max(0.0, round(el - el_used, 1)),
-                    'permission_hours.total': ph,
-                    'permission_hours.available': max(0.0, round(ph - ph_used, 2)),
+                cl_used = float(cl_obj.get('used', 0) if isinstance(cl_obj, dict) else 0)
+                sl_used = float(sl_obj.get('used', 0) if isinstance(sl_obj, dict) else 0)
+                el_used = float(el_obj.get('used', 0) if isinstance(el_obj, dict) else 0)
+                ph_used = float(ph_obj.get('used', 0) if isinstance(ph_obj, dict) else 0)
+
+                db.leave_balances.update_one(
+                    {'_id': bal['_id']},
+                    {'$set': {
+                        'casual_leave.total': cl,
+                        'casual_leave.available': max(0.0, round(cl - cl_used, 1)),
+                        'sick_leave.total': sl,
+                        'sick_leave.available': max(0.0, round(sl - sl_used, 1)),
+                        'earned_leave.total': el,
+                        'earned_leave.available': max(0.0, round(el - el_used, 1)),
+                        'permission_hours.total': ph,
+                        'permission_hours.available': max(0.0, round(ph - ph_used, 2)),
+                        'updated_at': get_ist_now()
+                    }}
+                )
+            else:
+                new_bal = {
+                    'company_id': c_id,
+                    'employee_id': e_id,
+                    'year': int(curr_year),
+                    'casual_leave': {'total': cl, 'used': 0, 'available': cl},
+                    'sick_leave': {'total': sl, 'used': 0, 'available': sl},
+                    'earned_leave': {'total': el, 'used': 0, 'available': el},
+                    'permission_hours': {'total': ph, 'used': 0.0, 'available': ph},
+                    'compensatory_off': {'total': 6, 'used': 0, 'available': 6},
+                    'created_at': get_ist_now(),
                     'updated_at': get_ist_now()
-                }}
-            )
+                }
+                db.leave_balances.insert_one(new_bal)
     except Exception as e:
         print("Error synchronizing leave balances on policy update:", e)
 

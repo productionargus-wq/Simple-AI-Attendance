@@ -35,6 +35,18 @@ document.addEventListener('DOMContentLoaded', function () {
   const inputRegisteredDate = document.getElementById('inputRegisteredDate');
   const inputAutoEmailReports = document.getElementById('inputAutoEmailReports');
   const inputCanDeleteEntries = document.getElementById('inputCanDeleteEntries');
+  const inputSupportEnabled = document.getElementById('inputSupportEnabled');
+
+  // Cascade Delete Confirmation Modal elements
+  const deleteCompanyModal = document.getElementById('deleteCompanyModal');
+  const closeDeleteCompanyModal = document.getElementById('closeDeleteCompanyModal');
+  const btnCancelDeleteCompany = document.getElementById('btnCancelDeleteCompany');
+  const btnConfirmDeleteCompany = document.getElementById('btnConfirmDeleteCompany');
+  const deleteCompanyTargetName = document.getElementById('deleteCompanyTargetName');
+  const deleteCompanyTargetId = document.getElementById('deleteCompanyTargetId');
+  const btnConfirmDeleteText = document.getElementById('btnConfirmDeleteText');
+  let companyToDeleteId = null;
+  let companyToDeleteName = '';
 
   function formatDateForDateInput(val) {
     if (!val || val === '-') return new Date().toISOString().split('T')[0];
@@ -144,9 +156,10 @@ document.addEventListener('DOMContentLoaded', function () {
                           (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '');
         const lat = hasCoords ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
         const lng = hasCoords ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
-        const statusBadge = comp.status === 'Active'
+        const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
+        const statusBadge = !isDeactive
           ? `<span class="status-pill status-active">Active</span>`
-          : `<span class="status-pill status-inactive">Inactive</span>`;
+          : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
 
         const isAutoReports = comp.auto_email_reports !== false;
         const autoReportsBadge = isAutoReports
@@ -179,6 +192,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
               </svg>
               <span>Enable Delete Entries</span>
+            </button>`;
+
+        const isSupportEnabled = comp.support_enabled === true;
+        const supportBadge = isSupportEnabled
+          ? `<button type="button" class="btn-toggle-support btn-support-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Support: Enabled (Click to Disable)" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 4px 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+              </svg>
+              <span>Disable</span>
+            </button>`
+          : `<button type="button" class="btn-toggle-support btn-support-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Support: Disabled (Click to Enable)" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 4px 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Enable</span>
             </button>`;
 
         const formattedDate = formatDisplayDate(comp.registered_date);
@@ -217,6 +246,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <td style="text-align: center; white-space: nowrap;">${statusBadge}</td>
           <td style="text-align: center; white-space: nowrap;">${autoReportsBadge}</td>
           <td style="text-align: center; white-space: nowrap;">${deleteEntriesBadge}</td>
+          <td style="text-align: center; white-space: nowrap;">${supportBadge}</td>
           <td style="text-align: center; white-space: nowrap;">
             <div class="table-actions">
               <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
@@ -345,9 +375,10 @@ document.addEventListener('DOMContentLoaded', function () {
           if (viewCompanyEmployees) viewCompanyEmployees.textContent = `${comp.employee_count || 0} enrolled (Limit: ${comp.employee_limit || 50})`;
 
           if (viewCompanyStatusBadge) {
-            viewCompanyStatusBadge.innerHTML = comp.status === 'Active'
+            const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
+            viewCompanyStatusBadge.innerHTML = !isDeactive
               ? `<span class="status-pill status-active">Active</span>`
-              : `<span class="status-pill status-inactive">Inactive</span>`;
+              : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
           }
 
           if (viewCompanyReportsBadge) {
@@ -360,6 +391,13 @@ document.addEventListener('DOMContentLoaded', function () {
             viewCompanyDeleteEntriesBadge.innerHTML = (comp.can_delete_entries === true)
               ? `<span class="status-pill status-active">Enabled</span>`
               : `<span class="status-pill status-inactive">Disabled</span>`;
+          }
+
+          const viewCompanySupportBadge = document.getElementById('viewCompanySupportBadge');
+          if (viewCompanySupportBadge) {
+            viewCompanySupportBadge.innerHTML = (comp.support_enabled === true)
+              ? `<span class="status-pill status-active" style="background-color: #e8f5e9; color: #166534; border: 1px solid #86efac;">Enabled</span>`
+              : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Disabled</span>`;
           }
 
           if (viewCompanyModal) {
@@ -388,34 +426,61 @@ document.addEventListener('DOMContentLoaded', function () {
           inputEmail.value = comp.email || '';
           inputLatitude.value = (comp.latitude !== undefined && comp.latitude !== null) ? comp.latitude : '';
           inputLongitude.value = (comp.longitude !== undefined && comp.longitude !== null) ? comp.longitude : '';
-          inputStatus.value = comp.status || 'Active';
+          const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
+          inputStatus.value = isDeactive ? 'Deactive' : 'Active';
           if (inputEmployeeLimit) inputEmployeeLimit.value = comp.employee_limit || 50;
           if (inputCompanyShiftHours) inputCompanyShiftHours.value = comp.shift_hours || '08:00';
           if (inputRegisteredDate) inputRegisteredDate.value = formatDateForDateInput(comp.registered_date);
           if (inputAutoEmailReports) inputAutoEmailReports.value = (comp.auto_email_reports !== false) ? 'true' : 'false';
           if (inputCanDeleteEntries) inputCanDeleteEntries.value = (comp.can_delete_entries === true) ? 'true' : 'false';
+          if (inputSupportEnabled) inputSupportEnabled.value = (comp.support_enabled === true) ? 'true' : 'false';
 
           companyModal.classList.add('active');
         });
       });
 
-      // Attach delete handlers
+      // Attach delete handlers to open Confirmation Modal
       document.querySelectorAll('.btn-action-delete').forEach(btn => {
-        btn.addEventListener('click', async function () {
+        btn.addEventListener('click', function () {
+          companyToDeleteId = this.getAttribute('data-id');
+          companyToDeleteName = this.getAttribute('data-name');
+          if (deleteCompanyTargetName) deleteCompanyTargetName.textContent = companyToDeleteName;
+          if (deleteCompanyTargetId) deleteCompanyTargetId.textContent = companyToDeleteId;
+          if (btnConfirmDeleteText) btnConfirmDeleteText.textContent = 'Yes, Delete Company & All Records';
+          if (btnConfirmDeleteCompany) btnConfirmDeleteCompany.disabled = false;
+          if (deleteCompanyModal) deleteCompanyModal.classList.add('active');
+        });
+      });
+
+      // Attach support toggle handlers
+      document.querySelectorAll('.btn-toggle-support').forEach(btn => {
+        btn.addEventListener('click', async function (e) {
+          e.preventDefault();
           const compId = this.getAttribute('data-id');
-          const compName = this.getAttribute('data-name');
-          if (confirm(`Are you sure you want to delete company "${compName}"?\nThis will remove company access.`)) {
-            try {
-              const res = await fetch(`/api/companies/${compId}`, { method: 'DELETE' });
-              const resp = await res.json();
-              if (resp.success) {
-                loadCompanies(currentPage);
-              } else {
-                alert(`Error: ${resp.error || 'Failed to delete company'}`);
-              }
-            } catch (err) {
-              alert('Network error while deleting company.');
+          const currentState = this.getAttribute('data-state') === 'true';
+          const newState = !currentState;
+
+          this.disabled = true;
+          this.style.opacity = '0.6';
+
+          try {
+            const res = await fetch(`/api/companies/${compId}/toggle-support`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enabled: newState })
+            });
+            const data = await res.json();
+            if (data.success) {
+              loadCompanies(currentPage);
+            } else {
+              alert(`Error: ${data.error || 'Failed to update support status.'}`);
+              this.disabled = false;
+              this.style.opacity = '1';
             }
+          } catch (err) {
+            alert('Network error while updating support status.');
+            this.disabled = false;
+            this.style.opacity = '1';
           }
         });
       });
@@ -484,8 +549,10 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inputEmployeeLimit) inputEmployeeLimit.value = 25;
       if (inputCompanyShiftHours) inputCompanyShiftHours.value = '08:00';
       if (inputRegisteredDate) inputRegisteredDate.value = new Date().toISOString().split('T')[0];
+      if (inputStatus) inputStatus.value = 'Active';
       if (inputAutoEmailReports) inputAutoEmailReports.value = 'true';
       if (inputCanDeleteEntries) inputCanDeleteEntries.value = 'false';
+      if (inputSupportEnabled) inputSupportEnabled.value = 'false';
       companyModal.classList.add('active');
     });
   }
@@ -549,12 +616,13 @@ document.addEventListener('DOMContentLoaded', function () {
         email: formData.get('email'),
         latitude: (formData.get('latitude') !== null && String(formData.get('latitude')).trim() !== '') ? String(formData.get('latitude')).trim() : null,
         longitude: (formData.get('longitude') !== null && String(formData.get('longitude')).trim() !== '') ? String(formData.get('longitude')).trim() : null,
-        status: formData.get('status') || 'Active',
+        status: (formData.get('status') === 'Deactive' || formData.get('status') === 'Inactive') ? 'Deactive' : 'Active',
         employee_limit: parseInt(formData.get('employee_limit'), 10) || 50,
         shift_hours: (formData.get('shift_hours') || '08:00').trim(),
         registered_date: formData.get('registered_date') || '',
         auto_email_reports: formData.get('auto_email_reports') === 'true',
-        can_delete_entries: formData.get('can_delete_entries') === 'true'
+        can_delete_entries: formData.get('can_delete_entries') === 'true',
+        support_enabled: formData.get('support_enabled') === 'true'
       };
 
       const btnSave = btnSaveCompany || document.getElementById('btnSaveCompany');
@@ -659,10 +727,46 @@ document.addEventListener('DOMContentLoaded', function () {
   if (closeViewCompanyModal) closeViewCompanyModal.addEventListener('click', closeViewCompanyModalFunc);
   if (btnCloseViewCompanyFooter) btnCloseViewCompanyFooter.addEventListener('click', closeViewCompanyModalFunc);
 
+  // Modal: Cascade Delete Confirmation Handlers
+  function closeDeleteCompanyModalFunc() {
+    if (deleteCompanyModal) deleteCompanyModal.classList.remove('active');
+    companyToDeleteId = null;
+    companyToDeleteName = '';
+  }
+
+  if (closeDeleteCompanyModal) closeDeleteCompanyModal.addEventListener('click', closeDeleteCompanyModalFunc);
+  if (btnCancelDeleteCompany) btnCancelDeleteCompany.addEventListener('click', closeDeleteCompanyModalFunc);
+
+  if (btnConfirmDeleteCompany) {
+    btnConfirmDeleteCompany.addEventListener('click', async function () {
+      if (!companyToDeleteId) return;
+
+      btnConfirmDeleteCompany.disabled = true;
+      if (btnConfirmDeleteText) btnConfirmDeleteText.textContent = 'Deleting all records...';
+
+      try {
+        const res = await fetch(`/api/companies/${companyToDeleteId}`, { method: 'DELETE' });
+        const resp = await res.json();
+        if (resp.success) {
+          closeDeleteCompanyModalFunc();
+          loadCompanies(currentPage);
+        } else {
+          alert(`Error: ${resp.error || 'Failed to delete company'}`);
+        }
+      } catch (err) {
+        alert('Network error while deleting company.');
+      } finally {
+        if (btnConfirmDeleteCompany) btnConfirmDeleteCompany.disabled = false;
+        if (btnConfirmDeleteText) btnConfirmDeleteText.textContent = 'Yes, Delete Company & All Records';
+      }
+    });
+  }
+
   window.addEventListener('click', function (e) {
     if (e.target === viewCompanyModal) closeViewCompanyModalFunc();
     if (e.target === companyModal) closeCompanyModalFunc();
     if (e.target === reportsModal) closeReportsModalFunc();
+    if (e.target === deleteCompanyModal) closeDeleteCompanyModalFunc();
   });
 
   // Helper escape function

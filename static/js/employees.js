@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', function () {
   let currentSortDir = 'desc';
   let currentViewingEmpId = null;
   let currentCapturedBlob = null;
+  let capturedFaceEmbedding = null;
+  let capturedPhotoData = null;
+  let capturedPhotoFilename = null;
 
   // DOM Elements
   const tableBody = document.getElementById('employeeTableBody');
@@ -514,6 +517,9 @@ document.addEventListener('DOMContentLoaded', function () {
   function openAddEntryModal() {
     employeeForm.reset();
     currentCapturedBlob = null;
+    capturedFaceEmbedding = null;
+    capturedPhotoData = null;
+    capturedPhotoFilename = null;
     document.getElementById('formEmployeeId').value = '';
     document.getElementById('entryModalTitle').textContent = 'Employee Detail Entry';
     document.getElementById('inputSalaryType').value = 'daily';
@@ -552,6 +558,11 @@ document.addEventListener('DOMContentLoaded', function () {
       const res = await fetch(`/api/employees/${empId}`);
       if (!res.ok) throw new Error('Employee not found');
       const emp = await res.json();
+
+      currentCapturedBlob = null;
+      capturedFaceEmbedding = emp.face_embedding || null;
+      capturedPhotoData = emp.photo_data || null;
+      capturedPhotoFilename = emp.photo_filename || emp.photo || null;
 
       document.getElementById('formEmployeeId').value = emp.id;
       document.getElementById('entryModalTitle').textContent = 'Employee Detail Entry';
@@ -844,6 +855,17 @@ document.addEventListener('DOMContentLoaded', function () {
         formData.set('photo', currentCapturedBlob, 'face_capture.jpg');
       }
 
+      // Attach pre-generated biometrics & photo data if available (instant submit)
+      if (capturedFaceEmbedding) {
+        formData.set('face_embedding', typeof capturedFaceEmbedding === 'string' ? capturedFaceEmbedding : JSON.stringify(capturedFaceEmbedding));
+      }
+      if (capturedPhotoData) {
+        formData.set('photo_data', capturedPhotoData);
+      }
+      if (capturedPhotoFilename) {
+        formData.set('photo_filename', capturedPhotoFilename);
+      }
+
       const url = empId ? `/api/employees/${empId}` : '/api/employees';
       const method = 'POST';
 
@@ -877,6 +899,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (res.ok && data.success) {
           entryModal.classList.remove('active');
           currentCapturedBlob = null;
+          capturedFaceEmbedding = null;
+          capturedPhotoData = null;
+          capturedPhotoFilename = null;
           const msg = data.message || (empId ? 'Employee updated successfully!' : 'Employee created successfully!');
           alert(msg);
           loadEmployees();
@@ -1251,57 +1276,154 @@ document.addEventListener('DOMContentLoaded', function () {
       ctx.scale(-1, 1);
       ctx.drawImage(faceRegVideo, 0, 0, faceRegCanvas.width, faceRegCanvas.height);
 
-      faceRegCanvas.toBlob(function (blob) {
-        currentCapturedBlob = blob;
+      const origBtnText = btnTakeSnapshot.textContent;
+      btnTakeSnapshot.disabled = true;
+      btnTakeSnapshot.textContent = 'Generating Biometrics...';
+      if (cameraStatusMsg) {
+        cameraStatusMsg.textContent = '⏳ Analyzing face & generating AI Face Biometrics...';
+        cameraStatusMsg.style.color = '#0284c7';
+      }
+
+      faceRegCanvas.toBlob(async function (blob) {
+        if (!blob) {
+          btnTakeSnapshot.disabled = false;
+          btnTakeSnapshot.textContent = origBtnText;
+          if (cameraStatusMsg) {
+            cameraStatusMsg.textContent = 'Failed to capture frame from camera. Please try again.';
+            cameraStatusMsg.style.color = '#dc2626';
+          }
+          return;
+        }
+
         try {
-          const file = new File([blob], 'face_capture.jpg', { type: 'image/jpeg' });
-          const dt = new DataTransfer();
-          dt.items.add(file);
-          inputPhoto.files = dt.files;
-        } catch (err) {
-          console.warn('DataTransfer fallback used for photo upload:', err);
-        }
+          const fd = new FormData();
+          fd.append('photo', blob, 'face_capture.jpg');
 
-        if (captureStatus) {
-          captureStatus.textContent = '✓ Face snapshot captured (AI Face Biometrics will be generated upon saving)';
-          captureStatus.style.color = '#198754';
-        }
+          const res = await fetch('/api/face/extract-biometrics', {
+            method: 'POST',
+            body: fd
+          });
+          const resData = await res.json();
 
-        // Update photo preview thumbnail in entry modal
-        const photoPreviewBox = document.getElementById('currentPhotoPreview');
-        const editThumb = document.getElementById('editPhotoThumb');
-        const editNote = document.getElementById('editPhotoNote');
-        if (photoPreviewBox && editThumb) {
-          editThumb.src = URL.createObjectURL(blob);
-          if (editNote) editNote.textContent = '✓ New snapshot captured and ready to save.';
-          photoPreviewBox.style.display = 'flex';
-        }
+          if (!res.ok || !resData.success) {
+            btnTakeSnapshot.disabled = false;
+            btnTakeSnapshot.textContent = origBtnText;
+            const errMsg = (resData && resData.error) ? resData.error : 'No clear face detected in snapshot. Please face the camera directly in good lighting and try again.';
+            if (cameraStatusMsg) {
+              cameraStatusMsg.textContent = '⚠️ ' + errMsg;
+              cameraStatusMsg.style.color = '#dc2626';
+            }
+            if (captureStatus) {
+              captureStatus.textContent = '⚠️ ' + errMsg;
+              captureStatus.style.color = '#dc2626';
+            }
+            return;
+          }
 
-        stopFaceCamera();
+          // SUCCESS: AI Face Biometrics extracted!
+          currentCapturedBlob = blob;
+          capturedFaceEmbedding = resData.embedding;
+          capturedPhotoData = resData.photo_data || null;
+          capturedPhotoFilename = resData.photo_filename || 'face_capture.jpg';
+
+          try {
+            const file = new File([blob], 'face_capture.jpg', { type: 'image/jpeg' });
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            inputPhoto.files = dt.files;
+          } catch (err) {
+            console.warn('DataTransfer fallback used for photo upload:', err);
+          }
+
+          if (captureStatus) {
+            captureStatus.textContent = '✓ AI Face Biometrics Generated & Registered (128-d Vector Ready)';
+            captureStatus.style.color = '#198754';
+          }
+
+          // Update photo preview thumbnail in entry modal
+          const photoPreviewBox = document.getElementById('currentPhotoPreview');
+          const editThumb = document.getElementById('editPhotoThumb');
+          const editNote = document.getElementById('editPhotoNote');
+          if (photoPreviewBox && editThumb) {
+            editThumb.src = capturedPhotoData || URL.createObjectURL(blob);
+            if (editNote) editNote.textContent = '✓ AI Face Biometrics generated & verified. Ready to save.';
+            photoPreviewBox.style.display = 'flex';
+          }
+
+          btnTakeSnapshot.disabled = false;
+          btnTakeSnapshot.textContent = origBtnText;
+          stopFaceCamera();
+        } catch (netErr) {
+          console.error('Error during biometric extraction:', netErr);
+          btnTakeSnapshot.disabled = false;
+          btnTakeSnapshot.textContent = origBtnText;
+          if (cameraStatusMsg) {
+            cameraStatusMsg.textContent = '⚠️ Network error during biometric generation: ' + netErr.message;
+            cameraStatusMsg.style.color = '#dc2626';
+          }
+        }
       }, 'image/jpeg', 0.9);
     });
   }
 
-  // Live preview when selecting image via file input
+  // Live preview & biometrics extraction when selecting image via file input
   if (inputPhoto) {
-    inputPhoto.addEventListener('change', function () {
+    inputPhoto.addEventListener('change', async function () {
       if (this.files && this.files[0]) {
+        const file = this.files[0];
         currentCapturedBlob = null;
+        capturedFaceEmbedding = null;
+        capturedPhotoData = null;
+        capturedPhotoFilename = null;
+
         const photoPreviewBox = document.getElementById('currentPhotoPreview');
         const editThumb = document.getElementById('editPhotoThumb');
         const editNote = document.getElementById('editPhotoNote');
         if (photoPreviewBox && editThumb) {
-          editThumb.src = URL.createObjectURL(this.files[0]);
-          if (editNote) editNote.textContent = `✓ Selected photo: ${this.files[0].name}`;
+          editThumb.src = URL.createObjectURL(file);
+          if (editNote) editNote.textContent = `⏳ Verifying face biometrics in ${file.name}...`;
           photoPreviewBox.style.display = 'flex';
         }
         if (captureStatus) {
-          captureStatus.textContent = `✓ Selected photo: ${this.files[0].name}`;
-          captureStatus.style.color = '#198754';
+          captureStatus.textContent = `⏳ Analyzing face biometrics in ${file.name}...`;
+          captureStatus.style.color = '#0284c7';
+        }
+
+        try {
+          const fd = new FormData();
+          fd.append('photo', file);
+          const res = await fetch('/api/face/extract-biometrics', {
+            method: 'POST',
+            body: fd
+          });
+          const resData = await res.json();
+          if (res.ok && resData.success && resData.embedding) {
+            capturedFaceEmbedding = resData.embedding;
+            capturedPhotoData = resData.photo_data || null;
+            capturedPhotoFilename = resData.photo_filename || file.name;
+            if (captureStatus) {
+              captureStatus.textContent = '✓ AI Face Biometrics Generated & Registered (128-d Vector Ready)';
+              captureStatus.style.color = '#198754';
+            }
+            if (editNote) editNote.textContent = `✓ AI Face Biometrics verified in ${file.name}.`;
+          } else {
+            const warn = (resData && resData.error) ? resData.error : 'No face detected in photo.';
+            if (captureStatus) {
+              captureStatus.textContent = `⚠️ ${warn}`;
+              captureStatus.style.color = '#d97706';
+            }
+            if (editNote) editNote.textContent = `⚠️ ${warn}`;
+          }
+        } catch (e) {
+          if (captureStatus) {
+            captureStatus.textContent = `✓ Selected photo: ${file.name}`;
+            captureStatus.style.color = '#198754';
+          }
         }
       }
     });
   }
+
 
   // Also stop face camera when employee entry modal closes
   const closeEntryModalBtn2 = document.getElementById('closeEntryModal');

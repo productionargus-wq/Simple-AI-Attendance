@@ -55,23 +55,23 @@ _detector_size = (320, 240)
 
 
 def ensure_models_available():
-    """Ensures YuNet and SFace ONNX models exist locally; downloads if missing."""
+    """Ensures YuNet and SFace ONNX models exist locally; downloads if missing or truncated."""
     os.makedirs(MODELS_DIR, exist_ok=True)
-    if not os.path.exists(YUNET_PATH):
+    if not os.path.exists(YUNET_PATH) or os.path.getsize(YUNET_PATH) < 100000:
         print(f"Downloading YuNet model to {YUNET_PATH}...")
         try:
             req = urllib.request.Request(YUNET_URL, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=15) as resp, open(YUNET_PATH, 'wb') as out_f:
+            with urllib.request.urlopen(req, timeout=20) as resp, open(YUNET_PATH, 'wb') as out_f:
                 out_f.write(resp.read())
             print("YuNet model downloaded successfully.")
         except Exception as e:
             print(f"Error downloading YuNet: {e}")
 
-    if not os.path.exists(SFACE_PATH):
+    if not os.path.exists(SFACE_PATH) or os.path.getsize(SFACE_PATH) < 10000000:
         print(f"Downloading SFace model to {SFACE_PATH}...")
         try:
             req = urllib.request.Request(SFACE_URL, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=15) as resp, open(SFACE_PATH, 'wb') as out_f:
+            with urllib.request.urlopen(req, timeout=30) as resp, open(SFACE_PATH, 'wb') as out_f:
                 out_f.write(resp.read())
             print("SFace model downloaded successfully.")
         except Exception as e:
@@ -232,17 +232,20 @@ def extract_face_embedding_from_image(image_bytes_or_path):
         face = detect_face_deep(img)
 
         if face is not None and recognizer is not None:
-            # SFace geometric alignment using 5 facial landmarks
-            aligned_face = recognizer.alignCrop(img, face)
-            raw_feature = recognizer.feature(aligned_face)
+            try:
+                # SFace geometric alignment using 5 facial landmarks
+                aligned_face = recognizer.alignCrop(img, face)
+                raw_feature = recognizer.feature(aligned_face)
 
-            # L2 normalize
-            norm = np.linalg.norm(raw_feature)
-            if norm > 0:
-                normalized_feat = raw_feature / norm
-            else:
-                normalized_feat = raw_feature
-            return normalized_feat.flatten().tolist()
+                # L2 normalize
+                norm = np.linalg.norm(raw_feature)
+                if norm > 0:
+                    normalized_feat = raw_feature / norm
+                else:
+                    normalized_feat = raw_feature
+                return normalized_feat.flatten().tolist()
+            except Exception as align_err:
+                print(f"YuNet/SFace alignment fallback notice: {align_err}")
 
         # Step 2: Haar Cascade fallback if DNN is unavailable or fails
         cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
