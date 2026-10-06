@@ -49,6 +49,18 @@
       align-items: center;
       gap: 12px;
     }
+    .portal-logo-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background-color: #ffffff;
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
     .portal-nav-right {
       display: flex;
       align-items: center;
@@ -243,7 +255,9 @@
   <!-- Portal Navigation Header -->
   <header class="portal-nav">
     <div class="portal-nav-left">
-      <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="Argus" style="width: 28px; height: 28px; object-fit: contain;">
+      <div class="portal-logo-badge">
+        <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="Argus" style="width: 22px; height: 22px; object-fit: contain;">
+      </div>
       <div>
         <div class="portal-nav-title" style="font-size: 16px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">ARGUS ATTENDANCE</div>
         <div class="portal-nav-subtitle" style="font-size: 10px; color: #ffd166; font-weight: 700; letter-spacing: 0.8px;">EMPLOYEE SELF-SERVICE PORTAL</div>
@@ -388,59 +402,31 @@
     {% if perm_leave %}
     <!-- Section: Leave & Permission (Image 1) -->
     <div class="portal-card" id="leavePermissionSection" style="margin-top: 20px;">
-      <div class="portal-card-header">
+      <div class="portal-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 16px;">📅</span>
-          <span>Leave &amp; Permission</span>
+          <span style="font-weight: 800;">Leave &amp; Permission</span>
         </div>
-        <div style="font-size: 11px; font-weight: normal; color: #64748b;">
-          Apply for leave or permission and view your request status
-        </div>
-      </div>
-
-      <!-- Dual Action Cards (Image 1) -->
-      <div class="leave-action-grid">
-        <!-- 1. Apply for Leave -->
-        <div class="leave-action-card leave-card-blue" id="cardApplyLeave" role="button" tabindex="0" onclick="if(window.openLeaveModal) window.openLeaveModal();">
-          <div class="leave-action-left">
-            <div class="leave-icon-circle icon-circle-blue">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="16" y1="2" x2="16" y2="6"></line>
-                <line x1="8" y1="2" x2="8" y2="6"></line>
-                <line x1="3" y1="10" x2="21" y2="10"></line>
-              </svg>
-            </div>
-            <div>
-              <div class="leave-action-title">Apply for Leave</div>
-              <div class="leave-action-sub">Full Day Leave / Half Day Leave</div>
-            </div>
-          </div>
-          <button type="button" class="btn-circle-arrow btn-circle-blue" id="btnArrowLeave" title="Apply for Leave" onclick="event.stopPropagation(); if(window.openLeaveModal) window.openLeaveModal();">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"></polyline>
+        <div style="display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: normal; flex-wrap: wrap;">
+          <button type="button" id="btnHeaderApplyLeave" class="btn-portal-primary" 
+            style="padding: 5px 14px; font-size: 11px; font-weight: 700; background-color: #0284c7; color: #ffffff; border: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; width: auto;" 
+            onclick="if(window.openLeaveModal) window.openLeaveModal();">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
             </svg>
+            Apply for Leave
           </button>
-        </div>
-
-        <!-- 2. Apply for Permission -->
-        <div class="leave-action-card leave-card-green" id="cardApplyPerm" role="button" tabindex="0" onclick="if(window.openPermModal) window.openPermModal();">
-          <div class="leave-action-left">
-            <div class="leave-icon-circle icon-circle-green">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-            </div>
-            <div>
-              <div class="leave-action-title">Apply for Permission</div>
-              <div class="leave-action-sub">Short Leave / Work from Outside</div>
-            </div>
-          </div>
-          <button type="button" class="btn-circle-arrow btn-circle-green" id="btnArrowPerm" title="Apply for Permission" onclick="event.stopPropagation(); if(window.openPermModal) window.openPermModal();">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"></polyline>
+          <button type="button" id="btnHeaderApplyPerm" class="btn-portal-primary" 
+            style="padding: 5px 14px; font-size: 11px; font-weight: 700; background-color: #10b981; color: #ffffff; border: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; width: auto;" 
+            onclick="if(window.openPermModal) window.openPermModal();">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
+            Apply for Permission
           </button>
         </div>
       </div>
@@ -457,8 +443,8 @@
             <a href="javascript:void(0)" id="linkViewAllRequests" style="font-size: 12px; font-weight: 700; color: #0284c7; text-decoration: none;">View All &rarr;</a>
           </div>
 
-          <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-            <table class="employee-table" id="empRequestsTable" style="width: 100%; border-collapse: collapse;">
+          <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+            <table class="employee-table" id="empRequestsTable" style="width: 100%; min-width: 680px; border-collapse: collapse;">
               <thead>
                 <tr style="background: #f8fafc;">
                   <th style="padding: 8px 10px; font-size: 11px; font-weight: 700; color: #64748b; text-align: center; white-space: nowrap;">SL NO</th>
@@ -482,8 +468,8 @@
 
         <!-- Right: My Leave Balance -->
         <div class="leave-balance-box">
-          <div class="leave-sub-header">
-            <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #1e293b; font-size: 13px;">
+          <div class="leave-sub-header" style="margin-bottom: 8px; padding-bottom: 6px;">
+            <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #1e293b; font-size: 12.5px;">
               <span>🥧</span>
               <span>My Leave Balance</span>
             </div>
@@ -1434,6 +1420,7 @@
     const modalApplyLeave = document.getElementById('modalApplyLeave');
     const cardApplyLeave = document.getElementById('cardApplyLeave');
     const btnArrowLeave = document.getElementById('btnArrowLeave');
+    const btnHeaderApplyLeave = document.getElementById('btnHeaderApplyLeave');
     const closeLeaveModal = document.getElementById('closeLeaveModal');
     const btnCancelLeave = document.getElementById('btnCancelLeave');
     const formApplyLeave = document.getElementById('formApplyLeave');
@@ -1442,6 +1429,7 @@
     const modalApplyPermission = document.getElementById('modalApplyPermission');
     const cardApplyPerm = document.getElementById('cardApplyPerm');
     const btnArrowPerm = document.getElementById('btnArrowPerm');
+    const btnHeaderApplyPerm = document.getElementById('btnHeaderApplyPerm');
     const closePermModal = document.getElementById('closePermModal');
     const btnCancelPerm = document.getElementById('btnCancelPerm');
     const formApplyPermission = document.getElementById('formApplyPermission');
@@ -1615,7 +1603,8 @@
     }
     window.closePermModalFunc = closePermModalFunc;
 
-    // Attach event listeners to Cards and Arrow buttons
+    // Attach event listeners to Header buttons and Cards
+    if (btnHeaderApplyLeave) btnHeaderApplyLeave.addEventListener('click', openLeaveModal);
     if (cardApplyLeave) cardApplyLeave.addEventListener('click', openLeaveModal);
     if (btnArrowLeave) {
       btnArrowLeave.addEventListener('click', (e) => {
@@ -1627,6 +1616,7 @@
     if (closeLeaveModal) closeLeaveModal.addEventListener('click', closeLeaveModalFunc);
     if (btnCancelLeave) btnCancelLeave.addEventListener('click', closeLeaveModalFunc);
 
+    if (btnHeaderApplyPerm) btnHeaderApplyPerm.addEventListener('click', openPermModal);
     if (cardApplyPerm) cardApplyPerm.addEventListener('click', openPermModal);
     if (btnArrowPerm) {
       btnArrowPerm.addEventListener('click', (e) => {
@@ -1677,38 +1667,66 @@
         if (!data.success) return;
 
         const b = data.balances;
-        // Progress Bars
-        const clAvail = b.casual_leave_available ?? 0;
-        const clTot = b.casual_leave_total || 12;
-        const clPct = Math.min(100, Math.round((clAvail / clTot) * 100));
-        const elCL = document.getElementById('barLabelCL');
-        const fillCL = document.getElementById('barFillCL');
-        if (elCL) elCL.textContent = `${clAvail} / ${clTot} Days`;
-        if (fillCL) fillCL.style.width = `${clPct}%`;
 
-        const slAvail = b.sick_leave_available ?? 0;
-        const slTot = b.sick_leave_total || 12;
-        const slPct = Math.min(100, Math.round((slAvail / slTot) * 100));
-        const elSL = document.getElementById('barLabelSL');
-        const fillSL = document.getElementById('barFillSL');
-        if (elSL) elSL.textContent = `${slAvail} / ${slTot} Days`;
-        if (fillSL) fillSL.style.width = `${slPct}%`;
+        // Check for dynamic custom leaves configured for employee
+        if (b.custom_leaves && Array.isArray(b.custom_leaves) && b.custom_leaves.length > 0) {
+          const container = document.getElementById('empLeaveBarsContainer');
+          if (container) {
+            const colors = ['#0284c7', '#0d9488', '#6366f1', '#f59e0b', '#ec4899', '#8b5cf6'];
+            container.innerHTML = b.custom_leaves.map((lv, idx) => {
+              const name = lv.name || 'Leave';
+              const avail = lv.available ?? 0;
+              const tot = lv.total || 0;
+              const unit = lv.unit || 'Days';
+              const pct = tot > 0 ? Math.min(100, Math.round((avail / tot) * 100)) : 0;
+              const color = colors[idx % colors.length];
+              return `
+                <div class="balance-bar-item">
+                  <div class="balance-bar-header">
+                    <span>${name}</span>
+                    <strong>${avail} / ${tot} ${unit}</strong>
+                  </div>
+                  <div class="balance-track">
+                    <div class="balance-fill" style="width: ${pct}%; background-color: ${color};"></div>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        } else {
+          // Progress Bars fallback
+          const clAvail = b.casual_leave_available ?? 0;
+          const clTot = b.casual_leave_total || 12;
+          const clPct = Math.min(100, Math.round((clAvail / clTot) * 100));
+          const elCL = document.getElementById('barLabelCL');
+          const fillCL = document.getElementById('barFillCL');
+          if (elCL) elCL.textContent = `${clAvail} / ${clTot} Days`;
+          if (fillCL) fillCL.style.width = `${clPct}%`;
 
-        const elAvail = b.earned_leave_available ?? 0;
-        const elTot = b.earned_leave_total || 12;
-        const elPct = Math.min(100, Math.round((elAvail / elTot) * 100));
-        const elEL = document.getElementById('barLabelEL');
-        const fillEL = document.getElementById('barFillEL');
-        if (elEL) elEL.textContent = `${elAvail} / ${elTot} Days`;
-        if (fillEL) fillEL.style.width = `${elPct}%`;
+          const slAvail = b.sick_leave_available ?? 0;
+          const slTot = b.sick_leave_total || 12;
+          const slPct = Math.min(100, Math.round((slAvail / slTot) * 100));
+          const elSL = document.getElementById('barLabelSL');
+          const fillSL = document.getElementById('barFillSL');
+          if (elSL) elSL.textContent = `${slAvail} / ${slTot} Days`;
+          if (fillSL) fillSL.style.width = `${slPct}%`;
 
-        const permAvail = b.permission_hours_available ?? 16;
-        const permTot = b.permission_hours_total || 16;
-        const permPct = Math.min(100, Math.round((permAvail / permTot) * 100));
-        const elPerm = document.getElementById('barLabelPerm');
-        const fillPerm = document.getElementById('barFillPerm');
-        if (elPerm) elPerm.textContent = `${permAvail} / ${permTot} Hrs`;
-        if (fillPerm) fillPerm.style.width = `${permPct}%`;
+          const elAvail = b.earned_leave_available ?? 0;
+          const elTot = b.earned_leave_total || 12;
+          const elPct = Math.min(100, Math.round((elAvail / elTot) * 100));
+          const elEL = document.getElementById('barLabelEL');
+          const fillEL = document.getElementById('barFillEL');
+          if (elEL) elEL.textContent = `${elAvail} / ${elTot} Days`;
+          if (fillEL) fillEL.style.width = `${elPct}%`;
+
+          const permAvail = b.permission_hours_available ?? 16;
+          const permTot = b.permission_hours_total || 16;
+          const permPct = Math.min(100, Math.round((permAvail / permTot) * 100));
+          const elPerm = document.getElementById('barLabelPerm');
+          const fillPerm = document.getElementById('barFillPerm');
+          if (elPerm) elPerm.textContent = `${permAvail} / ${permTot} Hrs`;
+          if (fillPerm) fillPerm.style.width = `${permPct}%`;
+        }
 
         // Modal 1 Floating box badges
         const mCL = document.getElementById('modalBalCL');
