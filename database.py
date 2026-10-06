@@ -1598,7 +1598,49 @@ def process_company_timeout_entries(company_id=None):
         if entry_dt.tzinfo is None:
             entry_dt = entry_dt.replace(tzinfo=IST)
             
-        auto_exit_dt = entry_dt + timedelta(minutes=shift_mins)
+        # Determine employee's scheduled shift end time and calculate auto exit timestamp
+        shift_end_str = str(emp.get('shift_end') or '06:00 PM').strip() if emp else '06:00 PM'
+        end_time_obj = None
+        for t_fmt in ['%I:%M %p', '%I:%M:%S %p', '%H:%M', '%H:%M:%S']:
+            try:
+                end_time_obj = datetime.strptime(shift_end_str, t_fmt).time()
+                break
+            except Exception:
+                pass
+        if not end_time_obj:
+            end_time_obj = time(18, 0)  # Default 06:00 PM
+
+        # Scheduled shift end on the exact entry date
+        scheduled_end_dt = datetime.combine(entry_dt.date(), end_time_obj).replace(tzinfo=IST)
+
+        shift_start_str = str(emp.get('shift_start') or '09:00 AM').strip() if emp else '09:00 AM'
+        start_time_obj = None
+        for t_fmt in ['%I:%M %p', '%I:%M:%S %p', '%H:%M', '%H:%M:%S']:
+            try:
+                start_time_obj = datetime.strptime(shift_start_str, t_fmt).time()
+                break
+            except Exception:
+                pass
+        
+        is_night_shift = False
+        if start_time_obj and end_time_obj:
+            is_night_shift = (end_time_obj <= start_time_obj)
+
+        if is_night_shift:
+            if scheduled_end_dt <= entry_dt:
+                scheduled_end_dt += timedelta(days=1)
+            auto_exit_dt = scheduled_end_dt
+        else:
+            # Daytime shift: auto timeout MUST remain on the SAME date as entry_dt (never roll into next day)
+            shift_plus_mins = entry_dt + timedelta(minutes=shift_mins)
+            if shift_plus_mins.date() == entry_dt.date():
+                auto_exit_dt = max(scheduled_end_dt, shift_plus_mins) if entry_dt < scheduled_end_dt else shift_plus_mins
+            else:
+                if entry_dt < scheduled_end_dt:
+                    auto_exit_dt = scheduled_end_dt
+                else:
+                    same_day_end = datetime.combine(entry_dt.date(), time(23, 59, 59)).replace(tzinfo=IST)
+                    auto_exit_dt = min(entry_dt + timedelta(minutes=30), same_day_end)
         
         # If current time is strictly past scheduled shift exit, auto timeout punch-out
         if now >= auto_exit_dt:
@@ -1632,6 +1674,7 @@ def process_company_timeout_entries(company_id=None):
                     'day_credit_type': day_credit_type,
                     'working_salary': working_salary,
                     'is_timeout': 1,
+                    'exit_status': 'Auto Timeout',
                     'entry_type': rep.get('entry_type', 'proper'),
                     'updated_at': now.isoformat()
                 }}
@@ -1668,6 +1711,7 @@ def process_company_timeout_entries(company_id=None):
                     'exit_distance': '0.0M (AUTO TIMEOUT)',
                     'formatted_distance': '0.0M (AUTO TIMEOUT)',
                     'is_timeout': 1,
+                    'exit_status': 'Auto Timeout',
                     'created_at': now.isoformat()
                 })
 
@@ -1867,7 +1911,10 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
         s_cfg = emp_shifts.get(c.get('employee_name', ''), {'start': '09:00 AM', 'end': '06:00 PM'})
         e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False)
         c['entry_status'] = e_status
-        c['exit_status'] = x_status
+        if tab == 'timeout' or c.get('is_timeout') or 'AUTO TIMEOUT' in str(c.get('exit_distance', '')).upper() or 'AUTO PUNCH-OUT' in str(c.get('exit_location', '')).upper():
+            c['exit_status'] = 'Auto Timeout'
+        else:
+            c['exit_status'] = x_status
 
         data.append(c)
     return {
@@ -2698,7 +2745,10 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
             s_cfg = emp_shifts.get(c.get('employee_name', ''), {'start': '09:00 AM', 'end': '06:00 PM'})
             e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False)
             c['entry_status'] = e_status
-            c['exit_status'] = x_status
+            if c.get('is_timeout') or 'AUTO TIMEOUT' in str(c.get('exit_distance', '')).upper() or 'AUTO PUNCH-OUT' in str(c.get('exit_location', '')).upper():
+                c['exit_status'] = 'Auto Timeout'
+            else:
+                c['exit_status'] = x_status
             data.append(c)
         return {
             'total': total,
@@ -2730,7 +2780,10 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         s_cfg = emp_shifts.get(c.get('employee_name', ''), {'start': '09:00 AM', 'end': '06:00 PM'})
         e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False)
         c['entry_status'] = e_status
-        c['exit_status'] = x_status
+        if c.get('is_timeout') or 'AUTO TIMEOUT' in str(c.get('exit_distance', '')).upper() or 'AUTO PUNCH-OUT' in str(c.get('exit_location', '')).upper():
+            c['exit_status'] = 'Auto Timeout'
+        else:
+            c['exit_status'] = x_status
         c['is_manual'] = False
         c['sort_key'] = str(c.get('date') or c.get('created_at') or c.get('entry_time') or '')
         combined.append(c)
