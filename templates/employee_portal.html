@@ -623,9 +623,9 @@
     {% endif %}
 
     <!-- ================= MODAL: APPLY FOR LEAVE (Image 2) ================= -->
-    <div class="modal-overlay" id="modalApplyLeave" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center;">
-      <div class="modal-box-leave" style="max-width: 600px; width: 95%; max-height: 90vh; overflow-y: auto; position: relative;">
-        <div class="modal-header-leave">
+    <div class="modal-overlay" id="modalApplyLeave" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center; padding: 16px;">
+      <div class="modal-box-leave" style="max-width: 580px; width: 100%; max-height: 88vh; display: flex; flex-direction: column; position: relative; border-radius: 12px; overflow: hidden; background: #ffffff; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.25);">
+        <div class="modal-header-leave" style="flex-shrink: 0; padding: 12px 18px;">
           <div style="display: flex; align-items: center; gap: 10px;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -638,15 +638,15 @@
           <button type="button" class="modal-close-btn" id="closeLeaveModal" style="background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1;">&times;</button>
         </div>
 
-        <form id="formApplyLeave">
+        <form id="formApplyLeave" style="display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; margin: 0;">
           <input type="hidden" id="editLeaveRequestId" name="edit_request_id" value="">
-          <div style="padding: 20px;">
-            <div id="leaveAlert" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; margin-bottom: 14px;"></div>
+          <div style="padding: 14px 18px; overflow-y: auto; flex: 1;">
+            <div id="leaveAlert" style="display: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 10px;"></div>
 
             <!-- Top Row: Employee Info (Left) & Leave Balance Box (Right) -->
-            <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; margin-bottom: 16px;">
+            <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 14px; margin-bottom: 12px;">
               <div>
-                <div style="margin-bottom: 10px;">
+                <div style="margin-bottom: 8px;">
                   <label class="form-label-leave">Employee Name</label>
                   <input type="text" class="form-input-readonly" value="{{ employee.employee_name or session.get('employee_name') or '' }}" readonly>
                 </div>
@@ -657,28 +657,30 @@
               </div>
 
               <!-- Leave Balance Floating Box (Image 2) -->
-              <div class="modal-balance-box">
-                <div style="font-size: 11.5px; font-weight: 700; color: #0369a1; display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+              <div class="modal-balance-box" id="modalLeaveBalanceBox" style="padding: 8px 12px;">
+                <div style="font-size: 11px; font-weight: 700; color: #0369a1; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
                   <span>🗄</span>
                   <span>Leave Balance</span>
                 </div>
-                <div class="modal-bal-row">
-                  <span style="font-size: 11.5px; color: #334155;">Casual Leave (CL)</span>
-                  <span class="badge-bal-blue" id="modalBalCL">0 days</span>
-                </div>
-                <div class="modal-bal-row">
-                  <span style="font-size: 11.5px; color: #334155;">Sick Leave (SL)</span>
-                  <span class="badge-bal-green" id="modalBalSL">0 days</span>
-                </div>
-                <div class="modal-bal-row">
-                  <span style="font-size: 11.5px; color: #334155;">Earned Leave (EL)</span>
-                  <span class="badge-bal-yellow" id="modalBalEL">0 days</span>
+                <div id="modalLeaveBalanceRows" style="display: flex; flex-direction: column; gap: 3px;">
+                  <div class="modal-bal-row">
+                    <span style="font-size: 11px; color: #334155;">Casual Leave (CL)</span>
+                    <span class="badge-bal-blue" id="modalBalCL">0 days</span>
+                  </div>
+                  <div class="modal-bal-row">
+                    <span style="font-size: 11px; color: #334155;">Sick Leave (SL)</span>
+                    <span class="badge-bal-green" id="modalBalSL">0 days</span>
+                  </div>
+                  <div class="modal-bal-row">
+                    <span style="font-size: 11px; color: #334155;">Earned Leave (EL)</span>
+                    <span class="badge-bal-yellow" id="modalBalEL">0 days</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             <!-- Leave Type -->
-            <div style="margin-bottom: 14px;">
+            <div style="margin-bottom: 12px;">
               <label class="form-label-leave">Leave Type <span style="color: #dc2626;">*</span></label>
               <select class="form-input-leave" id="leaveInputType" name="leave_type" required>
                 <option value="" disabled selected>-- Select Leave Type --</option>
@@ -689,7 +691,7 @@
             </div>
 
             <!-- Dates: From Date & To Date -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
               <div>
                 <label class="form-label-leave">From Date <span style="color: #dc2626;">*</span></label>
                 <input type="date" class="form-input-leave" id="leaveFromDate" name="from_date" required>
@@ -701,23 +703,23 @@
             </div>
 
             <!-- Session: Full Day / Half Day Radio Buttons (Day-based / Half-day-based employees) -->
-            <div id="leaveSessionDayBased" style="margin-bottom: 14px;">
+            <div id="leaveSessionDayBased" style="margin-bottom: 12px;">
               <label class="form-label-leave">Session <span style="color: #dc2626;">*</span></label>
               <div class="session-radio-group">
                 <label class="session-radio-label active" id="labelFullDay">
-                  <input type="radio" name="session" value="Full Day" checked style="accent-color: #0284c7;">
+                  <input type="radio" name="session" id="radioFullDay" value="Full Day" checked style="accent-color: #0284c7;">
                   <span>Full Day</span>
                 </label>
                 <label class="session-radio-label" id="labelHalfDay">
-                  <input type="radio" name="session" value="Half Day" style="accent-color: #0284c7;">
+                  <input type="radio" name="session" id="radioHalfDay" value="Half Day" style="accent-color: #0284c7;">
                   <span>Half Day</span>
                 </label>
               </div>
             </div>
 
             <!-- Hourly Leave Fields (Hourly-based employees) -->
-            <div id="leaveSessionHourlyBased" style="display: none; margin-bottom: 14px;">
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+            <div id="leaveSessionHourlyBased" style="display: none; margin-bottom: 12px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                 <div>
                   <label class="form-label-leave">From Time <span style="color: #dc2626;">*</span></label>
                   <input type="time" class="form-input-leave" id="leaveFromTime" name="leave_from_time" value="09:00">
@@ -734,23 +736,23 @@
             </div>
 
             <!-- Reason -->
-            <div style="margin-bottom: 14px;">
+            <div style="margin-bottom: 12px;">
               <label class="form-label-leave">Reason <span style="color: #dc2626;">*</span></label>
-              <textarea class="form-input-leave" id="leaveReason" name="reason" rows="3" maxlength="500" placeholder="Enter reason for leave request..." required style="resize: vertical;"></textarea>
-              <div style="text-align: right; font-size: 11px; color: #94a3b8; margin-top: 3px;" id="leaveReasonCounter">0/500</div>
+              <textarea class="form-input-leave" id="leaveReason" name="reason" rows="2" maxlength="500" placeholder="Enter reason for leave request..." required style="resize: vertical; min-height: 52px;"></textarea>
+              <div style="text-align: right; font-size: 11px; color: #94a3b8; margin-top: 2px;" id="leaveReasonCounter">0/500</div>
             </div>
 
             <!-- Attachment (Optional) -->
-            <div style="margin-bottom: 6px;">
+            <div style="margin-bottom: 4px;">
               <label class="form-label-leave">Attachment (Optional)</label>
-              <div class="file-upload-box">
+              <div class="file-upload-box" style="padding: 8px 12px;">
                 <input type="file" id="leaveAttachment" name="attachment" accept=".pdf,.jpg,.jpeg,.png">
-                <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Upload supporting document (PDF, JPG, PNG) (Max 5 MB)</span>
+                <span style="font-size: 10.5px; color: #64748b; margin-top: 3px; display: block;">Upload supporting document (PDF, JPG, PNG) (Max 5 MB)</span>
               </div>
             </div>
           </div>
 
-          <div class="modal-footer-leave">
+          <div class="modal-footer-leave" style="flex-shrink: 0; padding: 10px 18px; background: #f8fafc; border-top: 1px solid #e2e8f0;">
             <button type="button" class="btn-leave-cancel" id="btnCancelLeave">Cancel</button>
             <button type="submit" class="btn-leave-submit" id="btnSubmitLeave">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -765,9 +767,9 @@
     </div>
 
     <!-- ================= MODAL: APPLY FOR PERMISSION (Image 3) ================= -->
-    <div class="modal-overlay" id="modalApplyPermission" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center;">
-      <div class="modal-box-perm" style="max-width: 580px; width: 95%; max-height: 90vh; overflow-y: auto; position: relative;">
-        <div class="modal-header-perm">
+    <div class="modal-overlay" id="modalApplyPermission" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center; padding: 16px;">
+      <div class="modal-box-perm" style="max-width: 580px; width: 100%; max-height: 88vh; display: flex; flex-direction: column; position: relative; border-radius: 12px; overflow: hidden; background: #ffffff; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.25);">
+        <div class="modal-header-perm" style="flex-shrink: 0; padding: 12px 18px;">
           <div style="display: flex; align-items: center; gap: 10px;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -780,21 +782,21 @@
           <button type="button" class="modal-close-btn" id="closePermModal" style="background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1;">&times;</button>
         </div>
 
-        <form id="formApplyPermission">
+        <form id="formApplyPermission" style="display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; margin: 0;">
           <input type="hidden" id="editPermRequestId" name="edit_request_id" value="">
-          <div style="padding: 20px;">
-            <div id="permAlert" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; margin-bottom: 14px;"></div>
+          <div style="padding: 14px 18px; overflow-y: auto; flex: 1;">
+            <div id="permAlert" style="display: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 10px;"></div>
 
             <!-- Employee Header Box (Image 3) -->
-            <div class="perm-emp-header-box">
+            <div class="perm-emp-header-box" style="padding: 8px 12px; margin-bottom: 10px;">
               <div style="display: flex; align-items: center; gap: 10px;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
                 <div>
-                  <div style="font-size: 10.5px; color: #64748b; font-weight: 600;">Employee Name</div>
-                  <div style="font-size: 13px; font-weight: 800; color: #0f172a;">{{ employee.employee_name or session.get('employee_name') or '' }}</div>
+                  <div style="font-size: 10px; color: #64748b; font-weight: 600;">Employee Name</div>
+                  <div style="font-size: 12.5px; font-weight: 800; color: #0f172a;">{{ employee.employee_name or session.get('employee_name') or '' }}</div>
                 </div>
               </div>
 
@@ -805,14 +807,14 @@
                   <line x1="12" y1="17" x2="12" y2="21"></line>
                 </svg>
                 <div>
-                  <div style="font-size: 10.5px; color: #64748b; font-weight: 600;">Employee ID</div>
-                  <div style="font-size: 13px; font-weight: 800; color: #0f172a;">{{ employee.employee_id or employee.emp_id or employee.id or session.get('employee_id') or '' }}</div>
+                  <div style="font-size: 10px; color: #64748b; font-weight: 600;">Employee ID</div>
+                  <div style="font-size: 12.5px; font-weight: 800; color: #0f172a;">{{ employee.employee_id or employee.emp_id or employee.id or session.get('employee_id') or '' }}</div>
                 </div>
               </div>
             </div>
 
             <!-- Permission Type & Date -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
               <div>
                 <label class="form-label-leave">Permission Type <span style="color: #dc2626;">*</span></label>
                 <select class="form-input-leave" id="permInputType" name="permission_type" required>
@@ -829,7 +831,7 @@
             </div>
 
             <!-- Times: From Time & To Time -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
               <div>
                 <label class="form-label-leave">From Time <span style="color: #dc2626;">*</span></label>
                 <input type="time" class="form-input-leave" id="permFromTime" name="from_time" value="10:00" required>
@@ -841,31 +843,31 @@
             </div>
 
             <!-- Duration (Auto calculated) -->
-            <div style="margin-bottom: 14px;">
+            <div style="margin-bottom: 10px;">
               <label class="form-label-leave">Duration</label>
               <input type="text" class="form-input-readonly" id="permDuration" name="duration" value="02:00 (HH:MM)" readonly>
             </div>
 
             <!-- Reason -->
-            <div style="margin-bottom: 14px;">
+            <div style="margin-bottom: 10px;">
               <label class="form-label-leave">Reason <span style="color: #dc2626;">*</span></label>
-              <textarea class="form-input-leave" id="permReason" name="reason" rows="3" maxlength="500" placeholder="Enter reason for permission request..." required style="resize: vertical;"></textarea>
-              <div style="text-align: right; font-size: 11px; color: #94a3b8; margin-top: 3px;" id="permReasonCounter">0/500</div>
+              <textarea class="form-input-leave" id="permReason" name="reason" rows="2" maxlength="500" placeholder="Enter reason for permission request..." required style="resize: vertical; min-height: 52px;"></textarea>
+              <div style="text-align: right; font-size: 11px; color: #94a3b8; margin-top: 2px;" id="permReasonCounter">0/500</div>
             </div>
 
             <!-- Attachment (Optional) -->
-            <div style="margin-bottom: 14px;">
+            <div style="margin-bottom: 10px;">
               <label class="form-label-leave">Attachment (Optional)</label>
-              <div class="file-upload-box">
+              <div class="file-upload-box" style="padding: 8px 12px;">
                 <input type="file" id="permAttachment" name="attachment" accept=".pdf,.jpg,.jpeg,.png">
-                <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">PDF, JPG, PNG (Max 2 MB)</span>
+                <span style="font-size: 10.5px; color: #64748b; margin-top: 3px; display: block;">PDF, JPG, PNG (Max 2 MB)</span>
               </div>
             </div>
 
             <!-- Permission Balance Card (Image 3) -->
-            <div class="perm-balance-summary-box">
-              <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #0284c7; margin-bottom: 8px;">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="perm-balance-summary-box" id="modalPermBalanceBox" style="padding: 8px 12px; margin-bottom: 4px;">
+              <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: #0284c7; margin-bottom: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="10"></circle>
                   <polyline points="12 6 12 12 16 14"></polyline>
                 </svg>
@@ -873,22 +875,22 @@
               </div>
               <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: left;">
                 <div>
-                  <div style="font-size: 10.5px; color: #64748b;">Total Permission Hours</div>
-                  <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-top: 2px;" id="modalPermTotal">16:00 Hrs</div>
+                  <div style="font-size: 10px; color: #64748b;">Total Permission Hours</div>
+                  <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-top: 2px;" id="modalPermTotal">16:00 Hrs</div>
                 </div>
                 <div>
-                  <div style="font-size: 10.5px; color: #64748b;">Used</div>
-                  <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-top: 2px;" id="modalPermUsed">00:00 Hrs</div>
+                  <div style="font-size: 10px; color: #64748b;">Used</div>
+                  <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-top: 2px;" id="modalPermUsed">00:00 Hrs</div>
                 </div>
                 <div>
-                  <div style="font-size: 10.5px; color: #64748b;">Available</div>
-                  <div style="font-size: 13.5px; font-weight: 800; color: #16a34a; margin-top: 2px;" id="modalPermAvail">16:00 Hrs</div>
+                  <div style="font-size: 10px; color: #64748b;">Available</div>
+                  <div style="font-size: 13px; font-weight: 800; color: #16a34a; margin-top: 2px;" id="modalPermAvail">16:00 Hrs</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="modal-footer-leave">
+          <div class="modal-footer-leave" style="flex-shrink: 0; padding: 10px 18px; background: #f8fafc; border-top: 1px solid #e2e8f0;">
             <button type="button" class="btn-leave-cancel" id="btnCancelPerm">Cancel</button>
             <button type="submit" class="btn-perm-submit" id="btnSubmitPerm">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -899,6 +901,8 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
     <!-- ================= MODAL: VIEW REQUEST DETAILS ================= -->
     <div class="modal-overlay" id="modalViewEmpRequest" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center;">
       <div class="modal-box-leave" style="max-width: 520px; width: 95%; max-height: 90vh; overflow-y: auto; position: relative; background: #ffffff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);">
@@ -1728,21 +1732,110 @@
           if (fillPerm) fillPerm.style.width = `${permPct}%`;
         }
 
-        // Modal 1 Floating box badges
-        const mCL = document.getElementById('modalBalCL');
-        const mSL = document.getElementById('modalBalSL');
-        const mEL = document.getElementById('modalBalEL');
-        if (mCL) mCL.textContent = `${clAvail} days`;
-        if (mSL) mSL.textContent = `${slAvail} days`;
-        if (mEL) mEL.textContent = `${elAvail} days`;
+        // Modal 1: Dynamic Leave Balance Floating Box Rows
+        const balRowsContainer = document.getElementById('modalLeaveBalanceRows');
+        const leaveTypeSelect = document.getElementById('leaveInputType');
+        const currentLeaveType = leaveTypeSelect ? leaveTypeSelect.value : '';
 
-        // Modal 2 Permission summary
+        const badgeClasses = ['badge-bal-blue', 'badge-bal-green', 'badge-bal-yellow', 'badge-bal-blue'];
+        let dayLeaves = [];
+
+        if (b.custom_leaves && Array.isArray(b.custom_leaves) && b.custom_leaves.length > 0) {
+          dayLeaves = b.custom_leaves.filter(lv => {
+            const u = String(lv.unit || 'Days').toLowerCase();
+            const n = String(lv.name || '').toLowerCase();
+            return !u.includes('hour') && !u.includes('hr') && n !== 'permission';
+          });
+        } else {
+          dayLeaves = [
+            { name: 'Casual Leave (CL)', available: b.casual_leave_available ?? 0, total: b.casual_leave_total || 12, unit: 'Days' },
+            { name: 'Sick Leave (SL)', available: b.sick_leave_available ?? 0, total: b.sick_leave_total || 12, unit: 'Days' },
+            { name: 'Earned Leave (EL)', available: b.earned_leave_available ?? 0, total: b.earned_leave_total || 18, unit: 'Days' }
+          ];
+        }
+
+        if (balRowsContainer) {
+          if (dayLeaves.length > 0) {
+            balRowsContainer.innerHTML = dayLeaves.map((lv, idx) => {
+              const badgeClass = badgeClasses[idx % badgeClasses.length];
+              const avail = lv.available ?? 0;
+              const tot = lv.total ?? 0;
+              const unit = lv.unit || 'Days';
+              return `
+                <div class="modal-bal-row">
+                  <span style="font-size: 11px; color: #334155;">${escapeHtml(lv.name)}</span>
+                  <span class="${badgeClass}">${avail} / ${tot} ${unit}</span>
+                </div>
+              `;
+            }).join('');
+          } else {
+            balRowsContainer.innerHTML = `
+              <div style="font-size: 11px; color: #64748b; font-style: italic; text-align: center; padding: 4px 0;">
+                No leave quota allocated
+              </div>
+            `;
+          }
+        }
+
+        // Modal 1: Dynamic Leave Type Dropdown Options
+        if (leaveTypeSelect) {
+          leaveTypeSelect.innerHTML = '<option value="" disabled selected>-- Select Leave Type --</option>';
+          if (dayLeaves.length > 0) {
+            dayLeaves.forEach(lv => {
+              const opt = document.createElement('option');
+              opt.value = lv.name;
+              opt.textContent = `${lv.name} (${lv.available ?? 0} ${lv.unit || 'Days'} available)`;
+              if (currentLeaveType && currentLeaveType === lv.name) {
+                opt.selected = true;
+              }
+              leaveTypeSelect.appendChild(opt);
+            });
+          } else {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.disabled = true;
+            opt.textContent = 'No leave types allocated';
+            leaveTypeSelect.appendChild(opt);
+          }
+        }
+
+        // Modal 2: Dynamic Permission Balance Summary Card (Image 3)
+        let permTotHours = 0;
+        let permUsedHours = 0;
+        let permAvailHours = 0;
+
+        if (b.custom_leaves && Array.isArray(b.custom_leaves) && b.custom_leaves.length > 0) {
+          const permCustom = b.custom_leaves.find(lv => {
+            const n = String(lv.name || '').toLowerCase();
+            const u = String(lv.unit || '').toLowerCase();
+            return n === 'permission' || u.includes('hour') || u.includes('hr');
+          });
+          if (permCustom) {
+            permTotHours = permCustom.total ?? 0;
+            permUsedHours = permCustom.used ?? 0;
+            permAvailHours = permCustom.available ?? Math.max(0, permTotHours - permUsedHours);
+          } else {
+            permTotHours = 0;
+            permUsedHours = 0;
+            permAvailHours = 0;
+          }
+        } else {
+          permTotHours = b.permission_hours_total ?? 16;
+          permUsedHours = b.permission_hours_used ?? 0;
+          permAvailHours = b.permission_hours_available ?? 16;
+        }
+
+        const formatHoursStr = (num) => {
+          const val = parseFloat(num) || 0;
+          return `${String(Math.floor(val)).padStart(2, '0')}:00 Hrs`;
+        };
+
         const mPT = document.getElementById('modalPermTotal');
         const mPU = document.getElementById('modalPermUsed');
         const mPA = document.getElementById('modalPermAvail');
-        if (mPT) mPT.textContent = `${permTot}:00 Hrs`;
-        if (mPU) mPU.textContent = `${b.permission_hours_used || 0}:00 Hrs`;
-        if (mPA) mPA.textContent = `${permAvail}:00 Hrs`;
+        if (mPT) mPT.textContent = formatHoursStr(permTotHours);
+        if (mPU) mPU.textContent = formatHoursStr(permUsedHours);
+        if (mPA) mPA.textContent = formatHoursStr(permAvailHours);
       } catch (err) {
         console.error('Error fetching leave balances:', err);
       }
@@ -1963,7 +2056,7 @@
 
         const dateInput = document.getElementById('permDate');
         if (dateInput) dateInput.value = r.date || r.from_date || '';
-        const typeSelect = document.getElementById('permTypeSelect');
+        const typeSelect = document.getElementById('permInputType') || document.getElementById('permTypeSelect');
         if (typeSelect) typeSelect.value = r.permission_type || 'Short Leave';
         const fromT = document.getElementById('permFromTime');
         if (fromT) fromT.value = r.from_time || '';
@@ -1984,8 +2077,16 @@
         const submitBtn = document.getElementById('btnSubmitLeave');
         if (submitBtn) submitBtn.textContent = 'Update Request';
 
-        const leaveTypeSel = document.getElementById('leaveTypeSelect');
-        if (leaveTypeSel) leaveTypeSel.value = r.leave_type || 'Casual Leave (CL)';
+        const leaveTypeSel = document.getElementById('leaveInputType') || document.getElementById('leaveTypeSelect');
+        if (leaveTypeSel && r.leave_type) {
+          if (!Array.from(leaveTypeSel.options).some(o => o.value === r.leave_type)) {
+            const opt = document.createElement('option');
+            opt.value = r.leave_type;
+            opt.textContent = r.leave_type;
+            leaveTypeSel.appendChild(opt);
+          }
+          leaveTypeSel.value = r.leave_type;
+        }
         const fDate = document.getElementById('leaveFromDate');
         if (fDate) fDate.value = r.from_date || '';
         const tDate = document.getElementById('leaveToDate');
@@ -2053,8 +2154,12 @@
     if (formApplyLeave) {
       formApplyLeave.addEventListener('submit', async function (e) {
         e.preventDefault();
-        const submitBtn = document.getElementById('btnSubmitLeave');
-        if (submitBtn) submitBtn.disabled = true;
+        const leaveTypeVal = document.getElementById('leaveInputType') ? document.getElementById('leaveInputType').value : '';
+        if (!leaveTypeVal) {
+          showModalAlert(leaveAlert, 'Please select a valid leave type.', 'error');
+          if (submitBtn) submitBtn.disabled = false;
+          return;
+        }
 
         const formData = new FormData(formApplyLeave);
         // For hourly employees, inject session type and duration
@@ -2111,6 +2216,13 @@
         e.preventDefault();
         const submitBtn = document.getElementById('btnSubmitPerm');
         if (submitBtn) submitBtn.disabled = true;
+
+        const availText = document.getElementById('modalPermAvail') ? document.getElementById('modalPermAvail').textContent : '';
+        if (availText && availText.startsWith('00:00')) {
+          showModalAlert(permAlert, 'You have 0 permission hours available. Please contact your administrator to allocate permission quota.', 'error');
+          if (submitBtn) submitBtn.disabled = false;
+          return;
+        }
 
         const formData = new FormData(formApplyPermission);
         const editId = document.getElementById('editPermRequestId') ? document.getElementById('editPermRequestId').value : '';

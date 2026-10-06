@@ -5002,6 +5002,61 @@ def get_employee_leave_balance(emp_id, company_id=None, year=None):
                 })
             bal['custom_leaves'] = c_leaves
             db.leave_balances.update_one({'_id': bal['_id']}, {'$set': {'custom_leaves': c_leaves}})
+
+    if c_leaves and isinstance(c_leaves, list) and len(c_leaves) > 0:
+        # Check custom permission hours
+        perm_custom = next((item for item in c_leaves if str(item.get('name', '')).strip().lower() == 'permission' or str(item.get('unit', '')).strip().lower() in ['hours', 'hrs']), None)
+        if perm_custom:
+            p_tot = perm_custom.get('total', 0.0)
+            p_used = perm_custom.get('used', 0.0)
+            p_avail = perm_custom.get('available', max(0.0, float(p_tot) - float(p_used)))
+            bal['permission_hours_total'] = _fmt_val(p_tot)
+            bal['permission_hours_used'] = _fmt_val(p_used)
+            bal['permission_hours_available'] = _fmt_val(p_avail)
+            bal['permission_hours_avail'] = bal['permission_hours_available']
+        else:
+            bal['permission_hours_total'] = 0
+            bal['permission_hours_used'] = 0
+            bal['permission_hours_available'] = 0
+            bal['permission_hours_avail'] = 0
+
+        # Check standard day-based leave types in custom_leaves
+        cl_custom = next((item for item in c_leaves if 'casual' in str(item.get('name', '')).strip().lower()), None)
+        if cl_custom:
+            bal['casual_leave_total'] = _fmt_val(cl_custom.get('total', 0))
+            bal['casual_leave_used'] = _fmt_val(cl_custom.get('used', 0))
+            bal['casual_leave_available'] = _fmt_val(cl_custom.get('available', 0))
+            bal['casual_leave_avail'] = bal['casual_leave_available']
+        else:
+            bal['casual_leave_total'] = 0
+            bal['casual_leave_used'] = 0
+            bal['casual_leave_available'] = 0
+            bal['casual_leave_avail'] = 0
+
+        sl_custom = next((item for item in c_leaves if 'sick' in str(item.get('name', '')).strip().lower()), None)
+        if sl_custom:
+            bal['sick_leave_total'] = _fmt_val(sl_custom.get('total', 0))
+            bal['sick_leave_used'] = _fmt_val(sl_custom.get('used', 0))
+            bal['sick_leave_available'] = _fmt_val(sl_custom.get('available', 0))
+            bal['sick_leave_avail'] = bal['sick_leave_available']
+        else:
+            bal['sick_leave_total'] = 0
+            bal['sick_leave_used'] = 0
+            bal['sick_leave_available'] = 0
+            bal['sick_leave_avail'] = 0
+
+        el_custom = next((item for item in c_leaves if 'earned' in str(item.get('name', '')).strip().lower()), None)
+        if el_custom:
+            bal['earned_leave_total'] = _fmt_val(el_custom.get('total', 0))
+            bal['earned_leave_used'] = _fmt_val(el_custom.get('used', 0))
+            bal['earned_leave_available'] = _fmt_val(el_custom.get('available', 0))
+            bal['earned_leave_avail'] = bal['earned_leave_available']
+        else:
+            bal['earned_leave_total'] = 0
+            bal['earned_leave_used'] = 0
+            bal['earned_leave_available'] = 0
+            bal['earned_leave_avail'] = 0
+
     bal['custom_leaves'] = c_leaves or []
     return bal
 
