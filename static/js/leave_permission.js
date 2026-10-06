@@ -9,19 +9,21 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnRefresh = document.getElementById('btnRefreshLeaveData');
 
   // Balances Elements
+  const btnOpenLeaveBalancesModal = document.getElementById('btnOpenLeaveBalancesModal');
+  const modalEmployeeLeaveBalances = document.getElementById('modalEmployeeLeaveBalances');
+  const closeLeaveBalancesModalBtn = document.getElementById('closeLeaveBalancesModalBtn');
+  const doneLeaveBalancesModalBtn = document.getElementById('doneLeaveBalancesModalBtn');
   const searchBalancesInput = document.getElementById('searchBalancesInput');
   const balancesTbody = document.getElementById('leaveBalancesTbody');
 
-  // Set Employee Quota Modal Elements
+  // Set Employee Quota Modal Elements (Modal 2)
   const modalSetQuota = document.getElementById('modalSetEmployeeLeaveQuota');
   const formSetQuota = document.getElementById('formSetEmployeeLeaveQuota');
   const quotaEmpId = document.getElementById('quotaEmpId');
   const quotaEmpCompanyId = document.getElementById('quotaEmpCompanyId');
   const quotaModalSubtitle = document.getElementById('quotaModalEmpSubtitle');
-  const quotaInputCL = document.getElementById('quotaInputCL');
-  const quotaInputSL = document.getElementById('quotaInputSL');
-  const quotaInputEL = document.getElementById('quotaInputEL');
-  const quotaInputPerm = document.getElementById('quotaInputPerm');
+  const customLeaveRowsContainer = document.getElementById('customLeaveRowsContainer');
+  const btnAddLeaveTypeRow = document.getElementById('btnAddLeaveTypeRow');
   const quotaAlertBox = document.getElementById('quotaAlertBox');
   const closeSetQuotaModalBtn = document.getElementById('closeSetQuotaModalBtn');
   const cancelSetQuotaModalBtn = document.getElementById('cancelSetQuotaModalBtn');
@@ -47,6 +49,24 @@ document.addEventListener('DOMContentLoaded', function () {
   function getSelectedCompanyId() {
     return companySelect ? (companySelect.value || '') : '';
   }
+
+  // Hook up Modal 1 (Employee Leave Balances & Quotas)
+  function openLeaveBalancesModal() {
+    if (modalEmployeeLeaveBalances) {
+      modalEmployeeLeaveBalances.style.display = 'flex';
+      loadBalances();
+    }
+  }
+
+  function closeLeaveBalancesModal() {
+    if (modalEmployeeLeaveBalances) {
+      modalEmployeeLeaveBalances.style.display = 'none';
+    }
+  }
+
+  if (btnOpenLeaveBalancesModal) btnOpenLeaveBalancesModal.addEventListener('click', openLeaveBalancesModal);
+  if (closeLeaveBalancesModalBtn) closeLeaveBalancesModalBtn.addEventListener('click', closeLeaveBalancesModal);
+  if (doneLeaveBalancesModalBtn) doneLeaveBalancesModalBtn.addEventListener('click', closeLeaveBalancesModal);
 
   // 1. Fetch & Update Sidebar Badge Stats (if present)
   async function loadStats() {
@@ -78,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const url = `/api/admin/leave-permission/balances${compId ? '?company_id=' + encodeURIComponent(compId) : ''}`;
       const res = await fetch(url);
       if (!res.ok) {
-        balancesTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: #dc2626;">Failed to load employee balances.</td></tr>`;
+        balancesTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #dc2626;">Failed to load employee balances.</td></tr>`;
         return;
       }
       const data = await res.json();
@@ -88,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function () {
       renderBalancesTable();
     } catch (err) {
       console.error('Error fetching balances:', err);
-      balancesTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: #dc2626;">Error loading balances.</td></tr>`;
+      balancesTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #dc2626;">Error loading balances.</td></tr>`;
     }
   }
 
@@ -100,68 +120,62 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!query) return true;
       const idMatch = (b.employee_id || '').toLowerCase().includes(query);
       const nameMatch = (b.employee_name || '').toLowerCase().includes(query);
-      return idMatch || nameMatch;
+      const deptMatch = (b.department || '').toLowerCase().includes(query);
+      return idMatch || nameMatch || deptMatch;
     });
 
     if (filtered.length === 0) {
-      balancesTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 22px; color: #94a3b8; font-size: 12.5px;">No employee balance records found.</td></tr>`;
+      balancesTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 22px; color: #94a3b8; font-size: 12.5px;">No employee balance records found.</td></tr>`;
       return;
     }
 
     balancesTbody.innerHTML = filtered.map(b => {
-      const clUsed = Number(b.casual_leave_used || 0);
-      const slUsed = Number(b.sick_leave_used || 0);
-      const elUsed = Number(b.earned_leave_used || 0);
-      const permUsed = Number(b.permission_hours_used || 0);
-
-      const clTot = b.casual_leave_total ?? 12;
-      const slTot = b.sick_leave_total ?? 12;
-      const elTot = b.earned_leave_total ?? 12;
-      const permTot = b.permission_hours_total ?? 16;
-
-      const clAvail = b.casual_leave_avail !== undefined ? b.casual_leave_avail : Math.max(0, clTot - clUsed);
-      const slAvail = b.sick_leave_avail !== undefined ? b.sick_leave_avail : Math.max(0, slTot - slUsed);
-      const elAvail = b.earned_leave_avail !== undefined ? b.earned_leave_avail : Math.max(0, elTot - elUsed);
-      const permAvail = b.permission_hours_avail !== undefined ? b.permission_hours_avail : Math.max(0, permTot - permUsed);
-
       const empId = b.id || b.employee_id || '';
       const empCode = b.employee_id || b.id || '';
       const empName = b.employee_name || '';
+      const dept = b.department || 'General';
       const compId = b.company_id || '';
+
+      const customLeaves = Array.isArray(b.custom_leaves) ? b.custom_leaves : [];
+      let leavesHtml = '';
+
+      if (customLeaves.length === 0) {
+        leavesHtml = `<span style="color: #94a3b8; font-size: 11.5px; font-style: italic;">No leaves configured</span>`;
+      } else {
+        const badgeColors = [
+          { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+          { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+          { bg: '#fefce8', color: '#a16207', border: '#fef08a' },
+          { bg: '#faf5ff', color: '#7e22ce', border: '#e9d5ff' },
+          { bg: '#fff1f2', color: '#be123c', border: '#fecdd3' },
+          { bg: '#ecfeff', color: '#0e7490', border: '#a5f3fc' },
+        ];
+        leavesHtml = customLeaves.map((lv, idx) => {
+          const st = badgeColors[idx % badgeColors.length];
+          const avail = lv.available !== undefined ? lv.available : lv.total;
+          const tot = lv.total ?? 0;
+          const unitShort = (lv.unit || 'Days').toLowerCase() === 'hours' ? 'Hrs' : 'Days';
+          return `<span style="display: inline-block; padding: 2.5px 8px; margin: 2px 5px 2px 0; border-radius: 12px; font-size: 11px; font-weight: 700; background: ${st.bg}; color: ${st.color}; border: 1px solid ${st.border}; white-space: nowrap;">
+            ${escapeHtml(lv.name)}: ${avail} / ${tot} ${unitShort}
+          </span>`;
+        }).join('');
+      }
 
       return `
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: #0f172a;">${escapeHtml(empCode)}</td>
           <td style="padding: 10px 14px; font-size: 12px; font-weight: 600; color: #334155;">${escapeHtml(empName)}</td>
-          <td style="padding: 10px 14px; text-align: center;">
-            <span class="badge-bal-blue">${clAvail} / ${clTot} Days</span>
-          </td>
-          <td style="padding: 10px 14px; text-align: center;">
-            <span class="badge-bal-green">${slAvail} / ${slTot} Days</span>
-          </td>
-          <td style="padding: 10px 14px; text-align: center;">
-            <span class="badge-bal-yellow">${elAvail} / ${elTot} Days</span>
-          </td>
-          <td style="padding: 10px 14px; text-align: center;">
-            <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; background: #f3e8ff; color: #7e22ce;">
-              ${permAvail} / ${permTot} Hrs
-            </span>
+          <td style="padding: 10px 14px; font-size: 12px; font-weight: 500; color: #64748b;">${escapeHtml(dept)}</td>
+          <td style="padding: 10px 14px; font-size: 12px;">
+            ${leavesHtml}
           </td>
           <td style="padding: 10px 14px; text-align: center;">
             <button type="button" class="btn-set-quota" 
               data-id="${escapeHtml(empId)}" 
               data-name="${escapeHtml(empName)}" 
-              data-cl="${clTot}" 
-              data-sl="${slTot}" 
-              data-el="${elTot}" 
-              data-perm="${permTot}" 
               data-comp="${escapeHtml(compId)}"
-              style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background: #f0fdf4; color: #166534; border: 1.5px solid #86efac; cursor: pointer; transition: all 0.15s ease;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-              </svg>
-              Set Leaves
+              style="display: inline-flex; align-items: center; justify-content: center; padding: 5px 16px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background: #0284c7; color: #ffffff; border: none; cursor: pointer; transition: all 0.15s ease;">
+              Set
             </button>
           </td>
         </tr>
@@ -169,42 +183,95 @@ document.addEventListener('DOMContentLoaded', function () {
     }).join('');
   }
 
-  // Handle click on "Set Leaves" button via delegation
+  // Handle click on "Set" button via delegation
   if (balancesTbody) {
     balancesTbody.addEventListener('click', function (e) {
       const btn = e.target.closest('.btn-set-quota');
       if (!btn) return;
       const empId = btn.getAttribute('data-id');
       const empName = btn.getAttribute('data-name');
-      const cl = btn.getAttribute('data-cl') || 12;
-      const sl = btn.getAttribute('data-sl') || 12;
-      const el = btn.getAttribute('data-el') || 12;
-      const perm = btn.getAttribute('data-perm') || 16;
       const comp = btn.getAttribute('data-comp') || '';
 
-      openSetQuotaModal({
+      const empData = cachedBalances.find(b => String(b.id || b.employee_id) === String(empId)) || {
+        id: empId,
         employee_id: empId,
         employee_name: empName,
-        casual_leave: cl,
-        sick_leave: sl,
-        earned_leave: el,
-        permission_hours: perm,
-        company_id: comp
-      });
+        company_id: comp,
+        custom_leaves: []
+      };
+
+      openSetQuotaModal(empData);
+    });
+  }
+
+  // Row builder for Custom Leave Form (Modal 2)
+  function createCustomLeaveRow(name = '', total = '', unit = 'Days') {
+    const row = document.createElement('div');
+    row.className = 'custom-leave-row';
+    row.style.cssText = 'display: grid; grid-template-columns: 1fr 105px 95px 36px; gap: 8px; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0;';
+
+    row.innerHTML = `
+      <div>
+        <input type="text" class="custom-leave-name" placeholder="Leave Name (e.g. Medical Leave)" value="${escapeHtml(name)}" style="width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 6px; border: 1.5px solid #cbd5e1; font-size: 12.5px; font-weight: 600;" required>
+      </div>
+      <div>
+        <input type="number" step="0.5" min="0" max="365" class="custom-leave-total" placeholder="Quota" value="${total !== '' ? total : ''}" style="width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 6px; border: 1.5px solid #cbd5e1; font-size: 12.5px; font-weight: 700;" required>
+      </div>
+      <div>
+        <select class="custom-leave-unit" style="width: 100%; box-sizing: border-box; padding: 7px 6px; border-radius: 6px; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #ffffff;">
+          <option value="Days" ${unit === 'Days' ? 'selected' : ''}>Days</option>
+          <option value="Hours" ${unit === 'Hours' ? 'selected' : ''}>Hours</option>
+        </select>
+      </div>
+      <div style="text-align: center;">
+        <button type="button" class="btn-remove-leave-row" title="Remove" style="background: none; border: none; color: #ef4444; font-size: 20px; font-weight: 700; cursor: pointer; padding: 0; line-height: 1;">
+          &times;
+        </button>
+      </div>
+    `;
+
+    const removeBtn = row.querySelector('.btn-remove-leave-row');
+    removeBtn.addEventListener('click', () => {
+      row.remove();
+      if (customLeaveRowsContainer && customLeaveRowsContainer.children.length === 0) {
+        customLeaveRowsContainer.appendChild(createCustomLeaveRow('', '', 'Days'));
+      }
+    });
+
+    return row;
+  }
+
+  if (btnAddLeaveTypeRow) {
+    btnAddLeaveTypeRow.addEventListener('click', () => {
+      if (customLeaveRowsContainer) {
+        const newRow = createCustomLeaveRow('', '', 'Days');
+        customLeaveRowsContainer.appendChild(newRow);
+        const nameInput = newRow.querySelector('.custom-leave-name');
+        if (nameInput) nameInput.focus();
+      }
     });
   }
 
   function openSetQuotaModal(data) {
     if (!modalSetQuota) return;
-    if (quotaEmpId) quotaEmpId.value = data.employee_id || '';
+    if (quotaEmpId) quotaEmpId.value = data.id || data.employee_id || '';
     if (quotaEmpCompanyId) quotaEmpCompanyId.value = data.company_id || getSelectedCompanyId() || '';
     if (quotaModalSubtitle) {
-      quotaModalSubtitle.textContent = `Configuring: ${data.employee_name || 'Employee'} (ID: ${data.employee_id || ''})`;
+      quotaModalSubtitle.textContent = `Configuring: ${data.employee_name || 'Employee'} (ID: ${data.employee_id || data.id || ''})`;
     }
-    if (quotaInputCL) quotaInputCL.value = data.casual_leave ?? 12;
-    if (quotaInputSL) quotaInputSL.value = data.sick_leave ?? 12;
-    if (quotaInputEL) quotaInputEL.value = data.earned_leave ?? 12;
-    if (quotaInputPerm) quotaInputPerm.value = data.permission_hours ?? 16;
+
+    if (customLeaveRowsContainer) {
+      customLeaveRowsContainer.innerHTML = '';
+      const leaves = Array.isArray(data.custom_leaves) ? data.custom_leaves : [];
+      if (leaves.length > 0) {
+        leaves.forEach(lv => {
+          customLeaveRowsContainer.appendChild(createCustomLeaveRow(lv.name, lv.total, lv.unit || 'Days'));
+        });
+      } else {
+        // Starter blank row
+        customLeaveRowsContainer.appendChild(createCustomLeaveRow('', '', 'Days'));
+      }
+    }
 
     if (quotaAlertBox) {
       quotaAlertBox.style.display = 'none';
@@ -226,6 +293,20 @@ document.addEventListener('DOMContentLoaded', function () {
       e.preventDefault();
       if (!btnSaveEmployeeQuota) return;
 
+      const rows = customLeaveRowsContainer ? customLeaveRowsContainer.querySelectorAll('.custom-leave-row') : [];
+      const custom_leaves = [];
+      rows.forEach(r => {
+        const nameInput = r.querySelector('.custom-leave-name');
+        const totalInput = r.querySelector('.custom-leave-total');
+        const unitInput = r.querySelector('.custom-leave-unit');
+        const name = nameInput ? nameInput.value.trim() : '';
+        const total = totalInput ? (parseFloat(totalInput.value) || 0) : 0;
+        const unit = unitInput ? (unitInput.value || 'Days') : 'Days';
+        if (name) {
+          custom_leaves.push({ name, total, unit });
+        }
+      });
+
       btnSaveEmployeeQuota.disabled = true;
       const origText = btnSaveEmployeeQuota.innerHTML;
       btnSaveEmployeeQuota.innerHTML = `Saving...`;
@@ -234,13 +315,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const payload = {
           employee_id: quotaEmpId ? quotaEmpId.value : '',
           company_id: quotaEmpCompanyId ? quotaEmpCompanyId.value : getSelectedCompanyId(),
-          casual_leave: quotaInputCL ? (parseInt(quotaInputCL.value) || 0) : 0,
-          sick_leave: quotaInputSL ? (parseInt(quotaInputSL.value) || 0) : 0,
-          earned_leave: quotaInputEL ? (parseInt(quotaInputEL.value) || 0) : 0,
-          permission_hours: quotaInputPerm ? (parseFloat(quotaInputPerm.value) || 0) : 0
+          custom_leaves: custom_leaves
         };
 
-        const res = await fetch('/api/admin/leave-permission/employee-quota', {
+        const res = await fetch('/api/admin/leave-permission/employee-custom-leaves', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -252,7 +330,7 @@ document.addEventListener('DOMContentLoaded', function () {
             quotaAlertBox.style.backgroundColor = '#ecfdf5';
             quotaAlertBox.style.color = '#065f46';
             quotaAlertBox.style.border = '1px solid #a7f3d0';
-            quotaAlertBox.textContent = data.message || 'Leave quota saved successfully!';
+            quotaAlertBox.textContent = data.message || 'Custom leaves saved successfully!';
           }
           await loadBalances();
           setTimeout(() => {
@@ -264,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function () {
             quotaAlertBox.style.backgroundColor = '#fef2f2';
             quotaAlertBox.style.color = '#991b1b';
             quotaAlertBox.style.border = '1px solid #fecaca';
-            quotaAlertBox.textContent = data.error || 'Failed to update leave quota.';
+            quotaAlertBox.textContent = data.error || 'Failed to update custom leaves.';
           }
         }
       } catch (err) {

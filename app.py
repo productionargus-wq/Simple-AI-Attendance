@@ -1976,7 +1976,27 @@ def api_admin_save_employee_leave_quota():
     req_comp = data.get('company_id') or request.args.get('company_id')
     if req_comp and session.get('role') == 'super_admin':
         comp_id = req_comp
-    res = database.save_employee_leave_quota(emp_id, data, company_id=comp_id)
+    if 'custom_leaves' in data:
+        res = database.save_employee_custom_leaves(emp_id, data.get('custom_leaves', []), company_id=comp_id)
+    else:
+        res = database.save_employee_leave_quota(emp_id, data, company_id=comp_id)
+    if not res.get('success'):
+        return jsonify(res), 400
+    return jsonify(res)
+
+@app.route('/api/admin/leave-permission/employee-custom-leaves', methods=['POST'])
+@login_required
+def api_admin_save_employee_custom_leaves():
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    emp_id = data.get('employee_id') or data.get('id')
+    if not emp_id:
+        return jsonify({'success': False, 'error': 'Employee ID is required'}), 400
+    comp_id = get_current_company_id()
+    req_comp = data.get('company_id') or request.args.get('company_id')
+    if req_comp and session.get('role') == 'super_admin':
+        comp_id = req_comp
+    custom_leaves = data.get('custom_leaves', [])
+    res = database.save_employee_custom_leaves(emp_id, custom_leaves, company_id=comp_id)
     if not res.get('success'):
         return jsonify(res), 400
     return jsonify(res)

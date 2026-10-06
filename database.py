@@ -4728,10 +4728,143 @@ def save_employee_leave_quota(emp_id, quota_data, company_id=None, year=None):
         'quota': leave_quota
     }
 
+def save_employee_custom_leaves(emp_id, custom_leaves_list, company_id=None, year=None):
+    """
+    Saves dynamic custom leave types for a specific employee.
+    Each item has:
+      - 'name': str (e.g. 'Casual Leave', 'Sick Leave', 'Special Leave', 'Short Permission', etc.)
+      - 'total': float/int (allocated count)
+      - 'unit': str ('Days' or 'Hours', default 'Days')
+    Persists to db.employees and updates db.leave_balances.
+    """
+    db = get_db()
+    if not emp_id:
+        return {'success': False, 'error': 'Employee ID is required'}
+        
+    emp = db.employees.find_one(build_id_filter(emp_id))
+    if not emp:
+        return {'success': False, 'error': f"Employee with ID '{emp_id}' not found"}
+
+    e_id = str(emp.get('id') or emp.get('_id'))
+    comp_id = company_id or emp.get('company_id') or 'ARGUS_MASTER'
+    if year is None:
+        year = get_ist_now().year
+
+    # Process and sanitize custom leaves list
+    processed_leaves = []
+    seen_names = set()
+    for item in (custom_leaves_list or []):
+        if not isinstance(item, dict):
+            continue
+        raw_name = str(item.get('name') or '').strip()
+        if not raw_name:
+            continue
+        norm_name = raw_name.lower()
+        if norm_name in seen_names:
+            continue
+        seen_names.add(norm_name)
+        
+        try:
+            total_val = float(item.get('total') or item.get('quota') or 0.0)
+            if total_val.is_integer():
+                total_val = int(total_val)
+        except (ValueError, TypeError):
+            total_val = 0
+            
+        unit_val = str(item.get('unit') or 'Days').strip().capitalize()
+        if unit_val not in ['Days', 'Hours']:
+            unit_val = 'Days'
+            
+        processed_leaves.append({
+            'name': raw_name,
+            'total': max(0, total_val),
+            'unit': unit_val
+        })
+
+    # 1. Update in db.employees
+    db.employees.update_one(
+        build_id_filter(emp_id),
+        {'$set': {
+            'custom_leaves': processed_leaves,
+            'updated_at': get_ist_now()
+        }}
+    )
+
+    # 2. Update or insert in db.leave_balances
+    bal = db.leave_balances.find_one({
+        '$or': [
+            {'employee_id': str(e_id)},
+            {'employee_id': int(e_id) if str(e_id).isdigit() else str(e_id)},
+            {'employee_id': str(emp_id)},
+            {'employee_id': int(emp_id) if str(emp_id).isdigit() else str(emp_id)}
+        ],
+        'year': int(year)
+    })
+
+    # Map previous used counts for matching leave types (case-insensitive)
+    existing_used_map = {}
+    if bal and 'custom_leaves' in bal:
+        for ex in bal['custom_leaves']:
+            if isinstance(ex, dict) and 'name' in ex:
+                existing_used_map[ex['name'].lower()] = float(ex.get('used', 0.0))
+
+    if bal:
+        cl_u = float(bal.get('casual_leave', {}).get('used', 0.0) if isinstance(bal.get('casual_leave'), dict) else 0.0)
+        if cl_u: existing_used_map.setdefault('casual leave', cl_u)
+        sl_u = float(bal.get('sick_leave', {}).get('used', 0.0) if isinstance(bal.get('sick_leave'), dict) else 0.0)
+        if sl_u: existing_used_map.setdefault('sick leave', sl_u)
+        el_u = float(bal.get('earned_leave', {}).get('used', 0.0) if isinstance(bal.get('earned_leave'), dict) else 0.0)
+        if el_u: existing_used_map.setdefault('earned leave', el_u)
+        ph_u = float(bal.get('permission_hours', {}).get('used', 0.0) if isinstance(bal.get('permission_hours'), dict) else 0.0)
+        if ph_u: existing_used_map.setdefault('permission', ph_u)
+
+    final_balance_leaves = []
+    for pl in processed_leaves:
+        n_low = pl['name'].lower()
+        used_val = existing_used_map.get(n_low, 0.0)
+        avail_val = max(0.0, round(float(pl['total']) - used_val, 2))
+        if avail_val.is_integer():
+            avail_val = int(avail_val)
+        if isinstance(used_val, float) and used_val.is_integer():
+            used_val = int(used_val)
+            
+        final_balance_leaves.append({
+            'name': pl['name'],
+            'total': pl['total'],
+            'used': used_val,
+            'available': avail_val,
+            'unit': pl['unit']
+        })
+
+    if bal:
+        db.leave_balances.update_one(
+            {'_id': bal['_id']},
+            {'$set': {
+                'custom_leaves': final_balance_leaves,
+                'updated_at': get_ist_now()
+            }}
+        )
+    else:
+        new_bal = {
+            'company_id': str(comp_id),
+            'employee_id': str(e_id),
+            'year': int(year),
+            'custom_leaves': final_balance_leaves,
+            'created_at': get_ist_now(),
+            'updated_at': get_ist_now()
+        }
+        db.leave_balances.insert_one(new_bal)
+
+    return {
+        'success': True,
+        'message': f"Custom leaves updated successfully for {emp.get('employee_name', emp_id)}",
+        'custom_leaves': final_balance_leaves
+    }
+
 def get_employee_leave_balance(emp_id, company_id=None, year=None):
     """
     Retrieves or initializes the employee's leave balance document for the given year.
-    Returns: dict with casual_leave, sick_leave, earned_leave, permission_hours, compensatory_off
+    Returns: dict with casual_leave, sick_leave, earned_leave, permission_hours, compensatory_off, custom_leaves
     """
     if not emp_id:
         return None
@@ -4808,6 +4941,25 @@ def get_employee_leave_balance(emp_id, company_id=None, year=None):
     bal['permission_hours_avail'] = bal['permission_hours_available']
     bal['permission_hours_total'] = _fmt_val(ph.get('total', 16.0))
     bal['permission_hours_used'] = _fmt_val(ph.get('used', 0.0))
+
+    # Format custom leaves if present
+    c_leaves = bal.get('custom_leaves')
+    if not c_leaves:
+        emp = db.employees.find_one(build_id_filter(emp_id))
+        if emp and emp.get('custom_leaves'):
+            c_leaves = []
+            for pl in emp['custom_leaves']:
+                tot = pl.get('total', 0)
+                c_leaves.append({
+                    'name': pl.get('name'),
+                    'total': tot,
+                    'used': 0,
+                    'available': tot,
+                    'unit': pl.get('unit', 'Days')
+                })
+            bal['custom_leaves'] = c_leaves
+            db.leave_balances.update_one({'_id': bal['_id']}, {'$set': {'custom_leaves': c_leaves}})
+    bal['custom_leaves'] = c_leaves or []
     return bal
 
 def get_all_employees_leave_balances(company_id=None, year=None, search=None):
@@ -4896,7 +5048,8 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None):
             'permission_hours_total': ph_tot,
             'permission_hours_used': perm.get('used', 0.0),
             'is_low_balance': (cl.get('available', 0) < 2 or sl.get('available', 0) < 2 or el.get('available', 0) < 2),
-            'leave_quota': emp.get('leave_quota')
+            'leave_quota': emp.get('leave_quota'),
+            'custom_leaves': bal.get('custom_leaves') or emp.get('custom_leaves') or []
         })
 
     return results
@@ -5137,6 +5290,28 @@ def update_leave_request_status(request_id, new_status, admin_remark=None, revie
                 {'$set': {'permission_hours.used': u, 'permission_hours.available': a, 'updated_at': now_ist}}
             )
 
+        # Also deduct from custom_leaves if present
+        if bal and bal.get('custom_leaves'):
+            c_leaves = bal.get('custom_leaves', [])
+            req_lt = str(req.get('leave_type') or req.get('request_type') or '').strip().lower()
+            amount = float(req.get('duration_hours') or req.get('hours_count') or req.get('total_days') or req.get('days_count') or 1.0)
+            custom_updated = False
+            for cl in c_leaves:
+                cl_name = str(cl.get('name') or '').strip().lower()
+                if cl_name and (cl_name in req_lt or req_lt in cl_name):
+                    u = round(float(cl.get('used', 0.0)) + amount, 2)
+                    t = float(cl.get('total', 0.0))
+                    a = max(0.0, round(t - u, 2))
+                    cl['used'] = int(u) if u.is_integer() else u
+                    cl['available'] = int(a) if a.is_integer() else a
+                    custom_updated = True
+                    break
+            if custom_updated:
+                db.leave_balances.update_one(
+                    {'_id': bal['_id']},
+                    {'$set': {'custom_leaves': c_leaves, 'updated_at': now_ist}}
+                )
+
     elif old_status == 'Approved' and normalized_status in ['Rejected', 'Pending']:
         bal = get_employee_leave_balance(emp_id, company_id=comp_id, year=year)
         if req.get('request_type') == 'Leave':
@@ -5169,6 +5344,28 @@ def update_leave_request_status(request_id, new_status, admin_remark=None, revie
                 {'employee_id': str(emp_id), 'year': year},
                 {'$set': {'permission_hours.used': u, 'permission_hours.available': a, 'updated_at': now_ist}}
             )
+
+        # Also restore to custom_leaves if present
+        if bal and bal.get('custom_leaves'):
+            c_leaves = bal.get('custom_leaves', [])
+            req_lt = str(req.get('leave_type') or req.get('request_type') or '').strip().lower()
+            amount = float(req.get('duration_hours') or req.get('hours_count') or req.get('total_days') or req.get('days_count') or 1.0)
+            custom_updated = False
+            for cl in c_leaves:
+                cl_name = str(cl.get('name') or '').strip().lower()
+                if cl_name and (cl_name in req_lt or req_lt in cl_name):
+                    u = max(0.0, round(float(cl.get('used', 0.0)) - amount, 2))
+                    t = float(cl.get('total', 0.0))
+                    a = max(0.0, round(t - u, 2))
+                    cl['used'] = int(u) if u.is_integer() else u
+                    cl['available'] = int(a) if a.is_integer() else a
+                    custom_updated = True
+                    break
+            if custom_updated:
+                db.leave_balances.update_one(
+                    {'_id': bal['_id']},
+                    {'$set': {'custom_leaves': c_leaves, 'updated_at': now_ist}}
+                )
 
     upd = {
         'status': normalized_status,
