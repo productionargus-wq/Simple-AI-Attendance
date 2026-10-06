@@ -2018,7 +2018,8 @@ def api_admin_leave_requests():
         'requests': res['requests'],
         'total': res['total'],
         'page': res['page'],
-        'limit': res['limit']
+        'limit': res['limit'],
+        'status_counts': res.get('status_counts', {'all': 0, 'pending': 0, 'approved': 0, 'rejected': 0})
     })
 
 @app.route('/api/admin/leave-permission/requests/<request_id>', methods=['GET'])

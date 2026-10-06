@@ -60,10 +60,22 @@
 
       <!-- Filter Tabs -->
       <div class="tab-toggle-container" style="margin-bottom: 0;">
-        <button class="btn-toggle-tab active req-tab-filter" data-status="">All</button>
-        <button class="btn-toggle-tab req-tab-filter" data-status="Pending">Pending</button>
-        <button class="btn-toggle-tab req-tab-filter" data-status="Approved">Approved</button>
-        <button class="btn-toggle-tab req-tab-filter" data-status="Rejected">Rejected</button>
+        <button class="btn-toggle-tab active req-tab-filter" data-status="">
+          <span>All</span>
+          <span class="tab-count-badge badge-all" id="badgeReqAll" style="display: none;">0</span>
+        </button>
+        <button class="btn-toggle-tab req-tab-filter" data-status="Pending">
+          <span>Pending</span>
+          <span class="tab-count-badge badge-pending" id="badgeReqPending" style="display: none;">0</span>
+        </button>
+        <button class="btn-toggle-tab req-tab-filter" data-status="Approved">
+          <span>Approved</span>
+          <span class="tab-count-badge badge-approved" id="badgeReqApproved" style="display: none;">0</span>
+        </button>
+        <button class="btn-toggle-tab req-tab-filter" data-status="Rejected">
+          <span>Rejected</span>
+          <span class="tab-count-badge badge-rejected" id="badgeReqRejected" style="display: none;">0</span>
+        </button>
       </div>
     </div>
 

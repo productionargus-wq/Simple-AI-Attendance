@@ -34,6 +34,36 @@ document.addEventListener('DOMContentLoaded', function () {
   const searchRequestsInput = document.getElementById('searchRequestsInput');
   const requestsTbody = document.getElementById('leaveRequestsTbody');
 
+  // Request Tab Badge Elements
+  const badgeReqAll = document.getElementById('badgeReqAll');
+  const badgeReqPending = document.getElementById('badgeReqPending');
+  const badgeReqApproved = document.getElementById('badgeReqApproved');
+  const badgeReqRejected = document.getElementById('badgeReqRejected');
+
+  function updateRequestTabBadges(counts = {}) {
+    const allCount = Number(counts.all ?? 0);
+    const pendingCount = Number(counts.pending ?? 0);
+    const approvedCount = Number(counts.approved ?? 0);
+    const rejectedCount = Number(counts.rejected ?? 0);
+
+    if (badgeReqAll) {
+      badgeReqAll.textContent = allCount;
+      badgeReqAll.style.display = allCount > 0 ? 'inline-flex' : 'none';
+    }
+    if (badgeReqPending) {
+      badgeReqPending.textContent = pendingCount;
+      badgeReqPending.style.display = pendingCount > 0 ? 'inline-flex' : 'none';
+    }
+    if (badgeReqApproved) {
+      badgeReqApproved.textContent = approvedCount;
+      badgeReqApproved.style.display = approvedCount > 0 ? 'inline-flex' : 'none';
+    }
+    if (badgeReqRejected) {
+      badgeReqRejected.textContent = rejectedCount;
+      badgeReqRejected.style.display = rejectedCount > 0 ? 'inline-flex' : 'none';
+    }
+  }
+
   // Quick Reject Modal
   const modalQuickReject = document.getElementById('modalQuickReject');
   const quickRejectReqId = document.getElementById('quickRejectReqId');
@@ -382,6 +412,16 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!data.success) return;
 
       cachedRequests = data.requests || [];
+      if (data.status_counts) {
+        updateRequestTabBadges(data.status_counts);
+      } else if (!currentStatusFilter && Array.isArray(cachedRequests)) {
+        updateRequestTabBadges({
+          all: cachedRequests.length,
+          pending: cachedRequests.filter(r => (r.status || '').toLowerCase() === 'pending').length,
+          approved: cachedRequests.filter(r => (r.status || '').toLowerCase() === 'approved').length,
+          rejected: cachedRequests.filter(r => (r.status || '').toLowerCase() === 'rejected').length
+        });
+      }
       renderRequestsTable();
     } catch (err) {
       console.error('Error fetching requests:', err);

@@ -5189,11 +5189,13 @@ def submit_permission_request(req_data):
 def get_leave_requests(company_id=None, employee_id=None, status=None, limit=50, page=1):
     """Retrieves paginated list of leave & permission requests."""
     db = get_db()
-    query = {}
+    base_query = {}
     if company_id and company_id != 'ALL':
-        query['company_id'] = str(company_id)
+        base_query['company_id'] = str(company_id)
     if employee_id:
-        query['$or'] = [{'employee_id': str(employee_id)}, {'employee_id': int(employee_id) if str(employee_id).isdigit() else str(employee_id)}]
+        base_query['$or'] = [{'employee_id': str(employee_id)}, {'employee_id': int(employee_id) if str(employee_id).isdigit() else str(employee_id)}]
+    
+    query = dict(base_query)
     if status and status != 'ALL':
         query['status'] = status
 
@@ -5204,11 +5206,34 @@ def get_leave_requests(company_id=None, employee_id=None, status=None, limit=50,
     items = []
     for doc in cursor:
         items.append(clean_doc(doc))
+
+    # Calculate status counts across all requests for this scope (ignoring status filter)
+    status_counts = {'all': 0, 'pending': 0, 'approved': 0, 'rejected': 0}
+    try:
+        pipeline = []
+        if base_query:
+            pipeline.append({'$match': base_query})
+        pipeline.append({'$group': {'_id': '$status', 'count': {'$sum': 1}}})
+        
+        for item in db.leave_requests.aggregate(pipeline):
+            st = str(item.get('_id') or '').strip().lower()
+            c = int(item.get('count', 0))
+            status_counts['all'] += c
+            if st == 'pending':
+                status_counts['pending'] = c
+            elif st == 'approved':
+                status_counts['approved'] = c
+            elif st == 'rejected':
+                status_counts['rejected'] = c
+    except Exception as e:
+        print(f"Error computing leave request status counts: {e}")
+
     return {
         'total': total,
         'page': int(page),
         'limit': int(limit),
-        'requests': items
+        'requests': items,
+        'status_counts': status_counts
     }
 
 def get_leave_request_by_id(request_id):
