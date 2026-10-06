@@ -163,7 +163,78 @@
     background: #ffffff !important;
   }
 
-  /* Responsive layout */
+  /* ----------------- DASHBOARD 5 STATS CARDS: SINGLE ROW (ALL NON-MOBILE) ----------------- */
+  .dash-stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+    margin-bottom: 24px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .dash-stat-card {
+    padding: 14px 14px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  .dash-stat-card .stat-main {
+    gap: 10px !important;
+    min-width: 0 !important;
+  }
+
+  .dash-stat-card .stat-icon-badge {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 10px !important;
+  }
+
+  .dash-stat-card .stat-icon-badge svg {
+    width: 19px !important;
+    height: 19px !important;
+  }
+
+  .dash-stat-card .stat-title {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .dash-stat-card .stat-num {
+    font-size: 19px !important;
+  }
+
+  .dash-stat-card .stat-pill {
+    font-size: 10px !important;
+    padding: 1.5px 5px !important;
+  }
+
+  .dash-stat-card .stat-deco {
+    opacity: 0.10 !important;
+    right: 6px !important;
+  }
+
+  /* Responsive layout: Single row on desktop/laptops/tablets (> 768px); Stack ONLY on mobile */
+  @media (max-width: 768px) {
+    .dash-stats-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 12px !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .dash-stats-grid {
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+    }
+  }
+
+  /* Responsive layout for charts and pdf cards */
   @media (max-width: 992px) {
     .dash-charts-row,
     .dash-bottom-row,

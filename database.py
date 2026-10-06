@@ -4570,6 +4570,9 @@ def save_company_leave_policy(company_id, policy_data):
             }
         employees = list(db.employees.find(emp_query))
         for emp in employees:
+            # If employee already has their own custom leave_quota, do not overwrite with global policy
+            if emp.get('leave_quota'):
+                continue
             e_id = str(emp.get('id') or emp.get('_id'))
             c_id = str(emp.get('company_id') or storage_comp_id)
             bal = db.leave_balances.find_one({
@@ -4623,6 +4626,108 @@ def save_company_leave_policy(company_id, policy_data):
 
     return True
 
+def save_employee_leave_quota(emp_id, quota_data, company_id=None, year=None):
+    """
+    Saves dynamic leave quota (CL, SL, EL, permission_hours) for a specific employee.
+    Persists to db.employees and updates db.leave_balances.
+    """
+    db = get_db()
+    if not emp_id:
+        return {'success': False, 'error': 'Employee ID is required'}
+        
+    emp = db.employees.find_one(build_id_filter(emp_id))
+    if not emp:
+        return {'success': False, 'error': f"Employee with ID '{emp_id}' not found"}
+
+    e_id = str(emp.get('id') or emp.get('_id'))
+    comp_id = company_id or emp.get('company_id') or 'ARGUS_MASTER'
+    if year is None:
+        year = get_ist_now().year
+
+    try:
+        cl = max(0, int(quota_data.get('casual_leave', quota_data.get('casual_leave_annual', 12))))
+        sl = max(0, int(quota_data.get('sick_leave', quota_data.get('sick_leave_annual', 12))))
+        el = max(0, int(quota_data.get('earned_leave', quota_data.get('earned_leave_annual', 12))))
+        ph = max(0.0, float(quota_data.get('permission_hours', quota_data.get('permission_hours_monthly', 16))))
+    except (ValueError, TypeError) as ex:
+        return {'success': False, 'error': f"Invalid quota values: {ex}"}
+
+    leave_quota = {
+        'casual_leave_annual': cl,
+        'sick_leave_annual': sl,
+        'earned_leave_annual': el,
+        'permission_hours_monthly': ph,
+        'updated_at': get_ist_now()
+    }
+
+    # 1. Update in db.employees
+    db.employees.update_one(
+        build_id_filter(emp_id),
+        {'$set': {
+            'leave_quota': leave_quota,
+            'updated_at': get_ist_now()
+        }}
+    )
+
+    # 2. Update or insert in db.leave_balances
+    bal = db.leave_balances.find_one({
+        '$or': [
+            {'employee_id': str(e_id)},
+            {'employee_id': int(e_id) if str(e_id).isdigit() else str(e_id)},
+            {'employee_id': str(emp_id)},
+            {'employee_id': int(emp_id) if str(emp_id).isdigit() else str(emp_id)}
+        ],
+        'year': int(year)
+    })
+
+    if bal:
+        cl_obj = bal.get('casual_leave') or {}
+        sl_obj = bal.get('sick_leave') or {}
+        el_obj = bal.get('earned_leave') or {}
+        ph_obj = bal.get('permission_hours') or {}
+
+        cl_used = float(cl_obj.get('used', 0) if isinstance(cl_obj, dict) else 0)
+        sl_used = float(sl_obj.get('used', 0) if isinstance(sl_obj, dict) else 0)
+        el_used = float(el_obj.get('used', 0) if isinstance(el_obj, dict) else 0)
+        ph_used = float(ph_obj.get('used', 0) if isinstance(ph_obj, dict) else 0)
+
+        db.leave_balances.update_one(
+            {'_id': bal['_id']},
+            {'$set': {
+                'casual_leave.total': cl,
+                'casual_leave.available': max(0.0, round(cl - cl_used, 1)),
+                'sick_leave.total': sl,
+                'sick_leave.available': max(0.0, round(sl - sl_used, 1)),
+                'earned_leave.total': el,
+                'earned_leave.available': max(0.0, round(el - el_used, 1)),
+                'permission_hours.total': ph,
+                'permission_hours.available': max(0.0, round(ph - ph_used, 2)),
+                'updated_at': get_ist_now()
+            }}
+        )
+    else:
+        new_bal = {
+            'company_id': str(comp_id),
+            'employee_id': str(e_id),
+            'year': int(year),
+            'casual_leave': {'total': cl, 'used': 0, 'available': cl},
+            'sick_leave': {'total': sl, 'used': 0, 'available': sl},
+            'earned_leave': {'total': el, 'used': 0, 'available': el},
+            'permission_hours': {'total': ph, 'used': 0.0, 'available': ph},
+            'compensatory_off': {'total': 6, 'used': 0, 'available': 6},
+            'created_at': get_ist_now(),
+            'updated_at': get_ist_now()
+        }
+        db.leave_balances.insert_one(new_bal)
+
+    updated_bal = get_employee_leave_balance(e_id, company_id=comp_id, year=year)
+    return {
+        'success': True,
+        'message': f"Leave quota updated successfully for {emp.get('employee_name', emp_id)}",
+        'balance': updated_bal,
+        'quota': leave_quota
+    }
+
 def get_employee_leave_balance(emp_id, company_id=None, year=None):
     """
     Retrieves or initializes the employee's leave balance document for the given year.
@@ -4643,15 +4748,22 @@ def get_employee_leave_balance(emp_id, company_id=None, year=None):
     })
     
     if not bal:
-        # Initialize new balance using company policy
+        # Initialize new balance using employee quota or company policy
         emp = db.employees.find_one(build_id_filter(emp_id))
         comp_id = company_id or (emp.get('company_id') if emp else None)
         pol = get_company_leave_policy(comp_id)
 
-        cl_tot = pol['casual_leave_annual']
-        sl_tot = pol['sick_leave_annual']
-        el_tot = pol['earned_leave_annual']
-        ph_tot = pol['permission_hours_monthly']
+        quota = emp.get('leave_quota') if emp else None
+        if quota and isinstance(quota, dict):
+            cl_tot = quota.get('casual_leave_annual', quota.get('casual_leave', pol['casual_leave_annual']))
+            sl_tot = quota.get('sick_leave_annual', quota.get('sick_leave', pol['sick_leave_annual']))
+            el_tot = quota.get('earned_leave_annual', quota.get('earned_leave', pol['earned_leave_annual']))
+            ph_tot = quota.get('permission_hours_monthly', quota.get('permission_hours', pol['permission_hours_monthly']))
+        else:
+            cl_tot = pol['casual_leave_annual']
+            sl_tot = pol['sick_leave_annual']
+            el_tot = pol['earned_leave_annual']
+            ph_tot = pol['permission_hours_monthly']
 
         new_bal = {
             'company_id': str(comp_id or 'DEFAULT'),
@@ -4783,7 +4895,8 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None):
             'permission_hours_available': ph_avail,
             'permission_hours_total': ph_tot,
             'permission_hours_used': perm.get('used', 0.0),
-            'is_low_balance': (cl.get('available', 0) < 2 or sl.get('available', 0) < 2 or el.get('available', 0) < 2)
+            'is_low_balance': (cl.get('available', 0) < 2 or sl.get('available', 0) < 2 or el.get('available', 0) < 2),
+            'leave_quota': emp.get('leave_quota')
         })
 
     return results

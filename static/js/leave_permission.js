@@ -8,24 +8,24 @@ document.addEventListener('DOMContentLoaded', function () {
   const companySelect = document.getElementById('leaveCompanySelect');
   const btnRefresh = document.getElementById('btnRefreshLeaveData');
 
-  // KPI Elements
-  const kpiPending = document.getElementById('kpiPendingCount');
-  const kpiApproved = document.getElementById('kpiApprovedCount');
-  const kpiRejected = document.getElementById('kpiRejectedCount');
-  const kpiLowBal = document.getElementById('kpiLowBalCount');
-
-  // Policy Elements
-  const formPolicy = document.getElementById('formLeavePolicy');
-  const btnSavePolicy = document.getElementById('btnSavePolicy');
-  const policyCL = document.getElementById('policyCL');
-  const policySL = document.getElementById('policySL');
-  const policyEL = document.getElementById('policyEL');
-  const policyPermHours = document.getElementById('policyPermHours');
-  const policyAlert = document.getElementById('policyAlert');
-
   // Balances Elements
   const searchBalancesInput = document.getElementById('searchBalancesInput');
   const balancesTbody = document.getElementById('leaveBalancesTbody');
+
+  // Set Employee Quota Modal Elements
+  const modalSetQuota = document.getElementById('modalSetEmployeeLeaveQuota');
+  const formSetQuota = document.getElementById('formSetEmployeeLeaveQuota');
+  const quotaEmpId = document.getElementById('quotaEmpId');
+  const quotaEmpCompanyId = document.getElementById('quotaEmpCompanyId');
+  const quotaModalSubtitle = document.getElementById('quotaModalEmpSubtitle');
+  const quotaInputCL = document.getElementById('quotaInputCL');
+  const quotaInputSL = document.getElementById('quotaInputSL');
+  const quotaInputEL = document.getElementById('quotaInputEL');
+  const quotaInputPerm = document.getElementById('quotaInputPerm');
+  const quotaAlertBox = document.getElementById('quotaAlertBox');
+  const closeSetQuotaModalBtn = document.getElementById('closeSetQuotaModalBtn');
+  const cancelSetQuotaModalBtn = document.getElementById('cancelSetQuotaModalBtn');
+  const btnSaveEmployeeQuota = document.getElementById('btnSaveEmployeeQuota');
 
   // Requests Elements
   const reqFilterTabs = document.querySelectorAll('.req-tab-filter');
@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return companySelect ? (companySelect.value || '') : '';
   }
 
-  // 1. Fetch & Update KPI Stats
+  // 1. Fetch & Update Sidebar Badge Stats (if present)
   async function loadStats() {
     try {
       const compId = getSelectedCompanyId();
@@ -59,11 +59,6 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!data.success) return;
 
       const s = data.stats || {};
-      if (kpiPending) kpiPending.textContent = s.pending_count ?? 0;
-      if (kpiApproved) kpiApproved.textContent = s.approved_today ?? 0;
-      if (kpiRejected) kpiRejected.textContent = s.rejected_count ?? 0;
-      if (kpiLowBal) kpiLowBal.textContent = s.low_balance_count ?? 0;
-
       const sbBadge = document.getElementById('sidebarLeaveBadge');
       if (sbBadge) {
         const pc = s.pending_count ?? 0;
@@ -75,101 +70,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // 2. Fetch & Populate Policy
-  async function loadPolicy() {
-    try {
-      const compId = getSelectedCompanyId();
-      const url = `/api/admin/leave-permission/policy${compId ? '?company_id=' + encodeURIComponent(compId) : ''}`;
-      const res = await fetch(url);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!data.success || !data.policy) return;
-
-      const p = data.policy;
-      if (policyCL) policyCL.value = p.casual_leave_annual ?? 12;
-      if (policySL) policySL.value = p.sick_leave_annual ?? 12;
-      if (policyEL) policyEL.value = p.earned_leave_annual ?? 12;
-      if (policyPermHours) policyPermHours.value = p.permission_hours_monthly ?? 16;
-      renderBalancesTable();
-    } catch (err) {
-      console.error('Error loading leave policy:', err);
-    }
-  }
-
-  // Save Policy
-  if (btnSavePolicy) {
-    btnSavePolicy.addEventListener('click', async function (e) {
-      e.preventDefault();
-      btnSavePolicy.disabled = true;
-
-      const compId = getSelectedCompanyId();
-      const payload = {
-        company_id: compId,
-        casual_leave_annual: parseInt(policyCL.value) || 0,
-        sick_leave_annual: parseInt(policySL.value) || 0,
-        earned_leave_annual: parseInt(policyEL.value) || 0,
-        permission_hours_monthly: parseInt(policyPermHours.value) || 0
-      };
-
-      try {
-        const url = `/api/admin/leave-permission/policy${compId ? '?company_id=' + encodeURIComponent(compId) : ''}`;
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (data.success) {
-          showPolicyAlert(data.message || 'Leave policy saved and persisted successfully!', 'success');
-          if (data.policy) {
-            if (policyCL) policyCL.value = data.policy.casual_leave_annual ?? policyCL.value;
-            if (policySL) policySL.value = data.policy.sick_leave_annual ?? policySL.value;
-            if (policyEL) policyEL.value = data.policy.earned_leave_annual ?? policyEL.value;
-            if (policyPermHours) policyPermHours.value = data.policy.permission_hours_monthly ?? policyPermHours.value;
-          }
-          await loadBalances();
-        } else {
-          showPolicyAlert(data.error || 'Failed to save leave policy.', 'error');
-        }
-      } catch (err) {
-        showPolicyAlert('Error saving policy: ' + err.message, 'error');
-      } finally {
-        btnSavePolicy.disabled = false;
-      }
-    });
-  }
-
-  // Live dynamic update of Employee Leave Balances as policy inputs change
-  [policyCL, policySL, policyEL, policyPermHours].forEach(input => {
-    if (input) {
-      input.addEventListener('input', () => {
-        renderBalancesTable();
-      });
-      input.addEventListener('change', () => {
-        renderBalancesTable();
-      });
-    }
-  });
-
-  function showPolicyAlert(msg, type) {
-    if (!policyAlert) return;
-    policyAlert.style.display = 'block';
-    if (type === 'success') {
-      policyAlert.style.backgroundColor = '#ecfdf5';
-      policyAlert.style.color = '#065f46';
-      policyAlert.style.border = '1px solid #a7f3d0';
-    } else {
-      policyAlert.style.backgroundColor = '#fef2f2';
-      policyAlert.style.color = '#991b1b';
-      policyAlert.style.border = '1px solid #fecaca';
-    }
-    policyAlert.textContent = msg;
-    setTimeout(() => {
-      policyAlert.style.display = 'none';
-    }, 4000);
-  }
-
-  // 3. Fetch & Render Employee Balances
+  // 2. Fetch & Render Employee Balances
   async function loadBalances() {
     if (!balancesTbody) return;
     try {
@@ -177,7 +78,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const url = `/api/admin/leave-permission/balances${compId ? '?company_id=' + encodeURIComponent(compId) : ''}`;
       const res = await fetch(url);
       if (!res.ok) {
-        balancesTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #dc2626;">Failed to load employee balances.</td></tr>`;
+        balancesTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: #dc2626;">Failed to load employee balances.</td></tr>`;
         return;
       }
       const data = await res.json();
@@ -187,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function () {
       renderBalancesTable();
     } catch (err) {
       console.error('Error fetching balances:', err);
-      balancesTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #dc2626;">Error loading balances.</td></tr>`;
+      balancesTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: #dc2626;">Error loading balances.</td></tr>`;
     }
   }
 
@@ -203,15 +104,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     if (filtered.length === 0) {
-      balancesTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 22px; color: #94a3b8; font-size: 12.5px;">No employee balance records found.</td></tr>`;
+      balancesTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 22px; color: #94a3b8; font-size: 12.5px;">No employee balance records found.</td></tr>`;
       return;
     }
-
-    // Read live policy inputs if present
-    const liveCL = policyCL && policyCL.value !== '' ? parseInt(policyCL.value) : null;
-    const liveSL = policySL && policySL.value !== '' ? parseInt(policySL.value) : null;
-    const liveEL = policyEL && policyEL.value !== '' ? parseInt(policyEL.value) : null;
-    const livePerm = policyPermHours && policyPermHours.value !== '' ? parseInt(policyPermHours.value) : null;
 
     balancesTbody.innerHTML = filtered.map(b => {
       const clUsed = Number(b.casual_leave_used || 0);
@@ -219,20 +114,25 @@ document.addEventListener('DOMContentLoaded', function () {
       const elUsed = Number(b.earned_leave_used || 0);
       const permUsed = Number(b.permission_hours_used || 0);
 
-      const clTot = liveCL !== null && !isNaN(liveCL) ? liveCL : (b.casual_leave_total || 12);
-      const slTot = liveSL !== null && !isNaN(liveSL) ? liveSL : (b.sick_leave_total || 12);
-      const elTot = liveEL !== null && !isNaN(liveEL) ? liveEL : (b.earned_leave_total || 18);
-      const permTot = livePerm !== null && !isNaN(livePerm) ? livePerm : (b.permission_hours_total || 16);
+      const clTot = b.casual_leave_total ?? 12;
+      const slTot = b.sick_leave_total ?? 12;
+      const elTot = b.earned_leave_total ?? 12;
+      const permTot = b.permission_hours_total ?? 16;
 
-      const clAvail = Math.max(0, clTot - clUsed);
-      const slAvail = Math.max(0, slTot - slUsed);
-      const elAvail = Math.max(0, elTot - elUsed);
-      const permAvail = Math.max(0, permTot - permUsed);
+      const clAvail = b.casual_leave_avail !== undefined ? b.casual_leave_avail : Math.max(0, clTot - clUsed);
+      const slAvail = b.sick_leave_avail !== undefined ? b.sick_leave_avail : Math.max(0, slTot - slUsed);
+      const elAvail = b.earned_leave_avail !== undefined ? b.earned_leave_avail : Math.max(0, elTot - elUsed);
+      const permAvail = b.permission_hours_avail !== undefined ? b.permission_hours_avail : Math.max(0, permTot - permUsed);
+
+      const empId = b.id || b.employee_id || '';
+      const empCode = b.employee_id || b.id || '';
+      const empName = b.employee_name || '';
+      const compId = b.company_id || '';
 
       return `
         <tr style="border-bottom: 1px solid #f1f5f9;">
-          <td style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: #0f172a;">${escapeHtml(b.employee_id)}</td>
-          <td style="padding: 10px 14px; font-size: 12px; font-weight: 600; color: #334155;">${escapeHtml(b.employee_name)}</td>
+          <td style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: #0f172a;">${escapeHtml(empCode)}</td>
+          <td style="padding: 10px 14px; font-size: 12px; font-weight: 600; color: #334155;">${escapeHtml(empName)}</td>
           <td style="padding: 10px 14px; text-align: center;">
             <span class="badge-bal-blue">${clAvail} / ${clTot} Days</span>
           </td>
@@ -247,9 +147,139 @@ document.addEventListener('DOMContentLoaded', function () {
               ${permAvail} / ${permTot} Hrs
             </span>
           </td>
+          <td style="padding: 10px 14px; text-align: center;">
+            <button type="button" class="btn-set-quota" 
+              data-id="${escapeHtml(empId)}" 
+              data-name="${escapeHtml(empName)}" 
+              data-cl="${clTot}" 
+              data-sl="${slTot}" 
+              data-el="${elTot}" 
+              data-perm="${permTot}" 
+              data-comp="${escapeHtml(compId)}"
+              style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background: #f0fdf4; color: #166534; border: 1.5px solid #86efac; cursor: pointer; transition: all 0.15s ease;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              Set Leaves
+            </button>
+          </td>
         </tr>
       `;
     }).join('');
+  }
+
+  // Handle click on "Set Leaves" button via delegation
+  if (balancesTbody) {
+    balancesTbody.addEventListener('click', function (e) {
+      const btn = e.target.closest('.btn-set-quota');
+      if (!btn) return;
+      const empId = btn.getAttribute('data-id');
+      const empName = btn.getAttribute('data-name');
+      const cl = btn.getAttribute('data-cl') || 12;
+      const sl = btn.getAttribute('data-sl') || 12;
+      const el = btn.getAttribute('data-el') || 12;
+      const perm = btn.getAttribute('data-perm') || 16;
+      const comp = btn.getAttribute('data-comp') || '';
+
+      openSetQuotaModal({
+        employee_id: empId,
+        employee_name: empName,
+        casual_leave: cl,
+        sick_leave: sl,
+        earned_leave: el,
+        permission_hours: perm,
+        company_id: comp
+      });
+    });
+  }
+
+  function openSetQuotaModal(data) {
+    if (!modalSetQuota) return;
+    if (quotaEmpId) quotaEmpId.value = data.employee_id || '';
+    if (quotaEmpCompanyId) quotaEmpCompanyId.value = data.company_id || getSelectedCompanyId() || '';
+    if (quotaModalSubtitle) {
+      quotaModalSubtitle.textContent = `Configuring: ${data.employee_name || 'Employee'} (ID: ${data.employee_id || ''})`;
+    }
+    if (quotaInputCL) quotaInputCL.value = data.casual_leave ?? 12;
+    if (quotaInputSL) quotaInputSL.value = data.sick_leave ?? 12;
+    if (quotaInputEL) quotaInputEL.value = data.earned_leave ?? 12;
+    if (quotaInputPerm) quotaInputPerm.value = data.permission_hours ?? 16;
+
+    if (quotaAlertBox) {
+      quotaAlertBox.style.display = 'none';
+      quotaAlertBox.textContent = '';
+    }
+    modalSetQuota.style.display = 'flex';
+  }
+
+  function closeSetQuotaModal() {
+    if (modalSetQuota) modalSetQuota.style.display = 'none';
+  }
+
+  if (closeSetQuotaModalBtn) closeSetQuotaModalBtn.addEventListener('click', closeSetQuotaModal);
+  if (cancelSetQuotaModalBtn) cancelSetQuotaModalBtn.addEventListener('click', closeSetQuotaModal);
+
+  // Submit Handler for Set Quota Form
+  if (formSetQuota) {
+    formSetQuota.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      if (!btnSaveEmployeeQuota) return;
+
+      btnSaveEmployeeQuota.disabled = true;
+      const origText = btnSaveEmployeeQuota.innerHTML;
+      btnSaveEmployeeQuota.innerHTML = `Saving...`;
+
+      try {
+        const payload = {
+          employee_id: quotaEmpId ? quotaEmpId.value : '',
+          company_id: quotaEmpCompanyId ? quotaEmpCompanyId.value : getSelectedCompanyId(),
+          casual_leave: quotaInputCL ? (parseInt(quotaInputCL.value) || 0) : 0,
+          sick_leave: quotaInputSL ? (parseInt(quotaInputSL.value) || 0) : 0,
+          earned_leave: quotaInputEL ? (parseInt(quotaInputEL.value) || 0) : 0,
+          permission_hours: quotaInputPerm ? (parseFloat(quotaInputPerm.value) || 0) : 0
+        };
+
+        const res = await fetch('/api/admin/leave-permission/employee-quota', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (quotaAlertBox) {
+            quotaAlertBox.style.display = 'block';
+            quotaAlertBox.style.backgroundColor = '#ecfdf5';
+            quotaAlertBox.style.color = '#065f46';
+            quotaAlertBox.style.border = '1px solid #a7f3d0';
+            quotaAlertBox.textContent = data.message || 'Leave quota saved successfully!';
+          }
+          await loadBalances();
+          setTimeout(() => {
+            closeSetQuotaModal();
+          }, 600);
+        } else {
+          if (quotaAlertBox) {
+            quotaAlertBox.style.display = 'block';
+            quotaAlertBox.style.backgroundColor = '#fef2f2';
+            quotaAlertBox.style.color = '#991b1b';
+            quotaAlertBox.style.border = '1px solid #fecaca';
+            quotaAlertBox.textContent = data.error || 'Failed to update leave quota.';
+          }
+        }
+      } catch (err) {
+        if (quotaAlertBox) {
+          quotaAlertBox.style.display = 'block';
+          quotaAlertBox.style.backgroundColor = '#fef2f2';
+          quotaAlertBox.style.color = '#991b1b';
+          quotaAlertBox.style.border = '1px solid #fecaca';
+          quotaAlertBox.textContent = 'Error: ' + err.message;
+        }
+      } finally {
+        btnSaveEmployeeQuota.disabled = false;
+        btnSaveEmployeeQuota.innerHTML = origText;
+      }
+    });
   }
 
   if (searchBalancesInput) {
@@ -515,7 +545,6 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       await Promise.all([
         loadStats(),
-        loadPolicy(),
         loadBalances(),
         loadRequests()
       ]);
