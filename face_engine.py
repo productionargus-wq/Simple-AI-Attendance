@@ -24,10 +24,24 @@ import os
 import sys
 import json
 import threading
+import contextlib
 import urllib.request
 import database
 
-_detector_lock = threading.Lock()
+_detector_lock = threading.RLock()
+
+@contextlib.contextmanager
+def acquire_detector_lock(timeout=5.0):
+    """Safely acquires the reentrant detector lock with a strict timeout to prevent worker freezes."""
+    acquired = _detector_lock.acquire(timeout=timeout)
+    try:
+        yield acquired
+    finally:
+        if acquired:
+            try:
+                _detector_lock.release()
+            except RuntimeError:
+                pass
 
 try:
     import numpy as np
@@ -64,7 +78,7 @@ def ensure_models_available():
         print(f"Downloading YuNet model to {YUNET_PATH}...")
         try:
             req = urllib.request.Request(YUNET_URL, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=20) as resp, open(YUNET_PATH, 'wb') as out_f:
+            with urllib.request.urlopen(req, timeout=10) as resp, open(YUNET_PATH, 'wb') as out_f:
                 out_f.write(resp.read())
             print("YuNet model downloaded successfully.")
         except Exception as e:
@@ -74,7 +88,7 @@ def ensure_models_available():
         print(f"Downloading SFace model to {SFACE_PATH}...")
         try:
             req = urllib.request.Request(SFACE_URL, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=30) as resp, open(SFACE_PATH, 'wb') as out_f:
+            with urllib.request.urlopen(req, timeout=15) as resp, open(SFACE_PATH, 'wb') as out_f:
                 out_f.write(resp.read())
             print("SFace model downloaded successfully.")
         except Exception as e:
@@ -87,7 +101,10 @@ def get_detector(width=320, height=240):
     if cv2 is None or not hasattr(cv2, 'FaceDetectorYN'):
         return None
 
-    with _detector_lock:
+    with acquire_detector_lock(timeout=5.0) as acquired:
+        if not acquired:
+            return None
+
         if _detector is None:
             ensure_models_available()
             if not os.path.exists(YUNET_PATH):
@@ -122,7 +139,10 @@ def get_recognizer():
     if cv2 is None or not hasattr(cv2, 'FaceRecognizerSF'):
         return None
 
-    with _detector_lock:
+    with acquire_detector_lock(timeout=5.0) as acquired:
+        if not acquired:
+            return None
+
         if _recognizer is None:
             ensure_models_available()
             if not os.path.exists(SFACE_PATH):
@@ -158,7 +178,10 @@ def detect_face_deep(img):
     Returns the best face descriptor (15 values: bbox + 5 landmarks + score) or None.
     """
     h, w = img.shape[:2]
-    with _detector_lock:
+    with acquire_detector_lock(timeout=5.0) as acquired:
+        if not acquired:
+            return None
+
         detector = get_detector(w, h)
         if detector is None:
             return None
@@ -251,18 +274,19 @@ def extract_face_embedding_from_image(image_bytes_or_path):
 
         if face is not None and recognizer is not None:
             try:
-                with _detector_lock:
-                    # SFace geometric alignment using 5 facial landmarks
-                    aligned_face = recognizer.alignCrop(img, face)
-                    raw_feature = recognizer.feature(aligned_face)
+                with acquire_detector_lock(timeout=5.0) as acquired:
+                    if acquired:
+                        # SFace geometric alignment using 5 facial landmarks
+                        aligned_face = recognizer.alignCrop(img, face)
+                        raw_feature = recognizer.feature(aligned_face)
 
-                # L2 normalize
-                norm = np.linalg.norm(raw_feature)
-                if norm > 0:
-                    normalized_feat = raw_feature / norm
-                else:
-                    normalized_feat = raw_feature
-                return normalized_feat.flatten().tolist()
+                        # L2 normalize
+                        norm = np.linalg.norm(raw_feature)
+                        if norm > 0:
+                            normalized_feat = raw_feature / norm
+                        else:
+                            normalized_feat = raw_feature
+                        return normalized_feat.flatten().tolist()
             except Exception as align_err:
                 print(f"YuNet/SFace alignment fallback notice: {align_err}")
 
