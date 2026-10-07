@@ -14,13 +14,14 @@ import requests
 import werkzeug.utils
 import zipfile
 import traceback
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 from dotenv import load_dotenv
 from PIL import Image, ImageOps
 
 load_dotenv()
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file, send_from_directory, Response, session, make_response, flash
+from flask.sessions import SecureCookieSessionInterface
 from functools import wraps
 from flask_cors import CORS
 import database
@@ -46,15 +47,155 @@ def get_face_engine():
             print(f"Warning: face_engine import failed: {e}")
     return face_engine
 
+class PersistentSessionInterface(SecureCookieSessionInterface):
+    """
+    Guarantees session cookies are persisted to the browser's persistent on-disk cookie store
+    across tab and browser restarts by explicitly setting both Max-Age (in seconds) and Expires.
+    Supports candidate cookie names and direct DB remember token auto-rehydration seamlessly.
+    """
+    def open_session(self, app, request):
+        s = self.get_signing_serializer(app)
+        if s is None:
+            return None
+        max_age = int(app.permanent_session_lifetime.total_seconds())
+
+        # 1. Try candidate signed session cookies in order
+        candidates = [self.get_cookie_name(app), 'session']
+        for cname in candidates:
+            val = request.cookies.get(cname)
+            if val:
+                try:
+                    data = s.loads(val, max_age=max_age)
+                    if data and isinstance(data, dict):
+                        return self.session_class(data)
+                except Exception:
+                    continue
+
+        # 2. Try direct rehydration from persistent DB remember token if cookies were lost or expired
+        rem_token = request.cookies.get('argus_remember_token')
+        if rem_token:
+            try:
+                s_doc = database.get_user_session_by_token(rem_token)
+                if s_doc:
+                    role = s_doc.get('role')
+                    sess_data = {
+                        '_permanent': True,
+                        'role': role,
+                        'company_id': s_doc.get('company_id', ''),
+                        'company_name': s_doc.get('company_name', ''),
+                        'remember_token': rem_token
+                    }
+                    if role in ['super_admin', 'company_admin']:
+                        sess_data['admin_logged_in'] = True
+                        sess_data['admin_username'] = s_doc.get('username') or ('Company Admin' if role == 'company_admin' else 'Admin')
+                        sess_data['admin_email'] = s_doc.get('email', '')
+                    elif role == 'employee':
+                        sess_data['employee_logged_in'] = True
+                        sess_data['employee_id'] = s_doc.get('employee_id', '')
+                        sess_data['employee_name'] = s_doc.get('employee_name', '')
+                        sess_data['employee_email'] = s_doc.get('email', '')
+                    return self.session_class(sess_data)
+            except Exception:
+                pass
+
+        return self.session_class()
+
+    def should_set_cookie(self, app, session):
+        if session.modified:
+            return True
+        if session.get('admin_logged_in') or session.get('employee_logged_in') or session.permanent:
+            return True
+        return super().should_set_cookie(app, session)
+
+    def save_session(self, app, session, response):
+        name = self.get_cookie_name(app)
+        domain = self.get_cookie_domain(app)
+        path = self.get_cookie_path(app)
+        secure = self.get_cookie_secure(app)
+        samesite = self.get_cookie_samesite(app)
+        httponly = self.get_cookie_httponly(app)
+
+        if session.accessed:
+            response.vary.add("Cookie")
+
+        if not session:
+            if session.modified:
+                for cname in [name, 'session']:
+                    response.delete_cookie(
+                        cname,
+                        domain=domain,
+                        path=path,
+                        secure=secure,
+                        samesite=samesite,
+                        httponly=httponly,
+                    )
+                response.vary.add("Cookie")
+            return
+
+        if not self.should_set_cookie(app, session):
+            return
+
+        is_auth = bool(session.get('admin_logged_in') or session.get('employee_logged_in') or session.permanent)
+        expires = (datetime.now(timezone.utc) + timedelta(days=365)) if is_auth else self.get_expiration_time(app, session)
+        max_age = int(app.permanent_session_lifetime.total_seconds()) if is_auth else None
+        val = self.get_signing_serializer(app).dumps(dict(session))
+
+        # Write to both cookie names to ensure universal cross-tab persistence
+        for cname in [name, 'session']:
+            response.set_cookie(
+                cname,
+                val,
+                max_age=max_age,
+                expires=expires,
+                httponly=httponly,
+                domain=domain,
+                path=path,
+                secure=secure,
+                samesite=samesite,
+            )
+        response.vary.add("Cookie")
+
+def finalize_login_session(resp, role, user_info=None):
+    """
+    Sets up permanent session state and generates a persistent 365-day database-backed
+    remember token cookie alongside standard session cookies.
+    """
+    session.permanent = True
+    session.modified = True
+    token = database.create_user_session({
+        'role': role,
+        'company_id': session.get('company_id', ''),
+        'company_name': session.get('company_name', ''),
+        'username': session.get('admin_username') or session.get('employee_name', ''),
+        'email': session.get('admin_email') or session.get('company_email') or session.get('employee_email', ''),
+        'employee_id': session.get('employee_id', ''),
+        'employee_name': session.get('employee_name', '')
+    })
+    if token:
+        session['remember_token'] = token
+        exp = datetime.now(timezone.utc) + timedelta(days=365)
+        resp.set_cookie(
+            'argus_remember_token',
+            token,
+            max_age=31536000,
+            expires=exp,
+            path='/',
+            httponly=False,
+            samesite='Lax'
+        )
+    return resp
+
 app = Flask(__name__)
 CORS(app)
 app.secret_key = 'argus-tech-secret-key-2026'
 
 # Session persistence: keep user logged in until explicit logout (365 days)
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
+app.config['SESSION_COOKIE_NAME'] = 'argus_session'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_REFRESH_EACH_REQUEST'] = True
+app.session_interface = PersistentSessionInterface()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', os.path.join(BASE_DIR, 'static', 'uploads'))
@@ -370,11 +511,18 @@ DEFAULT_AVATAR_SVG = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 
 
 @app.route('/favicon.ico')
 def favicon():
-    icon_dir = os.path.join(app.root_path, 'static', 'images')
+    static_dir = os.path.join(app.root_path, 'static')
+    if os.path.exists(os.path.join(static_dir, 'favicon.ico')):
+        resp = make_response(send_from_directory(static_dir, 'favicon.ico', mimetype='image/x-icon'))
+        resp.headers['Cache-Control'] = 'no-cache, must-revalidate'
+        return resp
+    icon_dir = os.path.join(static_dir, 'images')
+    if os.path.exists(os.path.join(icon_dir, 'favicon.ico')):
+        resp = make_response(send_from_directory(icon_dir, 'favicon.ico', mimetype='image/x-icon'))
+        resp.headers['Cache-Control'] = 'no-cache, must-revalidate'
+        return resp
     if os.path.exists(os.path.join(icon_dir, 'argus_triangle_logo.png')):
         return send_from_directory(icon_dir, 'argus_triangle_logo.png', mimetype='image/png')
-    elif os.path.exists(os.path.join(icon_dir, 'logo.png')):
-        return send_from_directory(icon_dir, 'logo.png', mimetype='image/png')
     return Response(status=204)
 
 @app.errorhandler(500)
@@ -453,8 +601,38 @@ def add_performance_headers(response):
 @app.before_request
 def ensure_persistent_session():
     """Keeps the session alive for 365 days across browser restarts, and evicts deactivated tenants."""
+    # 1. Loopback Host Normalization: Force 127.0.0.1 -> localhost so cookies are 100% shared across tabs
+    if request.host.startswith('127.0.0.1'):
+        port = f":{request.host.split(':')[1]}" if ':' in request.host else ''
+        new_url = request.url.replace(f"127.0.0.1{port}", f"localhost{port}", 1)
+        return redirect(new_url, code=307)
+
+    # 2. Session Auto-Rehydration from Persistent DB Remember Token
+    if not (session.get('admin_logged_in') or session.get('employee_logged_in')):
+        rem_token = request.cookies.get('argus_remember_token')
+        if rem_token:
+            s_doc = database.get_user_session_by_token(rem_token)
+            if s_doc:
+                session.permanent = True
+                session.modified = True
+                role = s_doc.get('role')
+                session['role'] = role
+                session['company_id'] = s_doc.get('company_id')
+                session['company_name'] = s_doc.get('company_name')
+                session['remember_token'] = rem_token
+                if role in ['super_admin', 'company_admin']:
+                    session['admin_logged_in'] = True
+                    session['admin_username'] = s_doc.get('username') or ('Company Admin' if role == 'company_admin' else 'Admin')
+                    session['admin_email'] = s_doc.get('email', '')
+                elif role == 'employee':
+                    session['employee_logged_in'] = True
+                    session['employee_id'] = s_doc.get('employee_id')
+                    session['employee_name'] = s_doc.get('employee_name')
+                    session['employee_email'] = s_doc.get('email', '')
+
     if session.get('admin_logged_in') or session.get('employee_logged_in'):
         session.permanent = True
+        session.modified = True
 
         role = session.get('role')
         if role in ['company_admin', 'employee']:
@@ -463,6 +641,9 @@ def ensure_persistent_session():
                 # Allow static assets and explicit logout without interception
                 if not request.path.startswith('/static') and request.endpoint not in ['static', 'logout', 'favicon']:
                     if not database.is_company_active(comp_id):
+                        token = session.get('remember_token')
+                        if token:
+                            database.delete_user_session(token)
                         session.clear()
                         if request.path.startswith('/api/'):
                             return jsonify({
@@ -641,11 +822,23 @@ def export_table_data(headers, rows, filename_base, export_format='excel', sheet
 
 @app.route('/')
 def index():
+    if not request.args.get('kiosk'):
+        if session.get('admin_logged_in'):
+            return redirect(url_for('dashboard'))
+        if session.get('employee_logged_in'):
+            return redirect(url_for('employee_portal'))
+    return render_template('attendance.html')
+
+@app.route('/kiosk')
+def kiosk():
+    """Direct alias to Attendance Kiosk interface."""
     return render_template('attendance.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Super Admin Login (Registered Email: technologiesargus@gmail.com)."""
+    if request.method == 'GET' and session.get('admin_logged_in'):
+        return redirect(url_for('dashboard'))
     if request.method == 'POST':
         email = (request.form.get('email') or request.form.get('username') or '').strip()
         password = request.form.get('password', '').strip()
@@ -668,7 +861,8 @@ def login():
             session['role'] = 'super_admin'
             session['company_id'] = 'ARGUS_MASTER'
             session['company_name'] = 'ARGUS TECHNOLOGIES'
-            return redirect(url_for('dashboard'))
+            resp = redirect(url_for('dashboard'))
+            return finalize_login_session(resp, 'super_admin', admin_user)
         else:
             err_code = result.get('error') if isinstance(result, dict) else None
             if err_code == 'PASSWORD_NOT_SET':
@@ -783,7 +977,8 @@ def google_callback():
             session['role'] = 'super_admin'
             session['company_id'] = 'ARGUS_MASTER'
             session['company_name'] = 'ARGUS TECHNOLOGIES'
-            return redirect(url_for('dashboard'))
+            resp = redirect(url_for('dashboard'))
+            return finalize_login_session(resp, 'super_admin', admin_user)
         else:
             return render_oauth_error(
                 f"Access Denied: The Google account '{google_email}' is not authorized as System Admin."
@@ -795,16 +990,17 @@ def google_callback():
             return render_oauth_error(
                 "Access Denied: This company account has been deactivated. Please contact System Administrator."
             )
-        elif company and isinstance(company, dict) and company.get('id'):
+        elif company and isinstance(company, dict) and (company.get('id') or company.get('_id')):
             session.clear()
             session.permanent = True
             session['admin_logged_in'] = True
             session['admin_username'] = company.get('company_name', 'Company Admin')
             session['role'] = 'company_admin'
-            session['company_id'] = company['id']
+            session['company_id'] = str(company.get('id') or company.get('_id', ''))
             session['company_name'] = company.get('company_name', '')
             session['company_email'] = company.get('email', '')
-            return redirect(url_for('dashboard'))
+            resp = redirect(url_for('dashboard'))
+            return finalize_login_session(resp, 'company_admin', company)
         else:
             return render_oauth_error(
                 f"Access Denied: The Google account '{google_email}' is not registered as a company administrator. Please contact Argus Support."
@@ -828,7 +1024,8 @@ def google_callback():
             session['company_id'] = comp_id
             comp_record = database.get_company_by_id(comp_id) if comp_id != 'ARGUS_MASTER' else None
             session['company_name'] = comp_record.get('company_name', 'ARGUS TECHNOLOGIES') if comp_record else 'ARGUS TECHNOLOGIES'
-            return redirect(url_for('employee_portal'))
+            resp = redirect(url_for('employee_portal'))
+            return finalize_login_session(resp, 'employee', employee)
         else:
             return render_oauth_error(
                 f"Access Denied: The Google account '{google_email}' is not registered with any organisation. Please contact your company HR."
@@ -839,6 +1036,8 @@ def google_callback():
 @app.route('/company-login', methods=['GET', 'POST'])
 def company_login():
     """Dedicated Company Admin Portal Login via Registered Corporate Email."""
+    if request.method == 'GET' and session.get('admin_logged_in'):
+        return redirect(url_for('dashboard'))
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '').strip()
@@ -858,10 +1057,11 @@ def company_login():
             session['admin_logged_in'] = True
             session['admin_username'] = company.get('company_name', 'Company Admin')
             session['role'] = 'company_admin'
-            session['company_id'] = company['id']
+            session['company_id'] = str(company.get('id') or company.get('_id', ''))
             session['company_name'] = company.get('company_name', '')
             session['company_email'] = company.get('email', '')
-            return redirect(url_for('dashboard'))
+            resp = redirect(url_for('dashboard'))
+            return finalize_login_session(resp, 'company_admin', company)
         else:
             err_code = result.get('error') if isinstance(result, dict) else None
             if err_code == 'COMPANY_DEACTIVATED':
@@ -878,6 +1078,8 @@ def company_login():
 @app.route('/employee-login', methods=['GET', 'POST'])
 def employee_login():
     """Dedicated Employee Portal Login via Registered Employee Email."""
+    if request.method == 'GET' and session.get('employee_logged_in'):
+        return redirect(url_for('employee_portal'))
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '').strip()
@@ -903,7 +1105,8 @@ def employee_login():
             session['company_id'] = comp_id
             comp_record = database.get_company_by_id(comp_id) if comp_id != 'ARGUS_MASTER' else None
             session['company_name'] = comp_record.get('company_name', 'ARGUS TECHNOLOGIES') if comp_record else 'ARGUS TECHNOLOGIES'
-            return redirect(url_for('employee_portal'))
+            resp = redirect(url_for('employee_portal'))
+            return finalize_login_session(resp, 'employee', employee)
         else:
             err_code = result.get('error') if isinstance(result, dict) else None
             if err_code == 'COMPANY_DEACTIVATED':
@@ -919,8 +1122,64 @@ def employee_login():
 
 @app.route('/logout')
 def logout():
+    role = session.get('role')
+    token = session.get('remember_token') or request.cookies.get('argus_remember_token')
+    if token:
+        database.delete_user_session(token)
     session.clear()
-    return redirect(url_for('index'))
+    cookie_name = app.config.get('SESSION_COOKIE_NAME', 'argus_session')
+    target = url_for('company_login') if role == 'company_admin' else (url_for('employee_login') if role == 'employee' else url_for('login'))
+    resp = redirect(target)
+    resp.delete_cookie(cookie_name, path='/')
+    resp.delete_cookie('session', path='/')
+    resp.delete_cookie('argus_remember_token', path='/')
+    return resp
+
+@app.route('/api/auth/restore-session', methods=['POST'])
+def api_restore_session():
+    """Client-side fallback: Re-hydrates an authenticated session from localStorage remember token."""
+    data = request.get_json(silent=True) or {}
+    token = (data.get('token') or request.cookies.get('argus_remember_token') or '').strip()
+    if not token:
+        return jsonify({'success': False, 'error': 'NO_TOKEN'}), 401
+
+    s_doc = database.get_user_session_by_token(token)
+    if not s_doc:
+        return jsonify({'success': False, 'error': 'INVALID_TOKEN'}), 401
+
+    session.permanent = True
+    session.modified = True
+    role = s_doc.get('role', 'company_admin')
+    session['role'] = role
+    session['company_id'] = s_doc.get('company_id', '')
+    session['company_name'] = s_doc.get('company_name', '')
+    session['remember_token'] = token
+
+    if role in ['super_admin', 'company_admin']:
+        session['admin_logged_in'] = True
+        session['admin_username'] = s_doc.get('username') or ('Company Admin' if role == 'company_admin' else 'Admin')
+        session['admin_email'] = s_doc.get('email', '')
+        target = url_for('dashboard')
+    elif role == 'employee':
+        session['employee_logged_in'] = True
+        session['employee_id'] = s_doc.get('employee_id', '')
+        session['employee_name'] = s_doc.get('employee_name', '')
+        session['employee_email'] = s_doc.get('email', '')
+    else:
+        target = url_for('dashboard')
+
+    resp = jsonify({'success': True, 'role': role, 'redirect': target, 'redirect_url': target})
+    exp = datetime.now(timezone.utc) + timedelta(days=365)
+    resp.set_cookie(
+        'argus_remember_token',
+        token,
+        max_age=31536000,
+        expires=exp,
+        path='/',
+        httponly=False,
+        samesite='Lax'
+    )
+    return resp
 
 @app.route('/manage-companies')
 @super_admin_required

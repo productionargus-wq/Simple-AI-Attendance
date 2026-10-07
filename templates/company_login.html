@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ARGUS ATTENDANCE - Company Administration Login</title>
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261007_white">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261007_white">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <style>
     body {
@@ -298,6 +299,36 @@
           }
         });
       }
+
+      // On form submit, prepare localStorage state
+      var loginForm = document.querySelector('form');
+      if (loginForm) {
+        loginForm.addEventListener('submit', function () {
+          try {
+            localStorage.setItem('argus_logged_in', 'true');
+            localStorage.setItem('argus_role', 'company_admin');
+          } catch (e) {}
+        });
+      }
+
+      // Check if user already has an active persistent remember token in localStorage
+      try {
+        var token = localStorage.getItem('argus_remember_token');
+        if (token && !window.location.search.includes('logout=1')) {
+          fetch('/api/auth/restore-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: token })
+          })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data && data.success && (data.redirect || data.redirect_url)) {
+              window.location.replace(data.redirect || data.redirect_url);
+            }
+          })
+          .catch(function () {});
+        }
+      } catch (e) {}
     });
   </script>
 

@@ -8,3 +8,5 @@ atlas-credentials.env
 .env
 generated_payslips/
 scratch/
+static/reports/
+static/uploads/employee_documents/

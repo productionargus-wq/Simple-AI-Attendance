@@ -2848,23 +2848,27 @@ document.addEventListener('DOMContentLoaded', function () {
   syncModalUI();
 
   // ----------------- TEMPLATE MODAL HANDLERS -----------------
-  btnChooseTemplate.addEventListener('click', function () {
-    modalTempTemplate = currentTemplate;
-    modalTempTheme = currentTheme;
-    syncModalUI();
-    templateModal.style.display = 'flex';
-  });
-
-  function closeTemplateModal() {
-    templateModal.style.display = 'none';
+  if (btnChooseTemplate && templateModal) {
+    btnChooseTemplate.addEventListener('click', function () {
+      modalTempTemplate = currentTemplate;
+      modalTempTheme = currentTheme;
+      syncModalUI();
+      templateModal.style.display = 'flex';
+    });
   }
 
-  btnCloseTemplateModal.addEventListener('click', closeTemplateModal);
-  btnCancelTemplateModal.addEventListener('click', closeTemplateModal);
+  function closeTemplateModal() {
+    if (templateModal) templateModal.style.display = 'none';
+  }
 
-  templateModal.addEventListener('click', function (e) {
-    if (e.target === templateModal) closeTemplateModal();
-  });
+  if (btnCloseTemplateModal) btnCloseTemplateModal.addEventListener('click', closeTemplateModal);
+  if (btnCancelTemplateModal) btnCancelTemplateModal.addEventListener('click', closeTemplateModal);
+
+  if (templateModal) {
+    templateModal.addEventListener('click', function (e) {
+      if (e.target === templateModal) closeTemplateModal();
+    });
+  }
 
   // Clicking template cards in modal
   document.querySelectorAll('.tmpl-card').forEach(card => {
@@ -2890,14 +2894,16 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  btnApplyTemplate.addEventListener('click', function () {
-    currentTemplate = modalTempTemplate;
-    currentTheme = modalTempTheme;
-    localStorage.setItem('argus_payslip_template', currentTemplate);
-    localStorage.setItem('argus_payslip_theme', currentTheme);
-    applyTemplateAndTheme(currentTemplate, currentTheme);
-    closeTemplateModal();
-  });
+  if (btnApplyTemplate) {
+    btnApplyTemplate.addEventListener('click', function () {
+      currentTemplate = modalTempTemplate;
+      currentTheme = modalTempTheme;
+      localStorage.setItem('argus_payslip_template', currentTemplate);
+      localStorage.setItem('argus_payslip_theme', currentTheme);
+      applyTemplateAndTheme(currentTemplate, currentTheme);
+      closeTemplateModal();
+    });
+  }
 
   function syncModalUI() {
     const palette = COLOR_PALETTES[modalTempTheme] || COLOR_PALETTES['navy'];
@@ -2943,7 +2949,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 3. Update Modal Summary Text
     const tmplTitle = PAYSLIP_TEMPLATES[modalTempTemplate] || 'Modern Executive';
-    modalSummaryTxt.innerText = `${tmplTitle} • ${palette.name}`;
+    if (modalSummaryTxt) {
+      modalSummaryTxt.innerText = `${tmplTitle} • ${palette.name}`;
+    }
   }
 
   function applyTemplateAndTheme(tmpl, theme) {
@@ -2991,14 +2999,18 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ----------------- GENERATE PAYSLIP -----------------
-  btnGeneratePayslip.addEventListener('click', function () {
-    generatePayslip();
-  });
+  if (btnGeneratePayslip) {
+    btnGeneratePayslip.addEventListener('click', function () {
+      generatePayslip();
+    });
+  }
 
-  btnBackToGenerate.addEventListener('click', function () {
-    payslipDocumentCard.classList.add('d-none');
-    payslipSelectionCard.classList.remove('d-none');
-  });
+  if (btnBackToGenerate) {
+    btnBackToGenerate.addEventListener('click', function () {
+      if (payslipDocumentCard) payslipDocumentCard.classList.add('d-none');
+      if (payslipSelectionCard) payslipSelectionCard.classList.remove('d-none');
+    });
+  }
 
   function formatCurrency(val) {
     try {
@@ -3226,55 +3238,59 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ----------------- PRINT PAYSLIP -----------------
-  btnPrintPayslip.addEventListener('click', function () {
-    const doc = document.getElementById('printablePayslipDoc');
-    if (!doc) return;
-    const palette = COLOR_PALETTES[currentTheme] || COLOR_PALETTES['navy'];
-    const printWin = window.open('', '', 'width=880,height=800');
-    printWin.document.write('<!DOCTYPE html><html><head><title>Monthly Payslip</title>');
-    
-    // Copy style tags from main document
-    const headStyles = document.querySelectorAll('style');
-    headStyles.forEach(s => {
-      printWin.document.write(`<style>${s.innerHTML}</style>`);
-    });
+  if (btnPrintPayslip) {
+    btnPrintPayslip.addEventListener('click', function () {
+      const doc = document.getElementById('printablePayslipDoc');
+      if (!doc) return;
+      const palette = COLOR_PALETTES[currentTheme] || COLOR_PALETTES['navy'];
+      const printWin = window.open('', '', 'width=880,height=800');
+      printWin.document.write('<!DOCTYPE html><html><head><title>Monthly Payslip</title>');
+      
+      // Copy style tags from main document
+      const headStyles = document.querySelectorAll('style');
+      headStyles.forEach(s => {
+        printWin.document.write(`<style>${s.innerHTML}</style>`);
+      });
 
-    printWin.document.write(`
-      <style>
-        :root {
-          --ps-primary: ${palette.primary};
-          --ps-dark: ${palette.dark};
-          --ps-tint: ${palette.tint};
-          --ps-border: ${palette.border};
-          --ps-text-dark: ${palette.text_dark};
-          --ps-light-badge: ${palette.light_badge};
-        }
-        * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 15px; color: #1e293b; }
-        .payslip-doc { box-shadow: none !important; border: 1px solid #cbd5e1 !important; margin: 0 auto; width: 100%; max-width: 100%; }
-        @media print {
-          body { margin: 0; padding: 10px; }
-          .payslip-doc { border: none !important; box-shadow: none !important; }
-        }
-      </style>
-    `);
-    printWin.document.write('</head><body>');
-    printWin.document.write(doc.outerHTML);
-    printWin.document.write('</body></html>');
-    printWin.document.close();
-    printWin.focus();
-    setTimeout(() => {
-      printWin.print();
-      printWin.close();
-    }, 300);
-  });
+      printWin.document.write(`
+        <style>
+          :root {
+            --ps-primary: ${palette.primary};
+            --ps-dark: ${palette.dark};
+            --ps-tint: ${palette.tint};
+            --ps-border: ${palette.border};
+            --ps-text-dark: ${palette.text_dark};
+            --ps-light-badge: ${palette.light_badge};
+          }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 15px; color: #1e293b; }
+          .payslip-doc { box-shadow: none !important; border: 1px solid #cbd5e1 !important; margin: 0 auto; width: 100%; max-width: 100%; }
+          @media print {
+            body { margin: 0; padding: 10px; }
+            .payslip-doc { border: none !important; box-shadow: none !important; }
+          }
+        </style>
+      `);
+      printWin.document.write('</head><body>');
+      printWin.document.write(doc.outerHTML);
+      printWin.document.write('</body></html>');
+      printWin.document.close();
+      printWin.focus();
+      setTimeout(() => {
+        printWin.print();
+        printWin.close();
+      }, 300);
+    });
+  }
 
   // ----------------- PDF DOWNLOAD WITH TEMPLATE & THEME -----------------
-  btnPdfPayslip.addEventListener('click', function () {
-    const employee = selectPayslipEmployee.value;
-    const month = selectPayslipMonth.value;
-    window.location.href = `/api/payslip/export/pdf?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}&template=${encodeURIComponent(currentTemplate)}&theme=${encodeURIComponent(currentTheme)}`;
-  });
+  if (btnPdfPayslip) {
+    btnPdfPayslip.addEventListener('click', function () {
+      const employee = selectPayslipEmployee ? selectPayslipEmployee.value : '';
+      const month = selectPayslipMonth ? selectPayslipMonth.value : '';
+      window.location.href = `/api/payslip/export/pdf?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}&template=${encodeURIComponent(currentTemplate)}&theme=${encodeURIComponent(currentTheme)}`;
+    });
+  }
 });
 </script>
 {% endblock %}

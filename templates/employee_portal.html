@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ company.company_name if company and company.company_name else session.get('company_name') or 'ARGUS' }} - Employee Portal | {{ employee.employee_name if employee else 'Employee' }}</title>
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261007_white">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261007_white">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <style>
     /* Ensure page is fully scrollable and not locked by global style.css */

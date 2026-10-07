@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }} - Attendance System</title>
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261007_white">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261007_white">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261007_04">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script>
@@ -178,6 +179,34 @@
 
   <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/spa_router.js') }}?v=20261007_02"></script>
+  <script>
+    (function () {
+      // Sync persistent remember token to localStorage for unbreakable multi-tab & restart persistence
+      try {
+        var match = document.cookie.match(/(?:^|;\s*)argus_remember_token=([^;]+)/);
+        var cookieToken = match ? match[1] : null;
+        var serverToken = "{{ session.get('remember_token', '') }}";
+        var activeToken = serverToken || cookieToken;
+        if (activeToken) {
+          localStorage.setItem('argus_remember_token', activeToken);
+          localStorage.setItem('argus_logged_in', 'true');
+          localStorage.setItem('argus_role', "{{ session.get('role', '') }}");
+        }
+      } catch (e) {}
+
+      // Clean wipe on explicit logout link click
+      document.querySelectorAll('a[href="/logout"], a[href*="/logout"]').forEach(function (el) {
+        el.addEventListener('click', function () {
+          try {
+            localStorage.removeItem('argus_remember_token');
+            localStorage.removeItem('argus_logged_in');
+            localStorage.removeItem('argus_role');
+            sessionStorage.clear();
+          } catch (e) {}
+        });
+      });
+    })();
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

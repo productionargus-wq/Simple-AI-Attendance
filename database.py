@@ -4,6 +4,7 @@ import time
 import json
 import re
 import calendar
+import secrets
 from datetime import datetime, date, timedelta, timezone
 from dotenv import load_dotenv
 from pymongo import MongoClient, ASCENDING, DESCENDING
@@ -135,7 +136,9 @@ def build_id_filter(ident):
     except Exception:
         pass
     try:
-        filters.append({'id': int(ident)})
+        val = int(ident)
+        if -9223372036854775808 <= val <= 9223372036854775807:
+            filters.append({'id': val})
     except Exception:
         pass
     return {'$or': filters}
@@ -672,18 +675,102 @@ def toggle_company_delete_entries(comp_id, enabled=None):
     return new_val
 
 def is_company_active(comp_id):
-    """Checks whether a company is active. Returns False if marked Deactive or Inactive."""
+    """Checks whether a company is active. Returns False ONLY if explicitly marked Deactive or Inactive."""
     if not comp_id or str(comp_id).strip() in ['ALL', 'ARGUS_MASTER']:
         return True
-    db = get_db()
-    cid_str = str(comp_id).strip()
-    comp = db.company_admin.find_one({'id': cid_str})
-    if not comp:
-        comp = db.company_admin.find_one(build_id_filter(cid_str))
-    if not comp:
+    try:
+        db = get_db()
+        cid_str = str(comp_id).strip()
+        comp = db.company_admin.find_one({'id': cid_str})
+        if not comp:
+            comp = db.company_admin.find_one(build_id_filter(cid_str))
+        if not comp:
+            # If company record not found, don't falsely evict an active session
+            return True
+        status = str(comp.get('status', 'Active')).strip().lower()
+        return status not in ['deactive', 'inactive', 'disabled']
+    except Exception as e:
+        print(f"Warning: is_company_active check error: {e}")
+        return True
+
+def create_user_session(user_data):
+    """
+    Creates a persistent database-backed login session token (valid for 365 days).
+    Persists across browser tab closures, browser restarts, and server reloads.
+    """
+    if not user_data or not isinstance(user_data, dict):
+        return None
+    try:
+        db = get_db()
+        token = secrets.token_urlsafe(48)
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(days=365)
+        
+        session_doc = {
+            'token': token,
+            'role': str(user_data.get('role', 'company_admin')).strip(),
+            'company_id': str(user_data.get('company_id', '')).strip(),
+            'company_name': str(user_data.get('company_name', '')).strip(),
+            'username': str(user_data.get('username') or user_data.get('admin_username') or user_data.get('company_name') or 'User').strip(),
+            'email': str(user_data.get('email') or user_data.get('admin_email') or user_data.get('company_email') or '').strip().lower(),
+            'employee_id': str(user_data.get('employee_id', '')).strip(),
+            'employee_name': str(user_data.get('employee_name', '')).strip(),
+            'created_at': now,
+            'expires_at': expires_at,
+            'last_active': now
+        }
+        db.user_sessions.insert_one(session_doc)
+        return token
+    except Exception as e:
+        print(f"Warning: create_user_session error: {e}")
+        return None
+
+def get_user_session_by_token(token):
+    """
+    Validates and retrieves persistent database session data by token.
+    Automatically verifies that token has not expired and company remains active.
+    """
+    if not token or not str(token).strip():
+        return None
+    try:
+        db = get_db()
+        token_clean = str(token).strip()
+        doc = db.user_sessions.find_one({'token': token_clean})
+        if not doc:
+            return None
+        
+        now = datetime.now(timezone.utc)
+        exp = doc.get('expires_at')
+        if exp:
+            if hasattr(exp, 'tzinfo') and exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            if exp < now:
+                db.user_sessions.delete_one({'_id': doc['_id']})
+                return None
+        
+        # Verify company is not deactivated
+        comp_id = doc.get('company_id')
+        if comp_id and not is_company_active(comp_id):
+            db.user_sessions.delete_one({'_id': doc['_id']})
+            return None
+        
+        # Touch last_active
+        db.user_sessions.update_one({'_id': doc['_id']}, {'$set': {'last_active': now}})
+        return clean_doc(doc)
+    except Exception as e:
+        print(f"Warning: get_user_session_by_token error: {e}")
+        return None
+
+def delete_user_session(token):
+    """Explicitly deletes a session token on logout."""
+    if not token:
         return False
-    status = str(comp.get('status', 'Active')).strip().lower()
-    return status not in ['deactive', 'inactive', 'disabled']
+    try:
+        db = get_db()
+        db.user_sessions.delete_one({'token': str(token).strip()})
+        return True
+    except Exception:
+        return False
 
 def is_company_support_enabled(comp_id):
     """Checks whether Support & Help is enabled for a company. Defaults to False."""

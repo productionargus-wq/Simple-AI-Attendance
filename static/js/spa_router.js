@@ -17,7 +17,11 @@
   const _origAddEventListener = document.addEventListener.bind(document);
   document.addEventListener = function (type, listener, options) {
     if (type === 'DOMContentLoaded' && (document.readyState === 'complete' || document.readyState === 'interactive')) {
-      setTimeout(listener, 0);
+      try {
+        listener.call(document, new Event('DOMContentLoaded'));
+      } catch (err) {
+        console.warn('SPA DOMContentLoaded listener notice:', err);
+      }
       return;
     }
     return _origAddEventListener(type, listener, options);
@@ -98,8 +102,9 @@
     const url = new URL(anchor.href, window.location.origin);
     if (url.origin !== window.location.origin) return false;
 
-    // Exclude logout and file download endpoints
+    // Exclude logout, login portals, kiosk, and file download endpoints
     if (url.pathname === '/logout' || url.pathname.includes('/logout')) return false;
+    if (url.pathname === '/login' || url.pathname === '/company-login' || url.pathname === '/employee-login' || url.pathname === '/kiosk') return false;
     if (url.pathname.startsWith('/api/') && (url.pathname.includes('/pdf') || url.pathname.includes('/excel') || url.pathname.includes('/download'))) {
       return false;
     }
@@ -224,7 +229,8 @@
           s.onerror = () => resolve();
           scriptContainer.appendChild(s);
         } else {
-          s.textContent = oldScript.textContent;
+          const code = `(function () {\n  try {\n${oldScript.textContent}\n  } catch (err) {\n    console.warn('Page script execution notice:', err);\n  }\n})();`;
+          s.textContent = code;
           scriptContainer.appendChild(s);
           resolve();
         }
@@ -335,13 +341,8 @@
         if (mainWrapper) mainWrapper.scrollTop = 0;
       };
 
-      if (document.startViewTransition) {
-        document.startViewTransition(() => {
-          applySwap();
-        });
-      } else {
-        applySwap();
-      }
+      // Instant synchronous DOM content swap (guarantees elements exist for page scripts)
+      applySwap();
 
       // Update browser history
       if (pushState) {
@@ -396,6 +397,16 @@
   document.addEventListener('click', function (e) {
     const anchor = e.target.closest('a');
     if (!anchor) return;
+
+    // Purge SPA cache & auth state on explicit logout
+    if (anchor.href && (anchor.href.includes('/logout') || anchor.pathname === '/logout')) {
+      pageCache.clear();
+      try {
+        localStorage.removeItem('argus_role');
+        localStorage.removeItem('argus_authenticated');
+      } catch (err) {}
+      return;
+    }
 
     if (shouldIntercept(anchor)) {
       e.preventDefault();

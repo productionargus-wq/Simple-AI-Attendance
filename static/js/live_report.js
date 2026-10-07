@@ -84,11 +84,12 @@ document.addEventListener('DOMContentLoaded', function () {
     loadEntries();
   }
 
-  btnLiveEntries.addEventListener('click', () => setView('live'));
-  btnTimeoutEntries.addEventListener('click', () => setView('timeout'));
+  if (btnLiveEntries) btnLiveEntries.addEventListener('click', () => setView('live'));
+  if (btnTimeoutEntries) btnTimeoutEntries.addEventListener('click', () => setView('timeout'));
 
   // Load Data
   async function loadEntries() {
+    if (!tableBody) return;
     try {
       const params = new URLSearchParams({
         type: currentType,

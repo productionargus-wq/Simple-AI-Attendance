@@ -254,29 +254,37 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnClosePaymentModal = document.getElementById('btnClosePaymentModal');
   const paymentForm = document.getElementById('paymentForm');
 
-  btnOpenAddPaymentModal.addEventListener('click', function () {
-    document.getElementById('editPaymentId').value = '';
-    paymentForm.reset();
-    if (paymentDateInput) paymentDateInput.value = todayStr;
-    const rEl = document.getElementById('paymentReasonText');
-    if (rEl) rEl.value = '';
-    paymentModalOverlay.classList.add('active');
-  });
+  if (btnOpenAddPaymentModal && paymentModalOverlay && paymentForm) {
+    btnOpenAddPaymentModal.addEventListener('click', function () {
+      const editEl = document.getElementById('editPaymentId');
+      if (editEl) editEl.value = '';
+      paymentForm.reset();
+      if (paymentDateInput) paymentDateInput.value = todayStr;
+      const rEl = document.getElementById('paymentReasonText');
+      if (rEl) rEl.value = '';
+      paymentModalOverlay.classList.add('active');
+    });
+  }
 
-  btnClosePaymentModal.addEventListener('click', function () {
-    paymentModalOverlay.classList.remove('active');
-  });
-
-  paymentModalOverlay.addEventListener('click', function (e) {
-    if (e.target === paymentModalOverlay) {
+  if (btnClosePaymentModal && paymentModalOverlay) {
+    btnClosePaymentModal.addEventListener('click', function () {
       paymentModalOverlay.classList.remove('active');
-    }
-  });
+    });
+  }
 
-  paymentForm.addEventListener('submit', function (e) {
-    e.preventDefault();
-    const editId = document.getElementById('editPaymentId').value;
-    const formData = new FormData(paymentForm);
+  if (paymentModalOverlay) {
+    paymentModalOverlay.addEventListener('click', function (e) {
+      if (e.target === paymentModalOverlay) {
+        paymentModalOverlay.classList.remove('active');
+      }
+    });
+  }
+
+  if (paymentForm) {
+    paymentForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const editId = document.getElementById('editPaymentId')?.value || '';
+      const formData = new FormData(paymentForm);
 
     const empName = document.getElementById('paymentEmployee').value;
     const amountVal = document.getElementById('paymentAmount').value;

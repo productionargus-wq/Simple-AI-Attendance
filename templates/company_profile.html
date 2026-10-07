@@ -266,6 +266,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function showAlert(msg, isSuccess = true) {
+    if (!profileAlert) return;
     profileAlert.textContent = msg;
     profileAlert.style.display = 'block';
     if (isSuccess) {
@@ -279,14 +280,16 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     profileAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     setTimeout(() => {
-      profileAlert.style.display = 'none';
+      if (profileAlert) profileAlert.style.display = 'none';
     }, 6000);
   }
 
   function populateForm(comp, isMaster = false) {
     if (!comp) return;
+    const compIdEl = document.getElementById('profileCompanyId');
+    if (!compIdEl) return;
     loadedCompanyData = comp;
-    document.getElementById('profileCompanyId').value = comp.id || '';
+    compIdEl.value = comp.id || '';
     document.getElementById('profileCompanyName').value = comp.company_name || '';
     document.getElementById('profileGstin').value = comp.gstin || '';
     document.getElementById('profileEmail').value = comp.email || '';
@@ -421,31 +424,15 @@ document.addEventListener('DOMContentLoaded', function () {
     if (profilePasswordInput) {
       profilePasswordInput.value = comp.saved_password || '';
     }
-    profilePasswordGroup.style.display = 'block';
+    if (profilePasswordGroup) {
+      profilePasswordGroup.style.display = 'block';
+    }
 
     if (role === 'company_admin') {
-      profilePasswordLabel.innerHTML = '<strong>Portal Password</strong>';
-      if (comp.saved_password || comp.has_password) {
-        profilePasswordStatus.textContent = '✓ Password Configured';
-        profilePasswordStatus.style.color = '#16a34a';
-        profilePasswordStatus.style.background = '#dcfce7';
-      } else {
-        profilePasswordStatus.textContent = '⚠️ Password Not Set';
-        profilePasswordStatus.style.color = '#ea580c';
-        profilePasswordStatus.style.background = '#ffedd5';
-      }
-      profilePasswordHelp.textContent = 'View or edit your company portal password to sign in anytime.';
-    } else if (role === 'super_admin') {
-      if (isMaster || comp.id === 'ARGUS_MASTER') {
-        profilePasswordLabel.innerHTML = '<strong>System Administration Master Password</strong>';
-        profilePasswordStatus.textContent = '🔒 System Admin';
-        profilePasswordStatus.style.color = '#0284c7';
-        profilePasswordStatus.style.background = '#e0f2fe';
-        profilePasswordHelp.textContent = 'System Admin master password for system administration login.';
-      } else {
-        profilePasswordLabel.innerHTML = '<strong>Company Portal Password</strong>';
+      if (profilePasswordLabel) profilePasswordLabel.innerHTML = '<strong>Portal Password</strong>';
+      if (profilePasswordStatus) {
         if (comp.saved_password || comp.has_password) {
-          profilePasswordStatus.textContent = '✓ Password Active';
+          profilePasswordStatus.textContent = '✓ Password Configured';
           profilePasswordStatus.style.color = '#16a34a';
           profilePasswordStatus.style.background = '#dcfce7';
         } else {
@@ -453,7 +440,31 @@ document.addEventListener('DOMContentLoaded', function () {
           profilePasswordStatus.style.color = '#ea580c';
           profilePasswordStatus.style.background = '#ffedd5';
         }
-        profilePasswordHelp.textContent = 'View or set the login password for this company administrator.';
+      }
+      if (profilePasswordHelp) profilePasswordHelp.textContent = 'View or edit your company portal password to sign in anytime.';
+    } else if (role === 'super_admin') {
+      if (isMaster || comp.id === 'ARGUS_MASTER') {
+        if (profilePasswordLabel) profilePasswordLabel.innerHTML = '<strong>System Administration Master Password</strong>';
+        if (profilePasswordStatus) {
+          profilePasswordStatus.textContent = '🔒 System Admin';
+          profilePasswordStatus.style.color = '#0284c7';
+          profilePasswordStatus.style.background = '#e0f2fe';
+        }
+        if (profilePasswordHelp) profilePasswordHelp.textContent = 'System Admin master password for system administration login.';
+      } else {
+        if (profilePasswordLabel) profilePasswordLabel.innerHTML = '<strong>Company Portal Password</strong>';
+        if (profilePasswordStatus) {
+          if (comp.saved_password || comp.has_password) {
+            profilePasswordStatus.textContent = '✓ Password Active';
+            profilePasswordStatus.style.color = '#16a34a';
+            profilePasswordStatus.style.background = '#dcfce7';
+          } else {
+            profilePasswordStatus.textContent = '⚠️ Password Not Set';
+            profilePasswordStatus.style.color = '#ea580c';
+            profilePasswordStatus.style.background = '#ffedd5';
+          }
+        }
+        if (profilePasswordHelp) profilePasswordHelp.textContent = 'View or set the login password for this company administrator.';
       }
     }
   }
@@ -466,6 +477,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       const res = await fetch(url);
       const data = await res.json();
+      if (!document.getElementById('profileCompanyId')) return;
       if (!data.success) {
         showAlert(data.error || 'Failed to load company profile', false);
         return;
@@ -486,6 +498,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       populateForm(data.company, data.is_master);
     } catch (err) {
+      if (!document.getElementById('profileCompanyId')) return;
       console.error('Error loading company profile:', err);
       showAlert('Connection error loading profile.', false);
     }
