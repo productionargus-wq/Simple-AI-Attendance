@@ -200,6 +200,7 @@ def init_db():
         db.payments.create_index([("company_id", ASCENDING), ("payment_date", DESCENDING), ("reason", ASCENDING)])
         db.advances.create_index([("company_id", ASCENDING), ("advance_date", DESCENDING)])
         db.salary_reports.create_index([("company_id", ASCENDING), ("pay_period", DESCENDING), ("employee_name", ASCENDING)])
+        db.leave_requests.create_index([("company_id", ASCENDING), ("status", ASCENDING), ("created_at", DESCENDING)])
     except Exception as e:
         print(f"Warning creating MongoDB indexes: {e}")
 

@@ -4857,4 +4857,41 @@ body.page-dashboard .bottom-footer {
   color: #b91c1c;
 }
 
+/* ==========================================================================
+   SPA Instant Navigation: Top Progress Bar & View Transitions
+   ========================================================================== */
+.spa-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2.5px;
+  width: 0%;
+  background: linear-gradient(90deg, #0060ff 0%, #00c194 100%);
+  z-index: 999999;
+  pointer-events: none;
+  opacity: 0;
+  transition: width 0.18s cubic-bezier(0.1, 0.9, 0.2, 1), opacity 0.2s ease;
+  box-shadow: 0 0 8px rgba(0, 96, 255, 0.8), 0 0 14px rgba(0, 193, 148, 0.6);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: 0.12s ease-out both spa-fade-out;
+  }
+  ::view-transition-new(root) {
+    animation: 0.12s ease-in both spa-fade-in;
+  }
+}
+
+@keyframes spa-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes spa-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+
 

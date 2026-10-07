@@ -6,13 +6,16 @@
   <title>{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }} - Attendance System</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261007_03">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261007_04">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script>
     window.IS_SYSTEM_ADMIN = {{ 'true' if is_system_admin else 'false' }};
     window.CAN_DELETE_ENTRIES = {{ 'true' if can_delete_entries else 'false' }};
   </script>
 </head>
 <body class="page-{{ (active_tab or '') | lower | replace(' ', '-') }}">
+  <!-- Top Progress Bar for Instant SPA Navigation -->
+  <div id="appTopProgressBar" class="spa-progress-bar"></div>
 
   <!-- Top Navbar -->
   <header class="top-navbar">
@@ -170,7 +173,11 @@
     </div>
   </footer>
 
+  <!-- Container for dynamically injected page scripts -->
+  <div id="spaScriptContainer"></div>
+
   <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/spa_router.js') }}?v=20261007_01"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -465,11 +465,22 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // Live Auto Polling every 25 seconds
-  setInterval(fetchDynamicStats, 25000);
+  if (window.dashboardPollTimer) {
+    clearInterval(window.dashboardPollTimer);
+  }
+  window.dashboardPollTimer = setInterval(fetchDynamicStats, 25000);
+
+  // Clean up timer when navigating away via SPA router
+  window.addEventListener('page:beforeunload', function () {
+    if (window.dashboardPollTimer) {
+      clearInterval(window.dashboardPollTimer);
+      window.dashboardPollTimer = null;
+    }
+  }, { once: true });
 
   // Immediate refresh when tab becomes visible
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) {
+    if (!document.hidden && document.querySelector('.dash-container')) {
       fetchDynamicStats();
     }
   });
