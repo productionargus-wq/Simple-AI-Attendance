@@ -6,7 +6,7 @@
   <title>{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }} - Attendance System</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/argus_triangle_logo.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261007_02">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261007_03">
   <script>
     window.IS_SYSTEM_ADMIN = {{ 'true' if is_system_admin else 'false' }};
     window.CAN_DELETE_ENTRIES = {{ 'true' if can_delete_entries else 'false' }};
