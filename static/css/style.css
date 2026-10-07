@@ -1589,6 +1589,65 @@ body.sidebar-collapsed .app-footer {
   border: 1px solid rgba(255, 255, 255, 0.42);
 }
 
+/* Leave & Permission Status and Type Badges (Aligned with Application Text Size: 11px) */
+.badge-status-approved {
+  background-color: #dcfce7 !important;
+  color: #15803d !important;
+  border: 1px solid #bbf7d0 !important;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px !important;
+  font-weight: 700;
+  display: inline-block;
+  line-height: 1.3;
+}
+
+.badge-status-rejected {
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #fecaca !important;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px !important;
+  font-weight: 700;
+  display: inline-block;
+  line-height: 1.3;
+}
+
+.badge-status-pending {
+  background-color: #fef3c7 !important;
+  color: #b45309 !important;
+  border: 1px solid #fde68a !important;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px !important;
+  font-weight: 700;
+  display: inline-block;
+  line-height: 1.3;
+}
+
+.badge-type-perm {
+  background-color: #e0f2fe;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-block;
+}
+
+.badge-type-leave {
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-block;
+}
+
 
 .report-subtitle {
   font-size: 12px;

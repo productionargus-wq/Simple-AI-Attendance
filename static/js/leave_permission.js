@@ -465,12 +465,16 @@ document.addEventListener('DOMContentLoaded', function () {
       const remark = (r.admin_remark || '').trim();
       const displayStatus = remark ? `${statusLabel} - ${remark}` : statusLabel;
 
-      if (st === 'approved') {
-        statusBadge = `<span class="badge-status-approved" style="white-space: normal; line-height: 1.35; display: inline-block; text-align: center; max-width: 220px;" title="${escapeHtml(displayStatus)}">${escapeHtml(displayStatus)}</span>`;
-      } else if (st === 'rejected') {
-        statusBadge = `<span class="badge-status-rejected" style="white-space: normal; line-height: 1.35; display: inline-block; text-align: center; max-width: 220px;" title="${escapeHtml(displayStatus)}">${escapeHtml(displayStatus)}</span>`;
+      const badgeCls = st === 'approved' ? 'badge-status-approved' : (st === 'rejected' ? 'badge-status-rejected' : 'badge-status-pending');
+      if (remark) {
+        statusBadge = `
+          <div style="display: inline-flex; flex-direction: column; align-items: center; gap: 3px; max-width: 200px;">
+            <span class="${badgeCls}" style="font-size: 11px; padding: 2.5px 8px; border-radius: 5px; font-weight: 700; display: inline-block;">${escapeHtml(statusLabel)}</span>
+            <span style="font-size: 10.5px; color: #475569; line-height: 1.3; font-weight: 500; word-break: break-word;" title="${escapeHtml(remark)}">${escapeHtml(remark)}</span>
+          </div>
+        `;
       } else {
-        statusBadge = `<span class="badge-status-pending" style="white-space: normal; line-height: 1.35; display: inline-block; text-align: center; max-width: 220px;" title="${escapeHtml(displayStatus)}">${escapeHtml(displayStatus)}</span>`;
+        statusBadge = `<span class="${badgeCls}" style="font-size: 11px; padding: 2.5px 8px; border-radius: 5px; font-weight: 700; display: inline-block;">${escapeHtml(statusLabel)}</span>`;
       }
 
       // Date / Period string
@@ -545,7 +549,7 @@ document.addEventListener('DOMContentLoaded', function () {
             ${escapeHtml(r.reason || '-')}
           </td>
           <td style="padding: 10px 14px; text-align: center;">${attCol}</td>
-          <td style="padding: 10px 14px; text-align: center;">${statusBadge}</td>
+          <td style="padding: 10px 14px; text-align: center; font-size: 11px;">${statusBadge}</td>
           <td style="padding: 10px 14px; text-align: center;">${actionButtons}</td>
         </tr>
       `;
