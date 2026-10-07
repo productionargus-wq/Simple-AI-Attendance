@@ -1186,12 +1186,43 @@ _dashboard_cache_ttl = 30  # seconds
 
 def invalidate_dashboard_cache(company_id=None):
     global _dashboard_cache
+    invalidate_employee_names_cache(company_id)
     if company_id:
         _dashboard_cache.pop(str(company_id), None)
         _dashboard_cache.pop('ALL', None)
         _dashboard_cache.pop(None, None)
     else:
         _dashboard_cache.clear()
+
+_employee_names_cache = {}
+_employee_names_cache_ttl = 60  # seconds
+
+def invalidate_employee_names_cache(company_id=None):
+    global _employee_names_cache
+    if company_id:
+        _employee_names_cache.pop(str(company_id), None)
+        _employee_names_cache.pop('ALL', None)
+        _employee_names_cache.pop(None, None)
+    else:
+        _employee_names_cache.clear()
+
+def get_employee_names_cached(company_id=None):
+    cache_key = str(company_id or 'ALL')
+    now_ts = time.time()
+    if cache_key in _employee_names_cache:
+        entry_time, cached_val = _employee_names_cache[cache_key]
+        if now_ts - entry_time < _employee_names_cache_ttl:
+            return cached_val
+
+    db = get_db()
+    filt = {}
+    if company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
+        filt['company_id'] = str(company_id)
+
+    cursor = db.employees.find(filt, {'employee_name': 1}).sort('employee_name', 1)
+    names = [doc.get('employee_name') for doc in cursor if doc.get('employee_name')]
+    _employee_names_cache[cache_key] = (now_ts, names)
+    return names
 
 def get_dashboard_stats(company_id=None):
     cache_key = str(company_id or 'ALL')

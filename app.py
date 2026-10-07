@@ -1098,8 +1098,7 @@ def live_report():
 @app.route('/attendance-report')
 @login_required
 def attendance_report():
-    employees_res = database.get_all_employees(company_id=get_current_company_id(), limit=1000)
-    employees = [e['employee_name'] for e in employees_res['data']]
+    employees = database.get_employee_names_cached(company_id=get_current_company_id())
     return render_template('attendance_report.html', active_tab='ATTENDANCE REPORT', employees=employees)
 
 @app.route('/manual-entry')
@@ -1110,23 +1109,20 @@ def manual_entry():
 @app.route('/payment-entry')
 @login_required
 def payment_entry():
-    employees_res = database.get_all_employees(company_id=get_current_company_id(), limit=1000)
-    employees = [e['employee_name'] for e in employees_res['data']]
+    employees = database.get_employee_names_cached(company_id=get_current_company_id())
     return render_template('payment_entry.html', active_tab='PAYMENT ENTRY', employees=employees)
 
 @app.route('/advance-management')
 @login_required
 def advance_management():
-    employees_res = database.get_all_employees(company_id=get_current_company_id(), limit=1000)
-    employees = [e['employee_name'] for e in employees_res['data']]
+    employees = database.get_employee_names_cached(company_id=get_current_company_id())
     return render_template('advance_management.html', active_tab='PAYMENT ENTRY', employees=employees)
 
 @app.route('/advance-summary')
 @app.route('/balance-report')
 @login_required
 def balance_report():
-    employees_res = database.get_all_employees(company_id=get_current_company_id(), limit=1000)
-    employees = [e['employee_name'] for e in employees_res['data']]
+    employees = database.get_employee_names_cached(company_id=get_current_company_id())
     return render_template('balance_report.html', active_tab='PAYMENT ENTRY', employees=employees)
 
 @app.route('/monthly-payslip')

@@ -1,14 +1,19 @@
 /**
- * SPA Router & Instant Navigation Engine
- * Eliminates full-page reloads and browser tab title bar spinners.
- * Provides instant Gmail/Slack-style tab transitions across the sidebar.
+ * High-Performance SPA Router & Instant Navigation Engine
+ * 
+ * Features:
+ * 1. 0ms Perceived Latency via Hover & Touch Pre-fetching
+ * 2. In-Memory Cache with Stale-While-Revalidate (SWR)
+ * 3. Idle Pre-loading of popular tabs (requestIdleCallback)
+ * 4. DOMContentLoaded polyfill for dynamic page scripts
+ * 5. Native View Transitions cross-fade animations
+ * 6. Browser History (pushState & popstate) with zero tab reloading
  */
 
 (function () {
   'use strict';
 
   // 1. DOMContentLoaded Polyfill for dynamically loaded scripts
-  // If document is already loaded/interactive, any new 'DOMContentLoaded' listener runs immediately via setTimeout
   const _origAddEventListener = document.addEventListener.bind(document);
   document.addEventListener = function (type, listener, options) {
     if (type === 'DOMContentLoaded' && (document.readyState === 'complete' || document.readyState === 'interactive')) {
@@ -18,13 +23,21 @@
     return _origAddEventListener(type, listener, options);
   };
 
-  // State
+  // State & Caches
+  const pageCache = new Map(); // key -> { htmlText, timestamp }
+  const inflightFetches = new Map(); // key -> Promise<string>
+  const hoverTimers = new Map(); // anchor -> timerId
+
+  const CACHE_MAX_AGE_MS = 60 * 1000;       // 60 seconds max cache lifetime
+  const SWR_STALE_AFTER_MS = 25 * 1000;     // After 25 seconds, revalidate in background
+  const HOVER_DELAY_MS = 65;                // 65ms hover debounce to avoid accidental swipes
+
   let isNavigating = false;
   let activeAbortController = null;
   let progressBar = null;
   let progressTimer = null;
 
-  // 2. Initialize Top Progress Bar
+  // 2. Slim Top Progress Bar
   function initProgressBar() {
     if (progressBar) return;
     progressBar = document.getElementById('appTopProgressBar');
@@ -43,11 +56,11 @@
     progressBar.style.opacity = '1';
     progressBar.style.width = '0%';
     setTimeout(() => {
-      if (progressBar) progressBar.style.width = '35%';
+      if (progressBar) progressBar.style.width = '40%';
     }, 10);
     setTimeout(() => {
-      if (progressBar && isNavigating) progressBar.style.width = '70%';
-    }, 120);
+      if (progressBar && isNavigating) progressBar.style.width = '75%';
+    }, 100);
   }
 
   function finishProgress() {
@@ -58,12 +71,12 @@
         progressBar.style.opacity = '0';
         setTimeout(() => {
           if (progressBar) progressBar.style.width = '0%';
-        }, 200);
+        }, 150);
       }
-    }, 120);
+    }, 100);
   }
 
-  // 3. Check if link should be intercepted
+  // 3. Link Validity Checker
   function shouldIntercept(anchor) {
     if (!anchor || !anchor.href) return false;
 
@@ -85,7 +98,7 @@
     const url = new URL(anchor.href, window.location.origin);
     if (url.origin !== window.location.origin) return false;
 
-    // Disallow logout and raw files/downloads
+    // Exclude logout and file download endpoints
     if (url.pathname === '/logout' || url.pathname.includes('/logout')) return false;
     if (url.pathname.startsWith('/api/') && (url.pathname.includes('/pdf') || url.pathname.includes('/excel') || url.pathname.includes('/download'))) {
       return false;
@@ -94,7 +107,59 @@
     return true;
   }
 
-  // 4. Update Sidebar Active State
+  function getCacheKey(url) {
+    const u = new URL(url, window.location.origin);
+    return u.pathname + u.search;
+  }
+
+  // 4. Pre-fetch Engine (SWR + Background Fetch)
+  function prefetch(url) {
+    const targetUrl = new URL(url, window.location.origin);
+    const key = getCacheKey(targetUrl);
+    const currentKey = getCacheKey(window.location.href);
+
+    // Don't prefetch current active page
+    if (key === currentKey) return Promise.resolve(null);
+
+    // Check existing fresh cache entry
+    const cached = pageCache.get(key);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < SWR_STALE_AFTER_MS)) {
+      return Promise.resolve(cached.htmlText);
+    }
+
+    // Deduplicate in-flight fetch
+    if (inflightFetches.has(key)) {
+      return inflightFetches.get(key);
+    }
+
+    const fetchPromise = fetch(targetUrl.href, {
+      headers: {
+        'X-Requested-With': 'SPA-Router',
+        'Purpose': 'prefetch'
+      }
+    })
+      .then(async (res) => {
+        if (res.ok && !res.redirected) {
+          const htmlText = await res.text();
+          pageCache.set(key, {
+            htmlText: htmlText,
+            timestamp: Date.now()
+          });
+          return htmlText;
+        }
+        return null;
+      })
+      .catch(() => null)
+      .finally(() => {
+        inflightFetches.delete(key);
+      });
+
+    inflightFetches.set(key, fetchPromise);
+    return fetchPromise;
+  }
+
+  // 5. Update Sidebar Active State
   function updateSidebarActive(targetPath) {
     const sidebar = document.getElementById('appSidebar');
     if (!sidebar) return;
@@ -113,7 +178,7 @@
     });
   }
 
-  // 5. Update Sidebar Count Badges from incoming document
+  // 6. Update Sidebar Count Badges from incoming document
   function updateSidebarBadges(newDoc) {
     const badgeIds = ['sidebarLeaveBadge', 'sidebarSupportBadge', 'sidebarAdminSupportBadge'];
     badgeIds.forEach(id => {
@@ -126,7 +191,7 @@
     });
   }
 
-  // 6. Execute scripts from the incoming page
+  // 7. Execute scripts from incoming page
   async function executePageScripts(newDoc) {
     // Notify previous page to clean up timers/intervals
     window.dispatchEvent(new CustomEvent('page:beforeunload', { detail: { url: window.location.href } }));
@@ -140,7 +205,7 @@
     // Clear old dynamically injected scripts
     scriptContainer.innerHTML = '';
 
-    // Find scripts in the new document that are page-specific (not main.js and not spa_router.js)
+    // Find scripts in new document that are page-specific
     const incomingScripts = Array.from(newDoc.querySelectorAll('script'));
     const scriptsToRun = incomingScripts.filter(s => {
       const src = s.getAttribute('src') || '';
@@ -170,7 +235,7 @@
     window.dispatchEvent(new CustomEvent('page:loaded', { detail: { url: window.location.href } }));
   }
 
-  // 7. Core Navigate Function
+  // 8. Core Navigate Function (with Instant Cache Retrieval)
   async function navigateTo(url, pushState = true) {
     if (isNavigating && activeAbortController) {
       activeAbortController.abort();
@@ -178,6 +243,7 @@
 
     const targetUrl = new URL(url, window.location.origin);
     const currentUrl = new URL(window.location.href);
+    const key = getCacheKey(targetUrl);
 
     // If same URL including hash, do nothing
     if (targetUrl.href === currentUrl.href) {
@@ -190,26 +256,49 @@
     activeAbortController = new AbortController();
 
     try {
-      const response = await fetch(targetUrl.href, {
-        signal: activeAbortController.signal,
-        headers: {
-          'X-Requested-With': 'SPA-Router'
+      let htmlText = null;
+      const cached = pageCache.get(key);
+      const now = Date.now();
+
+      // Check if available in RAM cache
+      if (cached && (now - cached.timestamp < CACHE_MAX_AGE_MS)) {
+        htmlText = cached.htmlText;
+        // Stale-While-Revalidate: If older than 25s, fetch fresh copy in background silently
+        if (now - cached.timestamp > SWR_STALE_AFTER_MS) {
+          prefetch(targetUrl.href);
         }
-      });
-
-      // If server redirected to login or another external page
-      if (response.redirected && response.url) {
-        window.location.href = response.url;
-        return;
+      } else if (inflightFetches.has(key)) {
+        // Reuse ongoing hover prefetch
+        htmlText = await inflightFetches.get(key);
       }
 
-      if (!response.ok) {
-        // Fallback to native navigation on server error
-        window.location.href = targetUrl.href;
-        return;
+      // If not cached, fetch over network
+      if (!htmlText) {
+        const response = await fetch(targetUrl.href, {
+          signal: activeAbortController.signal,
+          headers: {
+            'X-Requested-With': 'SPA-Router'
+          }
+        });
+
+        if (response.redirected && response.url) {
+          window.location.href = response.url;
+          return;
+        }
+
+        if (!response.ok) {
+          window.location.href = targetUrl.href;
+          return;
+        }
+
+        htmlText = await response.text();
+        // Save to cache
+        pageCache.set(key, {
+          htmlText: htmlText,
+          timestamp: Date.now()
+        });
       }
 
-      const htmlText = await response.text();
       const parser = new DOMParser();
       const newDoc = parser.parseFromString(htmlText, 'text/html');
 
@@ -217,30 +306,27 @@
       const newMain = newDoc.querySelector('.main-content');
 
       if (!newMain || !currentMain) {
-        // Fallback to full reload if template structure differs
         window.location.href = targetUrl.href;
         return;
       }
 
       // Perform DOM swap (using View Transitions API if supported)
       const applySwap = () => {
-        // Update document title
         if (newDoc.title) {
           document.title = newDoc.title;
         }
 
-        // Update body class
         if (newDoc.body && newDoc.body.className) {
           document.body.className = newDoc.body.className;
         }
 
-        // Swap main content
+        // Instant content swap
         currentMain.innerHTML = newMain.innerHTML;
 
-        // Update sidebar active link
+        // Update active sidebar tab
         updateSidebarActive(targetUrl.pathname);
 
-        // Update sidebar badges
+        // Update sidebar counter badges
         updateSidebarBadges(newDoc);
 
         // Scroll to top
@@ -257,7 +343,7 @@
         applySwap();
       }
 
-      // Update History
+      // Update browser history
       if (pushState) {
         window.history.pushState({ spa: true, url: targetUrl.href }, '', targetUrl.href);
       }
@@ -276,7 +362,37 @@
     }
   }
 
-  // 8. Event Listeners
+  // 9. Hover & Touch Pre-fetching Listeners
+  // Triggered on mouseover / touchstart so page is ready in RAM before user clicks
+  document.addEventListener('mouseover', function (e) {
+    const anchor = e.target.closest('a');
+    if (!anchor || !shouldIntercept(anchor)) return;
+
+    if (hoverTimers.has(anchor)) return;
+    const timer = setTimeout(() => {
+      prefetch(anchor.href);
+      hoverTimers.delete(anchor);
+    }, HOVER_DELAY_MS);
+    hoverTimers.set(anchor, timer);
+  }, { passive: true });
+
+  document.addEventListener('mouseout', function (e) {
+    const anchor = e.target.closest('a');
+    if (!anchor) return;
+    if (hoverTimers.has(anchor)) {
+      clearTimeout(hoverTimers.get(anchor));
+      hoverTimers.delete(anchor);
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchstart', function (e) {
+    const anchor = e.target.closest('a');
+    if (anchor && shouldIntercept(anchor)) {
+      prefetch(anchor.href);
+    }
+  }, { passive: true });
+
+  // 10. Click Interceptor
   document.addEventListener('click', function (e) {
     const anchor = e.target.closest('a');
     if (!anchor) return;
@@ -287,15 +403,34 @@
     }
   });
 
-  // Handle Browser Back / Forward buttons
+  // 11. Handle Browser Back & Forward buttons
   window.addEventListener('popstate', function () {
     navigateTo(window.location.href, false);
   });
 
-  // Initialize progress bar on boot
-  document.addEventListener('DOMContentLoaded', initProgressBar);
+  // 12. Idle Pre-loading: Pre-load common routes when CPU & Network are idle
+  function preloadCommonTabs() {
+    const commonTabs = ['/dashboard', '/live-report', '/attendance-report', '/employee-details'];
+    const idleRunner = window.requestIdleCallback || ((cb) => setTimeout(cb, 1200));
 
-  // Expose helper to window for programmatic navigation
+    idleRunner(() => {
+      commonTabs.forEach((tab, index) => {
+        setTimeout(() => {
+          prefetch(tab);
+        }, index * 300);
+      });
+    });
+  }
+
+  // 13. Initialize on boot
+  document.addEventListener('DOMContentLoaded', () => {
+    initProgressBar();
+    setTimeout(preloadCommonTabs, 1200);
+  });
+
+  // Expose global methods
   window.spaNavigate = navigateTo;
+  window.spaPrefetch = prefetch;
+  window.spaClearCache = () => pageCache.clear();
 
 })();
