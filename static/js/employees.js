@@ -633,6 +633,15 @@ document.addEventListener('DOMContentLoaded', function () {
   if (closeEntryModalBtn) {
     closeEntryModalBtn.addEventListener('click', function () {
       entryModal.classList.remove('active');
+      stopFaceCamera();
+    });
+  }
+
+  const btnCancelEntryModal = document.getElementById('btnCancelEntryModal');
+  if (btnCancelEntryModal) {
+    btnCancelEntryModal.addEventListener('click', function () {
+      entryModal.classList.remove('active');
+      stopFaceCamera();
     });
   }
 
@@ -1104,8 +1113,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   };
 
-  // Close modals on clicking backdrop
-  [entryModal, viewModal, photoModal].forEach(modal => {
+  // Close viewModal and photoModal on clicking backdrop (entryModal can only close via X, Cancel, or Submit)
+  [viewModal, photoModal].forEach(modal => {
     if (modal) {
       modal.addEventListener('click', function (e) {
         if (e.target === modal) {

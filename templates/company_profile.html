@@ -35,7 +35,7 @@
 
   {% if role == 'company_admin' %}
   <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; font-size: 12.5px; color: #1e40af; line-height: 1.5;">
-    <strong>Notice:</strong> As a Company Administrator, you have authorization to edit and update your company's <strong>Office Address</strong> and <strong>Portal Password</strong>. All other legal, biometrics, shift, and geolocation settings are managed by Argus Platform System Admin.
+    <strong>Notice:</strong> As a Company Administrator, you have authorization to edit and update your company's <strong>Official Address</strong>, <strong>Geofence Radius</strong>, and <strong>Portal Password</strong>. All other biometrics, shift, and legal credentials are managed by Argus Platform System Admin.
   </div>
   {% endif %}
 
@@ -167,19 +167,34 @@
       </div>
 
       <!-- Office Geolocation (Latitude, Longitude) -->
-      <div class="form-group" style="grid-column: span 2;">
+      <div class="form-group">
         <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
           <span>Office Geolocation (Latitude, Longitude)</span>
           <span id="profileCoordBadge" style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;"></span>
         </label>
         <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-          <input type="text" class="form-input" id="profileLatitude" name="latitude" placeholder="Latitude (e.g. 11.029800 or any coordinate)" style="flex: 1; min-width: 140px;">
-          <input type="text" class="form-input" id="profileLongitude" name="longitude" placeholder="Longitude (e.g. 76.974000 or any coordinate)" style="flex: 1; min-width: 140px;">
-          <button type="button" id="btnDetectProfileLocation" style="display: none; align-items: center; gap: 5px; background-color: #3d6078; color: #ffffff; border: none; border-radius: 4px; padding: 9px 14px; font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap;">
+          <input type="text" class="form-input" id="profileLatitude" name="latitude" placeholder="Latitude (e.g. 11.029800)" style="flex: 1; min-width: 120px;">
+          <input type="text" class="form-input" id="profileLongitude" name="longitude" placeholder="Longitude (e.g. 76.974000)" style="flex: 1; min-width: 120px;">
+          <button type="button" id="btnDetectProfileLocation" style="display: none; align-items: center; gap: 5px; background-color: #3d6078; color: #ffffff; border: none; border-radius: 4px; padding: 9px 12px; font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap;">
             📍 Get Current Location
           </button>
         </div>
         <div id="profileCoordHelp" style="font-size: 11px; margin-top: 4px;"></div>
+      </div>
+
+      <!-- Geofence Perimeter Radius (Meters) -->
+      <div class="form-group">
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+          <span><strong>Geofence Radius (Meters)</strong> <span class="required">*</span></span>
+          <span style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ Configurable by You</span>
+        </label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="number" class="form-input" id="profileGeofenceRadius" name="geofence_radius" min="10" max="50000" step="5" placeholder="e.g. 200" required style="font-weight: 700; max-width: 180px;">
+          <span style="font-size: 13px; font-weight: 700; color: #64748b; white-space: nowrap;">Meters</span>
+        </div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+          Punches within this distance are classified as <strong>Proper Entries</strong>. Punches exceeding this perimeter are marked <strong>Improper</strong>.
+        </div>
       </div>
 
     </div>
@@ -339,6 +354,7 @@ document.addEventListener('DOMContentLoaded', function () {
     setVal('profileStatus', comp.status || 'Active');
     setVal('profileLatitude', (comp.latitude !== undefined && comp.latitude !== null) ? comp.latitude : '');
     setVal('profileLongitude', (comp.longitude !== undefined && comp.longitude !== null) ? comp.longitude : '');
+    setVal('profileGeofenceRadius', comp.geofence_radius || comp.radius_meters || 200);
     setVal('profileAddress', comp.address || comp.location || '');
 
     // Company Logo Preview
@@ -654,9 +670,14 @@ document.addEventListener('DOMContentLoaded', function () {
       const currentId = document.getElementById('profileCompanyId').value || (loadedCompanyData ? loadedCompanyData.id : '') || 'ARGUS_MASTER';
       const newPasswordVal = profilePasswordInput ? profilePasswordInput.value.trim() : '';
 
+      const radEl = document.getElementById('profileGeofenceRadius');
+      const geofenceRadiusVal = radEl && radEl.value ? (parseFloat(radEl.value) || 200) : 200;
+      payload.geofence_radius = geofenceRadiusVal;
+      payload.radius_meters = geofenceRadiusVal;
+
       if (role === 'company_admin') {
         payload.id = currentId;
-        // Company admin can update address, password, and coordinates (only once during setup)
+        // Company admin can update address, geofence radius, password, and coordinates (only once during setup)
         payload.address = document.getElementById('profileAddress').value.trim();
         if (newPasswordVal) {
           payload.password = newPasswordVal;

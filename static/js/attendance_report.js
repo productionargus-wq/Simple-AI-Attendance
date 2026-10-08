@@ -62,8 +62,8 @@ document.addEventListener('DOMContentLoaded', function () {
   // Subtitle dictionary
   const subtitles = {
     'all': 'Displays all attendance records, including Proper, Improper, and Manual entries.',
-    'proper': 'Displays valid attendance records where location distance is within 200 meters of the configured office geolocation.',
-    'improper': 'Displays attendance records where location distance exceeds 200 meters from the configured office geolocation.',
+    'proper': 'Displays valid attendance records where location distance is within the configured office geofence radius.',
+    'improper': 'Displays attendance records where location distance exceeds the configured office geofence radius.',
     'manual': 'Displays attendance records that were entered manually by the administrator.',
     'compact': 'View essential attendance details in a compact format.',
     'simple': 'View essential attendance details in a compact format.'

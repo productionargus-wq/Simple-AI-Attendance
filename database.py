@@ -421,7 +421,9 @@ def create_company(data):
         'status': 'Deactive' if str(data.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active',
         'employee_limit': int(data.get('employee_limit') or data.get('employee_count') or 50),
         'shift_hours': str(data.get('shift_hours') or '08:00').strip(),
-        'auto_email_reports': bool(data.get('auto_email_reports', True)),
+        'auto_email_reports': str(data.get('auto_email_reports', 'false')).lower() in ['true', '1', 'yes'],
+        'geofence_radius': float(data.get('geofence_radius') or data.get('radius_meters') or 200.0),
+        'radius_meters': float(data.get('geofence_radius') or data.get('radius_meters') or 200.0),
         'can_delete_entries': str(data.get('can_delete_entries', False)).lower() in ['true', '1', 'yes'],
         'support_enabled': str(data.get('support_enabled', False)).lower() in ['true', '1', 'yes'],
         'registered_date': reg_date_str,
@@ -532,6 +534,8 @@ def get_company_by_id(comp_id):
         if 'can_delete_entries' not in c:
             c['can_delete_entries'] = False
         c['support_enabled'] = bool(c.get('support_enabled', False))
+        c['geofence_radius'] = float(c.get('geofence_radius') or c.get('radius_meters') or 200.0)
+        c['radius_meters'] = c['geofence_radius']
         c['status'] = 'Deactive' if str(c.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active'
         c['registered_date'] = format_company_reg_date(c.get('registered_date') or c.get('created_at'))
         return c
@@ -635,6 +639,15 @@ def update_company(comp_id, data):
         upd['logo'] = str(data['logo']).strip()
     if 'logo_data' in data:
         upd['logo_data'] = str(data['logo_data']).strip()
+    if 'geofence_radius' in data or 'radius_meters' in data:
+        rad_val = data.get('geofence_radius') if 'geofence_radius' in data else data.get('radius_meters')
+        try:
+            r_num = float(rad_val)
+            if r_num > 0:
+                upd['geofence_radius'] = r_num
+                upd['radius_meters'] = r_num
+        except Exception:
+            pass
     db.company_admin.update_one(build_id_filter(comp_id), {'$set': upd})
     return True
 
@@ -2085,9 +2098,15 @@ def parse_distance_meters_val(dist_str):
     return None
 
 def sync_geofence_entry_types():
-    """Synchronize attendance_reports entry_type to strictly match the 200-meter geofencing rule."""
+    """Synchronize attendance_reports entry_type to strictly match each company's geofencing rule."""
     try:
         db = get_db()
+        comp_radii = {}
+        for c in db.company_admin.find({}, {'id': 1, 'geofence_radius': 1, 'radius_meters': 1}):
+            cid = c.get('id')
+            if cid:
+                comp_radii[cid] = float(c.get('geofence_radius') or c.get('radius_meters') or GEOFENCE_RADIUS_METERS)
+
         for doc in db.attendance_reports.find({}):
             e_dist = parse_distance_meters_val(doc.get('entry_distance'))
             x_dist = parse_distance_meters_val(doc.get('exit_distance'))
@@ -2096,10 +2115,13 @@ def sync_geofence_entry_types():
             if e_dist is None and x_dist is None:
                 continue
 
+            c_id = doc.get('company_id', 'ARGUS_MASTER')
+            threshold = comp_radii.get(c_id, GEOFENCE_RADIUS_METERS)
+
             is_outside = False
-            if e_dist is not None and e_dist > GEOFENCE_RADIUS_METERS:
+            if e_dist is not None and e_dist > threshold:
                 is_outside = True
-            if x_dist is not None and x_dist > GEOFENCE_RADIUS_METERS:
+            if x_dist is not None and x_dist > threshold:
                 is_outside = True
 
             target_type = 'improper' if is_outside else 'proper'
@@ -2386,6 +2408,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     target_lat = OFFICE_LAT
     target_lng = OFFICE_LNG
     loc_str = get_company_full_address(comp_id)
+    company_geofence_radius = GEOFENCE_RADIUS_METERS
     if comp_id != 'ARGUS_MASTER':
         comp = db.company_admin.find_one({'id': comp_id})
         if comp:
@@ -2393,6 +2416,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             target_lng = parse_coordinate_to_float(comp.get('longitude'), OFFICE_LNG)
             if comp.get('address'):
                 loc_str = comp.get('address')
+            company_geofence_radius = float(comp.get('geofence_radius') or comp.get('radius_meters') or GEOFENCE_RADIUS_METERS)
     else:
         comp = db.company_admin.find_one({'id': 'ARGUS_MASTER'})
         if comp:
@@ -2400,6 +2424,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             target_lng = parse_coordinate_to_float(comp.get('longitude'), OFFICE_LNG)
             if comp.get('address'):
                 loc_str = comp.get('address')
+            company_geofence_radius = float(comp.get('geofence_radius') or comp.get('radius_meters') or GEOFENCE_RADIUS_METERS)
             
     # Calculate proximity distance
     dist_meters = calculate_realistic_proximity(user_lat, user_lng, target_lat, target_lng)
@@ -2450,8 +2475,8 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             live_address=live_loc_str
         )
 
-        # Geofencing threshold: 200 meters (<= 200m is proper, > 200m is improper)
-        punch_in_entry_type = 'proper' if dist_meters <= GEOFENCE_RADIUS_METERS else 'improper'
+        # Geofencing threshold: Dynamic per company (defaults to 200m)
+        punch_in_entry_type = 'proper' if dist_meters <= company_geofence_radius else 'improper'
         rep_doc = {
             'company_id': comp_id,
             'employee_id': str(employee_id),
@@ -2579,9 +2604,9 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         else:
             computed_salary = int(round((working_minutes / 60.0) * hourly_rate))
             
-        # Determine final entry_type: Proper only if BOTH punch-in and punch-out are <= 200m
+        # Determine final entry_type: Proper only if BOTH punch-in and punch-out are within company_geofence_radius
         in_entry_type = existing_rep.get('entry_type', 'proper')
-        out_is_proper = (dist_meters <= GEOFENCE_RADIUS_METERS)
+        out_is_proper = (dist_meters <= company_geofence_radius)
         final_entry_type = 'proper' if (in_entry_type == 'proper' and out_is_proper) else 'improper'
 
         upd_data = {

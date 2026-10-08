@@ -550,7 +550,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inputCompanyShiftHours) inputCompanyShiftHours.value = '08:00';
       if (inputRegisteredDate) inputRegisteredDate.value = new Date().toISOString().split('T')[0];
       if (inputStatus) inputStatus.value = 'Active';
-      if (inputAutoEmailReports) inputAutoEmailReports.value = 'true';
+      if (inputAutoEmailReports) inputAutoEmailReports.value = 'false';
       if (inputCanDeleteEntries) inputCanDeleteEntries.value = 'false';
       if (inputSupportEnabled) inputSupportEnabled.value = 'false';
       companyModal.classList.add('active');
@@ -764,7 +764,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   window.addEventListener('click', function (e) {
     if (e.target === viewCompanyModal) closeViewCompanyModalFunc();
-    if (e.target === companyModal) closeCompanyModalFunc();
+    // companyModal is intentionally NOT closed on backdrop click to prevent losing form data
     if (e.target === reportsModal) closeReportsModalFunc();
     if (e.target === deleteCompanyModal) closeDeleteCompanyModalFunc();
   });
