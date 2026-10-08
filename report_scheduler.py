@@ -806,7 +806,7 @@ def send_daily_activity_email(company_id, target_date=None, force=False):
             return True, f"Daily report for {target_date} already sent to {to_email}. Skipping.", None
 
     report = build_daily_activity_report(comp_id_str, target_date)
-    subject = f"Argus Attendance & Activity Digest - {report['company_name']} ({target_date})"
+    subject = f"Yesterday’s Activity Report for {target_date} - {report['company_name']}"
     html_body = email_service.render_daily_activity_html(report)
 
     # Generate and attach official 2-page landscape Daily Activity PDF
@@ -816,8 +816,7 @@ def send_daily_activity_email(company_id, target_date=None, force=False):
         comp_info = database.get_company_by_id(comp_id_str)
         activity_data = build_yesterdays_activity_full_data(comp_id_str, target_date=target_date)
         pdf_buffer = pdf_generator.generate_yesterdays_activity_report_pdf(activity_data, company_info=comp_info)
-        c_clean = "".join(c for c in report['company_name'] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-        pdf_filename = f"Daily_Activity_Report_{c_clean}_{target_date}.pdf"
+        pdf_filename = f"Yesterday’s Activity Report – {target_date}.pdf"
         attachments.append({
             'filename': pdf_filename,
             'content': pdf_buffer.getvalue()
@@ -866,7 +865,9 @@ def send_monthly_salary_email(company_id, target_month=None, force=False):
             return True, f"Monthly salary report for {target_month} already sent to {to_email}. Skipping.", None
 
     report = build_monthly_salary_report(comp_id_str, target_month)
-    subject = f"Monthly Payroll & Salary Report - {report['company_name']} ({target_month})"
+    month_year_display = email_service.format_month_year(target_month)
+    report['month_year_str'] = month_year_display
+    subject = f"Monthly Salary Report for {month_year_display} - {report['company_name']}"
     html_body = email_service.render_monthly_salary_html(report)
 
     # Generate and attach official Monthly Payroll PDF
@@ -882,8 +883,7 @@ def send_monthly_salary_email(company_id, target_month=None, force=False):
         )
         sal_data = result.get('data', []) if isinstance(result, dict) else []
         pdf_buffer = pdf_generator.generate_salary_report_pdf(sal_data, company_info=comp_info)
-        c_clean = "".join(c for c in report['company_name'] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-        pdf_filename = f"Monthly_Payroll_Report_{c_clean}_{target_month}.pdf"
+        pdf_filename = f"Monthly Salary Report – {month_year_display}.pdf"
         attachments.append({
             'filename': pdf_filename,
             'content': pdf_buffer.getvalue()
