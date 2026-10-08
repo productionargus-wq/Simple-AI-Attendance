@@ -35,7 +35,7 @@
 
   {% if role == 'company_admin' %}
   <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; font-size: 12.5px; color: #1e40af; line-height: 1.5;">
-    <strong>Notice:</strong> As a Company Administrator, you have authorization to edit and update your company's <strong>Official Address</strong>, <strong>Geofence Radius</strong>, and <strong>Portal Password</strong>. All other biometrics, shift, and legal credentials are managed by Argus Platform System Admin.
+    <strong>Notice:</strong> As a Company Administrator, you have authorization to edit and update your company's <strong>Official Address</strong> and <strong>Portal Password</strong>. All other biometrics, geofence radius, shift limits, and corporate legal credentials are managed exclusively by Argus Platform System Admin.
   </div>
   {% endif %}
 
@@ -186,14 +186,21 @@
       <div class="form-group">
         <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
           <span><strong>Geofence Radius (Meters)</strong> <span class="required">*</span></span>
-          <span style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ Configurable by You</span>
+          {% if role == 'super_admin' %}
+          <span id="profileGeofenceBadge" style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ Configurable by System Admin</span>
+          {% else %}
+          <span id="profileGeofenceBadge" style="font-size: 11px; color: #64748b; font-weight: 700; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">🔒 Locked</span>
+          {% endif %}
         </label>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <input type="number" class="form-input" id="profileGeofenceRadius" name="geofence_radius" min="10" max="50000" step="5" placeholder="e.g. 200" required style="font-weight: 700; max-width: 180px;">
+          <input type="number" class="form-input" id="profileGeofenceRadius" name="geofence_radius" min="10" max="50000" step="5" placeholder="e.g. 200" required style="font-weight: 700; max-width: 180px; {% if role == 'company_admin' %}background-color: #f8fafc; cursor: not-allowed;{% endif %}" {% if role == 'company_admin' %}readonly{% endif %}>
           <span style="font-size: 13px; font-weight: 700; color: #64748b; white-space: nowrap;">Meters</span>
         </div>
-        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+        <div id="profileGeofenceHelp" style="font-size: 11px; color: #64748b; margin-top: 4px;">
           Punches within this distance are classified as <strong>Proper Entries</strong>. Punches exceeding this perimeter are marked <strong>Improper</strong>.
+          {% if role == 'company_admin' %}
+          <span style="display: block; color: #dc2626; margin-top: 2px; font-weight: 600;">🔒 Geofence radius is locked for Company Admin. Only System Admin can change it anytime.</span>
+          {% endif %}
         </div>
       </div>
 
@@ -453,6 +460,40 @@ document.addEventListener('DOMContentLoaded', function () {
           coordHelp.style.color = '#ea580c';
         }
         if (btnDetect) btnDetect.style.display = 'inline-flex';
+      }
+    }
+
+    // Geofence Radius Lock & Permissions
+    const geofenceInput = document.getElementById('profileGeofenceRadius');
+    const geofenceBadge = document.getElementById('profileGeofenceBadge');
+    const geofenceHelp = document.getElementById('profileGeofenceHelp');
+    if (role === 'super_admin') {
+      if (geofenceInput) {
+        geofenceInput.readOnly = false;
+        geofenceInput.style.backgroundColor = '#ffffff';
+        geofenceInput.style.cursor = 'text';
+      }
+      if (geofenceBadge) {
+        geofenceBadge.textContent = '✏️ Configurable by System Admin';
+        geofenceBadge.style.color = '#16a34a';
+        geofenceBadge.style.background = '#dcfce7';
+      }
+      if (geofenceHelp) {
+        geofenceHelp.innerHTML = 'Punches within this distance are classified as <strong>Proper Entries</strong>. Punches exceeding this perimeter are marked <strong>Improper</strong>.';
+      }
+    } else {
+      if (geofenceInput) {
+        geofenceInput.readOnly = true;
+        geofenceInput.style.backgroundColor = '#f8fafc';
+        geofenceInput.style.cursor = 'not-allowed';
+      }
+      if (geofenceBadge) {
+        geofenceBadge.textContent = '🔒 Locked';
+        geofenceBadge.style.color = '#64748b';
+        geofenceBadge.style.background = '#f1f5f9';
+      }
+      if (geofenceHelp) {
+        geofenceHelp.innerHTML = 'Punches within this distance are classified as <strong>Proper Entries</strong>. Punches exceeding this perimeter are marked <strong>Improper</strong>.<br><span style="display: block; color: #dc2626; margin-top: 2px; font-weight: 600;">🔒 Geofence radius is locked for Company Admin. Only System Admin can change it anytime.</span>';
       }
     }
 

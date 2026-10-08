@@ -503,6 +503,8 @@ def get_all_companies(search='', page=1, limit=10):
         if 'can_delete_entries' not in c:
             c['can_delete_entries'] = False
         c['support_enabled'] = bool(c.get('support_enabled', False))
+        c['geofence_radius'] = float(c.get('geofence_radius') or c.get('radius_meters') or 200.0)
+        c['radius_meters'] = c['geofence_radius']
         c['status'] = 'Deactive' if str(c.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active'
             
         c['registered_date'] = format_company_reg_date(c.get('registered_date') or c.get('created_at'))

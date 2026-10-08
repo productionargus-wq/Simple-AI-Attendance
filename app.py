@@ -1882,15 +1882,6 @@ def api_update_company_profile():
             if address:
                 database.update_company(comp_id, {'address': address})
 
-        if 'geofence_radius' in data or 'radius_meters' in data:
-            r_val = data.get('geofence_radius') if 'geofence_radius' in data else data.get('radius_meters')
-            try:
-                r_num = float(r_val)
-                if 10 <= r_num <= 50000:
-                    database.update_company(comp_id, {'geofence_radius': r_num, 'radius_meters': r_num})
-            except Exception:
-                pass
-            
         new_pass = str(data.get('password', '')).strip()
         if new_pass:
             if len(new_pass) < 4:

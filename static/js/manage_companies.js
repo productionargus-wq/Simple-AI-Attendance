@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const inputAutoEmailReports = document.getElementById('inputAutoEmailReports');
   const inputCanDeleteEntries = document.getElementById('inputCanDeleteEntries');
   const inputSupportEnabled = document.getElementById('inputSupportEnabled');
+  const inputGeofenceRadius = document.getElementById('inputGeofenceRadius');
 
   // Cascade Delete Confirmation Modal elements
   const deleteCompanyModal = document.getElementById('deleteCompanyModal');
@@ -231,7 +232,9 @@ document.addEventListener('DOMContentLoaded', function () {
           </td>
           <td style="white-space: nowrap; font-weight: 600; color: #334155;">${escapeHtml(comp.phone || '-')}</td>
           <td style="white-space: nowrap;">
-            <div style="font-size: 11px; color: #334155; font-weight: 600;">${hasCoords ? `📍 ${lat}, ${lng}` : `<span style="color: #94a3b8; font-size: 11px;">-</span>`}</div>
+            <div style="font-size: 11px; color: #334155; font-weight: 600;">
+              ${hasCoords ? `📍 ${lat}, ${lng} <span style="display: block; font-size: 10px; color: #0284c7; font-weight: 700; margin-top: 2px;">⭕ ${comp.geofence_radius || 200}m radius</span>` : `<span style="color: #94a3b8; font-size: 11px;">-</span>`}
+            </div>
           </td>
           <td style="text-align: center; white-space: nowrap;">
             <span style="font-weight: 700; color: #0f172a; font-size: 11.5px; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 6px; display: inline-block;">
@@ -434,6 +437,7 @@ document.addEventListener('DOMContentLoaded', function () {
           if (inputAutoEmailReports) inputAutoEmailReports.value = (comp.auto_email_reports !== false) ? 'true' : 'false';
           if (inputCanDeleteEntries) inputCanDeleteEntries.value = (comp.can_delete_entries === true) ? 'true' : 'false';
           if (inputSupportEnabled) inputSupportEnabled.value = (comp.support_enabled === true) ? 'true' : 'false';
+          if (inputGeofenceRadius) inputGeofenceRadius.value = comp.geofence_radius || comp.radius_meters || 200;
 
           companyModal.classList.add('active');
         });
@@ -553,6 +557,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inputAutoEmailReports) inputAutoEmailReports.value = 'false';
       if (inputCanDeleteEntries) inputCanDeleteEntries.value = 'false';
       if (inputSupportEnabled) inputSupportEnabled.value = 'false';
+      if (inputGeofenceRadius) inputGeofenceRadius.value = 200;
       companyModal.classList.add('active');
     });
   }
@@ -622,7 +627,8 @@ document.addEventListener('DOMContentLoaded', function () {
         registered_date: formData.get('registered_date') || '',
         auto_email_reports: formData.get('auto_email_reports') === 'true',
         can_delete_entries: formData.get('can_delete_entries') === 'true',
-        support_enabled: formData.get('support_enabled') === 'true'
+        support_enabled: formData.get('support_enabled') === 'true',
+        geofence_radius: parseFloat(formData.get('geofence_radius')) || 200
       };
 
       const btnSave = btnSaveCompany || document.getElementById('btnSaveCompany');

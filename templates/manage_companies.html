@@ -163,6 +163,19 @@
             </button>
           </div>
 
+          <!-- Field 6: Geofence Radius (System Admin Configurable Only) -->
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Geofence Radius (Meters) <span class="required">*</span></span>
+              <span style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ System Admin Only</span>
+            </label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input type="number" class="form-input" id="inputGeofenceRadius" name="geofence_radius" min="10" max="50000" step="5" value="200" placeholder="e.g. 200" required style="font-weight: 700; max-width: 180px;">
+              <span style="font-size: 13px; font-weight: 700; color: #64748b; white-space: nowrap;">Meters</span>
+            </div>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Perimeter distance from office coordinates allowed for valid attendance punches (default 200m). Locked for Company Admin; editable anytime by System Admin.</span>
+          </div>
+
           <!-- Row: Employee Count & Shift-time Hours -->
           <div class="form-group">
             <label class="form-label">Employee Count <span class="required">*</span></label>
