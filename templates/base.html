@@ -7,7 +7,7 @@
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261007_white">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261007_white">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261007_04">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261008_geofence">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script>
     window.IS_SYSTEM_ADMIN = {{ 'true' if is_system_admin else 'false' }};
@@ -178,7 +178,7 @@
   <div id="spaScriptContainer"></div>
 
   <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
-  <script src="{{ url_for('static', filename='js/spa_router.js') }}?v=20261007_02"></script>
+  <script src="{{ url_for('static', filename='js/spa_router.js') }}?v=20261008_geofence"></script>
   <script>
     (function () {
       // Sync persistent remember token to localStorage for unbreakable multi-tab & restart persistence
