@@ -953,25 +953,65 @@ def dispatch_all_monthly_reports(target_month=None, force=False):
 
 # ----------------- BACKGROUND SCHEDULER DAEMON ----------------- #
 
+def check_and_dispatch_scheduled_reports():
+    """
+    Evaluates each company's individual email schedule and dispatches reports
+    when their configured time / day has arrived.
+    - Daily Activity Report: Sent at company.daily_report_time (default '07:00') for yesterday's activity.
+    - Monthly Salary Report: Sent on company.monthly_report_day (default 1) at company.daily_report_time for previous month.
+    Built-in idempotency ensures no duplicate dispatches even across server reboots.
+    """
+    try:
+        db = database.get_db()
+        now = database.get_ist_now()
+        cur_time_str = now.strftime('%H:%M')
+        cur_day = now.day
+        yesterday = get_yesterday_ist()
+        prev_month = get_previous_month_ist()
+
+        # Query active companies that have automatic reports enabled
+        companies = list(db.company_admin.find({
+            'auto_email_reports': {'$ne': False},
+            'status': {'$nin': ['Deactive', 'Inactive']}
+        }))
+
+        for comp in companies:
+            c_id = comp.get('id')
+            c_name = comp.get('company_name', '')
+            c_email = comp.get('email', '')
+            if not c_id or not c_email:
+                continue
+
+            c_daily_time = str(comp.get('daily_report_time') or '07:00').strip()
+            c_monthly_day = int(comp.get('monthly_report_day') or 1)
+
+            # 1. Daily Report Check:
+            if cur_time_str >= c_daily_time:
+                try:
+                    ok, msg, _ = send_daily_activity_email(c_id, target_date=yesterday, force=False)
+                    if ok and "already sent" not in str(msg).lower():
+                        print(f"[Scheduler Daemon] Sent scheduled daily report to '{c_name}' ({c_email}) at {cur_time_str} IST.")
+                except Exception as e:
+                    print(f"[Scheduler Daemon Error] Failed daily report for '{c_name}': {e}")
+
+            # 2. Monthly Report Check:
+            if cur_day >= c_monthly_day and cur_time_str >= c_daily_time:
+                try:
+                    ok, msg, _ = send_monthly_salary_email(c_id, target_month=prev_month, force=False)
+                    if ok and "already sent" not in str(msg).lower():
+                        print(f"[Scheduler Daemon] Sent scheduled monthly payroll report to '{c_name}' ({c_email}) on day {cur_day} at {cur_time_str} IST.")
+                except Exception as e:
+                    print(f"[Scheduler Daemon Error] Failed monthly report for '{c_name}': {e}")
+    except Exception as e:
+        print(f"[Scheduler Daemon Check Error] {e}")
+
 def _scheduler_worker():
     """Worker loop that runs scheduled jobs in background."""
-    print("[Scheduler Daemon] Started background report scheduler worker.")
+    print("[Scheduler Daemon] Started background dynamic report scheduler worker.")
     
-    # Schedule Daily Report every morning at 07:00 IST
-    schedule.every().day.at("07:00").do(dispatch_all_daily_reports)
-    
-    # Schedule Monthly Salary Report on the 1st of every month at 08:00 IST
-    def monthly_job_trigger():
-        now = database.get_ist_now()
-        if now.day == 1:
-            print(f"[Scheduler Daemon] 1st of month detected ({now.strftime('%Y-%m-%d')}). Triggering monthly payroll dispatch...")
-            dispatch_all_monthly_reports()
-
-    schedule.every().day.at("08:00").do(monthly_job_trigger)
-
     while True:
         try:
-            schedule.run_pending()
+            check_and_dispatch_scheduled_reports()
         except Exception as e:
             print(f"[Scheduler Daemon Exception] {e}")
         time.sleep(30)

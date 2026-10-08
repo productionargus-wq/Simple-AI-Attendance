@@ -34,6 +34,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const inputCompanyShiftHours = document.getElementById('inputShiftHours');
   const inputRegisteredDate = document.getElementById('inputRegisteredDate');
   const inputAutoEmailReports = document.getElementById('inputAutoEmailReports');
+  const inputDailyReportTime = document.getElementById('inputDailyReportTime');
+  const inputMonthlyReportDay = document.getElementById('inputMonthlyReportDay');
   const inputCanDeleteEntries = document.getElementById('inputCanDeleteEntries');
   const inputSupportEnabled = document.getElementById('inputSupportEnabled');
   const inputGeofenceRadius = document.getElementById('inputGeofenceRadius');
@@ -91,6 +93,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const viewCompanyEmployees = document.getElementById('viewCompanyEmployees');
   const viewCompanyStatusBadge = document.getElementById('viewCompanyStatusBadge');
   const viewCompanyReportsBadge = document.getElementById('viewCompanyReportsBadge');
+  const viewCompanyDailyTime = document.getElementById('viewCompanyDailyTime');
+  const viewCompanyMonthlyDay = document.getElementById('viewCompanyMonthlyDay');
   const viewCompanyDeleteEntriesBadge = document.getElementById('viewCompanyDeleteEntriesBadge');
 
   function formatDisplayDate(dateStr) {
@@ -390,6 +394,23 @@ document.addEventListener('DOMContentLoaded', function () {
               : `<span class="status-pill status-inactive">Disabled</span>`;
           }
 
+          if (viewCompanyDailyTime) {
+            let t = comp.daily_report_time || '07:00';
+            if (t.includes(':')) {
+              let [h, m] = t.split(':').map(Number);
+              let ampm = h >= 12 ? 'PM' : 'AM';
+              h = h % 12 || 12;
+              t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+            }
+            viewCompanyDailyTime.textContent = t;
+          }
+
+          if (viewCompanyMonthlyDay) {
+            const d = parseInt(comp.monthly_report_day || 1, 10);
+            const nth = (d === 1 || d === 21 || d === 31) ? 'st' : ((d === 2 || d === 22) ? 'nd' : ((d === 3 || d === 23) ? 'rd' : 'th'));
+            viewCompanyMonthlyDay.textContent = `${d}${nth} of month`;
+          }
+
           if (viewCompanyDeleteEntriesBadge) {
             viewCompanyDeleteEntriesBadge.innerHTML = (comp.can_delete_entries === true)
               ? `<span class="status-pill status-active">Enabled</span>`
@@ -435,6 +456,8 @@ document.addEventListener('DOMContentLoaded', function () {
           if (inputCompanyShiftHours) inputCompanyShiftHours.value = comp.shift_hours || '08:00';
           if (inputRegisteredDate) inputRegisteredDate.value = formatDateForDateInput(comp.registered_date);
           if (inputAutoEmailReports) inputAutoEmailReports.value = (comp.auto_email_reports !== false) ? 'true' : 'false';
+          if (inputDailyReportTime) inputDailyReportTime.value = comp.daily_report_time || '07:00';
+          if (inputMonthlyReportDay) inputMonthlyReportDay.value = String(comp.monthly_report_day || 1);
           if (inputCanDeleteEntries) inputCanDeleteEntries.value = (comp.can_delete_entries === true) ? 'true' : 'false';
           if (inputSupportEnabled) inputSupportEnabled.value = (comp.support_enabled === true) ? 'true' : 'false';
           if (inputGeofenceRadius) inputGeofenceRadius.value = comp.geofence_radius || comp.radius_meters || 200;
@@ -555,6 +578,8 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inputRegisteredDate) inputRegisteredDate.value = new Date().toISOString().split('T')[0];
       if (inputStatus) inputStatus.value = 'Active';
       if (inputAutoEmailReports) inputAutoEmailReports.value = 'false';
+      if (inputDailyReportTime) inputDailyReportTime.value = '07:00';
+      if (inputMonthlyReportDay) inputMonthlyReportDay.value = '1';
       if (inputCanDeleteEntries) inputCanDeleteEntries.value = 'false';
       if (inputSupportEnabled) inputSupportEnabled.value = 'false';
       if (inputGeofenceRadius) inputGeofenceRadius.value = 200;
@@ -626,6 +651,8 @@ document.addEventListener('DOMContentLoaded', function () {
         shift_hours: (formData.get('shift_hours') || '08:00').trim(),
         registered_date: formData.get('registered_date') || '',
         auto_email_reports: formData.get('auto_email_reports') === 'true',
+        daily_report_time: (formData.get('daily_report_time') || '07:00').trim(),
+        monthly_report_day: parseInt(formData.get('monthly_report_day'), 10) || 1,
         can_delete_entries: formData.get('can_delete_entries') === 'true',
         support_enabled: formData.get('support_enabled') === 'true',
         geofence_radius: parseFloat(formData.get('geofence_radius')) || 200

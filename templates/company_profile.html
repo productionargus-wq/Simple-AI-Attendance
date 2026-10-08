@@ -204,6 +204,69 @@
         </div>
       </div>
 
+      <!-- Automated Email Report Timing Configuration -->
+      <div class="form-group">
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+          <span><strong>Daily Report Email Time</strong> <span class="required">*</span></span>
+          {% if role == 'super_admin' %}
+          <span style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ Configurable by System Admin</span>
+          {% else %}
+          <span style="font-size: 11px; color: #64748b; font-weight: 700; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">🔒 Locked</span>
+          {% endif %}
+        </label>
+        <input type="time" class="form-input" id="profileDailyReportTime" name="daily_report_time" value="07:00" style="font-weight: 700; max-width: 220px; {% if role == 'company_admin' %}background-color: #f8fafc; cursor: not-allowed;{% endif %}" {% if role == 'company_admin' %}readonly{% endif %}>
+        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+          Time of day to send yesterday's daily activity digest.
+          {% if role == 'company_admin' %}
+          <span style="display: block; color: #dc2626; margin-top: 2px; font-weight: 600;">🔒 Email schedule is managed exclusively by System Admin.</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+          <span><strong>Monthly Report Email Day</strong> <span class="required">*</span></span>
+          {% if role == 'super_admin' %}
+          <span style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ Configurable by System Admin</span>
+          {% else %}
+          <span style="font-size: 11px; color: #64748b; font-weight: 700; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">🔒 Locked</span>
+          {% endif %}
+        </label>
+        <select class="form-input" id="profileMonthlyReportDay" name="monthly_report_day" style="font-weight: 700; max-width: 260px; {% if role == 'company_admin' %}background-color: #f8fafc; cursor: not-allowed; pointer-events: none;{% endif %}" {% if role == 'company_admin' %}disabled{% endif %}>
+          <option value="1">1st of every month (Default)</option>
+          <option value="2">2nd of every month</option>
+          <option value="3">3rd of every month</option>
+          <option value="4">4th of every month</option>
+          <option value="5">5th of every month</option>
+          <option value="6">6th of every month</option>
+          <option value="7">7th of every month</option>
+          <option value="8">8th of every month</option>
+          <option value="9">9th of every month</option>
+          <option value="10">10th of every month</option>
+          <option value="11">11th of every month</option>
+          <option value="12">12th of every month</option>
+          <option value="13">13th of every month</option>
+          <option value="14">14th of every month</option>
+          <option value="15">15th of every month</option>
+          <option value="16">16th of every month</option>
+          <option value="17">17th of every month</option>
+          <option value="18">18th of every month</option>
+          <option value="19">19th of every month</option>
+          <option value="20">20th of every month</option>
+          <option value="21">21st of every month</option>
+          <option value="22">22nd of every month</option>
+          <option value="23">23rd of every month</option>
+          <option value="24">24th of every month</option>
+          <option value="25">25th of every month</option>
+          <option value="26">26th of every month</option>
+          <option value="27">27th of every month</option>
+          <option value="28">28th of every month</option>
+        </select>
+        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+          Day of the month to send the monthly salary and payroll statement.
+        </div>
+      </div>
+
     </div>
 
     <!-- Office Address (EDITABLE BY BOTH COMPANY ADMIN AND SUPER ADMIN) -->
@@ -362,6 +425,8 @@ document.addEventListener('DOMContentLoaded', function () {
     setVal('profileLatitude', (comp.latitude !== undefined && comp.latitude !== null) ? comp.latitude : '');
     setVal('profileLongitude', (comp.longitude !== undefined && comp.longitude !== null) ? comp.longitude : '');
     setVal('profileGeofenceRadius', comp.geofence_radius || comp.radius_meters || 200);
+    setVal('profileDailyReportTime', comp.daily_report_time || '07:00');
+    setVal('profileMonthlyReportDay', comp.monthly_report_day || 1);
     setVal('profileAddress', comp.address || comp.location || '');
 
     // Company Logo Preview
@@ -742,6 +807,10 @@ document.addEventListener('DOMContentLoaded', function () {
         payload.latitude = document.getElementById('profileLatitude').value.trim();
         payload.longitude = document.getElementById('profileLongitude').value.trim();
         payload.address = document.getElementById('profileAddress').value.trim();
+        const dailyTimeEl = document.getElementById('profileDailyReportTime');
+        if (dailyTimeEl) payload.daily_report_time = (dailyTimeEl.value || '07:00').trim();
+        const monthlyDayEl = document.getElementById('profileMonthlyReportDay');
+        if (monthlyDayEl) payload.monthly_report_day = parseInt(monthlyDayEl.value, 10) || 1;
 
         const regDateElem = document.getElementById('profileRegisteredDate');
         if (regDateElem && regDateElem.value) {

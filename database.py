@@ -422,6 +422,8 @@ def create_company(data):
         'employee_limit': int(data.get('employee_limit') or data.get('employee_count') or 50),
         'shift_hours': str(data.get('shift_hours') or '08:00').strip(),
         'auto_email_reports': str(data.get('auto_email_reports', 'false')).lower() in ['true', '1', 'yes'],
+        'daily_report_time': str(data.get('daily_report_time') or '07:00').strip(),
+        'monthly_report_day': int(data.get('monthly_report_day') or 1),
         'geofence_radius': float(data.get('geofence_radius') or data.get('radius_meters') or 200.0),
         'radius_meters': float(data.get('geofence_radius') or data.get('radius_meters') or 200.0),
         'can_delete_entries': str(data.get('can_delete_entries', False)).lower() in ['true', '1', 'yes'],
@@ -500,6 +502,8 @@ def get_all_companies(search='', page=1, limit=10):
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
+        c['daily_report_time'] = str(c.get('daily_report_time') or '07:00').strip()
+        c['monthly_report_day'] = int(c.get('monthly_report_day') or 1)
         if 'can_delete_entries' not in c:
             c['can_delete_entries'] = False
         c['support_enabled'] = bool(c.get('support_enabled', False))
@@ -533,6 +537,8 @@ def get_company_by_id(comp_id):
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
+        c['daily_report_time'] = str(c.get('daily_report_time') or '07:00').strip()
+        c['monthly_report_day'] = int(c.get('monthly_report_day') or 1)
         if 'can_delete_entries' not in c:
             c['can_delete_entries'] = False
         c['support_enabled'] = bool(c.get('support_enabled', False))
@@ -639,8 +645,15 @@ def update_company(comp_id, data):
         upd['can_delete_entries'] = str(data['can_delete_entries']).lower() in ['true', '1', 'yes']
     if 'logo' in data:
         upd['logo'] = str(data['logo']).strip()
-    if 'logo_data' in data:
-        upd['logo_data'] = str(data['logo_data']).strip()
+    if 'daily_report_time' in data and data['daily_report_time']:
+        upd['daily_report_time'] = str(data['daily_report_time']).strip()
+    if 'monthly_report_day' in data and data['monthly_report_day'] is not None and str(data['monthly_report_day']).strip() != '':
+        try:
+            m_day = int(data['monthly_report_day'])
+            if 1 <= m_day <= 31:
+                upd['monthly_report_day'] = m_day
+        except Exception:
+            pass
     if 'geofence_radius' in data or 'radius_meters' in data:
         rad_val = data.get('geofence_radius') if 'geofence_radius' in data else data.get('radius_meters')
         try:
