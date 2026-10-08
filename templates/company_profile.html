@@ -289,11 +289,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const compIdEl = document.getElementById('profileCompanyId');
     if (!compIdEl) return;
     loadedCompanyData = comp;
-    compIdEl.value = comp.id || '';
-    document.getElementById('profileCompanyName').value = comp.company_name || '';
-    document.getElementById('profileGstin').value = comp.gstin || '';
-    document.getElementById('profileEmail').value = comp.email || '';
-    document.getElementById('profilePhone').value = comp.phone || '';
+
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = (val !== undefined && val !== null) ? val : '';
+    };
+
+    setVal('profileCompanyId', comp.id);
+    setVal('profileCompanyName', comp.company_name);
+    setVal('profileGstin', comp.gstin);
+    setVal('profileEmail', comp.email);
+    setVal('profilePhone', comp.phone);
     
     // Format and display Company Registered Date
     const regDateInput = document.getElementById('profileRegisteredDate');
@@ -328,12 +334,12 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    document.getElementById('profileShiftHours').value = comp.shift_hours || '08:00';
-    document.getElementById('profileEmployeeLimit').value = comp.employee_limit || comp.employee_count || 50;
-    document.getElementById('profileStatus').value = comp.status || 'Active';
-    document.getElementById('profileLatitude').value = (comp.latitude !== undefined && comp.latitude !== null) ? comp.latitude : '';
-    document.getElementById('profileLongitude').value = (comp.longitude !== undefined && comp.longitude !== null) ? comp.longitude : '';
-    document.getElementById('profileAddress').value = comp.address || comp.location || '';
+    setVal('profileShiftHours', comp.shift_hours || '08:00');
+    setVal('profileEmployeeLimit', comp.employee_limit || comp.employee_count || 50);
+    setVal('profileStatus', comp.status || 'Active');
+    setVal('profileLatitude', (comp.latitude !== undefined && comp.latitude !== null) ? comp.latitude : '');
+    setVal('profileLongitude', (comp.longitude !== undefined && comp.longitude !== null) ? comp.longitude : '');
+    setVal('profileAddress', comp.address || comp.location || '');
 
     // Company Logo Preview
     const logoImg = document.getElementById('profileLogoPreview');
@@ -343,16 +349,18 @@ document.addEventListener('DOMContentLoaded', function () {
     if (logoStatus) logoStatus.textContent = '';
     
     const logoSrc = comp.logo_url || comp.logo_data || (comp.logo ? `/uploads/${comp.logo}` : '');
-    if (logoSrc) {
-      logoImg.src = logoSrc;
-      logoImg.style.display = 'block';
-      logoPlaceholder.style.display = 'none';
-      if (btnRemoveLogo) btnRemoveLogo.style.display = 'inline-flex';
-    } else {
-      logoImg.src = '';
-      logoImg.style.display = 'none';
-      logoPlaceholder.style.display = 'flex';
-      if (btnRemoveLogo) btnRemoveLogo.style.display = 'none';
+    if (logoImg && logoPlaceholder) {
+      if (logoSrc) {
+        logoImg.src = logoSrc;
+        logoImg.style.display = 'block';
+        logoPlaceholder.style.display = 'none';
+        if (btnRemoveLogo) btnRemoveLogo.style.display = 'inline-flex';
+      } else {
+        logoImg.src = '';
+        logoImg.style.display = 'none';
+        logoPlaceholder.style.display = 'flex';
+        if (btnRemoveLogo) btnRemoveLogo.style.display = 'none';
+      }
     }
 
     // Geolocation Lock & Permissions
@@ -365,12 +373,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const isLocked = comp.coordinates_locked === true || (comp.coordinates_locked === undefined && comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '' && comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '');
 
     if (role === 'super_admin') {
-      latInput.readOnly = false;
-      latInput.style.backgroundColor = '#ffffff';
-      latInput.style.cursor = 'text';
-      lngInput.readOnly = false;
-      lngInput.style.backgroundColor = '#ffffff';
-      lngInput.style.cursor = 'text';
+      if (latInput) {
+        latInput.readOnly = false;
+        latInput.style.backgroundColor = '#ffffff';
+        latInput.style.cursor = 'text';
+      }
+      if (lngInput) {
+        lngInput.readOnly = false;
+        lngInput.style.backgroundColor = '#ffffff';
+        lngInput.style.cursor = 'text';
+      }
       if (coordBadge) {
         coordBadge.textContent = '✏️ System Admin (Always Editable)';
         coordBadge.style.color = '#16a34a';
@@ -384,12 +396,16 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
       // role === 'company_admin'
       if (isLocked) {
-        latInput.readOnly = true;
-        latInput.style.backgroundColor = '#f8fafc';
-        latInput.style.cursor = 'not-allowed';
-        lngInput.readOnly = true;
-        lngInput.style.backgroundColor = '#f8fafc';
-        lngInput.style.cursor = 'not-allowed';
+        if (latInput) {
+          latInput.readOnly = true;
+          latInput.style.backgroundColor = '#f8fafc';
+          latInput.style.cursor = 'not-allowed';
+        }
+        if (lngInput) {
+          lngInput.readOnly = true;
+          lngInput.style.backgroundColor = '#f8fafc';
+          lngInput.style.cursor = 'not-allowed';
+        }
         if (coordBadge) {
           coordBadge.textContent = '🔒 Locked';
           coordBadge.style.color = '#64748b';
@@ -401,12 +417,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (btnDetect) btnDetect.style.display = 'none';
       } else {
-        latInput.readOnly = false;
-        latInput.style.backgroundColor = '#ffffff';
-        latInput.style.cursor = 'text';
-        lngInput.readOnly = false;
-        lngInput.style.backgroundColor = '#ffffff';
-        lngInput.style.cursor = 'text';
+        if (latInput) {
+          latInput.readOnly = false;
+          latInput.style.backgroundColor = '#ffffff';
+          latInput.style.cursor = 'text';
+        }
+        if (lngInput) {
+          lngInput.readOnly = false;
+          lngInput.style.backgroundColor = '#ffffff';
+          lngInput.style.cursor = 'text';
+        }
         if (coordBadge) {
           coordBadge.textContent = '✏️ One-Time Setup (Editable Once)';
           coordBadge.style.color = '#0284c7';

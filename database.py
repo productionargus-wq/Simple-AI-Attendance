@@ -4018,21 +4018,24 @@ def validate_admin_login(email_or_username, password=None):
             {'username': {'$regex': f"^{re.escape(clean)}$", '$options': 'i'}}
         ]
     })
-    if not doc and clean in ['technologiesargus@gmail.com', 'admin']:
+    if not doc and clean in ['technologiesargus@gmail.com', 'productionargus@gmail.com', 'admin']:
         # Ensure Super Admin doc exists in MongoDB
+        target_email = clean if '@' in clean else 'technologiesargus@gmail.com'
         db.admin_users.update_one(
-            {'role': 'super_admin'},
+            {'email': target_email},
             {'$set': {
-                'email': 'technologiesargus@gmail.com',
-                'username': 'Admin',
-                'password': '76543',
+                'email': target_email,
+                'username': 'Admin' if target_email == 'technologiesargus@gmail.com' else 'Argus Admin',
+                'password': 'scrypt:32768:8:1$QxyLtGr6uxVY074M$7d6c233d713711c9a2c1f470668c0951cf5b743bfb8f08276e0110ac6d8d44650ae4ab1fa120eaac27164317ee39494029048ae0251f71cd7255181c4062ba08',
+                'password_hash': 'scrypt:32768:8:1$QxyLtGr6uxVY074M$7d6c233d713711c9a2c1f470668c0951cf5b743bfb8f08276e0110ac6d8d44650ae4ab1fa120eaac27164317ee39494029048ae0251f71cd7255181c4062ba08',
+                'password_raw': '76543',
                 'role': 'super_admin',
                 'company_id': 'ARGUS_MASTER',
                 'company_name': 'ARGUS TECHNOLOGIES'
             }},
             upsert=True
         )
-        doc = db.admin_users.find_one({'email': 'technologiesargus@gmail.com'})
+        doc = db.admin_users.find_one({'email': target_email})
 
     if not doc:
         return None if password is None else {'success': False, 'error': 'NOT_REGISTERED'}

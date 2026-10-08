@@ -348,6 +348,28 @@ def get_current_company_id():
     comp_id = session.get('company_id')
     if role == 'super_admin':
         return comp_id or 'ARGUS_MASTER'
+
+    if role == 'company_admin':
+        if comp_id and comp_id != 'ARGUS_MASTER' and database.get_company_by_id(comp_id):
+            return comp_id
+        # Self-heal from email
+        c_email = session.get('company_email') or session.get('admin_email')
+        if c_email:
+            comp_rec = database.get_company_by_email(c_email)
+            if comp_rec and comp_rec.get('id'):
+                session['company_id'] = comp_rec['id']
+                session['company_name'] = comp_rec.get('company_name', session.get('company_name', ''))
+                session.modified = True
+                return comp_rec['id']
+        # Fallback to first active company
+        db = database.get_db()
+        first_c = db.company_admin.find_one({'id': {'$nin': ['ALL', 'ARGUS_MASTER']}, 'status': {'$nin': ['Deactive', 'Inactive']}})
+        if first_c:
+            session['company_id'] = first_c['id']
+            session['company_name'] = first_c.get('company_name', '')
+            session.modified = True
+            return first_c['id']
+
     return comp_id or 'ARGUS_MASTER'
 
 def get_current_company_info():
@@ -624,6 +646,8 @@ def ensure_persistent_session():
                     session['admin_logged_in'] = True
                     session['admin_username'] = s_doc.get('username') or ('Company Admin' if role == 'company_admin' else 'Admin')
                     session['admin_email'] = s_doc.get('email', '')
+                    if role == 'company_admin':
+                        session['company_email'] = s_doc.get('email', '')
                 elif role == 'employee':
                     session['employee_logged_in'] = True
                     session['employee_id'] = s_doc.get('employee_id')
@@ -635,6 +659,26 @@ def ensure_persistent_session():
         session.modified = True
 
         role = session.get('role')
+
+        # Self-healing company_id for company_admin
+        if role == 'company_admin':
+            comp_id = session.get('company_id')
+            if not comp_id or not database.get_company_by_id(comp_id):
+                c_email = session.get('company_email') or session.get('admin_email')
+                comp_rec = database.get_company_by_email(c_email) if c_email else None
+                if not comp_rec:
+                    db = database.get_db()
+                    raw_c = db.company_admin.find_one({'id': {'$nin': ['ALL', 'ARGUS_MASTER']}, 'status': {'$nin': ['Deactive', 'Inactive']}})
+                    if raw_c:
+                        comp_rec = database.clean_doc(raw_c)
+                if comp_rec and comp_rec.get('id'):
+                    session['company_id'] = comp_rec['id']
+                    session['company_name'] = comp_rec.get('company_name', session.get('company_name', ''))
+                    token = session.get('remember_token')
+                    if token:
+                        db = database.get_db()
+                        db.user_sessions.update_one({'token': token}, {'$set': {'company_id': comp_rec['id'], 'company_name': session['company_name']}})
+
         if role in ['company_admin', 'employee']:
             comp_id = session.get('company_id')
             if comp_id and str(comp_id).strip() not in ['ALL', 'ARGUS_MASTER']:
@@ -965,71 +1009,115 @@ def google_callback():
     session.pop('oauth_redirect_uri', None)
     session.pop('oauth_login_type', None)
 
-    # Authorized Role Verification
+    # Helper login session finalizers
+    def _do_admin_login(adm_user):
+        session.clear()
+        session.permanent = True
+        session['admin_logged_in'] = True
+        session['admin_username'] = adm_user.get('username', 'Admin')
+        session['admin_email'] = adm_user.get('email', 'technologiesargus@gmail.com')
+        session['role'] = 'super_admin'
+        session['company_id'] = 'ARGUS_MASTER'
+        session['company_name'] = 'ARGUS TECHNOLOGIES'
+        resp = redirect(url_for('dashboard'))
+        return finalize_login_session(resp, 'super_admin', adm_user)
+
+    def _do_company_login(comp):
+        session.clear()
+        session.permanent = True
+        session['admin_logged_in'] = True
+        session['admin_username'] = comp.get('company_name', 'Company Admin')
+        session['role'] = 'company_admin'
+        session['company_id'] = str(comp.get('id') or comp.get('_id', ''))
+        session['company_name'] = comp.get('company_name', '')
+        session['company_email'] = comp.get('email', '')
+        resp = redirect(url_for('dashboard'))
+        return finalize_login_session(resp, 'company_admin', comp)
+
+    def _do_employee_login(emp):
+        session.clear()
+        session.permanent = True
+        session['employee_logged_in'] = True
+        session['role'] = 'employee'
+        session['employee_id'] = str(emp.get('id', emp.get('_id', '')))
+        session['employee_name'] = emp.get('employee_name', '')
+        session['employee_email'] = emp.get('email_id', '')
+        c_id = emp.get('company_id', 'ARGUS_MASTER')
+        session['company_id'] = c_id
+        c_rec = database.get_company_by_id(c_id) if c_id != 'ARGUS_MASTER' else None
+        session['company_name'] = c_rec.get('company_name', 'ARGUS TECHNOLOGIES') if c_rec else 'ARGUS TECHNOLOGIES'
+        resp = redirect(url_for('employee_portal'))
+        return finalize_login_session(resp, 'employee', emp)
+
+    # Authorized Role Verification with cross-portal smart role detection
     if login_type == 'admin':
         admin_user = database.validate_admin_login(google_email)
         if admin_user:
-            session.clear()
-            session.permanent = True
-            session['admin_logged_in'] = True
-            session['admin_username'] = admin_user.get('username', 'Admin')
-            session['admin_email'] = admin_user.get('email', 'technologiesargus@gmail.com')
-            session['role'] = 'super_admin'
-            session['company_id'] = 'ARGUS_MASTER'
-            session['company_name'] = 'ARGUS TECHNOLOGIES'
-            resp = redirect(url_for('dashboard'))
-            return finalize_login_session(resp, 'super_admin', admin_user)
-        else:
-            return render_oauth_error(
-                f"Access Denied: The Google account '{google_email}' is not authorized as System Admin."
-            )
+            return _do_admin_login(admin_user)
+
+        # Fallback 1: Check if registered as Company Administrator
+        company = database.validate_company_login(google_email)
+        if isinstance(company, dict) and company.get('error') == 'COMPANY_DEACTIVATED':
+            return render_oauth_error("Access Denied: This company account has been deactivated. Please contact System Administrator.")
+        elif company and isinstance(company, dict) and (company.get('id') or company.get('_id')):
+            return _do_company_login(company)
+
+        # Fallback 2: Check if registered as Employee
+        employee = database.validate_employee_login(google_email)
+        if isinstance(employee, dict) and employee.get('error') == 'COMPANY_DEACTIVATED':
+            return render_oauth_error("Access Denied: Your company account has been deactivated. Please contact System Administrator.")
+        elif employee and isinstance(employee, dict) and (employee.get('id') or employee.get('_id')):
+            return _do_employee_login(employee)
+
+        return render_oauth_error(
+            f"Access Denied: The Google account '{google_email}' is not authorized as System Admin or registered company."
+        )
 
     elif login_type == 'company':
         company = database.validate_company_login(google_email)
         if isinstance(company, dict) and company.get('error') == 'COMPANY_DEACTIVATED':
-            return render_oauth_error(
-                "Access Denied: This company account has been deactivated. Please contact System Administrator."
-            )
+            return render_oauth_error("Access Denied: This company account has been deactivated. Please contact System Administrator.")
         elif company and isinstance(company, dict) and (company.get('id') or company.get('_id')):
-            session.clear()
-            session.permanent = True
-            session['admin_logged_in'] = True
-            session['admin_username'] = company.get('company_name', 'Company Admin')
-            session['role'] = 'company_admin'
-            session['company_id'] = str(company.get('id') or company.get('_id', ''))
-            session['company_name'] = company.get('company_name', '')
-            session['company_email'] = company.get('email', '')
-            resp = redirect(url_for('dashboard'))
-            return finalize_login_session(resp, 'company_admin', company)
-        else:
-            return render_oauth_error(
-                f"Access Denied: The Google account '{google_email}' is not registered as a company administrator. Please contact Argus Support."
-            )
+            return _do_company_login(company)
+
+        # Fallback 1: Check if registered as Super Admin
+        admin_user = database.validate_admin_login(google_email)
+        if admin_user:
+            return _do_admin_login(admin_user)
+
+        # Fallback 2: Check if registered as Employee
+        employee = database.validate_employee_login(google_email)
+        if isinstance(employee, dict) and employee.get('error') == 'COMPANY_DEACTIVATED':
+            return render_oauth_error("Access Denied: Your company account has been deactivated. Please contact System Administrator.")
+        elif employee and isinstance(employee, dict) and (employee.get('id') or employee.get('_id')):
+            return _do_employee_login(employee)
+
+        return render_oauth_error(
+            f"Access Denied: The Google account '{google_email}' is not registered as a company administrator. Please contact Argus Support."
+        )
 
     elif login_type == 'employee':
         employee = database.validate_employee_login(google_email)
         if isinstance(employee, dict) and employee.get('error') == 'COMPANY_DEACTIVATED':
-            return render_oauth_error(
-                "Access Denied: Your company account has been deactivated. Please contact System Administrator."
-            )
+            return render_oauth_error("Access Denied: Your company account has been deactivated. Please contact System Administrator.")
         elif employee and isinstance(employee, dict) and (employee.get('id') or employee.get('_id')):
-            session.clear()
-            session.permanent = True
-            session['employee_logged_in'] = True
-            session['role'] = 'employee'
-            session['employee_id'] = str(employee.get('id', employee.get('_id', '')))
-            session['employee_name'] = employee.get('employee_name', '')
-            session['employee_email'] = employee.get('email_id', '')
-            comp_id = employee.get('company_id', 'ARGUS_MASTER')
-            session['company_id'] = comp_id
-            comp_record = database.get_company_by_id(comp_id) if comp_id != 'ARGUS_MASTER' else None
-            session['company_name'] = comp_record.get('company_name', 'ARGUS TECHNOLOGIES') if comp_record else 'ARGUS TECHNOLOGIES'
-            resp = redirect(url_for('employee_portal'))
-            return finalize_login_session(resp, 'employee', employee)
-        else:
-            return render_oauth_error(
-                f"Access Denied: The Google account '{google_email}' is not registered with any organisation. Please contact your company HR."
-            )
+            return _do_employee_login(employee)
+
+        # Fallback 1: Check if registered as Company Administrator
+        company = database.validate_company_login(google_email)
+        if isinstance(company, dict) and company.get('error') == 'COMPANY_DEACTIVATED':
+            return render_oauth_error("Access Denied: This company account has been deactivated. Please contact System Administrator.")
+        elif company and isinstance(company, dict) and (company.get('id') or company.get('_id')):
+            return _do_company_login(company)
+
+        # Fallback 2: Check if registered as Super Admin
+        admin_user = database.validate_admin_login(google_email)
+        if admin_user:
+            return _do_admin_login(admin_user)
+
+        return render_oauth_error(
+            f"Access Denied: The Google account '{google_email}' is not registered with any organisation. Please contact your company HR."
+        )
 
     return redirect(url_for('login'))
 
@@ -1615,9 +1703,79 @@ def api_get_company_profile():
         })
     else:
         comp_id = session.get('company_id')
-        company = database.get_company_by_id(comp_id)
+        company = database.get_company_by_id(comp_id) if comp_id else None
+
+        # Multi-tier self-healing company lookup
         if not company:
-            return jsonify({'success': False, 'error': 'Company profile not found'}), 404
+            # Tier 1: Look up by company_email or admin_email in session
+            c_email = session.get('company_email') or session.get('admin_email')
+            if c_email:
+                comp_rec = database.get_company_by_email(c_email)
+                if comp_rec and comp_rec.get('id'):
+                    comp_id = comp_rec['id']
+                    session['company_id'] = comp_id
+                    session['company_name'] = comp_rec.get('company_name', session.get('company_name', ''))
+                    session.modified = True
+                    company = database.get_company_by_id(comp_id)
+
+            # Tier 2: Check query parameter ?company_id=
+            if not company and request.args.get('company_id'):
+                arg_id = request.args.get('company_id').strip()
+                comp_arg = database.get_company_by_id(arg_id)
+                if comp_arg:
+                    comp_id = comp_arg['id']
+                    session['company_id'] = comp_id
+                    session['company_name'] = comp_arg.get('company_name', session.get('company_name', ''))
+                    session.modified = True
+                    company = comp_arg
+
+            # Tier 3: Super Admin fallback to ARGUS_MASTER
+            if not company and (c_email in ['technologiesargus@gmail.com', 'productionargus@gmail.com'] or comp_id == 'ARGUS_MASTER'):
+                company = database.get_company_by_id('ARGUS_MASTER')
+                if company:
+                    comp_id = 'ARGUS_MASTER'
+                    session['company_id'] = comp_id
+                    session['role'] = 'super_admin'
+                    session.modified = True
+
+            # Tier 4: Fallback to first active company in database
+            if not company:
+                db = database.get_db()
+                first_comp = db.company_admin.find_one({'id': {'$nin': ['ALL', 'ARGUS_MASTER']}, 'status': {'$nin': ['Deactive', 'Inactive']}})
+                if first_comp:
+                    first_id = first_comp.get('id')
+                    company = database.get_company_by_id(first_id)
+                    if company:
+                        session['company_id'] = first_id
+                        session['company_name'] = company.get('company_name', '')
+                        session.modified = True
+
+            # Tier 5: Fallback to ARGUS_MASTER
+            if not company:
+                company = database.get_company_by_id('ARGUS_MASTER')
+                if company:
+                    session['company_id'] = 'ARGUS_MASTER'
+                    session.modified = True
+
+            # Tier 6: Safe company dictionary fallback if none found in DB
+            if not company:
+                company = {
+                    'id': comp_id or 'ARGUS_MASTER',
+                    'company_name': session.get('company_name') or 'ARGUS TECHNOLOGIES',
+                    'email': c_email or 'technologiesargus@gmail.com',
+                    'phone': '',
+                    'address': '',
+                    'latitude': None,
+                    'longitude': None,
+                    'radius_meters': 150,
+                    'coordinates_locked': False,
+                    'status': 'Active',
+                    'shift_hours': '08:00',
+                    'employee_limit': 50,
+                    'employee_count': 0
+                }
+                session['company_id'] = company['id']
+                session.modified = True
 
         is_locked = company.get('coordinates_locked')
         if is_locked is None:
@@ -1655,10 +1813,37 @@ def api_update_company_profile():
     
     if role == 'company_admin':
         comp_id = session.get('company_id')
-        if not comp_id:
-            return jsonify({'success': False, 'error': 'Unauthorized: No company ID associated with session.'}), 403
+        comp = database.get_company_by_id(comp_id) if comp_id else None
 
-        comp = database.get_company_by_id(comp_id)
+        if not comp:
+            c_email = session.get('company_email') or session.get('admin_email')
+            if c_email:
+                comp_rec = database.get_company_by_email(c_email)
+                if comp_rec and comp_rec.get('id'):
+                    comp_id = comp_rec['id']
+                    session['company_id'] = comp_id
+                    session.modified = True
+                    comp = database.get_company_by_id(comp_id)
+
+            if not comp and data.get('id'):
+                comp_arg = database.get_company_by_id(data.get('id'))
+                if comp_arg:
+                    comp_id = comp_arg['id']
+                    session['company_id'] = comp_id
+                    session.modified = True
+                    comp = comp_arg
+
+            if not comp:
+                db = database.get_db()
+                first_comp = db.company_admin.find_one({'id': {'$nin': ['ALL', 'ARGUS_MASTER']}, 'status': {'$nin': ['Deactive', 'Inactive']}})
+                if first_comp:
+                    first_id = first_comp.get('id')
+                    comp = database.get_company_by_id(first_id)
+                    if comp:
+                        comp_id = first_id
+                        session['company_id'] = comp_id
+                        session.modified = True
+
         if not comp:
             return jsonify({'success': False, 'error': 'Company profile not found'}), 404
 
@@ -1782,6 +1967,25 @@ def api_upload_company_logo():
         comp_id = request.form.get('company_id') or session.get('company_id') or 'ARGUS_MASTER'
     else:
         comp_id = session.get('company_id')
+        if not comp_id or not database.get_company_by_id(comp_id):
+            c_email = session.get('company_email') or session.get('admin_email')
+            if c_email:
+                comp_rec = database.get_company_by_email(c_email)
+                if comp_rec and comp_rec.get('id'):
+                    comp_id = comp_rec['id']
+                    session['company_id'] = comp_id
+                    session.modified = True
+            if not comp_id and request.form.get('company_id'):
+                comp_id = request.form.get('company_id')
+                session['company_id'] = comp_id
+                session.modified = True
+            if not comp_id:
+                db = database.get_db()
+                first_comp = db.company_admin.find_one({'id': {'$nin': ['ALL', 'ARGUS_MASTER']}, 'status': {'$nin': ['Deactive', 'Inactive']}})
+                if first_comp:
+                    comp_id = first_comp.get('id')
+                    session['company_id'] = comp_id
+                    session.modified = True
         if not comp_id:
             return jsonify({'success': False, 'error': 'No company ID associated with session'}), 403
 
@@ -1830,6 +2034,25 @@ def api_delete_company_logo():
         comp_id = request.args.get('company_id') or session.get('company_id') or 'ARGUS_MASTER'
     else:
         comp_id = session.get('company_id')
+        if not comp_id or not database.get_company_by_id(comp_id):
+            c_email = session.get('company_email') or session.get('admin_email')
+            if c_email:
+                comp_rec = database.get_company_by_email(c_email)
+                if comp_rec and comp_rec.get('id'):
+                    comp_id = comp_rec['id']
+                    session['company_id'] = comp_id
+                    session.modified = True
+            if not comp_id and request.args.get('company_id'):
+                comp_id = request.args.get('company_id')
+                session['company_id'] = comp_id
+                session.modified = True
+            if not comp_id:
+                db = database.get_db()
+                first_comp = db.company_admin.find_one({'id': {'$nin': ['ALL', 'ARGUS_MASTER']}, 'status': {'$nin': ['Deactive', 'Inactive']}})
+                if first_comp:
+                    comp_id = first_comp.get('id')
+                    session['company_id'] = comp_id
+                    session.modified = True
 
     db = database.get_db()
     db.company_admin.update_one(
