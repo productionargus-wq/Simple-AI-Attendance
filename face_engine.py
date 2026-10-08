@@ -218,7 +218,7 @@ def detect_face_deep(img):
                     # Scale coordinates back to original image size
                     sx = w / float(target_w)
                     sy = h / float(target_h)
-                    scaled_face = best.copy()
+                    scaled_face = np.array(best, dtype=np.float32, copy=True)
                     scaled_face[0] *= sx
                     scaled_face[1] *= sy
                     scaled_face[2] *= sx
@@ -276,17 +276,20 @@ def extract_face_embedding_from_image(image_bytes_or_path):
             try:
                 with acquire_detector_lock(timeout=5.0) as acquired:
                     if acquired:
+                        # Ensure face is float32 numpy array
+                        face_arr = np.array(face, dtype=np.float32, copy=False)
                         # SFace geometric alignment using 5 facial landmarks
-                        aligned_face = recognizer.alignCrop(img, face)
-                        raw_feature = recognizer.feature(aligned_face)
+                        aligned_face = recognizer.alignCrop(img, face_arr)
+                        if aligned_face is not None and getattr(aligned_face, 'size', 0) > 0:
+                            raw_feature = recognizer.feature(aligned_face)
 
-                        # L2 normalize
-                        norm = np.linalg.norm(raw_feature)
-                        if norm > 0:
-                            normalized_feat = raw_feature / norm
-                        else:
-                            normalized_feat = raw_feature
-                        return normalized_feat.flatten().tolist()
+                            # L2 normalize
+                            norm = np.linalg.norm(raw_feature)
+                            if norm > 0:
+                                normalized_feat = raw_feature / norm
+                            else:
+                                normalized_feat = raw_feature
+                            return normalized_feat.flatten().tolist()
             except Exception as align_err:
                 print(f"YuNet/SFace alignment fallback notice: {align_err}")
 

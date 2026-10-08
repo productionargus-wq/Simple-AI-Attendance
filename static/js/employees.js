@@ -1312,9 +1312,21 @@ document.addEventListener('DOMContentLoaded', function () {
             method: 'POST',
             body: fd
           });
-          const resData = await res.json();
 
-          if (!res.ok || !resData.success) {
+          let resData = null;
+          try {
+            const rawText = await res.text();
+            resData = JSON.parse(rawText);
+          } catch (jsonErr) {
+            console.error('Non-JSON response from server (Status ' + res.status + '):', jsonErr);
+            throw new Error(
+              res.status === 500 || res.status === 502 || res.status === 503
+                ? 'Server is temporarily busy or reloading AI models. Please click "Capture Snapshot" once again.'
+                : 'Server communication error (HTTP ' + res.status + '). Please try again.'
+            );
+          }
+
+          if (!res.ok || !resData || !resData.success) {
             btnTakeSnapshot.disabled = false;
             btnTakeSnapshot.textContent = origBtnText;
             const errMsg = (resData && resData.error) ? resData.error : 'No clear face detected in snapshot. Please face the camera directly in good lighting and try again.';
@@ -1405,8 +1417,14 @@ document.addEventListener('DOMContentLoaded', function () {
             method: 'POST',
             body: fd
           });
-          const resData = await res.json();
-          if (res.ok && resData.success && resData.embedding) {
+          let resData = null;
+          try {
+            const rawText = await res.text();
+            resData = JSON.parse(rawText);
+          } catch (jsonErr) {
+            resData = null;
+          }
+          if (res.ok && resData && resData.success && resData.embedding) {
             capturedFaceEmbedding = resData.embedding;
             capturedPhotoData = resData.photo_data || null;
             capturedPhotoFilename = resData.photo_filename || file.name;
