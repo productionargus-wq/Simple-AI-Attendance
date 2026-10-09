@@ -29,10 +29,11 @@ import urllib.request
 import database
 
 _detector_lock = threading.RLock()
+_init_lock = threading.Lock()
 
 @contextlib.contextmanager
-def acquire_detector_lock(timeout=5.0):
-    """Safely acquires the reentrant detector lock with a strict timeout to prevent worker freezes."""
+def acquire_detector_lock(timeout=10.0):
+    """Safely acquires the detector inference lock with a timeout to prevent worker freezes."""
     acquired = _detector_lock.acquire(timeout=timeout)
     try:
         yield acquired
@@ -101,10 +102,10 @@ def get_detector(width=320, height=240):
     if cv2 is None or not hasattr(cv2, 'FaceDetectorYN'):
         return None
 
-    with acquire_detector_lock(timeout=5.0) as acquired:
-        if not acquired:
-            return None
+    if _detector is not None and _detector_size == (width, height):
+        return _detector
 
+    with _init_lock:
         if _detector is None:
             ensure_models_available()
             if not os.path.exists(YUNET_PATH):
@@ -130,7 +131,7 @@ def get_detector(width=320, height=240):
             except Exception:
                 pass
 
-        return _detector
+    return _detector
 
 
 _recognizer_diag = {}
@@ -151,29 +152,30 @@ def get_recognizer_diag():
 def get_recognizer():
     """Initializes or retrieves cached SFace deep learning recognizer."""
     global _recognizer, _recognizer_diag
+    if _recognizer is not None:
+        return _recognizer
+
     if cv2 is None or not hasattr(cv2, 'FaceRecognizerSF'):
         _recognizer_diag['error'] = 'cv2 or FaceRecognizerSF not available'
         return None
 
-    with acquire_detector_lock(timeout=5.0) as acquired:
-        if not acquired:
-            _recognizer_diag['error'] = 'Lock acquire timeout'
+    with _init_lock:
+        if _recognizer is not None:
+            return _recognizer
+
+        ensure_models_available()
+        if not os.path.exists(SFACE_PATH):
+            _recognizer_diag['error'] = f'SFACE_PATH not found: {SFACE_PATH}'
             return None
+        try:
+            _recognizer = cv2.FaceRecognizerSF.create(model=SFACE_PATH, config="")
+            _recognizer_diag['status'] = 'success'
+        except Exception as e:
+            _recognizer_diag['error'] = f'cv2 create failed: {str(e)}'
+            print(f"Error creating SFace recognizer: {e}")
+            _recognizer = None
 
-        if _recognizer is None:
-            ensure_models_available()
-            if not os.path.exists(SFACE_PATH):
-                _recognizer_diag['error'] = f'SFACE_PATH not found: {SFACE_PATH}'
-                return None
-            try:
-                _recognizer = cv2.FaceRecognizerSF.create(model=SFACE_PATH, config="")
-                _recognizer_diag['status'] = 'success'
-            except Exception as e:
-                _recognizer_diag['error'] = f'cv2 create failed: {str(e)}'
-                print(f"Error creating SFace recognizer: {e}")
-                _recognizer = None
-
-        return _recognizer
+    return _recognizer
 
 
 def apply_clahe_enhancement(img):
@@ -326,22 +328,19 @@ def extract_face_embedding_from_image(image_bytes_or_path):
 
         if face is not None and recognizer is not None:
             try:
-                with acquire_detector_lock(timeout=5.0) as acquired:
-                    if acquired:
-                        # Ensure face is float32 numpy array
-                        face_arr = np.array(face, dtype=np.float32, copy=False)
-                        # SFace geometric alignment using 5 facial landmarks
-                        aligned_face = recognizer.alignCrop(img, face_arr)
-                        if aligned_face is not None and getattr(aligned_face, 'size', 0) > 0:
-                            raw_feature = recognizer.feature(aligned_face)
+                # SFace inference is stateless C++ and thread-safe - no lock needed
+                face_arr = np.array(face, dtype=np.float32, copy=False)
+                aligned_face = recognizer.alignCrop(img, face_arr)
+                if aligned_face is not None and getattr(aligned_face, 'size', 0) > 0:
+                    raw_feature = recognizer.feature(aligned_face)
 
-                            # L2 normalize
-                            norm = np.linalg.norm(raw_feature)
-                            if norm > 0:
-                                normalized_feat = raw_feature / norm
-                            else:
-                                normalized_feat = raw_feature
-                            return normalized_feat.flatten().tolist()
+                    # L2 normalize
+                    norm = np.linalg.norm(raw_feature)
+                    if norm > 0:
+                        normalized_feat = raw_feature / norm
+                    else:
+                        normalized_feat = raw_feature
+                    return normalized_feat.flatten().tolist()
             except Exception as align_err:
                 print(f"YuNet/SFace alignment fallback notice: {align_err}")
 

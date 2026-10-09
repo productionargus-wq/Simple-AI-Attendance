@@ -263,15 +263,18 @@ def _background_startup():
     try:
         fe = get_face_engine()
         if fe:
-            fe.ensure_models_available()
-            fe.get_detector(320, 240)
-            fe.get_recognizer()
             fe.auto_sync_stored_employee_embeddings()
     except Exception as e:
         print(f"Warning: background face sync error: {e}")
 
 try:
     database.init_db()
+    # Pre-warm face recognition models synchronously before accepting requests
+    fe = get_face_engine()
+    if fe:
+        fe.ensure_models_available()
+        fe.get_detector(320, 240)
+        fe.get_recognizer()
     threading.Thread(target=_background_startup, daemon=True, name="FaceSyncStartup").start()
     import report_scheduler
     report_scheduler.start_scheduler()
