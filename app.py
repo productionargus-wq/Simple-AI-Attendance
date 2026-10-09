@@ -35,6 +35,16 @@ except Exception as e:
     pdf_generator = None
     print(f"Warning: pdf_generator import failed: {e}")
 
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
 # Lazy import face_engine to avoid numpy/opencv crash on serverless
 face_engine = None
 def get_face_engine():
@@ -3293,15 +3303,17 @@ def api_face_recognize():
         
         # Presentation Attack Detection (Anti-Spoofing: detect phone screens, 2D photos, tablets, static attacks)
         try:
-            nparr = np.frombuffer(file_bytes, np.uint8)
-            img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            burst_cv = None
-            if burst_file_bytes:
-                b_arr = np.frombuffer(burst_file_bytes, np.uint8)
-                burst_cv = cv2.imdecode(b_arr, cv2.IMREAD_COLOR)
-
-            if img_cv is not None and hasattr(engine, 'verify_liveness_anti_spoofing'):
-                is_live, liveness_conf, spoof_reason = engine.verify_liveness_anti_spoofing(img_cv, burst_img=burst_cv)
+            if hasattr(engine, 'verify_liveness_from_bytes'):
+                is_live, liveness_conf, spoof_reason = engine.verify_liveness_from_bytes(file_bytes, burst_bytes=burst_file_bytes)
+                if not is_live:
+                    return jsonify({
+                        'matched': False,
+                        'confidence': 0.0,
+                        'spoof_detected': True,
+                        'message': f"Anti-Spoofing Alert: {spoof_reason}. Please face the camera live."
+                    }), 200
+            elif hasattr(engine, 'verify_liveness_anti_spoofing'):
+                is_live, liveness_conf, spoof_reason = engine.verify_liveness_anti_spoofing(file_bytes, burst_img=burst_file_bytes)
                 if not is_live:
                     return jsonify({
                         'matched': False,

@@ -330,6 +330,15 @@ def extract_face_embedding_from_image(image_bytes_or_path):
         return None
 
 
+def verify_liveness_from_bytes(file_bytes, burst_bytes=None):
+    """
+    Presentation Attack Detection directly from raw image bytes.
+    Decodes the image safely within face_engine where numpy and opencv are loaded,
+    and returns (is_live: bool, confidence: float, reason: str).
+    """
+    return verify_liveness_anti_spoofing(file_bytes, burst_img=burst_bytes)
+
+
 def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
     """
     Presentation Attack Detection (PAD) / Anti-Spoofing Engine:
@@ -343,6 +352,27 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
     Returns:
         tuple: (is_live: bool, confidence: float, reason: str)
     """
+    if img is None:
+        return True, 1.0, "OK"
+
+    if isinstance(img, (bytes, bytearray)):
+        if np is None or cv2 is None:
+            return True, 1.0, "OK"
+        try:
+            nparr = np.frombuffer(img, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        except Exception as dec_err:
+            print(f"Error decoding image in verify_liveness: {dec_err}")
+            return True, 0.5, "Bypass on decode error"
+
+    if isinstance(burst_img, (bytes, bytearray)):
+        if np is not None and cv2 is not None:
+            try:
+                b_arr = np.frombuffer(burst_img, np.uint8)
+                burst_img = cv2.imdecode(b_arr, cv2.IMREAD_COLOR)
+            except Exception:
+                burst_img = None
+
     if img is None or cv2 is None or np is None:
         return True, 1.0, "OK"
 
