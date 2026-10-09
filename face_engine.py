@@ -133,23 +133,43 @@ def get_detector(width=320, height=240):
         return _detector
 
 
+_recognizer_diag = {}
+
+def get_recognizer_diag():
+    return {
+        'has_cv2': cv2 is not None,
+        'has_recognizer_attr': hasattr(cv2, 'FaceRecognizerSF') if cv2 else False,
+        'sface_path': SFACE_PATH,
+        'sface_exists': os.path.exists(SFACE_PATH),
+        'sface_size': os.path.getsize(SFACE_PATH) if os.path.exists(SFACE_PATH) else 0,
+        'models_dir_files': os.listdir(MODELS_DIR) if os.path.exists(MODELS_DIR) else [],
+        'init_error': _recognizer_diag.get('error'),
+        'recognizer_loaded': _recognizer is not None
+    }
+
+
 def get_recognizer():
     """Initializes or retrieves cached SFace deep learning recognizer."""
-    global _recognizer
+    global _recognizer, _recognizer_diag
     if cv2 is None or not hasattr(cv2, 'FaceRecognizerSF'):
+        _recognizer_diag['error'] = 'cv2 or FaceRecognizerSF not available'
         return None
 
     with acquire_detector_lock(timeout=5.0) as acquired:
         if not acquired:
+            _recognizer_diag['error'] = 'Lock acquire timeout'
             return None
 
         if _recognizer is None:
             ensure_models_available()
             if not os.path.exists(SFACE_PATH):
+                _recognizer_diag['error'] = f'SFACE_PATH not found: {SFACE_PATH}'
                 return None
             try:
                 _recognizer = cv2.FaceRecognizerSF.create(model=SFACE_PATH, config="")
+                _recognizer_diag['status'] = 'success'
             except Exception as e:
+                _recognizer_diag['error'] = f'cv2 create failed: {str(e)}'
                 print(f"Error creating SFace recognizer: {e}")
                 _recognizer = None
 

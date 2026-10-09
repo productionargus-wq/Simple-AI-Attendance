@@ -3356,7 +3356,8 @@ def api_face_recognize():
                     'names_in_db': [e.get('employee_name') for e in all_emps],
                     'companies_in_db': [e.get('company_id') for e in all_emps],
                     'query_embedding_len': len(query_embedding) if query_embedding else 0,
-                    'sface_loaded': getattr(engine, '_recognizer', None) is not None
+                    'sface_loaded': getattr(engine, '_recognizer', None) is not None,
+                    'sface_diag': engine.get_recognizer_diag() if hasattr(engine, 'get_recognizer_diag') else {}
                 }
             except Exception:
                 pass
