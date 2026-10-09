@@ -3346,6 +3346,21 @@ def api_face_recognize():
                 'message': 'Face recognition matching error. Please try again.'
             }
         
+        if not result.get('matched'):
+            try:
+                db = database.get_db()
+                all_emps = list(db.employees.find({'face_embedding': {'$ne': None}}))
+                result['debug_diag'] = {
+                    'portal_company_id': portal_company_id,
+                    'total_in_db': len(all_emps),
+                    'names_in_db': [e.get('employee_name') for e in all_emps],
+                    'companies_in_db': [e.get('company_id') for e in all_emps],
+                    'query_embedding_len': len(query_embedding) if query_embedding else 0,
+                    'sface_loaded': getattr(engine, '_recognizer', None) is not None
+                }
+            except Exception:
+                pass
+        
         if result.get('matched'):
             emp_id = result['employee_id']
             emp_name = result['employee_name']
