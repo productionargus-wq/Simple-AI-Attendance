@@ -351,6 +351,11 @@ document.addEventListener('DOMContentLoaded', function () {
   if (form) {
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
+
+      if (form._isSubmitting) {
+        return false;
+      }
+
       const id = entryIdInput.value;
       const rInput = document.getElementById('inputReason');
       const reasonVal = rInput ? rInput.value.trim() : (form.elements['reason'] ? form.elements['reason'].value.trim() : (reasonInput ? reasonInput.value.trim() : ''));
@@ -363,6 +368,26 @@ document.addEventListener('DOMContentLoaded', function () {
         entry_type: (entryTypeInput ? entryTypeInput.value : 'Add')
       };
 
+      if (!formData.employee_name) {
+        alert('Please select an employee.');
+        return;
+      }
+
+      form._isSubmitting = true;
+      const btnSubmitManual = document.getElementById('btnSubmitManual') || form.querySelector('button[type="submit"]');
+      const origText = btnSubmitManual ? btnSubmitManual.innerHTML : 'Submit';
+      if (btnSubmitManual) {
+        btnSubmitManual.disabled = true;
+        btnSubmitManual.classList.add('btn-is-submitting');
+        btnSubmitManual.innerHTML = '<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Saving...';
+      }
+      if (window.showSavingPopup) {
+        window.showSavingPopup(
+          id ? 'Updating Manual Entry...' : 'Saving Manual Entry...',
+          'Recording employee attendance details into attendance registry...'
+        );
+      }
+
       const url = id ? `/api/manual-entries/${id}` : '/api/manual-entries';
       const method = id ? 'PUT' : 'POST';
 
@@ -374,6 +399,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         const d = await res.json();
+        if (window.hideSavingPopup) window.hideSavingPopup();
         if (res.ok && d.success) {
           modal.classList.remove('active');
           loadEntries();
@@ -381,7 +407,16 @@ document.addEventListener('DOMContentLoaded', function () {
           alert(d.error || 'Failed to save entry');
         }
       } catch (err) {
+        if (window.hideSavingPopup) window.hideSavingPopup();
         alert('Error saving manual entry: ' + err.message);
+      } finally {
+        form._isSubmitting = false;
+        if (window.hideSavingPopup) window.hideSavingPopup();
+        if (btnSubmitManual) {
+          btnSubmitManual.disabled = false;
+          btnSubmitManual.classList.remove('btn-is-submitting');
+          btnSubmitManual.innerHTML = origText;
+        }
       }
     });
   }

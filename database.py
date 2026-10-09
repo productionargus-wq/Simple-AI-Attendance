@@ -1143,6 +1143,20 @@ def create_employee(data, company_id=None):
         emp_id = generate_employee_id()
     assigned_company_id = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
 
+    # Deduplication check: prevent duplicate employee creation from rapid multi-clicks
+    existing_emp = db.employees.find_one({
+        'company_id': assigned_company_id,
+        'email_id': email_id
+    })
+    if existing_emp:
+        created_at = existing_emp.get('created_at')
+        try:
+            if created_at and (get_ist_now() - created_at).total_seconds() < 10:
+                return existing_emp.get('id')
+        except Exception:
+            pass
+        raise ValueError(f"An employee with email '{email_id}' is already registered in this organization.")
+
     # Enforce Employee Count registration limit for tenant companies
     if assigned_company_id != 'ARGUS_MASTER':
         comp = db.company_admin.find_one(build_id_filter(assigned_company_id))
@@ -3469,6 +3483,18 @@ def create_manual_entry(data, company_id=None):
         'mode': mode,
         'created_at': get_ist_now().isoformat()
     }
+    # Deduplication guard: check if identical manual entry was inserted within the last 5 seconds
+    recent_entry = db.manual_entries.find_one({
+        'company_id': assigned_company_id,
+        'employee_name': emp_name,
+        'entry_date': data.get('entry_date', ''),
+        'hours': hours_str,
+        'status': status,
+        'id': {'$gt': entry_id - 5000}
+    })
+    if recent_entry:
+        return recent_entry['id']
+
     db.manual_entries.insert_one(doc)
     invalidate_dashboard_cache(doc.get('company_id'))
     return entry_id
@@ -3746,6 +3772,18 @@ def create_payment(data, company_id=None):
         'receipt_filename': receipt_filename,
         'created_at': datetime.now()
     }
+    # Deduplication guard: check if identical payment was recorded within the last 5 seconds
+    now_ms = int(time.time() * 1000)
+    recent_payment = db.payments.find_one({
+        'company_id': assigned_company_id,
+        'employee_name': emp_name,
+        'payment_date': payment_date,
+        'amount': amount,
+        'id': {'$gt': now_ms - 5000}
+    })
+    if recent_payment:
+        return str(recent_payment['id'])
+
     res = db.payments.insert_one(doc)
     return str(doc['id'])
 
@@ -3848,6 +3886,18 @@ def create_advance(data, company_id=None):
         'status': 'Active',
         'created_at': datetime.now()
     }
+    # Deduplication guard: check if identical advance was recorded within the last 5 seconds
+    now_ms = int(time.time() * 1000)
+    recent_advance = db.advances.find_one({
+        'company_id': assigned_company_id,
+        'employee_name': emp_name,
+        'advance_date': advance_date,
+        'amount': amount,
+        'id': {'$gt': now_ms - 5000}
+    })
+    if recent_advance:
+        return str(recent_advance['id'])
+
     db.advances.insert_one(doc)
     return str(doc['id'])
 

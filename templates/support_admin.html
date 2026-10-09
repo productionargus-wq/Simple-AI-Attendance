@@ -1470,14 +1470,24 @@ async function submitAdminTicketUpdate(e) {
   e.preventDefault();
   if (!currentAdminActiveTicket) return;
 
+  const btn = document.getElementById('admBtnSendUpdate');
+  if (btn && btn._isSubmitting) return;
+
   const msg = document.getElementById('admUpdateMessageText').value.trim();
   if (!msg) {
     alert('Please enter your update message.');
     return;
   }
 
-  const btn = document.getElementById('admBtnSendUpdate');
-  btn.disabled = true;
+  if (btn) {
+    btn._isSubmitting = true;
+    btn.disabled = true;
+    btn.classList.add('btn-is-submitting');
+  }
+
+  if (window.showSavingPopup) {
+    window.showSavingPopup('Sending Admin Update...', 'Posting resolution message to ticket discussion...');
+  }
 
   const formData = new FormData();
   formData.append('message', msg);
@@ -1489,6 +1499,7 @@ async function submitAdminTicketUpdate(e) {
       body: formData
     });
     const data = await res.json();
+    if (window.hideSavingPopup) window.hideSavingPopup();
     if (data.success) {
       document.getElementById('admUpdateMessageText').value = '';
       admReplyFiles = [];
@@ -1499,10 +1510,16 @@ async function submitAdminTicketUpdate(e) {
       alert(data.error || 'Failed to post update.');
     }
   } catch (err) {
+    if (window.hideSavingPopup) window.hideSavingPopup();
     console.error('Error posting admin update:', err);
     alert('Network error while posting update.');
   } finally {
-    btn.disabled = false;
+    if (btn) {
+      btn._isSubmitting = false;
+      btn.disabled = false;
+      btn.classList.remove('btn-is-submitting');
+    }
+    if (window.hideSavingPopup) window.hideSavingPopup();
   }
 }
 
@@ -1593,9 +1610,17 @@ function closeQuickStatusModal() {
 }
 
 async function submitQuickStatusUpdate() {
+  const modal = document.getElementById('quickStatusModal');
+  if (modal && modal._isSubmitting) return;
+
   const ticketId = document.getElementById('quickModalTicketId').value;
   const status = document.getElementById('quickModalStatus').value;
   const remark = document.getElementById('quickModalRemark').value.trim();
+
+  if (modal) modal._isSubmitting = true;
+  if (window.showSavingPopup) {
+    window.showSavingPopup('Updating Ticket Status...', 'Saving ticket status changes...');
+  }
 
   try {
     const res = await fetch(`/api/admin/support/ticket/${ticketId}/status`, {
@@ -1604,6 +1629,7 @@ async function submitQuickStatusUpdate() {
       body: JSON.stringify({ status: status, remark: remark })
     });
     const data = await res.json();
+    if (window.hideSavingPopup) window.hideSavingPopup();
     if (data.success) {
       closeQuickStatusModal();
       fetchAdminTickets();
@@ -1612,7 +1638,11 @@ async function submitQuickStatusUpdate() {
       alert(data.error || 'Failed to update status.');
     }
   } catch (err) {
+    if (window.hideSavingPopup) window.hideSavingPopup();
     console.error('Error updating status:', err);
+  } finally {
+    if (modal) modal._isSubmitting = false;
+    if (window.hideSavingPopup) window.hideSavingPopup();
   }
 }
 

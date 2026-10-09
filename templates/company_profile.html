@@ -751,8 +751,16 @@ document.addEventListener('DOMContentLoaded', function () {
   if (companyProfileForm) {
     companyProfileForm.addEventListener('submit', async function (e) {
       e.preventDefault();
+      if (companyProfileForm._isSubmitting) return false;
+
+      companyProfileForm._isSubmitting = true;
       btnSaveProfile.disabled = true;
-      btnSaveProfile.textContent = 'Saving...';
+      btnSaveProfile.classList.add('btn-is-submitting');
+      btnSaveProfile.innerHTML = '<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Saving...';
+
+      if (window.showSavingPopup) {
+        window.showSavingPopup('Saving Company Profile...', 'Updating organization profile and system configurations...');
+      }
 
       const payload = {};
       const currentId = document.getElementById('profileCompanyId').value || (loadedCompanyData ? loadedCompanyData.id : '') || 'ARGUS_MASTER';
@@ -819,6 +827,8 @@ document.addEventListener('DOMContentLoaded', function () {
           throw new Error(`Server returned error ${res.status}: ${txt.slice(0, 150)}`);
         }
 
+        if (window.hideSavingPopup) window.hideSavingPopup();
+
         if (resData.success) {
           showAlert(resData.message || 'Company profile updated successfully!', true);
           // Reload fresh data
@@ -827,10 +837,14 @@ document.addEventListener('DOMContentLoaded', function () {
           showAlert(resData.error || 'Failed to update company profile.', false);
         }
       } catch (err) {
+        if (window.hideSavingPopup) window.hideSavingPopup();
         console.error('Error updating company profile:', err);
         showAlert(err.message || 'Network error while saving profile.', false);
       } finally {
+        companyProfileForm._isSubmitting = false;
+        if (window.hideSavingPopup) window.hideSavingPopup();
         btnSaveProfile.disabled = false;
+        btnSaveProfile.classList.remove('btn-is-submitting');
         btnSaveProfile.textContent = 'Save Profile';
       }
     });

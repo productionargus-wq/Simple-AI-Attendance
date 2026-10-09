@@ -1337,6 +1337,40 @@
       }
     }
 
+    // Global Saving Popup Controller for Employee Portal
+    window.showSavingPopup = window.showSavingPopup || function (title = 'Saving Record...', subtitle = 'Please wait while the system securely processes your request.') {
+      let overlay = document.getElementById('globalSavingOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'globalSavingOverlay';
+        overlay.className = 'global-saving-overlay';
+        overlay.innerHTML = `
+          <div class="global-saving-card">
+            <div class="global-saving-spinner">
+              <div class="spinner-ring"></div>
+            </div>
+            <div class="global-saving-content">
+              <h4 id="globalSavingTitle" class="global-saving-title">Saving Record...</h4>
+              <p id="globalSavingSubtitle" class="global-saving-subtitle">Please wait while the system securely processes your request.</p>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+      }
+      const titleEl = document.getElementById('globalSavingTitle');
+      const subEl = document.getElementById('globalSavingSubtitle');
+      if (titleEl) titleEl.textContent = title;
+      if (subEl) subEl.textContent = subtitle;
+      overlay.classList.add('active');
+    };
+
+    window.hideSavingPopup = window.hideSavingPopup || function () {
+      const overlay = document.getElementById('globalSavingOverlay');
+      if (overlay) {
+        overlay.classList.remove('active');
+      }
+    };
+
     // ===== MY CREDENTIALS PASSWORD HANDLER =====
     const empCredForm = document.getElementById('employeeCredentialsForm');
     const empPassInput = document.getElementById('employeeNewPassword');
@@ -1366,40 +1400,51 @@
     if (empCredForm) {
       empCredForm.addEventListener('submit', async function (e) {
         e.preventDefault();
+        if (empCredForm._isSubmitting) return false;
+
         const pwd = empPassInput.value.trim();
         if (!pwd || pwd.length < 4) {
           showCredAlert('Password must be at least 4 characters long.', 'danger');
           return;
         }
 
-        btnSaveCred.disabled = true;
-        btnSaveCred.textContent = 'Saving...';
+        empCredForm._isSubmitting = true;
+        const origCredText = btnSaveCred ? btnSaveCred.innerHTML : 'Save Password';
+        if (btnSaveCred) {
+          btnSaveCred.disabled = true;
+          btnSaveCred.classList.add('btn-is-submitting');
+          btnSaveCred.innerHTML = '<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Saving...';
+        }
+
+        if (window.showSavingPopup) {
+          window.showSavingPopup('Saving Password...', 'Securely encrypting and updating your portal credentials...');
+        }
 
         try {
           const res = await fetch('/api/employee/credentials', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: pwd })
+            body: JSON.stringify({ new_password: pwd })
           });
           const data = await res.json();
+          if (window.hideSavingPopup) window.hideSavingPopup();
           if (data.success) {
-            showCredAlert(data.message || 'Password saved successfully!', 'success');
+            showCredAlert(data.message || 'Password updated successfully!', 'success');
             empPassInput.value = '';
           } else {
-            showCredAlert(data.error || 'Failed to save password.', 'danger');
+            showCredAlert(data.error || 'Failed to update password.', 'danger');
           }
         } catch (err) {
-          showCredAlert('Server connection error. Please try again.', 'danger');
+          if (window.hideSavingPopup) window.hideSavingPopup();
+          showCredAlert('Network error while saving password.', 'danger');
         } finally {
-          btnSaveCred.disabled = false;
-          btnSaveCred.innerHTML = `
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-              <polyline points="17 21 17 13 7 13 7 21"></polyline>
-              <polyline points="7 3 7 8 15 8"></polyline>
-            </svg>
-            Save Password
-          `;
+          empCredForm._isSubmitting = false;
+          if (window.hideSavingPopup) window.hideSavingPopup();
+          if (btnSaveCred) {
+            btnSaveCred.disabled = false;
+            btnSaveCred.classList.remove('btn-is-submitting');
+            btnSaveCred.innerHTML = origCredText;
+          }
         }
       });
     }
@@ -2159,11 +2204,25 @@
     if (formApplyLeave) {
       formApplyLeave.addEventListener('submit', async function (e) {
         e.preventDefault();
+        if (formApplyLeave._isSubmitting) return false;
+
         const leaveTypeVal = document.getElementById('leaveInputType') ? document.getElementById('leaveInputType').value : '';
         if (!leaveTypeVal) {
           showModalAlert(leaveAlert, 'Please select a valid leave type.', 'error');
-          if (submitBtn) submitBtn.disabled = false;
           return;
+        }
+
+        const submitBtn = document.getElementById('btnSubmitLeave');
+        const origSubmitText = submitBtn ? submitBtn.innerHTML : 'Submit Leave Request';
+        formApplyLeave._isSubmitting = true;
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.classList.add('btn-is-submitting');
+          submitBtn.innerHTML = '<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Submitting...';
+        }
+
+        if (window.showSavingPopup) {
+          window.showSavingPopup('Submitting Leave Request...', 'Recording leave application and updating balance...');
         }
 
         const formData = new FormData(formApplyLeave);
@@ -2192,6 +2251,7 @@
             body: formData
           });
           const data = await res.json();
+          if (window.hideSavingPopup) window.hideSavingPopup();
           if (data.success) {
             showModalAlert(leaveAlert, data.message || 'Leave request saved successfully!', 'success');
             formApplyLeave.reset();
@@ -2208,9 +2268,16 @@
             showModalAlert(leaveAlert, data.error || data.message || 'Failed to submit leave request.', 'error');
           }
         } catch (err) {
+          if (window.hideSavingPopup) window.hideSavingPopup();
           showModalAlert(leaveAlert, 'An error occurred while submitting.', 'error');
         } finally {
-          if (submitBtn) submitBtn.disabled = false;
+          formApplyLeave._isSubmitting = false;
+          if (window.hideSavingPopup) window.hideSavingPopup();
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('btn-is-submitting');
+            submitBtn.innerHTML = origSubmitText;
+          }
         }
       });
     }
@@ -2219,14 +2286,25 @@
     if (formApplyPermission) {
       formApplyPermission.addEventListener('submit', async function (e) {
         e.preventDefault();
-        const submitBtn = document.getElementById('btnSubmitPerm');
-        if (submitBtn) submitBtn.disabled = true;
+        if (formApplyPermission._isSubmitting) return false;
 
         const availText = document.getElementById('modalPermAvail') ? document.getElementById('modalPermAvail').textContent : '';
         if (availText && availText.startsWith('00:00')) {
           showModalAlert(permAlert, 'You have 0 permission hours available. Please contact your administrator to allocate permission quota.', 'error');
-          if (submitBtn) submitBtn.disabled = false;
           return;
+        }
+
+        const submitBtn = document.getElementById('btnSubmitPerm');
+        const origPermText = submitBtn ? submitBtn.innerHTML : 'Submit Permission Request';
+        formApplyPermission._isSubmitting = true;
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.classList.add('btn-is-submitting');
+          submitBtn.innerHTML = '<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Submitting...';
+        }
+
+        if (window.showSavingPopup) {
+          window.showSavingPopup('Submitting Permission Request...', 'Recording permission hours and updating quota...');
         }
 
         const formData = new FormData(formApplyPermission);
@@ -2239,6 +2317,7 @@
             body: formData
           });
           const data = await res.json();
+          if (window.hideSavingPopup) window.hideSavingPopup();
           if (data.success) {
             showModalAlert(permAlert, data.message || 'Permission request saved successfully!', 'success');
             formApplyPermission.reset();
@@ -2256,9 +2335,16 @@
             showModalAlert(permAlert, data.error || data.message || 'Failed to submit permission request.', 'error');
           }
         } catch (err) {
+          if (window.hideSavingPopup) window.hideSavingPopup();
           showModalAlert(permAlert, 'An error occurred while submitting.', 'error');
         } finally {
-          if (submitBtn) submitBtn.disabled = false;
+          formApplyPermission._isSubmitting = false;
+          if (window.hideSavingPopup) window.hideSavingPopup();
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('btn-is-submitting');
+            submitBtn.innerHTML = origPermText;
+          }
         }
       });
     }

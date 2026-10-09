@@ -283,40 +283,68 @@ document.addEventListener('DOMContentLoaded', function () {
   if (paymentForm) {
     paymentForm.addEventListener('submit', function (e) {
       e.preventDefault();
+      if (paymentForm._isSubmitting) return false;
+
       const editId = document.getElementById('editPaymentId')?.value || '';
+      const empName = document.getElementById('paymentEmployee').value;
+      const amountVal = document.getElementById('paymentAmount').value;
+      if (!empName) {
+        alert('Please select an employee.');
+        return;
+      }
+      if (!amountVal || isNaN(parseFloat(amountVal)) || parseFloat(amountVal) <= 0) {
+        alert('Please enter a valid amount.');
+        return;
+      }
+
+      paymentForm._isSubmitting = true;
+      const btnSavePayment = document.getElementById('btnSavePayment') || paymentForm.querySelector('button[type="submit"]');
+      const origSaveText = btnSavePayment ? btnSavePayment.innerHTML : 'Save';
+      if (btnSavePayment) {
+        btnSavePayment.disabled = true;
+        btnSavePayment.classList.add('btn-is-submitting');
+        btnSavePayment.innerHTML = '<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Saving...';
+      }
+
+      if (window.showSavingPopup) {
+        window.showSavingPopup(
+          editId ? 'Updating Payment...' : 'Saving Payment Record...',
+          'Recording salary transaction into payment registry...'
+        );
+      }
+
       const formData = new FormData(paymentForm);
+      const url = editId ? `/api/payments/${editId}` : '/api/payments';
 
-    const empName = document.getElementById('paymentEmployee').value;
-    const amountVal = document.getElementById('paymentAmount').value;
-    if (!empName) {
-      alert('Please select an employee.');
-      return;
-    }
-    if (!amountVal || isNaN(parseFloat(amountVal)) || parseFloat(amountVal) <= 0) {
-      alert('Please enter a valid amount.');
-      return;
-    }
-
-    const url = editId ? `/api/payments/${editId}` : '/api/payments';
-    fetch(url, {
-      method: 'POST',
-      body: formData
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          paymentModalOverlay.classList.remove('active');
-          paymentForm.reset();
-          loadPayments();
-        } else {
-          alert(data.error || 'Failed to save payment.');
-        }
+      fetch(url, {
+        method: 'POST',
+        body: formData
       })
-      .catch(err => {
-        console.error('Error saving payment:', err);
-        alert('Network error while saving payment.');
-      });
-  });
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            paymentModalOverlay.classList.remove('active');
+            paymentForm.reset();
+            loadPayments();
+          } else {
+            alert(data.error || 'Failed to save payment.');
+          }
+        })
+        .catch(err => {
+          console.error('Error saving payment:', err);
+          alert('Network error while saving payment.');
+        })
+        .finally(() => {
+          paymentForm._isSubmitting = false;
+          if (window.hideSavingPopup) window.hideSavingPopup();
+          if (btnSavePayment) {
+            btnSavePayment.disabled = false;
+            btnSavePayment.classList.remove('btn-is-submitting');
+            btnSavePayment.innerHTML = origSaveText;
+          }
+        });
+    });
+  }
 
   function loadPayments() {
     const employee = document.getElementById('filterPaymentEmployee').value;

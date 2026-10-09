@@ -636,7 +636,26 @@ document.addEventListener('DOMContentLoaded', function () {
   if (companyForm) {
     companyForm.addEventListener('submit', async function (e) {
       e.preventDefault();
+      if (companyForm._isSubmitting) return false;
+
       companyFormAlert.style.display = 'none';
+
+      const btnSave = btnSaveCompany || document.getElementById('btnSaveCompany');
+      const origBtnText = editingCompanyId ? 'Update Company' : 'Save Company';
+
+      companyForm._isSubmitting = true;
+      if (btnSave) {
+        btnSave.disabled = true;
+        btnSave.classList.add('btn-is-submitting');
+        btnSave.innerHTML = `<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> ${editingCompanyId ? 'Updating...' : 'Saving...'}`;
+      }
+
+      if (window.showSavingPopup) {
+        window.showSavingPopup(
+          editingCompanyId ? 'Updating Company Profile...' : 'Registering New Company...',
+          'Configuring company settings, shift hours, and email schedules...'
+        );
+      }
 
       const formData = new FormData(companyForm);
       const payload = {
@@ -658,13 +677,7 @@ document.addEventListener('DOMContentLoaded', function () {
         geofence_radius: parseFloat(formData.get('geofence_radius')) || 200
       };
 
-      const btnSave = btnSaveCompany || document.getElementById('btnSaveCompany');
       try {
-        if (btnSave) {
-          btnSave.disabled = true;
-          btnSave.textContent = editingCompanyId ? 'Updating...' : 'Saving...';
-        }
-
         const url = editingCompanyId ? `/api/companies/${editingCompanyId}` : '/api/companies';
         const method = editingCompanyId ? 'PUT' : 'POST';
 
@@ -675,10 +688,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         const resp = await res.json();
-        if (btnSave) {
-          btnSave.disabled = false;
-          btnSave.textContent = editingCompanyId ? 'Update Company' : 'Save Company';
-        }
+        if (window.hideSavingPopup) window.hideSavingPopup();
 
         if (resp.success) {
           closeCompanyModalFunc();
@@ -690,14 +700,19 @@ document.addEventListener('DOMContentLoaded', function () {
           companyFormAlert.style.display = 'block';
         }
       } catch (err) {
-        if (btnSave) {
-          btnSave.disabled = false;
-          btnSave.textContent = editingCompanyId ? 'Update Company' : 'Save Company';
-        }
+        if (window.hideSavingPopup) window.hideSavingPopup();
         companyFormAlert.textContent = 'Connection error. Please try again.';
         companyFormAlert.style.backgroundColor = '#f8d7da';
         companyFormAlert.style.color = '#842029';
         companyFormAlert.style.display = 'block';
+      } finally {
+        companyForm._isSubmitting = false;
+        if (window.hideSavingPopup) window.hideSavingPopup();
+        if (btnSave) {
+          btnSave.disabled = false;
+          btnSave.classList.remove('btn-is-submitting');
+          btnSave.textContent = origBtnText;
+        }
       }
     });
   }

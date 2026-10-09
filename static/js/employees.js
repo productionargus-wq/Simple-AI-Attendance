@@ -773,6 +773,10 @@ document.addEventListener('DOMContentLoaded', function () {
     employeeForm.addEventListener('submit', async function (e) {
       e.preventDefault();
 
+      if (employeeForm._isSubmitting) {
+        return false;
+      }
+
       // Ensure salary rates are calculated even if user only entered one
       const hourlyVal = inputHourly ? (parseFloat(inputHourly.value) || 0) : 0;
       const dayVal = inputDay ? (parseFloat(inputDay.value) || 0) : 0;
@@ -809,6 +813,23 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const empId = document.getElementById('formEmployeeId').value.trim();
+
+      // Lock form and engage feedback immediately
+      employeeForm._isSubmitting = true;
+      const btnSubmitForm = document.getElementById('btnSubmitForm');
+      const origText = btnSubmitForm ? btnSubmitForm.innerHTML : 'Submit';
+      if (btnSubmitForm) {
+        btnSubmitForm.disabled = true;
+        btnSubmitForm.classList.add('btn-is-submitting');
+        btnSubmitForm.innerHTML = '<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Saving...';
+      }
+      if (window.showSavingPopup) {
+        window.showSavingPopup(
+          empId ? 'Saving Employee Changes...' : 'Saving Employee Details...',
+          'Please wait while the system securely saves the employee profile and updates records.'
+        );
+      }
+
       const formData = new FormData(employeeForm);
 
       // Explicitly serialize employee portal permissions
@@ -878,13 +899,6 @@ document.addEventListener('DOMContentLoaded', function () {
       const url = empId ? `/api/employees/${empId}` : '/api/employees';
       const method = 'POST';
 
-      const btnSubmitForm = document.getElementById('btnSubmitForm');
-      const origText = btnSubmitForm ? btnSubmitForm.textContent : 'Submit';
-      if (btnSubmitForm) {
-        btnSubmitForm.disabled = true;
-        btnSubmitForm.textContent = 'Saving...';
-      }
-
       try {
         const res = await fetch(url, {
           method: method,
@@ -912,17 +926,23 @@ document.addEventListener('DOMContentLoaded', function () {
           capturedPhotoData = null;
           capturedPhotoFilename = null;
           const msg = data.message || (empId ? 'Employee updated successfully!' : 'Employee created successfully!');
+          if (window.hideSavingPopup) window.hideSavingPopup();
           alert(msg);
           loadEmployees();
         } else {
+          if (window.hideSavingPopup) window.hideSavingPopup();
           alert(data.error || 'Failed to save employee');
         }
       } catch (err) {
+        if (window.hideSavingPopup) window.hideSavingPopup();
         alert('Error saving employee: ' + err.message);
       } finally {
+        employeeForm._isSubmitting = false;
+        if (window.hideSavingPopup) window.hideSavingPopup();
         if (btnSubmitForm) {
           btnSubmitForm.disabled = false;
-          btnSubmitForm.textContent = origText;
+          btnSubmitForm.classList.remove('btn-is-submitting');
+          btnSubmitForm.innerHTML = origText;
         }
       }
     });

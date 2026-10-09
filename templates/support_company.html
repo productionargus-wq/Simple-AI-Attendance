@@ -2336,9 +2336,19 @@ async function submitSupportTicket(e) {
   }
 
   const btn = document.getElementById('btnSubmitTicket');
+  if (btn && btn._isSubmitting) return;
+  if (btn) btn._isSubmitting = true;
+
   const btnText = document.getElementById('btnSubmitTicketText');
-  btn.disabled = true;
-  btnText.innerHTML = '<span class="spinner-inline"></span> Submitting...';
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('btn-is-submitting');
+  }
+  if (btnText) btnText.innerHTML = '<span class="spinner-inline"></span> Submitting...';
+
+  if (window.showSavingPopup) {
+    window.showSavingPopup('Submitting Support Ticket...', 'Registering ticket and notifying support team...');
+  }
 
   const formData = new FormData();
   formData.append('subject', subject);
@@ -2353,6 +2363,7 @@ async function submitSupportTicket(e) {
       body: formData
     });
     const data = await res.json();
+    if (window.hideSavingPopup) window.hideSavingPopup();
     if (data.success) {
       alert(`Ticket ${data.ticket.ticket_id} submitted successfully! Our support team will review it.`);
       // Reset form
@@ -2367,11 +2378,17 @@ async function submitSupportTicket(e) {
       alert(data.error || 'Failed to submit ticket. Please try again.');
     }
   } catch (err) {
+    if (window.hideSavingPopup) window.hideSavingPopup();
     console.error('Error creating ticket:', err);
     alert('An unexpected network error occurred.');
   } finally {
-    btn.disabled = false;
-    btnText.innerHTML = 'Submit Ticket';
+    if (btn) {
+      btn._isSubmitting = false;
+      btn.disabled = false;
+      btn.classList.remove('btn-is-submitting');
+    }
+    if (window.hideSavingPopup) window.hideSavingPopup();
+    if (btnText) btnText.innerHTML = 'Submit Ticket';
   }
 }
 
@@ -2677,14 +2694,24 @@ async function submitTicketReply(e) {
   e.preventDefault();
   if (!currentActiveTicket) return;
 
+  const btn = document.getElementById('btnSendReply');
+  if (btn && btn._isSubmitting) return;
+
   const msg = document.getElementById('replyMessageText').value.trim();
   if (!msg) {
     alert('Please enter your reply message.');
     return;
   }
 
-  const btn = document.getElementById('btnSendReply');
-  btn.disabled = true;
+  if (btn) {
+    btn._isSubmitting = true;
+    btn.disabled = true;
+    btn.classList.add('btn-is-submitting');
+  }
+
+  if (window.showSavingPopup) {
+    window.showSavingPopup('Sending Reply...', 'Posting message update to ticket conversation...');
+  }
 
   const formData = new FormData();
   formData.append('message', msg);
@@ -2698,6 +2725,7 @@ async function submitTicketReply(e) {
       body: formData
     });
     const data = await res.json();
+    if (window.hideSavingPopup) window.hideSavingPopup();
     if (data.success) {
       document.getElementById('replyMessageText').value = '';
       replyTicketFiles = [];
@@ -2709,10 +2737,16 @@ async function submitTicketReply(e) {
       alert(data.error || 'Failed to send reply.');
     }
   } catch (err) {
+    if (window.hideSavingPopup) window.hideSavingPopup();
     console.error('Error replying to ticket:', err);
     alert('Network error while posting reply.');
   } finally {
-    btn.disabled = false;
+    if (btn) {
+      btn._isSubmitting = false;
+      btn.disabled = false;
+      btn.classList.remove('btn-is-submitting');
+    }
+    if (window.hideSavingPopup) window.hideSavingPopup();
   }
 }
 

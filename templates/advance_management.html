@@ -155,6 +155,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const btnSaveAdvance = document.getElementById('btnSaveAdvance');
   btnSaveAdvance.addEventListener('click', function () {
+    if (btnSaveAdvance._isSubmitting) return false;
+
     const emp = document.getElementById('advEmployee').value;
     const dateVal = document.getElementById('advDate').value;
     const amountVal = document.getElementById('advAmount').value;
@@ -166,6 +168,16 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!amountVal || isNaN(parseFloat(amountVal)) || parseFloat(amountVal) <= 0) {
       alert('Please enter a valid advance amount.');
       return;
+    }
+
+    btnSaveAdvance._isSubmitting = true;
+    const origText = btnSaveAdvance.innerHTML;
+    btnSaveAdvance.disabled = true;
+    btnSaveAdvance.classList.add('btn-is-submitting');
+    btnSaveAdvance.innerHTML = '<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Saving...';
+
+    if (window.showSavingPopup) {
+      window.showSavingPopup('Recording Advance...', 'Applying salary advance deduction for employee...');
     }
 
     fetch('/api/advances', {
@@ -180,6 +192,7 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(res => res.json())
       .then(data => {
         if (data.success) {
+          document.getElementById('advAmount').value = '';
           loadAdvances();
         } else {
           alert(data.error || 'Failed to save advance.');
@@ -188,6 +201,13 @@ document.addEventListener('DOMContentLoaded', function () {
       .catch(err => {
         console.error('Error saving advance:', err);
         alert('Network error while saving advance.');
+      })
+      .finally(() => {
+        btnSaveAdvance._isSubmitting = false;
+        if (window.hideSavingPopup) window.hideSavingPopup();
+        btnSaveAdvance.disabled = false;
+        btnSaveAdvance.classList.remove('btn-is-submitting');
+        btnSaveAdvance.innerHTML = origText;
       });
   });
 
@@ -306,12 +326,27 @@ document.addEventListener('DOMContentLoaded', function () {
   if (editForm) {
     editForm.addEventListener('submit', function (e) {
       e.preventDefault();
+      if (editForm._isSubmitting) return false;
+
       const id = document.getElementById('editAdvanceId').value;
       const payload = {
         employee_name: document.getElementById('editAdvEmployee').value,
         advance_date: document.getElementById('editAdvDate').value,
         amount: parseFloat(document.getElementById('editAdvAmount').value)
       };
+
+      editForm._isSubmitting = true;
+      const btnUpdateAdvance = document.getElementById('btnUpdateAdvance');
+      const origUpdateText = btnUpdateAdvance ? btnUpdateAdvance.innerHTML : 'Save Changes';
+      if (btnUpdateAdvance) {
+        btnUpdateAdvance.disabled = true;
+        btnUpdateAdvance.classList.add('btn-is-submitting');
+        btnUpdateAdvance.innerHTML = '<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Saving...';
+      }
+
+      if (window.showSavingPopup) {
+        window.showSavingPopup('Updating Advance...', 'Saving modifications to advance loan...');
+      }
 
       fetch(`/api/advances/${id}`, {
         method: 'PUT',
@@ -330,6 +365,15 @@ document.addEventListener('DOMContentLoaded', function () {
         .catch(err => {
           console.error(err);
           alert('Error updating advance.');
+        })
+        .finally(() => {
+          editForm._isSubmitting = false;
+          if (window.hideSavingPopup) window.hideSavingPopup();
+          if (btnUpdateAdvance) {
+            btnUpdateAdvance.disabled = false;
+            btnUpdateAdvance.classList.remove('btn-is-submitting');
+            btnUpdateAdvance.innerHTML = origUpdateText;
+          }
         });
     });
   }

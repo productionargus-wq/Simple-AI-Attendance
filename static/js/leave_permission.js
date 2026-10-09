@@ -321,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (formSetQuota) {
     formSetQuota.addEventListener('submit', async function (e) {
       e.preventDefault();
-      if (!btnSaveEmployeeQuota) return;
+      if (!btnSaveEmployeeQuota || formSetQuota._isSubmitting) return false;
 
       const rows = customLeaveRowsContainer ? customLeaveRowsContainer.querySelectorAll('.custom-leave-row') : [];
       const custom_leaves = [];
@@ -337,9 +337,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       });
 
+      formSetQuota._isSubmitting = true;
       btnSaveEmployeeQuota.disabled = true;
+      btnSaveEmployeeQuota.classList.add('btn-is-submitting');
       const origText = btnSaveEmployeeQuota.innerHTML;
-      btnSaveEmployeeQuota.innerHTML = `Saving...`;
+      btnSaveEmployeeQuota.innerHTML = `<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Saving...`;
+
+      if (window.showSavingPopup) {
+        window.showSavingPopup('Updating Leave Quota...', 'Saving custom leave entitlement for employee...');
+      }
 
       try {
         const payload = {
@@ -354,6 +360,7 @@ document.addEventListener('DOMContentLoaded', function () {
           body: JSON.stringify(payload)
         });
         const data = await res.json();
+        if (window.hideSavingPopup) window.hideSavingPopup();
         if (data.success) {
           if (quotaAlertBox) {
             quotaAlertBox.style.display = 'block';
@@ -376,6 +383,7 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         }
       } catch (err) {
+        if (window.hideSavingPopup) window.hideSavingPopup();
         if (quotaAlertBox) {
           quotaAlertBox.style.display = 'block';
           quotaAlertBox.style.backgroundColor = '#fef2f2';
@@ -384,7 +392,10 @@ document.addEventListener('DOMContentLoaded', function () {
           quotaAlertBox.textContent = 'Error: ' + err.message;
         }
       } finally {
+        formSetQuota._isSubmitting = false;
+        if (window.hideSavingPopup) window.hideSavingPopup();
         btnSaveEmployeeQuota.disabled = false;
+        btnSaveEmployeeQuota.classList.remove('btn-is-submitting');
         btnSaveEmployeeQuota.innerHTML = origText;
       }
     });
@@ -608,11 +619,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (confirmQuickRejectBtn) {
     confirmQuickRejectBtn.addEventListener('click', async function () {
+      if (confirmQuickRejectBtn._isSubmitting) return false;
+
       const reqId = quickRejectReqId ? quickRejectReqId.value : '';
       const remark = quickRejectRemark ? quickRejectRemark.value.trim() : '';
 
       if (!reqId) return;
+
+      confirmQuickRejectBtn._isSubmitting = true;
       confirmQuickRejectBtn.disabled = true;
+      confirmQuickRejectBtn.classList.add('btn-is-submitting');
+      const origRejectText = confirmQuickRejectBtn.innerHTML;
+      confirmQuickRejectBtn.innerHTML = `<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Rejecting...`;
+
+      if (window.showSavingPopup) {
+        window.showSavingPopup('Processing Rejection...', 'Updating request status and restoring leave balances...');
+      }
 
       try {
         const res = await fetch(`/api/admin/leave-permission/requests/${reqId}/action`, {
@@ -621,6 +643,7 @@ document.addEventListener('DOMContentLoaded', function () {
           body: JSON.stringify({ action: 'Reject', admin_remark: remark })
         });
         const data = await res.json();
+        if (window.hideSavingPopup) window.hideSavingPopup();
         if (data.success) {
           if (modalQuickReject) modalQuickReject.style.display = 'none';
           refreshAllData();
@@ -628,10 +651,15 @@ document.addEventListener('DOMContentLoaded', function () {
           alert(data.error || 'Failed to reject request.');
         }
       } catch (err) {
+        if (window.hideSavingPopup) window.hideSavingPopup();
         console.error(err);
         alert('Error rejecting request.');
       } finally {
+        confirmQuickRejectBtn._isSubmitting = false;
+        if (window.hideSavingPopup) window.hideSavingPopup();
         confirmQuickRejectBtn.disabled = false;
+        confirmQuickRejectBtn.classList.remove('btn-is-submitting');
+        confirmQuickRejectBtn.innerHTML = origRejectText;
       }
     });
   }

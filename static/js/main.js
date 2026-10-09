@@ -186,3 +186,39 @@ window.safeCopyToClipboard = function (text) {
     }
   });
 };
+
+// ==========================================================================
+// Global Saving Feedback Popup & Anti-Duplicate Overlay Controller
+// ==========================================================================
+window.showSavingPopup = function (title = 'Saving Record...', subtitle = 'Please wait while the system securely processes your request.') {
+  let overlay = document.getElementById('globalSavingOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'globalSavingOverlay';
+    overlay.className = 'global-saving-overlay';
+    overlay.innerHTML = `
+      <div class="global-saving-card">
+        <div class="global-saving-spinner">
+          <div class="spinner-ring"></div>
+        </div>
+        <div class="global-saving-content">
+          <h4 id="globalSavingTitle" class="global-saving-title">Saving Record...</h4>
+          <p id="globalSavingSubtitle" class="global-saving-subtitle">Please wait while the system securely processes your request.</p>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  const titleEl = document.getElementById('globalSavingTitle');
+  const subEl = document.getElementById('globalSavingSubtitle');
+  if (titleEl) titleEl.textContent = title;
+  if (subEl) subEl.textContent = subtitle;
+  overlay.classList.add('active');
+};
+
+window.hideSavingPopup = function () {
+  const overlay = document.getElementById('globalSavingOverlay');
+  if (overlay) {
+    overlay.classList.remove('active');
+  }
+};

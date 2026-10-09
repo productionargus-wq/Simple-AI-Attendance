@@ -10,3 +10,5 @@ generated_payslips/
 scratch/
 static/reports/
 static/uploads/employee_documents/
+ARGUS_Attendance_*.docx
+ARGUS_Attendance_*.pdf
