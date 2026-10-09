@@ -59,7 +59,6 @@
       <div style="flex: 1; min-width: 240px;">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
           <label style="font-size: 13px; font-weight: 700; color: #0f172a; margin: 0;">Company Logo</label>
-          <span style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ Editable by You</span>
         </div>
         <div style="font-size: 12px; color: #64748b; margin-bottom: 10px; line-height: 1.4;">
           Upload your company's official logo (.png, .jpg, .jpeg, .webp). This logo will appear dynamically at the top of employee payslips and PDF exports.
@@ -121,8 +120,6 @@
           <span>Company Registered Date</span>
           {% if role == 'company_admin' %}
             <span style="font-size: 10px; color: #64748b; font-weight: normal;">🔒 Read-Only</span>
-          {% else %}
-            <span style="font-size: 10px; color: #16a34a; font-weight: 700;">✏️ System Admin Editable</span>
           {% endif %}
         </label>
         {% if role == 'super_admin' %}
@@ -186,9 +183,7 @@
       <div class="form-group">
         <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
           <span><strong>Geofence Radius (Meters)</strong> <span class="required">*</span></span>
-          {% if role == 'super_admin' %}
-          <span id="profileGeofenceBadge" style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ Configurable by System Admin</span>
-          {% else %}
+          {% if role != 'super_admin' %}
           <span id="profileGeofenceBadge" style="font-size: 11px; color: #64748b; font-weight: 700; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">🔒 Locked</span>
           {% endif %}
         </label>
@@ -198,9 +193,6 @@
         </div>
         <div id="profileGeofenceHelp" style="font-size: 11px; color: #64748b; margin-top: 4px;">
           Punches within this distance are classified as <strong>Proper Entries</strong>. Punches exceeding this perimeter are marked <strong>Improper</strong>.
-          {% if role == 'company_admin' %}
-          <span style="display: block; color: #dc2626; margin-top: 2px; font-weight: 600;">🔒 Geofence radius is locked for Company Admin. Only System Admin can change it anytime.</span>
-          {% endif %}
         </div>
       </div>
 
@@ -208,27 +200,20 @@
       <div class="form-group">
         <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
           <span><strong>Daily Report Email Time</strong> <span class="required">*</span></span>
-          {% if role == 'super_admin' %}
-          <span style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ Configurable by System Admin</span>
-          {% else %}
+          {% if role != 'super_admin' %}
           <span style="font-size: 11px; color: #64748b; font-weight: 700; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">🔒 Locked</span>
           {% endif %}
         </label>
         <input type="time" class="form-input" id="profileDailyReportTime" name="daily_report_time" value="07:00" style="font-weight: 700; max-width: 220px; {% if role == 'company_admin' %}background-color: #f8fafc; cursor: not-allowed;{% endif %}" {% if role == 'company_admin' %}readonly{% endif %}>
         <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
           Time of day to send yesterday's daily activity digest.
-          {% if role == 'company_admin' %}
-          <span style="display: block; color: #dc2626; margin-top: 2px; font-weight: 600;">🔒 Email schedule is managed exclusively by System Admin.</span>
-          {% endif %}
         </div>
       </div>
 
       <div class="form-group">
         <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
           <span><strong>Monthly Report Email Day</strong> <span class="required">*</span></span>
-          {% if role == 'super_admin' %}
-          <span style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ Configurable by System Admin</span>
-          {% else %}
+          {% if role != 'super_admin' %}
           <span style="font-size: 11px; color: #64748b; font-weight: 700; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">🔒 Locked</span>
           {% endif %}
         </label>
@@ -273,7 +258,6 @@
     <div class="form-group" style="margin-bottom: 24px;">
       <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
         <span><strong>Official Company Address</strong> <span class="required">*</span></span>
-        <span style="font-size: 11px; color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">✏️ Editable by You</span>
       </label>
       <textarea class="form-input" id="profileAddress" name="address" rows="3" required placeholder="Enter complete corporate street address, building, city, postal code..." style="line-height: 1.5; font-size: 13px;"></textarea>
       <div style="font-size: 11px; color: #64748b; margin-top: 4px;">This official address appears on all employee payslips, attendance registers, and PDF exports.</div>
@@ -472,9 +456,7 @@ document.addEventListener('DOMContentLoaded', function () {
         lngInput.style.cursor = 'text';
       }
       if (coordBadge) {
-        coordBadge.textContent = '✏️ System Admin (Always Editable)';
-        coordBadge.style.color = '#16a34a';
-        coordBadge.style.background = '#dcfce7';
+        coordBadge.style.display = 'none';
       }
       if (coordHelp) {
         coordHelp.innerHTML = 'System Admin has permission to modify office coordinates at any time.';
@@ -495,6 +477,7 @@ document.addEventListener('DOMContentLoaded', function () {
           lngInput.style.cursor = 'not-allowed';
         }
         if (coordBadge) {
+          coordBadge.style.display = 'inline-block';
           coordBadge.textContent = '🔒 Locked';
           coordBadge.style.color = '#64748b';
           coordBadge.style.background = '#f1f5f9';
@@ -539,9 +522,7 @@ document.addEventListener('DOMContentLoaded', function () {
         geofenceInput.style.cursor = 'text';
       }
       if (geofenceBadge) {
-        geofenceBadge.textContent = '✏️ Configurable by System Admin';
-        geofenceBadge.style.color = '#16a34a';
-        geofenceBadge.style.background = '#dcfce7';
+        geofenceBadge.style.display = 'none';
       }
       if (geofenceHelp) {
         geofenceHelp.innerHTML = 'Punches within this distance are classified as <strong>Proper Entries</strong>. Punches exceeding this perimeter are marked <strong>Improper</strong>.';
@@ -553,12 +534,13 @@ document.addEventListener('DOMContentLoaded', function () {
         geofenceInput.style.cursor = 'not-allowed';
       }
       if (geofenceBadge) {
+        geofenceBadge.style.display = 'inline-block';
         geofenceBadge.textContent = '🔒 Locked';
         geofenceBadge.style.color = '#64748b';
         geofenceBadge.style.background = '#f1f5f9';
       }
       if (geofenceHelp) {
-        geofenceHelp.innerHTML = 'Punches within this distance are classified as <strong>Proper Entries</strong>. Punches exceeding this perimeter are marked <strong>Improper</strong>.<br><span style="display: block; color: #dc2626; margin-top: 2px; font-weight: 600;">🔒 Geofence radius is locked for Company Admin. Only System Admin can change it anytime.</span>';
+        geofenceHelp.innerHTML = 'Punches within this distance are classified as <strong>Proper Entries</strong>. Punches exceeding this perimeter are marked <strong>Improper</strong>.';
       }
     }
 
