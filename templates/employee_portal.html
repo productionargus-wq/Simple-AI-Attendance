@@ -8,6 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261007_white">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261007_white">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="{{ url_for('static', filename='vendor/mediapipe/face_mesh.js') }}"></script>
   <style>
     /* Ensure page is fully scrollable and not locked by global style.css */
     html, body {
@@ -249,6 +250,91 @@
         flex-direction: column;
       }
     }
+
+    /* Hands-Free 2-Blink Liveness HUD Overlay */
+    .blink-hud-overlay {
+      position: absolute;
+      top: 10px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 15;
+      pointer-events: none;
+      transition: all 0.3s ease;
+    }
+
+    .blink-hud-pill {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 30px;
+      padding: 5px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      transition: all 0.25s ease;
+      max-width: 90%;
+    }
+
+    .blink-hud-icon {
+      font-size: 13px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .blink-hud-text {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #f1f5f9;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+    }
+
+    .blink-hud-dots {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 2px;
+    }
+
+    .blink-hud-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 1.6px solid #38bdf8;
+      background-color: transparent;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .blink-hud-dot.active {
+      background-color: #10b981;
+      border-color: #10b981;
+      box-shadow: 0 0 7px #10b981;
+      transform: scale(1.2);
+    }
+
+    .blink-hud-pill.blink-stage-1 {
+      border-color: rgba(56, 189, 248, 0.7);
+      background: rgba(12, 74, 110, 0.9);
+      box-shadow: 0 4px 18px rgba(14, 165, 233, 0.3);
+    }
+
+    .blink-hud-pill.blink-stage-2 {
+      border-color: #10b981;
+      background: rgba(6, 78, 59, 0.95);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.45);
+    }
+
+    .blink-hud-pill.blink-cooldown {
+      opacity: 0.88;
+      border-color: rgba(148, 163, 184, 0.3);
+      background: rgba(30, 41, 59, 0.9);
+    }
   </style>
 </head>
 <body>
@@ -343,6 +429,17 @@
         <div class="portal-camera-wrapper" style="width: 100%; max-width: 440px; aspect-ratio: 4 / 3; background-color: #1a1a2e; border-radius: 8px; overflow: hidden; position: relative; margin-bottom: 14px; border: 2px solid #3d6078;">
           <video id="portalCameraFeed" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
           <canvas id="portalCanvas" style="display: none;"></canvas>
+          <!-- Hands-Free 2-Blink Liveness HUD Overlay -->
+          <div class="blink-hud-overlay" id="portalBlinkHudOverlay" style="display: none;">
+            <div class="blink-hud-pill" id="portalBlinkHudPill">
+              <span class="blink-hud-icon" id="portalBlinkHudIcon">👁️</span>
+              <span class="blink-hud-text" id="portalBlinkHudText">Blink 2 times to punch hands-free</span>
+              <div class="blink-hud-dots" id="portalBlinkHudDots">
+                <span class="blink-hud-dot" id="portalBlinkDot1"></span>
+                <span class="blink-hud-dot" id="portalBlinkDot2"></span>
+              </div>
+            </div>
+          </div>
           <div id="portalCamPlaceholder" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-size: 13px; text-align: center; padding: 20px;">
             Starting camera...
           </div>
@@ -996,17 +1093,253 @@
     updateClock();
     setInterval(updateClock, 1000);
 
-    // 2. Camera setup for face attendance (if permitted)
+    // 2. Camera setup for face attendance (Dual-Mode: Manual Button + Hands-Free 2-Blink Detection)
     const video = document.getElementById('portalCameraFeed');
     const canvas = document.getElementById('portalCanvas');
     const placeholder = document.getElementById('portalCamPlaceholder');
     const btnPunch = document.getElementById('btnPortalPunch');
     const btnPortalToggleCam = document.getElementById('btnPortalToggleCam');
     const punchResult = document.getElementById('portalPunchResult');
+
+    const portalBlinkHudOverlay = document.getElementById('portalBlinkHudOverlay');
+    const portalBlinkHudPill = document.getElementById('portalBlinkHudPill');
+    const portalBlinkHudIcon = document.getElementById('portalBlinkHudIcon');
+    const portalBlinkHudText = document.getElementById('portalBlinkHudText');
+    const portalBlinkHudDots = document.getElementById('portalBlinkHudDots');
+    const portalBlinkDot1 = document.getElementById('portalBlinkDot1');
+    const portalBlinkDot2 = document.getElementById('portalBlinkDot2');
+
     let stream = null;
     let cameraActive = true;
     let userLat = null;
     let userLng = null;
+    let isPortalPunching = false;
+    let portalCooldownUntil = 0;
+
+    // FaceMesh & Blink State Machine for Portal
+    let portalFaceMesh = null;
+    let portalFaceMeshReady = false;
+    let isPortalDetecting = false;
+    let isPortalProcessingFrame = false;
+    let portalAnimFrameId = null;
+
+    let portalBlinkCount = 0;
+    let portalLastBlinkTime = 0;
+    let portalIsEyesClosed = false;
+    let portalClosedFrames = 0;
+    let portalBaselineEAR = 0.28;
+    let portalBlinkResetTimer = null;
+    let portalAudioCtx = null;
+
+    function playPortalChime(type) {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        if (!portalAudioCtx) portalAudioCtx = new AudioContext();
+        if (portalAudioCtx.state === 'suspended') {
+          portalAudioCtx.resume();
+        }
+        const osc = portalAudioCtx.createOscillator();
+        const gain = portalAudioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(portalAudioCtx.destination);
+
+        if (type === 'blink') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(659.25, portalAudioCtx.currentTime);
+          gain.gain.setValueAtTime(0.06, portalAudioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, portalAudioCtx.currentTime + 0.12);
+          osc.start();
+          osc.stop(portalAudioCtx.currentTime + 0.12);
+        } else if (type === 'success') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(523.25, portalAudioCtx.currentTime);
+          osc.frequency.setValueAtTime(783.99, portalAudioCtx.currentTime + 0.08);
+          osc.frequency.setValueAtTime(1046.50, portalAudioCtx.currentTime + 0.16);
+          gain.gain.setValueAtTime(0.12, portalAudioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, portalAudioCtx.currentTime + 0.38);
+          osc.start();
+          osc.stop(portalAudioCtx.currentTime + 0.38);
+        }
+      } catch (e) {}
+    }
+
+    function updatePortalBlinkHUD(count, text, isCooldown = false) {
+      if (!portalBlinkHudOverlay || !portalBlinkHudPill) return;
+
+      if (isCooldown) {
+        portalBlinkHudPill.className = 'blink-hud-pill blink-cooldown';
+        if (portalBlinkHudIcon) portalBlinkHudIcon.textContent = '⏳';
+        if (portalBlinkHudText) portalBlinkHudText.textContent = text || 'Ready in a moment...';
+        if (portalBlinkHudDots) portalBlinkHudDots.style.display = 'none';
+        return;
+      }
+
+      if (portalBlinkHudDots) portalBlinkHudDots.style.display = 'inline-flex';
+
+      if (count === 0) {
+        portalBlinkHudPill.className = 'blink-hud-pill';
+        if (portalBlinkHudIcon) portalBlinkHudIcon.textContent = '👁️';
+        if (portalBlinkHudText) portalBlinkHudText.textContent = text || 'Blink 2 times to punch hands-free';
+        if (portalBlinkDot1) portalBlinkDot1.classList.remove('active');
+        if (portalBlinkDot2) portalBlinkDot2.classList.remove('active');
+      } else if (count === 1) {
+        portalBlinkHudPill.className = 'blink-hud-pill blink-stage-1';
+        if (portalBlinkHudIcon) portalBlinkHudIcon.textContent = '👁️';
+        if (portalBlinkHudText) portalBlinkHudText.textContent = text || '1st Blink! Blink once more...';
+        if (portalBlinkDot1) portalBlinkDot1.classList.add('active');
+        if (portalBlinkDot2) portalBlinkDot2.classList.remove('active');
+      } else if (count >= 2) {
+        portalBlinkHudPill.className = 'blink-hud-pill blink-stage-2';
+        if (portalBlinkHudIcon) portalBlinkHudIcon.textContent = '✨';
+        if (portalBlinkHudText) portalBlinkHudText.textContent = text || '2 Blinks Verified! Recording...';
+        if (portalBlinkDot1) portalBlinkDot1.classList.add('active');
+        if (portalBlinkDot2) portalBlinkDot2.classList.add('active');
+      }
+    }
+
+    function resetPortalBlinkState(message = null) {
+      portalBlinkCount = 0;
+      portalIsEyesClosed = false;
+      portalClosedFrames = 0;
+      if (portalBlinkResetTimer) {
+        clearTimeout(portalBlinkResetTimer);
+        portalBlinkResetTimer = null;
+      }
+      updatePortalBlinkHUD(0, message);
+    }
+
+    const LEFT_EYE_PTS = { h1: 33, h2: 133, v1_top: 160, v1_bot: 144, v2_top: 158, v2_bot: 153 };
+    const RIGHT_EYE_PTS = { h1: 362, h2: 263, v1_top: 385, v1_bot: 380, v2_top: 387, v2_bot: 373 };
+
+    function calculateEARPortal(landmarks, eye) {
+      const p_h1 = landmarks[eye.h1], p_h2 = landmarks[eye.h2];
+      const p_v1_top = landmarks[eye.v1_top], p_v1_bot = landmarks[eye.v1_bot];
+      const p_v2_top = landmarks[eye.v2_top], p_v2_bot = landmarks[eye.v2_bot];
+      if (!p_h1 || !p_h2 || !p_v1_top || !p_v1_bot || !p_v2_top || !p_v2_bot) return null;
+      const hDist = Math.hypot(p_h1.x - p_h2.x, p_h1.y - p_h2.y);
+      if (hDist <= 0.0001) return null;
+      const v1Dist = Math.hypot(p_v1_top.x - p_v1_bot.x, p_v1_top.y - p_v1_bot.y);
+      const v2Dist = Math.hypot(p_v2_top.x - p_v2_bot.x, p_v2_top.y - p_v2_bot.y);
+      return (v1Dist + v2Dist) / (2.0 * hDist);
+    }
+
+    function onPortalFaceMeshResults(results) {
+      if (!cameraActive || isPortalPunching) return;
+
+      const now = Date.now();
+      if (now < portalCooldownUntil) {
+        const remainSec = Math.ceil((portalCooldownUntil - now) / 1000);
+        updatePortalBlinkHUD(0, `Punch recorded ✔ Ready in ${remainSec}s`, true);
+        return;
+      }
+
+      if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+        if (portalBlinkCount > 0 && (now - portalLastBlinkTime > 3000)) {
+          resetPortalBlinkState();
+        }
+        return;
+      }
+
+      const landmarks = results.multiFaceLandmarks[0];
+      const leftEAR = calculateEARPortal(landmarks, LEFT_EYE_PTS);
+      const rightEAR = calculateEARPortal(landmarks, RIGHT_EYE_PTS);
+      if (leftEAR === null || rightEAR === null) return;
+
+      const avgEAR = (leftEAR + rightEAR) / 2.0;
+      if (avgEAR > 0.22 && !portalIsEyesClosed) {
+        portalBaselineEAR = portalBaselineEAR * 0.95 + avgEAR * 0.05;
+      }
+
+      const closeThreshold = Math.min(0.20, Math.max(0.14, portalBaselineEAR * 0.65));
+      const openThreshold = Math.max(0.22, Math.min(0.32, portalBaselineEAR * 0.85));
+
+      if (portalBlinkCount > 0 && (now - portalLastBlinkTime > 3000)) {
+        resetPortalBlinkState('Window timed out. Blink 2 times to punch');
+        return;
+      }
+
+      if (avgEAR < closeThreshold && leftEAR < closeThreshold + 0.04 && rightEAR < closeThreshold + 0.04) {
+        portalClosedFrames++;
+        if (portalClosedFrames >= 1 && portalClosedFrames <= 22) {
+          portalIsEyesClosed = true;
+        }
+      } else if (avgEAR > openThreshold) {
+        if (portalIsEyesClosed && portalClosedFrames >= 1 && portalClosedFrames <= 22) {
+          portalBlinkCount++;
+          portalLastBlinkTime = now;
+          portalIsEyesClosed = false;
+          portalClosedFrames = 0;
+
+          if (portalBlinkCount === 1) {
+            playPortalChime('blink');
+            updatePortalBlinkHUD(1, '1st Blink! Blink once more...');
+            if (portalBlinkResetTimer) clearTimeout(portalBlinkResetTimer);
+            portalBlinkResetTimer = setTimeout(() => {
+              if (portalBlinkCount === 1 && !isPortalPunching) {
+                resetPortalBlinkState('Blink 2 times to punch hands-free');
+              }
+            }, 3200);
+          } else if (portalBlinkCount >= 2) {
+            if (portalBlinkResetTimer) clearTimeout(portalBlinkResetTimer);
+            playPortalChime('success');
+            updatePortalBlinkHUD(2, '✨ 2 Blinks Verified! Recording...');
+            executePortalPunch('blink');
+          }
+        } else {
+          portalIsEyesClosed = false;
+          portalClosedFrames = 0;
+        }
+      }
+    }
+
+    function initPortalFaceMesh() {
+      if (typeof FaceMesh === 'undefined') {
+        console.log('MediaPipe FaceMesh script loading...');
+        return;
+      }
+      if (portalFaceMesh) return;
+
+      try {
+        portalFaceMesh = new FaceMesh({
+          locateFile: (file) => '/static/vendor/mediapipe/' + file
+        });
+        portalFaceMesh.setOptions({
+          maxNumFaces: 1,
+          refineLandmarks: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        portalFaceMesh.onResults(onPortalFaceMeshResults);
+        portalFaceMeshReady = true;
+      } catch (err) {
+        console.warn('Portal FaceMesh initialization error:', err);
+        portalFaceMeshReady = false;
+      }
+    }
+
+    async function runPortalDetectionLoop() {
+      if (!cameraActive) {
+        isPortalDetecting = false;
+        return;
+      }
+
+      if (portalFaceMeshReady && video && video.readyState >= 2 && !isPortalPunching && !isPortalProcessingFrame) {
+        isPortalProcessingFrame = true;
+        try {
+          await portalFaceMesh.send({ image: video });
+        } catch (e) {
+        } finally {
+          isPortalProcessingFrame = false;
+        }
+      }
+
+      if (cameraActive) {
+        portalAnimFrameId = requestAnimationFrame(runPortalDetectionLoop);
+      } else {
+        isPortalDetecting = false;
+      }
+    }
 
     if (video && btnPunch) {
       // Detect user coordinates with progressive fallback
@@ -1039,6 +1372,15 @@
             btnPortalToggleCam.textContent = '📷 Turn Camera Off';
             btnPortalToggleCam.style.backgroundColor = '#3d6078';
           }
+          if (portalBlinkHudOverlay) {
+            portalBlinkHudOverlay.style.display = 'flex';
+          }
+          resetPortalBlinkState();
+          initPortalFaceMesh();
+          if (!isPortalDetecting) {
+            isPortalDetecting = true;
+            requestAnimationFrame(runPortalDetectionLoop);
+          }
         } catch (err) {
           if (placeholder) {
             placeholder.textContent = 'Camera access denied or unavailable';
@@ -1047,6 +1389,7 @@
           }
           btnPunch.disabled = true;
           cameraActive = false;
+          if (portalBlinkHudOverlay) portalBlinkHudOverlay.style.display = 'none';
           if (btnPortalToggleCam) {
             btnPortalToggleCam.textContent = '📷 Turn Camera On';
             btnPortalToggleCam.style.backgroundColor = '#198754';
@@ -1067,6 +1410,15 @@
         }
         btnPunch.disabled = true;
         cameraActive = false;
+        if (portalBlinkHudOverlay) {
+          portalBlinkHudOverlay.style.display = 'none';
+        }
+        isPortalDetecting = false;
+        if (portalAnimFrameId) {
+          cancelAnimationFrame(portalAnimFrameId);
+          portalAnimFrameId = null;
+        }
+        resetPortalBlinkState();
         if (btnPortalToggleCam) {
           btnPortalToggleCam.textContent = '📷 Turn Camera On';
           btnPortalToggleCam.style.backgroundColor = '#198754';
@@ -1086,12 +1438,17 @@
 
       startCamera();
 
-      // Attendance punch
-      btnPunch.addEventListener('click', function () {
-        if (!stream) return;
+      // Unified Attendance Punch Handler (Manual Button + Hands-Free 2-Blink Detection)
+      async function executePortalPunch(source = 'button') {
+        if (!stream || isPortalPunching) return;
+        isPortalPunching = true;
         btnPunch.disabled = true;
         btnPunch.textContent = 'Verifying Face...';
         if (punchResult) punchResult.innerHTML = '';
+
+        if (source === 'blink') {
+          updatePortalBlinkHUD(2, '✨ Verifying Face...');
+        }
 
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
@@ -1174,14 +1531,21 @@
                 </div>
               `;
             }
-          }
-
-          btnPunch.disabled = false;
-          btnPunch.textContent = 'Mark My Attendance';
-          if (punchResult) {
-            setTimeout(() => { punchResult.innerHTML = ''; }, 6000);
+          } finally {
+            isPortalPunching = false;
+            btnPunch.disabled = false;
+            btnPunch.textContent = 'Mark My Attendance';
+            portalCooldownUntil = Date.now() + 7000;
+            resetPortalBlinkState();
+            if (punchResult) {
+              setTimeout(() => { punchResult.innerHTML = ''; }, 6000);
+            }
           }
         }, 'image/jpeg', 0.9);
+      }
+
+      btnPunch.addEventListener('click', function () {
+        executePortalPunch('button');
       });
     }
 

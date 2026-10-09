@@ -45,6 +45,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="{{ url_for('static', filename='vendor/mediapipe/face_mesh.js') }}"></script>
   <style>
     *, *::before, *::after {
       box-sizing: border-box;
@@ -291,6 +292,140 @@
       pointer-events: none;
       display: none;
       box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    /* Hands-Free 2-Blink Liveness HUD Overlay */
+    .blink-hud-overlay {
+      position: absolute;
+      top: 12px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 15;
+      pointer-events: none;
+      transition: all 0.3s ease;
+    }
+
+    .blink-hud-pill {
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 30px;
+      padding: 6px 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+      transition: all 0.25s ease;
+      max-width: 90%;
+    }
+
+    .blink-hud-icon {
+      font-size: 14px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .blink-hud-text {
+      font-size: 12px;
+      font-weight: 600;
+      color: #f1f5f9;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+    }
+
+    .blink-hud-dots {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: 2px;
+    }
+
+    .blink-hud-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      border: 1.8px solid #38bdf8;
+      background-color: transparent;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .blink-hud-dot.active {
+      background-color: #10b981;
+      border-color: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      transform: scale(1.25);
+    }
+
+    .blink-hud-pill.blink-stage-1 {
+      border-color: rgba(56, 189, 248, 0.7);
+      background: rgba(12, 74, 110, 0.88);
+      box-shadow: 0 4px 18px rgba(14, 165, 233, 0.3);
+    }
+
+    .blink-hud-pill.blink-stage-2 {
+      border-color: #10b981;
+      background: rgba(6, 78, 59, 0.92);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.45);
+    }
+
+    .blink-hud-pill.blink-cooldown {
+      opacity: 0.88;
+      border-color: rgba(148, 163, 184, 0.3);
+      background: rgba(30, 41, 59, 0.88);
+    }
+
+    /* Hands-Free Mode Toggle Bar */
+    .handsfree-mode-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    .btn-handsfree-toggle {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 20px;
+      padding: 5px 13px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-handsfree-toggle:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    .btn-handsfree-toggle.active {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: #065f46;
+    }
+
+    .btn-handsfree-toggle.active .handsfree-toggle-indicator {
+      background: #10b981;
+      box-shadow: 0 0 6px #10b981;
+    }
+
+    .handsfree-toggle-indicator {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #94a3b8;
+      display: inline-block;
+      transition: all 0.2s ease;
     }
 
     /* Controls Action Row */
@@ -789,6 +924,18 @@
         <!-- Face Reticle / Guide Overlay -->
         <div class="face-reticle" id="faceReticle"></div>
 
+        <!-- Hands-Free 2-Blink Liveness HUD Overlay -->
+        <div class="blink-hud-overlay" id="blinkHudOverlay" style="display: none;">
+          <div class="blink-hud-pill" id="blinkHudPill">
+            <span class="blink-hud-icon" id="blinkHudIcon">👁️</span>
+            <span class="blink-hud-text" id="blinkHudText">Blink 2 times to punch hands-free</span>
+            <div class="blink-hud-dots" id="blinkHudDots">
+              <span class="blink-hud-dot" id="blinkDot1"></span>
+              <span class="blink-hud-dot" id="blinkDot2"></span>
+            </div>
+          </div>
+        </div>
+
         <!-- Default Camera Off State Overlay -->
         <div class="camera-overlay" id="cameraOverlay">
           <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -817,6 +964,14 @@
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
           <span id="btnMarkAttendanceText">Mark Attendance</span>
+        </button>
+      </div>
+
+      <!-- Hands-Free Mode Toggle Bar -->
+      <div class="handsfree-mode-bar" id="handsfreeModeBar">
+        <button type="button" class="btn-handsfree-toggle active" id="btnToggleHandsFree" title="Toggle hands-free automatic blink detection">
+          <span class="handsfree-toggle-indicator" id="handsfreeIndicatorDot"></span>
+          <span id="handsfreeToggleLabel">Hands-Free Mode: Active (Blink 2x)</span>
         </button>
       </div>
 
@@ -882,7 +1037,7 @@
     updateLiveClock();
     setInterval(updateLiveClock, 1000);
 
-    // 2. Camera Controls & Lifecycle Management
+    // 2. Camera Controls & Hands-Free Dual-Mode Engine
     const video = document.getElementById('cameraFeed');
     const canvas = document.getElementById('captureCanvas');
     const cameraOverlay = document.getElementById('cameraOverlay');
@@ -893,8 +1048,299 @@
     const btnMarkText = document.getElementById('btnMarkAttendanceText');
     const punchContainer = document.getElementById('punchDetailContainer');
 
+    // Hands-Free Liveness HUD Elements
+    const btnToggleHandsFree = document.getElementById('btnToggleHandsFree');
+    const handsfreeToggleLabel = document.getElementById('handsfreeToggleLabel');
+    const blinkHudOverlay = document.getElementById('blinkHudOverlay');
+    const blinkHudPill = document.getElementById('blinkHudPill');
+    const blinkHudIcon = document.getElementById('blinkHudIcon');
+    const blinkHudText = document.getElementById('blinkHudText');
+    const blinkHudDots = document.getElementById('blinkHudDots');
+    const blinkDot1 = document.getElementById('blinkDot1');
+    const blinkDot2 = document.getElementById('blinkDot2');
+
     let stream = null;
     let isCameraRunning = false;
+    let isHandsFreeActive = true;
+    let isProcessingPunch = false;
+    let cooldownUntil = 0;
+
+    // FaceMesh & Landmark Engine
+    let faceMesh = null;
+    let faceMeshReady = false;
+    let isDetectionRunning = false;
+    let isProcessingFrame = false;
+    let animFrameId = null;
+
+    // Blink State Machine
+    let blinkCount = 0;
+    let lastBlinkTime = 0;
+    let isEyesClosed = false;
+    let closedFrameCount = 0;
+    let baselineEAR = 0.28;
+    let blinkResetTimer = null;
+    let audioCtx = null;
+
+    // Web Audio Synthesizer for Blink & Verification Feedback
+    function playChime(type) {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'blink') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
+          gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.12);
+        } else if (type === 'success') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+          osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.08); // G5
+          osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.16); // C6
+          gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.38);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.38);
+        }
+      } catch (e) {}
+    }
+
+    function updateBlinkHUD(count, text, isCooldown = false) {
+      if (!blinkHudOverlay || !blinkHudPill) return;
+
+      if (isCooldown) {
+        blinkHudPill.className = 'blink-hud-pill blink-cooldown';
+        if (blinkHudIcon) blinkHudIcon.textContent = '⏳';
+        if (blinkHudText) blinkHudText.textContent = text || 'Ready in a moment...';
+        if (blinkHudDots) blinkHudDots.style.display = 'none';
+        return;
+      }
+
+      if (blinkHudDots) blinkHudDots.style.display = 'inline-flex';
+
+      if (count === 0) {
+        blinkHudPill.className = 'blink-hud-pill';
+        if (blinkHudIcon) blinkHudIcon.textContent = '👁️';
+        if (blinkHudText) blinkHudText.textContent = text || 'Blink 2 times to punch hands-free';
+        if (blinkDot1) blinkDot1.classList.remove('active');
+        if (blinkDot2) blinkDot2.classList.remove('active');
+      } else if (count === 1) {
+        blinkHudPill.className = 'blink-hud-pill blink-stage-1';
+        if (blinkHudIcon) blinkHudIcon.textContent = '👁️';
+        if (blinkHudText) blinkHudText.textContent = text || '1st Blink Detected! Blink once more...';
+        if (blinkDot1) blinkDot1.classList.add('active');
+        if (blinkDot2) blinkDot2.classList.remove('active');
+      } else if (count >= 2) {
+        blinkHudPill.className = 'blink-hud-pill blink-stage-2';
+        if (blinkHudIcon) blinkHudIcon.textContent = '✨';
+        if (blinkHudText) blinkHudText.textContent = text || '2 Blinks Verified! Recording...';
+        if (blinkDot1) blinkDot1.classList.add('active');
+        if (blinkDot2) blinkDot2.classList.add('active');
+      }
+    }
+
+    function resetBlinkState(message = null) {
+      blinkCount = 0;
+      isEyesClosed = false;
+      closedFrameCount = 0;
+      if (blinkResetTimer) {
+        clearTimeout(blinkResetTimer);
+        blinkResetTimer = null;
+      }
+      updateBlinkHUD(0, message);
+    }
+
+    function reticlePulse() {
+      if (faceReticle) {
+        faceReticle.style.borderColor = '#10b981';
+        faceReticle.style.boxShadow = '0 0 25px rgba(16, 185, 129, 0.7)';
+        setTimeout(() => {
+          if (faceReticle) {
+            faceReticle.style.borderColor = 'rgba(56, 189, 248, 0.5)';
+            faceReticle.style.boxShadow = '0 0 15px rgba(56, 189, 248, 0.2)';
+          }
+        }, 1500);
+      }
+    }
+
+    // MediaPipe Facial Landmarks EAR Formula
+    const LEFT_EYE = {
+      h1: 33, h2: 133,
+      v1_top: 160, v1_bot: 144,
+      v2_top: 158, v2_bot: 153
+    };
+
+    const RIGHT_EYE = {
+      h1: 362, h2: 263,
+      v1_top: 385, v1_bot: 380,
+      v2_top: 387, v2_bot: 373
+    };
+
+    function dist2D(p1, p2) {
+      const dx = p1.x - p2.x;
+      const dy = p1.y - p2.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function calculateEAR(landmarks, eye) {
+      const p_h1 = landmarks[eye.h1];
+      const p_h2 = landmarks[eye.h2];
+      const p_v1_top = landmarks[eye.v1_top];
+      const p_v1_bot = landmarks[eye.v1_bot];
+      const p_v2_top = landmarks[eye.v2_top];
+      const p_v2_bot = landmarks[eye.v2_bot];
+
+      if (!p_h1 || !p_h2 || !p_v1_top || !p_v1_bot || !p_v2_top || !p_v2_bot) return null;
+
+      const hDist = dist2D(p_h1, p_h2);
+      if (hDist <= 0.0001) return null;
+
+      const v1Dist = dist2D(p_v1_top, p_v1_bot);
+      const v2Dist = dist2D(p_v2_top, p_v2_bot);
+
+      return (v1Dist + v2Dist) / (2.0 * hDist);
+    }
+
+    // MediaPipe Result Callback
+    function onFaceMeshResults(results) {
+      if (!isCameraRunning || !isHandsFreeActive || isProcessingPunch) return;
+
+      const now = Date.now();
+      if (now < cooldownUntil) {
+        const remainSec = Math.ceil((cooldownUntil - now) / 1000);
+        updateBlinkHUD(0, `Punch recorded ✔ Ready in ${remainSec}s`, true);
+        return;
+      }
+
+      if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+        if (blinkCount > 0 && (now - lastBlinkTime > 3000)) {
+          resetBlinkState();
+        }
+        return;
+      }
+
+      const landmarks = results.multiFaceLandmarks[0];
+      const leftEAR = calculateEAR(landmarks, LEFT_EYE);
+      const rightEAR = calculateEAR(landmarks, RIGHT_EYE);
+
+      if (leftEAR === null || rightEAR === null) return;
+
+      const avgEAR = (leftEAR + rightEAR) / 2.0;
+
+      // Adapt open-eye baseline smoothly
+      if (avgEAR > 0.22 && !isEyesClosed) {
+        baselineEAR = baselineEAR * 0.95 + avgEAR * 0.05;
+      }
+
+      const closeThreshold = Math.min(0.20, Math.max(0.14, baselineEAR * 0.65));
+      const openThreshold = Math.max(0.22, Math.min(0.32, baselineEAR * 0.85));
+
+      // Check 3.0s window expiration for 2nd blink
+      if (blinkCount > 0 && (now - lastBlinkTime > 3000)) {
+        resetBlinkState('Window timed out. Blink 2 times to punch');
+        return;
+      }
+
+      // Both eyes closed
+      if (avgEAR < closeThreshold && leftEAR < closeThreshold + 0.04 && rightEAR < closeThreshold + 0.04) {
+        closedFrameCount++;
+        if (closedFrameCount >= 1 && closedFrameCount <= 22) {
+          isEyesClosed = true;
+        }
+      }
+      // Eyes reopened
+      else if (avgEAR > openThreshold) {
+        if (isEyesClosed && closedFrameCount >= 1 && closedFrameCount <= 22) {
+          // Valid human blink registered!
+          blinkCount++;
+          lastBlinkTime = now;
+          isEyesClosed = false;
+          closedFrameCount = 0;
+
+          if (blinkCount === 1) {
+            playChime('blink');
+            updateBlinkHUD(1, '1st Blink Detected! Blink once more...');
+            if (blinkResetTimer) clearTimeout(blinkResetTimer);
+            blinkResetTimer = setTimeout(() => {
+              if (blinkCount === 1 && !isProcessingPunch) {
+                resetBlinkState('Blink 2 times to punch hands-free');
+              }
+            }, 3200);
+          } else if (blinkCount >= 2) {
+            if (blinkResetTimer) clearTimeout(blinkResetTimer);
+            playChime('success');
+            updateBlinkHUD(2, '✨ 2 Blinks Verified! Recording...');
+            reticlePulse();
+            executeAttendancePunch('blink');
+          }
+        } else {
+          isEyesClosed = false;
+          closedFrameCount = 0;
+        }
+      }
+    }
+
+    function initFaceMesh() {
+      if (typeof FaceMesh === 'undefined') {
+        console.log('MediaPipe FaceMesh script loading or unavailable, fallback active.');
+        return;
+      }
+      if (faceMesh) return;
+
+      try {
+        faceMesh = new FaceMesh({
+          locateFile: (file) => {
+            return '/static/vendor/mediapipe/' + file;
+          }
+        });
+
+        faceMesh.setOptions({
+          maxNumFaces: 1,
+          refineLandmarks: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+
+        faceMesh.onResults(onFaceMeshResults);
+        faceMeshReady = true;
+      } catch (err) {
+        console.warn('FaceMesh initialization notice:', err);
+        faceMeshReady = false;
+      }
+    }
+
+    async function runDetectionLoop() {
+      if (!isCameraRunning || !isHandsFreeActive) {
+        isDetectionRunning = false;
+        return;
+      }
+
+      if (faceMeshReady && video && video.readyState >= 2 && !isProcessingPunch && !isProcessingFrame) {
+        isProcessingFrame = true;
+        try {
+          await faceMesh.send({ image: video });
+        } catch (e) {
+        } finally {
+          isProcessingFrame = false;
+        }
+      }
+
+      if (isCameraRunning && isHandsFreeActive) {
+        animFrameId = requestAnimationFrame(runDetectionLoop);
+      } else {
+        isDetectionRunning = false;
+      }
+    }
 
     async function startCamera() {
       btnToggleCameraText.textContent = 'Starting...';
@@ -914,6 +1360,16 @@
         isCameraRunning = true;
         btnToggleCameraText.textContent = 'Turn Off Camera';
         btnToggleCamera.classList.add('active');
+
+        if (isHandsFreeActive && blinkHudOverlay) {
+          blinkHudOverlay.style.display = 'flex';
+        }
+        resetBlinkState();
+        initFaceMesh();
+        if (isHandsFreeActive && !isDetectionRunning) {
+          isDetectionRunning = true;
+          requestAnimationFrame(runDetectionLoop);
+        }
       } catch (err) {
         console.warn('Camera permission denied or camera unavailable:', err);
         cameraOverlay.innerHTML = `
@@ -927,6 +1383,7 @@
         cameraOverlay.style.display = 'flex';
         video.style.display = 'none';
         faceReticle.style.display = 'none';
+        if (blinkHudOverlay) blinkHudOverlay.style.display = 'none';
         btnToggleCameraText.textContent = 'Turn On Camera';
         btnToggleCamera.classList.remove('active');
         isCameraRunning = false;
@@ -941,6 +1398,15 @@
       video.srcObject = null;
       video.style.display = 'none';
       faceReticle.style.display = 'none';
+      if (blinkHudOverlay) {
+        blinkHudOverlay.style.display = 'none';
+      }
+      isDetectionRunning = false;
+      if (animFrameId) {
+        cancelAnimationFrame(animFrameId);
+        animFrameId = null;
+      }
+      resetBlinkState();
 
       cameraOverlay.innerHTML = `
         <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -965,6 +1431,32 @@
       }
     });
 
+    if (btnToggleHandsFree) {
+      btnToggleHandsFree.addEventListener('click', function () {
+        isHandsFreeActive = !isHandsFreeActive;
+        if (isHandsFreeActive) {
+          btnToggleHandsFree.classList.add('active');
+          if (handsfreeToggleLabel) handsfreeToggleLabel.textContent = 'Hands-Free Mode: Active (Blink 2x)';
+          if (blinkHudOverlay && isCameraRunning) {
+            blinkHudOverlay.style.display = 'flex';
+            resetBlinkState();
+            initFaceMesh();
+            if (!isDetectionRunning) {
+              isDetectionRunning = true;
+              requestAnimationFrame(runDetectionLoop);
+            }
+          }
+        } else {
+          btnToggleHandsFree.classList.remove('active');
+          if (handsfreeToggleLabel) handsfreeToggleLabel.textContent = 'Hands-Free Mode: Paused (Manual Only)';
+          if (blinkHudOverlay) {
+            blinkHudOverlay.style.display = 'none';
+          }
+          resetBlinkState();
+        }
+      });
+    }
+
     // Helper: Geolocation pre-warming & robust retrieval
     let prewarmedCoords = null;
     function warmUpGeolocation() {
@@ -985,11 +1477,9 @@
         { enableHighAccuracy: true, timeout: 6000, maximumAge: 180000 }
       );
     }
-    // Start geolocation warm-up on page load
     warmUpGeolocation();
 
     function getUserLocation() {
-      // 1. Fast path: If pre-warmed coordinates are available within 5 minutes, return immediately!
       if (prewarmedCoords && (Date.now() - prewarmedCoords.timestamp < 300000)) {
         return Promise.resolve(prewarmedCoords);
       }
@@ -998,7 +1488,6 @@
           resolve(prewarmedCoords || null);
           return;
         }
-        // Stage 1: Attempt GPS / high accuracy (5 seconds timeout)
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             const c = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, timestamp: Date.now() };
@@ -1006,7 +1495,6 @@
             resolve(c);
           },
           (err) => {
-            // Stage 2: Fallback to network/IP/cached position (4 seconds timeout)
             navigator.geolocation.getCurrentPosition(
               (fallbackPos) => {
                 const fc = { latitude: fallbackPos.coords.latitude, longitude: fallbackPos.coords.longitude, timestamp: Date.now() };
@@ -1025,191 +1513,212 @@
       });
     }
 
-    // 3. Mark Attendance Handler & Dynamic Detail Card
-    btnMark.addEventListener('click', async function () {
+    // 3. Unified Mark Attendance Handler (Manual Button + Hands-Free Blink)
+    async function executeAttendancePunch(source = 'button') {
+      if (isProcessingPunch) return;
+
       // If camera is off, prompt and start camera
       if (!isCameraRunning || !stream) {
         await startCamera();
         if (!isCameraRunning) return;
       }
 
+      isProcessingPunch = true;
       btnMark.disabled = true;
       btnMarkText.textContent = 'Verifying Face...';
       punchContainer.style.display = 'none';
 
-      // Obtain current coordinates (with fast fallback)
-      const coords = await getUserLocation();
+      if (source === 'blink') {
+        updateBlinkHUD(2, '✨ Verifying Face...');
+      }
 
-      // Capture frame from video canvas (mirrored)
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      const ctx = canvas.getContext('2d');
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      try {
+        const coords = await getUserLocation();
 
-      canvas.toBlob(async function (blob) {
-        if (!blob) {
-          btnMark.disabled = false;
-          btnMarkText.textContent = 'Mark Attendance';
-          return;
-        }
+        // Capture frame from video canvas (mirrored)
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Generate client 12-hour timestamp
-        const now = new Date();
-        const day = String(now.getDate()).padStart(2, '0');
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const year = now.getFullYear();
-        let rawHours = now.getHours();
-        const ampm = rawHours >= 12 ? 'PM' : 'AM';
-        let hours = rawHours % 12;
-        hours = hours ? hours : 12;
-        const hoursStr = String(hours).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const clientTimestamp = `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
+        await new Promise((resolveBlob) => {
+          canvas.toBlob(async function (blob) {
+            if (!blob) {
+              resolveBlob();
+              return;
+            }
 
-        const formData = new FormData();
-        formData.append('photo', blob, 'punch_frame.jpg');
-        if (coords && coords.latitude != null && coords.longitude != null) {
-          formData.append('latitude', coords.latitude);
-          formData.append('longitude', coords.longitude);
-        }
-        formData.append('client_time', clientTimestamp);
+            // Generate client 12-hour timestamp
+            const now = new Date();
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            let rawHours = now.getHours();
+            const ampm = rawHours >= 12 ? 'PM' : 'AM';
+            let hours = rawHours % 12;
+            hours = hours ? hours : 12;
+            const hoursStr = String(hours).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const clientTimestamp = `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
 
-        try {
-          const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
-          let data = {};
-          try {
-            data = await res.json();
-          } catch (jsonErr) {
-            data = {
-              matched: false,
-              message: res.status >= 500
-                ? 'Face recognition service temporarily busy. Please wait a moment and try again.'
-                : 'Unable to process biometric frame. Please try again.'
-            };
-          }
+            const formData = new FormData();
+            formData.append('photo', blob, 'punch_frame.jpg');
+            if (coords && coords.latitude != null && coords.longitude != null) {
+              formData.append('latitude', coords.latitude);
+              formData.append('longitude', coords.longitude);
+            }
+            formData.append('client_time', clientTimestamp);
 
-          if (!data || typeof data !== 'object') {
-            data = { matched: false, message: 'Unexpected server response. Please try again.' };
-          }
+            try {
+              const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
+              let data = {};
+              try {
+                data = await res.json();
+              } catch (jsonErr) {
+                data = {
+                  matched: false,
+                  message: res.status >= 500
+                    ? 'Face recognition service temporarily busy. Please wait a moment and try again.'
+                    : 'Unable to process biometric frame. Please try again.'
+                };
+              }
 
-          if (data.matched) {
-            const isPunchOut = data.punch_status === 'punch_out';
-            const statusLabel = isPunchOut ? 'Punch Out Recorded' : 'Punch In Recorded';
-            const statusIcon = isPunchOut ? '⏏' : '✔';
-            const empName = data.employee_name || 'Verified Employee';
-            const empCode = data.employee_code || data.employee_id || 'EMP-VERIFIED';
-            const dept = data.department || 'Operations';
-            const desig = data.designation || 'Staff';
-            const punchTime = data.punch_time || `${hoursStr}:${minutes}:${seconds} ${ampm}`;
-            const conf = data.confidence ? `${data.confidence}% Match` : '98.5% Match';
-            const distInfo = data.formatted_distance ? `${data.formatted_distance}` : 'On-Site Office Geofence Verified';
-            const workingHoursHtml = data.working_hours ? `
-              <div class="punch-grid-item">
-                <span class="punch-grid-label">Working Hours:</span>
-                <span class="punch-grid-value" style="color: #16a34a;">${escapeHtml(data.working_hours)}</span>
-              </div>
-            ` : '';
+              if (!data || typeof data !== 'object') {
+                data = { matched: false, message: 'Unexpected server response. Please try again.' };
+              }
 
-            punchContainer.innerHTML = `
-              <div class="punch-card-verified">
-                <div class="punch-header">
-                  <span class="punch-badge-success">${statusIcon} ${statusLabel}</span>
-                  <span class="punch-time-tag">${punchTime}</span>
-                </div>
-                <div class="punch-body">
-                  <div class="punch-emp-name">${escapeHtml(empName)}</div>
-                  <div class="punch-grid">
-                    <div class="punch-grid-item">
-                      <span class="punch-grid-label">ID:</span>
-                      <span class="punch-grid-value">${escapeHtml(empCode)}</span>
-                    </div>
-                    <div class="punch-grid-item">
-                      <span class="punch-grid-label">Role:</span>
-                      <span class="punch-grid-value">${escapeHtml(desig)}</span>
-                    </div>
-                    <div class="punch-grid-item">
-                      <span class="punch-grid-label">Dept:</span>
-                      <span class="punch-grid-value">${escapeHtml(dept)}</span>
-                    </div>
-                    <div class="punch-grid-item">
-                      <span class="punch-grid-label">Biometric:</span>
-                      <span class="punch-conf-pill">${conf}</span>
-                    </div>
-                    ${workingHoursHtml}
+              if (data.matched) {
+                const isPunchOut = data.punch_status === 'punch_out';
+                const statusLabel = isPunchOut ? 'Punch Out Recorded' : 'Punch In Recorded';
+                const statusIcon = isPunchOut ? '⏏' : '✔';
+                const empName = data.employee_name || 'Verified Employee';
+                const empCode = data.employee_code || data.employee_id || 'EMP-VERIFIED';
+                const dept = data.department || 'Operations';
+                const desig = data.designation || 'Staff';
+                const punchTime = data.punch_time || `${hoursStr}:${minutes}:${seconds} ${ampm}`;
+                const conf = data.confidence ? `${data.confidence}% Match` : '98.5% Match';
+                const distInfo = data.formatted_distance ? `${data.formatted_distance}` : 'On-Site Office Geofence Verified';
+                const workingHoursHtml = data.working_hours ? `
+                  <div class="punch-grid-item">
+                    <span class="punch-grid-label">Working Hours:</span>
+                    <span class="punch-grid-value" style="color: #16a34a;">${escapeHtml(data.working_hours)}</span>
                   </div>
-                  <div class="punch-geo-badge" style="display: flex; flex-direction: column; gap: 3px; align-items: flex-start; text-align: left;">
-                    <div style="display: flex; align-items: center; gap: 5px;">
-                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                        <circle cx="12" cy="10" r="3"></circle>
-                      </svg>
-                      <span>${escapeHtml(distInfo)}</span>
+                ` : '';
+
+                punchContainer.innerHTML = `
+                  <div class="punch-card-verified">
+                    <div class="punch-header">
+                      <span class="punch-badge-success">${statusIcon} ${statusLabel}</span>
+                      <span class="punch-time-tag">${punchTime}</span>
                     </div>
-                    ${data.live_location ? `<div style="font-size: 11px; color: #475569; padding-left: 18px; line-height: 1.3;">📍 <strong>Location:</strong> ${escapeHtml(data.live_location)}</div>` : ''}
+                    <div class="punch-body">
+                      <div class="punch-emp-name">${escapeHtml(empName)}</div>
+                      <div class="punch-grid">
+                        <div class="punch-grid-item">
+                          <span class="punch-grid-label">ID:</span>
+                          <span class="punch-grid-value">${escapeHtml(empCode)}</span>
+                        </div>
+                        <div class="punch-grid-item">
+                          <span class="punch-grid-label">Role:</span>
+                          <span class="punch-grid-value">${escapeHtml(desig)}</span>
+                        </div>
+                        <div class="punch-grid-item">
+                          <span class="punch-grid-label">Dept:</span>
+                          <span class="punch-grid-value">${escapeHtml(dept)}</span>
+                        </div>
+                        <div class="punch-grid-item">
+                          <span class="punch-grid-label">Biometric:</span>
+                          <span class="punch-conf-pill">${conf}</span>
+                        </div>
+                        ${workingHoursHtml}
+                      </div>
+                      <div class="punch-geo-badge" style="display: flex; flex-direction: column; gap: 3px; align-items: flex-start; text-align: left;">
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                          </svg>
+                          <span>${escapeHtml(distInfo)}</span>
+                        </div>
+                        ${data.live_location ? `<div style="font-size: 11px; color: #475569; padding-left: 18px; line-height: 1.3;">📍 <strong>Location:</strong> ${escapeHtml(data.live_location)}</div>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `;
+                punchContainer.style.display = 'block';
+
+              } else {
+                const errMsg = data.message || data.error || 'Face not recognized in database.';
+                const isNoFace = errMsg.toLowerCase().includes('no face');
+                const badgeText = res.status === 403 ? 'Punch Disabled' : (isNoFace ? 'No Face Detected' : 'Biometric Verification');
+                punchContainer.innerHTML = `
+                  <div class="punch-card-failed">
+                    <div class="punch-header">
+                      <span class="punch-badge-failed">⚠ ${escapeHtml(badgeText)}</span>
+                      <span class="punch-time-tag">${hoursStr}:${minutes}:${seconds} ${ampm}</span>
+                    </div>
+                    <div class="punch-body">
+                      <div style="font-size: 13.5px; font-weight: 600; color: #991b1b;">
+                        ${escapeHtml(errMsg)}
+                      </div>
+                      <div style="font-size: 12px; color: #64748b; margin-top: 3px;">
+                        Please ensure good front-facing lighting, face the camera directly, and ensure your photo is enrolled in the employee profile.
+                      </div>
+                    </div>
+                  </div>
+                `;
+                punchContainer.style.display = 'block';
+              }
+
+            } catch (fetchErr) {
+              console.error('Mark Attendance error:', fetchErr);
+              punchContainer.innerHTML = `
+                <div class="punch-card-failed">
+                  <div class="punch-header">
+                    <span class="punch-badge-failed">⚠ Attendance Notice</span>
+                  </div>
+                  <div style="font-size: 13px; color: #991b1b; padding-top: 4px;">
+                    ${escapeHtml(fetchErr.message || 'Unable to contact attendance server. Please try again.')}
                   </div>
                 </div>
-              </div>
-            `;
-            punchContainer.style.display = 'block';
+              `;
+              punchContainer.style.display = 'block';
+            }
 
-          } else {
-            // Face match failed or friendly validation message
-            const errMsg = data.message || data.error || 'Face not recognized in database.';
-            const isNoFace = errMsg.toLowerCase().includes('no face');
-            const badgeText = res.status === 403 ? 'Punch Disabled' : (isNoFace ? 'No Face Detected' : 'Biometric Verification');
-            punchContainer.innerHTML = `
-              <div class="punch-card-failed">
-                <div class="punch-header">
-                  <span class="punch-badge-failed">⚠ ${escapeHtml(badgeText)}</span>
-                  <span class="punch-time-tag">${hoursStr}:${minutes}:${seconds} ${ampm}</span>
-                </div>
-                <div class="punch-body">
-                  <div style="font-size: 13.5px; font-weight: 600; color: #991b1b;">
-                    ${escapeHtml(errMsg)}
-                  </div>
-                  <div style="font-size: 12px; color: #64748b; margin-top: 3px;">
-                    Please ensure good front-facing lighting, face the camera directly, and ensure your photo is enrolled in the employee profile.
-                  </div>
-                </div>
-              </div>
-            `;
-            punchContainer.style.display = 'block';
-          }
+            // Auto-dismiss dynamic punch card after 10 seconds to keep UI clean
+            setTimeout(() => {
+              if (punchContainer.style.display === 'block') {
+                punchContainer.style.opacity = '0';
+                punchContainer.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => {
+                  punchContainer.style.display = 'none';
+                  punchContainer.style.opacity = '1';
+                }, 500);
+              }
+            }, 10000);
 
-        } catch (fetchErr) {
-          console.error('Mark Attendance error:', fetchErr);
-          punchContainer.innerHTML = `
-            <div class="punch-card-failed">
-              <div class="punch-header">
-                <span class="punch-badge-failed">⚠ Attendance Notice</span>
-              </div>
-              <div style="font-size: 13px; color: #991b1b; padding-top: 4px;">
-                ${escapeHtml(fetchErr.message || 'Unable to contact attendance server. Please try again.')}
-              </div>
-            </div>
-          `;
-          punchContainer.style.display = 'block';
-        }
+            resolveBlob();
+          }, 'image/jpeg', 0.88);
+        });
 
+      } catch (err) {
+        console.error('Punch execution error:', err);
+      } finally {
+        isProcessingPunch = false;
         btnMark.disabled = false;
         btnMarkText.textContent = 'Mark Attendance';
+        // 7-second cooldown debounce to avoid repeated auto-punching
+        cooldownUntil = Date.now() + 7000;
+        resetBlinkState();
+      }
+    }
 
-        // Auto-dismiss dynamic punch card after 10 seconds to keep UI clean
-        setTimeout(() => {
-          if (punchContainer.style.display === 'block') {
-            punchContainer.style.opacity = '0';
-            punchContainer.style.transition = 'opacity 0.5s ease';
-            setTimeout(() => {
-              punchContainer.style.display = 'none';
-              punchContainer.style.opacity = '1';
-            }, 500);
-          }
-        }, 10000);
-
-      }, 'image/jpeg', 0.88);
+    // Manual button listener - works at any time!
+    btnMark.addEventListener('click', function () {
+      executeAttendancePunch('button');
     });
   });
   </script>
