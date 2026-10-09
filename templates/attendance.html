@@ -1747,18 +1747,13 @@
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
         const ctx = canvas.getContext('2d');
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const blob1 = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.88));
+        const blob1 = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.90));
 
         // 200ms delay for second micro-motion frame
         await new Promise(r => setTimeout(r, 200));
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const blob2 = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.88));
+        const blob2 = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.90));
 
         if (!blob1) {
           throw new Error('Unable to capture camera frame');

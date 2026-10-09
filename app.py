@@ -3305,22 +3305,19 @@ def api_face_recognize():
         try:
             if hasattr(engine, 'verify_liveness_from_bytes'):
                 is_live, liveness_conf, spoof_reason = engine.verify_liveness_from_bytes(file_bytes, burst_bytes=burst_file_bytes)
-                if not is_live:
-                    return jsonify({
-                        'matched': False,
-                        'confidence': 0.0,
-                        'spoof_detected': True,
-                        'message': f"Anti-Spoofing Alert: {spoof_reason}. Please face the camera live."
-                    }), 200
             elif hasattr(engine, 'verify_liveness_anti_spoofing'):
                 is_live, liveness_conf, spoof_reason = engine.verify_liveness_anti_spoofing(file_bytes, burst_img=burst_file_bytes)
-                if not is_live:
-                    return jsonify({
-                        'matched': False,
-                        'confidence': 0.0,
-                        'spoof_detected': True,
-                        'message': f"Anti-Spoofing Alert: {spoof_reason}. Please face the camera live."
-                    }), 200
+            else:
+                is_live, liveness_conf, spoof_reason = True, 1.0, "OK"
+
+            # Strictly trigger anti-spoofing alert ONLY for confirmed presentation attacks (screens, glass glare, moire, static 2D prints)
+            if is_live is False and spoof_reason and "No face detected" not in spoof_reason:
+                return jsonify({
+                    'matched': False,
+                    'confidence': 0.0,
+                    'spoof_detected': True,
+                    'message': f"Anti-Spoofing Alert: {spoof_reason}. Please face the camera live."
+                }), 200
         except Exception as pad_err:
             print(f"Warning: PAD verification notice: {pad_err}")
         

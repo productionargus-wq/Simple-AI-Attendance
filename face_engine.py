@@ -114,7 +114,7 @@ def get_detector(width=320, height=240):
                     model=YUNET_PATH,
                     config="",
                     input_size=(width, height),
-                    score_threshold=0.5,
+                    score_threshold=0.35,
                     nms_threshold=0.3,
                     top_k=5000
                 )
@@ -232,6 +232,38 @@ def detect_face_deep(img):
                     detector.setInputSize((w, h))
                 except Exception:
                     pass
+
+        # Pass 4: Robust Haar Cascade Fallback with CLAHE
+        try:
+            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            if os.path.exists(cascade_path):
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+                enhanced_gray = clahe.apply(gray)
+                face_cascade = cv2.CascadeClassifier(cascade_path)
+                faces = face_cascade.detectMultiScale(
+                    enhanced_gray,
+                    scaleFactor=1.1,
+                    minNeighbors=3,
+                    minSize=(30, 30)
+                )
+                if len(faces) > 0:
+                    x, y, fw, fh = max(faces, key=lambda b: b[2] * b[3])
+                    # Synthesize YuNet 15-float format: [bbox (4), 5 landmarks (10), score (1)]
+                    re_x, re_y = x + fw * 0.35, y + fh * 0.38
+                    le_x, le_y = x + fw * 0.65, y + fh * 0.38
+                    nt_x, nt_y = x + fw * 0.50, y + fh * 0.58
+                    rm_x, rm_y = x + fw * 0.38, y + fh * 0.78
+                    lm_x, lm_y = x + fw * 0.62, y + fh * 0.78
+                    synth = np.array([
+                        x, y, fw, fh,
+                        re_x, re_y, le_x, le_y,
+                        nt_x, nt_y, rm_x, rm_y,
+                        lm_x, lm_y, 0.85
+                    ], dtype=np.float32)
+                    return synth
+        except Exception:
+            pass
 
         return None
 
@@ -382,7 +414,7 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
             face = detect_face_deep(img)
 
         if face is None:
-            return False, 0.0, "No face detected"
+            return None, 0.0, "No face detected in camera frame"
 
         # Extract bbox [x, y, w_box, h_box]
         fx = max(0, int(face[0]))
@@ -393,11 +425,11 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
         fcy = fy + fh / 2.0
 
         if fw < 25 or fh < 25:
-            return False, 0.0, "Face too small or distant for biometric verification"
+            return None, 0.0, "Face too small or distant for biometric verification"
 
         face_roi = img[fy:fy+fh, fx:fx+fw]
         if face_roi.size == 0:
-            return False, 0.0, "Invalid face region"
+            return None, 0.0, "Invalid face region"
 
         # Grayscale and edge processing
         gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -410,8 +442,8 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
         for cnt in contours:
             rx, ry, rw, rh = cv2.boundingRect(cnt)
             if rw > fw * 0.80 and rh > fh * 0.80:
-                # Handheld device must be smaller than the camera frame
-                if rw < w * 0.96 or rh < h * 0.96:
+                # Handheld device must be smaller than the camera frame and within handheld proportions
+                if (rw < w * 0.96 or rh < h * 0.96) and rw <= fw * 2.8 and rh <= fh * 3.5:
                     # Encloses the face center
                     if rx <= fcx <= rx + rw and ry <= fcy <= ry + rh:
                         aspect_bb = rh / float(rw + 1e-5)
@@ -468,7 +500,7 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
 
         # --- Test 6: Laplacian Texture Sharpness & Flatness ---
         lap_var = float(cv2.Laplacian(gray_roi, cv2.CV_64F).var())
-        if lap_var < 16.0:
+        if lap_var < 4.5:
             return False, 0.88, "2D low-resolution photograph or printout detected"
 
         # --- Test 7: Dual-Frame Burst Micro-Movement Verification ---
