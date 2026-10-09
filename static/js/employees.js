@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const st = emp.salary_type || 'hourly';
-      let salaryRateDisplay = `₹${Number(emp.hourly_salary || 0).toFixed(0)}/hr`;
+      let salaryRateDisplay = `₹${Number(emp.hourly_salary || 0).toFixed(2)}/hr`;
       if (st === 'daily') salaryRateDisplay = `₹${Number(emp.day_salary || 0).toFixed(0)}/day`;
       else if (st === 'half_day') salaryRateDisplay = `₹${Number(emp.half_day_salary || 0).toFixed(0)}/half-day`;
 
@@ -723,8 +723,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const day = parseFloat(inputDay.value) || 0;
     if (day <= 0) return;
     const dur = getShiftDuration();
-    inputHourly.value = (day / dur).toFixed(2);
-    inputHalfDay.value = (day / 2).toFixed(2);
+    const st = inputSalaryType ? inputSalaryType.value : 'daily';
+    if (st === 'hourly') {
+      inputHourly.value = (day / dur).toFixed(2);
+      inputHalfDay.value = (day / 2).toFixed(2);
+    } else {
+      inputDay.value = Math.round(day);
+      inputHalfDay.value = Math.round(day / 2);
+    }
   }
 
   // When Half-Day changes
@@ -732,17 +738,44 @@ document.addEventListener('DOMContentLoaded', function () {
     const half = parseFloat(inputHalfDay.value) || 0;
     if (half <= 0) return;
     const dur = getShiftDuration();
-    const day = half * 2;
-    inputDay.value = day.toFixed(2);
-    inputHourly.value = (day / dur).toFixed(2);
+    const st = inputSalaryType ? inputSalaryType.value : 'daily';
+    if (st === 'hourly') {
+      const day = half * 2;
+      inputDay.value = day.toFixed(2);
+      inputHourly.value = (day / dur).toFixed(2);
+    } else {
+      inputHalfDay.value = Math.round(half);
+      inputDay.value = Math.round(half * 2);
+    }
   }
 
   if (inputSalaryType) {
     inputSalaryType.addEventListener('change', function () {
       const st = this.value;
-      if (st === 'hourly' && inputHourly) inputHourly.focus();
-      else if (st === 'daily' && inputDay) inputDay.focus();
-      else if (st === 'half_day' && inputHalfDay) inputHalfDay.focus();
+      if (st === 'hourly') {
+        if (inputHourly) {
+          inputHourly.step = '0.01';
+          inputHourly.placeholder = 'Rate in Decimals (e.g. 150.50)';
+          inputHourly.focus();
+        }
+        if (inputDay) inputDay.step = '0.01';
+        if (inputHalfDay) inputHalfDay.step = '0.01';
+      } else {
+        if (inputHourly) {
+          inputHourly.step = '1';
+          inputHourly.placeholder = 'Amount (e.g. 100)';
+        }
+        if (inputDay) {
+          inputDay.step = '1';
+          if (inputDay.value) inputDay.value = Math.round(parseFloat(inputDay.value) || 0);
+        }
+        if (inputHalfDay) {
+          inputHalfDay.step = '1';
+          if (inputHalfDay.value) inputHalfDay.value = Math.round(parseFloat(inputHalfDay.value) || 0);
+        }
+        if (st === 'daily' && inputDay) inputDay.focus();
+        else if (st === 'half_day' && inputHalfDay) inputHalfDay.focus();
+      }
     });
   }
 

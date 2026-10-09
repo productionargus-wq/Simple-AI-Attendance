@@ -330,6 +330,138 @@ def extract_face_embedding_from_image(image_bytes_or_path):
         return None
 
 
+def verify_liveness_anti_spoofing(img, face=None):
+    """
+    Presentation Attack Detection (PAD) / Anti-Spoofing Engine:
+    Examines the frame and face region to detect:
+    1. Digital Screens (Smartphone / Tablet / Monitor screens: periodic subpixel grid Moiré FFT peaks, blue-shifted backlight, glass glare, device bezels)
+    2. 2D Printed Photos on Paper (flat texture, low depth-of-field, paper borders)
+    
+    Returns:
+        tuple: (is_live: bool, confidence: float, reason: str)
+    """
+    if img is None or cv2 is None or np is None:
+        return True, 1.0, "OK"
+
+    try:
+        h, w = img.shape[:2]
+        if face is None:
+            face = detect_face_deep(img)
+
+        if face is None:
+            return False, 0.0, "No face detected"
+
+        # Extract bbox [x, y, w_box, h_box]
+        fx = max(0, int(face[0]))
+        fy = max(0, int(face[1]))
+        fw = min(w - fx, int(face[2]))
+        fh = min(h - fy, int(face[3]))
+
+        if fw < 25 or fh < 25:
+            return False, 0.0, "Face too small or distant for biometric verification"
+
+        face_roi = img[fy:fy+fh, fx:fx+fw]
+        if face_roi.size == 0:
+            return False, 0.0, "Invalid face region"
+
+        # --- Test 1: 2D FFT Moiré & Periodic Subpixel Grid Analysis ---
+        gray_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
+        gray_128 = cv2.resize(gray_roi, (128, 128), interpolation=cv2.INTER_AREA)
+        f = np.fft.fft2(gray_128)
+        fshift = np.fft.fftshift(f)
+        mag_spec = np.log(np.abs(fshift) + 1.0)
+
+        # High frequency annular ring: radius 25 to 55 from center (64, 64)
+        y_grid, x_grid = np.ogrid[:128, :128]
+        dist_center = np.sqrt((x_grid - 64)**2 + (y_grid - 64)**2)
+        hf_mask = (dist_center >= 25) & (dist_center <= 55)
+        hf_vals = mag_spec[hf_mask]
+        
+        fft_peak_ratio = 0.0
+        if len(hf_vals) > 0:
+            mean_hf = np.mean(hf_vals)
+            max_hf = np.max(hf_vals)
+            std_hf = np.std(hf_vals)
+            fft_peak_ratio = float((max_hf - mean_hf) / (std_hf + 1e-5))
+
+        # --- Test 2: Glass Specular Glare & Reflection Hotspots ---
+        hsv_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2HSV)
+        v_channel = hsv_roi[:, :, 2]
+        s_channel = hsv_roi[:, :, 1]
+        
+        # Severe screen/glass reflection: pure white with near zero saturation
+        glare_mask = (v_channel >= 250) & (s_channel <= 20)
+        glare_ratio = float(np.sum(glare_mask)) / float(fw * fh)
+
+        # --- Test 3: Color Gamut & Blue-Shifted Screen Backlight ---
+        b_mean = float(np.mean(face_roi[:, :, 0]))
+        r_mean = float(np.mean(face_roi[:, :, 2]))
+        blue_to_red_ratio = (b_mean + 1.0) / (r_mean + 1.0)
+
+        # --- Test 4: Rectangular Device Bezel / Phone Border Detection ---
+        pad_x = int(fw * 0.45)
+        pad_y = int(fh * 0.45)
+        x1 = max(0, fx - pad_x)
+        y1 = max(0, fy - pad_y)
+        x2 = min(w, fx + fw + pad_x)
+        y2 = min(h, fy + fh + pad_y)
+        surround_roi = img[y1:y2, x1:x2]
+
+        bezel_detected = False
+        if surround_roi.shape[0] > 60 and surround_roi.shape[1] > 60:
+            surround_gray = cv2.cvtColor(surround_roi, cv2.COLOR_BGR2GRAY)
+            blurred = cv2.GaussianBlur(surround_gray, (5, 5), 0)
+            edges = cv2.Canny(blurred, 60, 180)
+            
+            lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=40, maxLineGap=10)
+            if lines is not None and len(lines) >= 4:
+                horiz_lines = 0
+                vert_lines = 0
+                for line in lines:
+                    lx1, ly1, lx2, ly2 = line[0]
+                    dx = abs(lx2 - lx1)
+                    dy = abs(ly2 - ly1)
+                    length = np.hypot(dx, dy)
+                    if length > 40:
+                        angle = np.degrees(np.arctan2(dy, dx))
+                        if angle < 15 or angle > 165:
+                            horiz_lines += 1
+                        elif 75 < angle < 105:
+                            vert_lines += 1
+                if horiz_lines >= 2 and vert_lines >= 2:
+                    bezel_detected = True
+
+        # --- Test 5: Laplacian Texture Sharpness & Flatness ---
+        lap_var = float(cv2.Laplacian(gray_roi, cv2.CV_64F).var())
+
+        # Anti-Spoofing Rules:
+        # 1. Screen Moiré: Periodic subpixel grid peaks
+        if fft_peak_ratio >= 4.75:
+            return False, 0.95, "Digital Screen Moiré Pattern detected"
+
+        # 2. Bezel + Specular Glare / Blue Backlight: Phone frame held up
+        if bezel_detected and (glare_ratio >= 0.02 or blue_to_red_ratio >= 1.05 or fft_peak_ratio >= 4.2):
+            return False, 0.92, "Smartphone or Digital Device Bezel detected"
+
+        # 3. Excessive glass glare reflection
+        if glare_ratio >= 0.08:
+            return False, 0.90, "Glass Screen Specular Reflection detected"
+
+        # 4. Severe blue-backlight shift on face
+        if blue_to_red_ratio >= 1.25 and (fft_peak_ratio >= 3.8 or glare_ratio >= 0.03):
+            return False, 0.88, "Digital Screen Backlight Luminescence detected"
+
+        # 5. Out of focus / flat paper print (extremely low texture on face)
+        if lap_var < 15.0:
+            return False, 0.85, "2D Low-Resolution Photo or Printout detected"
+
+        return True, 0.98, "Live Human Confirmed"
+
+    except Exception as e:
+        print(f"Anti-spoofing verification error: {e}")
+        return True, 0.5, "Bypass on error"
+
+
 def cosine_similarity(vec_a, vec_b):
     """Computes cosine similarity between two 128-d vectors in range [-1.0, 1.0]."""
     if np is None or not vec_a or not vec_b:

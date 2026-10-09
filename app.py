@@ -3273,6 +3273,22 @@ def api_face_recognize():
                 'message': 'Face recognition engine is initializing or unavailable. Please try again in a few moments.'
             }), 200
         
+        # Presentation Attack Detection (Anti-Spoofing: detect phone screens, 2D photos, tablets)
+        try:
+            nparr = np.frombuffer(file_bytes, np.uint8)
+            img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img_cv is not None and hasattr(engine, 'verify_liveness_anti_spoofing'):
+                is_live, liveness_conf, spoof_reason = engine.verify_liveness_anti_spoofing(img_cv)
+                if not is_live:
+                    return jsonify({
+                        'matched': False,
+                        'confidence': 0.0,
+                        'spoof_detected': True,
+                        'message': f"Anti-Spoofing Alert: {spoof_reason}. Please face the camera live."
+                    }), 200
+        except Exception as pad_err:
+            print(f"Warning: PAD verification notice: {pad_err}")
+        
         try:
             query_embedding = engine.extract_face_embedding_from_image(file_bytes)
         except Exception as fe_err:

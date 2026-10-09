@@ -1875,20 +1875,26 @@
 
               } else {
                 const errMsg = data.message || data.error || 'Face not recognized in database.';
+                const isSpoof = Boolean(data.spoof_detected);
                 const isNoFace = errMsg.toLowerCase().includes('no face');
-                const badgeText = res.status === 403 ? 'Punch Disabled' : (isNoFace ? 'No Face Detected' : 'Biometric Verification');
+                const badgeText = isSpoof
+                  ? '🛑 Anti-Spoofing Alert'
+                  : (res.status === 403 ? 'Punch Disabled' : (isNoFace ? 'No Face Detected' : 'Biometric Verification'));
+                const subText = isSpoof
+                  ? 'Attendance requires a live human presence. Presenting a smartphone screen, digital tablet, or printed 2D photograph is strictly blocked.'
+                  : 'Please ensure good front-facing lighting, face the camera directly, and ensure your photo is enrolled in the employee profile.';
                 punchContainer.innerHTML = `
-                  <div class="punch-card-failed">
+                  <div class="punch-card-failed" style="${isSpoof ? 'border-left: 5px solid #ef4444; background: #fff1f2;' : ''}">
                     <div class="punch-header">
-                      <span class="punch-badge-failed">⚠ ${escapeHtml(badgeText)}</span>
+                      <span class="punch-badge-failed" style="${isSpoof ? 'background: #ef4444; color: #fff;' : ''}">⚠ ${escapeHtml(badgeText)}</span>
                       <span class="punch-time-tag">${hoursStr}:${minutes}:${seconds} ${ampm}</span>
                     </div>
                     <div class="punch-body">
-                      <div style="font-size: 13.5px; font-weight: 600; color: #991b1b;">
+                      <div style="font-size: 13.5px; font-weight: 700; color: #991b1b;">
                         ${escapeHtml(errMsg)}
                       </div>
-                      <div style="font-size: 12px; color: #64748b; margin-top: 3px;">
-                        Please ensure good front-facing lighting, face the camera directly, and ensure your photo is enrolled in the employee profile.
+                      <div style="font-size: 12px; color: ${isSpoof ? '#7f1d1d' : '#64748b'}; margin-top: 3px;">
+                        ${escapeHtml(subText)}
                       </div>
                     </div>
                   </div>

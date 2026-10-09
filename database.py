@@ -1174,6 +1174,15 @@ def create_employee(data, company_id=None):
 
     raw_st = str(data.get('salary_type') or 'daily').strip().lower()
     salary_type = raw_st if raw_st in ['hourly', 'daily', 'half_day'] else 'daily'
+
+    if salary_type == 'hourly':
+        h_sal = round(safe_float(data.get('hourly_salary')), 2)
+        d_sal = round(safe_float(data.get('day_salary')), 2)
+        hd_sal = round(safe_float(data.get('half_day_salary')), 2)
+    else:
+        h_sal = 0.0
+        d_sal = int(round(safe_float(data.get('day_salary'))))
+        hd_sal = int(round(safe_float(data.get('half_day_salary'))))
     
     doc = {
         'id': emp_id,
@@ -1183,9 +1192,9 @@ def create_employee(data, company_id=None):
         'designation': data.get('designation', '').strip(),
         'salary_type': salary_type,
         'mobile_number': data.get('mobile_number', '').strip(),
-        'hourly_salary': safe_float(data.get('hourly_salary')),
-        'day_salary': safe_float(data.get('day_salary')),
-        'half_day_salary': safe_float(data.get('half_day_salary')),
+        'hourly_salary': h_sal,
+        'day_salary': d_sal,
+        'half_day_salary': hd_sal,
         'email_id': data.get('email_id', '').strip(),
         'aadhar_number': data.get('aadhar_number', '').strip(),
         'emergency_contact': data.get('emergency_contact', '').strip(),
@@ -1239,15 +1248,28 @@ def update_employee(emp_id, data, company_id=None):
         if key in data:
             upd[key] = str(data[key]).strip() if data[key] is not None else ''
 
-    salary_fields = ['hourly_salary', 'day_salary', 'half_day_salary']
-    for s_key in salary_fields:
-        if s_key in data:
-            upd[s_key] = safe_float(data[s_key])
-
     if 'salary_type' in data and data['salary_type']:
         st = str(data['salary_type']).strip().lower()
         if st in ['hourly', 'daily', 'half_day']:
             upd['salary_type'] = st
+
+    existing_emp = db.employees.find_one(f) if f else None
+    effective_st = upd.get('salary_type') or (existing_emp.get('salary_type') if existing_emp else 'daily')
+
+    if effective_st == 'hourly':
+        if 'hourly_salary' in data:
+            upd['hourly_salary'] = round(safe_float(data['hourly_salary']), 2)
+        if 'day_salary' in data:
+            upd['day_salary'] = round(safe_float(data['day_salary']), 2)
+        if 'half_day_salary' in data:
+            upd['half_day_salary'] = round(safe_float(data['half_day_salary']), 2)
+    else:
+        if 'hourly_salary' in data:
+            upd['hourly_salary'] = 0.0
+        if 'day_salary' in data:
+            upd['day_salary'] = int(round(safe_float(data['day_salary'])))
+        if 'half_day_salary' in data:
+            upd['half_day_salary'] = int(round(safe_float(data['half_day_salary'])))
 
     photo_val = data.get('photo') or data.get('photo_filename')
     if photo_val:
@@ -2595,7 +2617,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         day_credit_type = 'Full Day'
 
         if salary_type == 'hourly':
-            computed_salary = int(round((working_minutes / 60.0) * hourly_rate))
+            computed_salary = round((working_minutes / 60.0) * hourly_rate, 2)
             if working_minutes >= shift_target_minutes:
                 day_credit_type = 'Full Day'
             elif working_minutes >= half_shift_target:
@@ -2631,7 +2653,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
                 computed_salary = int(round((working_minutes / float(half_shift_target)) * effective_half))
                 day_credit_type = 'Partial'
         else:
-            computed_salary = int(round((working_minutes / 60.0) * hourly_rate))
+            computed_salary = round((working_minutes / 60.0) * hourly_rate, 2)
             
         # Determine final entry_type: Proper only if BOTH punch-in and punch-out are within company_geofence_radius
         in_entry_type = existing_rep.get('entry_type', 'proper')
@@ -4624,7 +4646,7 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         working_days_breakdown = f"{working_days} ({full_days} Full, {half_days} Half)" if (full_days > 0 or half_days > 0) else str(working_days)
 
     # Format rate reporting on payslips: only report rates applicable to the employee's basis
-    rep_hours_salary = int(round(hours_salary)) if salary_type == 'hourly' else 0
+    rep_hours_salary = round(hours_salary, 2) if salary_type == 'hourly' else 0
     rep_day_salary = int(round(day_salary)) if salary_type == 'daily' else 0
     rep_half_salary = int(round(half_salary)) if salary_type in ['daily', 'half_day'] else 0
 
@@ -4660,17 +4682,17 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         'total_days_of_month': total_days,
         'total_working_hours': working_hours,
         'working_hours': working_hours,
-        'basic_salary': int(round(basic_salary)),
+        'basic_salary': round(basic_salary, 2) if salary_type == 'hourly' else int(round(basic_salary)),
         'allowance': int(round(allowance)),
         'incentive': int(round(incentive)),
         'other_earnings': int(round(other_earnings)),
-        'total_earnings': int(round(total_earnings)),
+        'total_earnings': round(total_earnings, 2) if salary_type == 'hourly' else int(round(total_earnings)),
         'paid_salary': int(round(paid_salary)),
         'advance_repayment': int(round(advance_repayment)),
         'other_deductions': int(round(other_deductions)),
         'total_deduction': int(round(total_deduction)),
         'total_deductions': int(round(total_deduction)),
-        'net_pay': int(round(net_pay)),
+        'net_pay': round(net_pay, 2) if salary_type == 'hourly' else int(round(net_pay)),
         'net_pay_in_words': net_pay_in_words,
         'email_id': str(emp.get('email_id') or emp.get('email', '') if emp else ''),
         'department': str(emp.get('department', '') or 'General' if emp else 'General'),
@@ -4682,7 +4704,7 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         'company_logo_url': comp_logo_data if comp_logo_data else (f"/uploads/{comp_logo}" if comp_logo else ''),
         'paid_leave_days': paid_leave_days,
         'paid_leave_half_days': paid_leave_half_days,
-        'paid_leave_salary': int(round(paid_leave_salary)),
+        'paid_leave_salary': round(paid_leave_salary, 2) if salary_type == 'hourly' else int(round(paid_leave_salary)),
         'paid_leave_details': paid_leave_details,
         'absent_days_lop': absent_days_lop,
         'permission_hours_used': permission_hours_used,
