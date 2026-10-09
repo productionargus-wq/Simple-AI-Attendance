@@ -1204,6 +1204,9 @@
 
     let portalBlinkCount = 0;
     let portalLastBlinkTime = 0;
+    let portalLastVerifiedBlinkTime = 0;
+    let portalPendingLivenessPunch = false;
+    let portalPendingLivenessTimer = null;
     let portalIsEyesClosed = false;
     let portalClosedFrames = 0;
     let portalBaselineEAR = 0.28;
@@ -1323,6 +1326,11 @@
       portalClosedFrames = 0;
       portalOpticalClosedFrames = 0;
       portalOpticalEyeClosed = false;
+      portalPendingLivenessPunch = false;
+      if (portalPendingLivenessTimer) {
+        clearTimeout(portalPendingLivenessTimer);
+        portalPendingLivenessTimer = null;
+      }
       if (portalBlinkResetTimer) {
         clearTimeout(portalBlinkResetTimer);
         portalBlinkResetTimer = null;
@@ -1451,6 +1459,21 @@
         if (portalIsEyesClosed && portalClosedFrames >= 1 && portalClosedFrames <= 24) {
           portalIsEyesClosed = false;
           portalClosedFrames = 0;
+          portalLastVerifiedBlinkTime = Date.now();
+
+          // Active Liveness Challenge satisfied for manual punch
+          if (portalPendingLivenessPunch) {
+            portalPendingLivenessPunch = false;
+            if (portalPendingLivenessTimer) {
+              clearTimeout(portalPendingLivenessTimer);
+              portalPendingLivenessTimer = null;
+            }
+            updatePortalBlinkHUD(2, '✨ Live Human Verified! Recording...');
+            playPortalChime('success');
+            executePortalPunch('button-liveness');
+            return;
+          }
+
           handlePortalBlinkDetected('mesh');
         } else {
           portalIsEyesClosed = false;
@@ -1461,7 +1484,7 @@
 
     function initPortalFaceMesh() {
       if (typeof FaceMesh === 'undefined') {
-        console.log('MediaPipe FaceMesh script loading or unavailable, high-speed optical fallback active.');
+        console.log('MediaPipe FaceMesh script loading or unavailable.');
         return;
       }
       if (portalFaceMesh) return;
@@ -1479,7 +1502,7 @@
         portalFaceMesh.onResults(onPortalFaceMeshResults);
         portalFaceMeshReady = true;
       } catch (err) {
-        console.warn('Portal FaceMesh initialization error (optical fallback active):', err);
+        console.warn('Portal FaceMesh initialization error:', err);
         portalFaceMeshReady = false;
       }
     }
@@ -1505,48 +1528,6 @@
         } catch (e) {
         } finally {
           isPortalProcessingFrame = false;
-        }
-      }
-
-      // Fallback: Canvas Optical Differential
-      if ((!portalFaceMeshReady || (now - portalLastMeshSeenTime > 1200)) && video && video.readyState >= 2 && !isPortalPunching && (now >= portalCooldownUntil)) {
-        const variance = computePortalOpticalVariance(video);
-        if (variance !== null && variance > 0) {
-          if (portalOpticalBaselineVariance === null) {
-            portalOpticalBaselineVariance = variance;
-            if (portalBlinkHudText && portalBlinkCount === 0) {
-              portalBlinkHudText.textContent = '🟢 Ready — Blink 2 times to punch';
-            }
-          } else {
-            const isHigh = (portalSensitivityMode === 'high');
-            const dropThreshold = portalOpticalBaselineVariance * (isHigh ? 0.82 : 0.76);
-            const recoverThreshold = portalOpticalBaselineVariance * (isHigh ? 0.86 : 0.80);
-
-            if (variance < dropThreshold) {
-              portalOpticalClosedFrames++;
-              if (portalOpticalClosedFrames >= 1 && portalOpticalClosedFrames <= 24) {
-                portalOpticalEyeClosed = true;
-                if (portalBlinkEyeState) {
-                  portalBlinkEyeState.textContent = 'Blink!';
-                  portalBlinkEyeState.className = 'blink-eye-state eye-blink';
-                }
-              }
-            } else if (variance >= recoverThreshold) {
-              portalOpticalBaselineVariance = portalOpticalBaselineVariance * 0.95 + variance * 0.05;
-              if (portalBlinkEyeState) {
-                portalBlinkEyeState.textContent = 'Eye Open';
-                portalBlinkEyeState.className = 'blink-eye-state eye-open';
-              }
-              if (portalOpticalEyeClosed && portalOpticalClosedFrames >= 1 && portalOpticalClosedFrames <= 24) {
-                portalOpticalEyeClosed = false;
-                portalOpticalClosedFrames = 0;
-                handlePortalBlinkDetected('optical');
-              } else {
-                portalOpticalEyeClosed = false;
-                portalOpticalClosedFrames = 0;
-              }
-            }
-          }
         }
       }
 
@@ -1671,106 +1652,145 @@
           updatePortalBlinkHUD(2, '✨ Verifying Face...');
         }
 
+        // Dual-Frame Burst Capture (Frame 1 at t=0, Frame 2 at t=200ms)
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const blob1 = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
 
-        canvas.toBlob(async function (blob) {
-          // Generate 12-hour client timestamp
-          const now = new Date();
-          const d = String(now.getDate()).padStart(2, '0');
-          const m = String(now.getMonth() + 1).padStart(2, '0');
-          const y = now.getFullYear();
-          let h = now.getHours();
-          const ampm = h >= 12 ? 'PM' : 'AM';
-          h = h % 12 || 12;
-          const hStr = String(h).padStart(2, '0');
-          const minStr = String(now.getMinutes()).padStart(2, '0');
-          const secStr = String(now.getSeconds()).padStart(2, '0');
-          const clientTime12 = `${d}/${m}/${y} ${hStr}:${minStr}:${secStr} ${ampm}`;
+        // 200ms delay for second micro-movement frame
+        await new Promise(r => setTimeout(r, 200));
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const blob2 = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
 
-          const formData = new FormData();
-          formData.append('photo', blob, 'punch_frame.jpg');
-          formData.append('client_time', clientTime12);
-          if (userLat && userLng) {
-            formData.append('latitude', userLat);
-            formData.append('longitude', userLng);
+        if (!blob1) {
+          isPortalPunching = false;
+          btnPunch.disabled = false;
+          btnPunch.textContent = 'Mark My Attendance';
+          return;
+        }
+
+        // Generate 12-hour client timestamp
+        const now = new Date();
+        const d = String(now.getDate()).padStart(2, '0');
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const y = now.getFullYear();
+        let h = now.getHours();
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        const hStr = String(h).padStart(2, '0');
+        const minStr = String(now.getMinutes()).padStart(2, '0');
+        const secStr = String(now.getSeconds()).padStart(2, '0');
+        const clientTime12 = `${d}/${m}/${y} ${hStr}:${minStr}:${secStr} ${ampm}`;
+
+        const formData = new FormData();
+        formData.append('photo', blob1, 'punch_frame.jpg');
+        if (blob2) {
+          formData.append('burst_photo', blob2, 'burst_frame.jpg');
+        }
+        formData.append('client_time', clientTime12);
+        if (userLat && userLng) {
+          formData.append('latitude', userLat);
+          formData.append('longitude', userLng);
+        }
+
+        try {
+          const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
+          let data = {};
+          try {
+            data = await res.json();
+          } catch (jsonErr) {
+            data = {
+              matched: false,
+              message: res.status >= 500
+                ? 'Face recognition service temporarily busy. Please wait a moment and try again.'
+                : 'Unable to process biometric frame. Please try again.'
+            };
           }
 
-          try {
-            const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
-            let data = {};
-            try {
-              data = await res.json();
-            } catch (jsonErr) {
-              data = {
-                matched: false,
-                message: res.status >= 500
-                  ? 'Face recognition service temporarily busy. Please wait a moment and try again.'
-                  : 'Unable to process biometric frame. Please try again.'
-              };
-            }
+          if (!data || typeof data !== 'object') {
+            data = { matched: false, message: 'Unexpected server response. Please try again.' };
+          }
 
-            if (!data || typeof data !== 'object') {
-              data = { matched: false, message: 'Unexpected server response. Please try again.' };
-            }
-
-            if (data.matched) {
-              const punchType = data.punch_status === 'punch_out' ? 'Punch Out' : 'Punch In';
-              const hoursInfo = data.working_hours ? `<div style="font-size: 12px; margin-top: 2px;">Working Hours: <strong>${data.working_hours}</strong></div>` : '';
-              if (punchResult) {
-                punchResult.innerHTML = `
-                  <div style="background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; border-radius: 6px; padding: 12px; font-size: 13px;">
-                    <div style="font-weight: 800; font-size: 15px;">✓ ${punchType} Successful!</div>
-                    <div style="margin-top: 4px;"><strong>${data.employee_name}</strong></div>
-                    <div style="font-size: 11px; color: #555; margin-top: 2px;">Distance: ${data.formatted_distance || '0m'} | Confidence: ${data.confidence}%</div>
-                    ${data.live_location ? `<div style="font-size: 11.5px; color: #065f46; margin-top: 3px; font-weight: 600;">📍 Location: ${data.live_location}</div>` : ''}
-                    ${hoursInfo}
-                  </div>
-                `;
-              }
-              // Refresh history if history section is present
-              if (typeof loadHistory === 'function') {
-                loadHistory();
-              }
-            } else {
-              if (punchResult) {
-                const isSpoof = Boolean(data.spoof_detected);
-                punchResult.innerHTML = `
-                  <div style="background-color: ${isSpoof ? '#fff1f2' : '#f8d7da'}; color: #842029; border: 1px solid ${isSpoof ? '#fecdd3' : '#f5c2c7'}; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px; font-size: 13px; text-align: left;">
-                    <div style="font-weight: 800; color: #991b1b; display: flex; align-items: center; gap: 6px;">
-                      ${isSpoof ? '🛑 Anti-Spoofing Alert' : '⚠ Face Not Recognized'}
-                    </div>
-                    <div style="font-size: 12px; margin-top: 4px; font-weight: 600; color: #991b1b;">${escapeHtml(data.message || 'Please face the camera directly in good lighting.')}</div>
-                    ${isSpoof ? '<div style="font-size: 11px; margin-top: 3px; color: #7f1d1d;">Attendance requires a live human. Photos and screens are strictly rejected.</div>' : ''}
-                  </div>
-                `;
-              }
-            }
-          } catch (err) {
+          if (data.matched) {
+            const punchType = data.punch_status === 'punch_out' ? 'Punch Out' : 'Punch In';
+            const hoursInfo = data.working_hours ? `<div style="font-size: 12px; margin-top: 2px;">Working Hours: <strong>${data.working_hours}</strong></div>` : '';
             if (punchResult) {
               punchResult.innerHTML = `
-                <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 12px; font-size: 12px;">
-                  ${err.message || 'Connection error. Please try again.'}
+                <div style="background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; border-radius: 6px; padding: 12px; font-size: 13px;">
+                  <div style="font-weight: 800; font-size: 15px;">✓ ${punchType} Successful!</div>
+                  <div style="margin-top: 4px;"><strong>${data.employee_name}</strong></div>
+                  <div style="font-size: 11px; color: #555; margin-top: 2px;">Distance: ${data.formatted_distance || '0m'} | Confidence: ${data.confidence}%</div>
+                  ${data.live_location ? `<div style="font-size: 11.5px; color: #065f46; margin-top: 3px; font-weight: 600;">📍 Location: ${data.live_location}</div>` : ''}
+                  ${hoursInfo}
                 </div>
               `;
             }
-          } finally {
-            isPortalPunching = false;
-            btnPunch.disabled = false;
-            btnPunch.textContent = 'Mark My Attendance';
-            portalCooldownUntil = Date.now() + 7000;
-            resetPortalBlinkState();
+            if (typeof loadHistory === 'function') {
+              loadHistory();
+            }
+          } else {
             if (punchResult) {
-              setTimeout(() => { punchResult.innerHTML = ''; }, 6000);
+              const isSpoof = Boolean(data.spoof_detected);
+              punchResult.innerHTML = `
+                <div style="background-color: ${isSpoof ? '#fff1f2' : '#f8d7da'}; color: #842029; border: 1px solid ${isSpoof ? '#fecdd3' : '#f5c2c7'}; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px; font-size: 13px; text-align: left;">
+                  <div style="font-weight: 800; color: #991b1b; display: flex; align-items: center; gap: 6px;">
+                    ${isSpoof ? '🛑 Anti-Spoofing Alert' : '⚠ Face Not Recognized'}
+                  </div>
+                  <div style="font-size: 12px; margin-top: 4px; font-weight: 600; color: #991b1b;">${escapeHtml(data.message || 'Please face the camera directly in good lighting.')}</div>
+                  ${isSpoof ? '<div style="font-size: 11px; margin-top: 3px; color: #7f1d1d;">Attendance requires a live human. Photos and screens are strictly rejected.</div>' : ''}
+                </div>
+              `;
             }
           }
-        }, 'image/jpeg', 0.9);
+        } catch (err) {
+          if (punchResult) {
+            punchResult.innerHTML = `
+              <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 12px; font-size: 12px;">
+                ${err.message || 'Connection error. Please try again.'}
+              </div>
+            `;
+          }
+        } finally {
+          isPortalPunching = false;
+          btnPunch.disabled = false;
+          btnPunch.textContent = 'Mark My Attendance';
+          portalCooldownUntil = Date.now() + 7000;
+          resetPortalBlinkState();
+          if (punchResult) {
+            setTimeout(() => { punchResult.innerHTML = ''; }, 6000);
+          }
+        }
       }
 
       btnPunch.addEventListener('click', function () {
-        executePortalPunch('button');
+        if (isPortalPunching) return;
+        if (!cameraActive || !stream) {
+          startCamera();
+          return;
+        }
+        const now = Date.now();
+        if (portalLastVerifiedBlinkTime && (now - portalLastVerifiedBlinkTime <= 4500)) {
+          executePortalPunch('button');
+        } else {
+          portalPendingLivenessPunch = true;
+          if (portalBlinkHudOverlay && cameraActive) {
+            portalBlinkHudOverlay.style.display = 'flex';
+          }
+          updatePortalBlinkHUD(1, '👁️ Liveness Check: Please blink once to confirm live face!');
+          btnPunch.disabled = true;
+          btnPunch.textContent = '👁️ Blink to Verify...';
+          if (portalPendingLivenessTimer) clearTimeout(portalPendingLivenessTimer);
+          portalPendingLivenessTimer = setTimeout(() => {
+            if (portalPendingLivenessPunch && !isPortalPunching) {
+              portalPendingLivenessPunch = false;
+              btnPunch.disabled = false;
+              btnPunch.textContent = 'Mark My Attendance';
+              updatePortalBlinkHUD(0, '⚠️ Liveness Check Timed Out. A live human blink is required.');
+            }
+          }, 7000);
+        }
       });
     }
 

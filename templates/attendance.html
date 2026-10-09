@@ -1154,9 +1154,12 @@
     let animFrameId = null;
     let lastMeshSeenTime = 0;
 
-    // Blink State Machine
+    // Blink & Liveness State Machine
     let blinkCount = 0;
     let lastBlinkTime = 0;
+    let lastVerifiedBlinkTime = 0;
+    let pendingLivenessPunch = false;
+    let pendingLivenessTimer = null;
     let isEyesClosed = false;
     let closedFrameCount = 0;
     let baselineEAR = 0.28;
@@ -1277,6 +1280,11 @@
       closedFrameCount = 0;
       opticalClosedFrames = 0;
       opticalEyeClosed = false;
+      pendingLivenessPunch = false;
+      if (pendingLivenessTimer) {
+        clearTimeout(pendingLivenessTimer);
+        pendingLivenessTimer = null;
+      }
       if (blinkResetTimer) {
         clearTimeout(blinkResetTimer);
         blinkResetTimer = null;
@@ -1382,7 +1390,7 @@
 
     // MediaPipe Result Callback
     function onFaceMeshResults(results) {
-      if (!isCameraRunning || !isHandsFreeActive || isProcessingPunch) return;
+      if (!isCameraRunning || isProcessingPunch) return;
 
       const now = Date.now();
       if (now < cooldownUntil) {
@@ -1453,7 +1461,25 @@
         if (isEyesClosed && closedFrameCount >= 1 && closedFrameCount <= 24) {
           isEyesClosed = false;
           closedFrameCount = 0;
-          handleBlinkDetected('mesh');
+          lastVerifiedBlinkTime = Date.now();
+
+          // Active Liveness Check satisfied for manual button punch
+          if (pendingLivenessPunch) {
+            pendingLivenessPunch = false;
+            if (pendingLivenessTimer) {
+              clearTimeout(pendingLivenessTimer);
+              pendingLivenessTimer = null;
+            }
+            updateBlinkHUD(2, '✨ Live Human Verified! Recording...');
+            playChime('success');
+            reticlePulse();
+            executeAttendancePunch('button-liveness');
+            return;
+          }
+
+          if (isHandsFreeActive) {
+            handleBlinkDetected('mesh');
+          }
         } else {
           isEyesClosed = false;
           closedFrameCount = 0;
@@ -1463,7 +1489,7 @@
 
     function initFaceMesh() {
       if (typeof FaceMesh === 'undefined') {
-        console.log('MediaPipe FaceMesh script loading or unavailable, high-speed optical fallback active.');
+        console.log('MediaPipe FaceMesh script loading or unavailable.');
         return;
       }
       if (faceMesh) return;
@@ -1485,13 +1511,13 @@
         faceMesh.onResults(onFaceMeshResults);
         faceMeshReady = true;
       } catch (err) {
-        console.warn('FaceMesh initialization notice (optical fallback active):', err);
+        console.warn('FaceMesh initialization notice:', err);
         faceMeshReady = false;
       }
     }
 
     async function runDetectionLoop() {
-      if (!isCameraRunning || !isHandsFreeActive) {
+      if (!isCameraRunning) {
         isDetectionRunning = false;
         return;
       }
@@ -1515,49 +1541,8 @@
         }
       }
 
-      // Fallback Engine: Canvas Optical Contrast Differential (Runs if FaceMesh not ready or no mesh seen for 1.2s)
-      if ((!faceMeshReady || (now - lastMeshSeenTime > 1200)) && video && video.readyState >= 2 && !isProcessingPunch && (now >= cooldownUntil)) {
-        const variance = computeOpticalEyeVariance(video);
-        if (variance !== null && variance > 0) {
-          if (opticalBaselineVariance === null) {
-            opticalBaselineVariance = variance;
-            if (blinkHudText && blinkCount === 0) {
-              blinkHudText.textContent = '🟢 Ready — Blink 2 times to punch';
-            }
-          } else {
-            const isHigh = (sensitivityMode === 'high');
-            const dropThreshold = opticalBaselineVariance * (isHigh ? 0.82 : 0.76);
-            const recoverThreshold = opticalBaselineVariance * (isHigh ? 0.86 : 0.80);
-
-            if (variance < dropThreshold) {
-              opticalClosedFrames++;
-              if (opticalClosedFrames >= 1 && opticalClosedFrames <= 24) {
-                opticalEyeClosed = true;
-                if (blinkEyeState) {
-                  blinkEyeState.textContent = 'Blink!';
-                  blinkEyeState.className = 'blink-eye-state eye-blink';
-                }
-              }
-            } else if (variance >= recoverThreshold) {
-              opticalBaselineVariance = opticalBaselineVariance * 0.95 + variance * 0.05;
-              if (blinkEyeState) {
-                blinkEyeState.textContent = 'Eye Open';
-                blinkEyeState.className = 'blink-eye-state eye-open';
-              }
-              if (opticalEyeClosed && opticalClosedFrames >= 1 && opticalClosedFrames <= 24) {
-                opticalEyeClosed = false;
-                opticalClosedFrames = 0;
-                handleBlinkDetected('optical');
-              } else {
-                opticalEyeClosed = false;
-                opticalClosedFrames = 0;
-              }
-            }
-          }
-        }
-      }
-
-      if (isCameraRunning && isHandsFreeActive) {
+      // Keep detection loop running as long as camera is active
+      if (isCameraRunning) {
         animFrameId = requestAnimationFrame(runDetectionLoop);
       } else {
         isDetectionRunning = false;
@@ -1583,13 +1568,13 @@
         btnToggleCameraText.textContent = 'Turn Off Camera';
         btnToggleCamera.classList.add('active');
 
-        if (isHandsFreeActive && blinkHudOverlay) {
+        if (blinkHudOverlay) {
           blinkHudOverlay.style.display = 'flex';
         }
-        updateBlinkHUD(0, '⏳ Initializing Face AI...');
+        updateBlinkHUD(0, isHandsFreeActive ? '👁️ Blink 2 times to punch hands-free' : '🟢 Camera Active — Ready to Mark');
         resetBlinkState();
         initFaceMesh();
-        if (isHandsFreeActive && !isDetectionRunning) {
+        if (!isDetectionRunning) {
           isDetectionRunning = true;
           requestAnimationFrame(runDetectionLoop);
         }
@@ -1758,42 +1743,51 @@
       try {
         const coords = await getUserLocation();
 
-        // Capture frame from video canvas (mirrored)
+        // Dual-Frame Burst Capture (Frame 1 at t=0, Frame 2 at t=200ms)
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
         const ctx = canvas.getContext('2d');
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const blob1 = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.88));
 
-        await new Promise((resolveBlob) => {
-          canvas.toBlob(async function (blob) {
-            if (!blob) {
-              resolveBlob();
-              return;
-            }
+        // 200ms delay for second micro-motion frame
+        await new Promise(r => setTimeout(r, 200));
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const blob2 = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.88));
 
-            // Generate client 12-hour timestamp
-            const now = new Date();
-            const day = String(now.getDate()).padStart(2, '0');
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const year = now.getFullYear();
-            let rawHours = now.getHours();
-            const ampm = rawHours >= 12 ? 'PM' : 'AM';
-            let hours = rawHours % 12;
-            hours = hours ? hours : 12;
-            const hoursStr = String(hours).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            const clientTimestamp = `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
+        if (!blob1) {
+          throw new Error('Unable to capture camera frame');
+        }
 
-            const formData = new FormData();
-            formData.append('photo', blob, 'punch_frame.jpg');
-            if (coords && coords.latitude != null && coords.longitude != null) {
-              formData.append('latitude', coords.latitude);
-              formData.append('longitude', coords.longitude);
-            }
-            formData.append('client_time', clientTimestamp);
+        // Generate client 12-hour timestamp
+        const now = new Date();
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const year = now.getFullYear();
+        let rawHours = now.getHours();
+        const ampm = rawHours >= 12 ? 'PM' : 'AM';
+        let hours = rawHours % 12;
+        hours = hours ? hours : 12;
+        const hoursStr = String(hours).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const clientTimestamp = `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
+
+        const formData = new FormData();
+        formData.append('photo', blob1, 'punch_frame.jpg');
+        if (blob2) {
+          formData.append('burst_photo', blob2, 'burst_frame.jpg');
+        }
+        if (coords && coords.latitude != null && coords.longitude != null) {
+          formData.append('latitude', coords.latitude);
+          formData.append('longitude', coords.longitude);
+        }
+        formData.append('client_time', clientTimestamp);
 
             try {
               const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
@@ -1945,9 +1939,36 @@
       }
     }
 
-    // Manual button listener - works at any time!
+    // Manual button listener - with active liveness verification
     btnMark.addEventListener('click', function () {
-      executeAttendancePunch('button');
+      if (isProcessingPunch) return;
+      if (!isCameraRunning || !stream) {
+        startCamera();
+        return;
+      }
+      const now = Date.now();
+      // If user recently had a verified natural blink within 4.5 seconds
+      if (lastVerifiedBlinkTime && (now - lastVerifiedBlinkTime <= 4500)) {
+        executeAttendancePunch('button');
+      } else {
+        // Active liveness verification: live human must blink once
+        pendingLivenessPunch = true;
+        if (blinkHudOverlay && isCameraRunning) {
+          blinkHudOverlay.style.display = 'flex';
+        }
+        updateBlinkHUD(1, '👁️ Liveness Check: Please blink once to confirm live face!');
+        btnMark.disabled = true;
+        btnMarkText.textContent = '👁️ Blink to Verify...';
+        if (pendingLivenessTimer) clearTimeout(pendingLivenessTimer);
+        pendingLivenessTimer = setTimeout(() => {
+          if (pendingLivenessPunch && !isProcessingPunch) {
+            pendingLivenessPunch = false;
+            btnMark.disabled = false;
+            btnMarkText.textContent = 'Mark Attendance';
+            updateBlinkHUD(0, '⚠️ Liveness Check Timed Out. A live human blink is required.');
+          }
+        }, 7000);
+      }
     });
   });
   </script>

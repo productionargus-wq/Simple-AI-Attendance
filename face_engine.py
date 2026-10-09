@@ -330,12 +330,15 @@ def extract_face_embedding_from_image(image_bytes_or_path):
         return None
 
 
-def verify_liveness_anti_spoofing(img, face=None):
+def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
     """
     Presentation Attack Detection (PAD) / Anti-Spoofing Engine:
     Examines the frame and face region to detect:
-    1. Digital Screens (Smartphone / Tablet / Monitor screens: periodic subpixel grid Moiré FFT peaks, blue-shifted backlight, glass glare, device bezels)
+    1. Digital Screens (Smartphone / Tablet / Monitor screens: device chassis contours,
+       minAreaRect rotated boundaries, specular glass glare, periodic subpixel Moiré FFT peaks,
+       blue-shifted backlight, device bezels)
     2. 2D Printed Photos on Paper (flat texture, low depth-of-field, paper borders)
+    3. Static 2D presentation attacks (zero temporal micro-movement between burst frames)
     
     Returns:
         tuple: (is_live: bool, confidence: float, reason: str)
@@ -356,6 +359,8 @@ def verify_liveness_anti_spoofing(img, face=None):
         fy = max(0, int(face[1]))
         fw = min(w - fx, int(face[2]))
         fh = min(h - fy, int(face[3]))
+        fcx = fx + fw / 2.0
+        fcy = fy + fh / 2.0
 
         if fw < 25 or fh < 25:
             return False, 0.0, "Face too small or distant for biometric verification"
@@ -364,7 +369,45 @@ def verify_liveness_anti_spoofing(img, face=None):
         if face_roi.size == 0:
             return False, 0.0, "Invalid face region"
 
-        # --- Test 1: 2D FFT Moiré & Periodic Subpixel Grid Analysis ---
+        # Grayscale and edge processing
+        gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        blurred_img = cv2.GaussianBlur(gray_img, (5, 5), 0)
+        edges = cv2.Canny(blurred_img, 30, 100)
+
+        # --- Test 1: Handheld Device Chassis & Screen Contour Detection ---
+        # Detects standalone handheld rectangular objects enclosing the face (phones, tablets, photo prints)
+        contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in contours:
+            rx, ry, rw, rh = cv2.boundingRect(cnt)
+            if rw > fw * 0.80 and rh > fh * 0.80:
+                # Handheld device must be smaller than the camera frame
+                if rw < w * 0.96 or rh < h * 0.96:
+                    # Encloses the face center
+                    if rx <= fcx <= rx + rw and ry <= fcy <= ry + rh:
+                        aspect_bb = rh / float(rw + 1e-5)
+                        rect = cv2.minAreaRect(cnt)
+                        dim1, dim2 = rect[1]
+                        if dim1 > 0 and dim2 > 0:
+                            min_d, max_d = min(dim1, dim2), max(dim1, dim2)
+                            aspect_rot = max_d / float(min_d)
+                            # Check phone or tablet aspect ratio (vertical or horizontal)
+                            if (1.08 <= aspect_bb <= 2.6) or (1.08 <= (1.0 / aspect_bb) <= 2.6) or (1.10 <= aspect_rot <= 2.6):
+                                hull = cv2.convexHull(cnt)
+                                hull_area = cv2.contourArea(hull)
+                                solidity = float(hull_area) / float(rw * rh + 1e-5)
+                                if solidity >= 0.35:
+                                    return False, 0.98, f"Mobile phone or digital screen chassis detected (aspect {aspect_rot:.2f})"
+
+        # --- Test 3: Specular Glass Reflection Hotspots ---
+        hsv_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2HSV)
+        v_channel = hsv_roi[:, :, 2]
+        s_channel = hsv_roi[:, :, 1]
+        glare_mask = (v_channel >= 245) & (s_channel <= 25)
+        glare_ratio = float(np.sum(glare_mask)) / float(fw * fh)
+        if glare_ratio >= 0.025:
+            return False, 0.92, "Digital screen glass specular reflection detected"
+
+        # --- Test 4: 2D FFT Moiré & Periodic Subpixel Grid Analysis ---
         gray_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
         gray_128 = cv2.resize(gray_roi, (128, 128), interpolation=cv2.INTER_AREA)
         f = np.fft.fft2(gray_128)
@@ -383,77 +426,39 @@ def verify_liveness_anti_spoofing(img, face=None):
             max_hf = np.max(hf_vals)
             std_hf = np.std(hf_vals)
             fft_peak_ratio = float((max_hf - mean_hf) / (std_hf + 1e-5))
+            if fft_peak_ratio >= 3.6:
+                return False, 0.95, "Digital screen subpixel Moiré grid detected"
 
-        # --- Test 2: Glass Specular Glare & Reflection Hotspots ---
-        hsv_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2HSV)
-        v_channel = hsv_roi[:, :, 2]
-        s_channel = hsv_roi[:, :, 1]
-        
-        # Severe screen/glass reflection: pure white with near zero saturation
-        glare_mask = (v_channel >= 250) & (s_channel <= 20)
-        glare_ratio = float(np.sum(glare_mask)) / float(fw * fh)
-
-        # --- Test 3: Color Gamut & Blue-Shifted Screen Backlight ---
+        # --- Test 5: Color Gamut & Blue-Shifted Screen Backlight ---
         b_mean = float(np.mean(face_roi[:, :, 0]))
         r_mean = float(np.mean(face_roi[:, :, 2]))
         blue_to_red_ratio = (b_mean + 1.0) / (r_mean + 1.0)
+        if blue_to_red_ratio >= 1.20 and glare_ratio >= 0.01:
+            return False, 0.89, "Digital screen backlight luminescence detected"
 
-        # --- Test 4: Rectangular Device Bezel / Phone Border Detection ---
-        pad_x = int(fw * 0.45)
-        pad_y = int(fh * 0.45)
-        x1 = max(0, fx - pad_x)
-        y1 = max(0, fy - pad_y)
-        x2 = min(w, fx + fw + pad_x)
-        y2 = min(h, fy + fh + pad_y)
-        surround_roi = img[y1:y2, x1:x2]
-
-        bezel_detected = False
-        if surround_roi.shape[0] > 60 and surround_roi.shape[1] > 60:
-            surround_gray = cv2.cvtColor(surround_roi, cv2.COLOR_BGR2GRAY)
-            blurred = cv2.GaussianBlur(surround_gray, (5, 5), 0)
-            edges = cv2.Canny(blurred, 60, 180)
-            
-            lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=40, maxLineGap=10)
-            if lines is not None and len(lines) >= 4:
-                horiz_lines = 0
-                vert_lines = 0
-                for line in lines:
-                    lx1, ly1, lx2, ly2 = line[0]
-                    dx = abs(lx2 - lx1)
-                    dy = abs(ly2 - ly1)
-                    length = np.hypot(dx, dy)
-                    if length > 40:
-                        angle = np.degrees(np.arctan2(dy, dx))
-                        if angle < 15 or angle > 165:
-                            horiz_lines += 1
-                        elif 75 < angle < 105:
-                            vert_lines += 1
-                if horiz_lines >= 2 and vert_lines >= 2:
-                    bezel_detected = True
-
-        # --- Test 5: Laplacian Texture Sharpness & Flatness ---
+        # --- Test 6: Laplacian Texture Sharpness & Flatness ---
         lap_var = float(cv2.Laplacian(gray_roi, cv2.CV_64F).var())
+        if lap_var < 16.0:
+            return False, 0.88, "2D low-resolution photograph or printout detected"
 
-        # Anti-Spoofing Rules:
-        # 1. Screen Moiré: Periodic subpixel grid peaks
-        if fft_peak_ratio >= 4.75:
-            return False, 0.95, "Digital Screen Moiré Pattern detected"
-
-        # 2. Bezel + Specular Glare / Blue Backlight: Phone frame held up
-        if bezel_detected and (glare_ratio >= 0.02 or blue_to_red_ratio >= 1.05 or fft_peak_ratio >= 4.2):
-            return False, 0.92, "Smartphone or Digital Device Bezel detected"
-
-        # 3. Excessive glass glare reflection
-        if glare_ratio >= 0.08:
-            return False, 0.90, "Glass Screen Specular Reflection detected"
-
-        # 4. Severe blue-backlight shift on face
-        if blue_to_red_ratio >= 1.25 and (fft_peak_ratio >= 3.8 or glare_ratio >= 0.03):
-            return False, 0.88, "Digital Screen Backlight Luminescence detected"
-
-        # 5. Out of focus / flat paper print (extremely low texture on face)
-        if lap_var < 15.0:
-            return False, 0.85, "2D Low-Resolution Photo or Printout detected"
+        # --- Test 7: Dual-Frame Burst Micro-Movement Verification ---
+        if burst_img is not None:
+            try:
+                burst_face = detect_face_deep(burst_img)
+                if burst_face is not None:
+                    bfx = max(0, int(burst_face[0]))
+                    bfy = max(0, int(burst_face[1]))
+                    bfw = min(burst_img.shape[1] - bfx, int(burst_face[2]))
+                    bfh = min(burst_img.shape[0] - bfy, int(burst_face[3]))
+                    burst_roi = burst_img[bfy:bfy+bfh, bfx:bfx+bfw]
+                    if burst_roi.size > 0 and face_roi.size > 0:
+                        roi_a = cv2.resize(gray_roi, (120, 120))
+                        roi_b = cv2.resize(cv2.cvtColor(burst_roi, cv2.COLOR_BGR2GRAY), (120, 120))
+                        frame_delta = float(np.mean(np.abs(roi_a.astype(float) - roi_b.astype(float))))
+                        if frame_delta < 0.75:
+                            return False, 0.97, "Static photograph presentation attack (zero natural micro-movement)"
+            except Exception as burst_err:
+                print(f"Notice: Dual-frame verification notice: {burst_err}")
 
         return True, 0.98, "Live Human Confirmed"
 

@@ -3243,6 +3243,8 @@ def api_face_recognize():
             if file and file.filename:
                 file_bytes = file.read()
 
+        burst_file_bytes = None
+        data_dict = {}
         if not file_bytes:
             data_dict = request.get_json(silent=True) or request.form.to_dict()
             photo_data = data_dict.get('photo_data') or data_dict.get('photo') or ''
@@ -3255,6 +3257,22 @@ def api_face_recognize():
             elif photo_data and isinstance(photo_data, str) and len(photo_data) > 100:
                 try:
                     file_bytes = base64.b64decode(photo_data)
+                except Exception:
+                    pass
+
+        # Optional burst frame for temporal liveness / micro-movement verification
+        if 'burst_photo' in request.files:
+            b_file = request.files['burst_photo']
+            if b_file and b_file.filename:
+                burst_file_bytes = b_file.read()
+        if not burst_file_bytes:
+            if not data_dict:
+                data_dict = request.get_json(silent=True) or request.form.to_dict()
+            burst_data = data_dict.get('burst_photo') or data_dict.get('burst_data') or ''
+            if burst_data and 'base64,' in str(burst_data):
+                try:
+                    _, b64_b = str(burst_data).split('base64,', 1)
+                    burst_file_bytes = base64.b64decode(b64_b)
                 except Exception:
                     pass
 
@@ -3273,12 +3291,17 @@ def api_face_recognize():
                 'message': 'Face recognition engine is initializing or unavailable. Please try again in a few moments.'
             }), 200
         
-        # Presentation Attack Detection (Anti-Spoofing: detect phone screens, 2D photos, tablets)
+        # Presentation Attack Detection (Anti-Spoofing: detect phone screens, 2D photos, tablets, static attacks)
         try:
             nparr = np.frombuffer(file_bytes, np.uint8)
             img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            burst_cv = None
+            if burst_file_bytes:
+                b_arr = np.frombuffer(burst_file_bytes, np.uint8)
+                burst_cv = cv2.imdecode(b_arr, cv2.IMREAD_COLOR)
+
             if img_cv is not None and hasattr(engine, 'verify_liveness_anti_spoofing'):
-                is_live, liveness_conf, spoof_reason = engine.verify_liveness_anti_spoofing(img_cv)
+                is_live, liveness_conf, spoof_reason = engine.verify_liveness_anti_spoofing(img_cv, burst_img=burst_cv)
                 if not is_live:
                     return jsonify({
                         'matched': False,
