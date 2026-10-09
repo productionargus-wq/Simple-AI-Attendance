@@ -335,6 +335,56 @@
       border-color: rgba(148, 163, 184, 0.3);
       background: rgba(30, 41, 59, 0.9);
     }
+
+    .blink-eye-state {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.15);
+      color: #cbd5e1;
+      margin-left: 5px;
+      letter-spacing: 0.2px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .blink-eye-state.eye-open {
+      color: #38bdf8;
+      background: rgba(14, 165, 233, 0.22);
+    }
+
+    .blink-eye-state.eye-blink {
+      color: #ffffff;
+      background: #10b981;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+      transform: scale(1.08);
+    }
+
+    .btn-sensitivity-toggle {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: #475569;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-sensitivity-toggle:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    .btn-sensitivity-toggle strong {
+      color: #0284c7;
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -438,6 +488,8 @@
                 <span class="blink-hud-dot" id="portalBlinkDot1"></span>
                 <span class="blink-hud-dot" id="portalBlinkDot2"></span>
               </div>
+              <!-- Real-time Eye State Indicator -->
+              <span class="blink-eye-state" id="portalBlinkEyeState">Tracking...</span>
             </div>
           </div>
           <div id="portalCamPlaceholder" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-size: 13px; text-align: center; padding: 20px;">
@@ -451,6 +503,10 @@
           </button>
           <button id="btnPortalToggleCam" type="button" class="btn-portal-primary btn-portal-cam">
             📷 Turn Camera Off
+          </button>
+          <button type="button" class="btn-sensitivity-toggle" id="btnPortalToggleSensitivity" title="Switch blink sensitivity for spectacles/glasses or dim light">
+            <span>⚙️ Sensitivity:</span>
+            <strong id="portalSensitivityLabel">Normal</strong>
           </button>
         </div>
 
@@ -1108,6 +1164,9 @@
     const portalBlinkHudDots = document.getElementById('portalBlinkHudDots');
     const portalBlinkDot1 = document.getElementById('portalBlinkDot1');
     const portalBlinkDot2 = document.getElementById('portalBlinkDot2');
+    const portalBlinkEyeState = document.getElementById('portalBlinkEyeState');
+    const btnPortalToggleSensitivity = document.getElementById('btnPortalToggleSensitivity');
+    const portalSensitivityLabel = document.getElementById('portalSensitivityLabel');
 
     let stream = null;
     let cameraActive = true;
@@ -1115,6 +1174,25 @@
     let userLng = null;
     let isPortalPunching = false;
     let portalCooldownUntil = 0;
+    let portalSensitivityMode = 'normal'; // 'normal' | 'high'
+
+    if (btnPortalToggleSensitivity) {
+      btnPortalToggleSensitivity.addEventListener('click', function () {
+        if (portalSensitivityMode === 'normal') {
+          portalSensitivityMode = 'high';
+          if (portalSensitivityLabel) {
+            portalSensitivityLabel.textContent = 'High (Spectacles)';
+            portalSensitivityLabel.style.color = '#10b981';
+          }
+        } else {
+          portalSensitivityMode = 'normal';
+          if (portalSensitivityLabel) {
+            portalSensitivityLabel.textContent = 'Normal';
+            portalSensitivityLabel.style.color = '#0284c7';
+          }
+        }
+      });
+    }
 
     // FaceMesh & Blink State Machine for Portal
     let portalFaceMesh = null;
@@ -1122,6 +1200,7 @@
     let isPortalDetecting = false;
     let isPortalProcessingFrame = false;
     let portalAnimFrameId = null;
+    let portalLastMeshSeenTime = 0;
 
     let portalBlinkCount = 0;
     let portalLastBlinkTime = 0;
@@ -1130,6 +1209,44 @@
     let portalBaselineEAR = 0.28;
     let portalBlinkResetTimer = null;
     let portalAudioCtx = null;
+
+    // High-Speed Canvas Optical Fallback Engine for Portal
+    const portalOpticalCanvas = document.createElement('canvas');
+    portalOpticalCanvas.width = 80;
+    portalOpticalCanvas.height = 40;
+    const portalOpticalCtx = portalOpticalCanvas.getContext('2d', { willReadFrequently: true });
+    let portalOpticalBaselineVariance = null;
+    let portalOpticalClosedFrames = 0;
+    let portalOpticalEyeClosed = false;
+
+    function computePortalOpticalVariance(videoEl) {
+      if (!videoEl || videoEl.readyState < 2) return null;
+      const vw = videoEl.videoWidth || 640;
+      const vh = videoEl.videoHeight || 480;
+      const sx = vw * 0.25;
+      const sy = vh * 0.26;
+      const sw = vw * 0.50;
+      const sh = vh * 0.24;
+
+      try {
+        portalOpticalCtx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, 80, 40);
+        const imgData = portalOpticalCtx.getImageData(0, 0, 80, 40);
+        const data = imgData.data;
+        const n = data.length / 4;
+        let sumL = 0;
+        let sumL2 = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          sumL += lum;
+          sumL2 += lum * lum;
+        }
+        const mean = sumL / n;
+        const variance = (sumL2 / n) - (mean * mean);
+        return variance;
+      } catch (e) {
+        return null;
+      }
+    }
 
     function playPortalChime(type) {
       try {
@@ -1172,10 +1289,12 @@
         if (portalBlinkHudIcon) portalBlinkHudIcon.textContent = '⏳';
         if (portalBlinkHudText) portalBlinkHudText.textContent = text || 'Ready in a moment...';
         if (portalBlinkHudDots) portalBlinkHudDots.style.display = 'none';
+        if (portalBlinkEyeState) portalBlinkEyeState.style.display = 'none';
         return;
       }
 
       if (portalBlinkHudDots) portalBlinkHudDots.style.display = 'inline-flex';
+      if (portalBlinkEyeState) portalBlinkEyeState.style.display = 'inline-block';
 
       if (count === 0) {
         portalBlinkHudPill.className = 'blink-hud-pill';
@@ -1202,11 +1321,55 @@
       portalBlinkCount = 0;
       portalIsEyesClosed = false;
       portalClosedFrames = 0;
+      portalOpticalClosedFrames = 0;
+      portalOpticalEyeClosed = false;
       if (portalBlinkResetTimer) {
         clearTimeout(portalBlinkResetTimer);
         portalBlinkResetTimer = null;
       }
       updatePortalBlinkHUD(0, message);
+    }
+
+    function handlePortalBlinkDetected(source = 'mesh') {
+      const now = Date.now();
+      if (now < portalCooldownUntil || isPortalPunching) return;
+
+      if (portalBlinkCount > 0 && (now - portalLastBlinkTime > 4500)) {
+        resetPortalBlinkState();
+      }
+
+      portalBlinkCount++;
+      portalLastBlinkTime = now;
+
+      if (portalBlinkCount === 1) {
+        playPortalChime('blink');
+        updatePortalBlinkHUD(1, '1st Blink! Blink once more...');
+        if (portalBlinkEyeState) {
+          portalBlinkEyeState.textContent = 'Blink!';
+          portalBlinkEyeState.className = 'blink-eye-state eye-blink';
+          setTimeout(() => {
+            if (!portalIsEyesClosed && portalBlinkEyeState) {
+              portalBlinkEyeState.textContent = 'Eye Open';
+              portalBlinkEyeState.className = 'blink-eye-state eye-open';
+            }
+          }, 300);
+        }
+        if (portalBlinkResetTimer) clearTimeout(portalBlinkResetTimer);
+        portalBlinkResetTimer = setTimeout(() => {
+          if (portalBlinkCount === 1 && !isPortalPunching) {
+            resetPortalBlinkState('Window expired. Blink 2 times to punch');
+          }
+        }, 4500);
+      } else if (portalBlinkCount >= 2) {
+        if (portalBlinkResetTimer) clearTimeout(portalBlinkResetTimer);
+        playPortalChime('success');
+        updatePortalBlinkHUD(2, '✨ 2 Blinks Verified! Recording...');
+        if (portalBlinkEyeState) {
+          portalBlinkEyeState.textContent = 'Verified!';
+          portalBlinkEyeState.className = 'blink-eye-state eye-blink';
+        }
+        executePortalPunch('blink');
+      }
     }
 
     const LEFT_EYE_PTS = { h1: 33, h2: 133, v1_top: 160, v1_bot: 144, v2_top: 158, v2_bot: 153 };
@@ -1235,12 +1398,17 @@
       }
 
       if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-        if (portalBlinkCount > 0 && (now - portalLastBlinkTime > 3000)) {
+        if (portalBlinkEyeState) {
+          portalBlinkEyeState.textContent = 'Detecting...';
+          portalBlinkEyeState.className = 'blink-eye-state';
+        }
+        if (portalBlinkCount > 0 && (now - portalLastBlinkTime > 4500)) {
           resetPortalBlinkState();
         }
         return;
       }
 
+      portalLastMeshSeenTime = now;
       const landmarks = results.multiFaceLandmarks[0];
       const leftEAR = calculateEARPortal(landmarks, LEFT_EYE_PTS);
       const rightEAR = calculateEARPortal(landmarks, RIGHT_EYE_PTS);
@@ -1248,44 +1416,42 @@
 
       const avgEAR = (leftEAR + rightEAR) / 2.0;
       if (avgEAR > 0.22 && !portalIsEyesClosed) {
-        portalBaselineEAR = portalBaselineEAR * 0.95 + avgEAR * 0.05;
+        portalBaselineEAR = Math.max(0.24, Math.min(0.38, portalBaselineEAR * 0.95 + avgEAR * 0.05));
       }
 
-      const closeThreshold = Math.min(0.20, Math.max(0.14, portalBaselineEAR * 0.65));
-      const openThreshold = Math.max(0.22, Math.min(0.32, portalBaselineEAR * 0.85));
+      const isHigh = (portalSensitivityMode === 'high');
+      const dropRatio = isHigh ? 0.84 : 0.78;
+      const closeFloor = isHigh ? 0.26 : 0.24;
+      const closeThreshold = Math.min(closeFloor, Math.max(0.16, portalBaselineEAR * dropRatio));
+      const openThreshold = Math.max(0.22, portalBaselineEAR * (isHigh ? 0.86 : 0.82));
 
-      if (portalBlinkCount > 0 && (now - portalLastBlinkTime > 3000)) {
+      if (portalBlinkCount > 0 && (now - portalLastBlinkTime > 4500)) {
         resetPortalBlinkState('Window timed out. Blink 2 times to punch');
         return;
       }
 
-      if (avgEAR < closeThreshold && leftEAR < closeThreshold + 0.04 && rightEAR < closeThreshold + 0.04) {
+      const eyeIsLow = (avgEAR < closeThreshold) ||
+                       (leftEAR < closeThreshold && rightEAR < closeThreshold + 0.05) ||
+                       (rightEAR < closeThreshold && leftEAR < closeThreshold + 0.05);
+
+      if (eyeIsLow) {
         portalClosedFrames++;
-        if (portalClosedFrames >= 1 && portalClosedFrames <= 22) {
+        if (portalClosedFrames >= 1 && portalClosedFrames <= 24) {
           portalIsEyesClosed = true;
+          if (portalBlinkEyeState) {
+            portalBlinkEyeState.textContent = 'Blink!';
+            portalBlinkEyeState.className = 'blink-eye-state eye-blink';
+          }
         }
-      } else if (avgEAR > openThreshold) {
-        if (portalIsEyesClosed && portalClosedFrames >= 1 && portalClosedFrames <= 22) {
-          portalBlinkCount++;
-          portalLastBlinkTime = now;
+      } else if (avgEAR >= openThreshold) {
+        if (portalBlinkEyeState) {
+          portalBlinkEyeState.textContent = 'Eye Open';
+          portalBlinkEyeState.className = 'blink-eye-state eye-open';
+        }
+        if (portalIsEyesClosed && portalClosedFrames >= 1 && portalClosedFrames <= 24) {
           portalIsEyesClosed = false;
           portalClosedFrames = 0;
-
-          if (portalBlinkCount === 1) {
-            playPortalChime('blink');
-            updatePortalBlinkHUD(1, '1st Blink! Blink once more...');
-            if (portalBlinkResetTimer) clearTimeout(portalBlinkResetTimer);
-            portalBlinkResetTimer = setTimeout(() => {
-              if (portalBlinkCount === 1 && !isPortalPunching) {
-                resetPortalBlinkState('Blink 2 times to punch hands-free');
-              }
-            }, 3200);
-          } else if (portalBlinkCount >= 2) {
-            if (portalBlinkResetTimer) clearTimeout(portalBlinkResetTimer);
-            playPortalChime('success');
-            updatePortalBlinkHUD(2, '✨ 2 Blinks Verified! Recording...');
-            executePortalPunch('blink');
-          }
+          handlePortalBlinkDetected('mesh');
         } else {
           portalIsEyesClosed = false;
           portalClosedFrames = 0;
@@ -1295,7 +1461,7 @@
 
     function initPortalFaceMesh() {
       if (typeof FaceMesh === 'undefined') {
-        console.log('MediaPipe FaceMesh script loading...');
+        console.log('MediaPipe FaceMesh script loading or unavailable, high-speed optical fallback active.');
         return;
       }
       if (portalFaceMesh) return;
@@ -1313,7 +1479,7 @@
         portalFaceMesh.onResults(onPortalFaceMeshResults);
         portalFaceMeshReady = true;
       } catch (err) {
-        console.warn('Portal FaceMesh initialization error:', err);
+        console.warn('Portal FaceMesh initialization error (optical fallback active):', err);
         portalFaceMeshReady = false;
       }
     }
@@ -1324,6 +1490,14 @@
         return;
       }
 
+      const now = Date.now();
+
+      if (now < portalCooldownUntil) {
+        const remainSec = Math.ceil((portalCooldownUntil - now) / 1000);
+        updatePortalBlinkHUD(0, `Punch recorded ✔ Ready in ${remainSec}s`, true);
+      }
+
+      // Primary: MediaPipe FaceMesh
       if (portalFaceMeshReady && video && video.readyState >= 2 && !isPortalPunching && !isPortalProcessingFrame) {
         isPortalProcessingFrame = true;
         try {
@@ -1331,6 +1505,48 @@
         } catch (e) {
         } finally {
           isPortalProcessingFrame = false;
+        }
+      }
+
+      // Fallback: Canvas Optical Differential
+      if ((!portalFaceMeshReady || (now - portalLastMeshSeenTime > 1200)) && video && video.readyState >= 2 && !isPortalPunching && (now >= portalCooldownUntil)) {
+        const variance = computePortalOpticalVariance(video);
+        if (variance !== null && variance > 0) {
+          if (portalOpticalBaselineVariance === null) {
+            portalOpticalBaselineVariance = variance;
+            if (portalBlinkHudText && portalBlinkCount === 0) {
+              portalBlinkHudText.textContent = '🟢 Ready — Blink 2 times to punch';
+            }
+          } else {
+            const isHigh = (portalSensitivityMode === 'high');
+            const dropThreshold = portalOpticalBaselineVariance * (isHigh ? 0.82 : 0.76);
+            const recoverThreshold = portalOpticalBaselineVariance * (isHigh ? 0.86 : 0.80);
+
+            if (variance < dropThreshold) {
+              portalOpticalClosedFrames++;
+              if (portalOpticalClosedFrames >= 1 && portalOpticalClosedFrames <= 24) {
+                portalOpticalEyeClosed = true;
+                if (portalBlinkEyeState) {
+                  portalBlinkEyeState.textContent = 'Blink!';
+                  portalBlinkEyeState.className = 'blink-eye-state eye-blink';
+                }
+              }
+            } else if (variance >= recoverThreshold) {
+              portalOpticalBaselineVariance = portalOpticalBaselineVariance * 0.95 + variance * 0.05;
+              if (portalBlinkEyeState) {
+                portalBlinkEyeState.textContent = 'Eye Open';
+                portalBlinkEyeState.className = 'blink-eye-state eye-open';
+              }
+              if (portalOpticalEyeClosed && portalOpticalClosedFrames >= 1 && portalOpticalClosedFrames <= 24) {
+                portalOpticalEyeClosed = false;
+                portalOpticalClosedFrames = 0;
+                handlePortalBlinkDetected('optical');
+              } else {
+                portalOpticalEyeClosed = false;
+                portalOpticalClosedFrames = 0;
+              }
+            }
+          }
         }
       }
 
@@ -1374,6 +1590,11 @@
           }
           if (portalBlinkHudOverlay) {
             portalBlinkHudOverlay.style.display = 'flex';
+          }
+          updatePortalBlinkHUD(0, '⏳ Initializing Face AI...');
+          if (portalBlinkEyeState) {
+            portalBlinkEyeState.textContent = 'Tracking...';
+            portalBlinkEyeState.className = 'blink-eye-state';
           }
           resetPortalBlinkState();
           initPortalFaceMesh();

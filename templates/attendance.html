@@ -380,12 +380,39 @@
       background: rgba(30, 41, 59, 0.88);
     }
 
+    .blink-eye-state {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.15);
+      color: #cbd5e1;
+      margin-left: 5px;
+      letter-spacing: 0.2px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .blink-eye-state.eye-open {
+      color: #38bdf8;
+      background: rgba(14, 165, 233, 0.22);
+    }
+
+    .blink-eye-state.eye-blink {
+      color: #ffffff;
+      background: #10b981;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+      transform: scale(1.08);
+    }
+
     /* Hands-Free Mode Toggle Bar */
     .handsfree-mode-bar {
       display: flex;
       align-items: center;
       justify-content: center;
       margin-top: 10px;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .btn-handsfree-toggle {
@@ -426,6 +453,31 @@
       background: #94a3b8;
       display: inline-block;
       transition: all 0.2s ease;
+    }
+
+    .btn-sensitivity-toggle {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: #475569;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-sensitivity-toggle:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    .btn-sensitivity-toggle strong {
+      color: #0284c7;
+      font-weight: 700;
     }
 
     /* Controls Action Row */
@@ -930,9 +982,11 @@
             <span class="blink-hud-icon" id="blinkHudIcon">👁️</span>
             <span class="blink-hud-text" id="blinkHudText">Blink 2 times to punch hands-free</span>
             <div class="blink-hud-dots" id="blinkHudDots">
-              <span class="blink-hud-dot" id="blinkDot1"></span>
-              <span class="blink-hud-dot" id="blinkDot2"></span>
+              <span class="blink-hud-dot" id="blinkDot1" title="1st Blink"></span>
+              <span class="blink-hud-dot" id="blinkDot2" title="2nd Blink"></span>
             </div>
+            <!-- Real-time Eye State Indicator -->
+            <span class="blink-eye-state" id="blinkEyeState">Tracking...</span>
           </div>
         </div>
 
@@ -971,7 +1025,11 @@
       <div class="handsfree-mode-bar" id="handsfreeModeBar">
         <button type="button" class="btn-handsfree-toggle active" id="btnToggleHandsFree" title="Toggle hands-free automatic blink detection">
           <span class="handsfree-toggle-indicator" id="handsfreeIndicatorDot"></span>
-          <span id="handsfreeToggleLabel">Hands-Free Mode: Active (Blink 2x)</span>
+          <span id="handsfreeToggleLabel">Hands-Free: Active (Blink 2x)</span>
+        </button>
+        <button type="button" class="btn-sensitivity-toggle" id="btnToggleSensitivity" title="Switch blink sensitivity for spectacles/glasses or dim light">
+          <span>⚙️ Sensitivity:</span>
+          <strong id="sensitivityLabel">Normal</strong>
         </button>
       </div>
 
@@ -1051,6 +1109,8 @@
     // Hands-Free Liveness HUD Elements
     const btnToggleHandsFree = document.getElementById('btnToggleHandsFree');
     const handsfreeToggleLabel = document.getElementById('handsfreeToggleLabel');
+    const btnToggleSensitivity = document.getElementById('btnToggleSensitivity');
+    const sensitivityLabel = document.getElementById('sensitivityLabel');
     const blinkHudOverlay = document.getElementById('blinkHudOverlay');
     const blinkHudPill = document.getElementById('blinkHudPill');
     const blinkHudIcon = document.getElementById('blinkHudIcon');
@@ -1058,19 +1118,41 @@
     const blinkHudDots = document.getElementById('blinkHudDots');
     const blinkDot1 = document.getElementById('blinkDot1');
     const blinkDot2 = document.getElementById('blinkDot2');
+    const blinkEyeState = document.getElementById('blinkEyeState');
 
     let stream = null;
     let isCameraRunning = false;
     let isHandsFreeActive = true;
     let isProcessingPunch = false;
     let cooldownUntil = 0;
+    let sensitivityMode = 'normal'; // 'normal' or 'high'
 
-    // FaceMesh & Landmark Engine
+    // Sensitivity Toggle Listener
+    if (btnToggleSensitivity) {
+      btnToggleSensitivity.addEventListener('click', function () {
+        if (sensitivityMode === 'normal') {
+          sensitivityMode = 'high';
+          if (sensitivityLabel) {
+            sensitivityLabel.textContent = 'High (Spectacles)';
+            sensitivityLabel.style.color = '#10b981';
+          }
+        } else {
+          sensitivityMode = 'normal';
+          if (sensitivityLabel) {
+            sensitivityLabel.textContent = 'Normal';
+            sensitivityLabel.style.color = '#0284c7';
+          }
+        }
+      });
+    }
+
+    // MediaPipe & Face Detection State
     let faceMesh = null;
     let faceMeshReady = false;
     let isDetectionRunning = false;
     let isProcessingFrame = false;
     let animFrameId = null;
+    let lastMeshSeenTime = 0;
 
     // Blink State Machine
     let blinkCount = 0;
@@ -1080,6 +1162,44 @@
     let baselineEAR = 0.28;
     let blinkResetTimer = null;
     let audioCtx = null;
+
+    // High-Speed Canvas Optical Fallback Engine
+    const opticalCanvas = document.createElement('canvas');
+    opticalCanvas.width = 80;
+    opticalCanvas.height = 40;
+    const opticalCtx = opticalCanvas.getContext('2d', { willReadFrequently: true });
+    let opticalBaselineVariance = null;
+    let opticalClosedFrames = 0;
+    let opticalEyeClosed = false;
+
+    function computeOpticalEyeVariance(videoEl) {
+      if (!videoEl || videoEl.readyState < 2) return null;
+      const vw = videoEl.videoWidth || 640;
+      const vh = videoEl.videoHeight || 480;
+      const sx = vw * 0.25;
+      const sy = vh * 0.26;
+      const sw = vw * 0.50;
+      const sh = vh * 0.24;
+
+      try {
+        opticalCtx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, 80, 40);
+        const imgData = opticalCtx.getImageData(0, 0, 80, 40);
+        const data = imgData.data;
+        const n = data.length / 4;
+        let sumL = 0;
+        let sumL2 = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          sumL += lum;
+          sumL2 += lum * lum;
+        }
+        const mean = sumL / n;
+        const variance = (sumL2 / n) - (mean * mean);
+        return variance;
+      } catch (e) {
+        return null;
+      }
+    }
 
     // Web Audio Synthesizer for Blink & Verification Feedback
     function playChime(type) {
@@ -1123,10 +1243,12 @@
         if (blinkHudIcon) blinkHudIcon.textContent = '⏳';
         if (blinkHudText) blinkHudText.textContent = text || 'Ready in a moment...';
         if (blinkHudDots) blinkHudDots.style.display = 'none';
+        if (blinkEyeState) blinkEyeState.style.display = 'none';
         return;
       }
 
       if (blinkHudDots) blinkHudDots.style.display = 'inline-flex';
+      if (blinkEyeState) blinkEyeState.style.display = 'inline-block';
 
       if (count === 0) {
         blinkHudPill.className = 'blink-hud-pill';
@@ -1153,6 +1275,8 @@
       blinkCount = 0;
       isEyesClosed = false;
       closedFrameCount = 0;
+      opticalClosedFrames = 0;
+      opticalEyeClosed = false;
       if (blinkResetTimer) {
         clearTimeout(blinkResetTimer);
         blinkResetTimer = null;
@@ -1170,6 +1294,51 @@
             faceReticle.style.boxShadow = '0 0 15px rgba(56, 189, 248, 0.2)';
           }
         }, 1500);
+      }
+    }
+
+    // Unified Blink Registration Function
+    function handleBlinkDetected(source = 'mesh') {
+      const now = Date.now();
+      if (now < cooldownUntil || isProcessingPunch) return;
+
+      // Window timeout check: 4.5 seconds
+      if (blinkCount > 0 && (now - lastBlinkTime > 4500)) {
+        resetBlinkState();
+      }
+
+      blinkCount++;
+      lastBlinkTime = now;
+
+      if (blinkCount === 1) {
+        playChime('blink');
+        updateBlinkHUD(1, '1st Blink Detected! Blink once more...');
+        if (blinkEyeState) {
+          blinkEyeState.textContent = 'Blink!';
+          blinkEyeState.className = 'blink-eye-state eye-blink';
+          setTimeout(() => {
+            if (!isEyesClosed && blinkEyeState) {
+              blinkEyeState.textContent = 'Eye Open';
+              blinkEyeState.className = 'blink-eye-state eye-open';
+            }
+          }, 300);
+        }
+        if (blinkResetTimer) clearTimeout(blinkResetTimer);
+        blinkResetTimer = setTimeout(() => {
+          if (blinkCount === 1 && !isProcessingPunch) {
+            resetBlinkState('Window expired. Blink 2 times to punch');
+          }
+        }, 4500);
+      } else if (blinkCount >= 2) {
+        if (blinkResetTimer) clearTimeout(blinkResetTimer);
+        playChime('success');
+        updateBlinkHUD(2, '✨ 2 Blinks Verified! Recording...');
+        if (blinkEyeState) {
+          blinkEyeState.textContent = 'Verified!';
+          blinkEyeState.className = 'blink-eye-state eye-blink';
+        }
+        reticlePulse();
+        executeAttendancePunch('blink');
       }
     }
 
@@ -1223,12 +1392,17 @@
       }
 
       if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-        if (blinkCount > 0 && (now - lastBlinkTime > 3000)) {
+        if (blinkEyeState) {
+          blinkEyeState.textContent = 'Detecting...';
+          blinkEyeState.className = 'blink-eye-state';
+        }
+        if (blinkCount > 0 && (now - lastBlinkTime > 4500)) {
           resetBlinkState();
         }
         return;
       }
 
+      lastMeshSeenTime = now;
       const landmarks = results.multiFaceLandmarks[0];
       const leftEAR = calculateEAR(landmarks, LEFT_EYE);
       const rightEAR = calculateEAR(landmarks, RIGHT_EYE);
@@ -1239,50 +1413,47 @@
 
       // Adapt open-eye baseline smoothly
       if (avgEAR > 0.22 && !isEyesClosed) {
-        baselineEAR = baselineEAR * 0.95 + avgEAR * 0.05;
+        baselineEAR = Math.max(0.24, Math.min(0.38, baselineEAR * 0.95 + avgEAR * 0.05));
       }
 
-      const closeThreshold = Math.min(0.20, Math.max(0.14, baselineEAR * 0.65));
-      const openThreshold = Math.max(0.22, Math.min(0.32, baselineEAR * 0.85));
+      // Finetuned dynamic thresholds based on sensitivity
+      const isHigh = (sensitivityMode === 'high');
+      const dropRatio = isHigh ? 0.84 : 0.78; // 16% or 22% drop from baseline
+      const closeFloor = isHigh ? 0.26 : 0.24;
+      const closeThreshold = Math.min(closeFloor, Math.max(0.16, baselineEAR * dropRatio));
+      const openThreshold = Math.max(0.22, baselineEAR * (isHigh ? 0.86 : 0.82));
 
-      // Check 3.0s window expiration for 2nd blink
-      if (blinkCount > 0 && (now - lastBlinkTime > 3000)) {
+      // Check 4.5s window expiration for 2nd blink
+      if (blinkCount > 0 && (now - lastBlinkTime > 4500)) {
         resetBlinkState('Window timed out. Blink 2 times to punch');
         return;
       }
 
-      // Both eyes closed
-      if (avgEAR < closeThreshold && leftEAR < closeThreshold + 0.04 && rightEAR < closeThreshold + 0.04) {
+      // Eyes closed condition (handles head tilt and single-eye asymmetry)
+      const eyeIsLow = (avgEAR < closeThreshold) ||
+                       (leftEAR < closeThreshold && rightEAR < closeThreshold + 0.05) ||
+                       (rightEAR < closeThreshold && leftEAR < closeThreshold + 0.05);
+
+      if (eyeIsLow) {
         closedFrameCount++;
-        if (closedFrameCount >= 1 && closedFrameCount <= 22) {
+        if (closedFrameCount >= 1 && closedFrameCount <= 24) {
           isEyesClosed = true;
+          if (blinkEyeState) {
+            blinkEyeState.textContent = 'Blink!';
+            blinkEyeState.className = 'blink-eye-state eye-blink';
+          }
         }
       }
       // Eyes reopened
-      else if (avgEAR > openThreshold) {
-        if (isEyesClosed && closedFrameCount >= 1 && closedFrameCount <= 22) {
-          // Valid human blink registered!
-          blinkCount++;
-          lastBlinkTime = now;
+      else if (avgEAR >= openThreshold) {
+        if (blinkEyeState) {
+          blinkEyeState.textContent = 'Eye Open';
+          blinkEyeState.className = 'blink-eye-state eye-open';
+        }
+        if (isEyesClosed && closedFrameCount >= 1 && closedFrameCount <= 24) {
           isEyesClosed = false;
           closedFrameCount = 0;
-
-          if (blinkCount === 1) {
-            playChime('blink');
-            updateBlinkHUD(1, '1st Blink Detected! Blink once more...');
-            if (blinkResetTimer) clearTimeout(blinkResetTimer);
-            blinkResetTimer = setTimeout(() => {
-              if (blinkCount === 1 && !isProcessingPunch) {
-                resetBlinkState('Blink 2 times to punch hands-free');
-              }
-            }, 3200);
-          } else if (blinkCount >= 2) {
-            if (blinkResetTimer) clearTimeout(blinkResetTimer);
-            playChime('success');
-            updateBlinkHUD(2, '✨ 2 Blinks Verified! Recording...');
-            reticlePulse();
-            executeAttendancePunch('blink');
-          }
+          handleBlinkDetected('mesh');
         } else {
           isEyesClosed = false;
           closedFrameCount = 0;
@@ -1292,7 +1463,7 @@
 
     function initFaceMesh() {
       if (typeof FaceMesh === 'undefined') {
-        console.log('MediaPipe FaceMesh script loading or unavailable, fallback active.');
+        console.log('MediaPipe FaceMesh script loading or unavailable, high-speed optical fallback active.');
         return;
       }
       if (faceMesh) return;
@@ -1314,7 +1485,7 @@
         faceMesh.onResults(onFaceMeshResults);
         faceMeshReady = true;
       } catch (err) {
-        console.warn('FaceMesh initialization notice:', err);
+        console.warn('FaceMesh initialization notice (optical fallback active):', err);
         faceMeshReady = false;
       }
     }
@@ -1325,6 +1496,15 @@
         return;
       }
 
+      const now = Date.now();
+
+      // Check cooldown update if active
+      if (now < cooldownUntil) {
+        const remainSec = Math.ceil((cooldownUntil - now) / 1000);
+        updateBlinkHUD(0, `Punch recorded ✔ Ready in ${remainSec}s`, true);
+      }
+
+      // Primary Engine: MediaPipe FaceMesh
       if (faceMeshReady && video && video.readyState >= 2 && !isProcessingPunch && !isProcessingFrame) {
         isProcessingFrame = true;
         try {
@@ -1332,6 +1512,48 @@
         } catch (e) {
         } finally {
           isProcessingFrame = false;
+        }
+      }
+
+      // Fallback Engine: Canvas Optical Contrast Differential (Runs if FaceMesh not ready or no mesh seen for 1.2s)
+      if ((!faceMeshReady || (now - lastMeshSeenTime > 1200)) && video && video.readyState >= 2 && !isProcessingPunch && (now >= cooldownUntil)) {
+        const variance = computeOpticalEyeVariance(video);
+        if (variance !== null && variance > 0) {
+          if (opticalBaselineVariance === null) {
+            opticalBaselineVariance = variance;
+            if (blinkHudText && blinkCount === 0) {
+              blinkHudText.textContent = '🟢 Ready — Blink 2 times to punch';
+            }
+          } else {
+            const isHigh = (sensitivityMode === 'high');
+            const dropThreshold = opticalBaselineVariance * (isHigh ? 0.82 : 0.76);
+            const recoverThreshold = opticalBaselineVariance * (isHigh ? 0.86 : 0.80);
+
+            if (variance < dropThreshold) {
+              opticalClosedFrames++;
+              if (opticalClosedFrames >= 1 && opticalClosedFrames <= 24) {
+                opticalEyeClosed = true;
+                if (blinkEyeState) {
+                  blinkEyeState.textContent = 'Blink!';
+                  blinkEyeState.className = 'blink-eye-state eye-blink';
+                }
+              }
+            } else if (variance >= recoverThreshold) {
+              opticalBaselineVariance = opticalBaselineVariance * 0.95 + variance * 0.05;
+              if (blinkEyeState) {
+                blinkEyeState.textContent = 'Eye Open';
+                blinkEyeState.className = 'blink-eye-state eye-open';
+              }
+              if (opticalEyeClosed && opticalClosedFrames >= 1 && opticalClosedFrames <= 24) {
+                opticalEyeClosed = false;
+                opticalClosedFrames = 0;
+                handleBlinkDetected('optical');
+              } else {
+                opticalEyeClosed = false;
+                opticalClosedFrames = 0;
+              }
+            }
+          }
         }
       }
 
@@ -1364,6 +1586,7 @@
         if (isHandsFreeActive && blinkHudOverlay) {
           blinkHudOverlay.style.display = 'flex';
         }
+        updateBlinkHUD(0, '⏳ Initializing Face AI...');
         resetBlinkState();
         initFaceMesh();
         if (isHandsFreeActive && !isDetectionRunning) {
@@ -1436,7 +1659,7 @@
         isHandsFreeActive = !isHandsFreeActive;
         if (isHandsFreeActive) {
           btnToggleHandsFree.classList.add('active');
-          if (handsfreeToggleLabel) handsfreeToggleLabel.textContent = 'Hands-Free Mode: Active (Blink 2x)';
+          if (handsfreeToggleLabel) handsfreeToggleLabel.textContent = 'Hands-Free: Active (Blink 2x)';
           if (blinkHudOverlay && isCameraRunning) {
             blinkHudOverlay.style.display = 'flex';
             resetBlinkState();
@@ -1448,7 +1671,7 @@
           }
         } else {
           btnToggleHandsFree.classList.remove('active');
-          if (handsfreeToggleLabel) handsfreeToggleLabel.textContent = 'Hands-Free Mode: Paused (Manual Only)';
+          if (handsfreeToggleLabel) handsfreeToggleLabel.textContent = 'Hands-Free: Paused (Manual Only)';
           if (blinkHudOverlay) {
             blinkHudOverlay.style.display = 'none';
           }
