@@ -1340,7 +1340,7 @@
 
     function handlePortalBlinkDetected(source = 'mesh') {
       const now = Date.now();
-      if (now < portalCooldownUntil || isPortalPunching) return;
+      if (now < portalCooldownUntil || isPortalPunching || (punchResult && punchResult.innerHTML.trim() !== '')) return;
 
       if (portalBlinkCount > 0 && (now - portalLastBlinkTime > 4500)) {
         resetPortalBlinkState();
@@ -1401,7 +1401,12 @@
       const now = Date.now();
       if (now < portalCooldownUntil) {
         const remainSec = Math.ceil((portalCooldownUntil - now) / 1000);
-        updatePortalBlinkHUD(0, `Punch recorded ✔ Ready in ${remainSec}s`, true);
+        updatePortalBlinkHUD(0, `✔ Punch Recorded! Cooldown: ${remainSec}s`, true);
+        return;
+      }
+
+      if (punchResult && punchResult.innerHTML.trim() !== '') {
+        // Suppress blink detection while punch result card is displayed
         return;
       }
 
@@ -1714,21 +1719,38 @@
           }
 
           if (data.matched) {
-            const punchType = data.punch_status === 'punch_out' ? 'Punch Out' : 'Punch In';
-            const hoursInfo = data.working_hours ? `<div style="font-size: 12px; margin-top: 2px;">Working Hours: <strong>${data.working_hours}</strong></div>` : '';
-            if (punchResult) {
-              punchResult.innerHTML = `
-                <div style="background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; border-radius: 6px; padding: 12px; font-size: 13px;">
-                  <div style="font-weight: 800; font-size: 15px;">✓ ${punchType} Successful!</div>
-                  <div style="margin-top: 4px;"><strong>${data.employee_name}</strong></div>
-                  <div style="font-size: 11px; color: #555; margin-top: 2px;">Distance: ${data.formatted_distance || '0m'} | Confidence: ${data.confidence}%</div>
-                  ${data.live_location ? `<div style="font-size: 11.5px; color: #065f46; margin-top: 3px; font-weight: 600;">📍 Location: ${data.live_location}</div>` : ''}
-                  ${hoursInfo}
-                </div>
-              `;
-            }
-            if (typeof loadHistory === 'function') {
-              loadHistory();
+            const isAlreadyPunched = Boolean(data.punch_status === 'already_punched_in' || data.already_punched_in);
+            if (isAlreadyPunched) {
+              const cooldownMsg = data.message || 'Punch In already recorded. Please wait before punching out.';
+              if (punchResult) {
+                punchResult.innerHTML = `
+                  <div style="background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 12px; font-size: 13px; text-align: left;">
+                    <div style="font-weight: 800; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+                      ℹ Attendance Active (On Duty)
+                    </div>
+                    <div style="margin-top: 4px; font-weight: 600;">${escapeHtml(data.employee_name || 'Verified Employee')}</div>
+                    <div style="font-size: 12px; margin-top: 3px; color: #1e3a8a;">${escapeHtml(cooldownMsg)}</div>
+                    ${data.live_location ? `<div style="font-size: 11px; color: #3b82f6; margin-top: 4px;">📍 ${escapeHtml(data.live_location)}</div>` : ''}
+                  </div>
+                `;
+              }
+            } else {
+              const punchType = data.punch_status === 'punch_out' ? 'Punch Out' : 'Punch In';
+              const hoursInfo = data.working_hours ? `<div style="font-size: 12px; margin-top: 2px;">Working Hours: <strong>${data.working_hours}</strong></div>` : '';
+              if (punchResult) {
+                punchResult.innerHTML = `
+                  <div style="background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; border-radius: 6px; padding: 12px; font-size: 13px;">
+                    <div style="font-weight: 800; font-size: 15px;">✓ ${punchType} Successful!</div>
+                    <div style="margin-top: 4px;"><strong>${data.employee_name}</strong></div>
+                    <div style="font-size: 11px; color: #555; margin-top: 2px;">Distance: ${data.formatted_distance || '0m'} | Confidence: ${data.confidence}%</div>
+                    ${data.live_location ? `<div style="font-size: 11.5px; color: #065f46; margin-top: 3px; font-weight: 600;">📍 Location: ${data.live_location}</div>` : ''}
+                    ${hoursInfo}
+                  </div>
+                `;
+              }
+              if (typeof loadHistory === 'function') {
+                loadHistory();
+              }
             }
           } else {
             if (punchResult) {
@@ -1756,10 +1778,11 @@
           isPortalPunching = false;
           btnPunch.disabled = false;
           btnPunch.textContent = 'Mark My Attendance';
-          portalCooldownUntil = Date.now() + 7000;
+          // 25-second cooldown debounce to avoid rapid repeat auto-punching
+          portalCooldownUntil = Date.now() + 25000;
           resetPortalBlinkState();
           if (punchResult) {
-            setTimeout(() => { punchResult.innerHTML = ''; }, 6000);
+            setTimeout(() => { punchResult.innerHTML = ''; }, 10000);
           }
         }
       }

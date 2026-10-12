@@ -3436,6 +3436,12 @@ def api_face_recognize():
                 )
                 result['live_entry_id'] = str(punch_res.get('live_id', ''))
                 result['punch_status'] = str(punch_res.get('status', ''))
+                result['already_punched_in'] = bool(punch_res.get('already_punched_in', False))
+                result['cooldown_remaining'] = punch_res.get('cooldown_remaining', 0)
+                if punch_res.get('message'):
+                    result['message'] = str(punch_res.get('message'))
+                if punch_res.get('entry_time'):
+                    result['entry_time'] = str(punch_res.get('entry_time'))
                 result['formatted_distance'] = str(punch_res.get('formatted_dist', ''))
                 result['live_location'] = str(punch_res.get('live_location', ''))
                 result['entry_location'] = str(punch_res.get('live_location', ''))

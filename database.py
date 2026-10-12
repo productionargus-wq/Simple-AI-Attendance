@@ -2662,16 +2662,32 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         
         # Calculate working duration
         working_minutes = 0
+        diff_sec = 28800
         try:
             # Parse entry time e.g. "26/09/2026 09:00:00 AM" or "26/09/2026 09:00:00"
             clean_time_str = entry_time_str.strip()
             entry_dt = None
-            for fmt in ['%d/%m/%Y %I:%M:%S %p', '%d/%m/%Y %H:%M:%S', '%Y-%m-%d %H:%M:%S']:
+            for fmt in [
+                '%d/%m/%Y %I:%M:%S %p',
+                '%d/%m/%Y %I:%M %p',
+                '%d/%m/%Y %H:%M:%S',
+                '%d/%m/%Y %H:%M',
+                '%Y-%m-%d %H:%M:%S',
+                '%Y-%m-%d %I:%M:%S %p',
+                '%d-%m-%Y %I:%M:%S %p',
+                '%d-%m-%Y %H:%M:%S'
+            ]:
                 try:
                     entry_dt = datetime.strptime(clean_time_str, fmt)
                     break
                 except Exception:
                     pass
+            if not entry_dt and existing_rep.get('created_at'):
+                try:
+                    entry_dt = datetime.fromisoformat(existing_rep.get('created_at'))
+                except Exception:
+                    pass
+
             if entry_dt:
                 if entry_dt.tzinfo is None:
                     entry_dt = entry_dt.replace(tzinfo=IST)
@@ -2679,10 +2695,26 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
                 working_minutes = int(diff_sec // 60)
             else:
                 working_minutes = 480  # Default 8 hours if unparseable
+                diff_sec = 28800
         except Exception:
             working_minutes = 480
+            diff_sec = 28800
 
-            
+        # Minimum interval guard: Reject accidental rapid Punch Out within 120 seconds (2 minutes) of Punch In
+        MIN_PUNCH_OUT_INTERVAL_SECONDS = 120
+        if diff_sec < MIN_PUNCH_OUT_INTERVAL_SECONDS:
+            remaining_cooldown = max(1, int(MIN_PUNCH_OUT_INTERVAL_SECONDS - diff_sec))
+            return {
+                'status': 'already_punched_in',
+                'already_punched_in': True,
+                'message': f"Punch In already recorded ({entry_time_str}). Please wait {remaining_cooldown}s before punching out.",
+                'cooldown_remaining': remaining_cooldown,
+                'entry_time': entry_time_str,
+                'formatted_dist': formatted_dist,
+                'live_location': live_loc_str,
+                'working_hours': '00:00'
+            }
+
         w_hrs = working_minutes // 60
         w_mins = working_minutes % 60
         working_hours_str = f"{w_hrs:02d}:{w_mins:02d}"

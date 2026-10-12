@@ -1308,7 +1308,7 @@
     // Unified Blink Registration Function
     function handleBlinkDetected(source = 'mesh') {
       const now = Date.now();
-      if (now < cooldownUntil || isProcessingPunch) return;
+      if (now < cooldownUntil || isProcessingPunch || (punchContainer && punchContainer.style.display === 'block')) return;
 
       // Window timeout check: 4.5 seconds
       if (blinkCount > 0 && (now - lastBlinkTime > 4500)) {
@@ -1395,7 +1395,12 @@
       const now = Date.now();
       if (now < cooldownUntil) {
         const remainSec = Math.ceil((cooldownUntil - now) / 1000);
-        updateBlinkHUD(0, `Punch recorded ✔ Ready in ${remainSec}s`, true);
+        updateBlinkHUD(0, `✔ Punch Recorded! Cooldown: ${remainSec}s`, true);
+        return;
+      }
+
+      if (punchContainer && punchContainer.style.display === 'block') {
+        // Suppress blink detection while punch result card is displayed
         return;
       }
 
@@ -1804,8 +1809,10 @@
 
               if (data.matched) {
                 const isPunchOut = data.punch_status === 'punch_out';
-                const statusLabel = isPunchOut ? 'Punch Out Recorded' : 'Punch In Recorded';
-                const statusIcon = isPunchOut ? '⏏' : '✔';
+                const isAlreadyPunched = Boolean(data.punch_status === 'already_punched_in' || data.already_punched_in);
+                const statusLabel = isAlreadyPunched ? 'Punch In Active (On Duty)' : (isPunchOut ? 'Punch Out Recorded' : 'Punch In Recorded');
+                const statusIcon = isAlreadyPunched ? 'ℹ' : (isPunchOut ? '⏏' : '✔');
+                const badgeStyle = isAlreadyPunched ? 'background: #2563eb; color: #ffffff;' : '';
                 const empName = data.employee_name || 'Verified Employee';
                 const empCode = data.employee_code || data.employee_id || 'EMP-VERIFIED';
                 const dept = data.department || 'Operations';
@@ -1813,17 +1820,22 @@
                 const punchTime = data.punch_time || `${hoursStr}:${minutes}:${seconds} ${ampm}`;
                 const conf = data.confidence ? `${data.confidence}% Match` : '98.5% Match';
                 const distInfo = data.formatted_distance ? `${data.formatted_distance}` : 'On-Site Office Geofence Verified';
-                const workingHoursHtml = data.working_hours ? `
+                const workingHoursHtml = (data.working_hours && !isAlreadyPunched) ? `
                   <div class="punch-grid-item">
                     <span class="punch-grid-label">Working Hours:</span>
                     <span class="punch-grid-value" style="color: #16a34a;">${escapeHtml(data.working_hours)}</span>
                   </div>
                 ` : '';
+                const noticeHtml = isAlreadyPunched ? `
+                  <div style="margin-top: 8px; padding: 7px 10px; background: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 11.5px; color: #1e40af; font-weight: 600; text-align: left;">
+                    ${escapeHtml(data.message || 'Punch In already active. Minimum 2-minute interval before Punch Out.')}
+                  </div>
+                ` : '';
 
                 punchContainer.innerHTML = `
-                  <div class="punch-card-verified">
+                  <div class="punch-card-verified" style="${isAlreadyPunched ? 'border-left: 5px solid #2563eb; background: #f8fafc;' : ''}">
                     <div class="punch-header">
-                      <span class="punch-badge-success">${statusIcon} ${statusLabel}</span>
+                      <span class="punch-badge-success" style="${badgeStyle}">${statusIcon} ${statusLabel}</span>
                       <span class="punch-time-tag">${punchTime}</span>
                     </div>
                     <div class="punch-body">
@@ -1847,6 +1859,7 @@
                         </div>
                         ${workingHoursHtml}
                       </div>
+                      ${noticeHtml}
                       <div class="punch-geo-badge" style="display: flex; flex-direction: column; gap: 3px; align-items: flex-start; text-align: left;">
                         <div style="display: flex; align-items: center; gap: 5px;">
                           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1924,8 +1937,8 @@
         isProcessingPunch = false;
         btnMark.disabled = false;
         btnMarkText.textContent = 'Mark Attendance';
-        // 7-second cooldown debounce to avoid repeated auto-punching
-        cooldownUntil = Date.now() + 7000;
+        // 15-second cooldown debounce to avoid repeated auto-punching
+        cooldownUntil = Date.now() + 15000;
         resetBlinkState();
       }
     }
