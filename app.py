@@ -1079,6 +1079,8 @@ def google_callback():
         employee = database.validate_employee_login(google_email)
         if isinstance(employee, dict) and employee.get('error') == 'COMPANY_DEACTIVATED':
             return render_oauth_error("Access Denied: Your company account has been deactivated. Please contact System Administrator.")
+        elif isinstance(employee, dict) and employee.get('error') == 'EMPLOYEE_INACTIVE':
+            return render_oauth_error("Access Denied: Your employee account is currently set to Inactive. Please contact your company administrator.")
         elif employee and isinstance(employee, dict) and (employee.get('id') or employee.get('_id')):
             return _do_employee_login(employee)
 
@@ -1102,6 +1104,8 @@ def google_callback():
         employee = database.validate_employee_login(google_email)
         if isinstance(employee, dict) and employee.get('error') == 'COMPANY_DEACTIVATED':
             return render_oauth_error("Access Denied: Your company account has been deactivated. Please contact System Administrator.")
+        elif isinstance(employee, dict) and employee.get('error') == 'EMPLOYEE_INACTIVE':
+            return render_oauth_error("Access Denied: Your employee account is currently set to Inactive. Please contact your company administrator.")
         elif employee and isinstance(employee, dict) and (employee.get('id') or employee.get('_id')):
             return _do_employee_login(employee)
 
@@ -1113,6 +1117,8 @@ def google_callback():
         employee = database.validate_employee_login(google_email)
         if isinstance(employee, dict) and employee.get('error') == 'COMPANY_DEACTIVATED':
             return render_oauth_error("Access Denied: Your company account has been deactivated. Please contact System Administrator.")
+        elif isinstance(employee, dict) and employee.get('error') == 'EMPLOYEE_INACTIVE':
+            return render_oauth_error("Access Denied: Your employee account is currently set to Inactive. Please contact your company administrator.")
         elif employee and isinstance(employee, dict) and (employee.get('id') or employee.get('_id')):
             return _do_employee_login(employee)
 
@@ -1212,6 +1218,8 @@ def employee_login():
             err_code = result.get('error') if isinstance(result, dict) else None
             if err_code == 'COMPANY_DEACTIVATED':
                 error_msg = result.get('message') or 'Access Denied: Your company account has been deactivated. Please contact System Administrator.'
+            elif err_code == 'EMPLOYEE_INACTIVE':
+                error_msg = result.get('message') or 'Access Denied: Your employee account is currently set to Inactive. Please contact your company administrator.'
             elif err_code == 'PASSWORD_NOT_SET':
                 error_msg = "Password has not been set yet. First-time access? Please click 'Continue with Google' below to verify your account and set your password in My Credentials."
             elif err_code == 'NOT_REGISTERED':
@@ -2566,6 +2574,7 @@ def api_get_employees():
     sort_dir = request.args.get('sort_dir', 'desc')
     page = int(request.args.get('page', 1))
     limit = int(request.args.get('limit', 10))
+    status = request.args.get('status', '').strip()
     
     result = database.get_all_employees(
         company_id=get_current_company_id(),
@@ -2573,7 +2582,8 @@ def api_get_employees():
         sort_col=sort_col,
         sort_dir=sort_dir,
         page=page,
-        limit=limit
+        limit=limit,
+        status=status
     )
     return jsonify(result)
 
@@ -2900,18 +2910,21 @@ def api_employee_pdf(emp_id):
 @login_required
 def api_employees_export_excel():
     search = request.args.get('search', '').strip()
+    status = request.args.get('status', '').strip()
     comp_id = get_current_company_id()
-    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id)
+    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status)
     
-    headers = ['SL NO', 'EMPLOYEE ID', 'EMPLOYEE NAME', 'SALARY BASIS', 'HOURLY SALARY', 'DAY SALARY', 'HALF DAY SALARY', 'MOBILE NUMBER', 'SHIFT HOURS', 'BANK NAME', 'ACCOUNT NUMBER', 'DATE OF JOINING']
+    headers = ['SL NO', 'EMPLOYEE ID', 'EMPLOYEE NAME', 'STATUS', 'SALARY BASIS', 'HOURLY SALARY', 'DAY SALARY', 'HALF DAY SALARY', 'MOBILE NUMBER', 'SHIFT HOURS', 'BANK NAME', 'ACCOUNT NUMBER', 'DATE OF JOINING']
     rows = []
     for idx, emp in enumerate(result['data'], 1):
         st = str(emp.get('salary_type', 'hourly')).lower()
         st_label = 'Hourly' if st == 'hourly' else ('Day-Based' if st == 'daily' else 'Half-Day')
+        emp_status = 'Inactive' if str(emp.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
         rows.append([
             idx,
             emp.get('id', ''),
             emp.get('employee_name', ''),
+            emp_status,
             st_label,
             emp.get('hourly_salary', 0),
             emp.get('day_salary', 0),
@@ -2929,8 +2942,9 @@ def api_employees_export_excel():
 @login_required
 def api_employees_export_pdf():
     search = request.args.get('search', '').strip()
+    status = request.args.get('status', '').strip()
     comp_id = get_current_company_id()
-    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id)
+    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status)
     company_info = get_current_company_info()
     pdf_buffer = pdf_generator.generate_employees_pdf(result['data'], company_info=company_info)
     filename = "employee_directory.pdf"
@@ -3374,6 +3388,13 @@ def api_face_recognize():
                         'matched': False,
                         'message': 'This company account has been deactivated. Biometric attendance cannot be recorded.'
                     }), 200
+
+            # Check if employee status is Inactive
+            if emp_doc and str(emp_doc.get('status', 'Active')).strip().capitalize() == 'Inactive':
+                return jsonify({
+                    'matched': False,
+                    'message': f"Attendance punch disabled: Employee profile '{emp_name}' is currently set to Inactive. Contact your company administrator."
+                }), 200
 
             # Check if Punch Attendance is permitted for employee when punching from portal
             if session.get('employee_logged_in') and emp_doc and emp_doc.get('permissions') and emp_doc['permissions'].get('punch_attendance') is False:

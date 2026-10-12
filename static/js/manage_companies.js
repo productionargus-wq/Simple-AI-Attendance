@@ -246,9 +246,10 @@ document.addEventListener('DOMContentLoaded', function () {
             </span>
           </td>
           <td style="text-align: center; white-space: nowrap;">
-            <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 3px 8px; border-radius: 12px; font-weight: 800; font-size: 11px;">
-              ${comp.employee_count || 0}/${comp.employee_limit || 50}
+            <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 3px 8px; border-radius: 12px; font-weight: 800; font-size: 11px;" title="Active employees vs Limit (Total preserved in DB: ${comp.total_count ?? comp.employee_count ?? 0})">
+              ${comp.active_count ?? comp.employee_count ?? 0}/${comp.employee_limit || 50} Active
             </span>
+            ${(comp.total_count !== undefined && comp.total_count !== (comp.active_count ?? comp.employee_count ?? 0)) ? `<span style="display: block; font-size: 10px; color: #64748b; font-weight: 600; margin-top: 2px;">(${comp.total_count} Total)</span>` : ''}
           </td>
           <td style="text-align: center; white-space: nowrap;">${statusBadge}</td>
           <td style="text-align: center; white-space: nowrap;">${autoReportsBadge}</td>
@@ -379,7 +380,7 @@ document.addEventListener('DOMContentLoaded', function () {
           if (viewCompanyLocation) viewCompanyLocation.textContent = (lat !== '-' && lng !== '-') ? `Lat: ${lat}, Long: ${lng}` : '-';
 
           if (viewCompanyShiftHours) viewCompanyShiftHours.textContent = comp.shift_hours || '08:00';
-          if (viewCompanyEmployees) viewCompanyEmployees.textContent = `${comp.employee_count || 0} enrolled (Limit: ${comp.employee_limit || 50})`;
+          if (viewCompanyEmployees) viewCompanyEmployees.textContent = `${comp.active_count ?? comp.employee_count ?? 0} Active / ${comp.employee_limit || 50} Limit (${comp.total_count ?? comp.employee_count ?? 0} Total in DB)`;
 
           if (viewCompanyStatusBadge) {
             const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';

@@ -488,16 +488,25 @@ def get_all_companies(search='', page=1, limit=10):
         try:
             agg_res = db.employees.aggregate([
                 {'$match': {'company_id': {'$in': comp_ids}}},
-                {'$group': {'_id': '$company_id', 'count': {'$sum': 1}}}
+                {'$group': {
+                    '_id': '$company_id',
+                    'total_count': {'$sum': 1},
+                    'active_count': {
+                        '$sum': {'$cond': [{'$ne': ['$status', 'Inactive']}, 1, 0]}
+                    }
+                }}
             ])
-            counts_map = {item['_id']: item['count'] for item in agg_res}
+            counts_map = {item['_id']: item for item in agg_res}
         except Exception:
             pass
 
     for doc in company_docs:
         c = clean_doc(doc)
         c['address'] = c.get('address') or c.get('location') or ''
-        c['employee_count'] = counts_map.get(c['id'], 0)
+        comp_counts = counts_map.get(c['id'], {})
+        c['active_count'] = comp_counts.get('active_count', 0)
+        c['total_count'] = comp_counts.get('total_count', 0)
+        c['employee_count'] = c['active_count']
         c['employee_limit'] = int(c.get('employee_limit') or c['employee_count'] or 50)
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
@@ -532,8 +541,10 @@ def get_company_by_id(comp_id):
     if doc:
         c = clean_doc(doc)
         c['address'] = c.get('address') or c.get('location') or ''
-        c['employee_count'] = db.employees.count_documents({'company_id': c['id']})
-        c['employee_limit'] = int(c.get('employee_limit') or c.get('employee_count') or 50)
+        c['active_count'] = db.employees.count_documents({'company_id': c['id'], 'status': {'$ne': 'Inactive'}})
+        c['total_count'] = db.employees.count_documents({'company_id': c['id']})
+        c['employee_count'] = c['active_count']
+        c['employee_limit'] = int(c.get('employee_limit') or c['employee_count'] or 50)
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
@@ -1031,6 +1042,16 @@ def validate_employee_login(email, password=None):
         emp['company_lat'] = 11.02980
         emp['company_lng'] = 76.97400
 
+    emp_st = str(emp.get('status', 'Active')).strip().capitalize()
+    if emp_st == 'Inactive':
+        return {
+            'success': False,
+            'error': 'EMPLOYEE_INACTIVE',
+            'status': 'Inactive',
+            'employee': emp,
+            'message': 'Your employee account is currently set to Inactive. Please contact your company administrator.'
+        }
+
     if password is None:
         # Google OAuth flow - password not required
         return emp
@@ -1061,11 +1082,20 @@ def generate_employee_id():
     import secrets
     return f"{int(time.time() * 1000)}{secrets.randbelow(100):02d}"
 
-def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc', page=1, limit=10):
+def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc', page=1, limit=10, status=None):
     db = get_db()
     query = {}
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
+
+    # Filter by employee status if specified
+    if status and str(status).strip().lower() not in ['all', '', 'none']:
+        st_clean = str(status).strip().capitalize()
+        if st_clean == 'Inactive':
+            query['status'] = 'Inactive'
+        elif st_clean == 'Active':
+            query['status'] = {'$ne': 'Inactive'}
+
     if search:
         reg = {'$regex': re.escape(search), '$options': 'i'}
         search_filter = {
@@ -1093,12 +1123,36 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc'
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
-    employees = [clean_doc(doc) for doc in cursor]
+    employees = []
+    for doc in cursor:
+        c = clean_doc(doc)
+        c['status'] = 'Inactive' if str(c.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
+        employees.append(c)
+
+    # Compute company active quota summary stats
+    base_comp_query = {'company_id': str(company_id)} if (company_id and company_id != 'ALL') else {}
+    active_count = db.employees.count_documents({**base_comp_query, 'status': {'$ne': 'Inactive'}})
+    inactive_count = db.employees.count_documents({**base_comp_query, 'status': 'Inactive'})
+    total_preserved = db.employees.count_documents(base_comp_query)
+
+    employee_limit = 50
+    if company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
+        comp = db.company_admin.find_one(build_id_filter(company_id))
+        if comp:
+            try:
+                employee_limit = int(comp.get('employee_limit') or comp.get('employee_count') or 50)
+            except Exception:
+                employee_limit = 50
+
     return {
         'total': total,
         'page': page,
         'limit': limit,
-        'data': employees
+        'data': employees,
+        'active_count': active_count,
+        'inactive_count': inactive_count,
+        'total_preserved': total_preserved,
+        'employee_limit': employee_limit
     }
 
 def get_employee_by_id(emp_id, company_id=None):
@@ -1108,13 +1162,15 @@ def get_employee_by_id(emp_id, company_id=None):
         f = {'$and': [f, {'company_id': str(company_id)}]}
     doc = db.employees.find_one(f)
     cleaned = clean_doc(doc)
-    if cleaned and not cleaned.get('permissions'):
-        cleaned['permissions'] = {
-            'punch_attendance': True,
-            'attendance_history': True,
-            'monthly_payslip': True,
-            'employee_credentials': True
-        }
+    if cleaned:
+        cleaned['status'] = 'Inactive' if str(cleaned.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
+        if not cleaned.get('permissions'):
+            cleaned['permissions'] = {
+                'punch_attendance': True,
+                'attendance_history': True,
+                'monthly_payslip': True,
+                'employee_credentials': True
+            }
     return cleaned
 
 def safe_float(val, default=0.0):
@@ -1157,19 +1213,27 @@ def create_employee(data, company_id=None):
             pass
         raise ValueError(f"An employee with email '{email_id}' is already registered in this organization.")
 
-    # Enforce Employee Count registration limit for tenant companies
-    if assigned_company_id != 'ARGUS_MASTER':
+    # Normalize status: default to 'Active'
+    raw_status = str(data.get('status') or 'Active').strip().capitalize()
+    emp_status = 'Inactive' if raw_status == 'Inactive' else 'Active'
+
+    # Enforce Active Employee registration limit for tenant companies
+    # Inactive employees do not count toward this limit
+    if assigned_company_id != 'ARGUS_MASTER' and emp_status == 'Active':
         comp = db.company_admin.find_one(build_id_filter(assigned_company_id))
         if comp:
             try:
                 limit = int(comp.get('employee_limit') or comp.get('employee_count') or 50)
             except (ValueError, TypeError):
                 limit = 50
-            current_count = db.employees.count_documents({'company_id': assigned_company_id})
+            current_count = db.employees.count_documents({
+                'company_id': assigned_company_id,
+                'status': {'$ne': 'Inactive'}
+            })
             if current_count >= limit:
                 comp_name = comp.get('company_name', assigned_company_id)
                 raise ValueError(
-                    f"Employee registration limit reached: Company '{comp_name}' allows a maximum of {limit} employees ({current_count}/{limit} currently registered). Please contact System Admin to increase the employee limit."
+                    f"Active employee registration limit reached: Company '{comp_name}' allows a maximum of {limit} active employees ({current_count}/{limit} currently active). Please mark existing employees as Inactive or contact System Admin to increase the employee limit."
                 )
 
     raw_st = str(data.get('salary_type') or 'daily').strip().lower()
@@ -1188,6 +1252,7 @@ def create_employee(data, company_id=None):
         'id': emp_id,
         'company_id': assigned_company_id,
         'employee_name': emp_name,
+        'status': emp_status,
         'department': (data.get('department') or data.get('designation') or 'General').strip(),
         'designation': data.get('designation', '').strip(),
         'salary_type': salary_type,
@@ -1287,6 +1352,35 @@ def update_employee(emp_id, data, company_id=None):
         upd['documents'] = data['documents']
     if 'company_id' in data and data['company_id']:
         upd['company_id'] = str(data['company_id'])
+
+    if 'status' in data and data['status'] is not None:
+        raw_st_val = str(data['status']).strip().capitalize()
+        new_status = 'Inactive' if raw_st_val == 'Inactive' else 'Active'
+        if new_status == 'Active':
+            existing_emp_doc = existing_emp or (db.employees.find_one(f) if f else None)
+            existing_status = 'Active'
+            if existing_emp_doc:
+                existing_status = 'Inactive' if str(existing_emp_doc.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
+            if existing_status == 'Inactive':
+                assigned_comp_id = (existing_emp_doc.get('company_id') if existing_emp_doc else None) or company_id
+                if assigned_comp_id and assigned_comp_id != 'ARGUS_MASTER':
+                    comp = db.company_admin.find_one(build_id_filter(assigned_comp_id))
+                    if comp:
+                        try:
+                            limit = int(comp.get('employee_limit') or comp.get('employee_count') or 50)
+                        except (ValueError, TypeError):
+                            limit = 50
+                        active_count = db.employees.count_documents({
+                            'company_id': assigned_comp_id,
+                            'status': {'$ne': 'Inactive'},
+                            'id': {'$ne': emp_id}
+                        })
+                        if active_count >= limit:
+                            comp_name = comp.get('company_name', assigned_comp_id)
+                            raise ValueError(
+                                f"Cannot activate employee: Company '{comp_name}' allows a maximum of {limit} active employees ({active_count}/{limit} currently active). Please mark another employee as Inactive first or contact System Admin to increase the employee limit."
+                            )
+        upd['status'] = new_status
         
     db.employees.update_one(f, {'$set': upd})
     invalidate_dashboard_cache(company_id)
@@ -1388,7 +1482,8 @@ def get_dashboard_stats(company_id=None):
     if company_id and company_id != 'ALL':
         t_filter['company_id'] = str(company_id)
         
-    total_employees = db.employees.count_documents(t_filter)
+    total_preserved_employees = db.employees.count_documents(t_filter)
+    total_employees = db.employees.count_documents({**t_filter, 'status': {'$ne': 'Inactive'}})
     
     # Calculate today's active punches across live punches, attendance, reports, and manual entries
     now_ist = get_ist_now()
@@ -1584,8 +1679,8 @@ def get_dashboard_stats(company_id=None):
             'count': total_monthly_punches
         })
         
-    # Today's attendance list & Department summary
-    employees = list(db.employees.find(t_filter, {'_id': 0, 'id': 1, 'employee_name': 1, 'department': 1, 'designation': 1}))
+    # Today's attendance list & Department summary (Active employees only)
+    employees = list(db.employees.find({**t_filter, 'status': {'$ne': 'Inactive'}}, {'_id': 0, 'id': 1, 'employee_name': 1, 'department': 1, 'designation': 1}))
     
     today_attendance = []
     present_names_set = set()
@@ -1696,6 +1791,8 @@ def get_dashboard_stats(company_id=None):
     
     res = {
         'total': total_employees,
+        'total_active': total_employees,
+        'total_preserved': total_preserved_employees,
         'present': present_count,
         'on_leave': on_leave_count,
         'on_leave_percentage': on_leave_percentage,

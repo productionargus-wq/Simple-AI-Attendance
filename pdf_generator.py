@@ -282,6 +282,7 @@ def generate_employees_pdf(employees, company_info=None):
             Paragraph("SL NO", header_style),
             Paragraph("EMP ID", header_style),
             Paragraph("EMPLOYEE NAME", header_style),
+            Paragraph("STATUS", header_style),
             Paragraph("SALARY BASIS", header_style),
             Paragraph("MOBILE", header_style),
             Paragraph("SHIFT HOURS", header_style),
@@ -296,16 +297,18 @@ def generate_employees_pdf(employees, company_info=None):
             Paragraph("No employee records found", cell_style),
             Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style),
             Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style),
-            Paragraph("", cell_style), Paragraph("", cell_style)
+            Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style)
         ])
     else:
         for idx, emp in enumerate(employees, 1):
             st = str(emp.get('salary_type', 'hourly')).lower()
             st_label = 'Hourly' if st == 'hourly' else ('Day-Based' if st == 'daily' else 'Half-Day')
+            emp_status = 'Inactive' if str(emp.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
             table_data.append([
                 Paragraph(str(idx), cell_style),
                 Paragraph(str(emp.get('id', '')), cell_style),
                 Paragraph(str(emp.get('employee_name', '')), cell_style),
+                Paragraph(emp_status, cell_style),
                 Paragraph(st_label, cell_style),
                 Paragraph(str(emp.get('mobile_number', '') or '-'), cell_style),
                 Paragraph(str(emp.get('shift_hours', '08:00')), cell_style),
@@ -314,7 +317,7 @@ def generate_employees_pdf(employees, company_info=None):
                 Paragraph(str(emp.get('joining_date', '') or emp.get('date_of_joining', '') or '-'), cell_style)
             ])
             
-    col_widths = [45, 60, 110, 80, 85, 75, 95, 100, 80]
+    col_widths = [38, 55, 105, 55, 75, 80, 65, 85, 95, 75]
     t = Table(table_data, colWidths=col_widths)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EDF1F5')),

@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
   let currentPage = 1;
   let currentLimit = 10;
   let currentSearch = '';
+  let currentStatus = 'All';
   let currentSortCol = 'id';
   let currentSortDir = 'desc';
   let currentViewingEmpId = null;
@@ -66,7 +67,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Fetch and render data
   async function loadEmployees() {
     try {
-      const url = `/api/employees?search=${encodeURIComponent(currentSearch)}&sort_col=${currentSortCol}&sort_dir=${currentSortDir}&page=${currentPage}&limit=${currentLimit}`;
+      const url = `/api/employees?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}&sort_col=${currentSortCol}&sort_dir=${currentSortDir}&page=${currentPage}&limit=${currentLimit}`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -77,6 +78,19 @@ document.addEventListener('DOMContentLoaded', function () {
         renderTableRows(currentEmployees);
       }
       updatePagination(data.total, data.page, data.limit);
+
+      // Update Quota badge and status filter pill counts
+      const countAllEl = document.getElementById('countAllPill');
+      if (countAllEl) countAllEl.textContent = `(${data.total_preserved ?? data.total ?? 0})`;
+      const countActiveEl = document.getElementById('countActivePill');
+      if (countActiveEl) countActiveEl.textContent = `(${data.active_count ?? 0})`;
+      const countInactiveEl = document.getElementById('countInactivePill');
+      if (countInactiveEl) countInactiveEl.textContent = `(${data.inactive_count ?? 0})`;
+
+      const quotaUsageEl = document.getElementById('quotaUsageText');
+      if (quotaUsageEl) {
+        quotaUsageEl.textContent = `${data.active_count ?? 0} / ${data.employee_limit ?? 50} Active`;
+      }
     } catch (err) {
       console.error('Failed to load employees:', err);
     }
@@ -87,12 +101,17 @@ document.addEventListener('DOMContentLoaded', function () {
     tableBody.innerHTML = '';
 
     if (!employees || employees.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 24px; color: #64748b;">No matching records found</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="13" style="text-align: center; padding: 24px; color: #64748b;">No matching records found</td></tr>`;
       return;
     }
 
     employees.forEach(emp => {
       const tr = document.createElement('tr');
+
+      const isInactive = (emp.status === 'Inactive');
+      const statusBadgeHtml = isInactive 
+        ? '<span class="status-pill status-inactive">Inactive</span>' 
+        : '<span class="status-pill status-active">Active</span>';
 
       const st = emp.salary_type || 'hourly';
       let badgeHtml = '';
@@ -121,6 +140,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <td style="text-align: center; vertical-align: middle;">${photoHtml}</td>
         <td class="col-wrap" style="max-width: 180px; white-space: normal !important; word-break: break-word !important;"><strong style="color: #0f172a;">${escapeHtml(emp.employee_name)}</strong></td>
         <td class="col-wrap" style="color: #475569; max-width: 160px; white-space: normal !important; word-break: break-word !important;">${escapeHtml(emp.designation || '')}</td>
+        <td style="white-space: nowrap;">${statusBadgeHtml}</td>
         <td style="white-space: nowrap;">${badgeHtml}</td>
         <td style="font-weight: 600; white-space: nowrap;">₹${Number(emp.hourly_salary || 0).toFixed(2)}</td>
         <td style="font-weight: 600; white-space: nowrap;">₹${Number(emp.day_salary || 0).toFixed(0)}</td>
@@ -182,11 +202,19 @@ document.addEventListener('DOMContentLoaded', function () {
       if (st === 'daily') salaryRateDisplay = `₹${Number(emp.day_salary || 0).toFixed(0)}/day`;
       else if (st === 'half_day') salaryRateDisplay = `₹${Number(emp.half_day_salary || 0).toFixed(0)}/half-day`;
 
+      const isInactive = (emp.status === 'Inactive');
+      const statusBadgeHtml = isInactive 
+        ? '<span class="status-pill status-inactive" style="font-size: 10.5px; padding: 2px 7px;">Inactive</span>' 
+        : '<span class="status-pill status-active" style="font-size: 10.5px; padding: 2px 7px;">Active</span>';
+
       card.innerHTML = `
         <div class="emp-grid-header">
           ${photoImgHtml}
           <div style="flex: 1; min-width: 0;">
-            <div class="emp-grid-info-title">${escapeHtml(emp.employee_name)}</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+              <div class="emp-grid-info-title">${escapeHtml(emp.employee_name)}</div>
+              ${statusBadgeHtml}
+            </div>
             <div class="emp-grid-info-sub">${escapeHtml(emp.designation || 'Staff')} &bull; ID: ${escapeHtml(emp.id)}</div>
           </div>
         </div>
@@ -319,6 +347,24 @@ document.addEventListener('DOMContentLoaded', function () {
       loadEmployees();
     });
   }
+
+  // Status Filter Tabs (All / Active / Inactive)
+  const statusFilterBtns = document.querySelectorAll('.btn-status-filter');
+  statusFilterBtns.forEach(btn => {
+    btn.addEventListener('click', function () {
+      statusFilterBtns.forEach(b => {
+        b.classList.remove('active');
+        b.style.background = 'transparent';
+        b.style.boxShadow = 'none';
+      });
+      this.classList.add('active');
+      this.style.background = '#ffffff';
+      this.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+      currentStatus = this.getAttribute('data-status') || 'All';
+      currentPage = 1;
+      loadEmployees();
+    });
+  });
 
   // ================= EMPLOYEE DOCUMENTS MANAGEMENT =================
   const employeeDocsContainer = document.getElementById('employeeDocsContainer');
@@ -523,6 +569,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('formEmployeeId').value = '';
     document.getElementById('entryModalTitle').textContent = 'Employee Detail Entry';
     document.getElementById('inputSalaryType').value = 'daily';
+    const inStatus = document.getElementById('inputStatus');
+    if (inStatus) inStatus.value = 'Active';
     const inDob = document.getElementById('inputDob');
     if (inDob) inDob.value = '';
     const inStart = document.getElementById('inputShiftStart');
@@ -571,6 +619,8 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inDept) inDept.value = emp.department || '';
       document.getElementById('inputDesignation').value = emp.designation || '';
       document.getElementById('inputSalaryType').value = emp.salary_type || 'hourly';
+      const inEditStatus = document.getElementById('inputStatus');
+      if (inEditStatus) inEditStatus.value = (emp.status === 'Inactive') ? 'Inactive' : 'Active';
       document.getElementById('inputMobile').value = emp.mobile_number || '';
       document.getElementById('inputHourlySalary').value = emp.hourly_salary || '';
       document.getElementById('inputDaySalary').value = emp.day_salary || '';
@@ -648,6 +698,8 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnResetForm) {
     btnResetForm.addEventListener('click', function () {
       employeeForm.reset();
+      const inStatus = document.getElementById('inputStatus');
+      if (inStatus) inStatus.value = 'Active';
       const inDob = document.getElementById('inputDob');
       if (inDob) inDob.value = '';
       const pPunch = document.getElementById('permPunchAttendance');
@@ -1029,6 +1081,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ['EMPLOYEE NAME', emp.employee_name],
         ['DEPARTMENT', emp.department || emp.designation || '-'],
         ['DESIGNATION', emp.designation],
+        ['STATUS', (emp.status === 'Inactive') ? '<span class="status-pill status-inactive">Inactive</span>' : '<span class="status-pill status-active">Active</span>'],
         ['SALARY BASIS', stLabels[emp.salary_type] || 'Hourly-Based'],
         ['HOURLY SALARY', emp.hourly_salary],
         ['DAY SALARY', emp.day_salary],
@@ -1216,19 +1269,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (btnCsvEmployees) {
     btnCsvEmployees.addEventListener('click', function () {
-      window.location.href = `/api/employees/export/csv?search=${encodeURIComponent(currentSearch)}`;
+      window.location.href = `/api/employees/export/csv?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}`;
     });
   }
 
   if (btnExcelEmployees) {
     btnExcelEmployees.addEventListener('click', function () {
-      window.location.href = `/api/employees/export/excel?search=${encodeURIComponent(currentSearch)}`;
+      window.location.href = `/api/employees/export/excel?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}`;
     });
   }
 
   if (btnPdfEmployees) {
     btnPdfEmployees.addEventListener('click', function () {
-      window.location.href = `/api/employees/export/pdf?search=${encodeURIComponent(currentSearch)}`;
+      window.location.href = `/api/employees/export/pdf?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}`;
     });
   }
 
