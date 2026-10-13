@@ -1,0 +1,1796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Worker Force Management Module | Argus AI Attendance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --fw-bg: #f1f5f9;
+            --fw-card: #ffffff;
+            --fw-dark: #0f172a;
+            --fw-teal: #0d9488;
+            --fw-emerald: #059669;
+            --fw-blue: #2563eb;
+            --fw-amber: #d97706;
+            --fw-red: #dc2626;
+            --fw-border: #e2e8f0;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--fw-bg);
+            color: #1e293b;
+            margin: 0;
+            padding-bottom: 48px;
+        }
+        /* Top Header */
+        .fw-topbar {
+            background: linear-gradient(135deg, #0f172a 0%, #134e4a 60%, #0f766e 100%);
+            color: #ffffff;
+            padding: 14px 24px;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.22);
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+        }
+        .fw-brand-badge {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(52, 211, 153, 0.45);
+            color: #6ee7b7;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 999px;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+        }
+        /* KPI Cards */
+        .fw-kpi-card {
+            background: var(--fw-card);
+            border-radius: 14px;
+            border: 1px solid var(--fw-border);
+            padding: 16px 18px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+            height: 100%;
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+        .fw-kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        }
+        .fw-kpi-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+        }
+        .fw-kpi-val {
+            font-size: 1.55rem;
+            font-weight: 800;
+            line-height: 1.15;
+            color: #0f172a;
+        }
+        .fw-kpi-lbl {
+            font-size: 0.76rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #64748b;
+        }
+        /* Navigation Pills */
+        .fw-nav-tabs {
+            background: #ffffff;
+            padding: 8px;
+            border-radius: 14px;
+            border: 1px solid var(--fw-border);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+        }
+        .fw-nav-tabs .nav-link {
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.86rem;
+            color: #475569;
+            padding: 10px 16px;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+        .fw-nav-tabs .nav-link:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+        .fw-nav-tabs .nav-link.active {
+            background: linear-gradient(135deg, #0d9488 0%, #059669 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+        }
+        /* Panels & Tables */
+        .fw-panel {
+            background: #ffffff;
+            border-radius: 16px;
+            border: 1px solid var(--fw-border);
+            padding: 22px;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+            margin-bottom: 22px;
+        }
+        .fw-panel-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin-bottom: 16px;
+        }
+        #fieldLiveMap {
+            width: 100%;
+            height: 460px;
+            border-radius: 14px;
+            border: 2px solid #cbd5e1;
+            z-index: 1;
+        }
+        #assignPickerMap {
+            width: 100%;
+            height: 310px;
+            border-radius: 12px;
+            border: 1px solid #cbd5e1;
+            z-index: 1;
+        }
+        /* Status Badges */
+        .badge-onsite {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+        }
+        .badge-transit {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+        }
+        .badge-detour {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+        }
+        .table thead th {
+            background: #f8fafc;
+            color: #475569;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            border-bottom: 2px solid #e2e8f0;
+            padding: 11px 12px;
+        }
+        .table tbody td {
+            font-size: 0.85rem;
+            vertical-align: middle;
+            padding: 11px 12px;
+        }
+        .fw-camera-box {
+            background: #0f172a;
+            border-radius: 14px;
+            overflow: hidden;
+            position: relative;
+            min-height: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #334155;
+        }
+        .fw-camera-box video {
+            width: 100%;
+            max-height: 340px;
+            object-fit: cover;
+        }
+        .form-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 4px;
+        }
+        .form-control, .form-select {
+            font-size: 0.87rem;
+            border-radius: 9px;
+            border-color: #cbd5e1;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #0d9488;
+            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <header class="fw-topbar">
+        <div class="container-fluid">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#10b981,#0d9488);display:flex;align-items:center;justify-content:center;font-size:1.3rem;box-shadow:0 4px 12px rgba(16,185,129,0.35);">
+                        <i class="fa-solid fa-map-location-dot text-white"></i>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2">
+                            <h5 class="mb-0 fw-bold text-white" style="letter-spacing:-0.3px;">FIELD WORKER MODULE</h5>
+                            <span class="fw-brand-badge">Live GPS &bull; CRM &bull; Payroll</span>
+                        </div>
+                        <div class="text-white-50" style="font-size:0.78rem;">
+                            Company Location Verification vs. Personal Work Detour Detection &bull; Customer Lead Tracking &bull; Automated Field Payslips
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters & Quick Actions -->
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <div class="d-flex align-items-center bg-dark bg-opacity-50 rounded-3 px-2 py-1 border border-secondary border-opacity-50">
+                        <i class="fa-solid fa-building text-info me-2 small"></i>
+                        <select id="globalCompanySelect" class="form-select form-select-sm bg-transparent text-white border-0 py-0 pe-4" style="font-weight:600;min-width:170px;" onchange="reloadFieldModule()">
+                            <option value="ARGUS_MASTER" class="text-dark" {% if active_company_id == 'ARGUS_MASTER' %}selected{% endif %}>ARGUS TECHNOLOGIES (HQ)</option>
+                            {% for c in companies %}
+                            {% if c.id != 'ARGUS_MASTER' %}
+                            <option value="{{ c.id }}" class="text-dark" {% if active_company_id == c.id %}selected{% endif %}>{{ c.company_name }}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <input type="date" id="globalDateInput" class="form-control form-control-sm" style="width:142px;font-weight:600;" value="{{ today_str }}" onchange="reloadFieldModule()">
+                    <input type="month" id="globalMonthInput" class="form-control form-control-sm" style="width:142px;font-weight:600;" value="{{ month_year }}" onchange="reloadFieldModule()">
+
+                    <a href="/" class="btn btn-sm btn-outline-light fw-semibold">
+                        <i class="fa-solid fa-camera me-1"></i> Main Kiosk
+                    </a>
+                    {% if session.get('logged_in') %}
+                    <a href="/dashboard" class="btn btn-sm btn-warning fw-bold text-dark">
+                        <i class="fa-solid fa-gauge-high me-1"></i> Admin Panel
+                    </a>
+                    {% else %}
+                    <a href="/login" class="btn btn-sm btn-info fw-bold text-dark">
+                        <i class="fa-solid fa-right-to-bracket me-1"></i> Admin Login
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container-fluid px-3 px-md-4 mt-3">
+        <!-- Toast Alert Banner -->
+        <div id="fwAlertBanner" class="alert alert-success d-none align-items-center justify-content-between py-2 px-3 mb-3 shadow-sm" role="alert">
+            <span id="fwAlertText" class="fw-semibold small"></span>
+            <button type="button" class="btn-close btn-sm" onclick="document.getElementById('fwAlertBanner').classList.add('d-none')"></button>
+        </div>
+
+        <!-- 6 Live KPI Cards -->
+        <div class="row g-3 mb-3">
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="fw-kpi-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-kpi-lbl">Field Workers</div>
+                            <div class="fw-kpi-val mt-1" id="kpiWorkersCount">{{ field_workers|length }}</div>
+                            <div class="text-muted" style="font-size:0.73rem;">Registered for Field Ops</div>
+                        </div>
+                        <div class="fw-kpi-icon" style="background:#e0f2fe;color:#0284c7;">
+                            <i class="fa-solid fa-user-astronaut"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="fw-kpi-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-kpi-lbl">Assigned Sites</div>
+                            <div class="fw-kpi-val mt-1" id="kpiAssignedCount">{{ assignments|length }}</div>
+                            <div class="text-muted" style="font-size:0.73rem;">Target Locations Today</div>
+                        </div>
+                        <div class="fw-kpi-icon" style="background:#f3e8ff;color:#7e22ce;">
+                            <i class="fa-solid fa-location-crosshairs"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="fw-kpi-card" style="border-left:4px solid #16a34a;">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-kpi-lbl text-success">Verified On-Site</div>
+                            <div class="fw-kpi-val mt-1 text-success" id="kpiOnSiteCount">{{ tracking.counts.on_site if tracking and tracking.counts else 0 }}</div>
+                            <div class="text-muted" style="font-size:0.73rem;">At Assigned Company Site</div>
+                        </div>
+                        <div class="fw-kpi-icon" style="background:#dcfce7;color:#15803d;">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="fw-kpi-card" style="border-left:4px solid #d97706;">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-kpi-lbl text-warning">In-Transit</div>
+                            <div class="fw-kpi-val mt-1" style="color:#d97706;" id="kpiTransitCount">{{ tracking.counts.in_transit if tracking and tracking.counts else 0 }}</div>
+                            <div class="text-muted" style="font-size:0.73rem;">Moving Between Sites</div>
+                        </div>
+                        <div class="fw-kpi-icon" style="background:#fef3c7;color:#b45309;">
+                            <i class="fa-solid fa-route"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="fw-kpi-card" style="border-left:4px solid #dc2626;">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-kpi-lbl text-danger">Personal Detours</div>
+                            <div class="fw-kpi-val mt-1 text-danger" id="kpiDetourCount">{{ tracking.counts.off_route_detour if tracking and tracking.counts else 0 }}</div>
+                            <div class="text-muted" style="font-size:0.73rem;">Off-Route Alert (&gt;1 km)</div>
+                        </div>
+                        <div class="fw-kpi-icon" style="background:#fee2e2;color:#b91c1c;">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="fw-kpi-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-kpi-lbl">Customer Leads</div>
+                            <div class="fw-kpi-val mt-1" id="kpiVisitsCount">{{ visits|length }}</div>
+                            <div class="text-success fw-semibold" style="font-size:0.73rem;" id="kpiOrderValueSub">Verified Client Visits</div>
+                        </div>
+                        <div class="fw-kpi-icon" style="background:#ccfbf1;color:#0f766e;">
+                            <i class="fa-solid fa-handshake"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6 Interactive Module Tabs -->
+        <ul class="nav fw-nav-tabs mb-3" id="fwModuleTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabLiveTracking" type="button" role="tab" onclick="setTimeout(()=>liveMap && liveMap.invalidateSize(), 150)">
+                    <i class="fa-solid fa-satellite-dish"></i> 1. Live Route &amp; Detour Monitor
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabRegisterWorkers" type="button" role="tab">
+                    <i class="fa-solid fa-user-plus"></i> 2. Register Field Workers
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabAssignLocations" type="button" role="tab" onclick="setTimeout(()=>assignMap && assignMap.invalidateSize(), 150)">
+                    <i class="fa-solid fa-map-pin"></i> 3. Assign Target Locations
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabFieldPunch" type="button" role="tab">
+                    <i class="fa-solid fa-camera-rotate"></i> 4. Field Attendance Punch
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabCustomerVisits" type="button" role="tab">
+                    <i class="fa-solid fa-briefcase"></i> 5. Customer Visits (Lead CRM)
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabFieldPayroll" type="button" role="tab">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> 6. Field Salary &amp; Payslip Reports
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- ========================================================= -->
+            <!-- TAB 1: LIVE ROUTE MAP & DETOUR MONITOR                    -->
+            <!-- ========================================================= -->
+            <div class="tab-pane fade show active" id="tabLiveTracking" role="tabpanel">
+                <div class="row g-3">
+                    <!-- Left: Interactive Live Map -->
+                    <div class="col-lg-8">
+                        <div class="fw-panel">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                                <div class="fw-panel-title mb-0">
+                                    <i class="fa-solid fa-map-location-dot text-teal" style="color:#0d9488;"></i>
+                                    Live Field Worker GPS Radar &amp; Geofence Verification Map
+                                </div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <span class="badge-onsite"><i class="fa-solid fa-circle me-1"></i>Green: At Assigned Site (&le;150m)</span>
+                                    <span class="badge-transit"><i class="fa-solid fa-circle me-1"></i>Amber: Official Transit</span>
+                                    <span class="badge-detour"><i class="fa-solid fa-circle me-1"></i>Red: Personal Detour (&gt;1km)</span>
+                                </div>
+                            </div>
+                            <div id="fieldLiveMap"></div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Live Worker GPS Transmitter & Route Classification Tester -->
+                    <div class="col-lg-4">
+                        <div class="fw-panel">
+                            <div class="fw-panel-title">
+                                <i class="fa-solid fa-tower-broadcast text-primary"></i>
+                                Field Worker Live GPS Check-In &amp; Tracker
+                            </div>
+                            <p class="text-muted small mb-3">
+                                Transmits the field worker's live GPS location and automatically verifies if they are at their <strong>Assigned Company Location</strong> or taking an <strong>Unauthorized Personal Detour</strong>.
+                            </p>
+
+                            <div class="mb-2">
+                                <label class="form-label">Select Field Worker</label>
+                                <select id="pingWorkerSelect" class="form-select">
+                                    {% for w in field_workers %}
+                                    <option value="{{ w.employee_name }}" data-empid="{{ w.id }}">{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label">Live Latitude</label>
+                                    <input type="number" step="0.000001" id="pingLat" class="form-control" value="{{ active_company.latitude or 11.02980 }}">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Live Longitude</label>
+                                    <input type="number" step="0.000001" id="pingLng" class="form-control" value="{{ active_company.longitude or 76.97400 }}">
+                                </div>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label">Activity / Status Note</label>
+                                <input type="text" id="pingNote" class="form-control" placeholder="e.g., Reached client site for product demo">
+                            </div>
+
+                            <div class="d-grid gap-2 mt-3">
+                                <button type="button" class="btn btn-success fw-bold" onclick="captureAndSendLiveGPS()">
+                                    <i class="fa-solid fa-location-crosshairs me-1"></i> Capture Device GPS &amp; Send Live Ping
+                                </button>
+                                <button type="button" id="btnAutoTrack" class="btn btn-outline-primary fw-semibold" onclick="toggleAutoGPSTracking()">
+                                    <i class="fa-solid fa-satellite me-1"></i> Start Continuous Live Tracking (Every 25s)
+                                </button>
+                            </div>
+
+                            <hr class="my-3">
+                            <div class="small fw-bold text-secondary mb-2">
+                                <i class="fa-solid fa-flask me-1"></i> Quick Route Verification Simulation (For Demo/Testing):
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-success text-start fw-semibold" onclick="simulateScenarioPing('on_site')">
+                                    <i class="fa-solid fa-circle-check me-1"></i> 1. Simulate Arrival at Assigned Site (Green)
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-warning text-dark text-start fw-semibold" onclick="simulateScenarioPing('in_transit')">
+                                    <i class="fa-solid fa-truck-fast me-1"></i> 2. Simulate En-Route Official Travel (Amber)
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger text-start fw-semibold" onclick="simulateScenarioPing('off_route_detour')">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i> 3. Simulate Personal Work Detour &gt;2km Away (Red)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live GPS Breadcrumb Logs Table -->
+                <div class="fw-panel">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                        <div class="fw-panel-title mb-0">
+                            <i class="fa-solid fa-list-check text-primary"></i>
+                            Live Field Worker GPS Trail &amp; Route Compliance Log
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a id="btnExportTrackingPdf" href="/api/field-worker/export?type=tracking&format=pdf&company_id={{ active_company_id }}&date={{ today_str }}" class="btn btn-sm btn-danger fw-semibold">
+                                <i class="fa-solid fa-file-pdf me-1"></i> Export PDF
+                            </a>
+                            <a id="btnExportTrackingExcel" href="/api/field-worker/export?type=tracking&format=excel&company_id={{ active_company_id }}&date={{ today_str }}" class="btn btn-sm btn-success fw-semibold">
+                                <i class="fa-solid fa-file-excel me-1"></i> Export Excel
+                            </a>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Field Worker</th>
+                                    <th>Assigned Target Site</th>
+                                    <th>Distance from Target</th>
+                                    <th>Step KM</th>
+                                    <th>Route Classification</th>
+                                    <th>Live Street Address / Coordinates</th>
+                                    <th>Note</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trackingLogsTableBody">
+                                {% if tracking and tracking.logs %}
+                                {% for lg in tracking.logs %}
+                                <tr>
+                                    <td class="fw-semibold">{{ lg.time_short or lg.timestamp }}</td>
+                                    <td class="fw-bold">{{ lg.employee_name }}</td>
+                                    <td>{{ lg.nearest_target_name }}</td>
+                                    <td>{{ "%.1f"|format(lg.distance_from_target_m or 0) }} m</td>
+                                    <td>{{ "%.3f"|format(lg.step_km or 0) }} km</td>
+                                    <td>
+                                        {% if lg.tracking_status == 'on_site' %}
+                                        <span class="badge-onsite"><i class="fa-solid fa-check me-1"></i>{{ lg.status_label }}</span>
+                                        {% elif lg.tracking_status == 'off_route_detour' %}
+                                        <span class="badge-detour"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ lg.status_label }}</span>
+                                        {% else %}
+                                        <span class="badge-transit"><i class="fa-solid fa-route me-1"></i>{{ lg.status_label }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="small text-muted">{{ lg.address }}</td>
+                                    <td class="small">{{ lg.activity_note or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">No GPS pings recorded yet for this date. Use the GPS Check-In panel above to log live locations.</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================= -->
+            <!-- TAB 2: REGISTER & MANAGE FIELD WORKERS                    -->
+            <!-- ========================================================= -->
+            <div class="tab-pane fade" id="tabRegisterWorkers" role="tabpanel">
+                <div class="row g-3">
+                    <div class="col-lg-5">
+                        <div class="fw-panel">
+                            <div class="fw-panel-title">
+                                <i class="fa-solid fa-id-card-clip text-teal" style="color:#0d9488;"></i>
+                                Register New Field Worker / Configure Incentives
+                            </div>
+                            <form id="registerFieldWorkerForm" onsubmit="submitFieldWorkerRegistration(event)">
+                                <div class="mb-2">
+                                    <label class="form-label">Mode: New Registration or Existing Employee</label>
+                                    <select id="fwExistingEmpSelect" class="form-select" onchange="populateExistingEmployeeForField(this)">
+                                        <option value="">+ Register Brand New Field Worker</option>
+                                        {% for emp in all_employees %}
+                                        <option value="{{ emp.id }}"
+                                            data-name="{{ emp.employee_name }}"
+                                            data-email="{{ emp.email_id }}"
+                                            data-mobile="{{ emp.mobile_number }}"
+                                            data-dept="{{ emp.department }}"
+                                            data-desig="{{ emp.designation }}"
+                                            data-zone="{{ emp.territory_zone }}"
+                                            data-saltype="{{ emp.salary_type }}"
+                                            data-shifthrs="{{ emp.shift_hours }}"
+                                            data-daysal="{{ emp.day_salary }}"
+                                            data-hrsal="{{ emp.hourly_salary }}"
+                                            data-visitinc="{{ emp.per_visit_incentive }}"
+                                            data-kmrate="{{ emp.km_allowance_rate }}"
+                                            data-status="{{ emp.status or 'Active' }}">
+                                            Configure Existing: {{ emp.employee_name }} ({{ emp.department }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-7">
+                                        <label class="form-label">Field Worker Full Name *</label>
+                                        <input type="text" id="fwRegName" class="form-control" required placeholder="e.g., Karthik Sundaram">
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label">Status (Quota Control)</label>
+                                        <select id="fwRegStatus" class="form-select">
+                                            <option value="Active">Active (Counts in Quota)</option>
+                                            <option value="Inactive">Inactive (Preserved Only)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Email ID *</label>
+                                        <input type="email" id="fwRegEmail" class="form-control" required placeholder="worker@company.com">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Mobile Number *</label>
+                                        <input type="text" id="fwRegMobile" class="form-control" required placeholder="9876543210">
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Department</label>
+                                        <input type="text" id="fwRegDept" class="form-control" value="Field Sales">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Designation</label>
+                                        <input type="text" id="fwRegDesig" class="form-control" value="Sales Executive">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Assigned Territory / Zone</label>
+                                        <input type="text" id="fwRegZone" class="form-control" value="Coimbatore North">
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Base Salary Type</label>
+                                        <select id="fwRegSalaryType" class="form-select">
+                                            <option value="daily">Daily Salary</option>
+                                            <option value="hourly">Hourly (Supports 00:00 Shift)</option>
+                                            <option value="half_day">Half-Day Salary</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Shift Hours (00:00 = Flex)</label>
+                                        <input type="text" id="fwRegShiftHours" class="form-control" value="08:00" placeholder="08:00 or 00:00">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Daily / Hourly Base Rate (₹)</label>
+                                        <input type="number" step="0.01" id="fwRegBaseRate" class="form-control" value="600">
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-3 p-2 rounded-3" style="background:#f0fdfa;border:1px solid #99f6e4;">
+                                    <div class="col-12 small fw-bold text-teal" style="color:#0f766e;">
+                                        <i class="fa-solid fa-coins me-1"></i> Field Performance Incentive &amp; Travel Allowance Rates
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Per Verified Visit Incentive (₹)</label>
+                                        <input type="number" step="0.5" id="fwRegVisitIncentive" class="form-control" value="75">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">GPS Travel Allowance (₹ / KM)</label>
+                                        <input type="number" step="0.5" id="fwRegKmRate" class="form-control" value="6">
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100 fw-bold py-2">
+                                    <i class="fa-solid fa-user-check me-1"></i> Save Field Worker Profile
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-7">
+                        <div class="fw-panel">
+                            <div class="fw-panel-title">
+                                <i class="fa-solid fa-users-gear text-primary"></i>
+                                Registered Field Force Directory ({{ field_workers|length }})
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Field Worker</th>
+                                            <th>Territory / Zone</th>
+                                            <th>Salary Type &amp; Shift</th>
+                                            <th>Visit Incentive</th>
+                                            <th>Travel Rate</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="fieldWorkersTableBody">
+                                        {% for w in field_workers %}
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold">{{ w.employee_name }}</div>
+                                                <div class="small text-muted">{{ w.designation or 'Field Executive' }} &bull; {{ w.mobile_number or w.email_id }}</div>
+                                            </td>
+                                            <td><span class="badge bg-light text-dark border">{{ w.territory_zone or 'General Zone' }}</span></td>
+                                            <td>
+                                                <span class="fw-semibold text-uppercase small">{{ w.salary_type or 'daily' }}</span>
+                                                <div class="small text-muted">Shift: {{ w.shift_hours or '08:00' }} hrs</div>
+                                            </td>
+                                            <td class="fw-bold text-success">₹{{ "%.2f"|format(w.per_visit_incentive or 0) }} / visit</td>
+                                            <td class="fw-bold text-primary">₹{{ "%.2f"|format(w.km_allowance_rate or 0) }} / km</td>
+                                            <td>
+                                                {% if (w.status or 'Active') == 'Inactive' %}
+                                                <span class="badge bg-secondary">Inactive</span>
+                                                {% else %}
+                                                <span class="badge bg-success">Active</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================= -->
+            <!-- TAB 3: ASSIGN TARGET LOCATIONS & TASKS                    -->
+            <!-- ========================================================= -->
+            <div class="tab-pane fade" id="tabAssignLocations" role="tabpanel">
+                <div class="row g-3">
+                    <div class="col-lg-5">
+                        <div class="fw-panel">
+                            <div class="fw-panel-title">
+                                <i class="fa-solid fa-map-pin text-danger"></i>
+                                Assign Target Customer / Company Location to Field Worker
+                            </div>
+                            <form id="assignLocationForm" onsubmit="submitLocationAssignment(event)">
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Assign To Field Worker *</label>
+                                        <select id="asgnWorkerName" class="form-select" required>
+                                            {% for w in field_workers %}
+                                            <option value="{{ w.employee_name }}" data-empid="{{ w.id }}">{{ w.employee_name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Assignment Date *</label>
+                                        <input type="date" id="asgnDate" class="form-control" value="{{ today_str }}" required>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-7">
+                                        <label class="form-label">Target Customer / Shop / Company Name *</label>
+                                        <input type="text" id="asgnTargetName" class="form-control" required placeholder="e.g., Sri Krishna Enterprises - Gandhipuram">
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label">Task Purpose</label>
+                                        <select id="asgnPurpose" class="form-select">
+                                            <option value="Product Sales & Pitch">Product Sales &amp; Pitch</option>
+                                            <option value="Product Demo & Trial">Product Demo &amp; Trial</option>
+                                            <option value="Payment Collection">Payment Collection</option>
+                                            <option value="Service & Installation">Service &amp; Installation</option>
+                                            <option value="Distributor Visit">Distributor / Dealer Visit</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Client Contact Person</label>
+                                        <input type="text" id="asgnContactPerson" class="form-control" placeholder="e.g., Mr. Ramesh (Purchase Mgr)">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Client Phone</label>
+                                        <input type="text" id="asgnContactPhone" class="form-control" placeholder="9876543210">
+                                    </div>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label">Click on Map Below to Pin Target Location (or enter coordinates)</label>
+                                    <div id="assignPickerMap" class="mb-2"></div>
+                                </div>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Target Latitude *</label>
+                                        <input type="number" step="0.000001" id="asgnLat" class="form-control" value="11.018300" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Target Longitude *</label>
+                                        <input type="number" step="0.000001" id="asgnLng" class="form-control" value="76.968500" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Geofence Radius (m)</label>
+                                        <input type="number" id="asgnRadius" class="form-control" value="150" min="30" max="2000">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Target Street Address</label>
+                                    <input type="text" id="asgnAddress" class="form-control" placeholder="100 Feet Road, Gandhipuram, Coimbatore">
+                                </div>
+
+                                <button type="submit" class="btn btn-success w-100 fw-bold py-2">
+                                    <i class="fa-solid fa-paper-plane me-1"></i> Assign Target Location &amp; Activate Geofence
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-7">
+                        <div class="fw-panel">
+                            <div class="fw-panel-title">
+                                <i class="fa-solid fa-clipboard-check text-primary"></i>
+                                Assigned Field Locations &amp; Geofence Status
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Field Worker</th>
+                                            <th>Target Customer / Site</th>
+                                            <th>Purpose</th>
+                                            <th>Geofence</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="assignmentsTableBody">
+                                        {% if assignments %}
+                                        {% for a in assignments %}
+                                        <tr>
+                                            <td class="small fw-semibold">{{ a.assigned_date }}</td>
+                                            <td class="fw-bold">{{ a.employee_name }}</td>
+                                            <td>
+                                                <div class="fw-bold">{{ a.target_name }}</div>
+                                                <div class="small text-muted">{{ a.target_address }}</div>
+                                            </td>
+                                            <td><span class="badge bg-info bg-opacity-10 text-primary border border-info">{{ a.task_purpose }}</span></td>
+                                            <td class="small">{{ a.geofence_radius }}m radius</td>
+                                            <td>
+                                                {% if a.status == 'Completed' %}
+                                                <span class="badge-onsite"><i class="fa-solid fa-check-double me-1"></i>Completed</span>
+                                                {% elif a.status == 'In Progress' %}
+                                                <span class="badge-transit">On-Site / Active</span>
+                                                {% else %}
+                                                <span class="badge bg-secondary">Pending Visit</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="d-flex gap-1">
+                                                    <button class="btn btn-sm btn-outline-success" title="Mark Completed" onclick="updateAssignmentStatus('{{ a.id }}', 'Completed')">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" title="Delete" onclick="deleteAssignment('{{ a.id }}')">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted py-4">No target locations assigned for this date yet. Use the form on the left to assign customer sites.</td>
+                                        </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================= -->
+            <!-- TAB 4: FIELD ATTENDANCE PUNCH (FACE ID + LIVE GPS)        -->
+            <!-- ========================================================= -->
+            <div class="tab-pane fade" id="tabFieldPunch" role="tabpanel">
+                <div class="row g-3">
+                    <div class="col-lg-6">
+                        <div class="fw-panel">
+                            <div class="fw-panel-title">
+                                <i class="fa-solid fa-camera text-success"></i>
+                                Field Worker AI Face + Live GPS Attendance Punch
+                            </div>
+                            <p class="text-muted small mb-3">
+                                Field workers can punch in and punch out directly from their assigned customer location. Both <strong>Live Face Verification</strong> and <strong>Live GPS Location</strong> are captured simultaneously.
+                            </p>
+
+                            <div class="fw-camera-box mb-3">
+                                <video id="fwPunchVideo" autoplay playsinline muted></video>
+                                <canvas id="fwPunchCanvas" class="d-none"></canvas>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <button type="button" class="btn btn-outline-dark btn-sm fw-semibold" onclick="startFieldPunchCamera()">
+                                    <i class="fa-solid fa-video me-1"></i> Start Camera
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm fw-semibold" onclick="stopFieldPunchCamera()">
+                                    <i class="fa-solid fa-video-slash me-1"></i> Stop Camera
+                                </button>
+                                <span id="fwPunchGpsBadge" class="badge bg-teal text-dark border ms-auto align-self-center" style="background:#ccfbf1;">
+                                    <i class="fa-solid fa-location-dot text-success me-1"></i> GPS Ready ({{ active_company.latitude or 11.0298 }}, {{ active_company.longitude or 76.9740 }})
+                                </span>
+                            </div>
+
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <button type="button" class="btn btn-success w-100 fw-bold py-2" onclick="performFieldFacePunch()">
+                                        <i class="fa-solid fa-face-viewfinder me-1"></i> AI Face + GPS Punch (In / Out)
+                                    </button>
+                                </div>
+                                <div class="col-md-6">
+                                    <a href="/?kiosk=1" class="btn btn-outline-primary w-100 fw-bold py-2">
+                                        <i class="fa-solid fa-expand me-1"></i> Open Full-Screen Blink Kiosk
+                                    </a>
+                                </div>
+                            </div>
+                            <div id="fwPunchResultBox" class="mt-3"></div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6">
+                        <div class="fw-panel">
+                            <div class="fw-panel-title">
+                                <i class="fa-solid fa-user-clock text-primary"></i>
+                                Quick Field Attendance &amp; Site Check-In
+                            </div>
+                            <p class="text-muted small">
+                                Log an instant GPS-verified field attendance entry and update the worker's live position on the manager's map.
+                            </p>
+                            <div class="mb-3">
+                                <label class="form-label">Select Field Worker</label>
+                                <select id="quickPunchWorker" class="form-select">
+                                    {% for w in field_workers %}
+                                    <option value="{{ w.employee_name }}">{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Current Field Location / Site Note</label>
+                                <input type="text" id="quickPunchNote" class="form-control" value="Field Duty Start - Verified at Client Site">
+                            </div>
+                            <button type="button" class="btn btn-primary w-100 fw-bold py-2" onclick="submitQuickFieldCheckIn()">
+                                <i class="fa-solid fa-map-pin me-1"></i> Record GPS Field Check-In &amp; Update Live Map
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================= -->
+            <!-- TAB 5: CUSTOMER VISITING (LEAD CRM)                       -->
+            <!-- ========================================================= -->
+            <div class="tab-pane fade" id="tabCustomerVisits" role="tabpanel">
+                <div class="row g-3">
+                    <div class="col-lg-4">
+                        <div class="fw-panel">
+                            <div class="fw-panel-title">
+                                <i class="fa-solid fa-handshake-angle text-success"></i>
+                                Log Customer Visit / Sales Lead (CRM)
+                            </div>
+                            <form id="customerVisitForm" onsubmit="submitCustomerVisit(event)">
+                                <div class="mb-2">
+                                    <label class="form-label">Field Worker *</label>
+                                    <select id="visitWorkerName" class="form-select" required>
+                                        {% for w in field_workers %}
+                                        <option value="{{ w.employee_name }}">{{ w.employee_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label">Linked Assigned Target Location (Optional)</label>
+                                    <select id="visitAssignmentId" class="form-select" onchange="prefillVisitFromAssignment(this)">
+                                        <option value="">-- Direct / Self-Sourced Customer Visit --</option>
+                                        {% for a in assignments %}
+                                        <option value="{{ a.id }}"
+                                            data-target="{{ a.target_name }}"
+                                            data-person="{{ a.contact_person }}"
+                                            data-phone="{{ a.contact_phone }}"
+                                            data-lat="{{ a.target_lat }}"
+                                            data-lng="{{ a.target_lng }}"
+                                            data-addr="{{ a.target_address }}">
+                                            Assigned: {{ a.target_name }} ({{ a.employee_name }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label">Customer / Shop / Company Name *</label>
+                                    <input type="text" id="visitCustomerName" class="form-control" required placeholder="e.g., Apex Industrial Supplies">
+                                </div>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <label class="form-label">Contact Person</label>
+                                        <input type="text" id="visitContactPerson" class="form-control" placeholder="Mr. Senthil">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Customer Phone</label>
+                                        <input type="text" id="visitCustomerPhone" class="form-control" placeholder="9876543210">
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <label class="form-label">Product / Service Pitched</label>
+                                        <input type="text" id="visitProduct" class="form-control" value="Company Products">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Lead Outcome Status *</label>
+                                        <select id="visitLeadStatus" class="form-select">
+                                            <option value="Order Booked">Order Booked (Converted)</option>
+                                            <option value="Interested">Interested (Hot Lead)</option>
+                                            <option value="Follow-Up Required">Follow-Up Required</option>
+                                            <option value="Demo Completed">Demo Completed</option>
+                                            <option value="Payment Collected">Payment Collected</option>
+                                            <option value="Not Interested">Not Interested</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <label class="form-label">Order / Collection Value (₹)</label>
+                                        <input type="number" step="0.01" id="visitOrderAmount" class="form-control" value="0">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Follow-Up Date</label>
+                                        <input type="date" id="visitFollowUpDate" class="form-control">
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <label class="form-label">Visit GPS Lat</label>
+                                        <input type="number" step="0.000001" id="visitLat" class="form-control" value="11.018300">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Visit GPS Lng</label>
+                                        <input type="number" step="0.000001" id="visitLng" class="form-control" value="76.968500">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Meeting Discussion / Lead Remarks</label>
+                                    <textarea id="visitRemarks" class="form-control" rows="2" placeholder="Client requested quotation for 25 units..."></textarea>
+                                </div>
+
+                                <button type="submit" class="btn btn-success w-100 fw-bold py-2">
+                                    <i class="fa-solid fa-cloud-arrow-up me-1"></i> Submit Geo-Verified Customer Visit
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-8">
+                        <div class="fw-panel">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                                <div class="fw-panel-title mb-0">
+                                    <i class="fa-solid fa-chart-line text-primary"></i>
+                                    Customer Visits &amp; Sales Leads Pipeline ({{ visits|length }})
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <a href="/api/field-worker/export?type=visits&format=pdf&company_id={{ active_company_id }}" class="btn btn-sm btn-danger fw-semibold">
+                                        <i class="fa-solid fa-file-pdf me-1"></i> Export Visits PDF
+                                    </a>
+                                    <a href="/api/field-worker/export?type=visits&format=excel&company_id={{ active_company_id }}" class="btn btn-sm btn-success fw-semibold">
+                                        <i class="fa-solid fa-file-excel me-1"></i> Export Visits Excel
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Date &amp; Time</th>
+                                            <th>Field Worker</th>
+                                            <th>Customer &amp; Contact</th>
+                                            <th>Product Pitched</th>
+                                            <th>Lead Status</th>
+                                            <th>Order Value</th>
+                                            <th>GPS Site Verification</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="visitsTableBody">
+                                        {% if visits %}
+                                        {% for v in visits %}
+                                        <tr>
+                                            <td class="small fw-semibold">{{ v.timestamp }}</td>
+                                            <td class="fw-bold">{{ v.employee_name }}</td>
+                                            <td>
+                                                <div class="fw-bold">{{ v.customer_name }}</div>
+                                                <div class="small text-muted">{{ v.contact_person or '-' }} &bull; {{ v.customer_phone or '-' }}</div>
+                                                <div class="small text-muted"><i class="fa-solid fa-location-dot me-1"></i>{{ v.address }}</div>
+                                            </td>
+                                            <td>{{ v.product_pitched }}</td>
+                                            <td>
+                                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">{{ v.lead_status }}</span>
+                                            </td>
+                                            <td class="fw-bold text-success">₹{{ "%.2f"|format(v.order_amount or 0) }}</td>
+                                            <td>
+                                                {% if v.is_location_verified %}
+                                                <span class="badge-onsite"><i class="fa-solid fa-shield-check me-1"></i>{{ v.verification_badge }}</span>
+                                                {% else %}
+                                                <span class="badge-detour"><i class="fa-solid fa-circle-exclamation me-1"></i>{{ v.verification_badge }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomerVisit('{{ v.id }}')">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">No customer visits logged yet. Use the Lead CRM form on the left to record visits.</td>
+                                        </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================= -->
+            <!-- TAB 6: FIELD SALARY, INCENTIVES & PAYSLIP GENERATOR       -->
+            <!-- ========================================================= -->
+            <div class="tab-pane fade" id="tabFieldPayroll" role="tabpanel">
+                <div class="fw-panel">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                        <div>
+                            <div class="fw-panel-title mb-1">
+                                <i class="fa-solid fa-file-invoice-dollar text-success"></i>
+                                Monthly Field Worker Salary, Visit Incentives &amp; KM Travel Allowance Report ({{ month_year }})
+                            </div>
+                            <div class="text-muted small">
+                                Formula: <strong>Net Field Payable</strong> = Base Attendance Salary (Punch-In/Out Hours or Days) + (Verified Customer Visits &times; Per-Visit Incentive) + (GPS Travel KM &times; KM Allowance Rate) &minus; Deductions
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="/api/field-worker/export?type=salary&format=pdf&company_id={{ active_company_id }}&month={{ month_year }}" class="btn btn-sm btn-danger fw-semibold">
+                                <i class="fa-solid fa-file-pdf me-1"></i> Export Payroll PDF
+                            </a>
+                            <a href="/api/field-worker/export?type=salary&format=excel&company_id={{ active_company_id }}&month={{ month_year }}" class="btn btn-sm btn-success fw-semibold">
+                                <i class="fa-solid fa-file-excel me-1"></i> Export Payroll Excel
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Field Worker</th>
+                                    <th>Zone / Shift</th>
+                                    <th>Attendance (Days / Hrs)</th>
+                                    <th>Assigned / Completed Sites</th>
+                                    <th>Verified Visits (Orders ₹)</th>
+                                    <th>GPS Distance &amp; Detours</th>
+                                    <th>Base Attendance Pay</th>
+                                    <th>Visit Incentive</th>
+                                    <th>KM Travel Allowance</th>
+                                    <th>Net Field Payable</th>
+                                    <th>Payslip PDF</th>
+                                </tr>
+                            </thead>
+                            <tbody id="salaryReportsTableBody">
+                                {% if salary_reports %}
+                                {% for r in salary_reports %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold">{{ r.employee_name }}</div>
+                                        <div class="small text-muted">{{ r.designation }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">{{ r.territory_zone }}</span>
+                                        <div class="small text-muted">{{ r.salary_type|upper }} ({{ r.shift_hours }}h)</div>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold">{{ r.working_days }} Days</span>
+                                        <div class="small text-muted">{{ r.total_hours }} hrs</div>
+                                    </td>
+                                    <td>{{ r.completed_assignments }} / {{ r.total_assigned_locations }}</td>
+                                    <td>
+                                        <span class="fw-bold text-success">{{ r.verified_visits }} Verified</span>
+                                        <div class="small text-muted">Orders: ₹{{ "%.0f"|format(r.orders_value or 0) }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold text-primary">{{ "%.2f"|format(r.total_km_traveled or 0) }} KM</span>
+                                        {% if r.detour_alerts > 0 %}
+                                        <div class="small text-danger fw-semibold">{{ r.detour_alerts }} Detour Alerts</div>
+                                        {% else %}
+                                        <div class="small text-success">0 Detours</div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="fw-semibold">₹{{ "%.2f"|format(r.base_attendance_pay or 0) }}</td>
+                                    <td class="fw-semibold text-success">
+                                        + ₹{{ "%.2f"|format(r.visit_incentive_pay or 0) }}
+                                        <div class="small text-muted">@ ₹{{ "%.0f"|format(r.per_visit_incentive_rate or 0) }}/visit</div>
+                                    </td>
+                                    <td class="fw-semibold text-primary">
+                                        + ₹{{ "%.2f"|format(r.travel_allowance_pay or 0) }}
+                                        <div class="small text-muted">@ ₹{{ "%.0f"|format(r.km_allowance_rate or 0) }}/km</div>
+                                    </td>
+                                    <td>
+                                        <span class="fs-6 fw-bold text-dark">₹{{ "%.2f"|format(r.net_field_payable or 0) }}</span>
+                                    </td>
+                                    <td>
+                                        <a href="/api/field-worker/payslip-pdf?company_id={{ active_company_id }}&month={{ month_year }}&employee_name={{ r.employee_name|urlencode }}" class="btn btn-sm btn-dark fw-semibold">
+                                            <i class="fa-solid fa-file-pdf text-danger me-1"></i> Payslip
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr>
+                                    <td colspan="11" class="text-center text-muted py-4">No field workers found for this company. Register field workers in Tab 2.</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const INITIAL_COMPANY_LAT = Number("{{ active_company.latitude or 11.02980 }}");
+        const INITIAL_COMPANY_LNG = Number("{{ active_company.longitude or 76.97400 }}");
+        const INITIAL_COMPANY_NAME = {{ (active_company.company_name or 'ARGUS TECHNOLOGIES')|tojson }};
+        let ASSIGNMENTS_DATA = {{ (assignments or [])|tojson }};
+        let TRACKING_DATA = {{ (tracking or {})|tojson }};
+
+        let liveMap = null;
+        let liveMapLayerGroup = null;
+        let assignMap = null;
+        let assignMarker = null;
+        let assignCircle = null;
+        let autoTrackTimer = null;
+        let fwVideoStream = null;
+
+        function showToast(msg, isError = false) {
+            const banner = document.getElementById('fwAlertBanner');
+            const txt = document.getElementById('fwAlertText');
+            banner.className = `alert ${isError ? 'alert-danger' : 'alert-success'} d-flex align-items-center justify-content-between py-2 px-3 mb-3 shadow-sm`;
+            txt.innerHTML = `<i class="fa-solid ${isError ? 'fa-circle-exclamation' : 'fa-circle-check'} me-2"></i>${msg}`;
+        }
+
+        function getActiveCompanyId() {
+            return document.getElementById('globalCompanySelect').value || 'ARGUS_MASTER';
+        }
+
+        function reloadFieldModule() {
+            const cid = getActiveCompanyId();
+            const dt = document.getElementById('globalDateInput').value;
+            const mo = document.getElementById('globalMonthInput').value;
+            window.location.href = `/field-worker?company_id=${encodeURIComponent(cid)}&date=${encodeURIComponent(dt)}&month=${encodeURIComponent(mo)}`;
+        }
+
+        // Initialize Interactive Maps
+        function initFieldMaps() {
+            // 1. Live Tracking Radar Map
+            liveMap = L.map('fieldLiveMap').setView([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(liveMap);
+            liveMapLayerGroup = L.layerGroup().addTo(liveMap);
+            renderLiveMapLayers();
+
+            // 2. Assignment Location Picker Map
+            assignMap = L.map('assignPickerMap').setView([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+            }).addTo(assignMap);
+
+            const defaultLat = parseFloat(document.getElementById('asgnLat').value) || INITIAL_COMPANY_LAT;
+            const defaultLng = parseFloat(document.getElementById('asgnLng').value) || INITIAL_COMPANY_LNG;
+            assignMarker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(assignMap);
+            assignCircle = L.circle([defaultLat, defaultLng], {
+                radius: parseFloat(document.getElementById('asgnRadius').value) || 150,
+                color: '#0d9488',
+                fillColor: '#14b8a6',
+                fillOpacity: 0.2
+            }).addTo(assignMap);
+
+            assignMap.on('click', function(e) {
+                const lat = e.latlng.lat.toFixed(6);
+                const lng = e.latlng.lng.toFixed(6);
+                document.getElementById('asgnLat').value = lat;
+                document.getElementById('asgnLng').value = lng;
+                assignMarker.setLatLng(e.latlng);
+                assignCircle.setLatLng(e.latlng);
+            });
+        }
+
+        function renderLiveMapLayers() {
+            if (!liveMapLayerGroup) return;
+            liveMapLayerGroup.clearLayers();
+            const bounds = [];
+
+            // Company HQ Pin
+            const hqMarker = L.circleMarker([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG], {
+                radius: 9,
+                color: '#1d4ed8',
+                fillColor: '#3b82f6',
+                fillOpacity: 0.9,
+                weight: 3
+            }).bindPopup(`<b>Company HQ: ${INITIAL_COMPANY_NAME}</b>`);
+            liveMapLayerGroup.addLayer(hqMarker);
+            bounds.push([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG]);
+
+            // Assigned Target Customer Sites & Geofences
+            (ASSIGNMENTS_DATA || []).forEach(a => {
+                if (!a.target_lat || !a.target_lng) return;
+                const pos = [parseFloat(a.target_lat), parseFloat(a.target_lng)];
+                bounds.push(pos);
+                const rad = parseFloat(a.geofence_radius) || 150;
+                const geofence = L.circle(pos, {
+                    radius: rad,
+                    color: '#0d9488',
+                    dashArray: '5,5',
+                    fillColor: '#14b8a6',
+                    fillOpacity: 0.15
+                }).bindPopup(`<b>Assigned Target: ${a.target_name}</b><br>Worker: ${a.employee_name}<br>Purpose: ${a.task_purpose}<br>Geofence: ${rad}m (${a.status})`);
+                liveMapLayerGroup.addLayer(geofence);
+            });
+
+            // Route Breadcrumb Polylines per Worker
+            const crumbsByWorker = (TRACKING_DATA && TRACKING_DATA.breadcrumbs_by_worker) || {};
+            Object.keys(crumbsByWorker).forEach(workerName => {
+                const pts = crumbsByWorker[workerName] || [];
+                const latlngs = pts.filter(p => p.lat && p.lng).map(p => [p.lat, p.lng]);
+                if (latlngs.length > 1) {
+                    const poly = L.polyline(latlngs, { color: '#475569', weight: 3, dashArray: '4,6' });
+                    liveMapLayerGroup.addLayer(poly);
+                }
+            });
+
+            // Live Worker Markers (Green = On-Site, Amber = In-Transit, Red = Personal Detour)
+            const workersLive = (TRACKING_DATA && TRACKING_DATA.workers_live) || [];
+            workersLive.forEach(w => {
+                if (!w.latitude || !w.longitude) return;
+                const pos = [parseFloat(w.latitude), parseFloat(w.longitude)];
+                bounds.push(pos);
+
+                let color = '#d97706';
+                let fill = '#f59e0b';
+                if (w.tracking_status === 'on_site') {
+                    color = '#15803d';
+                    fill = '#22c55e';
+                } else if (w.tracking_status === 'off_route_detour') {
+                    color = '#b91c1c';
+                    fill = '#ef4444';
+                }
+
+                const marker = L.circleMarker(pos, {
+                    radius: 11,
+                    color: color,
+                    fillColor: fill,
+                    fillOpacity: 0.95,
+                    weight: 3
+                }).bindPopup(`
+                    <div style="min-width:210px;">
+                        <div class="fw-bold fs-6">${w.employee_name}</div>
+                        <div class="small fw-bold" style="color:${color};">${w.status_label}</div>
+                        <hr class="my-1">
+                        <div class="small"><b>Target:</b> ${w.nearest_target_name} (${w.distance_from_target_m || 0}m)</div>
+                        <div class="small"><b>Distance Today:</b> ${w.total_km_today || 0} KM</div>
+                        <div class="small"><b>Address:</b> ${w.address || ''}</div>
+                        <div class="small text-muted">Last Seen: ${w.last_seen || ''}</div>
+                    </div>
+                `);
+                liveMapLayerGroup.addLayer(marker);
+            });
+
+            if (bounds.length > 1) {
+                liveMap.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
+            }
+        }
+
+        // Send Live GPS Ping
+        async function sendLocationPingPayload(payload) {
+            payload.company_id = getActiveCompanyId();
+            payload.date = document.getElementById('globalDateInput').value;
+            try {
+                const res = await fetch('/api/field-worker/location-ping', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    showToast(data.error || 'Failed to log GPS ping', true);
+                    return;
+                }
+                showToast(data.message);
+                await refreshOverviewState();
+            } catch (err) {
+                showToast('Network error logging GPS ping: ' + err.message, true);
+            }
+        }
+
+        function captureAndSendLiveGPS() {
+            const empName = document.getElementById('pingWorkerSelect').value;
+            if (!empName) {
+                showToast('Please select or register a field worker first.', true);
+                return;
+            }
+            const note = document.getElementById('pingNote').value;
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    pos => {
+                        document.getElementById('pingLat').value = pos.coords.latitude.toFixed(6);
+                        document.getElementById('pingLng').value = pos.coords.longitude.toFixed(6);
+                        sendLocationPingPayload({
+                            employee_name: empName,
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude,
+                            accuracy: pos.coords.accuracy || 10,
+                            activity_note: note || 'Live Device GPS Check-In'
+                        });
+                    },
+                    () => {
+                        sendLocationPingPayload({
+                            employee_name: empName,
+                            latitude: parseFloat(document.getElementById('pingLat').value),
+                            longitude: parseFloat(document.getElementById('pingLng').value),
+                            activity_note: note || 'Manual Coordinates Check-In'
+                        });
+                    },
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            } else {
+                sendLocationPingPayload({
+                    employee_name: empName,
+                    latitude: parseFloat(document.getElementById('pingLat').value),
+                    longitude: parseFloat(document.getElementById('pingLng').value),
+                    activity_note: note || 'GPS Check-In'
+                });
+            }
+        }
+
+        function simulateScenarioPing(mode) {
+            const empName = document.getElementById('pingWorkerSelect').value;
+            if (!empName) {
+                showToast('Please register/select a field worker first.', true);
+                return;
+            }
+            // Pick worker's assigned location if available, else company HQ
+            const workerAsgn = (ASSIGNMENTS_DATA || []).find(a => a.employee_name === empName) || (ASSIGNMENTS_DATA || [])[0];
+            let baseLat = workerAsgn ? parseFloat(workerAsgn.target_lat) : INITIAL_COMPANY_LAT;
+            let baseLng = workerAsgn ? parseFloat(workerAsgn.target_lng) : INITIAL_COMPANY_LNG;
+            let note = '';
+
+            if (mode === 'on_site') {
+                baseLat += 0.0002;
+                baseLng += 0.0002;
+                note = 'Arrived at Assigned Customer Site for Product Sales Pitch';
+            } else if (mode === 'in_transit') {
+                baseLat += 0.0042;
+                baseLng += 0.0035;
+                note = 'En-route on official sales corridor';
+            } else {
+                baseLat += 0.0240;
+                baseLng -= 0.0210;
+                note = 'Unassigned Stop >2.5km away from target route';
+            }
+
+            document.getElementById('pingLat').value = baseLat.toFixed(6);
+            document.getElementById('pingLng').value = baseLng.toFixed(6);
+            document.getElementById('pingNote').value = note;
+
+            sendLocationPingPayload({
+                employee_name: empName,
+                latitude: baseLat,
+                longitude: baseLng,
+                tracking_status: mode,
+                activity_note: note
+            });
+        }
+
+        function toggleAutoGPSTracking() {
+            const btn = document.getElementById('btnAutoTrack');
+            if (autoTrackTimer) {
+                clearInterval(autoTrackTimer);
+                autoTrackTimer = null;
+                btn.className = 'btn btn-outline-primary fw-semibold';
+                btn.innerHTML = '<i class="fa-solid fa-satellite me-1"></i> Start Continuous Live Tracking (Every 25s)';
+                showToast('Continuous GPS tracking paused.');
+            } else {
+                captureAndSendLiveGPS();
+                autoTrackTimer = setInterval(captureAndSendLiveGPS, 25000);
+                btn.className = 'btn btn-danger fw-bold';
+                btn.innerHTML = '<i class="fa-solid fa-circle-stop me-1"></i> Stop Continuous Live Tracking (Active)';
+            }
+        }
+
+        // Refresh dashboard state via AJAX without full page reload
+        async function refreshOverviewState() {
+            const cid = getActiveCompanyId();
+            const dt = document.getElementById('globalDateInput').value;
+            const mo = document.getElementById('globalMonthInput').value;
+            const res = await fetch(`/api/field-worker/overview?company_id=${encodeURIComponent(cid)}&date=${encodeURIComponent(dt)}&month=${encodeURIComponent(mo)}`);
+            const data = await res.json();
+            if (!data.success) return;
+
+            ASSIGNMENTS_DATA = data.assignments || [];
+            TRACKING_DATA = data.tracking || {};
+
+            document.getElementById('kpiWorkersCount').textContent = (data.field_workers || []).length;
+            document.getElementById('kpiAssignedCount').textContent = ASSIGNMENTS_DATA.length;
+            document.getElementById('kpiOnSiteCount').textContent = (TRACKING_DATA.counts && TRACKING_DATA.counts.on_site) || 0;
+            document.getElementById('kpiTransitCount').textContent = (TRACKING_DATA.counts && TRACKING_DATA.counts.in_transit) || 0;
+            document.getElementById('kpiDetourCount').textContent = (TRACKING_DATA.counts && TRACKING_DATA.counts.off_route_detour) || 0;
+            document.getElementById('kpiVisitsCount').textContent = (data.visits || []).length;
+
+            renderLiveMapLayers();
+
+            // Update Tracking Logs Table
+            const logs = (TRACKING_DATA && TRACKING_DATA.logs) || [];
+            const tbody = document.getElementById('trackingLogsTableBody');
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No GPS pings recorded yet for this date.</td></tr>';
+            } else {
+                tbody.innerHTML = logs.map(lg => {
+                    let badge = `<span class="badge-transit"><i class="fa-solid fa-route me-1"></i>${lg.status_label}</span>`;
+                    if (lg.tracking_status === 'on_site') {
+                        badge = `<span class="badge-onsite"><i class="fa-solid fa-check me-1"></i>${lg.status_label}</span>`;
+                    } else if (lg.tracking_status === 'off_route_detour') {
+                        badge = `<span class="badge-detour"><i class="fa-solid fa-triangle-exclamation me-1"></i>${lg.status_label}</span>`;
+                    }
+                    return `<tr>
+                        <td class="fw-semibold">${lg.time_short || lg.timestamp}</td>
+                        <td class="fw-bold">${lg.employee_name}</td>
+                        <td>${lg.nearest_target_name || '-'}</td>
+                        <td>${Number(lg.distance_from_target_m || 0).toFixed(1)} m</td>
+                        <td>${Number(lg.step_km || 0).toFixed(3)} km</td>
+                        <td>${badge}</td>
+                        <td class="small text-muted">${lg.address || ''}</td>
+                        <td class="small">${lg.activity_note || '-'}</td>
+                    </tr>`;
+                }).join('');
+            }
+        }
+
+        // Tab 2: Populate Existing Employee into Field Worker Registration Form
+        function populateExistingEmployeeForField(sel) {
+            const opt = sel.options[sel.selectedIndex];
+            if (!opt.value) {
+                document.getElementById('fwRegName').value = '';
+                document.getElementById('fwRegEmail').value = '';
+                document.getElementById('fwRegMobile').value = '';
+                return;
+            }
+            document.getElementById('fwRegName').value = opt.dataset.name || '';
+            document.getElementById('fwRegEmail').value = opt.dataset.email || '';
+            document.getElementById('fwRegMobile').value = opt.dataset.mobile || '';
+            document.getElementById('fwRegDept').value = opt.dataset.dept || 'Field Sales';
+            document.getElementById('fwRegDesig').value = opt.dataset.desig || 'Field Executive';
+            document.getElementById('fwRegZone').value = opt.dataset.zone || 'General Zone';
+            document.getElementById('fwRegSalaryType').value = opt.dataset.saltype || 'daily';
+            document.getElementById('fwRegShiftHours').value = opt.dataset.shifthrs || '08:00';
+            const salType = opt.dataset.saltype || 'daily';
+            document.getElementById('fwRegBaseRate').value = salType === 'hourly' ? (opt.dataset.hrsal || 100) : (opt.dataset.daysal || 600);
+            document.getElementById('fwRegVisitIncentive').value = opt.dataset.visitinc || 75;
+            document.getElementById('fwRegKmRate').value = opt.dataset.kmrate || 6;
+            document.getElementById('fwRegStatus').value = opt.dataset.status || 'Active';
+        }
+
+        async function submitFieldWorkerRegistration(e) {
+            e.preventDefault();
+            const salType = document.getElementById('fwRegSalaryType').value;
+            const baseRate = parseFloat(document.getElementById('fwRegBaseRate').value) || 0;
+            const payload = {
+                company_id: getActiveCompanyId(),
+                existing_employee_id: document.getElementById('fwExistingEmpSelect').value,
+                employee_name: document.getElementById('fwRegName').value,
+                status: document.getElementById('fwRegStatus').value,
+                email_id: document.getElementById('fwRegEmail').value,
+                mobile_number: document.getElementById('fwRegMobile').value,
+                department: document.getElementById('fwRegDept').value,
+                designation: document.getElementById('fwRegDesig').value,
+                territory_zone: document.getElementById('fwRegZone').value,
+                salary_type: salType,
+                shift_hours: document.getElementById('fwRegShiftHours').value,
+                day_salary: salType === 'daily' ? baseRate : 0,
+                hourly_salary: salType === 'hourly' ? baseRate : 0,
+                half_day_salary: salType === 'half_day' ? baseRate : Math.round(baseRate / 2),
+                per_visit_incentive: parseFloat(document.getElementById('fwRegVisitIncentive').value) || 0,
+                km_allowance_rate: parseFloat(document.getElementById('fwRegKmRate').value) || 0,
+                is_field_worker: true
+            };
+
+            const res = await fetch('/api/field-worker/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!data.success) {
+                showToast(data.error || 'Registration failed', true);
+                return;
+            }
+            showToast(data.message);
+            setTimeout(reloadFieldModule, 700);
+        }
+
+        // Tab 3: Assign Target Customer Location
+        async function submitLocationAssignment(e) {
+            e.preventDefault();
+            const payload = {
+                company_id: getActiveCompanyId(),
+                employee_name: document.getElementById('asgnWorkerName').value,
+                assigned_date: document.getElementById('asgnDate').value,
+                target_name: document.getElementById('asgnTargetName').value,
+                task_purpose: document.getElementById('asgnPurpose').value,
+                contact_person: document.getElementById('asgnContactPerson').value,
+                contact_phone: document.getElementById('asgnContactPhone').value,
+                target_lat: parseFloat(document.getElementById('asgnLat').value),
+                target_lng: parseFloat(document.getElementById('asgnLng').value),
+                geofence_radius: parseFloat(document.getElementById('asgnRadius').value) || 150,
+                target_address: document.getElementById('asgnAddress').value
+            };
+            const res = await fetch('/api/field-worker/assignments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!data.success) {
+                showToast(data.error || 'Could not create assignment', true);
+                return;
+            }
+            showToast(data.message);
+            setTimeout(reloadFieldModule, 600);
+        }
+
+        async function updateAssignmentStatus(id, status) {
+            const res = await fetch(`/api/field-worker/assignments/${encodeURIComponent(id)}?company_id=${encodeURIComponent(getActiveCompanyId())}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+            const data = await res.json();
+            if (data.success) reloadFieldModule();
+        }
+
+        async function deleteAssignment(id) {
+            const res = await fetch(`/api/field-worker/assignments/${encodeURIComponent(id)}?company_id=${encodeURIComponent(getActiveCompanyId())}`, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (data.success) reloadFieldModule();
+        }
+
+        // Tab 4: Field Attendance Camera & GPS Punch
+        async function startFieldPunchCamera() {
+            try {
+                const video = document.getElementById('fwPunchVideo');
+                fwVideoStream = await navigator.mediaDevices.getCurrentMedia ?
+                    await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }) :
+                    await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = fwVideoStream;
+            } catch (err) {
+                showToast('Camera access unavailable: ' + err.message, true);
+            }
+        }
+
+        function stopFieldPunchCamera() {
+            if (fwVideoStream) {
+                fwVideoStream.getTracks().forEach(t => t.stop());
+                fwVideoStream = null;
+            }
+        }
+
+        async function performFieldFacePunch() {
+            const video = document.getElementById('fwPunchVideo');
+            const canvas = document.getElementById('fwPunchCanvas');
+            if (!fwVideoStream || !video.videoWidth) {
+                await startFieldPunchCamera();
+                await new Promise(r => setTimeout(r, 600));
+            }
+            if (!video.videoWidth) {
+                showToast('Please start camera or use Quick Field Check-In on the right.', true);
+                return;
+            }
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+            const lat = parseFloat(document.getElementById('pingLat').value) || INITIAL_COMPANY_LAT;
+            const lng = parseFloat(document.getElementById('pingLng').value) || INITIAL_COMPANY_LNG;
+
+            const res = await fetch('/api/recognize_face', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: dataUrl, latitude: lat, longitude: lng })
+            });
+            const out = await res.json();
+            const box = document.getElementById('fwPunchResultBox');
+            if (out.success || out.matched) {
+                box.innerHTML = `<div class="alert alert-success py-2 mb-0"><b>${out.employee_name || 'Field Worker'}</b>: ${out.message || 'Field Attendance Recorded!'}</div>`;
+                await sendLocationPingPayload({
+                    employee_name: out.employee_name,
+                    latitude: lat,
+                    longitude: lng,
+                    activity_note: `AI Face Attendance Punch (${out.punch_type || 'Verified'})`
+                });
+            } else {
+                box.innerHTML = `<div class="alert alert-warning py-2 mb-0">${out.message || out.error || 'Face not matched'}</div>`;
+            }
+        }
+
+        function submitQuickFieldCheckIn() {
+            const emp = document.getElementById('quickPunchWorker').value;
+            const note = document.getElementById('quickPunchNote').value;
+            document.getElementById('pingWorkerSelect').value = emp;
+            document.getElementById('pingNote').value = note;
+            captureAndSendLiveGPS();
+        }
+
+        // Tab 5: Customer Visits (Lead CRM)
+        function prefillVisitFromAssignment(sel) {
+            const opt = sel.options[sel.selectedIndex];
+            if (!opt.value) return;
+            document.getElementById('visitCustomerName').value = opt.dataset.target || '';
+            document.getElementById('visitContactPerson').value = opt.dataset.person || '';
+            document.getElementById('visitCustomerPhone').value = opt.dataset.phone || '';
+            if (opt.dataset.lat) document.getElementById('visitLat').value = opt.dataset.lat;
+            if (opt.dataset.lng) document.getElementById('visitLng').value = opt.dataset.lng;
+        }
+
+        async function submitCustomerVisit(e) {
+            e.preventDefault();
+            const payload = {
+                company_id: getActiveCompanyId(),
+                visit_date: document.getElementById('globalDateInput').value,
+                employee_name: document.getElementById('visitWorkerName').value,
+                assignment_id: document.getElementById('visitAssignmentId').value,
+                customer_name: document.getElementById('visitCustomerName').value,
+                contact_person: document.getElementById('visitContactPerson').value,
+                customer_phone: document.getElementById('visitCustomerPhone').value,
+                product_pitched: document.getElementById('visitProduct').value,
+                lead_status: document.getElementById('visitLeadStatus').value,
+                order_amount: parseFloat(document.getElementById('visitOrderAmount').value) || 0,
+                follow_up_date: document.getElementById('visitFollowUpDate').value,
+                latitude: parseFloat(document.getElementById('visitLat').value),
+                longitude: parseFloat(document.getElementById('visitLng').value),
+                remarks: document.getElementById('visitRemarks').value
+            };
+
+            const res = await fetch('/api/field-worker/visits', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!data.success) {
+                showToast(data.error || 'Could not log customer visit', true);
+                return;
+            }
+            showToast(data.message);
+            setTimeout(reloadFieldModule, 600);
+        }
+
+        async function deleteCustomerVisit(id) {
+            const res = await fetch(`/api/field-worker/visits/${encodeURIComponent(id)}?company_id=${encodeURIComponent(getActiveCompanyId())}`, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (data.success) reloadFieldModule();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initFieldMaps();
+        });
+    </script>
+</body>
+</html>

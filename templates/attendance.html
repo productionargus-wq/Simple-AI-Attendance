@@ -919,6 +919,15 @@
       </a>
       {% endif %}
 
+      <a href="/field-worker" class="nav-btn" id="btnFieldWorkerModule" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-color: #fbbf24; color: #ffffff; font-weight: 700; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);" title="Open Dedicated Field Worker Module">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+          <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+        <span class="nav-label-desktop">FIELD WORKER MODULE</span>
+        <span class="nav-label-mobile">Field Worker</span>
+      </a>
+
       <a href="/company-login" class="nav-btn" id="btnCompanyAccess" title="Company Portal Access">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
@@ -1036,6 +1045,17 @@
       <!-- Dynamic Punch Detail Card (Below Buttons) -->
       <div class="punch-detail-container" id="punchDetailContainer">
         <!-- Will be populated dynamically by JavaScript on mark attendance -->
+      </div>
+
+      <!-- Field Worker Module Quick Launch Bar -->
+      <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1; display: flex; justify-content: center;">
+        <a href="/field-worker" style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 10px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(29, 78, 216, 0.25); letter-spacing: 0.4px; width: 100%; justify-content: center;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+          <span>FIELD WORKER MODULE (GPS Tracking, Leads &amp; Field Payroll)</span>
+        </a>
       </div>
 
     </div>

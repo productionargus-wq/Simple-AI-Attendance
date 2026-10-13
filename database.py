@@ -204,6 +204,10 @@ def init_db():
         db.advances.create_index([("company_id", ASCENDING), ("advance_date", DESCENDING)])
         db.salary_reports.create_index([("company_id", ASCENDING), ("pay_period", DESCENDING), ("employee_name", ASCENDING)])
         db.leave_requests.create_index([("company_id", ASCENDING), ("status", ASCENDING), ("created_at", DESCENDING)])
+        # Field Worker Module Indexes
+        db.field_assignments.create_index([("company_id", ASCENDING), ("assigned_date", DESCENDING), ("employee_name", ASCENDING)])
+        db.field_location_logs.create_index([("company_id", ASCENDING), ("date", DESCENDING), ("employee_name", ASCENDING), ("created_at", DESCENDING)])
+        db.field_customer_visits.create_index([("company_id", ASCENDING), ("visit_date", DESCENDING), ("employee_name", ASCENDING)])
     except Exception as e:
         print(f"Warning creating MongoDB indexes: {e}")
 
@@ -892,6 +896,9 @@ def delete_company(comp_id):
     counts['advances'] = db.advances.delete_many(tenant_filter).deleted_count
     counts['salary_reports'] = db.salary_reports.delete_many(tenant_filter).deleted_count
     counts['support_tickets'] = db.support_tickets.delete_many(tenant_filter).deleted_count
+    counts['field_assignments'] = db.field_assignments.delete_many(tenant_filter).deleted_count
+    counts['field_location_logs'] = db.field_location_logs.delete_many(tenant_filter).deleted_count
+    counts['field_customer_visits'] = db.field_customer_visits.delete_many(tenant_filter).deleted_count
     
     # Remove company document
     counts['company'] = db.company_admin.delete_one({'_id': comp_obj_id}).deleted_count
@@ -1326,6 +1333,10 @@ def create_employee(data, company_id=None):
             'leave_permission': True
         }),
         'documents': data.get('documents', []),
+        'is_field_worker': str(data.get('is_field_worker', '')).strip().lower() in ['true', '1', 'yes'] if data.get('is_field_worker') is not None else False,
+        'territory_zone': str(data.get('territory_zone') or '').strip(),
+        'per_visit_incentive': round(safe_float(data.get('per_visit_incentive')), 2),
+        'km_allowance_rate': round(safe_float(data.get('km_allowance_rate')), 2),
         'created_at': get_ist_now(),
         'updated_at': get_ist_now()
     }
@@ -1348,11 +1359,22 @@ def update_employee(emp_id, data, company_id=None):
         'employee_name', 'department', 'designation', 'mobile_number', 'email_id',
         'aadhar_number', 'emergency_contact', 'date_of_birth', 'dob', 'joining_date', 'account_holder_name',
         'upi_number', 'bank_name', 'account_number', 'ifsc_code', 'shift_hours',
-        'shift_start', 'shift_end'
+        'shift_start', 'shift_end', 'territory_zone'
     ]
     for key in text_fields:
         if key in data:
             upd[key] = str(data[key]).strip() if data[key] is not None else ''
+
+    if 'is_field_worker' in data and data['is_field_worker'] is not None:
+        if isinstance(data['is_field_worker'], bool):
+            upd['is_field_worker'] = data['is_field_worker']
+        else:
+            upd['is_field_worker'] = str(data['is_field_worker']).strip().lower() in ['true', '1', 'yes']
+
+    if 'per_visit_incentive' in data:
+        upd['per_visit_incentive'] = round(safe_float(data['per_visit_incentive']), 2)
+    if 'km_allowance_rate' in data:
+        upd['km_allowance_rate'] = round(safe_float(data['km_allowance_rate']), 2)
 
     if 'salary_type' in data and data['salary_type']:
         st = str(data['salary_type']).strip().lower()
@@ -6531,5 +6553,629 @@ def get_support_badge_count(company_id=None):
     if company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
         q['company_id'] = str(company_id)
     return db.support_tickets.count_documents(q)
+
+
+# ==============================================================================
+# FIELD WORKER MODULE - REGISTRATION, ASSIGNMENTS, LIVE TRACKING, LEADS & SALARY
+# ==============================================================================
+
+def get_field_workers(company_id=None, include_all_employees=False):
+    """
+    Returns field workers for a company. If include_all_employees is True, returns
+    all company employees with their field worker attributes so admins can also
+    assign or promote existing employees.
+    """
+    db = get_db()
+    q = {}
+    if company_id and company_id != 'ALL':
+        q['company_id'] = str(company_id)
+
+    all_emps = [clean_doc(e) for e in db.employees.find(q).sort('employee_name', ASCENDING)]
+    field_workers = []
+    for emp in all_emps:
+        is_fw = bool(emp.get('is_field_worker', False))
+        dept = str(emp.get('department') or '').lower()
+        desig = str(emp.get('designation') or '').lower()
+        if not is_fw and any(k in dept or k in desig for k in ['field', 'sales', 'marketing', 'delivery', 'executive', 'visit']):
+            is_fw = True
+        emp['is_field_worker'] = is_fw
+        emp['territory_zone'] = str(emp.get('territory_zone') or 'General Zone')
+        emp['per_visit_incentive'] = round(safe_float(emp.get('per_visit_incentive', 0.0)), 2)
+        emp['km_allowance_rate'] = round(safe_float(emp.get('km_allowance_rate', 0.0)), 2)
+        if include_all_employees or is_fw:
+            field_workers.append(emp)
+
+    # If no employee is tagged yet and include_all_employees is False, return all active employees so UI isn't empty on first launch
+    if not field_workers and all_emps and not include_all_employees:
+        return all_emps
+    return field_workers
+
+
+def create_field_assignment(data, company_id=None):
+    """Assigns a target customer/company location and task to a field worker."""
+    db = get_db()
+    assigned_company_id = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
+    emp_name = str(data.get('employee_name') or '').strip()
+    target_name = str(data.get('target_name') or '').strip()
+    if not emp_name:
+        raise ValueError("Field worker name is required.")
+    if not target_name:
+        raise ValueError("Target customer / location name is required.")
+
+    now_ist = get_ist_now()
+    assignment_id = str(data.get('id') or f"FA-{int(time.time() * 1000)}")
+    target_lat = round(safe_float(data.get('target_lat'), 11.0168), 6)
+    target_lng = round(safe_float(data.get('target_lng'), 76.9558), 6)
+    geofence_radius = max(30.0, round(safe_float(data.get('geofence_radius'), 150.0), 1))
+    target_address = str(data.get('target_address') or '').strip()
+    if not target_address and target_lat and target_lng:
+        try:
+            target_address = reverse_geocode_coordinates(target_lat, target_lng)
+        except Exception:
+            target_address = f"{target_lat}, {target_lng}"
+
+    doc = {
+        'id': assignment_id,
+        'company_id': assigned_company_id,
+        'employee_id': str(data.get('employee_id') or '').strip(),
+        'employee_name': emp_name,
+        'target_name': target_name,
+        'contact_person': str(data.get('contact_person') or '').strip(),
+        'contact_phone': str(data.get('contact_phone') or '').strip(),
+        'target_address': target_address,
+        'target_lat': target_lat,
+        'target_lng': target_lng,
+        'geofence_radius': geofence_radius,
+        'assigned_date': str(data.get('assigned_date') or now_ist.strftime('%Y-%m-%d')).strip(),
+        'time_window': str(data.get('time_window') or '09:00 AM - 06:00 PM').strip(),
+        'task_purpose': str(data.get('task_purpose') or 'Product Sales & Pitch').strip(),
+        'priority': str(data.get('priority') or 'High').strip(),
+        'notes': str(data.get('notes') or '').strip(),
+        'status': str(data.get('status') or 'Pending').strip(),
+        'verified_at': None,
+        'created_at': now_ist,
+        'updated_at': now_ist
+    }
+    db.field_assignments.insert_one(doc)
+    return clean_doc(doc)
+
+
+def get_field_assignments(company_id=None, employee_name=None, date_str=None, status=None):
+    """Fetches assigned field locations filtered by company, worker, date, or status."""
+    db = get_db()
+    q = {}
+    if company_id and company_id != 'ALL':
+        q['company_id'] = str(company_id)
+    if employee_name:
+        q['employee_name'] = str(employee_name).strip()
+    if date_str:
+        q['assigned_date'] = str(date_str).strip()
+    if status:
+        q['status'] = str(status).strip()
+
+    docs = list(db.field_assignments.find(q).sort([('assigned_date', DESCENDING), ('created_at', DESCENDING)]))
+    return [clean_doc(d) for d in docs]
+
+
+def update_field_assignment(assignment_id, data, company_id=None):
+    """Updates an existing field assignment status or details."""
+    db = get_db()
+    q = build_id_filter(assignment_id)
+    if company_id and company_id != 'ALL':
+        q = {'$and': [q, {'company_id': str(company_id)}]}
+
+    upd = {'updated_at': get_ist_now()}
+    for k in ['target_name', 'contact_person', 'contact_phone', 'target_address', 'assigned_date', 'time_window', 'task_purpose', 'priority', 'notes', 'status']:
+        if k in data and data[k] is not None:
+            upd[k] = str(data[k]).strip()
+    for num_k in ['target_lat', 'target_lng', 'geofence_radius']:
+        if num_k in data and data[num_k] is not None:
+            upd[num_k] = float(data[num_k])
+    if upd.get('status') == 'Completed':
+        upd['verified_at'] = get_ist_now().strftime('%d/%m/%Y %I:%M %p')
+
+    res = db.field_assignments.update_one(q, {'$set': upd})
+    return res.matched_count > 0
+
+
+def delete_field_assignment(assignment_id, company_id=None):
+    """Deletes a field location assignment."""
+    db = get_db()
+    q = build_id_filter(assignment_id)
+    if company_id and company_id != 'ALL':
+        q = {'$and': [q, {'company_id': str(company_id)}]}
+    res = db.field_assignments.delete_one(q)
+    return res.deleted_count > 0
+
+
+def record_field_location_ping(data, company_id=None):
+    """
+    Records a live GPS location ping from a field worker, evaluates whether they are
+    at their assigned company location (on_site), moving toward it (in_transit),
+    or deviating for personal work / detour (off_route_detour), and computes distance traveled.
+    """
+    db = get_db()
+    now_ist = get_ist_now()
+    today_str = str(data.get('date') or now_ist.strftime('%Y-%m-%d')).strip()
+    emp_name = str(data.get('employee_name') or '').strip()
+    if not emp_name:
+        raise ValueError("Employee name is required for GPS tracking.")
+
+    assigned_company_id = str(company_id or data.get('company_id') or '').strip()
+    if not assigned_company_id or assigned_company_id == 'ALL':
+        emp_doc = db.employees.find_one({'employee_name': emp_name})
+        assigned_company_id = str(emp_doc.get('company_id') if emp_doc else 'ARGUS_MASTER')
+
+    lat = round(safe_float(data.get('latitude'), 0.0), 6)
+    lng = round(safe_float(data.get('longitude'), 0.0), 6)
+    if lat == 0.0 and lng == 0.0:
+        raise ValueError("Valid GPS coordinates (latitude, longitude) are required.")
+
+    address = str(data.get('address') or '').strip()
+    if not address:
+        try:
+            address = reverse_geocode_coordinates(lat, lng)
+        except Exception:
+            address = f"Lat: {lat}, Lng: {lng}"
+
+    # Check worker's previous location ping today to compute incremental step_km
+    prev_ping = db.field_location_logs.find_one(
+        {'company_id': assigned_company_id, 'employee_name': emp_name, 'date': today_str},
+        sort=[('created_at', DESCENDING)]
+    )
+    step_km = 0.0
+    if prev_ping and prev_ping.get('latitude') and prev_ping.get('longitude'):
+        dist_info = calculate_realistic_proximity(
+            prev_ping['latitude'], prev_ping['longitude'], lat, lng
+        )
+        step_m = float(dist_info.get('geodesic_m', 0.0)) if isinstance(dist_info, dict) else float(dist_info or 0.0)
+        # Ignore GPS jitter < 10m and unrealistic jumps > 50km
+        if 10.0 <= step_m <= 50000.0:
+            step_km = round(step_m / 1000.0, 3)
+
+    # Evaluate against today's assigned company locations for this worker
+    assignments_today = list(db.field_assignments.find({
+        'company_id': assigned_company_id,
+        'employee_name': emp_name,
+        'assigned_date': today_str
+    }))
+
+    nearest_target_name = 'No Assigned Target Today'
+    nearest_assignment_id = str(data.get('assignment_id') or '').strip()
+    min_distance_m = None
+    matched_radius = 150.0
+    matched_assignment = None
+
+    for asgn in assignments_today:
+        t_lat = safe_float(asgn.get('target_lat'), 0.0)
+        t_lng = safe_float(asgn.get('target_lng'), 0.0)
+        if t_lat == 0.0 and t_lng == 0.0:
+            continue
+        prox = calculate_realistic_proximity(lat, lng, t_lat, t_lng)
+        d_m = round(float(prox.get('geodesic_m', 999999.0)) if isinstance(prox, dict) else float(prox if prox is not None else 999999.0), 1)
+        if nearest_assignment_id and str(asgn.get('id')) == nearest_assignment_id:
+            min_distance_m = d_m
+            nearest_target_name = asgn.get('target_name', 'Assigned Site')
+            matched_radius = max(30.0, safe_float(asgn.get('geofence_radius'), 150.0))
+            matched_assignment = asgn
+            break
+        if min_distance_m is None or d_m < min_distance_m:
+            min_distance_m = d_m
+            nearest_target_name = asgn.get('target_name', 'Assigned Site')
+            nearest_assignment_id = str(asgn.get('id', ''))
+            matched_radius = max(30.0, safe_float(asgn.get('geofence_radius'), 150.0))
+            matched_assignment = asgn
+
+    # Determine tracking status: Company Location vs In-Transit vs Personal Work Detour
+    explicit_mode = str(data.get('tracking_status') or '').strip().lower()
+    if explicit_mode in ['on_site', 'in_transit', 'off_route_detour']:
+        tracking_status = explicit_mode
+    elif min_distance_m is not None:
+        if min_distance_m <= matched_radius:
+            tracking_status = 'on_site'
+        elif min_distance_m <= max(1000.0, matched_radius * 4):
+            tracking_status = 'in_transit'
+        else:
+            tracking_status = 'off_route_detour'
+    else:
+        # No assignment today: default to in_transit unless far from company HQ and marked
+        tracking_status = 'in_transit'
+
+    status_labels = {
+        'on_site': 'Verified at Assigned Company Location',
+        'in_transit': 'In-Transit on Official Route',
+        'off_route_detour': 'Off-Route / Personal Work Detour Alert'
+    }
+    status_label = status_labels.get(tracking_status, 'In-Transit')
+
+    # Auto-update matched assignment if worker arrived on-site
+    if tracking_status == 'on_site' and matched_assignment and matched_assignment.get('status') == 'Pending':
+        db.field_assignments.update_one(
+            {'_id': matched_assignment['_id']},
+            {'$set': {'status': 'In Progress', 'updated_at': now_ist}}
+        )
+
+    ping_doc = {
+        'id': f"FP-{int(time.time() * 1000)}",
+        'company_id': assigned_company_id,
+        'employee_id': str(data.get('employee_id') or '').strip(),
+        'employee_name': emp_name,
+        'assignment_id': nearest_assignment_id,
+        'nearest_target_name': nearest_target_name,
+        'latitude': lat,
+        'longitude': lng,
+        'accuracy': round(safe_float(data.get('accuracy'), 12.0), 1),
+        'address': address,
+        'distance_from_target_m': min_distance_m if min_distance_m is not None else 0.0,
+        'geofence_radius_m': matched_radius,
+        'step_km': step_km,
+        'tracking_status': tracking_status,
+        'status_label': status_label,
+        'activity_note': str(data.get('activity_note') or '').strip(),
+        'battery_level': str(data.get('battery_level') or '92%').strip(),
+        'date': today_str,
+        'timestamp': now_ist.strftime('%d/%m/%Y %I:%M:%S %p'),
+        'time_short': now_ist.strftime('%I:%M %p'),
+        'created_at': now_ist
+    }
+    db.field_location_logs.insert_one(ping_doc)
+    return clean_doc(ping_doc)
+
+
+def get_field_live_tracking(company_id=None, date_str=None, employee_name=None):
+    """
+    Returns live worker markers, route breadcrumbs, and summary counts for the Live Field Map.
+    """
+    db = get_db()
+    now_ist = get_ist_now()
+    target_date = str(date_str or now_ist.strftime('%Y-%m-%d')).strip()
+
+    q = {'date': target_date}
+    if company_id and company_id != 'ALL':
+        q['company_id'] = str(company_id)
+    if employee_name:
+        q['employee_name'] = str(employee_name).strip()
+
+    logs = [clean_doc(d) for d in db.field_location_logs.find(q).sort('created_at', ASCENDING)]
+
+    workers_map = {}
+    breadcrumbs_by_worker = {}
+    for lg in logs:
+        ename = lg.get('employee_name', 'Unknown')
+        if ename not in breadcrumbs_by_worker:
+            breadcrumbs_by_worker[ename] = []
+        breadcrumbs_by_worker[ename].append({
+            'lat': lg.get('latitude'),
+            'lng': lg.get('longitude'),
+            'status': lg.get('tracking_status'),
+            'status_label': lg.get('status_label'),
+            'time': lg.get('time_short') or lg.get('timestamp'),
+            'address': lg.get('address'),
+            'distance_m': lg.get('distance_from_target_m'),
+            'target_name': lg.get('nearest_target_name')
+        })
+        prev_State = workers_map.get(ename, {})
+        cum_km = round(float(prev_State.get('total_km_today', 0.0)) + float(lg.get('step_km', 0.0)), 2)
+        pings_cnt = int(prev_State.get('pings_count', 0)) + 1
+        detours_cnt = int(prev_State.get('detour_count', 0)) + (1 if lg.get('tracking_status') == 'off_route_detour' else 0)
+
+        workers_map[ename] = {
+            'employee_name': ename,
+            'employee_id': lg.get('employee_id', ''),
+            'latitude': lg.get('latitude'),
+            'longitude': lg.get('longitude'),
+            'address': lg.get('address'),
+            'tracking_status': lg.get('tracking_status'),
+            'status_label': lg.get('status_label'),
+            'nearest_target_name': lg.get('nearest_target_name'),
+            'distance_from_target_m': lg.get('distance_from_target_m'),
+            'total_km_today': cum_km,
+            'pings_count': pings_cnt,
+            'detour_count': detours_cnt,
+            'last_seen': lg.get('time_short') or lg.get('timestamp'),
+            'battery_level': lg.get('battery_level', '90%'),
+            'activity_note': lg.get('activity_note', '')
+        }
+
+    workers_live = list(workers_map.values())
+    on_site_count = sum(1 for w in workers_live if w.get('tracking_status') == 'on_site')
+    in_transit_count = sum(1 for w in workers_live if w.get('tracking_status') == 'in_transit')
+    detour_count = sum(1 for w in workers_live if w.get('tracking_status') == 'off_route_detour')
+
+    return {
+        'date': target_date,
+        'workers_live': workers_live,
+        'breadcrumbs_by_worker': breadcrumbs_by_worker,
+        'logs': list(reversed(logs)),
+        'counts': {
+            'active_tracked': len(workers_live),
+            'on_site': on_site_count,
+            'in_transit': in_transit_count,
+            'off_route_detour': detour_count
+        }
+    }
+
+
+def create_field_customer_visit(data, company_id=None):
+    """
+    Records a Field Worker Customer Visit / Sales Lead and automatically geo-verifies
+    whether the visit took place at an assigned company location.
+    """
+    db = get_db()
+    now_ist = get_ist_now()
+    today_str = str(data.get('visit_date') or now_ist.strftime('%Y-%m-%d')).strip()
+    emp_name = str(data.get('employee_name') or '').strip()
+    customer_name = str(data.get('customer_name') or '').strip()
+
+    if not emp_name:
+        raise ValueError("Field worker name is required.")
+    if not customer_name:
+        raise ValueError("Customer / Business name is required.")
+
+    assigned_company_id = str(company_id or data.get('company_id') or '').strip()
+    if not assigned_company_id or assigned_company_id == 'ALL':
+        emp_doc = db.employees.find_one({'employee_name': emp_name})
+        assigned_company_id = str(emp_doc.get('company_id') if emp_doc else 'ARGUS_MASTER')
+
+    lat = round(safe_float(data.get('latitude'), 11.0168), 6)
+    lng = round(safe_float(data.get('longitude'), 76.9558), 6)
+    address = str(data.get('address') or '').strip()
+    if not address and lat and lng:
+        try:
+            address = reverse_geocode_coordinates(lat, lng)
+        except Exception:
+            address = f"{lat}, {lng}"
+
+    # Verify against worker's assigned locations
+    assignment_id = str(data.get('assignment_id') or '').strip()
+    assignments = list(db.field_assignments.find({
+        'company_id': assigned_company_id,
+        'employee_name': emp_name,
+        'assigned_date': today_str
+    }))
+
+    is_location_verified = False
+    distance_from_target_m = None
+    matched_target_name = 'Self-Sourced / Unassigned Lead'
+    matched_asgn_doc = None
+
+    for asgn in assignments:
+        t_lat = safe_float(asgn.get('target_lat'), 0.0)
+        t_lng = safe_float(asgn.get('target_lng'), 0.0)
+        if t_lat == 0.0 and t_lng == 0.0:
+            continue
+        prox = calculate_realistic_proximity(lat, lng, t_lat, t_lng)
+        d_m = round(float(prox.get('geodesic_m', 999999.0)) if isinstance(prox, dict) else float(prox if prox is not None else 999999.0), 1)
+        radius = max(50.0, safe_float(asgn.get('geofence_radius'), 150.0))
+
+        if assignment_id and str(asgn.get('id')) == assignment_id:
+            distance_from_target_m = d_m
+            matched_target_name = asgn.get('target_name', customer_name)
+            matched_asgn_doc = asgn
+            if d_m <= max(radius, 250.0):
+                is_location_verified = True
+            break
+
+        if distance_from_target_m is None or d_m < distance_from_target_m:
+            distance_from_target_m = d_m
+            matched_target_name = asgn.get('target_name', customer_name)
+            matched_asgn_doc = asgn
+            if d_m <= max(radius, 250.0):
+                is_location_verified = True
+
+    # If no assignment existed today or if client explicitly verified GPS at customer shop
+    if not assignments and lat != 0.0 and lng != 0.0:
+        is_location_verified = True
+        matched_target_name = f"Direct Field Visit ({customer_name})"
+        distance_from_target_m = 0.0
+
+    if matched_asgn_doc and is_location_verified:
+        db.field_assignments.update_one(
+            {'_id': matched_asgn_doc['_id']},
+            {'$set': {
+                'status': 'Completed',
+                'verified_at': now_ist.strftime('%d/%m/%Y %I:%M %p'),
+                'updated_at': now_ist
+            }}
+        )
+
+    visit_doc = {
+        'id': f"FV-{int(time.time() * 1000)}",
+        'company_id': assigned_company_id,
+        'employee_id': str(data.get('employee_id') or '').strip(),
+        'employee_name': emp_name,
+        'assignment_id': str(matched_asgn_doc.get('id')) if matched_asgn_doc else assignment_id,
+        'customer_name': customer_name,
+        'contact_person': str(data.get('contact_person') or '').strip(),
+        'customer_phone': str(data.get('customer_phone') or '').strip(),
+        'customer_email': str(data.get('customer_email') or '').strip(),
+        'product_pitched': str(data.get('product_pitched') or 'Company Products').strip(),
+        'lead_status': str(data.get('lead_status') or 'Interested').strip(),
+        'order_amount': round(safe_float(data.get('order_amount'), 0.0), 2),
+        'follow_up_date': str(data.get('follow_up_date') or '').strip(),
+        'remarks': str(data.get('remarks') or '').strip(),
+        'photo_proof': str(data.get('photo_proof') or '').strip(),
+        'latitude': lat,
+        'longitude': lng,
+        'address': address,
+        'matched_target_name': matched_target_name,
+        'distance_from_target_m': distance_from_target_m if distance_from_target_m is not None else 0.0,
+        'is_location_verified': is_location_verified,
+        'verification_badge': 'Verified at Assigned Site' if is_location_verified else 'Off-Site / Unassigned Location',
+        'visit_date': today_str,
+        'visit_time': now_ist.strftime('%I:%M %p'),
+        'timestamp': now_ist.strftime('%d/%m/%Y %I:%M %p'),
+        'created_at': now_ist
+    }
+    db.field_customer_visits.insert_one(visit_doc)
+
+    # Also log a GPS ping so the live map reflects this customer visit immediately
+    try:
+        record_field_location_ping({
+            'company_id': assigned_company_id,
+            'employee_name': emp_name,
+            'latitude': lat,
+            'longitude': lng,
+            'address': address,
+            'assignment_id': visit_doc['assignment_id'],
+            'tracking_status': 'on_site' if is_location_verified else 'off_route_detour',
+            'activity_note': f"Customer Visit: {customer_name} ({visit_doc['lead_status']})"
+        }, company_id=assigned_company_id)
+    except Exception:
+        pass
+
+    return clean_doc(visit_doc)
+
+
+def get_field_customer_visits(company_id=None, employee_name=None, start_date=None, end_date=None, lead_status=None):
+    """Fetches customer visits / sales leads with optional filters."""
+    db = get_db()
+    q = {}
+    if company_id and company_id != 'ALL':
+        q['company_id'] = str(company_id)
+    if employee_name:
+        q['employee_name'] = str(employee_name).strip()
+    if lead_status:
+        q['lead_status'] = str(lead_status).strip()
+    if start_date and end_date:
+        q['visit_date'] = {'$gte': str(start_date).strip(), '$lte': str(end_date).strip()}
+    elif start_date:
+        q['visit_date'] = str(start_date).strip()
+
+    docs = list(db.field_customer_visits.find(q).sort('created_at', DESCENDING))
+    return [clean_doc(d) for d in docs]
+
+
+def delete_field_customer_visit(visit_id, company_id=None):
+    """Deletes a customer visit / lead entry."""
+    db = get_db()
+    q = build_id_filter(visit_id)
+    if company_id and company_id != 'ALL':
+        q = {'$and': [q, {'company_id': str(company_id)}]}
+    res = db.field_customer_visits.delete_one(q)
+    return res.deleted_count > 0
+
+
+def get_field_worker_salary_report(company_id=None, month_year=None, employee_name=None):
+    """
+    Calculates monthly Field Worker Salary & Payslip data combining:
+    1. Base Attendance Salary (from Punch-In / Punch-Out via get_payslip_data, supporting 0-shift hourly, daily, and regular shifts)
+    2. Verified Customer Visit Incentives (verified_visits * per_visit_incentive)
+    3. GPS Travel Distance Allowance (total_km_traveled * km_allowance_rate)
+    4. Sales Order / Lead Conversion Metrics
+    """
+    db = get_db()
+    now_ist = get_ist_now()
+    target_month = str(month_year or now_ist.strftime('%Y-%m')).strip()
+
+    workers = get_field_workers(company_id=company_id, include_all_employees=False)
+    if employee_name:
+        workers = [w for w in workers if w.get('employee_name') == employee_name]
+        if not workers:
+            emp_doc = db.employees.find_one({'employee_name': employee_name})
+            if emp_doc:
+                workers = [clean_doc(emp_doc)]
+
+    reports = []
+    for w in workers:
+        ename = w.get('employee_name', '')
+        if not ename:
+            continue
+        emp_cid = w.get('company_id') or company_id or 'ARGUS_MASTER'
+        payslip = get_payslip_data(ename, target_month, company_id=emp_cid) or {}
+
+        # 1. Field Assignments in target_month
+        asgn_q = {
+            'company_id': str(emp_cid),
+            'employee_name': ename,
+            'assigned_date': {'$regex': f'^{re.escape(target_month)}'}
+        }
+        total_assigned = db.field_assignments.count_documents(asgn_q)
+        completed_assigned = db.field_assignments.count_documents({**asgn_q, 'status': 'Completed'})
+
+        # 2. Customer Visits / Leads in target_month
+        visit_q = {
+            'company_id': str(emp_cid),
+            'employee_name': ename,
+            'visit_date': {'$regex': f'^{re.escape(target_month)}'}
+        }
+        visits = list(db.field_customer_visits.find(visit_q))
+        total_visits = len(visits)
+        verified_visits = sum(1 for v in visits if v.get('is_location_verified', True))
+        unverified_visits = max(0, total_visits - verified_visits)
+        orders_booked = sum(1 for v in visits if str(v.get('lead_status', '')).lower() in ['order booked', 'payment collected', 'converted'])
+        orders_value = round(sum(safe_float(v.get('order_amount', 0.0)) for v in visits), 2)
+
+        # 3. GPS Distance & Detour Alerts in target_month
+        log_q = {
+            'company_id': str(emp_cid),
+            'employee_name': ename,
+            'date': {'$regex': f'^{re.escape(target_month)}'}
+        }
+        logs = list(db.field_location_logs.find(log_q))
+        total_km = round(sum(safe_float(lg.get('step_km', 0.0)) for lg in logs), 2)
+        detour_alerts = sum(1 for lg in logs if lg.get('tracking_status') == 'off_route_detour')
+
+        # 4. Compensation Calculation
+        per_visit_rate = round(safe_float(w.get('per_visit_incentive', 0.0)), 2)
+        km_rate = round(safe_float(w.get('km_allowance_rate', 0.0)), 2)
+
+        visit_incentive_pay = round(verified_visits * per_visit_rate, 2)
+        travel_allowance_pay = round(total_km * km_rate, 2)
+
+        base_attendance_pay = round(safe_float(payslip.get('basic_salary', 0.0)), 2)
+        regular_allowance = round(safe_float(payslip.get('allowance', 0.0)), 2)
+        regular_incentive = round(safe_float(payslip.get('incentive', 0.0)), 2)
+        other_earnings = round(safe_float(payslip.get('other_earnings', 0.0)), 2)
+        total_deduction = round(safe_float(payslip.get('total_deduction', 0.0)), 2)
+
+        gross_field_salary = round(
+            base_attendance_pay + visit_incentive_pay + travel_allowance_pay + regular_allowance + regular_incentive + other_earnings,
+            2
+        )
+        net_field_payable = max(0.0, round(gross_field_salary - total_deduction, 2))
+
+        reports.append({
+            'employee_id': w.get('id', ''),
+            'employee_name': ename,
+            'company_id': emp_cid,
+            'company_name': payslip.get('company_name', 'ARGUS TECHNOLOGIES'),
+            'company_address': payslip.get('company_address', ''),
+            'department': w.get('department', 'Field Sales'),
+            'designation': w.get('designation', 'Field Executive'),
+            'territory_zone': w.get('territory_zone') or 'General Zone',
+            'status': w.get('status', 'Active'),
+            'month_year': target_month,
+            'pay_period': payslip.get('pay_period', target_month),
+            'salary_type': w.get('salary_type', 'daily'),
+            'shift_hours': w.get('shift_hours', '08:00'),
+            'working_days': payslip.get('working_days', 0),
+            'total_hours': payslip.get('total_hours', '00:00'),
+            'total_assigned_locations': total_assigned,
+            'completed_assignments': completed_assigned,
+            'total_visits': total_visits,
+            'verified_visits': verified_visits,
+            'unverified_visits': unverified_visits,
+            'orders_booked': orders_booked,
+            'orders_value': orders_value,
+            'total_km_traveled': total_km,
+            'detour_alerts': detour_alerts,
+            'per_visit_incentive_rate': per_visit_rate,
+            'km_allowance_rate': km_rate,
+            'base_attendance_pay': base_attendance_pay,
+            'visit_incentive_pay': visit_incentive_pay,
+            'travel_allowance_pay': travel_allowance_pay,
+            'regular_allowance': regular_allowance + regular_incentive + other_earnings,
+            'total_deduction': total_deduction,
+            'gross_field_salary': gross_field_salary,
+            'net_field_payable': net_field_payable,
+            'net_pay_in_words': number_to_words(net_field_payable),
+            'bank_name': w.get('bank_name', ''),
+            'account_number': w.get('account_number', ''),
+            'ifsc_code': w.get('ifsc_code', '')
+        })
+
+    return reports
+
 
 

@@ -3466,6 +3466,201 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
     return buffer
 
 
+def generate_field_worker_payslip_pdf(data, company_info=None):
+    """Generates an official branded Field Worker Monthly Payslip & Activity Statement PDF."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=32,
+        bottomMargin=32
+    )
+    styles = getSampleStyleSheet()
+    elements = []
+
+    comp_meta = company_info or {
+        'company_name': data.get('company_name', 'ARGUS TECHNOLOGIES'),
+        'address': data.get('company_address', '')
+    }
+    build_pdf_header(
+        elements,
+        company_info=comp_meta,
+        title="FIELD WORKER MONTHLY PAYSLIP & ACTIVITY STATEMENT",
+        subtitle=f"Pay Period: {data.get('pay_period', data.get('month_year', ''))}"
+    )
+
+    lbl_style = ParagraphStyle('FWLbl', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, textColor=colors.HexColor('#334155'))
+    val_style = ParagraphStyle('FWVal', parent=styles['Normal'], fontName='Helvetica', fontSize=8.5, textColor=colors.HexColor('#0f172a'))
+    sec_hdr = ParagraphStyle('FWSec', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9.5, textColor=colors.white)
+
+    # Employee & Field Profile Table
+    info_rows = [
+        [
+            Paragraph("Employee Name:", lbl_style), Paragraph(str(data.get('employee_name', '-')), val_style),
+            Paragraph("Territory / Zone:", lbl_style), Paragraph(str(data.get('territory_zone', 'General Zone')), val_style)
+        ],
+        [
+            Paragraph("Department:", lbl_style), Paragraph(str(data.get('department', 'Field Sales')), val_style),
+            Paragraph("Designation:", lbl_style), Paragraph(str(data.get('designation', 'Field Executive')), val_style)
+        ],
+        [
+            Paragraph("Salary Type / Shift:", lbl_style), Paragraph(f"{str(data.get('salary_type', 'daily')).upper()} ({data.get('shift_hours', '08:00')} hrs)", val_style),
+            Paragraph("Working Days / Hours:", lbl_style), Paragraph(f"{data.get('working_days', 0)} Days ({data.get('total_hours', '00:00')} hrs)", val_style)
+        ],
+        [
+            Paragraph("Bank / Account:", lbl_style), Paragraph(f"{data.get('bank_name') or '-'} / {data.get('account_number') or '-'}", val_style),
+            Paragraph("IFSC Code:", lbl_style), Paragraph(str(data.get('ifsc_code') or '-'), val_style)
+        ]
+    ]
+    t_info = Table(info_rows, colWidths=[115, 155, 115, 155])
+    t_info.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('PADDING', (0, 0), (-1, -1), 6),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+    ]))
+    elements.append(t_info)
+    elements.append(Spacer(1, 12))
+
+    # Field Performance & Route Verification Summary
+    perf_rows = [
+        [Paragraph("FIELD ACTIVITY & GEO-VERIFICATION METRICS", sec_hdr), "", "", ""],
+        [
+            Paragraph("Assigned Company Sites:", lbl_style), Paragraph(str(data.get('total_assigned_locations', 0)), val_style),
+            Paragraph("Completed Assigned Sites:", lbl_style), Paragraph(str(data.get('completed_assignments', 0)), val_style)
+        ],
+        [
+            Paragraph("Verified Customer Visits:", lbl_style), Paragraph(f"{data.get('verified_visits', 0)} (Total Logged: {data.get('total_visits', 0)})", val_style),
+            Paragraph("Orders Booked / Value:", lbl_style), Paragraph(f"{data.get('orders_booked', 0)} Orders (Rs. {float(data.get('orders_value', 0)):,.2f})", val_style)
+        ],
+        [
+            Paragraph("Verified GPS Distance:", lbl_style), Paragraph(f"{float(data.get('total_km_traveled', 0)):.2f} KM", val_style),
+            Paragraph("Off-Route / Detour Alerts:", lbl_style), Paragraph(f"{data.get('detour_alerts', 0)} Alerts", val_style)
+        ]
+    ]
+    t_perf = Table(perf_rows, colWidths=[135, 135, 135, 135])
+    t_perf.setStyle(TableStyle([
+        ('SPAN', (0, 0), (-1, 0)),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0F766E')),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F0FDFA')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#99F6E4')),
+        ('PADDING', (0, 0), (-1, -1), 6),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+    ]))
+    elements.append(t_perf)
+    elements.append(Spacer(1, 12))
+
+    # Earnings & Deductions Breakdown
+    amt_style = ParagraphStyle('FWAmt', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, alignment=TA_RIGHT, textColor=colors.HexColor('#0f172a'))
+    pay_rows = [
+        [Paragraph("EARNINGS COMPONENT", sec_hdr), Paragraph("CALCULATION BASIS", sec_hdr), Paragraph("AMOUNT (Rs.)", sec_hdr)],
+        [
+            Paragraph("1. Base Attendance Salary", lbl_style),
+            Paragraph(f"{data.get('working_days', 0)} Working Days / {data.get('total_hours', '00:00')} Punched Hrs", val_style),
+            Paragraph(f"{float(data.get('base_attendance_pay', 0)):,.2f}", amt_style)
+        ],
+        [
+            Paragraph("2. Verified Customer Visit Incentive", lbl_style),
+            Paragraph(f"{data.get('verified_visits', 0)} Verified Visits x Rs. {float(data.get('per_visit_incentive_rate', 0)):,.2f}/visit", val_style),
+            Paragraph(f"{float(data.get('visit_incentive_pay', 0)):,.2f}", amt_style)
+        ],
+        [
+            Paragraph("3. GPS Travel Distance Allowance", lbl_style),
+            Paragraph(f"{float(data.get('total_km_traveled', 0)):.2f} KM x Rs. {float(data.get('km_allowance_rate', 0)):,.2f}/km", val_style),
+            Paragraph(f"{float(data.get('travel_allowance_pay', 0)):,.2f}", amt_style)
+        ],
+        [
+            Paragraph("4. Regular Allowance / Other Earnings", lbl_style),
+            Paragraph("Fixed / Additional Earnings", val_style),
+            Paragraph(f"{float(data.get('regular_allowance', 0)):,.2f}", amt_style)
+        ],
+        [
+            Paragraph("GROSS FIELD EARNINGS", lbl_style),
+            Paragraph("", val_style),
+            Paragraph(f"Rs. {float(data.get('gross_field_salary', 0)):,.2f}", amt_style)
+        ],
+        [
+            Paragraph("Less: Total Deductions / Advances", lbl_style),
+            Paragraph("Salary Advance / Other Deductions", val_style),
+            Paragraph(f"- Rs. {float(data.get('total_deduction', 0)):,.2f}", amt_style)
+        ],
+        [
+            Paragraph("NET PAYABLE FIELD SALARY", sec_hdr),
+            Paragraph(str(data.get('net_pay_in_words', '')), ParagraphStyle('FWWords', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, textColor=colors.white)),
+            Paragraph(f"Rs. {float(data.get('net_field_payable', 0)):,.2f}", ParagraphStyle('FWNet', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10.5, alignment=TA_RIGHT, textColor=colors.white))
+        ]
+    ]
+    t_pay = Table(pay_rows, colWidths=[190, 220, 130])
+    t_pay.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+        ('BACKGROUND', (0, 5), (-1, 5), colors.HexColor('#E2E8F0')),
+        ('BACKGROUND', (0, 7), (-1, 7), colors.HexColor('#059669')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('PADDING', (0, 0), (-1, -1), 7),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+    ]))
+    elements.append(t_pay)
+    elements.append(Spacer(1, 18))
+    elements.append(Paragraph(
+        "© Argus Attendance | Field Worker Force Management Module | Computer generated statement.",
+        ParagraphStyle('FWFoot', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)
+    ))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+def generate_field_worker_report_pdf(headers, rows, title="FIELD WORKER MODULE REPORT", subtitle=None, company_info=None):
+    """Generates a landscape PDF report for Field Worker Visits/Leads, Route Tracking, or Payroll."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(letter),
+        rightMargin=28,
+        leftMargin=28,
+        topMargin=28,
+        bottomMargin=28
+    )
+    styles = getSampleStyleSheet()
+    elements = []
+    build_pdf_header(elements, company_info=company_info, title=title, subtitle=subtitle)
+
+    hdr_style = ParagraphStyle('FWHdrCell', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.white)
+    cell_style = ParagraphStyle('FWBodyCell', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9.5, textColor=colors.HexColor('#1E293B'))
+
+    table_data = [[Paragraph(str(h), hdr_style) for h in headers]]
+    if not rows:
+        empty_row = [Paragraph("No records found for selected filters", cell_style)] + [Paragraph("", cell_style) for _ in range(max(0, len(headers) - 1))]
+        table_data.append(empty_row)
+    else:
+        for r in rows:
+            table_data.append([Paragraph(str(c if c is not None else ''), cell_style) for c in r])
+
+    avail_w = 736.0
+    col_w = avail_w / max(1, len(headers))
+    t = Table(table_data, colWidths=[col_w] * len(headers), repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0F766E')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('PADDING', (0, 0), (-1, -1), 5),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 14))
+    elements.append(Paragraph(
+        "© Argus Attendance | Field Worker Module | Powered by ArgusCNC™",
+        ParagraphStyle('FWRepFoot', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)
+    ))
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+
 
 
 

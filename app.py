@@ -4712,5 +4712,346 @@ def api_download_all_attachments(ticket_id):
         download_name=zip_filename
     )
 
+
+# ==============================================================================
+# FIELD WORKER MODULE ROUTES (/field-worker & /api/field-worker/*)
+# ==============================================================================
+
+def _resolve_field_company_id(req_company_id=None):
+    """Resolves the active company_id for Field Worker Module operations."""
+    role = session.get('role')
+    sess_cid = session.get('company_id')
+    if role in ['company_admin', 'employee'] and sess_cid and sess_cid != 'ALL':
+        return str(sess_cid)
+    if req_company_id and str(req_company_id).strip() not in ['', 'ALL', 'None', 'null']:
+        return str(req_company_id).strip()
+    if sess_cid and sess_cid != 'ALL':
+        return str(sess_cid)
+    return 'ARGUS_MASTER'
+
+
+@app.route('/field-worker')
+def field_worker_module_page():
+    """Renders the dedicated Field Worker Force Management Module UI."""
+    now_ist = database.get_ist_now()
+    today_str = request.args.get('date') or now_ist.strftime('%Y-%m-%d')
+    month_year = request.args.get('month') or now_ist.strftime('%Y-%m')
+
+    companies = database.get_all_companies() or []
+    active_cid = _resolve_field_company_id(request.args.get('company_id'))
+    active_comp = database.get_company_by_id(active_cid) or {
+        'id': 'ARGUS_MASTER',
+        'company_name': 'ARGUS TECHNOLOGIES',
+        'latitude': 11.02980,
+        'longitude': 76.97400,
+        'address': 'SF NO. 515, Bharathiyar Road, Ganapathy, Coimbatore'
+    }
+
+    field_workers = database.get_field_workers(company_id=active_cid, include_all_employees=False)
+    all_employees = database.get_field_workers(company_id=active_cid, include_all_employees=True)
+    assignments = database.get_field_assignments(company_id=active_cid, date_str=today_str)
+    tracking = database.get_field_live_tracking(company_id=active_cid, date_str=today_str)
+    visits = database.get_field_customer_visits(company_id=active_cid)
+    salary_reports = database.get_field_worker_salary_report(company_id=active_cid, month_year=month_year)
+
+    return render_template(
+        'field_worker_module.html',
+        companies=companies,
+        active_company=active_comp,
+        active_company_id=active_cid,
+        field_workers=field_workers,
+        all_employees=all_employees,
+        assignments=assignments,
+        tracking=tracking,
+        visits=visits,
+        salary_reports=salary_reports,
+        today_str=today_str,
+        month_year=month_year
+    )
+
+
+@app.route('/api/field-worker/overview', methods=['GET'])
+def api_field_worker_overview():
+    """Returns live JSON state for the Field Worker Module dashboard."""
+    now_ist = database.get_ist_now()
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    date_str = request.args.get('date') or now_ist.strftime('%Y-%m-%d')
+    month_year = request.args.get('month') or now_ist.strftime('%Y-%m')
+    emp_filter = request.args.get('employee_name') or None
+
+    comp = database.get_company_by_id(cid) or {'id': cid, 'company_name': 'ARGUS TECHNOLOGIES', 'latitude': 11.0298, 'longitude': 76.9740}
+    workers = database.get_field_workers(company_id=cid, include_all_employees=False)
+    all_emps = database.get_field_workers(company_id=cid, include_all_employees=True)
+    assignments = database.get_field_assignments(company_id=cid, employee_name=emp_filter, date_str=date_str)
+    tracking = database.get_field_live_tracking(company_id=cid, date_str=date_str, employee_name=emp_filter)
+    visits = database.get_field_customer_visits(company_id=cid, employee_name=emp_filter)
+    salary_reports = database.get_field_worker_salary_report(company_id=cid, month_year=month_year, employee_name=emp_filter)
+
+    return jsonify({
+        'success': True,
+        'company': comp,
+        'company_id': cid,
+        'date': date_str,
+        'month_year': month_year,
+        'field_workers': workers,
+        'all_employees': all_emps,
+        'assignments': assignments,
+        'tracking': tracking,
+        'visits': visits,
+        'salary_reports': salary_reports
+    })
+
+
+@app.route('/api/field-worker/register', methods=['POST'])
+def api_field_worker_register():
+    """Registers a new Field Worker or updates an existing employee with Field Worker configuration."""
+    try:
+        data = request.get_json(silent=True) or request.form.to_dict()
+        cid = _resolve_field_company_id(data.get('company_id'))
+        data['company_id'] = cid
+        data['is_field_worker'] = True
+
+        existing_emp_id = str(data.get('existing_employee_id') or '').strip()
+        if existing_emp_id:
+            database.update_employee(existing_emp_id, data, company_id=cid)
+            return jsonify({
+                'success': True,
+                'employee_id': existing_emp_id,
+                'message': f"Field Worker configuration updated for {data.get('employee_name', 'Employee')}."
+            })
+
+        # Handle optional base64 photo for face recognition enrollment
+        photo_b64 = data.get('photo_data') or ''
+        if photo_b64 and photo_b64.startswith('data:image'):
+            try:
+                raw_bytes = base64.b64decode(photo_b64.split(',')[1])
+                fname = f"fw_{int(time.time()*1000)}.jpg"
+                fpath = os.path.join(app.config['UPLOAD_FOLDER'], fname)
+                with open(fpath, 'wb') as f:
+                    f.write(raw_bytes)
+                data['photo'] = fname
+                data['photo_filename'] = fname
+                emb = extract_face_embedding_from_bytes(raw_bytes)
+                if emb:
+                    data['face_embedding'] = json.dumps(emb)
+            except Exception as img_err:
+                print(f"Field worker photo decode warning: {img_err}")
+
+        if not data.get('department'):
+            data['department'] = 'Field Sales & Operations'
+        if not data.get('designation'):
+            data['designation'] = 'Field Executive'
+
+        new_id = database.create_employee(data)
+        if data.get('face_embedding'):
+            reload_face_embeddings_cache()
+
+        return jsonify({
+            'success': True,
+            'employee_id': new_id,
+            'message': f"Field Worker '{data.get('employee_name')}' registered successfully!"
+        })
+    except ValueError as ve:
+        return jsonify({'success': False, 'error': str(ve)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/field-worker/assignments', methods=['GET', 'POST'])
+def api_field_worker_assignments():
+    """Lists or creates target customer location assignments for field workers."""
+    if request.method == 'GET':
+        cid = _resolve_field_company_id(request.args.get('company_id'))
+        emp = request.args.get('employee_name') or None
+        dt = request.args.get('date') or None
+        st = request.args.get('status') or None
+        items = database.get_field_assignments(company_id=cid, employee_name=emp, date_str=dt, status=st)
+        return jsonify({'success': True, 'assignments': items})
+
+    try:
+        data = request.get_json(silent=True) or request.form.to_dict()
+        cid = _resolve_field_company_id(data.get('company_id'))
+        created = database.create_field_assignment(data, company_id=cid)
+        return jsonify({'success': True, 'assignment': created, 'message': 'Target location assigned to field worker!'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@app.route('/api/field-worker/assignments/<assignment_id>', methods=['PUT', 'DELETE'])
+def api_field_worker_assignment_detail(assignment_id):
+    """Updates or deletes a specific field location assignment."""
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    if request.method == 'DELETE':
+        ok = database.delete_field_assignment(assignment_id, company_id=cid)
+        return jsonify({'success': ok, 'message': 'Assignment deleted.' if ok else 'Assignment not found.'})
+
+    data = request.get_json(silent=True) or {}
+    ok = database.update_field_assignment(assignment_id, data, company_id=cid)
+    return jsonify({'success': ok, 'message': 'Assignment updated.' if ok else 'Assignment not found.'})
+
+
+@app.route('/api/field-worker/location-ping', methods=['POST'])
+def api_field_worker_location_ping():
+    """Records a live GPS ping from a field worker and detects Company Site vs Personal Detour."""
+    try:
+        data = request.get_json(silent=True) or request.form.to_dict()
+        cid = _resolve_field_company_id(data.get('company_id'))
+        ping = database.record_field_location_ping(data, company_id=cid)
+        return jsonify({
+            'success': True,
+            'ping': ping,
+            'message': f"GPS Logged: {ping.get('status_label')} ({ping.get('distance_from_target_m', 0)}m from target)"
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@app.route('/api/field-worker/visits', methods=['GET', 'POST'])
+def api_field_worker_visits():
+    """Lists or logs Customer Visits (Lead CRM) with automatic geo-verification."""
+    if request.method == 'GET':
+        cid = _resolve_field_company_id(request.args.get('company_id'))
+        emp = request.args.get('employee_name') or None
+        start_d = request.args.get('start_date') or None
+        end_d = request.args.get('end_date') or None
+        status = request.args.get('lead_status') or None
+        items = database.get_field_customer_visits(company_id=cid, employee_name=emp, start_date=start_d, end_date=end_d, lead_status=status)
+        return jsonify({'success': True, 'visits': items})
+
+    try:
+        data = request.get_json(silent=True) or request.form.to_dict()
+        cid = _resolve_field_company_id(data.get('company_id'))
+        visit = database.create_field_customer_visit(data, company_id=cid)
+        return jsonify({
+            'success': True,
+            'visit': visit,
+            'message': f"Customer visit to '{visit.get('customer_name')}' recorded ({visit.get('verification_badge')})!"
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@app.route('/api/field-worker/visits/<visit_id>', methods=['DELETE'])
+def api_field_worker_delete_visit(visit_id):
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    ok = database.delete_field_customer_visit(visit_id, company_id=cid)
+    return jsonify({'success': ok})
+
+
+@app.route('/api/field-worker/salary-report', methods=['GET'])
+def api_field_worker_salary_report():
+    """Returns monthly Field Worker Salary & Activity report."""
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    month_year = request.args.get('month') or database.get_ist_now().strftime('%Y-%m')
+    emp_name = request.args.get('employee_name') or None
+    reports = database.get_field_worker_salary_report(company_id=cid, month_year=month_year, employee_name=emp_name)
+    return jsonify({'success': True, 'month_year': month_year, 'reports': reports})
+
+
+@app.route('/api/field-worker/payslip-pdf', methods=['GET'])
+def api_field_worker_payslip_pdf():
+    """Generates and downloads an individual Field Worker's branded monthly Payslip PDF."""
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    month_year = request.args.get('month') or database.get_ist_now().strftime('%Y-%m')
+    emp_name = request.args.get('employee_name')
+    if not emp_name:
+        return jsonify({'error': 'employee_name is required'}), 400
+
+    reports = database.get_field_worker_salary_report(company_id=cid, month_year=month_year, employee_name=emp_name)
+    if not reports:
+        return jsonify({'error': 'No salary record found for this field worker'}), 404
+
+    rep = reports[0]
+    comp_info = database.get_company_by_id(rep.get('company_id') or cid)
+    pdf_buf = pdf_generator.generate_field_worker_payslip_pdf(rep, company_info=comp_info)
+    safe_name = re.sub(r'[^A-Za-z0-9_-]', '_', emp_name)
+    return send_file(
+        pdf_buf,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f"Field_Worker_Payslip_{safe_name}_{month_year}.pdf"
+    )
+
+
+@app.route('/api/field-worker/export', methods=['GET'])
+def api_field_worker_export():
+    """Exports Field Worker Visits/Leads, Live Route Tracking, or Salary Reports to PDF or Excel."""
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    report_type = (request.args.get('type') or 'visits').strip().lower()
+    export_format = (request.args.get('format') or 'pdf').strip().lower()
+    date_str = request.args.get('date') or database.get_ist_now().strftime('%Y-%m-%d')
+    month_year = request.args.get('month') or database.get_ist_now().strftime('%Y-%m')
+    emp_name = request.args.get('employee_name') or None
+    comp_info = database.get_company_by_id(cid)
+
+    if report_type == 'visits':
+        visits = database.get_field_customer_visits(company_id=cid, employee_name=emp_name)
+        headers = ['Date & Time', 'Field Worker', 'Customer / Shop', 'Contact Person', 'Phone', 'Product Pitched', 'Lead Status', 'Order Value (Rs.)', 'Geo-Verification', 'Location Address']
+        rows = [
+            [
+                v.get('timestamp', ''),
+                v.get('employee_name', ''),
+                v.get('customer_name', ''),
+                v.get('contact_person', ''),
+                v.get('customer_phone', ''),
+                v.get('product_pitched', ''),
+                v.get('lead_status', ''),
+                f"{float(v.get('order_amount', 0)):.2f}",
+                v.get('verification_badge', ''),
+                v.get('address', '')
+            ]
+            for v in visits
+        ]
+        title = "FIELD WORKER CUSTOMER VISITS & SALES LEADS REPORT"
+        fname = f"Field_Customer_Visits_{date_str}"
+    elif report_type == 'tracking':
+        tracking = database.get_field_live_tracking(company_id=cid, date_str=date_str, employee_name=emp_name)
+        logs = tracking.get('logs', [])
+        headers = ['Timestamp', 'Field Worker', 'Assigned Target', 'Distance (m)', 'Step (KM)', 'Route Status', 'Live Street Address']
+        rows = [
+            [
+                lg.get('timestamp', ''),
+                lg.get('employee_name', ''),
+                lg.get('nearest_target_name', ''),
+                f"{float(lg.get('distance_from_target_m', 0)):.1f}m",
+                f"{float(lg.get('step_km', 0)):.3f} km",
+                lg.get('status_label', ''),
+                lg.get('address', '')
+            ]
+            for lg in logs
+        ]
+        title = f"FIELD WORKER LIVE ROUTE & DETOUR TRACKING LOG ({date_str})"
+        fname = f"Field_Route_Tracking_{date_str}"
+    else:
+        reports = database.get_field_worker_salary_report(company_id=cid, month_year=month_year, employee_name=emp_name)
+        headers = ['Field Worker', 'Zone', 'Days / Hrs', 'Verified Visits', 'Distance (KM)', 'Detours', 'Base Pay', 'Visit Incentive', 'KM Allowance', 'Net Payable (Rs.)']
+        rows = [
+            [
+                r.get('employee_name', ''),
+                r.get('territory_zone', ''),
+                f"{r.get('working_days', 0)}d / {r.get('total_hours', '00:00')}h",
+                f"{r.get('verified_visits', 0)} / {r.get('total_visits', 0)}",
+                f"{float(r.get('total_km_traveled', 0)):.2f} km",
+                str(r.get('detour_alerts', 0)),
+                f"{float(r.get('base_attendance_pay', 0)):.2f}",
+                f"{float(r.get('visit_incentive_pay', 0)):.2f}",
+                f"{float(r.get('travel_allowance_pay', 0)):.2f}",
+                f"{float(r.get('net_field_payable', 0)):.2f}"
+            ]
+            for r in reports
+        ]
+        title = f"FIELD WORKER MONTHLY SALARY & INCENTIVE REPORT ({month_year})"
+        fname = f"Field_Salary_Report_{month_year}"
+
+    if export_format in ['excel', 'xlsx', 'csv']:
+        return export_table_data(headers, rows, fname, export_format=export_format, sheet_name="Field Report")
+
+    pdf_buf = pdf_generator.generate_field_worker_report_pdf(
+        headers, rows, title=title, subtitle=f"Generated on {database.get_ist_now().strftime('%d/%m/%Y %I:%M %p')}", company_info=comp_info
+    )
+    return send_file(pdf_buf, mimetype='application/pdf', as_attachment=True, download_name=f"{fname}.pdf")
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+
