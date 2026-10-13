@@ -5,12 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ active_company.company_name or 'ARGUS TECHNOLOGIES' }} - Field Worker Module</title>
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261008_geofence">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261013_fw_ui">
   <style>
-    /* Ensure exact fixed sidebar + independent right-side scrolling layout */
+    /* ==========================================================================
+       ARGUS ENTERPRISE FIELD WORKER MODULE — UNIFIED DESIGN SYSTEM
+       ========================================================================== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
     body {
       background-color: #f4f6f9;
       color: #1e293b;
@@ -20,7 +28,14 @@
       display: flex;
       flex-direction: column;
       overflow: hidden !important;
+      font-size: 12.5px;
     }
+
+    .d-none {
+      display: none !important;
+    }
+
+    /* ---------------- Fixed Left Sidebar + Independent Right Scroll ---------------- */
     .top-navbar {
       height: 52px;
       background-color: #ffffff;
@@ -35,6 +50,7 @@
       transition: margin-left 0.25s ease;
       flex-shrink: 0;
     }
+
     .app-container {
       display: flex;
       flex: 1;
@@ -45,6 +61,7 @@
       transition: margin-left 0.25s ease;
       background-color: #f1f5f9;
     }
+
     .sidebar {
       position: fixed;
       top: 0;
@@ -60,19 +77,23 @@
       flex-shrink: 0;
       overflow: hidden;
     }
+
     .sidebar.collapsed {
       transform: translateX(-100%);
       width: 0;
       padding: 0;
       overflow: hidden;
     }
+
     body.sidebar-collapsed .top-navbar,
     body.sidebar-collapsed .app-container {
       margin-left: 0 !important;
     }
+
     body.sidebar-collapsed .app-footer {
       left: 0 !important;
     }
+
     .main-wrapper {
       flex: 1;
       height: 100%;
@@ -82,129 +103,759 @@
       overflow-x: hidden;
       background-color: #f4f6f9;
     }
+
     .fw-main-content {
       flex: 1;
-      padding: 18px 22px 70px 22px;
+      padding: 18px 22px 75px 22px;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
     }
+
     .sidebar-nav .nav-item-btn {
       width: 100%;
       cursor: pointer;
       text-align: left;
     }
-    /* KPI Cards & Panels */
-    .fw-kpi-card {
-      background: #ffffff;
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      padding: 14px 16px;
-      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
-      height: 100%;
-    }
-    .fw-kpi-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
+
+    /* ---------------- Top Workspace Banner Controls ---------------- */
+    .fw-banner-controls {
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-size: 1.05rem;
+      gap: 10px;
+      flex-wrap: wrap;
     }
-    .fw-kpi-val {
-      font-size: 1.45rem;
-      font-weight: 800;
-      line-height: 1.15;
-      color: #0f172a;
+
+    .fw-filter-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 4px 8px;
     }
-    .fw-kpi-lbl {
-      font-size: 0.72rem;
+
+    .fw-filter-pill label {
+      font-size: 11px;
       font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    .fw-filter-pill select,
+    .fw-filter-pill input {
+      height: 28px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #0f172a;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      outline: none;
+    }
+
+    .fw-filter-pill select:focus,
+    .fw-filter-pill input:focus {
+      border-color: #2563eb;
+    }
+
+    /* ---------------- Toast Alert Banner ---------------- */
+    .fw-toast-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+    }
+
+    .fw-toast-success {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+
+    .fw-toast-danger {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
+    .fw-toast-close {
+      background: transparent;
+      border: none;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      color: inherit;
+      opacity: 0.75;
+      padding: 0 4px;
+    }
+
+    /* ---------------- 6-Card KPI Grid ---------------- */
+    .fw-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .fw-kpi-card {
+      background: #ffffff;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      padding: 13px 15px;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .fw-kpi-lbl {
+      font-size: 10.5px;
+      font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.4px;
       color: #64748b;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .fw-panel {
-      background: #ffffff;
-      border-radius: 14px;
-      border: 1px solid #e2e8f0;
-      padding: 20px;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
-      margin-bottom: 20px;
-    }
-    .fw-panel-title {
-      font-size: 1rem;
-      font-weight: 700;
+
+    .fw-kpi-val {
+      font-size: 21px;
+      font-weight: 800;
+      line-height: 1.1;
       color: #0f172a;
+      margin-bottom: 4px;
+    }
+
+    .fw-kpi-sub {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      white-space: nowrap;
+    }
+
+    .fw-kpi-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 14px;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
     }
+
+    /* ---------------- Enterprise Section Cards & Layouts ---------------- */
+    .fw-section-pane {
+      display: none;
+    }
+
+    .fw-section-pane.active {
+      display: block;
+    }
+
+    .fw-card {
+      background: #ffffff;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+      margin-bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .fw-card-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid #eef2f6;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .fw-card-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .fw-card-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .fw-card-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin: 0;
+      line-height: 1.25;
+    }
+
+    .fw-card-subtitle {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .fw-card-body {
+      padding: 16px 18px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Grid Splits */
+    .fw-split-65-35 {
+      display: grid;
+      grid-template-columns: 1.75fr 1fr;
+      gap: 16px;
+      margin-bottom: 18px;
+      align-items: stretch;
+    }
+
+    .fw-split-50-50 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 18px;
+      align-items: stretch;
+    }
+
+    .fw-split-65-35 > .fw-card,
+    .fw-split-50-50 > .fw-card {
+      margin-bottom: 0;
+      height: 100%;
+    }
+
+    /* Form Grids */
+    .fw-form-grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px 14px;
+    }
+
+    .fw-form-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px 14px;
+    }
+
+    .fw-form-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 14px;
+    }
+
+    .fw-col-span-2 {
+      grid-column: span 2;
+    }
+
+    .fw-col-span-3 {
+      grid-column: span 3;
+    }
+
+    .fw-col-span-4 {
+      grid-column: span 4;
+    }
+
+    /* ---------------- Standardized Form Inputs & Labels ---------------- */
+    .fw-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .fw-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .fw-input,
+    .fw-select {
+      height: 34px;
+      width: 100%;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #0f172a;
+      background-color: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .fw-textarea {
+      width: 100%;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #0f172a;
+      background-color: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      outline: none;
+      resize: vertical;
+      min-height: 34px;
+    }
+
+    .fw-input:focus,
+    .fw-select:focus,
+    .fw-textarea:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2.5px rgba(37, 99, 235, 0.12);
+    }
+
+    .fw-input:disabled,
+    .fw-select:disabled {
+      background-color: #f1f5f9;
+      color: #64748b;
+      cursor: not-allowed;
+    }
+
+    /* Highlighted Incentive Strip */
+    .fw-incentive-strip {
+      background: #f0fdfa;
+      border: 1px solid #99f6e4;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-top: 12px;
+    }
+
+    .fw-incentive-strip-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: #0f766e;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ---------------- Standardized Buttons ---------------- */
+    .fw-btn {
+      height: 34px;
+      padding: 0 14px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      line-height: 1;
+    }
+
+    .fw-btn-primary {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+    }
+    .fw-btn-primary:hover {
+      background: #1d4ed8;
+      border-color: #1d4ed8;
+      color: #ffffff;
+    }
+
+    .fw-btn-success {
+      background: #0d9488;
+      color: #ffffff;
+      border-color: #0d9488;
+    }
+    .fw-btn-success:hover {
+      background: #0f766e;
+      border-color: #0f766e;
+      color: #ffffff;
+    }
+
+    .fw-btn-danger {
+      background: #dc2626;
+      color: #ffffff;
+      border-color: #dc2626;
+    }
+    .fw-btn-danger:hover {
+      background: #b91c1c;
+      border-color: #b91c1c;
+      color: #ffffff;
+    }
+
+    .fw-btn-dark {
+      background: #0f172a;
+      color: #ffffff;
+      border-color: #0f172a;
+    }
+    .fw-btn-dark:hover {
+      background: #1e293b;
+      color: #ffffff;
+    }
+
+    .fw-btn-outline {
+      background: #ffffff;
+      color: #334155;
+      border-color: #cbd5e1;
+    }
+    .fw-btn-outline:hover {
+      background: #f8fafc;
+      color: #0f172a;
+      border-color: #94a3b8;
+    }
+
+    .fw-btn-sm {
+      height: 28px;
+      padding: 0 10px;
+      font-size: 11px;
+      border-radius: 5px;
+    }
+
+    .fw-btn-block {
+      width: 100%;
+    }
+
+    /* Simulation Segmented Bar */
+    .fw-sim-box {
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px dashed #e2e8f0;
+    }
+
+    .fw-sim-label {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .fw-sim-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .fw-sim-btn {
+      height: 30px;
+      padding: 0 8px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .fw-sim-onsite {
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+    .fw-sim-onsite:hover {
+      background: #dcfce7;
+    }
+
+    .fw-sim-transit {
+      background: #fffbeb;
+      color: #92400e;
+      border: 1px solid #fcd34d;
+    }
+    .fw-sim-transit:hover {
+      background: #fef3c7;
+    }
+
+    .fw-sim-detour {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    .fw-sim-detour:hover {
+      background: #fee2e2;
+    }
+
+    /* ---------------- Maps & Camera Boxes ---------------- */
     #fieldLiveMap {
       width: 100%;
-      height: 440px;
-      border-radius: 12px;
-      border: 1.5px solid #cbd5e1;
-      z-index: 1;
-    }
-    #assignPickerMap {
-      width: 100%;
-      height: 290px;
-      border-radius: 10px;
+      height: 390px;
+      border-radius: 8px;
       border: 1px solid #cbd5e1;
       z-index: 1;
     }
+
+    #assignPickerMap {
+      width: 100%;
+      height: 235px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      z-index: 1;
+    }
+
+    .fw-camera-box {
+      background: #0f172a;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      height: 250px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1.5px solid #334155;
+      margin-bottom: 12px;
+    }
+
+    .fw-camera-box video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .fw-camera-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 600;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    /* ---------------- Status Badges ---------------- */
     .badge-onsite {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       background: #dcfce7;
       color: #166534;
       border: 1px solid #86efac;
       font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 0.74rem;
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 11px;
+      line-height: 1.2;
+      white-space: nowrap;
     }
+
     .badge-transit {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       background: #fef3c7;
       color: #92400e;
       border: 1px solid #fcd34d;
       font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 0.74rem;
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 11px;
+      line-height: 1.2;
+      white-space: nowrap;
     }
+
     .badge-detour {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       background: #fee2e2;
       color: #991b1b;
       border: 1px solid #fca5a5;
       font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 0.74rem;
-    }
-    .fw-camera-box {
-      background: #0f172a;
+      padding: 3px 9px;
       border-radius: 12px;
-      overflow: hidden;
-      position: relative;
-      min-height: 260px;
-      display: flex;
+      font-size: 11px;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .badge-neutral {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      border: 2px solid #334155;
+      gap: 4px;
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 11px;
+      line-height: 1.2;
+      white-space: nowrap;
     }
-    .fw-camera-box video {
+
+    .badge-blue {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 11px;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    /* ---------------- Enterprise Data Tables ---------------- */
+    .fw-table-wrapper {
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .fw-table {
       width: 100%;
-      max-height: 320px;
-      object-fit: cover;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 11.5px;
+      text-align: left;
     }
-    .fw-section-pane {
-      display: none;
+
+    .fw-table thead th {
+      background-color: #f8fafc;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      padding: 9px 11px;
+      border-bottom: 2px solid #cbd5e1;
+      border-right: 1px solid #e2e8f0;
+      white-space: nowrap;
+      vertical-align: middle;
     }
-    .fw-section-pane.active {
-      display: block;
+
+    .fw-table thead th:last-child {
+      border-right: none;
     }
+
+    .fw-table tbody td {
+      padding: 8px 11px;
+      border-bottom: 1px solid #e2e8f0;
+      border-right: 1px solid #e2e8f0;
+      color: #1e293b;
+      vertical-align: middle;
+      font-size: 11.5px;
+      line-height: 1.35;
+    }
+
+    .fw-table tbody td:last-child {
+      border-right: none;
+    }
+
+    .fw-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .fw-table tbody tr:hover td {
+      background-color: #f8fafc;
+    }
+
+    .fw-cell-title {
+      font-weight: 700;
+      color: #0f172a;
+      font-size: 12px;
+    }
+
+    .fw-cell-sub {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 1px;
+    }
+
+    .fw-address-cell {
+      max-width: 260px;
+      white-space: normal;
+      word-break: break-word;
+      font-size: 11px;
+      color: #475569;
+      line-height: 1.35;
+    }
+
+    /* ---------------- Responsive Breakpoints ---------------- */
+    @media (max-width: 1320px) {
+      .fw-kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .fw-form-grid-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
     @media (max-width: 992px) {
       .top-navbar, .app-container {
         margin-left: 0 !important;
+      }
+      .fw-split-65-35,
+      .fw-split-50-50 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .fw-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .fw-form-grid-4,
+      .fw-form-grid-3,
+      .fw-form-grid-2,
+      .fw-sim-grid {
+        grid-template-columns: 1fr;
+      }
+      .fw-col-span-2,
+      .fw-col-span-3,
+      .fw-col-span-4 {
+        grid-column: span 1;
       }
     }
   </style>
@@ -226,7 +877,7 @@
     </div>
 
     <div class="nav-right" style="display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
-      <span style="background: #f1f5f9; border: 1px solid #cbd5e1; color: #0f172a; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px;">
+      <span class="badge-neutral">
         {% if user_role == 'employee' %}
           Field Worker: {{ logged_in_employee_name }}
         {% elif user_role == 'company_admin' %}
@@ -251,21 +902,25 @@
       <div class="sidebar-header">
         <div class="sidebar-brand-box">
           <div class="sidebar-logo-circle">
-            <img src="{{ url_for('static', filename='images/argus_field_logo.jpg') }}" alt="Argus" class="sidebar-logo-img">
+            <img src="{{ url_for('static', filename='images/argus_field_logo.jpg') }}" alt="Argus Logo" class="sidebar-logo-img" style="object-fit: contain;">
           </div>
           <div class="sidebar-brand-text">
-            <span class="brand-title">ARGUS</span>
-            <span class="brand-subtitle">ATTENDANCE</span>
+            <div class="brand-title">ARGUS</div>
+            <div class="brand-subtitle">TECHNOLOGIES</div>
           </div>
         </div>
         <div class="admin-subtitle">
+          {% if user_role == 'employee' %}
+          FIELD WORKER PORTAL
+          {% else %}
           FIELD WORKER MODULE
+          {% endif %}
         </div>
       </div>
 
       <nav class="sidebar-nav" id="fwSidebarNav">
         <button type="button" class="nav-item-btn active" data-pane="paneLiveTracking" onclick="switchFieldTab('paneLiveTracking', this)">
-          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path></svg>
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
           <span>Live Route &amp; Detour Monitor</span>
         </button>
 
@@ -324,278 +979,291 @@
     <div class="main-wrapper">
       <main class="fw-main-content">
 
-        <!-- Workspace Filter Banner inside Right Content (Keeps Top Navbar Clean) -->
-        <div class="content-banner-card mb-3" style="flex-wrap: wrap; gap: 12px;">
-          <div>
-            <div style="font-size: 15px; font-weight: 800; color: #0f172a;" id="activePaneHeading">
-              1. LIVE ROUTE &amp; DETOUR MONITOR
+        <!-- Top Page Banner (Matches Employees / Salary Report Banner) -->
+        <div class="content-banner-card" style="flex-wrap: wrap;">
+          <div class="banner-left">
+            <div class="banner-icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                <line x1="8" y1="2" x2="8" y2="18"></line>
+                <line x1="16" y1="6" x2="16" y2="22"></line>
+              </svg>
             </div>
-            <div style="font-size: 12px; color: #64748b;">
-              Company Workspace: <strong style="color: #0f172a;">{{ active_company.company_name }}</strong>
-              {% if user_role == 'employee' %}
-              &bull; Logged in as Field Worker: <strong style="color: #0d9488;">{{ logged_in_employee_name }}</strong>
-              {% endif %}
+            <div class="banner-text-group">
+              <div class="banner-title" id="activePaneHeading">LIVE ROUTE &amp; DETOUR MONITOR</div>
+              <div class="banner-subtitle">
+                Company Workspace: <strong style="color: #0f172a;">{{ active_company.company_name }}</strong>
+                {% if user_role == 'employee' %}
+                &bull; Active Field Worker: <strong style="color: #0d9488;">{{ logged_in_employee_name }}</strong>
+                {% else %}
+                &bull; Real-time GPS Geofence Tracking, Customer Visit CRM &amp; Field Payroll
+                {% endif %}
+              </div>
             </div>
           </div>
 
-          <div class="d-flex flex-wrap align-items-center gap-2">
+          <div class="fw-banner-controls">
             {% if user_role == 'super_admin' %}
-            <select id="globalCompanySelect" class="form-select form-select-sm" style="width: auto; min-width: 190px; font-weight: 600;" onchange="reloadFieldModule()">
-              <option value="ARGUS_MASTER" {% if active_company_id == 'ARGUS_MASTER' %}selected{% endif %}>ARGUS TECHNOLOGIES (HQ)</option>
-              {% for c in companies %}
-              {% if c.id != 'ARGUS_MASTER' %}
-              <option value="{{ c.id }}" {% if active_company_id == c.id %}selected{% endif %}>{{ c.company_name }}</option>
-              {% endif %}
-              {% endfor %}
-            </select>
+            <div class="fw-filter-pill">
+              <label for="globalCompanySelect">Company</label>
+              <select id="globalCompanySelect" onchange="reloadFieldModule()">
+                <option value="ARGUS_MASTER" {% if active_company_id == 'ARGUS_MASTER' %}selected{% endif %}>ARGUS TECHNOLOGIES (HQ)</option>
+                {% for c in companies %}
+                {% if c.id != 'ARGUS_MASTER' %}
+                <option value="{{ c.id }}" {% if active_company_id == c.id %}selected{% endif %}>{{ c.company_name }}</option>
+                {% endif %}
+                {% endfor %}
+              </select>
+            </div>
             {% else %}
             <input type="hidden" id="globalCompanySelect" value="{{ active_company_id }}">
             {% endif %}
 
-            <div class="d-flex align-items-center gap-1">
-              <span class="small fw-semibold text-secondary">Date:</span>
-              <input type="date" id="globalDateInput" class="form-control form-control-sm" style="width: 138px; font-weight: 600;" value="{{ today_str }}" onchange="reloadFieldModule()">
+            <div class="fw-filter-pill">
+              <label for="globalDateInput">Date</label>
+              <input type="date" id="globalDateInput" value="{{ today_str }}" onchange="reloadFieldModule()">
             </div>
-            <div class="d-flex align-items-center gap-1">
-              <span class="small fw-semibold text-secondary">Month:</span>
-              <input type="month" id="globalMonthInput" class="form-control form-control-sm" style="width: 138px; font-weight: 600;" value="{{ month_year }}" onchange="reloadFieldModule()">
+
+            <div class="fw-filter-pill">
+              <label for="globalMonthInput">Payroll Month</label>
+              <input type="month" id="globalMonthInput" value="{{ month_year }}" onchange="reloadFieldModule()">
             </div>
           </div>
         </div>
 
         <!-- Toast Alert Banner -->
-        <div id="fwAlertBanner" class="alert alert-success d-none align-items-center justify-content-between py-2 px-3 mb-3 shadow-sm" role="alert">
-          <span id="fwAlertText" class="fw-semibold small"></span>
-          <button type="button" class="btn-close btn-sm" onclick="document.getElementById('fwAlertBanner').classList.add('d-none')"></button>
+        <div id="fwAlertBanner" class="fw-toast-banner fw-toast-success d-none" role="alert">
+          <span id="fwAlertText"></span>
+          <button type="button" class="fw-toast-close" onclick="document.getElementById('fwAlertBanner').classList.add('d-none')">&times;</button>
         </div>
 
-        <!-- 6 Live KPI Summary Cards -->
-        <div class="row g-3 mb-3">
-          <div class="col-6 col-md-4 col-xl-2">
-            <div class="fw-kpi-card">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="fw-kpi-lbl">Field Workers</div>
-                  <div class="fw-kpi-val mt-1" id="kpiWorkersCount">{{ field_workers|length }}</div>
-                  <div class="text-muted" style="font-size:0.72rem;">Active in Company</div>
-                </div>
-                <div class="fw-kpi-icon" style="background:#e0f2fe;color:#0284c7;">
-                  <i class="fa-solid fa-user-astronaut"></i>
-                </div>
-              </div>
+        <!-- 6 Live KPI Summary Cards (Symmetrical Grid) -->
+        <div class="fw-kpi-grid">
+          <div class="fw-kpi-card">
+            <div>
+              <div class="fw-kpi-lbl">Field Workers</div>
+              <div class="fw-kpi-val" id="kpiWorkersCount">{{ field_workers|length }}</div>
+              <div class="fw-kpi-sub">Active in Company</div>
+            </div>
+            <div class="fw-kpi-icon" style="background:#e0f2fe; color:#0284c7;">
+              <i class="fa-solid fa-user-check"></i>
             </div>
           </div>
-          <div class="col-6 col-md-4 col-xl-2">
-            <div class="fw-kpi-card">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="fw-kpi-lbl">Assigned Sites</div>
-                  <div class="fw-kpi-val mt-1" id="kpiAssignedCount">{{ assignments|length }}</div>
-                  <div class="text-muted" style="font-size:0.72rem;">Target Locations</div>
-                </div>
-                <div class="fw-kpi-icon" style="background:#f3e8ff;color:#7e22ce;">
-                  <i class="fa-solid fa-location-crosshairs"></i>
-                </div>
-              </div>
+
+          <div class="fw-kpi-card">
+            <div>
+              <div class="fw-kpi-lbl">Assigned Sites</div>
+              <div class="fw-kpi-val" id="kpiAssignedCount">{{ assignments|length }}</div>
+              <div class="fw-kpi-sub">Target Locations</div>
+            </div>
+            <div class="fw-kpi-icon" style="background:#f3e8ff; color:#7e22ce;">
+              <i class="fa-solid fa-location-crosshairs"></i>
             </div>
           </div>
-          <div class="col-6 col-md-4 col-xl-2">
-            <div class="fw-kpi-card" style="border-left:4px solid #16a34a;">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="fw-kpi-lbl text-success">Verified On-Site</div>
-                  <div class="fw-kpi-val mt-1 text-success" id="kpiOnSiteCount">{{ tracking.counts.on_site if tracking and tracking.counts else 0 }}</div>
-                  <div class="text-muted" style="font-size:0.72rem;">At Assigned Site</div>
-                </div>
-                <div class="fw-kpi-icon" style="background:#dcfce7;color:#15803d;">
-                  <i class="fa-solid fa-circle-check"></i>
-                </div>
-              </div>
+
+          <div class="fw-kpi-card" style="border-left: 3px solid #16a34a;">
+            <div>
+              <div class="fw-kpi-lbl" style="color:#15803d;">Verified On-Site</div>
+              <div class="fw-kpi-val" style="color:#15803d;" id="kpiOnSiteCount">{{ tracking.counts.on_site if tracking and tracking.counts else 0 }}</div>
+              <div class="fw-kpi-sub">At Assigned Site</div>
+            </div>
+            <div class="fw-kpi-icon" style="background:#dcfce7; color:#15803d;">
+              <i class="fa-solid fa-circle-check"></i>
             </div>
           </div>
-          <div class="col-6 col-md-4 col-xl-2">
-            <div class="fw-kpi-card" style="border-left:4px solid #d97706;">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="fw-kpi-lbl text-warning">In-Transit</div>
-                  <div class="fw-kpi-val mt-1" style="color:#d97706;" id="kpiTransitCount">{{ tracking.counts.in_transit if tracking and tracking.counts else 0 }}</div>
-                  <div class="text-muted" style="font-size:0.72rem;">Official Corridor</div>
-                </div>
-                <div class="fw-kpi-icon" style="background:#fef3c7;color:#b45309;">
-                  <i class="fa-solid fa-route"></i>
-                </div>
-              </div>
+
+          <div class="fw-kpi-card" style="border-left: 3px solid #d97706;">
+            <div>
+              <div class="fw-kpi-lbl" style="color:#b45309;">In-Transit</div>
+              <div class="fw-kpi-val" style="color:#d97706;" id="kpiTransitCount">{{ tracking.counts.in_transit if tracking and tracking.counts else 0 }}</div>
+              <div class="fw-kpi-sub">Official Corridor</div>
+            </div>
+            <div class="fw-kpi-icon" style="background:#fef3c7; color:#b45309;">
+              <i class="fa-solid fa-route"></i>
             </div>
           </div>
-          <div class="col-6 col-md-4 col-xl-2">
-            <div class="fw-kpi-card" style="border-left:4px solid #dc2626;">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="fw-kpi-lbl text-danger">Personal Detours</div>
-                  <div class="fw-kpi-val mt-1 text-danger" id="kpiDetourCount">{{ tracking.counts.off_route_detour if tracking and tracking.counts else 0 }}</div>
-                  <div class="text-muted" style="font-size:0.72rem;">Off-Route (&gt;1 km)</div>
-                </div>
-                <div class="fw-kpi-icon" style="background:#fee2e2;color:#b91c1c;">
-                  <i class="fa-solid fa-triangle-exclamation"></i>
-                </div>
-              </div>
+
+          <div class="fw-kpi-card" style="border-left: 3px solid #dc2626;">
+            <div>
+              <div class="fw-kpi-lbl" style="color:#b91c1c;">Personal Detours</div>
+              <div class="fw-kpi-val" style="color:#dc2626;" id="kpiDetourCount">{{ tracking.counts.off_route_detour if tracking and tracking.counts else 0 }}</div>
+              <div class="fw-kpi-sub">Off-Route (&gt;1 km)</div>
+            </div>
+            <div class="fw-kpi-icon" style="background:#fee2e2; color:#b91c1c;">
+              <i class="fa-solid fa-triangle-exclamation"></i>
             </div>
           </div>
-          <div class="col-6 col-md-4 col-xl-2">
-            <div class="fw-kpi-card">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="fw-kpi-lbl">Customer Leads</div>
-                  <div class="fw-kpi-val mt-1" id="kpiVisitsCount">{{ visits|length }}</div>
-                  <div class="text-success fw-semibold" style="font-size:0.72rem;">Verified Visits</div>
-                </div>
-                <div class="fw-kpi-icon" style="background:#ccfbf1;color:#0f766e;">
-                  <i class="fa-solid fa-handshake"></i>
-                </div>
-              </div>
+
+          <div class="fw-kpi-card">
+            <div>
+              <div class="fw-kpi-lbl">Customer Leads</div>
+              <div class="fw-kpi-val" id="kpiVisitsCount">{{ visits|length }}</div>
+              <div class="fw-kpi-sub" style="color:#0d9488;">Verified CRM Visits</div>
+            </div>
+            <div class="fw-kpi-icon" style="background:#ccfbf1; color:#0f766e;">
+              <i class="fa-solid fa-handshake"></i>
             </div>
           </div>
         </div>
 
-        <!-- ========================================================= -->
-        <!-- PANE 1: LIVE ROUTE & DETOUR MONITOR                       -->
-        <!-- ========================================================= -->
-        <div id="paneLiveTracking" class="fw-section-pane active" data-title="1. LIVE ROUTE & DETOUR MONITOR">
-          <div class="row g-3">
-            <div class="col-lg-8">
-              <div class="fw-panel">
-                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                  <div class="fw-panel-title mb-0">
-                    <i class="fa-solid fa-map-location-dot" style="color:#0d9488;"></i>
-                    Live Field Worker GPS Radar &amp; Geofence Verification Map
-                  </div>
-                  <div class="d-flex flex-wrap gap-2">
-                    <span class="badge-onsite"><i class="fa-solid fa-circle me-1"></i>Green: At Assigned Site (&le;150m)</span>
-                    <span class="badge-transit"><i class="fa-solid fa-circle me-1"></i>Amber: Official Transit</span>
-                    <span class="badge-detour"><i class="fa-solid fa-circle me-1"></i>Red: Personal Detour (&gt;1km)</span>
+        <!-- ========================================================================= -->
+        <!-- TAB 1: LIVE ROUTE & DETOUR MONITOR                                        -->
+        <!-- ========================================================================= -->
+        <div id="paneLiveTracking" class="fw-section-pane active" data-title="LIVE ROUTE & DETOUR MONITOR">
+          <div class="fw-split-65-35">
+            <!-- Left Card: Live Radar Map -->
+            <div class="fw-card">
+              <div class="fw-card-header">
+                <div class="fw-card-header-left">
+                  <span class="fw-card-icon" style="background:#ccfbf1; color:#0f766e;">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title">Live Field Worker GPS Radar &amp; Geofence Map</div>
+                    <div class="fw-card-subtitle">Real-time route verification against assigned customer locations</div>
                   </div>
                 </div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                  <span class="badge-onsite"><i class="fa-solid fa-circle" style="font-size:7px;"></i> On-Site (&le;150m)</span>
+                  <span class="badge-transit"><i class="fa-solid fa-circle" style="font-size:7px;"></i> Official Transit</span>
+                  <span class="badge-detour"><i class="fa-solid fa-circle" style="font-size:7px;"></i> Detour (&gt;1km)</span>
+                </div>
+              </div>
+              <div class="fw-card-body">
                 <div id="fieldLiveMap"></div>
               </div>
             </div>
 
-            <div class="col-lg-4">
-              <div class="fw-panel">
-                <div class="fw-panel-title">
-                  <i class="fa-solid fa-tower-broadcast text-primary"></i>
-                  Field Worker Live GPS Check-In &amp; Tracker
+            <!-- Right Card: Live GPS Check-In & Telemetry Controls -->
+            <div class="fw-card">
+              <div class="fw-card-header">
+                <div class="fw-card-header-left">
+                  <span class="fw-card-icon" style="background:#eff6ff; color:#2563eb;">
+                    <i class="fa-solid fa-tower-broadcast"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title">Live GPS Telemetry &amp; Check-In</div>
+                    <div class="fw-card-subtitle">Transmit device coordinates &amp; verify route status</div>
+                  </div>
                 </div>
-                <p class="text-muted small mb-3">
-                  Transmits live GPS coordinates for <strong>{{ active_company.company_name }}</strong> and classifies whether the worker is at their <strong>Assigned Company Location</strong> or taking a <strong>Personal Work Detour</strong>.
-                </p>
-
-                <div class="mb-2">
-                  <label class="form-label">Field Worker</label>
-                  <select id="pingWorkerSelect" class="form-select" {% if user_role == 'employee' %}disabled{% endif %}>
+              </div>
+              <div class="fw-card-body" style="gap: 12px;">
+                <div class="fw-field">
+                  <label class="fw-label">Active Field Worker</label>
+                  <select id="pingWorkerSelect" class="fw-select" {% if user_role == 'employee' %}disabled{% endif %}>
                     {% for w in field_workers %}
                     <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
                     {% endfor %}
                   </select>
                 </div>
 
-                <div class="row g-2 mb-2">
-                  <div class="col-6">
-                    <label class="form-label">Live Latitude</label>
-                    <input type="number" step="0.000001" id="pingLat" class="form-control" value="{{ active_company.latitude or 11.02980 }}">
+                <div class="fw-form-grid-2">
+                  <div class="fw-field">
+                    <label class="fw-label">Live Latitude</label>
+                    <input type="number" step="0.000001" id="pingLat" class="fw-input" value="{{ active_company.latitude or 11.02980 }}">
                   </div>
-                  <div class="col-6">
-                    <label class="form-label">Live Longitude</label>
-                    <input type="number" step="0.000001" id="pingLng" class="form-control" value="{{ active_company.longitude or 76.97400 }}">
+                  <div class="fw-field">
+                    <label class="fw-label">Live Longitude</label>
+                    <input type="number" step="0.000001" id="pingLng" class="fw-input" value="{{ active_company.longitude or 76.97400 }}">
                   </div>
                 </div>
 
-                <div class="mb-2">
-                  <label class="form-label">Activity / Status Note</label>
-                  <input type="text" id="pingNote" class="form-control" placeholder="e.g., Reached client site for product demo">
+                <div class="fw-field">
+                  <label class="fw-label">Activity / Status Note</label>
+                  <input type="text" id="pingNote" class="fw-input" placeholder="e.g., Reached client site for product demo">
                 </div>
 
-                <div class="d-grid gap-2 mt-3">
-                  <button type="button" class="btn btn-success fw-bold" onclick="captureAndSendLiveGPS()">
-                    <i class="fa-solid fa-location-crosshairs me-1"></i> Capture Device GPS &amp; Send Live Ping
+                <div style="display:flex; flex-direction:column; gap:8px; margin-top:2px;">
+                  <button type="button" class="fw-btn fw-btn-success fw-btn-block" onclick="captureAndSendLiveGPS()">
+                    <i class="fa-solid fa-location-crosshairs"></i> Capture Device GPS &amp; Send Live Ping
                   </button>
-                  <button type="button" id="btnAutoTrack" class="btn btn-outline-primary fw-semibold" onclick="toggleAutoGPSTracking()">
-                    <i class="fa-solid fa-satellite me-1"></i> Start Continuous Live Tracking (Every 25s)
+                  <button type="button" id="btnAutoTrack" class="fw-btn fw-btn-outline fw-btn-block" onclick="toggleAutoGPSTracking()">
+                    <i class="fa-solid fa-satellite"></i> Start Continuous Live Tracking (25s)
                   </button>
                 </div>
 
-                <hr class="my-3">
-                <div class="small fw-bold text-secondary mb-2">
-                  <i class="fa-solid fa-flask me-1"></i> Quick Route Verification Simulation:
-                </div>
-                <div class="d-grid gap-2">
-                  <button type="button" class="btn btn-sm btn-outline-success text-start fw-semibold" onclick="simulateScenarioPing('on_site')">
-                    <i class="fa-solid fa-circle-check me-1"></i> 1. Simulate Arrival at Assigned Site (Green)
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-warning text-dark text-start fw-semibold" onclick="simulateScenarioPing('in_transit')">
-                    <i class="fa-solid fa-truck-fast me-1"></i> 2. Simulate En-Route Official Travel (Amber)
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-danger text-start fw-semibold" onclick="simulateScenarioPing('off_route_detour')">
-                    <i class="fa-solid fa-triangle-exclamation me-1"></i> 3. Simulate Personal Work Detour &gt;2km Away (Red)
-                  </button>
+                <div class="fw-sim-box">
+                  <div class="fw-sim-label">
+                    <i class="fa-solid fa-flask"></i> Quick Route Verification Simulation
+                  </div>
+                  <div class="fw-sim-grid">
+                    <button type="button" class="fw-sim-btn fw-sim-onsite" onclick="simulateScenarioPing('on_site')" title="Simulate arrival within 150m of assigned target">
+                      <i class="fa-solid fa-check"></i> On-Site
+                    </button>
+                    <button type="button" class="fw-sim-btn fw-sim-transit" onclick="simulateScenarioPing('in_transit')" title="Simulate official travel along corridor">
+                      <i class="fa-solid fa-truck-fast"></i> In-Transit
+                    </button>
+                    <button type="button" class="fw-sim-btn fw-sim-detour" onclick="simulateScenarioPing('off_route_detour')" title="Simulate off-route detour >2km away">
+                      <i class="fa-solid fa-triangle-exclamation"></i> Detour
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="fw-panel">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-              <div class="fw-panel-title mb-0">
-                <i class="fa-solid fa-list-check text-primary"></i>
-                Live Field Worker GPS Trail &amp; Route Compliance Log
+          <!-- Bottom Card: Live GPS Trail & Route Compliance Table -->
+          <div class="table-card">
+            <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <div class="fw-card-title" style="font-size:13px;">
+                  <i class="fa-solid fa-list-check" style="color:#2563eb; margin-right:6px;"></i>
+                  LIVE GPS TRAIL &amp; ROUTE COMPLIANCE LOG
+                </div>
+                <div class="export-btn-group">
+                  <a href="/api/field-worker/export?type=tracking&format=pdf&company_id={{ active_company_id }}&date={{ today_str }}" class="btn-export btn-pdf" style="text-decoration:none;">
+                    <i class="fa-solid fa-file-pdf"></i> Export PDF
+                  </a>
+                  <a href="/api/field-worker/export?type=tracking&format=excel&company_id={{ active_company_id }}&date={{ today_str }}" class="btn-export btn-excel" style="text-decoration:none;">
+                    <i class="fa-solid fa-file-excel"></i> Export Excel
+                  </a>
+                </div>
               </div>
-              <div class="d-flex gap-2">
-                <a href="/api/field-worker/export?type=tracking&format=pdf&company_id={{ active_company_id }}&date={{ today_str }}" class="btn btn-sm btn-danger fw-semibold">
-                  <i class="fa-solid fa-file-pdf me-1"></i> Export PDF
-                </a>
-                <a href="/api/field-worker/export?type=tracking&format=excel&company_id={{ active_company_id }}&date={{ today_str }}" class="btn btn-sm btn-success fw-semibold">
-                  <i class="fa-solid fa-file-excel me-1"></i> Export Excel
-                </a>
+              <div class="search-box-wrapper">
+                <label>Search:</label>
+                <input type="text" class="search-input" placeholder="Filter worker, site, status..." oninput="filterFieldTable(this, 'trackingLogsTable')">
               </div>
             </div>
-            <div class="table-responsive">
-              <table class="table table-hover align-middle mb-0">
+
+            <div class="fw-table-wrapper">
+              <table class="fw-table" id="trackingLogsTable">
                 <thead>
                   <tr>
-                    <th>Time</th>
-                    <th>Field Worker</th>
-                    <th>Assigned Target Site</th>
-                    <th>Distance from Target</th>
-                    <th>Step KM</th>
-                    <th>Route Classification</th>
-                    <th>Live Street Address</th>
-                    <th>Note</th>
+                    <th>TIME</th>
+                    <th>FIELD WORKER</th>
+                    <th>ASSIGNED TARGET SITE</th>
+                    <th>DISTANCE FROM TARGET</th>
+                    <th>STEP KM</th>
+                    <th>ROUTE CLASSIFICATION</th>
+                    <th>LIVE STREET ADDRESS</th>
+                    <th>ACTIVITY NOTE</th>
                   </tr>
                 </thead>
                 <tbody id="trackingLogsTableBody">
                   {% if tracking and tracking.logs %}
                   {% for lg in tracking.logs %}
                   <tr>
-                    <td class="fw-semibold">{{ lg.time_short or lg.timestamp }}</td>
-                    <td class="fw-bold">{{ lg.employee_name }}</td>
-                    <td>{{ lg.nearest_target_name }}</td>
-                    <td>{{ "%.1f"|format(lg.distance_from_target_m or 0) }} m</td>
-                    <td>{{ "%.3f"|format(lg.step_km or 0) }} km</td>
+                    <td style="font-weight:700; white-space:nowrap;">{{ lg.time_short or lg.timestamp }}</td>
+                    <td><div class="fw-cell-title">{{ lg.employee_name }}</div></td>
+                    <td style="font-weight:600;">{{ lg.nearest_target_name or '-' }}</td>
+                    <td style="white-space:nowrap; font-weight:600;">{{ "%.1f"|format(lg.distance_from_target_m or 0) }} m</td>
+                    <td style="white-space:nowrap; color:#2563eb; font-weight:700;">{{ "%.3f"|format(lg.step_km or 0) }} km</td>
                     <td>
                       {% if lg.tracking_status == 'on_site' %}
-                      <span class="badge-onsite"><i class="fa-solid fa-check me-1"></i>{{ lg.status_label }}</span>
+                      <span class="badge-onsite"><i class="fa-solid fa-check"></i> {{ lg.status_label }}</span>
                       {% elif lg.tracking_status == 'off_route_detour' %}
-                      <span class="badge-detour"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ lg.status_label }}</span>
+                      <span class="badge-detour"><i class="fa-solid fa-triangle-exclamation"></i> {{ lg.status_label }}</span>
                       {% else %}
-                      <span class="badge-transit"><i class="fa-solid fa-route me-1"></i>{{ lg.status_label }}</span>
+                      <span class="badge-transit"><i class="fa-solid fa-route"></i> {{ lg.status_label }}</span>
                       {% endif %}
                     </td>
-                    <td class="small text-muted">{{ lg.address }}</td>
-                    <td class="small">{{ lg.activity_note or '-' }}</td>
+                    <td class="fw-address-cell">{{ lg.address }}</td>
+                    <td style="color:#475569;">{{ lg.activity_note or '-' }}</td>
                   </tr>
                   {% endfor %}
                   {% else %}
                   <tr>
-                    <td colspan="8" class="text-center text-muted py-4">No GPS pings recorded yet for this date.</td>
+                    <td colspan="8" style="text-align:center; color:#64748b; padding:24px;">No GPS pings recorded yet for this date.</td>
                   </tr>
                   {% endif %}
                 </tbody>
@@ -604,22 +1272,33 @@
           </div>
         </div>
 
-        <!-- ========================================================= -->
-        <!-- PANE 2: REGISTER FIELD WORKERS (ADMIN ONLY)               -->
-        <!-- ========================================================= -->
+        <!-- ========================================================================= -->
+        <!-- TAB 2: REGISTER FIELD WORKERS (ADMIN ONLY)                                -->
+        <!-- ========================================================================= -->
         {% if user_role in ['super_admin', 'company_admin'] %}
-        <div id="paneRegisterWorkers" class="fw-section-pane" data-title="2. REGISTER FIELD WORKERS">
-          <div class="row g-3">
-            <div class="col-lg-5">
-              <div class="fw-panel">
-                <div class="fw-panel-title">
-                  <i class="fa-solid fa-id-card-clip" style="color:#0d9488;"></i>
-                  Register Field Worker / Configure Incentives ({{ active_company.company_name }})
+        <div id="paneRegisterWorkers" class="fw-section-pane" data-title="REGISTER FIELD WORKERS">
+          <!-- Top Full-Width Card: Structured 4-Column Registration & Incentive Configuration -->
+          <div class="fw-card" id="fwRegistrationCard">
+            <div class="fw-card-header">
+              <div class="fw-card-header-left">
+                <span class="fw-card-icon" style="background:#ccfbf1; color:#0f766e;">
+                  <i class="fa-solid fa-id-card-clip"></i>
+                </span>
+                <div>
+                  <div class="fw-card-title">Register Field Worker &amp; Configure Field Incentives</div>
+                  <div class="fw-card-subtitle">Onboard a new field executive or configure per-visit &amp; per-KM rates for existing employees in {{ active_company.company_name }}</div>
                 </div>
-                <form id="registerFieldWorkerForm" onsubmit="submitFieldWorkerRegistration(event)">
-                  <div class="mb-2">
-                    <label class="form-label">Mode: New Registration or Existing Employee</label>
-                    <select id="fwExistingEmpSelect" class="form-select" onchange="populateExistingEmployeeForField(this)">
+              </div>
+              <span class="badge-blue"><i class="fa-solid fa-building-shield"></i> Tenant: {{ active_company.company_name }}</span>
+            </div>
+
+            <div class="fw-card-body">
+              <form id="registerFieldWorkerForm" onsubmit="submitFieldWorkerRegistration(event)">
+                <!-- Row 1: Mode, Name, Email, Mobile -->
+                <div class="fw-form-grid-4" style="margin-bottom:12px;">
+                  <div class="fw-field">
+                    <label class="fw-label">Registration Mode</label>
+                    <select id="fwExistingEmpSelect" class="fw-select" onchange="populateExistingEmployeeForField(this)">
                       <option value="">+ Register Brand New Field Worker</option>
                       {% for emp in all_employees %}
                       <option value="{{ emp.id }}"
@@ -636,176 +1315,231 @@
                         data-visitinc="{{ emp.per_visit_incentive }}"
                         data-kmrate="{{ emp.km_allowance_rate }}"
                         data-status="{{ emp.status or 'Active' }}">
-                        Configure Existing: {{ emp.employee_name }} ({{ emp.department }})
+                        Edit: {{ emp.employee_name }} ({{ emp.department }})
                       </option>
                       {% endfor %}
                     </select>
                   </div>
 
-                  <div class="row g-2 mb-2">
-                    <div class="col-md-7">
-                      <label class="form-label">Field Worker Full Name *</label>
-                      <input type="text" id="fwRegName" class="form-control" required placeholder="e.g., Karthik Sundaram">
-                    </div>
-                    <div class="col-md-5">
-                      <label class="form-label">Status (Quota Control)</label>
-                      <select id="fwRegStatus" class="form-select">
-                        <option value="Active">Active (Counts in Quota)</option>
-                        <option value="Inactive">Inactive (Preserved Only)</option>
-                      </select>
-                    </div>
+                  <div class="fw-field">
+                    <label class="fw-label">Field Worker Full Name *</label>
+                    <input type="text" id="fwRegName" class="fw-input" required placeholder="e.g., Karthik Sundaram">
                   </div>
 
-                  <div class="row g-2 mb-2">
-                    <div class="col-md-6">
-                      <label class="form-label">Email ID *</label>
-                      <input type="email" id="fwRegEmail" class="form-control" required placeholder="worker@company.com">
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Mobile Number *</label>
-                      <input type="text" id="fwRegMobile" class="form-control" required placeholder="9876543210">
-                    </div>
+                  <div class="fw-field">
+                    <label class="fw-label">Email ID *</label>
+                    <input type="email" id="fwRegEmail" class="fw-input" required placeholder="worker@company.com">
                   </div>
 
-                  <div class="row g-2 mb-2">
-                    <div class="col-md-4">
-                      <label class="form-label">Department</label>
-                      <input type="text" id="fwRegDept" class="form-control" value="Field Sales">
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label">Designation</label>
-                      <input type="text" id="fwRegDesig" class="form-control" value="Sales Executive">
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label">Territory / Zone</label>
-                      <input type="text" id="fwRegZone" class="form-control" value="Coimbatore North">
-                    </div>
+                  <div class="fw-field">
+                    <label class="fw-label">Mobile Number *</label>
+                    <input type="text" id="fwRegMobile" class="fw-input" required placeholder="9876543210">
+                  </div>
+                </div>
+
+                <!-- Row 2: Department, Designation, Territory, Status -->
+                <div class="fw-form-grid-4" style="margin-bottom:12px;">
+                  <div class="fw-field">
+                    <label class="fw-label">Department</label>
+                    <input type="text" id="fwRegDept" class="fw-input" value="Field Sales">
                   </div>
 
-                  <div class="row g-2 mb-2">
-                    <div class="col-md-4">
-                      <label class="form-label">Base Salary Type</label>
-                      <select id="fwRegSalaryType" class="form-select">
+                  <div class="fw-field">
+                    <label class="fw-label">Designation</label>
+                    <input type="text" id="fwRegDesig" class="fw-input" value="Sales Executive">
+                  </div>
+
+                  <div class="fw-field">
+                    <label class="fw-label">Territory / Zone</label>
+                    <input type="text" id="fwRegZone" class="fw-input" value="Coimbatore North">
+                  </div>
+
+                  <div class="fw-field">
+                    <label class="fw-label">Status (Quota Control)</label>
+                    <select id="fwRegStatus" class="fw-select">
+                      <option value="Active">Active (Counts in Quota)</option>
+                      <option value="Inactive">Inactive (Preserved Only)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Row 3: Compensation & Field Incentives Strip -->
+                <div class="fw-incentive-strip">
+                  <div class="fw-incentive-strip-title">
+                    <i class="fa-solid fa-coins"></i> Compensation Basis, Shift Hours &amp; Field Performance Incentives
+                  </div>
+                  <div class="fw-form-grid-4" style="grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end;">
+                    <div class="fw-field">
+                      <label class="fw-label">Base Salary Type</label>
+                      <select id="fwRegSalaryType" class="fw-select">
                         <option value="daily">Daily Salary</option>
-                        <option value="hourly">Hourly (Supports 00:00 Shift)</option>
+                        <option value="hourly">Hourly (Supports 00:00)</option>
                         <option value="half_day">Half-Day Salary</option>
                       </select>
                     </div>
-                    <div class="col-md-4">
-                      <label class="form-label">Shift Hours (00:00 = Flex)</label>
-                      <input type="text" id="fwRegShiftHours" class="form-control" value="08:00">
+
+                    <div class="fw-field">
+                      <label class="fw-label">Shift Hours (00:00 = Flex)</label>
+                      <input type="text" id="fwRegShiftHours" class="fw-input" value="08:00">
                     </div>
-                    <div class="col-md-4">
-                      <label class="form-label">Daily / Hourly Base Rate (₹)</label>
-                      <input type="number" step="0.01" id="fwRegBaseRate" class="form-control" value="600">
+
+                    <div class="fw-field">
+                      <label class="fw-label">Daily / Hourly Rate (₹)</label>
+                      <input type="number" step="0.01" id="fwRegBaseRate" class="fw-input" value="600">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Per Verified Visit (₹)</label>
+                      <input type="number" step="0.5" id="fwRegVisitIncentive" class="fw-input" value="75">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">GPS Travel Rate (₹ / KM)</label>
+                      <input type="number" step="0.5" id="fwRegKmRate" class="fw-input" value="6">
+                    </div>
+
+                    <div class="fw-field">
+                      <button type="submit" class="fw-btn fw-btn-primary fw-btn-block">
+                        <i class="fa-solid fa-user-check"></i> Save Worker Profile
+                      </button>
                     </div>
                   </div>
+                </div>
+              </form>
+            </div>
+          </div>
 
-                  <div class="row g-2 mb-3 p-2 rounded-3" style="background:#f0fdfa;border:1px solid #99f6e4;">
-                    <div class="col-12 small fw-bold" style="color:#0f766e;">
-                      <i class="fa-solid fa-coins me-1"></i> Field Performance Incentive &amp; Travel Allowance Rates
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Per Verified Visit Incentive (₹)</label>
-                      <input type="number" step="0.5" id="fwRegVisitIncentive" class="form-control" value="75">
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">GPS Travel Allowance (₹ / KM)</label>
-                      <input type="number" step="0.5" id="fwRegKmRate" class="form-control" value="6">
-                    </div>
-                  </div>
-
-                  <button type="submit" class="btn btn-primary w-100 fw-bold py-2">
-                    <i class="fa-solid fa-user-check me-1"></i> Save Field Worker Profile
-                  </button>
-                </form>
+          <!-- Bottom Full-Width Card: Registered Field Force Directory -->
+          <div class="table-card">
+            <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div class="fw-card-title" style="font-size:13px;">
+                  <i class="fa-solid fa-users-gear" style="color:#2563eb; margin-right:6px;"></i>
+                  REGISTERED FIELD FORCE DIRECTORY ({{ field_workers|length }})
+                </div>
+              </div>
+              <div class="search-box-wrapper">
+                <label>Search:</label>
+                <input type="text" class="search-input" placeholder="Search name, zone, mobile..." oninput="filterFieldTable(this, 'fieldWorkersDirTable')">
               </div>
             </div>
 
-            <div class="col-lg-7">
-              <div class="fw-panel">
-                <div class="fw-panel-title">
-                  <i class="fa-solid fa-users-gear text-primary"></i>
-                  Registered Field Force Directory — {{ active_company.company_name }} ({{ field_workers|length }})
-                </div>
-                <div class="table-responsive">
-                  <table class="table table-hover align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th>Field Worker</th>
-                        <th>Territory / Zone</th>
-                        <th>Salary Type &amp; Shift</th>
-                        <th>Visit Incentive</th>
-                        <th>Travel Rate</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for w in field_workers %}
-                      <tr>
-                        <td>
-                          <div class="fw-bold">{{ w.employee_name }}</div>
-                          <div class="small text-muted">{{ w.designation or 'Field Executive' }} &bull; {{ w.mobile_number or w.email_id }}</div>
-                        </td>
-                        <td><span class="badge bg-light text-dark border">{{ w.territory_zone or 'General Zone' }}</span></td>
-                        <td>
-                          <span class="fw-semibold text-uppercase small">{{ w.salary_type or 'daily' }}</span>
-                          <div class="small text-muted">Shift: {{ w.shift_hours or '08:00' }} hrs</div>
-                        </td>
-                        <td class="fw-bold text-success">₹{{ "%.2f"|format(w.per_visit_incentive or 0) }} / visit</td>
-                        <td class="fw-bold text-primary">₹{{ "%.2f"|format(w.km_allowance_rate or 0) }} / km</td>
-                        <td>
-                          {% if (w.status or 'Active') == 'Inactive' %}
-                          <span class="badge bg-secondary">Inactive</span>
-                          {% else %}
-                          <span class="badge bg-success">Active</span>
-                          {% endif %}
-                        </td>
-                      </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+            <div class="fw-table-wrapper">
+              <table class="fw-table" id="fieldWorkersDirTable">
+                <thead>
+                  <tr>
+                    <th>FIELD WORKER</th>
+                    <th>CONTACT DETAILS</th>
+                    <th>TERRITORY / ZONE</th>
+                    <th>SALARY BASIS &amp; SHIFT</th>
+                    <th>BASE RATE</th>
+                    <th>VISIT INCENTIVE</th>
+                    <th>TRAVEL ALLOWANCE</th>
+                    <th>STATUS</th>
+                    <th style="text-align:center;">ACTION</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if field_workers %}
+                  {% for w in field_workers %}
+                  <tr>
+                    <td>
+                      <div style="display:flex; align-items:center; gap:9px;">
+                        <div class="avatar-circle" style="width:28px; height:28px; font-size:11px; background:#1e3a8a;">
+                          {{ (w.employee_name or 'FW')[:2]|upper }}
+                        </div>
+                        <div>
+                          <div class="fw-cell-title">{{ w.employee_name }}</div>
+                          <div class="fw-cell-sub">{{ w.designation or 'Field Executive' }} &bull; {{ w.department or 'Field Sales' }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="font-weight:600; color:#334155;">{{ w.mobile_number or '-' }}</div>
+                      <div class="fw-cell-sub">{{ w.email_id or '-' }}</div>
+                    </td>
+                    <td><span class="badge-neutral"><i class="fa-solid fa-map-pin" style="color:#0d9488;"></i> {{ w.territory_zone or 'General Zone' }}</span></td>
+                    <td>
+                      <span class="badge-blue">{{ (w.salary_type or 'daily')|upper }}</span>
+                      <span class="fw-cell-sub" style="margin-left:4px;">Shift: {{ w.shift_hours or '08:00' }}h</span>
+                    </td>
+                    <td style="font-weight:700; color:#0f172a;">
+                      {% if (w.salary_type or 'daily') == 'hourly' %}
+                        ₹{{ "%.0f"|format(w.hourly_salary or 0) }} / hr
+                      {% else %}
+                        ₹{{ "%.0f"|format(w.day_salary or 0) }} / day
+                      {% endif %}
+                    </td>
+                    <td style="font-weight:700; color:#15803d;">₹{{ "%.2f"|format(w.per_visit_incentive or 0) }} / visit</td>
+                    <td style="font-weight:700; color:#2563eb;">₹{{ "%.2f"|format(w.km_allowance_rate or 0) }} / km</td>
+                    <td>
+                      {% if (w.status or 'Active') == 'Inactive' %}
+                      <span class="status-pill status-inactive">Inactive</span>
+                      {% else %}
+                      <span class="status-pill status-active">Active</span>
+                      {% endif %}
+                    </td>
+                    <td style="text-align:center;">
+                      <button type="button" class="btn-action-icon btn-action-edit" title="Edit / Configure Worker" onclick="editFieldWorkerFromRow('{{ w.id }}')">
+                        <i class="fa-solid fa-pen"></i>
+                      </button>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  {% else %}
+                  <tr>
+                    <td colspan="9" style="text-align:center; color:#64748b; padding:24px;">No field workers registered yet for this company.</td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
 
-        <!-- ========================================================= -->
-        <!-- PANE 3: ASSIGN TARGET LOCATIONS (ADMIN ONLY)              -->
-        <!-- ========================================================= -->
-        <div id="paneAssignLocations" class="fw-section-pane" data-title="3. ASSIGN TARGET LOCATIONS">
-          <div class="row g-3">
-            <div class="col-lg-5">
-              <div class="fw-panel">
-                <div class="fw-panel-title">
-                  <i class="fa-solid fa-map-pin text-danger"></i>
-                  Assign Target Customer Location to Field Worker
+        <!-- ========================================================================= -->
+        <!-- TAB 3: ASSIGN TARGET LOCATIONS (ADMIN ONLY)                               -->
+        <!-- ========================================================================= -->
+        <div id="paneAssignLocations" class="fw-section-pane" data-title="ASSIGN TARGET LOCATIONS">
+          <form id="assignLocationForm" onsubmit="submitLocationAssignment(event)">
+            <div class="fw-split-50-50">
+              <!-- Left Card: Assignment Form Details -->
+              <div class="fw-card">
+                <div class="fw-card-header">
+                  <div class="fw-card-header-left">
+                    <span class="fw-card-icon" style="background:#fee2e2; color:#dc2626;">
+                      <i class="fa-solid fa-map-pin"></i>
+                    </span>
+                    <div>
+                      <div class="fw-card-title">Assign Target Customer Site</div>
+                      <div class="fw-card-subtitle">Schedule daily customer visits &amp; geofence checkpoints</div>
+                    </div>
+                  </div>
                 </div>
-                <form id="assignLocationForm" onsubmit="submitLocationAssignment(event)">
-                  <div class="row g-2 mb-2">
-                    <div class="col-md-6">
-                      <label class="form-label">Assign To Field Worker *</label>
-                      <select id="asgnWorkerName" class="form-select" required>
+                <div class="fw-card-body" style="gap:12px;">
+                  <div class="fw-form-grid-2">
+                    <div class="fw-field">
+                      <label class="fw-label">Assign To Field Worker *</label>
+                      <select id="asgnWorkerName" class="fw-select" required>
                         {% for w in field_workers %}
                         <option value="{{ w.employee_name }}">{{ w.employee_name }}</option>
                         {% endfor %}
                       </select>
                     </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Assignment Date *</label>
-                      <input type="date" id="asgnDate" class="form-control" value="{{ today_str }}" required>
+                    <div class="fw-field">
+                      <label class="fw-label">Assignment Date *</label>
+                      <input type="date" id="asgnDate" class="fw-input" value="{{ today_str }}" required>
                     </div>
                   </div>
 
-                  <div class="row g-2 mb-2">
-                    <div class="col-md-7">
-                      <label class="form-label">Target Customer / Shop / Site Name *</label>
-                      <input type="text" id="asgnTargetName" class="form-control" required placeholder="e.g., Sri Krishna Enterprises">
+                  <div class="fw-form-grid-2">
+                    <div class="fw-field">
+                      <label class="fw-label">Target Customer / Shop / Site Name *</label>
+                      <input type="text" id="asgnTargetName" class="fw-input" required placeholder="e.g., Sri Krishna Enterprises">
                     </div>
-                    <div class="col-md-5">
-                      <label class="form-label">Task Purpose</label>
-                      <select id="asgnPurpose" class="form-select">
+                    <div class="fw-field">
+                      <label class="fw-label">Task Purpose</label>
+                      <select id="asgnPurpose" class="fw-select">
                         <option value="Product Sales & Pitch">Product Sales &amp; Pitch</option>
                         <option value="Product Demo & Trial">Product Demo &amp; Trial</option>
                         <option value="Payment Collection">Payment Collection</option>
@@ -815,208 +1549,309 @@
                     </div>
                   </div>
 
-                  <div class="row g-2 mb-2">
-                    <div class="col-md-6">
-                      <label class="form-label">Client Contact Person</label>
-                      <input type="text" id="asgnContactPerson" class="form-control" placeholder="e.g., Mr. Ramesh">
+                  <div class="fw-form-grid-2">
+                    <div class="fw-field">
+                      <label class="fw-label">Client Contact Person</label>
+                      <input type="text" id="asgnContactPerson" class="fw-input" placeholder="e.g., Mr. Ramesh">
                     </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Client Phone</label>
-                      <input type="text" id="asgnContactPhone" class="form-control" placeholder="9876543210">
-                    </div>
-                  </div>
-
-                  <div class="mb-2">
-                    <label class="form-label">Click on Map to Pin Target Location</label>
-                    <div id="assignPickerMap" class="mb-2"></div>
-                  </div>
-
-                  <div class="row g-2 mb-2">
-                    <div class="col-md-4">
-                      <label class="form-label">Target Latitude *</label>
-                      <input type="number" step="0.000001" id="asgnLat" class="form-control" value="11.018300" required>
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label">Target Longitude *</label>
-                      <input type="number" step="0.000001" id="asgnLng" class="form-control" value="76.968500" required>
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label">Geofence Radius (m)</label>
-                      <input type="number" id="asgnRadius" class="form-control" value="150" min="30" max="2000">
+                    <div class="fw-field">
+                      <label class="fw-label">Client Phone</label>
+                      <input type="text" id="asgnContactPhone" class="fw-input" placeholder="9876543210">
                     </div>
                   </div>
 
-                  <div class="mb-3">
-                    <label class="form-label">Target Street Address</label>
-                    <input type="text" id="asgnAddress" class="form-control" placeholder="100 Feet Road, Gandhipuram, Coimbatore">
+                  <div class="fw-field">
+                    <label class="fw-label">Target Street Address</label>
+                    <input type="text" id="asgnAddress" class="fw-input" placeholder="100 Feet Road, Gandhipuram, Coimbatore">
                   </div>
 
-                  <button type="submit" class="btn btn-success w-100 fw-bold py-2">
-                    <i class="fa-solid fa-paper-plane me-1"></i> Assign Target Location &amp; Activate Geofence
-                  </button>
-                </form>
+                  <div style="margin-top:auto; padding-top:6px;">
+                    <button type="submit" class="fw-btn fw-btn-success fw-btn-block">
+                      <i class="fa-solid fa-paper-plane"></i> Assign Target Location &amp; Activate Geofence
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Card: Interactive Map Picker & Geofence Coordinates -->
+              <div class="fw-card">
+                <div class="fw-card-header">
+                  <div class="fw-card-header-left">
+                    <span class="fw-card-icon" style="background:#e0f2fe; color:#0284c7;">
+                      <i class="fa-solid fa-location-crosshairs"></i>
+                    </span>
+                    <div>
+                      <div class="fw-card-title">Interactive Geofence Pin Picker</div>
+                      <div class="fw-card-subtitle">Click anywhere on the map to pin the target site coordinates</div>
+                    </div>
+                  </div>
+                  <span class="badge-onsite"><i class="fa-solid fa-bullseye"></i> Live Pin Active</span>
+                </div>
+                <div class="fw-card-body" style="gap:12px;">
+                  <div id="assignPickerMap"></div>
+
+                  <div class="fw-form-grid-3" style="margin-top:auto;">
+                    <div class="fw-field">
+                      <label class="fw-label">Target Latitude *</label>
+                      <input type="number" step="0.000001" id="asgnLat" class="fw-input" value="11.018300" required oninput="syncAssignMapFromInputs()">
+                    </div>
+                    <div class="fw-field">
+                      <label class="fw-label">Target Longitude *</label>
+                      <input type="number" step="0.000001" id="asgnLng" class="fw-input" value="76.968500" required oninput="syncAssignMapFromInputs()">
+                    </div>
+                    <div class="fw-field">
+                      <label class="fw-label">Geofence Radius (m)</label>
+                      <input type="number" id="asgnRadius" class="fw-input" value="150" min="30" max="2000" oninput="syncAssignMapFromInputs()">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+
+          <!-- Bottom Card: Assigned Field Locations Schedule Table -->
+          <div class="table-card">
+            <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
+              <div class="fw-card-title" style="font-size:13px;">
+                <i class="fa-solid fa-clipboard-check" style="color:#2563eb; margin-right:6px;"></i>
+                ASSIGNED FIELD LOCATIONS &amp; GEOFENCE STATUS ({{ assignments|length }})
+              </div>
+              <div class="search-box-wrapper">
+                <label>Search:</label>
+                <input type="text" class="search-input" placeholder="Search worker, site, status..." oninput="filterFieldTable(this, 'assignedSitesTable')">
               </div>
             </div>
 
-            <div class="col-lg-7">
-              <div class="fw-panel">
-                <div class="fw-panel-title">
-                  <i class="fa-solid fa-clipboard-check text-primary"></i>
-                  Assigned Field Locations &amp; Geofence Status
-                </div>
-                <div class="table-responsive">
-                  <table class="table table-hover align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Field Worker</th>
-                        <th>Target Customer / Site</th>
-                        <th>Purpose</th>
-                        <th>Geofence</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% if assignments %}
-                      {% for a in assignments %}
-                      <tr>
-                        <td class="small fw-semibold">{{ a.assigned_date }}</td>
-                        <td class="fw-bold">{{ a.employee_name }}</td>
-                        <td>
-                          <div class="fw-bold">{{ a.target_name }}</div>
-                          <div class="small text-muted">{{ a.target_address }}</div>
-                        </td>
-                        <td><span class="badge bg-info bg-opacity-10 text-primary border border-info">{{ a.task_purpose }}</span></td>
-                        <td class="small">{{ a.geofence_radius }}m radius</td>
-                        <td>
-                          {% if a.status == 'Completed' %}
-                          <span class="badge-onsite"><i class="fa-solid fa-check-double me-1"></i>Completed</span>
-                          {% elif a.status == 'In Progress' %}
-                          <span class="badge-transit">On-Site / Active</span>
-                          {% else %}
-                          <span class="badge bg-secondary">Pending Visit</span>
-                          {% endif %}
-                        </td>
-                        <td>
-                          <div class="d-flex gap-1">
-                            <button class="btn btn-sm btn-outline-success" title="Mark Completed" onclick="updateAssignmentStatus('{{ a.id }}', 'Completed')">
-                              <i class="fa-solid fa-check"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger" title="Delete" onclick="deleteAssignment('{{ a.id }}')">
-                              <i class="fa-solid fa-trash"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      {% endfor %}
+            <div class="fw-table-wrapper">
+              <table class="fw-table" id="assignedSitesTable">
+                <thead>
+                  <tr>
+                    <th>ASSIGNED DATE</th>
+                    <th>FIELD WORKER</th>
+                    <th>TARGET CUSTOMER / SITE</th>
+                    <th>CLIENT CONTACT</th>
+                    <th>TASK PURPOSE</th>
+                    <th>GEOFENCE RADIUS</th>
+                    <th>VISIT STATUS</th>
+                    <th style="text-align:center;">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if assignments %}
+                  {% for a in assignments %}
+                  <tr>
+                    <td style="font-weight:700; white-space:nowrap;">{{ a.assigned_date }}</td>
+                    <td><div class="fw-cell-title">{{ a.employee_name }}</div></td>
+                    <td>
+                      <div class="fw-cell-title">{{ a.target_name }}</div>
+                      <div class="fw-cell-sub">{{ a.target_address or 'Pinned Coordinates' }}</div>
+                    </td>
+                    <td>
+                      <div style="font-weight:600;">{{ a.contact_person or '-' }}</div>
+                      <div class="fw-cell-sub">{{ a.contact_phone or '' }}</div>
+                    </td>
+                    <td><span class="badge-blue">{{ a.task_purpose }}</span></td>
+                    <td style="font-weight:700; color:#0f766e;">{{ a.geofence_radius }}m radius</td>
+                    <td>
+                      {% if a.status == 'Completed' %}
+                      <span class="badge-onsite"><i class="fa-solid fa-check-double"></i> Completed</span>
+                      {% elif a.status == 'In Progress' %}
+                      <span class="badge-transit"><i class="fa-solid fa-location-dot"></i> On-Site / Active</span>
                       {% else %}
-                      <tr>
-                        <td colspan="7" class="text-center text-muted py-4">No target locations assigned for this date yet.</td>
-                      </tr>
+                      <span class="badge-neutral">Pending Visit</span>
                       {% endif %}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                    </td>
+                    <td style="text-align:center;">
+                      <div class="table-actions">
+                        <button type="button" class="btn-action-icon btn-action-view" title="Mark Completed" onclick="updateAssignmentStatus('{{ a.id }}', 'Completed')">
+                          <i class="fa-solid fa-check"></i>
+                        </button>
+                        <button type="button" class="btn-action-icon btn-action-delete" title="Delete Assignment" onclick="deleteAssignment('{{ a.id }}')">
+                          <i class="fa-solid fa-trash"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  {% else %}
+                  <tr>
+                    <td colspan="8" style="text-align:center; color:#64748b; padding:24px;">No target locations assigned for this date yet.</td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
         {% endif %}
 
-        <!-- ========================================================= -->
-        <!-- PANE 4: FIELD ATTENDANCE PUNCH                            -->
-        <!-- ========================================================= -->
-        <div id="paneFieldPunch" class="fw-section-pane" data-title="4. FIELD ATTENDANCE PUNCH">
-          <div class="row g-3">
-            <div class="col-lg-6">
-              <div class="fw-panel">
-                <div class="fw-panel-title">
-                  <i class="fa-solid fa-camera text-success"></i>
-                  Field Worker AI Face + Live GPS Attendance Punch
+        <!-- ========================================================================= -->
+        <!-- TAB 4: FIELD ATTENDANCE PUNCH                                             -->
+        <!-- ========================================================================= -->
+        <div id="paneFieldPunch" class="fw-section-pane" data-title="FIELD ATTENDANCE PUNCH">
+          <div class="fw-split-50-50">
+            <!-- Left Card: AI Face + Live GPS Attendance Terminal -->
+            <div class="fw-card">
+              <div class="fw-card-header">
+                <div class="fw-card-header-left">
+                  <span class="fw-card-icon" style="background:#dcfce7; color:#15803d;">
+                    <i class="fa-solid fa-camera"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title">AI Face + Live GPS Attendance Terminal</div>
+                    <div class="fw-card-subtitle">Biometric face recognition paired with live customer-site coordinates</div>
+                  </div>
                 </div>
-                <p class="text-muted small mb-3">
-                  Field workers for <strong>{{ active_company.company_name }}</strong> can punch in and punch out directly from their assigned customer location with simultaneous <strong>Live Face Verification</strong> and <strong>Live GPS Location</strong>.
-                </p>
-
-                <div class="fw-camera-box mb-3">
-                  <video id="fwPunchVideo" autoplay playsinline muted></video>
+                <span class="badge-onsite">
+                  <i class="fa-solid fa-location-dot"></i> GPS Ready ({{ active_company.latitude or 11.0298 }}, {{ active_company.longitude or 76.9740 }})
+                </span>
+              </div>
+              <div class="fw-card-body">
+                <div class="fw-camera-box">
+                  <div class="fw-camera-placeholder">
+                    <i class="fa-solid fa-face-viewfinder" style="font-size:28px; color:#64748b;"></i>
+                    <span>Click "Start Camera" or "AI Face + GPS Punch" to verify attendance</span>
+                  </div>
+                  <video id="fwPunchVideo" autoplay playsinline muted style="position:relative; z-index:2;"></video>
                   <canvas id="fwPunchCanvas" class="d-none"></canvas>
                 </div>
 
-                <div class="d-flex flex-wrap gap-2 mb-3">
-                  <button type="button" class="btn btn-outline-dark btn-sm fw-semibold" onclick="startFieldPunchCamera()">
-                    <i class="fa-solid fa-video me-1"></i> Start Camera
-                  </button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm fw-semibold" onclick="stopFieldPunchCamera()">
-                    <i class="fa-solid fa-video-slash me-1"></i> Stop Camera
-                  </button>
-                  <span class="badge text-dark border ms-auto align-self-center" style="background:#ccfbf1;">
-                    <i class="fa-solid fa-location-dot text-success me-1"></i> GPS Ready ({{ active_company.latitude or 11.0298 }}, {{ active_company.longitude or 76.9740 }})
-                  </span>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px;">
+                  <div style="display:flex; gap:8px;">
+                    <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="startFieldPunchCamera()">
+                      <i class="fa-solid fa-video"></i> Start Camera
+                    </button>
+                    <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="stopFieldPunchCamera()">
+                      <i class="fa-solid fa-video-slash"></i> Stop Camera
+                    </button>
+                  </div>
+                  <span style="font-size:11px; color:#64748b; font-weight:600;">Liveness &amp; Geo-Fence Enabled</span>
                 </div>
 
-                <button type="button" class="btn btn-success w-100 fw-bold py-2" onclick="performFieldFacePunch()">
-                  <i class="fa-solid fa-face-viewfinder me-1"></i> AI Face + GPS Punch (In / Out)
+                <button type="button" class="fw-btn fw-btn-success fw-btn-block" style="height:38px; font-size:13px;" onclick="performFieldFacePunch()">
+                  <i class="fa-solid fa-face-viewfinder"></i> AI Face + GPS Punch (In / Out)
                 </button>
-                <div id="fwPunchResultBox" class="mt-3"></div>
+
+                <div id="fwPunchResultBox" style="margin-top:10px;"></div>
               </div>
             </div>
 
-            <div class="col-lg-6">
-              <div class="fw-panel">
-                <div class="fw-panel-title">
-                  <i class="fa-solid fa-user-clock text-primary"></i>
-                  Quick Field Attendance &amp; Site Check-In
+            <!-- Right Card: Quick Field Check-In + Today's Assigned Sites Mini-Summary -->
+            <div class="fw-card">
+              <div class="fw-card-header">
+                <div class="fw-card-header-left">
+                  <span class="fw-card-icon" style="background:#eff6ff; color:#2563eb;">
+                    <i class="fa-solid fa-user-clock"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title">Quick GPS Site Check-In &amp; Today's Schedule</div>
+                    <div class="fw-card-subtitle">Instant GPS-verified site check-in &amp; assigned target overview</div>
+                  </div>
                 </div>
-                <p class="text-muted small">
-                  Log an instant GPS-verified field check-in and update the worker's live position on the company's route radar map.
-                </p>
-                <div class="mb-3">
-                  <label class="form-label">Field Worker</label>
-                  <select id="quickPunchWorker" class="form-select" {% if user_role == 'employee' %}disabled{% endif %}>
-                    {% for w in field_workers %}
-                    <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
-                    {% endfor %}
-                  </select>
+              </div>
+              <div class="fw-card-body" style="gap:12px;">
+                <div class="fw-form-grid-2">
+                  <div class="fw-field">
+                    <label class="fw-label">Field Worker</label>
+                    <select id="quickPunchWorker" class="fw-select" {% if user_role == 'employee' %}disabled{% endif %}>
+                      {% for w in field_workers %}
+                      <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="fw-field">
+                    <label class="fw-label">Current Field Location / Site Note</label>
+                    <input type="text" id="quickPunchNote" class="fw-input" value="Field Duty Check-In - Verified at Client Site">
+                  </div>
                 </div>
-                <div class="mb-3">
-                  <label class="form-label">Current Field Location / Site Note</label>
-                  <input type="text" id="quickPunchNote" class="form-control" value="Field Duty Check-In - Verified at Client Site">
-                </div>
-                <button type="button" class="btn btn-primary w-100 fw-bold py-2" onclick="submitQuickFieldCheckIn()">
-                  <i class="fa-solid fa-map-pin me-1"></i> Record GPS Field Check-In &amp; Update Live Map
+
+                <button type="button" class="fw-btn fw-btn-primary fw-btn-block" onclick="submitQuickFieldCheckIn()">
+                  <i class="fa-solid fa-map-pin"></i> Record GPS Field Check-In &amp; Update Live Map
                 </button>
+
+                <!-- Today's Assigned Sites Mini-Table (Eliminates Empty Space) -->
+                <div style="border-top:1px solid #eef2f6; padding-top:12px; margin-top:4px; flex:1; display:flex; flex-direction:column;">
+                  <div style="font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:8px;">
+                    <i class="fa-solid fa-clipboard-list" style="color:#0d9488; margin-right:5px;"></i> Today's Assigned Customer Checkpoints ({{ assignments|length }})
+                  </div>
+                  <div class="fw-table-wrapper" style="max-height:185px; overflow-y:auto;">
+                    <table class="fw-table">
+                      <thead>
+                        <tr>
+                          <th>WORKER</th>
+                          <th>TARGET SITE</th>
+                          <th>PURPOSE</th>
+                          <th>STATUS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% if assignments %}
+                        {% for a in assignments %}
+                        <tr>
+                          <td style="font-weight:700;">{{ a.employee_name }}</td>
+                          <td>{{ a.target_name }}</td>
+                          <td><span class="badge-neutral">{{ a.task_purpose }}</span></td>
+                          <td>
+                            {% if a.status == 'Completed' %}
+                            <span class="badge-onsite">Completed</span>
+                            {% elif a.status == 'In Progress' %}
+                            <span class="badge-transit">Active</span>
+                            {% else %}
+                            <span class="badge-neutral">Pending</span>
+                            {% endif %}
+                          </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                          <td colspan="4" style="text-align:center; color:#64748b; padding:16px;">No target sites scheduled for today.</td>
+                        </tr>
+                        {% endif %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- ========================================================= -->
-        <!-- PANE 5: CUSTOMER VISITS (LEAD CRM)                        -->
-        <!-- ========================================================= -->
-        <div id="paneCustomerVisits" class="fw-section-pane" data-title="5. CUSTOMER VISITS (LEAD CRM)">
-          <div class="row g-3">
-            <div class="col-lg-4">
-              <div class="fw-panel">
-                <div class="fw-panel-title">
-                  <i class="fa-solid fa-handshake-angle text-success"></i>
-                  Log Customer Visit / Sales Lead (CRM)
+        <!-- ========================================================================= -->
+        <!-- TAB 5: CUSTOMER VISITS (LEAD CRM)                                         -->
+        <!-- ========================================================================= -->
+        <div id="paneCustomerVisits" class="fw-section-pane" data-title="CUSTOMER VISITS (LEAD CRM)">
+          <!-- Top Full-Width Card: Structured 4-Column Customer Visit & Lead Entry Form -->
+          <div class="fw-card">
+            <div class="fw-card-header">
+              <div class="fw-card-header-left">
+                <span class="fw-card-icon" style="background:#dcfce7; color:#15803d;">
+                  <i class="fa-solid fa-handshake-angle"></i>
+                </span>
+                <div>
+                  <div class="fw-card-title">Log Geo-Verified Customer Visit &amp; Sales Lead (CRM)</div>
+                  <div class="fw-card-subtitle">Record client meetings, product pitches, order values, and GPS site verification</div>
                 </div>
-                <form id="customerVisitForm" onsubmit="submitCustomerVisit(event)">
-                  <div class="mb-2">
-                    <label class="form-label">Field Worker *</label>
-                    <select id="visitWorkerName" class="form-select" required {% if user_role == 'employee' %}disabled{% endif %}>
+              </div>
+              <span class="badge-onsite"><i class="fa-solid fa-shield-halved"></i> Automatic Geofence Verification</span>
+            </div>
+
+            <div class="fw-card-body">
+              <form id="customerVisitForm" onsubmit="submitCustomerVisit(event)">
+                <!-- Row 1 -->
+                <div class="fw-form-grid-4" style="margin-bottom:12px;">
+                  <div class="fw-field">
+                    <label class="fw-label">Field Worker *</label>
+                    <select id="visitWorkerName" class="fw-select" required {% if user_role == 'employee' %}disabled{% endif %}>
                       {% for w in field_workers %}
                       <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }}</option>
                       {% endfor %}
                     </select>
                   </div>
 
-                  <div class="mb-2">
-                    <label class="form-label">Linked Assigned Target Location</label>
-                    <select id="visitAssignmentId" class="form-select" onchange="prefillVisitFromAssignment(this)">
-                      <option value="">-- Direct / Self-Sourced Customer Visit --</option>
+                  <div class="fw-field">
+                    <label class="fw-label">Linked Assigned Target Site</label>
+                    <select id="visitAssignmentId" class="fw-select" onchange="prefillVisitFromAssignment(this)">
+                      <option value="">-- Direct / Self-Sourced Visit --</option>
                       {% for a in assignments %}
                       <option value="{{ a.id }}"
                         data-target="{{ a.target_name }}"
@@ -1030,189 +1865,207 @@
                     </select>
                   </div>
 
-                  <div class="mb-2">
-                    <label class="form-label">Customer / Shop / Company Name *</label>
-                    <input type="text" id="visitCustomerName" class="form-control" required placeholder="e.g., Apex Industrial Supplies">
+                  <div class="fw-field">
+                    <label class="fw-label">Customer / Shop / Company Name *</label>
+                    <input type="text" id="visitCustomerName" class="fw-input" required placeholder="e.g., Apex Industrial Supplies">
                   </div>
 
-                  <div class="row g-2 mb-2">
-                    <div class="col-6">
-                      <label class="form-label">Contact Person</label>
-                      <input type="text" id="visitContactPerson" class="form-control" placeholder="Mr. Senthil">
-                    </div>
-                    <div class="col-6">
-                      <label class="form-label">Customer Phone</label>
-                      <input type="text" id="visitCustomerPhone" class="form-control" placeholder="9876543210">
-                    </div>
+                  <div class="fw-field">
+                    <label class="fw-label">Contact Person</label>
+                    <input type="text" id="visitContactPerson" class="fw-input" placeholder="e.g., Mr. Senthil">
+                  </div>
+                </div>
+
+                <!-- Row 2 -->
+                <div class="fw-form-grid-4" style="margin-bottom:12px;">
+                  <div class="fw-field">
+                    <label class="fw-label">Customer Phone</label>
+                    <input type="text" id="visitCustomerPhone" class="fw-input" placeholder="9876543210">
                   </div>
 
-                  <div class="row g-2 mb-2">
-                    <div class="col-6">
-                      <label class="form-label">Product Pitched</label>
-                      <input type="text" id="visitProduct" class="form-control" value="Company Products">
-                    </div>
-                    <div class="col-6">
-                      <label class="form-label">Lead Outcome Status *</label>
-                      <select id="visitLeadStatus" class="form-select">
-                        <option value="Order Booked">Order Booked (Converted)</option>
-                        <option value="Interested">Interested (Hot Lead)</option>
-                        <option value="Follow-Up Required">Follow-Up Required</option>
-                        <option value="Demo Completed">Demo Completed</option>
-                        <option value="Payment Collected">Payment Collected</option>
-                        <option value="Not Interested">Not Interested</option>
-                      </select>
-                    </div>
+                  <div class="fw-field">
+                    <label class="fw-label">Product / Service Pitched</label>
+                    <input type="text" id="visitProduct" class="fw-input" value="Company Products">
                   </div>
 
-                  <div class="row g-2 mb-2">
-                    <div class="col-6">
-                      <label class="form-label">Order / Collection Value (₹)</label>
-                      <input type="number" step="0.01" id="visitOrderAmount" class="form-control" value="0">
-                    </div>
-                    <div class="col-6">
-                      <label class="form-label">Follow-Up Date</label>
-                      <input type="date" id="visitFollowUpDate" class="form-control">
-                    </div>
+                  <div class="fw-field">
+                    <label class="fw-label">Lead Outcome Status *</label>
+                    <select id="visitLeadStatus" class="fw-select">
+                      <option value="Order Booked">Order Booked (Converted)</option>
+                      <option value="Interested">Interested (Hot Lead)</option>
+                      <option value="Follow-Up Required">Follow-Up Required</option>
+                      <option value="Demo Completed">Demo Completed</option>
+                      <option value="Payment Collected">Payment Collected</option>
+                      <option value="Not Interested">Not Interested</option>
+                    </select>
                   </div>
 
-                  <div class="row g-2 mb-2">
-                    <div class="col-6">
-                      <label class="form-label">Visit GPS Lat</label>
-                      <input type="number" step="0.000001" id="visitLat" class="form-control" value="11.018300">
-                    </div>
-                    <div class="col-6">
-                      <label class="form-label">Visit GPS Lng</label>
-                      <input type="number" step="0.000001" id="visitLng" class="form-control" value="76.968500">
-                    </div>
+                  <div class="fw-field">
+                    <label class="fw-label">Order / Collection Value (₹)</label>
+                    <input type="number" step="0.01" id="visitOrderAmount" class="fw-input" value="0">
+                  </div>
+                </div>
+
+                <!-- Row 3 -->
+                <div class="fw-form-grid-4" style="grid-template-columns: 1fr 1fr 1fr 2fr 1.3fr; align-items: end;">
+                  <div class="fw-field">
+                    <label class="fw-label">Follow-Up Date</label>
+                    <input type="date" id="visitFollowUpDate" class="fw-input">
                   </div>
 
-                  <div class="mb-3">
-                    <label class="form-label">Meeting Discussion / Lead Remarks</label>
-                    <textarea id="visitRemarks" class="form-control" rows="2" placeholder="Client requested quotation..."></textarea>
+                  <div class="fw-field">
+                    <label class="fw-label">Visit GPS Lat</label>
+                    <input type="number" step="0.000001" id="visitLat" class="fw-input" value="11.018300">
                   </div>
 
-                  <button type="submit" class="btn btn-success w-100 fw-bold py-2">
-                    <i class="fa-solid fa-cloud-arrow-up me-1"></i> Submit Geo-Verified Customer Visit
-                  </button>
-                </form>
+                  <div class="fw-field">
+                    <label class="fw-label">Visit GPS Lng</label>
+                    <input type="number" step="0.000001" id="visitLng" class="fw-input" value="76.968500">
+                  </div>
+
+                  <div class="fw-field">
+                    <label class="fw-label">Meeting Discussion / Lead Remarks</label>
+                    <input type="text" id="visitRemarks" class="fw-input" placeholder="Client requested quotation or product sample...">
+                  </div>
+
+                  <div class="fw-field">
+                    <button type="submit" class="fw-btn fw-btn-success fw-btn-block">
+                      <i class="fa-solid fa-cloud-arrow-up"></i> Submit Customer Visit
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Bottom Full-Width Card: Customer Visits & Sales Leads Pipeline Table -->
+          <div class="table-card">
+            <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <div class="fw-card-title" style="font-size:13px;">
+                  <i class="fa-solid fa-chart-line" style="color:#2563eb; margin-right:6px;"></i>
+                  CUSTOMER VISITS &amp; SALES LEADS PIPELINE ({{ visits|length }})
+                </div>
+                <div class="export-btn-group">
+                  <a href="/api/field-worker/export?type=visits&format=pdf&company_id={{ active_company_id }}" class="btn-export btn-pdf" style="text-decoration:none;">
+                    <i class="fa-solid fa-file-pdf"></i> Export Visits PDF
+                  </a>
+                  <a href="/api/field-worker/export?type=visits&format=excel&company_id={{ active_company_id }}" class="btn-export btn-excel" style="text-decoration:none;">
+                    <i class="fa-solid fa-file-excel"></i> Export Visits Excel
+                  </a>
+                </div>
+              </div>
+              <div class="search-box-wrapper">
+                <label>Search:</label>
+                <input type="text" class="search-input" placeholder="Search customer, worker, status..." oninput="filterFieldTable(this, 'customerVisitsTable')">
               </div>
             </div>
 
-            <div class="col-lg-8">
-              <div class="fw-panel">
-                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                  <div class="fw-panel-title mb-0">
-                    <i class="fa-solid fa-chart-line text-primary"></i>
-                    Customer Visits &amp; Sales Leads Pipeline ({{ visits|length }})
-                  </div>
-                  <div class="d-flex gap-2">
-                    <a href="/api/field-worker/export?type=visits&format=pdf&company_id={{ active_company_id }}" class="btn btn-sm btn-danger fw-semibold">
-                      <i class="fa-solid fa-file-pdf me-1"></i> Export Visits PDF
-                    </a>
-                    <a href="/api/field-worker/export?type=visits&format=excel&company_id={{ active_company_id }}" class="btn btn-sm btn-success fw-semibold">
-                      <i class="fa-solid fa-file-excel me-1"></i> Export Visits Excel
-                    </a>
-                  </div>
-                </div>
-                <div class="table-responsive">
-                  <table class="table table-hover align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th>Date &amp; Time</th>
-                        <th>Field Worker</th>
-                        <th>Customer &amp; Contact</th>
-                        <th>Product Pitched</th>
-                        <th>Lead Status</th>
-                        <th>Order Value</th>
-                        <th>GPS Site Verification</th>
-                        {% if user_role in ['super_admin', 'company_admin'] %}
-                        <th>Action</th>
-                        {% endif %}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% if visits %}
-                      {% for v in visits %}
-                      <tr>
-                        <td class="small fw-semibold">{{ v.timestamp }}</td>
-                        <td class="fw-bold">{{ v.employee_name }}</td>
-                        <td>
-                          <div class="fw-bold">{{ v.customer_name }}</div>
-                          <div class="small text-muted">{{ v.contact_person or '-' }} &bull; {{ v.customer_phone or '-' }}</div>
-                          <div class="small text-muted"><i class="fa-solid fa-location-dot me-1"></i>{{ v.address }}</div>
-                        </td>
-                        <td>{{ v.product_pitched }}</td>
-                        <td><span class="badge bg-primary bg-opacity-10 text-primary border border-primary">{{ v.lead_status }}</span></td>
-                        <td class="fw-bold text-success">₹{{ "%.2f"|format(v.order_amount or 0) }}</td>
-                        <td>
-                          {% if v.is_location_verified %}
-                          <span class="badge-onsite"><i class="fa-solid fa-shield-check me-1"></i>{{ v.verification_badge }}</span>
-                          {% else %}
-                          <span class="badge-detour"><i class="fa-solid fa-circle-exclamation me-1"></i>{{ v.verification_badge }}</span>
-                          {% endif %}
-                        </td>
-                        {% if user_role in ['super_admin', 'company_admin'] %}
-                        <td>
-                          <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomerVisit('{{ v.id }}')">
-                            <i class="fa-solid fa-trash"></i>
-                          </button>
-                        </td>
-                        {% endif %}
-                      </tr>
-                      {% endfor %}
+            <div class="fw-table-wrapper">
+              <table class="fw-table" id="customerVisitsTable">
+                <thead>
+                  <tr>
+                    <th>DATE &amp; TIME</th>
+                    <th>FIELD WORKER</th>
+                    <th>CUSTOMER &amp; CONTACT</th>
+                    <th>SITE ADDRESS</th>
+                    <th>PRODUCT PITCHED</th>
+                    <th>LEAD OUTCOME</th>
+                    <th>ORDER VALUE</th>
+                    <th>GPS SITE VERIFICATION</th>
+                    {% if user_role in ['super_admin', 'company_admin'] %}
+                    <th style="text-align:center;">ACTION</th>
+                    {% endif %}
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if visits %}
+                  {% for v in visits %}
+                  <tr>
+                    <td style="font-weight:700; white-space:nowrap;">{{ v.timestamp }}</td>
+                    <td><div class="fw-cell-title">{{ v.employee_name }}</div></td>
+                    <td>
+                      <div class="fw-cell-title">{{ v.customer_name }}</div>
+                      <div class="fw-cell-sub">{{ v.contact_person or '-' }} &bull; {{ v.customer_phone or '-' }}</div>
+                    </td>
+                    <td class="fw-address-cell">{{ v.address }}</td>
+                    <td style="font-weight:600;">{{ v.product_pitched }}</td>
+                    <td><span class="badge-blue">{{ v.lead_status }}</span></td>
+                    <td style="font-weight:800; color:#15803d; white-space:nowrap;">₹{{ "%.2f"|format(v.order_amount or 0) }}</td>
+                    <td>
+                      {% if v.is_location_verified %}
+                      <span class="badge-onsite"><i class="fa-solid fa-circle-check"></i> {{ v.verification_badge }}</span>
                       {% else %}
-                      <tr>
-                        <td colspan="8" class="text-center text-muted py-4">No customer visits logged yet.</td>
-                      </tr>
+                      <span class="badge-detour"><i class="fa-solid fa-circle-exclamation"></i> {{ v.verification_badge }}</span>
                       {% endif %}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                    </td>
+                    {% if user_role in ['super_admin', 'company_admin'] %}
+                    <td style="text-align:center;">
+                      <button type="button" class="btn-action-icon btn-action-delete" title="Delete Visit" onclick="deleteCustomerVisit('{{ v.id }}')">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </td>
+                    {% endif %}
+                  </tr>
+                  {% endfor %}
+                  {% else %}
+                  <tr>
+                    <td colspan="9" style="text-align:center; color:#64748b; padding:24px;">No customer visits logged yet.</td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
 
-        <!-- ========================================================= -->
-        <!-- PANE 6: FIELD SALARY & PAYSLIP REPORTS                    -->
-        <!-- ========================================================= -->
-        <div id="paneFieldPayroll" class="fw-section-pane" data-title="6. FIELD SALARY & PAYSLIP REPORTS">
-          <div class="fw-panel">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <!-- ========================================================================= -->
+        <!-- TAB 6: FIELD SALARY & PAYSLIP REPORTS                                     -->
+        <!-- ========================================================================= -->
+        <div id="paneFieldPayroll" class="fw-section-pane" data-title="FIELD SALARY & PAYSLIP REPORTS">
+          <div class="table-card">
+            <div class="table-toolbar" style="flex-wrap:wrap; gap:12px; border-bottom:1px solid #eef2f6; padding-bottom:14px; margin-bottom:14px;">
               <div>
-                <div class="fw-panel-title mb-1">
-                  <i class="fa-solid fa-file-invoice-dollar text-success"></i>
-                  Monthly Field Worker Salary, Visit Incentives &amp; KM Travel Allowance Report ({{ month_year }})
+                <div class="fw-card-title" style="font-size:13.5px;">
+                  <i class="fa-solid fa-file-invoice-dollar" style="color:#15803d; margin-right:6px;"></i>
+                  MONTHLY FIELD WORKER SALARY, VISIT INCENTIVES &amp; KM TRAVEL ALLOWANCE REPORT ({{ month_year }})
                 </div>
-                <div class="text-muted small">
-                  Formula: <strong>Net Field Payable</strong> = Base Attendance Salary + (Verified Visits &times; Per-Visit Incentive) + (GPS Travel KM &times; KM Allowance Rate) &minus; Deductions
+                <div style="font-size:11.5px; color:#64748b; margin-top:3px;">
+                  Formula: <strong style="color:#0f172a;">Net Field Payable</strong> = Base Attendance Salary + (Verified Visits &times; Per-Visit Incentive) + (GPS Travel KM &times; KM Allowance Rate) &minus; Deductions
                 </div>
               </div>
-              <div class="d-flex gap-2">
-                <a href="/api/field-worker/export?type=salary&format=pdf&company_id={{ active_company_id }}&month={{ month_year }}" class="btn btn-sm btn-danger fw-semibold">
-                  <i class="fa-solid fa-file-pdf me-1"></i> Export Payroll PDF
-                </a>
-                <a href="/api/field-worker/export?type=salary&format=excel&company_id={{ active_company_id }}&month={{ month_year }}" class="btn btn-sm btn-success fw-semibold">
-                  <i class="fa-solid fa-file-excel me-1"></i> Export Payroll Excel
-                </a>
+
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <div class="export-btn-group">
+                  <a href="/api/field-worker/export?type=salary&format=pdf&company_id={{ active_company_id }}&month={{ month_year }}" class="btn-export btn-pdf" style="text-decoration:none;">
+                    <i class="fa-solid fa-file-pdf"></i> Export Payroll PDF
+                  </a>
+                  <a href="/api/field-worker/export?type=salary&format=excel&company_id={{ active_company_id }}&month={{ month_year }}" class="btn-export btn-excel" style="text-decoration:none;">
+                    <i class="fa-solid fa-file-excel"></i> Export Payroll Excel
+                  </a>
+                </div>
+                <div class="search-box-wrapper">
+                  <label>Search:</label>
+                  <input type="text" class="search-input" placeholder="Filter worker or zone..." oninput="filterFieldTable(this, 'fieldPayrollTable')">
+                </div>
               </div>
             </div>
 
-            <div class="table-responsive">
-              <table class="table table-hover align-middle mb-0">
+            <div class="fw-table-wrapper">
+              <table class="fw-table" id="fieldPayrollTable">
                 <thead>
                   <tr>
-                    <th>Field Worker</th>
-                    <th>Zone / Shift</th>
-                    <th>Attendance (Days / Hrs)</th>
-                    <th>Assigned / Completed Sites</th>
-                    <th>Verified Visits (Orders ₹)</th>
-                    <th>GPS Distance &amp; Detours</th>
-                    <th>Base Attendance Pay</th>
-                    <th>Visit Incentive</th>
-                    <th>KM Travel Allowance</th>
-                    <th>Net Field Payable</th>
-                    <th>Payslip PDF</th>
+                    <th>FIELD WORKER</th>
+                    <th>ZONE &amp; SHIFT</th>
+                    <th>ATTENDANCE</th>
+                    <th>SITES DONE</th>
+                    <th>VERIFIED VISITS</th>
+                    <th>GPS DISTANCE</th>
+                    <th>BASE ATTENDANCE PAY</th>
+                    <th style="background-color:#f0fdf4; color:#166534;">VISIT INCENTIVE</th>
+                    <th style="background-color:#eff6ff; color:#1d4ed8;">KM TRAVEL ALLOWANCE</th>
+                    <th style="background-color:#f8fafc; color:#0f172a;">NET FIELD PAYABLE</th>
+                    <th style="text-align:center;">PAYSLIP PDF</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1220,52 +2073,52 @@
                   {% for r in salary_reports %}
                   <tr>
                     <td>
-                      <div class="fw-bold">{{ r.employee_name }}</div>
-                      <div class="small text-muted">{{ r.designation }}</div>
+                      <div class="fw-cell-title">{{ r.employee_name }}</div>
+                      <div class="fw-cell-sub">{{ r.designation }}</div>
                     </td>
                     <td>
-                      <span class="badge bg-light text-dark border">{{ r.territory_zone }}</span>
-                      <div class="small text-muted">{{ r.salary_type|upper }} ({{ r.shift_hours }}h)</div>
+                      <span class="badge-neutral">{{ r.territory_zone }}</span>
+                      <div class="fw-cell-sub">{{ r.salary_type|upper }} ({{ r.shift_hours }}h)</div>
                     </td>
                     <td>
-                      <span class="fw-bold">{{ r.working_days }} Days</span>
-                      <div class="small text-muted">{{ r.total_hours }} hrs</div>
+                      <div class="fw-cell-title">{{ r.working_days }} Days</div>
+                      <div class="fw-cell-sub">{{ r.total_hours }} hrs worked</div>
                     </td>
-                    <td>{{ r.completed_assignments }} / {{ r.total_assigned_locations }}</td>
+                    <td style="font-weight:700;">{{ r.completed_assignments }} / {{ r.total_assigned_locations }}</td>
                     <td>
-                      <span class="fw-bold text-success">{{ r.verified_visits }} Verified</span>
-                      <div class="small text-muted">Orders: ₹{{ "%.0f"|format(r.orders_value or 0) }}</div>
+                      <div style="font-weight:700; color:#15803d;">{{ r.verified_visits }} Verified</div>
+                      <div class="fw-cell-sub">Orders: ₹{{ "%.0f"|format(r.orders_value or 0) }}</div>
                     </td>
                     <td>
-                      <span class="fw-bold text-primary">{{ "%.2f"|format(r.total_km_traveled or 0) }} KM</span>
+                      <div style="font-weight:700; color:#2563eb;">{{ "%.2f"|format(r.total_km_traveled or 0) }} KM</div>
                       {% if r.detour_alerts > 0 %}
-                      <div class="small text-danger fw-semibold">{{ r.detour_alerts }} Detour Alerts</div>
+                      <div class="fw-cell-sub" style="color:#dc2626; font-weight:700;">{{ r.detour_alerts }} Detour Alerts</div>
                       {% else %}
-                      <div class="small text-success">0 Detours</div>
+                      <div class="fw-cell-sub" style="color:#16a34a;">0 Detours</div>
                       {% endif %}
                     </td>
-                    <td class="fw-semibold">₹{{ "%.2f"|format(r.base_attendance_pay or 0) }}</td>
-                    <td class="fw-semibold text-success">
-                      + ₹{{ "%.2f"|format(r.visit_incentive_pay or 0) }}
-                      <div class="small text-muted">@ ₹{{ "%.0f"|format(r.per_visit_incentive_rate or 0) }}/visit</div>
+                    <td style="font-weight:700; color:#0f172a; white-space:nowrap;">₹{{ "%.2f"|format(r.base_attendance_pay or 0) }}</td>
+                    <td style="background-color:#f0fdf4; white-space:nowrap;">
+                      <div style="font-weight:700; color:#15803d;">+ ₹{{ "%.2f"|format(r.visit_incentive_pay or 0) }}</div>
+                      <div class="fw-cell-sub">@ ₹{{ "%.0f"|format(r.per_visit_incentive_rate or 0) }}/visit</div>
                     </td>
-                    <td class="fw-semibold text-primary">
-                      + ₹{{ "%.2f"|format(r.travel_allowance_pay or 0) }}
-                      <div class="small text-muted">@ ₹{{ "%.0f"|format(r.km_allowance_rate or 0) }}/km</div>
+                    <td style="background-color:#eff6ff; white-space:nowrap;">
+                      <div style="font-weight:700; color:#1d4ed8;">+ ₹{{ "%.2f"|format(r.travel_allowance_pay or 0) }}</div>
+                      <div class="fw-cell-sub">@ ₹{{ "%.0f"|format(r.km_allowance_rate or 0) }}/km</div>
                     </td>
-                    <td>
-                      <span class="fs-6 fw-bold text-dark">₹{{ "%.2f"|format(r.net_field_payable or 0) }}</span>
+                    <td style="background-color:#f8fafc; white-space:nowrap;">
+                      <span style="font-size:13px; font-weight:800; color:#0f172a;">₹{{ "%.2f"|format(r.net_field_payable or 0) }}</span>
                     </td>
-                    <td>
-                      <a href="/api/field-worker/payslip-pdf?company_id={{ active_company_id }}&month={{ month_year }}&employee_name={{ r.employee_name|urlencode }}" class="btn btn-sm btn-dark fw-semibold">
-                        <i class="fa-solid fa-file-pdf text-danger me-1"></i> Payslip
+                    <td style="text-align:center;">
+                      <a href="/api/field-worker/payslip-pdf?company_id={{ active_company_id }}&month={{ month_year }}&employee_name={{ r.employee_name|urlencode }}" class="fw-btn fw-btn-dark fw-btn-sm">
+                        <i class="fa-solid fa-file-pdf" style="color:#f87171;"></i> Payslip
                       </a>
                     </td>
                   </tr>
                   {% endfor %}
                   {% else %}
                   <tr>
-                    <td colspan="11" class="text-center text-muted py-4">No field workers found for this company.</td>
+                    <td colspan="11" style="text-align:center; color:#64748b; padding:24px;">No field workers found for this company.</td>
                   </tr>
                   {% endif %}
                 </tbody>
@@ -1289,7 +2142,6 @@
     </div>
   </footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const INITIAL_COMPANY_LAT = Number("{{ active_company.latitude or 11.02980 }}");
@@ -1305,6 +2157,42 @@
     let assignCircle = null;
     let autoTrackTimer = null;
     let fwVideoStream = null;
+
+    // Universal Table Search Filter
+    function filterFieldTable(inputEl, tableId) {
+      const q = (inputEl.value || '').trim().toLowerCase();
+      const tbl = document.getElementById(tableId);
+      if (!tbl) return;
+      const rows = tbl.querySelectorAll('tbody tr');
+      rows.forEach(row => {
+        if (row.cells.length <= 1) return;
+        const txt = row.textContent.toLowerCase();
+        row.style.display = txt.includes(q) ? '' : 'none';
+      });
+    }
+
+    // Quick Edit from Field Worker Directory Row
+    function editFieldWorkerFromRow(empId) {
+      const sel = document.getElementById('fwExistingEmpSelect');
+      if (!sel) return;
+      sel.value = empId;
+      populateExistingEmployeeForField(sel);
+      const card = document.getElementById('fwRegistrationCard');
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Sync Map Marker & Geofence Circle when Lat/Lng/Radius inputs change
+    function syncAssignMapFromInputs() {
+      if (!assignMap || !assignMarker || !assignCircle) return;
+      const lat = parseFloat(document.getElementById('asgnLat').value);
+      const lng = parseFloat(document.getElementById('asgnLng').value);
+      const rad = parseFloat(document.getElementById('asgnRadius').value) || 150;
+      if (!isNaN(lat) && !isNaN(lng)) {
+        assignMarker.setLatLng([lat, lng]);
+        assignCircle.setLatLng([lat, lng]);
+        assignCircle.setRadius(rad);
+      }
+    }
 
     // Left Sidebar Navigation Switcher
     function switchFieldTab(paneId, btnEl) {
@@ -1396,8 +2284,8 @@
     function showToast(msg, isError = false) {
       const banner = document.getElementById('fwAlertBanner');
       const txt = document.getElementById('fwAlertText');
-      banner.className = `alert ${isError ? 'alert-danger' : 'alert-success'} d-flex align-items-center justify-content-between py-2 px-3 mb-3 shadow-sm`;
-      txt.innerHTML = `<i class="fa-solid ${isError ? 'fa-circle-exclamation' : 'fa-circle-check'} me-2"></i>${msg}`;
+      banner.className = `fw-toast-banner ${isError ? 'fw-toast-danger' : 'fw-toast-success'}`;
+      txt.innerHTML = `<i class="fa-solid ${isError ? 'fa-circle-exclamation' : 'fa-circle-check'}" style="margin-right:6px;"></i>${msg}`;
     }
 
     function getActiveCompanyId() {
@@ -1508,14 +2396,15 @@
           fillOpacity: 0.95,
           weight: 3
         }).bindPopup(`
-          <div style="min-width:210px;">
-            <div class="fw-bold fs-6">${w.employee_name}</div>
-            <div class="small fw-bold" style="color:${color};">${w.status_label}</div>
-            <hr class="my-1">
-            <div class="small"><b>Target:</b> ${w.nearest_target_name} (${w.distance_from_target_m || 0}m)</div>
-            <div class="small"><b>Distance Today:</b> ${w.total_km_today || 0} KM</div>
-            <div class="small"><b>Address:</b> ${w.address || ''}</div>
-            <div class="small text-muted">Last Seen: ${w.last_seen || ''}</div>
+          <div style="min-width:200px; font-size:12px;">
+            <div style="font-weight:800; font-size:13px; color:#0f172a;">${w.employee_name}</div>
+            <div style="font-weight:700; color:${color}; margin-bottom:4px;">${w.status_label}</div>
+            <div style="border-top:1px solid #e2e8f0; padding-top:4px;">
+              <div><b>Target:</b> ${w.nearest_target_name} (${w.distance_from_target_m || 0}m)</div>
+              <div><b>Distance Today:</b> ${w.total_km_today || 0} KM</div>
+              <div><b>Address:</b> ${w.address || ''}</div>
+              <div style="color:#64748b; margin-top:2px;">Last Seen: ${w.last_seen || ''}</div>
+            </div>
           </div>
         `);
         liveMapLayerGroup.addLayer(marker);
@@ -1630,14 +2519,14 @@
       if (autoTrackTimer) {
         clearInterval(autoTrackTimer);
         autoTrackTimer = null;
-        btn.className = 'btn btn-outline-primary fw-semibold';
-        btn.innerHTML = '<i class="fa-solid fa-satellite me-1"></i> Start Continuous Live Tracking (Every 25s)';
+        btn.className = 'fw-btn fw-btn-outline fw-btn-block';
+        btn.innerHTML = '<i class="fa-solid fa-satellite"></i> Start Continuous Live Tracking (25s)';
         showToast('Continuous GPS tracking paused.');
       } else {
         captureAndSendLiveGPS();
         autoTrackTimer = setInterval(captureAndSendLiveGPS, 25000);
-        btn.className = 'btn btn-danger fw-bold';
-        btn.innerHTML = '<i class="fa-solid fa-circle-stop me-1"></i> Stop Continuous Live Tracking (Active)';
+        btn.className = 'fw-btn fw-btn-danger fw-btn-block';
+        btn.innerHTML = '<i class="fa-solid fa-circle-stop"></i> Stop Continuous Live Tracking (Active)';
       }
     }
 
@@ -1664,24 +2553,24 @@
       const logs = (TRACKING_DATA && TRACKING_DATA.logs) || [];
       const tbody = document.getElementById('trackingLogsTableBody');
       if (logs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No GPS pings recorded yet for this date.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#64748b; padding:24px;">No GPS pings recorded yet for this date.</td></tr>';
       } else {
         tbody.innerHTML = logs.map(lg => {
-          let badge = `<span class="badge-transit"><i class="fa-solid fa-route me-1"></i>${lg.status_label}</span>`;
+          let badge = `<span class="badge-transit"><i class="fa-solid fa-route"></i> ${lg.status_label}</span>`;
           if (lg.tracking_status === 'on_site') {
-            badge = `<span class="badge-onsite"><i class="fa-solid fa-check me-1"></i>${lg.status_label}</span>`;
+            badge = `<span class="badge-onsite"><i class="fa-solid fa-check"></i> ${lg.status_label}</span>`;
           } else if (lg.tracking_status === 'off_route_detour') {
-            badge = `<span class="badge-detour"><i class="fa-solid fa-triangle-exclamation me-1"></i>${lg.status_label}</span>`;
+            badge = `<span class="badge-detour"><i class="fa-solid fa-triangle-exclamation"></i> ${lg.status_label}</span>`;
           }
           return `<tr>
-            <td class="fw-semibold">${lg.time_short || lg.timestamp}</td>
-            <td class="fw-bold">${lg.employee_name}</td>
-            <td>${lg.nearest_target_name || '-'}</td>
-            <td>${Number(lg.distance_from_target_m || 0).toFixed(1)} m</td>
-            <td>${Number(lg.step_km || 0).toFixed(3)} km</td>
+            <td style="font-weight:700; white-space:nowrap;">${lg.time_short || lg.timestamp}</td>
+            <td><div class="fw-cell-title">${lg.employee_name}</div></td>
+            <td style="font-weight:600;">${lg.nearest_target_name || '-'}</td>
+            <td style="white-space:nowrap; font-weight:600;">${Number(lg.distance_from_target_m || 0).toFixed(1)} m</td>
+            <td style="white-space:nowrap; color:#2563eb; font-weight:700;">${Number(lg.step_km || 0).toFixed(3)} km</td>
             <td>${badge}</td>
-            <td class="small text-muted">${lg.address || ''}</td>
-            <td class="small">${lg.activity_note || '-'}</td>
+            <td class="fw-address-cell">${lg.address || ''}</td>
+            <td style="color:#475569;">${lg.activity_note || '-'}</td>
           </tr>`;
         }).join('');
       }
@@ -1839,7 +2728,7 @@
       const out = await res.json();
       const box = document.getElementById('fwPunchResultBox');
       if (out.success || out.matched) {
-        box.innerHTML = `<div class="alert alert-success py-2 mb-0"><b>${out.employee_name || 'Field Worker'}</b>: ${out.message || 'Field Attendance Recorded!'}</div>`;
+        box.innerHTML = `<div class="fw-toast-banner fw-toast-success" style="margin-bottom:0;"><span><b>${out.employee_name || 'Field Worker'}</b>: ${out.message || 'Field Attendance Recorded!'}</span></div>`;
         await sendLocationPingPayload({
           employee_name: out.employee_name,
           latitude: lat,
@@ -1847,7 +2736,7 @@
           activity_note: `AI Face Attendance Punch (${out.punch_type || 'Verified'})`
         });
       } else {
-        box.innerHTML = `<div class="alert alert-warning py-2 mb-0">${out.message || out.error || 'Face not matched'}</div>`;
+        box.innerHTML = `<div class="fw-toast-banner fw-toast-danger" style="margin-bottom:0;"><span>${out.message || out.error || 'Face not matched'}</span></div>`;
       }
     }
 
