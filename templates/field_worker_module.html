@@ -937,7 +937,7 @@
       <nav class="sidebar-nav" id="fwSidebarNav">
         <button type="button" class="nav-item-btn active" data-pane="paneLiveTracking" onclick="switchFieldTab('paneLiveTracking', this)">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
-          <span>Live Route &amp; Detour Monitor</span>
+          <span>Live Monitor</span>
         </button>
 
         {% if user_role in ['super_admin', 'company_admin'] %}
@@ -948,7 +948,7 @@
 
         <button type="button" class="nav-item-btn" data-pane="paneAssignLocations" onclick="switchFieldTab('paneAssignLocations', this)">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-          <span>Assign Target Locations</span>
+          <span>Assign Locations</span>
         </button>
         {% endif %}
 
@@ -959,12 +959,12 @@
 
         <button type="button" class="nav-item-btn" data-pane="paneCustomerVisits" onclick="switchFieldTab('paneCustomerVisits', this)">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-          <span>Customer Visits (Lead CRM)</span>
+          <span>Lead Management</span>
         </button>
 
         <button type="button" class="nav-item-btn" data-pane="paneFieldPayroll" onclick="switchFieldTab('paneFieldPayroll', this)">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-          <span>Field Salary &amp; Payslip Reports</span>
+          <span>Payslip &amp; Salary Reports</span>
         </button>
       </nav>
 
@@ -1006,7 +1006,7 @@
               </svg>
             </div>
             <div class="banner-text-group">
-              <div class="banner-title" id="activePaneHeading">LIVE ROUTE &amp; DETOUR MONITOR</div>
+              <div class="banner-title" id="activePaneHeading">LIVE MONITOR</div>
               <div class="banner-subtitle">
                 Company Workspace: <strong style="color: #0f172a;">{{ active_company.company_name }}</strong>
                 {% if user_role == 'employee' %}
@@ -1054,9 +1054,9 @@
         </div>
 
         <!-- ========================================================================= -->
-        <!-- TAB 1: LIVE ROUTE & DETOUR MONITOR (KPI CARDS INSIDE THIS TAB ALONE)     -->
+        <!-- TAB 1: LIVE MONITOR (KPI CARDS INSIDE THIS TAB ALONE)                     -->
         <!-- ========================================================================= -->
-        <div id="paneLiveTracking" class="fw-section-pane active" data-title="LIVE ROUTE &amp; DETOUR MONITOR">
+        <div id="paneLiveTracking" class="fw-section-pane active" data-title="LIVE MONITOR">
           <!-- 6 Live KPI Summary Cards (Displayed in Live Route Tab ALONE) -->
           <div class="fw-kpi-grid">
             <div class="fw-kpi-card">
@@ -1536,9 +1536,9 @@
         </div>
 
         <!-- ========================================================================= -->
-        <!-- TAB 3: ASSIGN TARGET LOCATIONS (ADMIN ONLY)                               -->
+        <!-- TAB 3: ASSIGN LOCATIONS (ADMIN ONLY)                                      -->
         <!-- ========================================================================= -->
-        <div id="paneAssignLocations" class="fw-section-pane" data-title="ASSIGN TARGET LOCATIONS">
+        <div id="paneAssignLocations" class="fw-section-pane" data-title="ASSIGN LOCATIONS">
           <form id="assignLocationForm" onsubmit="submitLocationAssignment(event)">
             <div class="fw-split-50-50">
               <!-- Left Card: Assignment Form Details -->
@@ -1855,9 +1855,9 @@
         </div>
 
         <!-- ========================================================================= -->
-        <!-- TAB 5: CUSTOMER VISITS (LEAD CRM)                                         -->
+        <!-- TAB 5: LEAD MANAGEMENT                                                    -->
         <!-- ========================================================================= -->
-        <div id="paneCustomerVisits" class="fw-section-pane" data-title="CUSTOMER VISITS (LEAD CRM)">
+        <div id="paneCustomerVisits" class="fw-section-pane" data-title="LEAD MANAGEMENT">
           <!-- Top Full-Width Card: Structured 4-Column Customer Visit & Lead Entry Form -->
           <div class="fw-card">
             <div class="fw-card-header">
@@ -2058,9 +2058,9 @@
         </div>
 
         <!-- ========================================================================= -->
-        <!-- TAB 6: FIELD SALARY & PAYSLIP REPORTS                                     -->
+        <!-- TAB 6: PAYSLIP & SALARY REPORTS                                           -->
         <!-- ========================================================================= -->
-        <div id="paneFieldPayroll" class="fw-section-pane" data-title="FIELD SALARY & PAYSLIP REPORTS">
+        <div id="paneFieldPayroll" class="fw-section-pane" data-title="PAYSLIP &amp; SALARY REPORTS">
           <div class="table-card">
             <div class="table-toolbar" style="flex-wrap:wrap; gap:12px; border-bottom:1px solid #eef2f6; padding-bottom:14px; margin-bottom:14px;">
               <div>
