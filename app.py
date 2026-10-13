@@ -3457,6 +3457,25 @@ def api_face_recognize():
                 result['punch_time'] = client_time or datetime.now().strftime('%d %b %Y, %I:%M:%S %p')
                 if punch_res.get('working_hours'):
                     result['working_hours'] = str(punch_res.get('working_hours'))
+
+                # If this is a Field Worker, record an automatic GPS check-in in Field Worker Module
+                if emp_doc and emp_doc.get('is_field_worker'):
+                    result['is_field_worker'] = True
+                    try:
+                        c_office = database.get_company_by_id(emp_comp_id) or {}
+                        f_lat = parse_coordinate_to_float(user_lat, c_office.get('latitude', 11.0298))
+                        f_lng = parse_coordinate_to_float(user_lng, c_office.get('longitude', 76.9740))
+                        f_comp = emp_comp_id or 'ARGUS_MASTER'
+                        database.record_field_location_ping({
+                            'employee_name': emp_name,
+                            'latitude': f_lat,
+                            'longitude': f_lng,
+                            'accuracy': 15,
+                            'activity_note': f"Main Gate AI Camera Punch ({result.get('punch_status', 'Verified')})",
+                            'company_id': f_comp
+                        }, company_id=f_comp)
+                    except Exception as f_ping_err:
+                        print(f"Warning: Field worker auto GPS check-in on main camera: {f_ping_err}")
             except Exception as punch_err:
                 traceback.print_exc()
                 result['live_entry_id'] = ''
@@ -4946,40 +4965,52 @@ def api_field_worker_register():
         data['company_id'] = cid
         data['is_field_worker'] = True
 
+        # Handle optional face photo for biometric enrollment
+        photo_b64 = data.get('photo_data') or ''
+        if not photo_b64 and 'photo' in request.files:
+            try:
+                p_file = request.files['photo']
+                if p_file and p_file.filename:
+                    p_bytes = p_file.read()
+                    if p_bytes:
+                        photo_b64 = 'data:image/jpeg;base64,' + base64.b64encode(p_bytes).decode('utf-8')
+            except Exception as pf_e:
+                print(f"Warning: reading uploaded photo file: {pf_e}")
+
+        if photo_b64 and str(photo_b64).startswith('data:image'):
+            try:
+                raw_bytes = base64.b64decode(photo_b64.split(',', 1)[1])
+                unique_filename, photo_data_url, optimized_bytes = process_uploaded_photo(raw_bytes, 'fw_capture.jpg')
+                data['photo'] = unique_filename
+                data['photo_filename'] = unique_filename
+                data['photo_data'] = photo_data_url
+                
+                fe = get_face_engine()
+                if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+                    emb = fe.extract_face_embedding_from_image(optimized_bytes)
+                    if emb:
+                        data['face_embedding'] = json.dumps(emb)
+                        data['embedding_model'] = 'sface_v1'
+            except Exception as img_err:
+                print(f"Field worker photo processing error: {img_err}")
+
         existing_emp_id = str(data.get('existing_employee_id') or '').strip()
         if existing_emp_id:
             database.update_employee(existing_emp_id, data, company_id=cid)
+            database.invalidate_dashboard_cache(cid)
             return jsonify({
                 'success': True,
                 'employee_id': existing_emp_id,
                 'message': f"Field Worker configuration updated for {data.get('employee_name', 'Employee')}."
             })
 
-        # Handle optional base64 photo for face recognition enrollment
-        photo_b64 = data.get('photo_data') or ''
-        if photo_b64 and photo_b64.startswith('data:image'):
-            try:
-                raw_bytes = base64.b64decode(photo_b64.split(',')[1])
-                fname = f"fw_{int(time.time()*1000)}.jpg"
-                fpath = os.path.join(app.config['UPLOAD_FOLDER'], fname)
-                with open(fpath, 'wb') as f:
-                    f.write(raw_bytes)
-                data['photo'] = fname
-                data['photo_filename'] = fname
-                emb = extract_face_embedding_from_bytes(raw_bytes)
-                if emb:
-                    data['face_embedding'] = json.dumps(emb)
-            except Exception as img_err:
-                print(f"Field worker photo decode warning: {img_err}")
-
         if not data.get('department'):
             data['department'] = 'Field Sales & Operations'
         if not data.get('designation'):
             data['designation'] = 'Field Executive'
 
-        new_id = database.create_employee(data)
-        if data.get('face_embedding'):
-            reload_face_embeddings_cache()
+        new_id = database.create_employee(data, company_id=cid)
+        database.invalidate_dashboard_cache(cid)
 
         return jsonify({
             'success': True,

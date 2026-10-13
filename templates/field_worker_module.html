@@ -7,7 +7,7 @@
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261013_fw_ui">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261013_fw_dyn">
   <style>
     /* ==========================================================================
        ARGUS ENTERPRISE FIELD WORKER MODULE — UNIFIED DESIGN SYSTEM
@@ -33,6 +33,18 @@
 
     .d-none {
       display: none !important;
+    }
+
+    /* ---------------- Light & Clean Input Placeholders ---------------- */
+    input::placeholder,
+    textarea::placeholder,
+    .fw-input::placeholder,
+    .fw-textarea::placeholder,
+    .search-input::placeholder {
+      color: #94a3b8 !important;
+      font-weight: 400 !important;
+      font-size: 11.5px !important;
+      opacity: 0.85 !important;
     }
 
     /* ---------------- Fixed Left Sidebar + Independent Right Scroll ---------------- */
@@ -199,7 +211,7 @@
       padding: 0 4px;
     }
 
-    /* ---------------- 6-Card KPI Grid ---------------- */
+    /* ---------------- 6-Card KPI Grid (Tab 1 Alone) ---------------- */
     .fw-kpi-grid {
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -1006,7 +1018,7 @@
             {% if user_role == 'super_admin' %}
             <div class="fw-filter-pill">
               <label for="globalCompanySelect">Company</label>
-              <select id="globalCompanySelect" onchange="reloadFieldModule()">
+              <select id="globalCompanySelect" onchange="refreshOverviewState()">
                 <option value="ARGUS_MASTER" {% if active_company_id == 'ARGUS_MASTER' %}selected{% endif %}>ARGUS TECHNOLOGIES (HQ)</option>
                 {% for c in companies %}
                 {% if c.id != 'ARGUS_MASTER' %}
@@ -1021,12 +1033,12 @@
 
             <div class="fw-filter-pill">
               <label for="globalDateInput">Date</label>
-              <input type="date" id="globalDateInput" value="{{ today_str }}" onchange="reloadFieldModule()">
+              <input type="date" id="globalDateInput" value="{{ today_str }}" onchange="refreshOverviewState()">
             </div>
 
             <div class="fw-filter-pill">
               <label for="globalMonthInput">Payroll Month</label>
-              <input type="month" id="globalMonthInput" value="{{ month_year }}" onchange="reloadFieldModule()">
+              <input type="month" id="globalMonthInput" value="{{ month_year }}" onchange="refreshOverviewState()">
             </div>
           </div>
         </div>
@@ -1037,79 +1049,79 @@
           <button type="button" class="fw-toast-close" onclick="document.getElementById('fwAlertBanner').classList.add('d-none')">&times;</button>
         </div>
 
-        <!-- 6 Live KPI Summary Cards (Symmetrical Grid) -->
-        <div class="fw-kpi-grid">
-          <div class="fw-kpi-card">
-            <div>
-              <div class="fw-kpi-lbl">Field Workers</div>
-              <div class="fw-kpi-val" id="kpiWorkersCount">{{ field_workers|length }}</div>
-              <div class="fw-kpi-sub">Active in Company</div>
-            </div>
-            <div class="fw-kpi-icon" style="background:#e0f2fe; color:#0284c7;">
-              <i class="fa-solid fa-user-check"></i>
-            </div>
-          </div>
-
-          <div class="fw-kpi-card">
-            <div>
-              <div class="fw-kpi-lbl">Assigned Sites</div>
-              <div class="fw-kpi-val" id="kpiAssignedCount">{{ assignments|length }}</div>
-              <div class="fw-kpi-sub">Target Locations</div>
-            </div>
-            <div class="fw-kpi-icon" style="background:#f3e8ff; color:#7e22ce;">
-              <i class="fa-solid fa-location-crosshairs"></i>
-            </div>
-          </div>
-
-          <div class="fw-kpi-card" style="border-left: 3px solid #16a34a;">
-            <div>
-              <div class="fw-kpi-lbl" style="color:#15803d;">Verified On-Site</div>
-              <div class="fw-kpi-val" style="color:#15803d;" id="kpiOnSiteCount">{{ tracking.counts.on_site if tracking and tracking.counts else 0 }}</div>
-              <div class="fw-kpi-sub">At Assigned Site</div>
-            </div>
-            <div class="fw-kpi-icon" style="background:#dcfce7; color:#15803d;">
-              <i class="fa-solid fa-circle-check"></i>
-            </div>
-          </div>
-
-          <div class="fw-kpi-card" style="border-left: 3px solid #d97706;">
-            <div>
-              <div class="fw-kpi-lbl" style="color:#b45309;">In-Transit</div>
-              <div class="fw-kpi-val" style="color:#d97706;" id="kpiTransitCount">{{ tracking.counts.in_transit if tracking and tracking.counts else 0 }}</div>
-              <div class="fw-kpi-sub">Official Corridor</div>
-            </div>
-            <div class="fw-kpi-icon" style="background:#fef3c7; color:#b45309;">
-              <i class="fa-solid fa-route"></i>
-            </div>
-          </div>
-
-          <div class="fw-kpi-card" style="border-left: 3px solid #dc2626;">
-            <div>
-              <div class="fw-kpi-lbl" style="color:#b91c1c;">Personal Detours</div>
-              <div class="fw-kpi-val" style="color:#dc2626;" id="kpiDetourCount">{{ tracking.counts.off_route_detour if tracking and tracking.counts else 0 }}</div>
-              <div class="fw-kpi-sub">Off-Route (&gt;1 km)</div>
-            </div>
-            <div class="fw-kpi-icon" style="background:#fee2e2; color:#b91c1c;">
-              <i class="fa-solid fa-triangle-exclamation"></i>
-            </div>
-          </div>
-
-          <div class="fw-kpi-card">
-            <div>
-              <div class="fw-kpi-lbl">Customer Leads</div>
-              <div class="fw-kpi-val" id="kpiVisitsCount">{{ visits|length }}</div>
-              <div class="fw-kpi-sub" style="color:#0d9488;">Verified CRM Visits</div>
-            </div>
-            <div class="fw-kpi-icon" style="background:#ccfbf1; color:#0f766e;">
-              <i class="fa-solid fa-handshake"></i>
-            </div>
-          </div>
-        </div>
-
         <!-- ========================================================================= -->
-        <!-- TAB 1: LIVE ROUTE & DETOUR MONITOR                                        -->
+        <!-- TAB 1: LIVE ROUTE & DETOUR MONITOR (KPI CARDS INSIDE THIS TAB ALONE)     -->
         <!-- ========================================================================= -->
-        <div id="paneLiveTracking" class="fw-section-pane active" data-title="LIVE ROUTE & DETOUR MONITOR">
+        <div id="paneLiveTracking" class="fw-section-pane active" data-title="LIVE ROUTE &amp; DETOUR MONITOR">
+          <!-- 6 Live KPI Summary Cards (Displayed in Live Route Tab ALONE) -->
+          <div class="fw-kpi-grid">
+            <div class="fw-kpi-card">
+              <div>
+                <div class="fw-kpi-lbl">Field Workers</div>
+                <div class="fw-kpi-val" id="kpiWorkersCount">{{ field_workers|length }}</div>
+                <div class="fw-kpi-sub">Active in Company</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#e0f2fe; color:#0284c7;">
+                <i class="fa-solid fa-user-check"></i>
+              </div>
+            </div>
+
+            <div class="fw-kpi-card">
+              <div>
+                <div class="fw-kpi-lbl">Assigned Sites</div>
+                <div class="fw-kpi-val" id="kpiAssignedCount">{{ assignments|length }}</div>
+                <div class="fw-kpi-sub">Target Locations</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#f3e8ff; color:#7e22ce;">
+                <i class="fa-solid fa-location-crosshairs"></i>
+              </div>
+            </div>
+
+            <div class="fw-kpi-card" style="border-left: 3px solid #16a34a;">
+              <div>
+                <div class="fw-kpi-lbl" style="color:#15803d;">Verified On-Site</div>
+                <div class="fw-kpi-val" style="color:#15803d;" id="kpiOnSiteCount">{{ tracking.counts.on_site if tracking and tracking.counts else 0 }}</div>
+                <div class="fw-kpi-sub">At Assigned Site</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#dcfce7; color:#15803d;">
+                <i class="fa-solid fa-circle-check"></i>
+              </div>
+            </div>
+
+            <div class="fw-kpi-card" style="border-left: 3px solid #d97706;">
+              <div>
+                <div class="fw-kpi-lbl" style="color:#b45309;">In-Transit</div>
+                <div class="fw-kpi-val" style="color:#d97706;" id="kpiTransitCount">{{ tracking.counts.in_transit if tracking and tracking.counts else 0 }}</div>
+                <div class="fw-kpi-sub">Official Corridor</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#fef3c7; color:#b45309;">
+                <i class="fa-solid fa-route"></i>
+              </div>
+            </div>
+
+            <div class="fw-kpi-card" style="border-left: 3px solid #dc2626;">
+              <div>
+                <div class="fw-kpi-lbl" style="color:#b91c1c;">Personal Detours</div>
+                <div class="fw-kpi-val" style="color:#dc2626;" id="kpiDetourCount">{{ tracking.counts.off_route_detour if tracking and tracking.counts else 0 }}</div>
+                <div class="fw-kpi-sub">Off-Route (&gt;1 km)</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#fee2e2; color:#b91c1c;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+              </div>
+            </div>
+
+            <div class="fw-kpi-card">
+              <div>
+                <div class="fw-kpi-lbl">Customer Leads</div>
+                <div class="fw-kpi-val" id="kpiVisitsCount">{{ visits|length }}</div>
+                <div class="fw-kpi-sub" style="color:#0d9488;">Verified CRM Visits</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#ccfbf1; color:#0f766e;">
+                <i class="fa-solid fa-handshake"></i>
+              </div>
+            </div>
+          </div>
+
           <div class="fw-split-65-35">
             <!-- Left Card: Live Radar Map -->
             <div class="fw-card">
@@ -1286,7 +1298,7 @@
                 </span>
                 <div>
                   <div class="fw-card-title">Register Field Worker &amp; Configure Field Incentives</div>
-                  <div class="fw-card-subtitle">Onboard a new field executive or configure per-visit &amp; per-KM rates for existing employees in {{ active_company.company_name }}</div>
+                  <div class="fw-card-subtitle">Onboard a new field executive with face biometrics or configure rates for existing employees in {{ active_company.company_name }}</div>
                 </div>
               </div>
               <span class="badge-blue"><i class="fa-solid fa-building-shield"></i> Tenant: {{ active_company.company_name }}</span>
@@ -1337,7 +1349,7 @@
                   </div>
                 </div>
 
-                <!-- Row 2: Department, Designation, Territory, Status -->
+                <!-- Row 2: Department, Designation, Territory, Status + Face Photo Biometrics -->
                 <div class="fw-form-grid-4" style="margin-bottom:12px;">
                   <div class="fw-field">
                     <label class="fw-label">Department</label>
@@ -1360,6 +1372,28 @@
                       <option value="Active">Active (Counts in Quota)</option>
                       <option value="Inactive">Inactive (Preserved Only)</option>
                     </select>
+                  </div>
+                </div>
+
+                <!-- Biometric Photo Row for Route / & Field Punch Face Recognition -->
+                <div class="fw-form-grid-2" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:12px; align-items:center;">
+                  <div class="fw-field">
+                    <label class="fw-label"><i class="fa-solid fa-camera" style="color:#0284c7; margin-right:4px;"></i> Face Biometrics Photo (For Main '/' Camera Punch)</label>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                      <input type="file" id="fwRegPhotoFile" class="fw-input" accept="image/*" onchange="handlePhotoUpload(this)" style="padding-top:4px;">
+                      <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="triggerWebcamCapture()" title="Capture from webcam">
+                        <i class="fa-solid fa-video"></i> Camera Snap
+                      </button>
+                    </div>
+                    <input type="hidden" id="fwRegPhotoData" value="">
+                  </div>
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <div id="fwPhotoPreviewContainer" style="width:40px; height:40px; border-radius:50%; border:2px solid #cbd5e1; background:#e2e8f0; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                      <i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>
+                    </div>
+                    <div style="font-size:11px; color:#64748b; line-height:1.35;">
+                      Enables automatic recognition at both the <strong>Main Office Gate Camera ('/')</strong> and the Field Worker mobile terminal.
+                    </div>
                   </div>
                 </div>
 
@@ -1415,7 +1449,7 @@
               <div style="display:flex; align-items:center; gap:10px;">
                 <div class="fw-card-title" style="font-size:13px;">
                   <i class="fa-solid fa-users-gear" style="color:#2563eb; margin-right:6px;"></i>
-                  REGISTERED FIELD FORCE DIRECTORY ({{ field_workers|length }})
+                  REGISTERED FIELD FORCE DIRECTORY (<span id="dirWorkersCount">{{ field_workers|length }}</span>)
                 </div>
               </div>
               <div class="search-box-wrapper">
@@ -1439,7 +1473,7 @@
                     <th style="text-align:center;">ACTION</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="fieldWorkersDirTableBody">
                   {% if field_workers %}
                   {% for w in field_workers %}
                   <tr>
@@ -1614,7 +1648,7 @@
             <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
               <div class="fw-card-title" style="font-size:13px;">
                 <i class="fa-solid fa-clipboard-check" style="color:#2563eb; margin-right:6px;"></i>
-                ASSIGNED FIELD LOCATIONS &amp; GEOFENCE STATUS ({{ assignments|length }})
+                ASSIGNED FIELD LOCATIONS &amp; GEOFENCE STATUS (<span id="assignedCountBadge">{{ assignments|length }}</span>)
               </div>
               <div class="search-box-wrapper">
                 <label>Search:</label>
@@ -1636,7 +1670,7 @@
                     <th style="text-align:center;">ACTIONS</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="assignedSitesTableBody">
                   {% if assignments %}
                   {% for a in assignments %}
                   <tr>
@@ -1772,7 +1806,7 @@
                 <!-- Today's Assigned Sites Mini-Table (Eliminates Empty Space) -->
                 <div style="border-top:1px solid #eef2f6; padding-top:12px; margin-top:4px; flex:1; display:flex; flex-direction:column;">
                   <div style="font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:8px;">
-                    <i class="fa-solid fa-clipboard-list" style="color:#0d9488; margin-right:5px;"></i> Today's Assigned Customer Checkpoints ({{ assignments|length }})
+                    <i class="fa-solid fa-clipboard-list" style="color:#0d9488; margin-right:5px;"></i> Today's Assigned Customer Checkpoints (<span id="quickScheduleCount">{{ assignments|length }}</span>)
                   </div>
                   <div class="fw-table-wrapper" style="max-height:185px; overflow-y:auto;">
                     <table class="fw-table">
@@ -1784,7 +1818,7 @@
                           <th>STATUS</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody id="quickCheckpointsTableBody">
                         {% if assignments %}
                         {% for a in assignments %}
                         <tr>
@@ -1944,7 +1978,7 @@
               <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <div class="fw-card-title" style="font-size:13px;">
                   <i class="fa-solid fa-chart-line" style="color:#2563eb; margin-right:6px;"></i>
-                  CUSTOMER VISITS &amp; SALES LEADS PIPELINE ({{ visits|length }})
+                  CUSTOMER VISITS &amp; SALES LEADS PIPELINE (<span id="visitsCountBadge">{{ visits|length }}</span>)
                 </div>
                 <div class="export-btn-group">
                   <a href="/api/field-worker/export?type=visits&format=pdf&company_id={{ active_company_id }}" class="btn-export btn-pdf" style="text-decoration:none;">
@@ -1978,7 +2012,7 @@
                     {% endif %}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="customerVisitsTableBody">
                   {% if visits %}
                   {% for v in visits %}
                   <tr>
@@ -2028,7 +2062,7 @@
               <div>
                 <div class="fw-card-title" style="font-size:13.5px;">
                   <i class="fa-solid fa-file-invoice-dollar" style="color:#15803d; margin-right:6px;"></i>
-                  MONTHLY FIELD WORKER SALARY, VISIT INCENTIVES &amp; KM TRAVEL ALLOWANCE REPORT ({{ month_year }})
+                  MONTHLY FIELD WORKER SALARY, VISIT INCENTIVES &amp; KM TRAVEL ALLOWANCE REPORT (<span id="payrollMonthTitle">{{ month_year }}</span>)
                 </div>
                 <div style="font-size:11.5px; color:#64748b; margin-top:3px;">
                   Formula: <strong style="color:#0f172a;">Net Field Payable</strong> = Base Attendance Salary + (Verified Visits &times; Per-Visit Incentive) + (GPS Travel KM &times; KM Allowance Rate) &minus; Deductions
@@ -2037,10 +2071,10 @@
 
               <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <div class="export-btn-group">
-                  <a href="/api/field-worker/export?type=salary&format=pdf&company_id={{ active_company_id }}&month={{ month_year }}" class="btn-export btn-pdf" style="text-decoration:none;">
+                  <a href="/api/field-worker/export?type=salary&format=pdf&company_id={{ active_company_id }}&month={{ month_year }}" id="btnExportPayrollPdf" class="btn-export btn-pdf" style="text-decoration:none;">
                     <i class="fa-solid fa-file-pdf"></i> Export Payroll PDF
                   </a>
-                  <a href="/api/field-worker/export?type=salary&format=excel&company_id={{ active_company_id }}&month={{ month_year }}" class="btn-export btn-excel" style="text-decoration:none;">
+                  <a href="/api/field-worker/export?type=salary&format=excel&company_id={{ active_company_id }}&month={{ month_year }}" id="btnExportPayrollExcel" class="btn-export btn-excel" style="text-decoration:none;">
                     <i class="fa-solid fa-file-excel"></i> Export Payroll Excel
                   </a>
                 </div>
@@ -2068,7 +2102,7 @@
                     <th style="text-align:center;">PAYSLIP PDF</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="fieldPayrollTableBody">
                   {% if salary_reports %}
                   {% for r in salary_reports %}
                   <tr>
@@ -2147,8 +2181,14 @@
     const INITIAL_COMPANY_LAT = Number("{{ active_company.latitude or 11.02980 }}");
     const INITIAL_COMPANY_LNG = Number("{{ active_company.longitude or 76.97400 }}");
     const INITIAL_COMPANY_NAME = {{ (active_company.company_name or 'ARGUS TECHNOLOGIES')|tojson }};
+    const CURRENT_USER_ROLE = {{ (user_role or 'super_admin')|tojson }};
+    const LOGGED_IN_EMPLOYEE_NAME = {{ (logged_in_employee_name or '')|tojson }};
+
     let ASSIGNMENTS_DATA = {{ (assignments or [])|tojson }};
     let TRACKING_DATA = {{ (tracking or {})|tojson }};
+    let FIELD_WORKERS_DATA = {{ (field_workers or [])|tojson }};
+    let VISITS_DATA = {{ (visits or [])|tojson }};
+    let PAYROLL_DATA = {{ (salary_reports or [])|tojson }};
 
     let liveMap = null;
     let liveMapLayerGroup = null;
@@ -2157,6 +2197,7 @@
     let assignCircle = null;
     let autoTrackTimer = null;
     let fwVideoStream = null;
+    let autoRefreshTimer = null;
 
     // Universal Table Search Filter
     function filterFieldTable(inputEl, tableId) {
@@ -2169,6 +2210,40 @@
         const txt = row.textContent.toLowerCase();
         row.style.display = txt.includes(q) ? '' : 'none';
       });
+    }
+
+    // Photo Upload & Preview for Biometric Enrollment
+    function handlePhotoUpload(input) {
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById('fwRegPhotoData').value = e.target.result;
+          document.getElementById('fwPhotoPreviewContainer').innerHTML = `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover;">`;
+        };
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    // Webcam Photo Snapshot for Quick Registration
+    async function triggerWebcamCapture() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.autoplay = true;
+        await new Promise(r => setTimeout(r, 600));
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 480;
+        canvas.height = video.videoHeight || 480;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        stream.getTracks().forEach(t => t.stop());
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        document.getElementById('fwRegPhotoData').value = dataUrl;
+        document.getElementById('fwPhotoPreviewContainer').innerHTML = `<img src="${dataUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+        showToast('Webcam snapshot captured for biometric enrollment.');
+      } catch (err) {
+        showToast('Webcam capture error: ' + err.message, true);
+      }
     }
 
     // Quick Edit from Field Worker Directory Row
@@ -2194,7 +2269,7 @@
       }
     }
 
-    // Left Sidebar Navigation Switcher
+    // Left Sidebar Navigation Switcher (With Tab State Persistence)
     function switchFieldTab(paneId, btnEl) {
       document.querySelectorAll('.fw-section-pane').forEach(p => p.classList.remove('active'));
       const target = document.getElementById(paneId);
@@ -2206,7 +2281,16 @@
         }
       }
       document.querySelectorAll('#fwSidebarNav .nav-item-btn').forEach(b => b.classList.remove('active'));
+      if (!btnEl) {
+        btnEl = document.querySelector(`#fwSidebarNav [data-pane="${paneId}"]`);
+      }
       if (btnEl) btnEl.classList.add('active');
+
+      // Persist active tab across reloads
+      sessionStorage.setItem('activeFieldTab', paneId);
+      try {
+        history.replaceState(null, '', '#' + paneId);
+      } catch (e) {}
 
       // Close mobile drawer if open
       if (window.innerWidth <= 992) {
@@ -2286,18 +2370,12 @@
       const txt = document.getElementById('fwAlertText');
       banner.className = `fw-toast-banner ${isError ? 'fw-toast-danger' : 'fw-toast-success'}`;
       txt.innerHTML = `<i class="fa-solid ${isError ? 'fa-circle-exclamation' : 'fa-circle-check'}" style="margin-right:6px;"></i>${msg}`;
+      banner.classList.remove('d-none');
     }
 
     function getActiveCompanyId() {
       const el = document.getElementById('globalCompanySelect');
       return el ? (el.value || 'ARGUS_MASTER') : 'ARGUS_MASTER';
-    }
-
-    function reloadFieldModule() {
-      const cid = getActiveCompanyId();
-      const dt = document.getElementById('globalDateInput').value;
-      const mo = document.getElementById('globalMonthInput').value;
-      window.location.href = `/field-worker?company_id=${encodeURIComponent(cid)}&date=${encodeURIComponent(dt)}&month=${encodeURIComponent(mo)}`;
     }
 
     function initFieldMaps() {
@@ -2415,6 +2493,335 @@
       }
     }
 
+    // =========================================================================
+    // DYNAMIC DATA REFRESH & REAL-TIME RE-RENDERING (ZERO FULL PAGE RELOADS)
+    // =========================================================================
+    async function refreshOverviewState() {
+      const cid = getActiveCompanyId();
+      const dt = document.getElementById('globalDateInput').value;
+      const mo = document.getElementById('globalMonthInput').value;
+
+      try {
+        const res = await fetch(`/api/field-worker/overview?company_id=${encodeURIComponent(cid)}&date=${encodeURIComponent(dt)}&month=${encodeURIComponent(mo)}`);
+        const data = await res.json();
+        if (!data.success) return;
+
+        ASSIGNMENTS_DATA = data.assignments || [];
+        TRACKING_DATA = data.tracking || {};
+        FIELD_WORKERS_DATA = data.field_workers || [];
+        VISITS_DATA = data.visits || [];
+        PAYROLL_DATA = data.salary_reports || [];
+
+        // 1. Update KPI counts (Tab 1)
+        const kw = document.getElementById('kpiWorkersCount');
+        if (kw) kw.textContent = FIELD_WORKERS_DATA.length;
+        const ka = document.getElementById('kpiAssignedCount');
+        if (ka) ka.textContent = ASSIGNMENTS_DATA.length;
+        const ko = document.getElementById('kpiOnSiteCount');
+        if (ko) ko.textContent = (TRACKING_DATA.counts && TRACKING_DATA.counts.on_site) || 0;
+        const kt = document.getElementById('kpiTransitCount');
+        if (kt) kt.textContent = (TRACKING_DATA.counts && TRACKING_DATA.counts.in_transit) || 0;
+        const kd = document.getElementById('kpiDetourCount');
+        if (kd) kd.textContent = (TRACKING_DATA.counts && TRACKING_DATA.counts.off_route_detour) || 0;
+        const kv = document.getElementById('kpiVisitsCount');
+        if (kv) kv.textContent = VISITS_DATA.length;
+
+        // 2. Re-render Tab 1 Map & Tracking Logs
+        renderLiveMapLayers();
+        renderTrackingLogsTable(TRACKING_DATA.logs || []);
+
+        // 3. Re-render Tab 2 Workers Directory & Dropdowns
+        renderWorkersDirectoryTable(FIELD_WORKERS_DATA);
+        updateWorkerSelectDropdowns(FIELD_WORKERS_DATA);
+
+        // 4. Re-render Tab 3 Assignments Table
+        renderAssignmentsTable(ASSIGNMENTS_DATA);
+
+        // 5. Re-render Tab 4 Today's Checkpoints Schedule
+        renderQuickCheckpointsTable(ASSIGNMENTS_DATA);
+
+        // 6. Re-render Tab 5 Visits Pipeline Table & Linked Assignment Dropdown
+        renderCustomerVisitsTable(VISITS_DATA);
+        updateLinkedAssignmentDropdown(ASSIGNMENTS_DATA);
+
+        // 7. Re-render Tab 6 Payroll Table
+        renderFieldPayrollTable(PAYROLL_DATA);
+
+        // Update Payroll Month Title & Export URLs
+        const pmt = document.getElementById('payrollMonthTitle');
+        if (pmt) pmt.textContent = mo;
+        const expPdf = document.getElementById('btnExportPayrollPdf');
+        if (expPdf) expPdf.href = `/api/field-worker/export?type=salary&format=pdf&company_id=${encodeURIComponent(cid)}&month=${encodeURIComponent(mo)}`;
+        const expXls = document.getElementById('btnExportPayrollExcel');
+        if (expXls) expXls.href = `/api/field-worker/export?type=salary&format=excel&company_id=${encodeURIComponent(cid)}&month=${encodeURIComponent(mo)}`;
+
+      } catch (err) {
+        console.warn("Auto-refresh error:", err);
+      }
+    }
+
+    function renderTrackingLogsTable(logs) {
+      const tbody = document.getElementById('trackingLogsTableBody');
+      if (!tbody) return;
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#64748b; padding:24px;">No GPS pings recorded yet for this date.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = logs.map(lg => {
+        let badge = `<span class="badge-transit"><i class="fa-solid fa-route"></i> ${lg.status_label}</span>`;
+        if (lg.tracking_status === 'on_site') {
+          badge = `<span class="badge-onsite"><i class="fa-solid fa-check"></i> ${lg.status_label}</span>`;
+        } else if (lg.tracking_status === 'off_route_detour') {
+          badge = `<span class="badge-detour"><i class="fa-solid fa-triangle-exclamation"></i> ${lg.status_label}</span>`;
+        }
+        return `<tr>
+          <td style="font-weight:700; white-space:nowrap;">${lg.time_short || lg.timestamp}</td>
+          <td><div class="fw-cell-title">${lg.employee_name}</div></td>
+          <td style="font-weight:600;">${lg.nearest_target_name || '-'}</td>
+          <td style="white-space:nowrap; font-weight:600;">${Number(lg.distance_from_target_m || 0).toFixed(1)} m</td>
+          <td style="white-space:nowrap; color:#2563eb; font-weight:700;">${Number(lg.step_km || 0).toFixed(3)} km</td>
+          <td>${badge}</td>
+          <td class="fw-address-cell">${lg.address || ''}</td>
+          <td style="color:#475569;">${lg.activity_note || '-'}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderWorkersDirectoryTable(workers) {
+      const tbody = document.getElementById('fieldWorkersDirTableBody');
+      const badgeCount = document.getElementById('dirWorkersCount');
+      if (badgeCount) badgeCount.textContent = workers.length;
+      if (!tbody) return;
+      if (!workers || workers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#64748b; padding:24px;">No field workers registered yet for this company.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = workers.map(w => {
+        const init = (w.employee_name || 'FW').substring(0, 2).toUpperCase();
+        const salBasis = (w.salary_type || 'daily').toUpperCase();
+        const baseRateFormatted = (w.salary_type === 'hourly') ? `₹${Number(w.hourly_salary || 0).toFixed(0)} / hr` : `₹${Number(w.day_salary || 0).toFixed(0)} / day`;
+        const stPill = (w.status === 'Inactive') ? '<span class="status-pill status-inactive">Inactive</span>' : '<span class="status-pill status-active">Active</span>';
+        return `<tr>
+          <td>
+            <div style="display:flex; align-items:center; gap:9px;">
+              <div class="avatar-circle" style="width:28px; height:28px; font-size:11px; background:#1e3a8a;">${init}</div>
+              <div>
+                <div class="fw-cell-title">${w.employee_name}</div>
+                <div class="fw-cell-sub">${w.designation || 'Field Executive'} &bull; ${w.department || 'Field Sales'}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div style="font-weight:600; color:#334155;">${w.mobile_number || '-'}</div>
+            <div class="fw-cell-sub">${w.email_id || '-'}</div>
+          </td>
+          <td><span class="badge-neutral"><i class="fa-solid fa-map-pin" style="color:#0d9488;"></i> ${w.territory_zone || 'General Zone'}</span></td>
+          <td>
+            <span class="badge-blue">${salBasis}</span>
+            <span class="fw-cell-sub" style="margin-left:4px;">Shift: ${w.shift_hours || '08:00'}h</span>
+          </td>
+          <td style="font-weight:700; color:#0f172a;">${baseRateFormatted}</td>
+          <td style="font-weight:700; color:#15803d;">₹${Number(w.per_visit_incentive || 0).toFixed(2)} / visit</td>
+          <td style="font-weight:700; color:#2563eb;">₹${Number(w.km_allowance_rate || 0).toFixed(2)} / km</td>
+          <td>${stPill}</td>
+          <td style="text-align:center;">
+            <button type="button" class="btn-action-icon btn-action-edit" title="Edit / Configure Worker" onclick="editFieldWorkerFromRow('${w.id}')">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function updateWorkerSelectDropdowns(workers) {
+      ['pingWorkerSelect', 'asgnWorkerName', 'quickPunchWorker', 'visitWorkerName'].forEach(selectId => {
+        const sel = document.getElementById(selectId);
+        if (!sel || (CURRENT_USER_ROLE === 'employee' && LOGGED_IN_EMPLOYEE_NAME)) return;
+        const curVal = sel.value;
+        sel.innerHTML = workers.map(w => {
+          const selected = (w.employee_name === curVal) ? 'selected' : '';
+          return `<option value="${w.employee_name}" ${selected}>${w.employee_name} (${w.territory_zone || 'Field'})</option>`;
+        }).join('');
+      });
+    }
+
+    function renderAssignmentsTable(assignments) {
+      const tbody = document.getElementById('assignedSitesTableBody');
+      const badge = document.getElementById('assignedCountBadge');
+      if (badge) badge.textContent = assignments.length;
+      if (!tbody) return;
+      if (!assignments || assignments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#64748b; padding:24px;">No target locations assigned for this date yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = assignments.map(a => {
+        let stBadge = '<span class="badge-neutral">Pending Visit</span>';
+        if (a.status === 'Completed') {
+          stBadge = '<span class="badge-onsite"><i class="fa-solid fa-check-double"></i> Completed</span>';
+        } else if (a.status === 'In Progress') {
+          stBadge = '<span class="badge-transit"><i class="fa-solid fa-location-dot"></i> On-Site / Active</span>';
+        }
+        return `<tr>
+          <td style="font-weight:700; white-space:nowrap;">${a.assigned_date}</td>
+          <td><div class="fw-cell-title">${a.employee_name}</div></td>
+          <td>
+            <div class="fw-cell-title">${a.target_name}</div>
+            <div class="fw-cell-sub">${a.target_address || 'Pinned Coordinates'}</div>
+          </td>
+          <td>
+            <div style="font-weight:600;">${a.contact_person || '-'}</div>
+            <div class="fw-cell-sub">${a.contact_phone || ''}</div>
+          </td>
+          <td><span class="badge-blue">${a.task_purpose}</span></td>
+          <td style="font-weight:700; color:#0f766e;">${a.geofence_radius}m radius</td>
+          <td>${stBadge}</td>
+          <td style="text-align:center;">
+            <div class="table-actions">
+              <button type="button" class="btn-action-icon btn-action-view" title="Mark Completed" onclick="updateAssignmentStatus('${a.id}', 'Completed')">
+                <i class="fa-solid fa-check"></i>
+              </button>
+              <button type="button" class="btn-action-icon btn-action-delete" title="Delete Assignment" onclick="deleteAssignment('${a.id}')">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderQuickCheckpointsTable(assignments) {
+      const tbody = document.getElementById('quickCheckpointsTableBody');
+      const countEl = document.getElementById('quickScheduleCount');
+      if (countEl) countEl.textContent = assignments.length;
+      if (!tbody) return;
+      if (!assignments || assignments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b; padding:16px;">No target sites scheduled for today.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = assignments.map(a => {
+        let badge = '<span class="badge-neutral">Pending</span>';
+        if (a.status === 'Completed') badge = '<span class="badge-onsite">Completed</span>';
+        else if (a.status === 'In Progress') badge = '<span class="badge-transit">Active</span>';
+        return `<tr>
+          <td style="font-weight:700;">${a.employee_name}</td>
+          <td>${a.target_name}</td>
+          <td><span class="badge-neutral">${a.task_purpose}</span></td>
+          <td>${badge}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderCustomerVisitsTable(visits) {
+      const tbody = document.getElementById('customerVisitsTableBody');
+      const countEl = document.getElementById('visitsCountBadge');
+      if (countEl) countEl.textContent = visits.length;
+      if (!tbody) return;
+      if (!visits || visits.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#64748b; padding:24px;">No customer visits logged yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = visits.map(v => {
+        const verPill = v.is_location_verified ?
+          `<span class="badge-onsite"><i class="fa-solid fa-circle-check"></i> ${v.verification_badge || 'On-Site Verified'}</span>` :
+          `<span class="badge-detour"><i class="fa-solid fa-circle-exclamation"></i> ${v.verification_badge || 'Unverified'}</span>`;
+        const actionCol = (CURRENT_USER_ROLE === 'super_admin' || CURRENT_USER_ROLE === 'company_admin') ?
+          `<td style="text-align:center;">
+            <button type="button" class="btn-action-icon btn-action-delete" title="Delete Visit" onclick="deleteCustomerVisit('${v.id}')">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </td>` : '';
+        return `<tr>
+          <td style="font-weight:700; white-space:nowrap;">${v.timestamp}</td>
+          <td><div class="fw-cell-title">${v.employee_name}</div></td>
+          <td>
+            <div class="fw-cell-title">${v.customer_name}</div>
+            <div class="fw-cell-sub">${v.contact_person || '-'} &bull; ${v.customer_phone || '-'}</div>
+          </td>
+          <td class="fw-address-cell">${v.address}</td>
+          <td style="font-weight:600;">${v.product_pitched}</td>
+          <td><span class="badge-blue">${v.lead_status}</span></td>
+          <td style="font-weight:800; color:#15803d; white-space:nowrap;">₹${Number(v.order_amount || 0).toFixed(2)}</td>
+          <td>${verPill}</td>
+          ${actionCol}
+        </tr>`;
+      }).join('');
+    }
+
+    function updateLinkedAssignmentDropdown(assignments) {
+      const sel = document.getElementById('visitAssignmentId');
+      if (!sel) return;
+      const curVal = sel.value;
+      sel.innerHTML = '<option value="">-- Direct / Self-Sourced Visit --</option>' +
+        assignments.map(a => {
+          const selAttr = (a.id === curVal) ? 'selected' : '';
+          return `<option value="${a.id}"
+            data-target="${a.target_name}"
+            data-person="${a.contact_person || ''}"
+            data-phone="${a.contact_phone || ''}"
+            data-lat="${a.target_lat}"
+            data-lng="${a.target_lng}" ${selAttr}>
+            Assigned: ${a.target_name} (${a.employee_name})
+          </option>`;
+        }).join('');
+    }
+
+    function renderFieldPayrollTable(reports) {
+      const tbody = document.getElementById('fieldPayrollTableBody');
+      if (!tbody) return;
+      if (!reports || reports.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#64748b; padding:24px;">No field workers found for this company.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = reports.map(r => {
+        const detourInfo = (r.detour_alerts > 0) ?
+          `<div class="fw-cell-sub" style="color:#dc2626; font-weight:700;">${r.detour_alerts} Detour Alerts</div>` :
+          `<div class="fw-cell-sub" style="color:#16a34a;">0 Detours</div>`;
+        return `<tr>
+          <td>
+            <div class="fw-cell-title">${r.employee_name}</div>
+            <div class="fw-cell-sub">${r.designation}</div>
+          </td>
+          <td>
+            <span class="badge-neutral">${r.territory_zone}</span>
+            <div class="fw-cell-sub">${(r.salary_type || '').toUpperCase()} (${r.shift_hours}h)</div>
+          </td>
+          <td>
+            <div class="fw-cell-title">${r.working_days} Days</div>
+            <div class="fw-cell-sub">${r.total_hours} hrs worked</div>
+          </td>
+          <td style="font-weight:700;">${r.completed_assignments} / ${r.total_assigned_locations}</td>
+          <td>
+            <div style="font-weight:700; color:#15803d;">${r.verified_visits} Verified</div>
+            <div class="fw-cell-sub">Orders: ₹${Number(r.orders_value || 0).toFixed(0)}</div>
+          </td>
+          <td>
+            <div style="font-weight:700; color:#2563eb;">${Number(r.total_km_traveled || 0).toFixed(2)} KM</div>
+            ${detourInfo}
+          </td>
+          <td style="font-weight:700; color:#0f172a; white-space:nowrap;">₹${Number(r.base_attendance_pay || 0).toFixed(2)}</td>
+          <td style="background-color:#f0fdf4; white-space:nowrap;">
+            <div style="font-weight:700; color:#15803d;">+ ₹${Number(r.visit_incentive_pay || 0).toFixed(2)}</div>
+            <div class="fw-cell-sub">@ ₹${Number(r.per_visit_incentive_rate || 0).toFixed(0)}/visit</div>
+          </td>
+          <td style="background-color:#eff6ff; white-space:nowrap;">
+            <div style="font-weight:700; color:#1d4ed8;">+ ₹${Number(r.travel_allowance_pay || 0).toFixed(2)}</div>
+            <div class="fw-cell-sub">@ ₹${Number(r.km_allowance_rate || 0).toFixed(0)}/km</div>
+          </td>
+          <td style="background-color:#f8fafc; white-space:nowrap;">
+            <span style="font-size:13px; font-weight:800; color:#0f172a;">₹${Number(r.net_field_payable || 0).toFixed(2)}</span>
+          </td>
+          <td style="text-align:center;">
+            <a href="/api/field-worker/payslip-pdf?company_id=${encodeURIComponent(getActiveCompanyId())}&month=${encodeURIComponent(document.getElementById('globalMonthInput').value)}&employee_name=${encodeURIComponent(r.employee_name)}" class="fw-btn fw-btn-dark fw-btn-sm">
+              <i class="fa-solid fa-file-pdf" style="color:#f87171;"></i> Payslip
+            </a>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    // =========================================================================
+    // DYNAMIC FORM SUBMISSIONS (AJAX POST / PUT / DELETE)
+    // =========================================================================
     async function sendLocationPingPayload(payload) {
       payload.company_id = getActiveCompanyId();
       payload.date = document.getElementById('globalDateInput').value;
@@ -2530,58 +2937,14 @@
       }
     }
 
-    async function refreshOverviewState() {
-      const cid = getActiveCompanyId();
-      const dt = document.getElementById('globalDateInput').value;
-      const mo = document.getElementById('globalMonthInput').value;
-      const res = await fetch(`/api/field-worker/overview?company_id=${encodeURIComponent(cid)}&date=${encodeURIComponent(dt)}&month=${encodeURIComponent(mo)}`);
-      const data = await res.json();
-      if (!data.success) return;
-
-      ASSIGNMENTS_DATA = data.assignments || [];
-      TRACKING_DATA = data.tracking || {};
-
-      document.getElementById('kpiWorkersCount').textContent = (data.field_workers || []).length;
-      document.getElementById('kpiAssignedCount').textContent = ASSIGNMENTS_DATA.length;
-      document.getElementById('kpiOnSiteCount').textContent = (TRACKING_DATA.counts && TRACKING_DATA.counts.on_site) || 0;
-      document.getElementById('kpiTransitCount').textContent = (TRACKING_DATA.counts && TRACKING_DATA.counts.in_transit) || 0;
-      document.getElementById('kpiDetourCount').textContent = (TRACKING_DATA.counts && TRACKING_DATA.counts.off_route_detour) || 0;
-      document.getElementById('kpiVisitsCount').textContent = (data.visits || []).length;
-
-      renderLiveMapLayers();
-
-      const logs = (TRACKING_DATA && TRACKING_DATA.logs) || [];
-      const tbody = document.getElementById('trackingLogsTableBody');
-      if (logs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#64748b; padding:24px;">No GPS pings recorded yet for this date.</td></tr>';
-      } else {
-        tbody.innerHTML = logs.map(lg => {
-          let badge = `<span class="badge-transit"><i class="fa-solid fa-route"></i> ${lg.status_label}</span>`;
-          if (lg.tracking_status === 'on_site') {
-            badge = `<span class="badge-onsite"><i class="fa-solid fa-check"></i> ${lg.status_label}</span>`;
-          } else if (lg.tracking_status === 'off_route_detour') {
-            badge = `<span class="badge-detour"><i class="fa-solid fa-triangle-exclamation"></i> ${lg.status_label}</span>`;
-          }
-          return `<tr>
-            <td style="font-weight:700; white-space:nowrap;">${lg.time_short || lg.timestamp}</td>
-            <td><div class="fw-cell-title">${lg.employee_name}</div></td>
-            <td style="font-weight:600;">${lg.nearest_target_name || '-'}</td>
-            <td style="white-space:nowrap; font-weight:600;">${Number(lg.distance_from_target_m || 0).toFixed(1)} m</td>
-            <td style="white-space:nowrap; color:#2563eb; font-weight:700;">${Number(lg.step_km || 0).toFixed(3)} km</td>
-            <td>${badge}</td>
-            <td class="fw-address-cell">${lg.address || ''}</td>
-            <td style="color:#475569;">${lg.activity_note || '-'}</td>
-          </tr>`;
-        }).join('');
-      }
-    }
-
     function populateExistingEmployeeForField(sel) {
       const opt = sel.options[sel.selectedIndex];
       if (!opt.value) {
         document.getElementById('fwRegName').value = '';
         document.getElementById('fwRegEmail').value = '';
         document.getElementById('fwRegMobile').value = '';
+        document.getElementById('fwRegPhotoData').value = '';
+        document.getElementById('fwPhotoPreviewContainer').innerHTML = '<i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>';
         return;
       }
       document.getElementById('fwRegName').value = opt.dataset.name || '';
@@ -2599,6 +2962,7 @@
       document.getElementById('fwRegStatus').value = opt.dataset.status || 'Active';
     }
 
+    // Dynamic Worker Registration (AJAX, Zero Reload)
     async function submitFieldWorkerRegistration(e) {
       e.preventDefault();
       const salType = document.getElementById('fwRegSalaryType').value;
@@ -2620,23 +2984,31 @@
         half_day_salary: salType === 'half_day' ? baseRate : Math.round(baseRate / 2),
         per_visit_incentive: parseFloat(document.getElementById('fwRegVisitIncentive').value) || 0,
         km_allowance_rate: parseFloat(document.getElementById('fwRegKmRate').value) || 0,
+        photo_data: document.getElementById('fwRegPhotoData').value,
         is_field_worker: true
       };
 
-      const res = await fetch('/api/field-worker/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!data.success) {
-        showToast(data.error || 'Registration failed', true);
-        return;
+      try {
+        const res = await fetch('/api/field-worker/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success) {
+          showToast(data.error || 'Registration failed', true);
+          return;
+        }
+        showToast(data.message);
+        document.getElementById('fwRegPhotoData').value = '';
+        document.getElementById('fwPhotoPreviewContainer').innerHTML = '<i class="fa-solid fa-user-check" style="color:#16a34a; font-size:18px;"></i>';
+        await refreshOverviewState();
+      } catch (err) {
+        showToast('Network error during registration: ' + err.message, true);
       }
-      showToast(data.message);
-      setTimeout(reloadFieldModule, 700);
     }
 
+    // Dynamic Location Assignment (AJAX, Zero Reload)
     async function submitLocationAssignment(e) {
       e.preventDefault();
       const payload = {
@@ -2652,36 +3024,60 @@
         geofence_radius: parseFloat(document.getElementById('asgnRadius').value) || 150,
         target_address: document.getElementById('asgnAddress').value
       };
-      const res = await fetch('/api/field-worker/assignments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!data.success) {
-        showToast(data.error || 'Could not create assignment', true);
-        return;
+
+      try {
+        const res = await fetch('/api/field-worker/assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success) {
+          showToast(data.error || 'Could not create assignment', true);
+          return;
+        }
+        showToast(data.message);
+        document.getElementById('asgnTargetName').value = '';
+        document.getElementById('asgnContactPerson').value = '';
+        document.getElementById('asgnContactPhone').value = '';
+        document.getElementById('asgnAddress').value = '';
+        await refreshOverviewState();
+      } catch (err) {
+        showToast('Network error creating assignment: ' + err.message, true);
       }
-      showToast(data.message);
-      setTimeout(reloadFieldModule, 600);
     }
 
     async function updateAssignmentStatus(id, status) {
-      const res = await fetch(`/api/field-worker/assignments/${encodeURIComponent(id)}?company_id=${encodeURIComponent(getActiveCompanyId())}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-      const data = await res.json();
-      if (data.success) reloadFieldModule();
+      try {
+        const res = await fetch(`/api/field-worker/assignments/${encodeURIComponent(id)}?company_id=${encodeURIComponent(getActiveCompanyId())}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Assignment status updated to ' + status);
+          await refreshOverviewState();
+        }
+      } catch (err) {
+        showToast('Update error: ' + err.message, true);
+      }
     }
 
     async function deleteAssignment(id) {
-      const res = await fetch(`/api/field-worker/assignments/${encodeURIComponent(id)}?company_id=${encodeURIComponent(getActiveCompanyId())}`, {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      if (data.success) reloadFieldModule();
+      if (!confirm('Are you sure you want to delete this target location assignment?')) return;
+      try {
+        const res = await fetch(`/api/field-worker/assignments/${encodeURIComponent(id)}?company_id=${encodeURIComponent(getActiveCompanyId())}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Assignment removed successfully.');
+          await refreshOverviewState();
+        }
+      } catch (err) {
+        showToast('Delete error: ' + err.message, true);
+      }
     }
 
     async function startFieldPunchCamera() {
@@ -2720,23 +3116,27 @@
       const lat = parseFloat(document.getElementById('pingLat').value) || INITIAL_COMPANY_LAT;
       const lng = parseFloat(document.getElementById('pingLng').value) || INITIAL_COMPANY_LNG;
 
-      const res = await fetch('/api/recognize_face', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl, latitude: lat, longitude: lng })
-      });
-      const out = await res.json();
-      const box = document.getElementById('fwPunchResultBox');
-      if (out.success || out.matched) {
-        box.innerHTML = `<div class="fw-toast-banner fw-toast-success" style="margin-bottom:0;"><span><b>${out.employee_name || 'Field Worker'}</b>: ${out.message || 'Field Attendance Recorded!'}</span></div>`;
-        await sendLocationPingPayload({
-          employee_name: out.employee_name,
-          latitude: lat,
-          longitude: lng,
-          activity_note: `AI Face Attendance Punch (${out.punch_type || 'Verified'})`
+      try {
+        const res = await fetch('/api/recognize_face', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl, latitude: lat, longitude: lng })
         });
-      } else {
-        box.innerHTML = `<div class="fw-toast-banner fw-toast-danger" style="margin-bottom:0;"><span>${out.message || out.error || 'Face not matched'}</span></div>`;
+        const out = await res.json();
+        const box = document.getElementById('fwPunchResultBox');
+        if (out.success || out.matched) {
+          box.innerHTML = `<div class="fw-toast-banner fw-toast-success" style="margin-bottom:0;"><span><b>${out.employee_name || 'Field Worker'}</b>: ${out.message || 'Field Attendance Recorded!'}</span></div>`;
+          await sendLocationPingPayload({
+            employee_name: out.employee_name,
+            latitude: lat,
+            longitude: lng,
+            activity_note: `AI Face Attendance Punch (${out.punch_type || 'Verified'})`
+          });
+        } else {
+          box.innerHTML = `<div class="fw-toast-banner fw-toast-danger" style="margin-bottom:0;"><span>${out.message || out.error || 'Face not matched'}</span></div>`;
+        }
+      } catch (err) {
+        showToast('Face punch network error: ' + err.message, true);
       }
     }
 
@@ -2758,6 +3158,7 @@
       if (opt.dataset.lng) document.getElementById('visitLng').value = opt.dataset.lng;
     }
 
+    // Dynamic Customer Visit Submission (AJAX, Zero Reload)
     async function submitCustomerVisit(e) {
       e.preventDefault();
       const payload = {
@@ -2777,31 +3178,58 @@
         remarks: document.getElementById('visitRemarks').value
       };
 
-      const res = await fetch('/api/field-worker/visits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!data.success) {
-        showToast(data.error || 'Could not log customer visit', true);
-        return;
+      try {
+        const res = await fetch('/api/field-worker/visits', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success) {
+          showToast(data.error || 'Could not log customer visit', true);
+          return;
+        }
+        showToast(data.message);
+        document.getElementById('visitCustomerName').value = '';
+        document.getElementById('visitContactPerson').value = '';
+        document.getElementById('visitCustomerPhone').value = '';
+        document.getElementById('visitOrderAmount').value = '0';
+        document.getElementById('visitRemarks').value = '';
+        await refreshOverviewState();
+      } catch (err) {
+        showToast('Visit submission network error: ' + err.message, true);
       }
-      showToast(data.message);
-      setTimeout(reloadFieldModule, 600);
     }
 
     async function deleteCustomerVisit(id) {
-      const res = await fetch(`/api/field-worker/visits/${encodeURIComponent(id)}?company_id=${encodeURIComponent(getActiveCompanyId())}`, {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      if (data.success) reloadFieldModule();
+      if (!confirm('Are you sure you want to delete this customer visit?')) return;
+      try {
+        const res = await fetch(`/api/field-worker/visits/${encodeURIComponent(id)}?company_id=${encodeURIComponent(getActiveCompanyId())}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Customer visit deleted.');
+          await refreshOverviewState();
+        }
+      } catch (err) {
+        showToast('Delete error: ' + err.message, true);
+      }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
       initCollapsibleSidebar();
       initFieldMaps();
+
+      // Restore active tab from hash or sessionStorage
+      const hashTab = (window.location.hash || '').replace('#', '');
+      const savedTab = hashTab || sessionStorage.getItem('activeFieldTab') || 'paneLiveTracking';
+      if (savedTab && document.getElementById(savedTab)) {
+        switchFieldTab(savedTab);
+      }
+
+      // Background periodic polling every 20s
+      autoRefreshTimer = setInterval(refreshOverviewState, 20000);
     });
   </script>
 </body>

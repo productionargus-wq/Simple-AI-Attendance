@@ -1859,7 +1859,10 @@
                       <span class="punch-time-tag">${punchTime}</span>
                     </div>
                     <div class="punch-body">
-                      <div class="punch-emp-name">${escapeHtml(empName)}</div>
+                      <div class="punch-emp-name">
+                        ${escapeHtml(empName)}
+                        ${data.is_field_worker ? '<span style="background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; margin-left: 6px; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;">FIELD WORKER</span>' : ''}
+                      </div>
                       <div class="punch-grid">
                         <div class="punch-grid-item">
                           <span class="punch-grid-label">ID:</span>
