@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ active_company.company_name or 'ARGUS TECHNOLOGIES' }} - Field Worker Module</title>
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://unpkg.com">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261013_fw_dyn">
@@ -1038,7 +1042,7 @@
 
             <div class="fw-filter-pill">
               <label for="globalMonthInput">Payroll Month</label>
-              <input type="month" id="globalMonthInput" value="{{ month_year }}" onchange="refreshOverviewState()">
+              <input type="month" id="globalMonthInput" value="{{ month_year }}" onchange="handleMonthFilterChange()">
             </div>
           </div>
         </div>
@@ -2152,7 +2156,12 @@
                   {% endfor %}
                   {% else %}
                   <tr>
-                    <td colspan="11" style="text-align:center; color:#64748b; padding:24px;">No field workers found for this company.</td>
+                    <td colspan="11" style="text-align:center; color:#64748b; padding:28px;">
+                      <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                        <i class="fa-solid fa-calculator" style="color:#2563eb;"></i>
+                        <span>Click 'Generate / Refresh' or switch month to view monthly field payroll reports.</span>
+                      </div>
+                    </td>
                   </tr>
                   {% endif %}
                 </tbody>
@@ -2300,6 +2309,10 @@
           document.body.classList.add('sidebar-collapsed');
           document.body.classList.remove('drawer-open');
         }
+      }
+
+      if (paneId === 'paneFieldPayroll' && (!PAYROLL_DATA || PAYROLL_DATA.length === 0)) {
+        loadFieldPayrollDataAsync();
       }
 
       setTimeout(() => {
@@ -2500,9 +2513,11 @@
       const cid = getActiveCompanyId();
       const dt = document.getElementById('globalDateInput').value;
       const mo = document.getElementById('globalMonthInput').value;
+      const activePane = sessionStorage.getItem('activeFieldTab') || 'paneLiveTracking';
+      const incSalary = (activePane === 'paneFieldPayroll') ? '&include_salary=1' : '';
 
       try {
-        const res = await fetch(`/api/field-worker/overview?company_id=${encodeURIComponent(cid)}&date=${encodeURIComponent(dt)}&month=${encodeURIComponent(mo)}`);
+        const res = await fetch(`/api/field-worker/overview?company_id=${encodeURIComponent(cid)}&date=${encodeURIComponent(dt)}&month=${encodeURIComponent(mo)}${incSalary}`);
         const data = await res.json();
         if (!data.success) return;
 
@@ -2510,7 +2525,9 @@
         TRACKING_DATA = data.tracking || {};
         FIELD_WORKERS_DATA = data.field_workers || [];
         VISITS_DATA = data.visits || [];
-        PAYROLL_DATA = data.salary_reports || [];
+        if (data.salary_reports && data.salary_reports.length > 0) {
+          PAYROLL_DATA = data.salary_reports;
+        }
 
         // 1. Update KPI counts (Tab 1)
         const kw = document.getElementById('kpiWorkersCount');
@@ -2763,6 +2780,42 @@
             Assigned: ${a.target_name} (${a.employee_name})
           </option>`;
         }).join('');
+    }
+
+    async function loadFieldPayrollDataAsync() {
+      const tbody = document.getElementById('fieldPayrollTableBody');
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:32px; color:#64748b;">
+          <div style="display:flex; align-items:center; justify-content:center; gap:10px;">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size:16px; color:#2563eb;"></i>
+            <span style="font-weight:600; font-size:12px; color:#334155;">Calculating monthly field payroll & travel allowances...</span>
+          </div>
+        </td></tr>`;
+      }
+      const cid = getActiveCompanyId();
+      const mo = document.getElementById('globalMonthInput').value;
+      try {
+        const res = await fetch(`/api/field-worker/salary-report?company_id=${encodeURIComponent(cid)}&month=${encodeURIComponent(mo)}`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.salary_reports)) {
+          PAYROLL_DATA = data.salary_reports;
+          renderFieldPayrollTable(PAYROLL_DATA);
+        } else {
+          renderFieldPayrollTable([]);
+        }
+      } catch (e) {
+        console.error('Failed to load payroll report:', e);
+        renderFieldPayrollTable([]);
+      }
+    }
+
+    function handleMonthFilterChange() {
+      PAYROLL_DATA = [];
+      const activePane = sessionStorage.getItem('activeFieldTab') || 'paneLiveTracking';
+      if (activePane === 'paneFieldPayroll') {
+        loadFieldPayrollDataAsync();
+      }
+      refreshOverviewState();
     }
 
     function renderFieldPayrollTable(reports) {

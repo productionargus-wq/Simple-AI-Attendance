@@ -4876,7 +4876,7 @@ def field_worker_module_page():
     user_role = session.get('role', 'company_admin')
     logged_in_emp_name = session.get('employee_name', '') if user_role == 'employee' else ''
 
-    companies = database.get_all_companies() or [] if user_role == 'super_admin' else []
+    companies = (database.get_all_companies(limit=100) or []) if user_role == 'super_admin' else []
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
     active_comp = database.get_company_by_id(active_cid) or {
         'id': 'ARGUS_MASTER',
@@ -4888,15 +4888,23 @@ def field_worker_module_page():
 
     emp_scope = logged_in_emp_name if user_role == 'employee' else None
 
-    field_workers = database.get_field_workers(company_id=active_cid, include_all_employees=False)
-    if emp_scope:
-        field_workers = [w for w in field_workers if w.get('employee_name') == emp_scope]
+    # Single DB query for employees with instant in-memory derivation
+    if user_role in ['super_admin', 'company_admin']:
+        all_employees = database.get_field_workers(company_id=active_cid, include_all_employees=True)
+        field_workers = [w for w in all_employees if w.get('is_field_worker')]
+        if not field_workers:
+            field_workers = all_employees
+    else:
+        field_workers = database.get_field_workers(company_id=active_cid, include_all_employees=False)
+        if emp_scope:
+            field_workers = [w for w in field_workers if w.get('employee_name') == emp_scope]
+        all_employees = field_workers
 
-    all_employees = database.get_field_workers(company_id=active_cid, include_all_employees=True) if user_role in ['super_admin', 'company_admin'] else field_workers
     assignments = database.get_field_assignments(company_id=active_cid, employee_name=emp_scope, date_str=today_str)
     tracking = database.get_field_live_tracking(company_id=active_cid, date_str=today_str, employee_name=emp_scope)
     visits = database.get_field_customer_visits(company_id=active_cid, employee_name=emp_scope)
-    salary_reports = database.get_field_worker_salary_report(company_id=active_cid, month_year=month_year, employee_name=emp_scope)
+    # Defer Tab 6 payroll calculation on initial page load: user lands on Tab 1
+    salary_reports = []
 
     return render_template(
         'field_worker_module.html',
@@ -4928,16 +4936,25 @@ def api_field_worker_overview():
     month_year = request.args.get('month') or now_ist.strftime('%Y-%m')
     user_role = session.get('role')
     emp_filter = session.get('employee_name') if user_role == 'employee' else (request.args.get('employee_name') or None)
+    include_salary = request.args.get('include_salary') in ['1', 'true', 'True'] or request.args.get('tab') == 'paneFieldPayroll'
 
     comp = database.get_company_by_id(cid) or {'id': cid, 'company_name': 'ARGUS TECHNOLOGIES', 'latitude': 11.0298, 'longitude': 76.9740}
-    workers = database.get_field_workers(company_id=cid, include_all_employees=False)
-    if user_role == 'employee' and emp_filter:
-        workers = [w for w in workers if w.get('employee_name') == emp_filter]
-    all_emps = database.get_field_workers(company_id=cid, include_all_employees=True) if user_role in ['super_admin', 'company_admin'] else workers
+    
+    if user_role in ['super_admin', 'company_admin']:
+        all_emps = database.get_field_workers(company_id=cid, include_all_employees=True)
+        workers = [w for w in all_emps if w.get('is_field_worker')]
+        if not workers:
+            workers = all_emps
+    else:
+        workers = database.get_field_workers(company_id=cid, include_all_employees=False)
+        if emp_filter:
+            workers = [w for w in workers if w.get('employee_name') == emp_filter]
+        all_emps = workers
+
     assignments = database.get_field_assignments(company_id=cid, employee_name=emp_filter, date_str=date_str)
     tracking = database.get_field_live_tracking(company_id=cid, date_str=date_str, employee_name=emp_filter)
     visits = database.get_field_customer_visits(company_id=cid, employee_name=emp_filter)
-    salary_reports = database.get_field_worker_salary_report(company_id=cid, month_year=month_year, employee_name=emp_filter)
+    salary_reports = database.get_field_worker_salary_report(company_id=cid, month_year=month_year, employee_name=emp_filter) if include_salary else []
 
     return jsonify({
         'success': True,
@@ -5137,7 +5154,7 @@ def api_field_worker_salary_report():
     month_year = request.args.get('month') or database.get_ist_now().strftime('%Y-%m')
     emp_name = session.get('employee_name') if session.get('role') == 'employee' else (request.args.get('employee_name') or None)
     reports = database.get_field_worker_salary_report(company_id=cid, month_year=month_year, employee_name=emp_name)
-    return jsonify({'success': True, 'month_year': month_year, 'reports': reports})
+    return jsonify({'success': True, 'month_year': month_year, 'reports': reports, 'salary_reports': reports})
 
 
 @app.route('/api/field-worker/payslip-pdf', methods=['GET'])

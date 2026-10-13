@@ -6570,7 +6570,7 @@ def get_field_workers(company_id=None, include_all_employees=False):
     if company_id and company_id != 'ALL':
         q['company_id'] = str(company_id)
 
-    all_emps = [clean_doc(e) for e in db.employees.find(q).sort('employee_name', ASCENDING)]
+    all_emps = [clean_doc(e) for e in db.employees.find(q, {'photo_data': 0, 'face_embedding': 0, 'documents': 0}).sort('employee_name', ASCENDING)]
     field_workers = []
     for emp in all_emps:
         is_fw = bool(emp.get('is_field_worker', False))
