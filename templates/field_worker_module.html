@@ -874,6 +874,93 @@
         grid-column: span 1;
       }
     }
+
+    /* ================= Modal Dialog System ================= */
+    .fw-modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 1050;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .fw-modal-dialog {
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      width: 100%;
+      max-width: 940px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      animation: fwModalSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fwModalSlideIn {
+      from { opacity: 0; transform: translateY(-16px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .fw-modal-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: #f8fafc;
+      flex-shrink: 0;
+    }
+
+    .fw-modal-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .fw-modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      max-height: calc(90vh - 120px);
+    }
+
+    .fw-modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      background-color: #f8fafc;
+      flex-shrink: 0;
+    }
+
+    .fw-modal-close-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      line-height: 1;
+      color: #64748b;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .fw-modal-close-btn:hover {
+      background-color: #e2e8f0;
+      color: #0f172a;
+    }
   </style>
 </head>
 <body>
@@ -1025,7 +1112,7 @@
               <select id="globalCompanySelect" onchange="refreshOverviewState()">
                 <option value="ARGUS_MASTER" {% if active_company_id == 'ARGUS_MASTER' %}selected{% endif %}>ARGUS TECHNOLOGIES (HQ)</option>
                 {% for c in companies %}
-                {% if c.id != 'ARGUS_MASTER' %}
+                {% if c and c.id and c.id != 'ARGUS_MASTER' and c.company_name %}
                 <option value="{{ c.id }}" {% if active_company_id == c.id %}selected{% endif %}>{{ c.company_name }}</option>
                 {% endif %}
                 {% endfor %}
@@ -1167,9 +1254,13 @@
                 <div class="fw-field">
                   <label class="fw-label">Active Field Worker</label>
                   <select id="pingWorkerSelect" class="fw-select" {% if user_role == 'employee' %}disabled{% endif %}>
+                    {% if field_workers %}
                     {% for w in field_workers %}
                     <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
                     {% endfor %}
+                    {% else %}
+                    <option value="">-- No Field Workers Registered --</option>
+                    {% endif %}
                   </select>
                 </div>
 
@@ -1293,172 +1384,23 @@
         <!-- ========================================================================= -->
         {% if user_role in ['super_admin', 'company_admin'] %}
         <div id="paneRegisterWorkers" class="fw-section-pane" data-title="REGISTER FIELD WORKERS">
-          <!-- Top Full-Width Card: Structured 4-Column Registration & Incentive Configuration -->
-          <div class="fw-card" id="fwRegistrationCard">
-            <div class="fw-card-header">
-              <div class="fw-card-header-left">
-                <span class="fw-card-icon" style="background:#ccfbf1; color:#0f766e;">
-                  <i class="fa-solid fa-id-card-clip"></i>
-                </span>
-                <div>
-                  <div class="fw-card-title">Register Field Worker &amp; Configure Field Incentives</div>
-                  <div class="fw-card-subtitle">Onboard a new field executive with face biometrics or configure rates for existing employees in {{ active_company.company_name }}</div>
-                </div>
-              </div>
-              <span class="badge-blue"><i class="fa-solid fa-building-shield"></i> Tenant: {{ active_company.company_name }}</span>
-            </div>
-
-            <div class="fw-card-body">
-              <form id="registerFieldWorkerForm" onsubmit="submitFieldWorkerRegistration(event)">
-                <!-- Row 1: Mode, Name, Email, Mobile -->
-                <div class="fw-form-grid-4" style="margin-bottom:12px;">
-                  <div class="fw-field">
-                    <label class="fw-label">Registration Mode</label>
-                    <select id="fwExistingEmpSelect" class="fw-select" onchange="populateExistingEmployeeForField(this)">
-                      <option value="">+ Register Brand New Field Worker</option>
-                      {% for emp in all_employees %}
-                      <option value="{{ emp.id }}"
-                        data-name="{{ emp.employee_name }}"
-                        data-email="{{ emp.email_id }}"
-                        data-mobile="{{ emp.mobile_number }}"
-                        data-dept="{{ emp.department }}"
-                        data-desig="{{ emp.designation }}"
-                        data-zone="{{ emp.territory_zone }}"
-                        data-saltype="{{ emp.salary_type }}"
-                        data-shifthrs="{{ emp.shift_hours }}"
-                        data-daysal="{{ emp.day_salary }}"
-                        data-hrsal="{{ emp.hourly_salary }}"
-                        data-visitinc="{{ emp.per_visit_incentive }}"
-                        data-kmrate="{{ emp.km_allowance_rate }}"
-                        data-status="{{ emp.status or 'Active' }}">
-                        Edit: {{ emp.employee_name }} ({{ emp.department }})
-                      </option>
-                      {% endfor %}
-                    </select>
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Field Worker Full Name *</label>
-                    <input type="text" id="fwRegName" class="fw-input" required placeholder="e.g., Karthik Sundaram">
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Email ID *</label>
-                    <input type="email" id="fwRegEmail" class="fw-input" required placeholder="worker@company.com">
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Mobile Number *</label>
-                    <input type="text" id="fwRegMobile" class="fw-input" required placeholder="9876543210">
-                  </div>
-                </div>
-
-                <!-- Row 2: Department, Designation, Territory, Status + Face Photo Biometrics -->
-                <div class="fw-form-grid-4" style="margin-bottom:12px;">
-                  <div class="fw-field">
-                    <label class="fw-label">Department</label>
-                    <input type="text" id="fwRegDept" class="fw-input" value="Field Sales">
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Designation</label>
-                    <input type="text" id="fwRegDesig" class="fw-input" value="Sales Executive">
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Territory / Zone</label>
-                    <input type="text" id="fwRegZone" class="fw-input" value="Coimbatore North">
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Status (Quota Control)</label>
-                    <select id="fwRegStatus" class="fw-select">
-                      <option value="Active">Active (Counts in Quota)</option>
-                      <option value="Inactive">Inactive (Preserved Only)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <!-- Biometric Photo Row for Route / & Field Punch Face Recognition -->
-                <div class="fw-form-grid-2" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:12px; align-items:center;">
-                  <div class="fw-field">
-                    <label class="fw-label"><i class="fa-solid fa-camera" style="color:#0284c7; margin-right:4px;"></i> Face Biometrics Photo (For Main '/' Camera Punch)</label>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                      <input type="file" id="fwRegPhotoFile" class="fw-input" accept="image/*" onchange="handlePhotoUpload(this)" style="padding-top:4px;">
-                      <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="triggerWebcamCapture()" title="Capture from webcam">
-                        <i class="fa-solid fa-video"></i> Camera Snap
-                      </button>
-                    </div>
-                    <input type="hidden" id="fwRegPhotoData" value="">
-                  </div>
-                  <div style="display:flex; align-items:center; gap:10px;">
-                    <div id="fwPhotoPreviewContainer" style="width:40px; height:40px; border-radius:50%; border:2px solid #cbd5e1; background:#e2e8f0; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                      <i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>
-                    </div>
-                    <div style="font-size:11px; color:#64748b; line-height:1.35;">
-                      Enables automatic recognition at both the <strong>Main Office Gate Camera ('/')</strong> and the Field Worker mobile terminal.
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Row 3: Compensation & Field Incentives Strip -->
-                <div class="fw-incentive-strip">
-                  <div class="fw-incentive-strip-title">
-                    <i class="fa-solid fa-coins"></i> Compensation Basis, Shift Hours &amp; Field Performance Incentives
-                  </div>
-                  <div class="fw-form-grid-4" style="grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end;">
-                    <div class="fw-field">
-                      <label class="fw-label">Base Salary Type</label>
-                      <select id="fwRegSalaryType" class="fw-select">
-                        <option value="daily">Daily Salary</option>
-                        <option value="hourly">Hourly (Supports 00:00)</option>
-                        <option value="half_day">Half-Day Salary</option>
-                      </select>
-                    </div>
-
-                    <div class="fw-field">
-                      <label class="fw-label">Shift Hours (00:00 = Flex)</label>
-                      <input type="text" id="fwRegShiftHours" class="fw-input" value="08:00">
-                    </div>
-
-                    <div class="fw-field">
-                      <label class="fw-label">Daily / Hourly Rate (₹)</label>
-                      <input type="number" step="0.01" id="fwRegBaseRate" class="fw-input" value="600">
-                    </div>
-
-                    <div class="fw-field">
-                      <label class="fw-label">Per Verified Visit (₹)</label>
-                      <input type="number" step="0.5" id="fwRegVisitIncentive" class="fw-input" value="75">
-                    </div>
-
-                    <div class="fw-field">
-                      <label class="fw-label">GPS Travel Rate (₹ / KM)</label>
-                      <input type="number" step="0.5" id="fwRegKmRate" class="fw-input" value="6">
-                    </div>
-
-                    <div class="fw-field">
-                      <button type="submit" class="fw-btn fw-btn-primary fw-btn-block">
-                        <i class="fa-solid fa-user-check"></i> Save Worker Profile
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          <!-- Bottom Full-Width Card: Registered Field Force Directory -->
+          <!-- Full-Width Card: Registered Field Force Directory (Moved to Top) -->
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
+            <div class="table-toolbar" style="flex-wrap:wrap; gap:10px; justify-content:space-between;">
               <div style="display:flex; align-items:center; gap:10px;">
                 <div class="fw-card-title" style="font-size:13px;">
                   <i class="fa-solid fa-users-gear" style="color:#2563eb; margin-right:6px;"></i>
                   REGISTERED FIELD FORCE DIRECTORY (<span id="dirWorkersCount">{{ field_workers|length }}</span>)
                 </div>
               </div>
-              <div class="search-box-wrapper">
-                <label>Search:</label>
-                <input type="text" class="search-input" placeholder="Search name, zone, mobile..." oninput="filterFieldTable(this, 'fieldWorkersDirTable')">
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <div class="search-box-wrapper">
+                  <label>Search:</label>
+                  <input type="text" class="search-input" placeholder="Search name, zone, mobile..." oninput="filterFieldTable(this, 'fieldWorkersDirTable')">
+                </div>
+                <button type="button" class="fw-btn fw-btn-primary" onclick="openRegisterWorkerModal()">
+                  <i class="fa-solid fa-user-plus"></i> Register
+                </button>
               </div>
             </div>
 
@@ -1533,6 +1475,166 @@
               </table>
             </div>
           </div>
+
+          <!-- Modal Dialog: Register Field Worker & Configure Field Incentives -->
+          <div class="fw-modal-backdrop d-none" id="registerWorkerModalBackdrop">
+            <div class="fw-modal-dialog">
+              <div class="fw-modal-header">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background:#ccfbf1; color:#0f766e;">
+                    <i class="fa-solid fa-id-card-clip"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title" id="regModalTitle">Register Field Worker &amp; Configure Field Incentives</div>
+                    <div class="fw-card-subtitle">Onboard a new field executive with face biometrics or configure rates for existing employees</div>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="badge-blue"><i class="fa-solid fa-building-shield"></i> {{ active_company.company_name }}</span>
+                  <button type="button" class="fw-modal-close-btn" onclick="closeRegisterWorkerModal()">&times;</button>
+                </div>
+              </div>
+
+              <form id="registerFieldWorkerForm" onsubmit="submitFieldWorkerRegistration(event)">
+                <div class="fw-modal-body">
+                  <!-- Row 1: Mode, Name, Email, Mobile -->
+                  <div class="fw-form-grid-4" style="margin-bottom:12px;">
+                    <div class="fw-field">
+                      <label class="fw-label">Registration Mode</label>
+                      <select id="fwExistingEmpSelect" class="fw-select" onchange="populateExistingEmployeeForField(this)">
+                        <option value="">+ Register Brand New Field Worker</option>
+                        {% for emp in all_employees %}
+                        <option value="{{ emp.id }}"
+                          data-name="{{ emp.employee_name }}"
+                          data-email="{{ emp.email_id }}"
+                          data-mobile="{{ emp.mobile_number }}"
+                          data-dept="{{ emp.department }}"
+                          data-desig="{{ emp.designation }}"
+                          data-zone="{{ emp.territory_zone }}"
+                          data-saltype="{{ emp.salary_type }}"
+                          data-shifthrs="{{ emp.shift_hours }}"
+                          data-daysal="{{ emp.day_salary }}"
+                          data-hrsal="{{ emp.hourly_salary }}"
+                          data-visitinc="{{ emp.per_visit_incentive }}"
+                          data-kmrate="{{ emp.km_allowance_rate }}"
+                          data-status="{{ emp.status or 'Active' }}">
+                          Edit: {{ emp.employee_name }} ({{ emp.department }})
+                        </option>
+                        {% endfor %}
+                      </select>
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Field Worker Full Name *</label>
+                      <input type="text" id="fwRegName" class="fw-input" required placeholder="e.g., Karthik Sundaram">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Email ID *</label>
+                      <input type="email" id="fwRegEmail" class="fw-input" required placeholder="worker@company.com">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Mobile Number *</label>
+                      <input type="text" id="fwRegMobile" class="fw-input" required placeholder="9876543210">
+                    </div>
+                  </div>
+
+                  <!-- Row 2: Department, Designation, Territory, Status -->
+                  <div class="fw-form-grid-4" style="margin-bottom:12px;">
+                    <div class="fw-field">
+                      <label class="fw-label">Department</label>
+                      <input type="text" id="fwRegDept" class="fw-input" value="Field Sales">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Designation</label>
+                      <input type="text" id="fwRegDesig" class="fw-input" value="Sales Executive">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Territory / Zone</label>
+                      <input type="text" id="fwRegZone" class="fw-input" value="Coimbatore North">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Status (Quota Control)</label>
+                      <select id="fwRegStatus" class="fw-select">
+                        <option value="Active">Active (Counts in Quota)</option>
+                        <option value="Inactive">Inactive (Preserved Only)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Biometric Photo Row -->
+                  <div class="fw-form-grid-2" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:12px; align-items:center;">
+                    <div class="fw-field">
+                      <label class="fw-label"><i class="fa-solid fa-camera" style="color:#0284c7; margin-right:4px;"></i> Face Biometrics Photo (For Main '/' Camera Punch)</label>
+                      <div style="display:flex; gap:8px; align-items:center;">
+                        <input type="file" id="fwRegPhotoFile" class="fw-input" accept="image/*" onchange="handlePhotoUpload(this)" style="padding-top:4px;">
+                        <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="triggerWebcamCapture()" title="Capture from webcam">
+                          <i class="fa-solid fa-video"></i> Camera Snap
+                        </button>
+                      </div>
+                      <input type="hidden" id="fwRegPhotoData" value="">
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <div id="fwPhotoPreviewContainer" style="width:40px; height:40px; border-radius:50%; border:2px solid #cbd5e1; background:#e2e8f0; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>
+                      </div>
+                      <div style="font-size:11px; color:#64748b; line-height:1.35;">
+                        Enables automatic recognition at both the <strong>Main Office Gate Camera ('/')</strong> and the Field Worker mobile terminal.
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Row 3: Compensation & Field Incentives Strip -->
+                  <div class="fw-incentive-strip" style="margin-bottom:0;">
+                    <div class="fw-incentive-strip-title">
+                      <i class="fa-solid fa-coins"></i> Compensation Basis, Shift Hours &amp; Field Performance Incentives
+                    </div>
+                    <div class="fw-form-grid-4" style="grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: end;">
+                      <div class="fw-field">
+                        <label class="fw-label">Base Salary Type</label>
+                        <select id="fwRegSalaryType" class="fw-select">
+                          <option value="daily">Daily Salary</option>
+                          <option value="hourly">Hourly (Supports 00:00)</option>
+                          <option value="half_day">Half-Day Salary</option>
+                        </select>
+                      </div>
+
+                      <div class="fw-field">
+                        <label class="fw-label">Shift Hours (00:00 = Flex)</label>
+                        <input type="text" id="fwRegShiftHours" class="fw-input" value="08:00">
+                      </div>
+
+                      <div class="fw-field">
+                        <label class="fw-label">Daily / Hourly Rate (₹)</label>
+                        <input type="number" step="0.01" id="fwRegBaseRate" class="fw-input" value="600">
+                      </div>
+
+                      <div class="fw-field">
+                        <label class="fw-label">Per Verified Visit (₹)</label>
+                        <input type="number" step="0.5" id="fwRegVisitIncentive" class="fw-input" value="75">
+                      </div>
+
+                      <div class="fw-field">
+                        <label class="fw-label">GPS Travel Rate (₹ / KM)</label>
+                        <input type="number" step="0.5" id="fwRegKmRate" class="fw-input" value="6">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="fw-modal-footer">
+                  <button type="button" class="fw-btn fw-btn-neutral" onclick="closeRegisterWorkerModal()">Cancel</button>
+                  <button type="submit" class="fw-btn fw-btn-primary">
+                    <i class="fa-solid fa-user-check"></i> Save Worker Profile
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
 
         <!-- ========================================================================= -->
@@ -1559,9 +1661,14 @@
                     <div class="fw-field">
                       <label class="fw-label">Assign To Field Worker *</label>
                       <select id="asgnWorkerName" class="fw-select" required>
+                        {% if field_workers %}
+                        <option value="">-- Select Field Worker --</option>
                         {% for w in field_workers %}
-                        <option value="{{ w.employee_name }}">{{ w.employee_name }}</option>
+                        <option value="{{ w.employee_name }}">{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
                         {% endfor %}
+                        {% else %}
+                        <option value="">-- No Field Workers Registered --</option>
+                        {% endif %}
                       </select>
                     </div>
                     <div class="fw-field">
@@ -1792,9 +1899,13 @@
                   <div class="fw-field">
                     <label class="fw-label">Field Worker</label>
                     <select id="quickPunchWorker" class="fw-select" {% if user_role == 'employee' %}disabled{% endif %}>
+                      {% if field_workers %}
                       {% for w in field_workers %}
                       <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
                       {% endfor %}
+                      {% else %}
+                      <option value="">-- No Field Workers Registered --</option>
+                      {% endif %}
                     </select>
                   </div>
                   <div class="fw-field">
@@ -1858,127 +1969,9 @@
         <!-- TAB 5: LEAD MANAGEMENT                                                    -->
         <!-- ========================================================================= -->
         <div id="paneCustomerVisits" class="fw-section-pane" data-title="LEAD MANAGEMENT">
-          <!-- Top Full-Width Card: Structured 4-Column Customer Visit & Lead Entry Form -->
-          <div class="fw-card">
-            <div class="fw-card-header">
-              <div class="fw-card-header-left">
-                <span class="fw-card-icon" style="background:#dcfce7; color:#15803d;">
-                  <i class="fa-solid fa-handshake-angle"></i>
-                </span>
-                <div>
-                  <div class="fw-card-title">Log Geo-Verified Customer Visit &amp; Sales Lead (CRM)</div>
-                  <div class="fw-card-subtitle">Record client meetings, product pitches, order values, and GPS site verification</div>
-                </div>
-              </div>
-              <span class="badge-onsite"><i class="fa-solid fa-shield-halved"></i> Automatic Geofence Verification</span>
-            </div>
-
-            <div class="fw-card-body">
-              <form id="customerVisitForm" onsubmit="submitCustomerVisit(event)">
-                <!-- Row 1 -->
-                <div class="fw-form-grid-4" style="margin-bottom:12px;">
-                  <div class="fw-field">
-                    <label class="fw-label">Field Worker *</label>
-                    <select id="visitWorkerName" class="fw-select" required {% if user_role == 'employee' %}disabled{% endif %}>
-                      {% for w in field_workers %}
-                      <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }}</option>
-                      {% endfor %}
-                    </select>
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Linked Assigned Target Site</label>
-                    <select id="visitAssignmentId" class="fw-select" onchange="prefillVisitFromAssignment(this)">
-                      <option value="">-- Direct / Self-Sourced Visit --</option>
-                      {% for a in assignments %}
-                      <option value="{{ a.id }}"
-                        data-target="{{ a.target_name }}"
-                        data-person="{{ a.contact_person }}"
-                        data-phone="{{ a.contact_phone }}"
-                        data-lat="{{ a.target_lat }}"
-                        data-lng="{{ a.target_lng }}">
-                        Assigned: {{ a.target_name }} ({{ a.employee_name }})
-                      </option>
-                      {% endfor %}
-                    </select>
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Customer / Shop / Company Name *</label>
-                    <input type="text" id="visitCustomerName" class="fw-input" required placeholder="e.g., Apex Industrial Supplies">
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Contact Person</label>
-                    <input type="text" id="visitContactPerson" class="fw-input" placeholder="e.g., Mr. Senthil">
-                  </div>
-                </div>
-
-                <!-- Row 2 -->
-                <div class="fw-form-grid-4" style="margin-bottom:12px;">
-                  <div class="fw-field">
-                    <label class="fw-label">Customer Phone</label>
-                    <input type="text" id="visitCustomerPhone" class="fw-input" placeholder="9876543210">
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Product / Service Pitched</label>
-                    <input type="text" id="visitProduct" class="fw-input" value="Company Products">
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Lead Outcome Status *</label>
-                    <select id="visitLeadStatus" class="fw-select">
-                      <option value="Order Booked">Order Booked (Converted)</option>
-                      <option value="Interested">Interested (Hot Lead)</option>
-                      <option value="Follow-Up Required">Follow-Up Required</option>
-                      <option value="Demo Completed">Demo Completed</option>
-                      <option value="Payment Collected">Payment Collected</option>
-                      <option value="Not Interested">Not Interested</option>
-                    </select>
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Order / Collection Value (₹)</label>
-                    <input type="number" step="0.01" id="visitOrderAmount" class="fw-input" value="0">
-                  </div>
-                </div>
-
-                <!-- Row 3 -->
-                <div class="fw-form-grid-4" style="grid-template-columns: 1fr 1fr 1fr 2fr 1.3fr; align-items: end;">
-                  <div class="fw-field">
-                    <label class="fw-label">Follow-Up Date</label>
-                    <input type="date" id="visitFollowUpDate" class="fw-input">
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Visit GPS Lat</label>
-                    <input type="number" step="0.000001" id="visitLat" class="fw-input" value="11.018300">
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Visit GPS Lng</label>
-                    <input type="number" step="0.000001" id="visitLng" class="fw-input" value="76.968500">
-                  </div>
-
-                  <div class="fw-field">
-                    <label class="fw-label">Meeting Discussion / Lead Remarks</label>
-                    <input type="text" id="visitRemarks" class="fw-input" placeholder="Client requested quotation or product sample...">
-                  </div>
-
-                  <div class="fw-field">
-                    <button type="submit" class="fw-btn fw-btn-success fw-btn-block">
-                      <i class="fa-solid fa-cloud-arrow-up"></i> Submit Customer Visit
-                    </button>
-                  </div>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          <!-- Bottom Full-Width Card: Customer Visits & Sales Leads Pipeline Table -->
+          <!-- Full-Width Card: Customer Visits & Sales Leads Pipeline Table (Moved to Top) -->
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
+            <div class="table-toolbar" style="flex-wrap:wrap; gap:10px; justify-content:space-between;">
               <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <div class="fw-card-title" style="font-size:13px;">
                   <i class="fa-solid fa-chart-line" style="color:#2563eb; margin-right:6px;"></i>
@@ -1993,9 +1986,14 @@
                   </a>
                 </div>
               </div>
-              <div class="search-box-wrapper">
-                <label>Search:</label>
-                <input type="text" class="search-input" placeholder="Search customer, worker, status..." oninput="filterFieldTable(this, 'customerVisitsTable')">
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <div class="search-box-wrapper">
+                  <label>Search:</label>
+                  <input type="text" class="search-input" placeholder="Search customer, worker, status..." oninput="filterFieldTable(this, 'customerVisitsTable')">
+                </div>
+                <button type="button" class="fw-btn fw-btn-primary" onclick="openAddLeadModal()">
+                  <i class="fa-solid fa-plus"></i> Add Lead
+                </button>
               </div>
             </div>
 
@@ -2053,6 +2051,135 @@
                   {% endif %}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- Modal Dialog: Log Geo-Verified Customer Visit & Sales Lead (CRM) -->
+          <div class="fw-modal-backdrop d-none" id="addLeadModalBackdrop">
+            <div class="fw-modal-dialog">
+              <div class="fw-modal-header">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background:#dcfce7; color:#15803d;">
+                    <i class="fa-solid fa-handshake-angle"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title">Log Geo-Verified Customer Visit &amp; Sales Lead (CRM)</div>
+                    <div class="fw-card-subtitle">Record client meetings, product pitches, order values, and GPS site verification</div>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="badge-onsite"><i class="fa-solid fa-shield-halved"></i> Automatic Geofence Verification</span>
+                  <button type="button" class="fw-modal-close-btn" onclick="closeAddLeadModal()">&times;</button>
+                </div>
+              </div>
+
+              <form id="customerVisitForm" onsubmit="submitCustomerVisit(event)">
+                <div class="fw-modal-body">
+                  <!-- Row 1 -->
+                  <div class="fw-form-grid-4" style="margin-bottom:12px;">
+                    <div class="fw-field">
+                      <label class="fw-label">Field Worker *</label>
+                      <select id="visitWorkerName" class="fw-select" required {% if user_role == 'employee' %}disabled{% endif %}>
+                        {% if field_workers %}
+                        <option value="">-- Select Field Worker --</option>
+                        {% for w in field_workers %}
+                        <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
+                        {% endfor %}
+                        {% else %}
+                        <option value="">-- No Field Workers Registered --</option>
+                        {% endif %}
+                      </select>
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Linked Assigned Target Site</label>
+                      <select id="visitAssignmentId" class="fw-select" onchange="prefillVisitFromAssignment(this)">
+                        <option value="">-- Direct / Self-Sourced Visit --</option>
+                        {% for a in assignments %}
+                        <option value="{{ a.id }}"
+                          data-target="{{ a.target_name }}"
+                          data-person="{{ a.contact_person }}"
+                          data-phone="{{ a.contact_phone }}"
+                          data-lat="{{ a.target_lat }}"
+                          data-lng="{{ a.target_lng }}">
+                          Assigned: {{ a.target_name }} ({{ a.employee_name }})
+                        </option>
+                        {% endfor %}
+                      </select>
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Customer / Shop / Company Name *</label>
+                      <input type="text" id="visitCustomerName" class="fw-input" required placeholder="e.g., Apex Industrial Supplies">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Contact Person</label>
+                      <input type="text" id="visitContactPerson" class="fw-input" placeholder="e.g., Mr. Senthil">
+                    </div>
+                  </div>
+
+                  <!-- Row 2 -->
+                  <div class="fw-form-grid-4" style="margin-bottom:12px;">
+                    <div class="fw-field">
+                      <label class="fw-label">Customer Phone</label>
+                      <input type="text" id="visitCustomerPhone" class="fw-input" placeholder="9876543210">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Product / Service Pitched</label>
+                      <input type="text" id="visitProduct" class="fw-input" value="Company Products">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Lead Outcome Status *</label>
+                      <select id="visitLeadStatus" class="fw-select">
+                        <option value="Order Booked">Order Booked (Converted)</option>
+                        <option value="Interested">Interested (Hot Lead)</option>
+                        <option value="Follow-Up Required">Follow-Up Required</option>
+                        <option value="Demo Completed">Demo Completed</option>
+                        <option value="Payment Collected">Payment Collected</option>
+                        <option value="Not Interested">Not Interested</option>
+                      </select>
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Order / Collection Value (₹)</label>
+                      <input type="number" step="0.01" id="visitOrderAmount" class="fw-input" value="0">
+                    </div>
+                  </div>
+
+                  <!-- Row 3 -->
+                  <div class="fw-form-grid-4" style="grid-template-columns: 1fr 1fr 1fr 2fr; align-items: end;">
+                    <div class="fw-field">
+                      <label class="fw-label">Follow-Up Date</label>
+                      <input type="date" id="visitFollowUpDate" class="fw-input">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Visit GPS Lat</label>
+                      <input type="number" step="0.000001" id="visitLat" class="fw-input" value="11.018300">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Visit GPS Lng</label>
+                      <input type="number" step="0.000001" id="visitLng" class="fw-input" value="76.968500">
+                    </div>
+
+                    <div class="fw-field">
+                      <label class="fw-label">Meeting Discussion / Lead Remarks</label>
+                      <input type="text" id="visitRemarks" class="fw-input" placeholder="Client requested quotation or product sample...">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="fw-modal-footer">
+                  <button type="button" class="fw-btn fw-btn-neutral" onclick="closeAddLeadModal()">Cancel</button>
+                  <button type="submit" class="fw-btn fw-btn-success">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Submit Customer Visit
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -2255,14 +2382,50 @@
       }
     }
 
+    // Modal Controllers: Register Worker & Add Lead
+    function openRegisterWorkerModal(resetMode = true) {
+      const modal = document.getElementById('registerWorkerModalBackdrop');
+      if (!modal) return;
+      if (resetMode) {
+        const form = document.getElementById('registerFieldWorkerForm');
+        if (form) form.reset();
+        const sel = document.getElementById('fwExistingEmpSelect');
+        if (sel) sel.value = '';
+        const title = document.getElementById('regModalTitle');
+        if (title) title.textContent = 'Register Field Worker & Configure Field Incentives';
+        const photoPreview = document.getElementById('fwPhotoPreviewContainer');
+        if (photoPreview) photoPreview.innerHTML = '<i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>';
+        const photoData = document.getElementById('fwRegPhotoData');
+        if (photoData) photoData.value = '';
+      }
+      modal.classList.remove('d-none');
+    }
+
+    function closeRegisterWorkerModal() {
+      const modal = document.getElementById('registerWorkerModalBackdrop');
+      if (modal) modal.classList.add('d-none');
+    }
+
+    function openAddLeadModal() {
+      const modal = document.getElementById('addLeadModalBackdrop');
+      if (!modal) return;
+      modal.classList.remove('d-none');
+    }
+
+    function closeAddLeadModal() {
+      const modal = document.getElementById('addLeadModalBackdrop');
+      if (modal) modal.classList.add('d-none');
+    }
+
     // Quick Edit from Field Worker Directory Row
     function editFieldWorkerFromRow(empId) {
       const sel = document.getElementById('fwExistingEmpSelect');
       if (!sel) return;
       sel.value = empId;
       populateExistingEmployeeForField(sel);
-      const card = document.getElementById('fwRegistrationCard');
-      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const title = document.getElementById('regModalTitle');
+      if (title) title.textContent = 'Edit Field Worker Profile & Compensation';
+      openRegisterWorkerModal(false);
     }
 
     // Sync Map Marker & Geofence Circle when Lat/Lng/Radius inputs change
@@ -2655,10 +2818,20 @@
         const sel = document.getElementById(selectId);
         if (!sel || (CURRENT_USER_ROLE === 'employee' && LOGGED_IN_EMPLOYEE_NAME)) return;
         const curVal = sel.value;
-        sel.innerHTML = workers.map(w => {
+        if (!workers || workers.length === 0) {
+          sel.innerHTML = '<option value="">-- No Field Workers Registered --</option>';
+          return;
+        }
+        let opts = '';
+        if (selectId === 'asgnWorkerName' || selectId === 'visitWorkerName') {
+          opts += '<option value="">-- Select Field Worker --</option>';
+        }
+        opts += workers.map(w => {
           const selected = (w.employee_name === curVal) ? 'selected' : '';
           return `<option value="${w.employee_name}" ${selected}>${w.employee_name} (${w.territory_zone || 'Field'})</option>`;
         }).join('');
+        sel.innerHTML = opts;
+        if (curVal) sel.value = curVal;
       });
     }
 
@@ -3053,8 +3226,11 @@
           return;
         }
         showToast(data.message);
+        closeRegisterWorkerModal();
+        const regForm = document.getElementById('registerFieldWorkerForm');
+        if (regForm) regForm.reset();
         document.getElementById('fwRegPhotoData').value = '';
-        document.getElementById('fwPhotoPreviewContainer').innerHTML = '<i class="fa-solid fa-user-check" style="color:#16a34a; font-size:18px;"></i>';
+        document.getElementById('fwPhotoPreviewContainer').innerHTML = '<i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>';
         await refreshOverviewState();
       } catch (err) {
         showToast('Network error during registration: ' + err.message, true);
@@ -3243,11 +3419,10 @@
           return;
         }
         showToast(data.message);
-        document.getElementById('visitCustomerName').value = '';
-        document.getElementById('visitContactPerson').value = '';
-        document.getElementById('visitCustomerPhone').value = '';
+        closeAddLeadModal();
+        const visitForm = document.getElementById('customerVisitForm');
+        if (visitForm) visitForm.reset();
         document.getElementById('visitOrderAmount').value = '0';
-        document.getElementById('visitRemarks').value = '';
         await refreshOverviewState();
       } catch (err) {
         showToast('Visit submission network error: ' + err.message, true);
@@ -3269,6 +3444,23 @@
         showToast('Delete error: ' + err.message, true);
       }
     }
+
+    // Dismiss modals on Escape key or backdrop click
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeRegisterWorkerModal();
+        closeAddLeadModal();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'registerWorkerModalBackdrop') {
+        closeRegisterWorkerModal();
+      }
+      if (e.target && e.target.id === 'addLeadModalBackdrop') {
+        closeAddLeadModal();
+      }
+    });
 
     document.addEventListener('DOMContentLoaded', () => {
       initCollapsibleSidebar();

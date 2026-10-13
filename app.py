@@ -4876,7 +4876,8 @@ def field_worker_module_page():
     user_role = session.get('role', 'company_admin')
     logged_in_emp_name = session.get('employee_name', '') if user_role == 'employee' else ''
 
-    companies = (database.get_all_companies(limit=100) or []) if user_role == 'super_admin' else []
+    comp_res = database.get_all_companies(limit=1000) if user_role == 'super_admin' else None
+    companies = comp_res.get('data', []) if isinstance(comp_res, dict) else (comp_res or [])
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
     active_comp = database.get_company_by_id(active_cid) or {
         'id': 'ARGUS_MASTER',
