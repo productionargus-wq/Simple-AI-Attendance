@@ -622,9 +622,9 @@ document.addEventListener('DOMContentLoaded', function () {
       const inEditStatus = document.getElementById('inputStatus');
       if (inEditStatus) inEditStatus.value = (emp.status === 'Inactive') ? 'Inactive' : 'Active';
       document.getElementById('inputMobile').value = emp.mobile_number || '';
-      document.getElementById('inputHourlySalary').value = emp.hourly_salary || '';
-      document.getElementById('inputDaySalary').value = emp.day_salary || '';
-      document.getElementById('inputHalfDaySalary').value = emp.half_day_salary || '';
+      document.getElementById('inputHourlySalary').value = (emp.hourly_salary !== undefined && emp.hourly_salary !== null) ? emp.hourly_salary : '';
+      document.getElementById('inputDaySalary').value = (emp.day_salary !== undefined && emp.day_salary !== null) ? emp.day_salary : '';
+      document.getElementById('inputHalfDaySalary').value = (emp.half_day_salary !== undefined && emp.half_day_salary !== null) ? emp.half_day_salary : '';
       document.getElementById('inputEmail').value = emp.email_id || '';
       document.getElementById('inputAadhar').value = emp.aadhar_number || '';
       document.getElementById('inputEmergency').value = emp.emergency_contact || '';
@@ -636,7 +636,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (document.getElementById('inputBankName')) document.getElementById('inputBankName').value = emp.bank_name || '';
       document.getElementById('inputAccountNumber').value = emp.account_number || '';
       document.getElementById('inputIfsc').value = emp.ifsc_code || '';
-      document.getElementById('inputShiftHours').value = emp.shift_hours || '09:00';
+      document.getElementById('inputShiftHours').value = (emp.shift_hours !== undefined && emp.shift_hours !== null && String(emp.shift_hours).trim() !== '') ? emp.shift_hours : '09:00';
       const inStart = document.getElementById('inputShiftStart');
       const inEnd = document.getElementById('inputShiftEnd');
       if (inStart) inStart.value = emp.shift_start || '09:00 AM';
@@ -723,10 +723,13 @@ document.addEventListener('DOMContentLoaded', function () {
   const inputHalfDay = document.getElementById('inputHalfDaySalary');
   const inputShift = document.getElementById('inputShiftHours');
 
-  // Smart hour:minute format normalizer (e.g. 8.30 -> 08:30, 8 -> 08:00, 8:30 -> 08:30)
+  // Smart hour:minute format normalizer (e.g. 8.30 -> 08:30, 8 -> 08:00, 0 -> 00:00)
   function normalizeTimeInput(val) {
-    if (!val) return '08:00';
+    if (val === undefined || val === null || String(val).trim() === '') return '08:00';
     let s = String(val).trim();
+    if (s === '0' || s === '00' || s === '0:0' || s === '0:00' || s === '00:00') {
+      return '00:00';
+    }
     if (s.includes('.')) {
       const parts = s.split('.');
       const h = parseInt(parts[0], 10) || 0;
@@ -747,17 +750,25 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function getShiftDuration() {
-    let shiftDuration = 8.0;
-    if (inputShift && inputShift.value.trim()) {
+    if (inputShift && inputShift.value.trim() !== '') {
       const val = inputShift.value.trim();
+      if (val === '0' || val === '00' || val === '0:0' || val === '0:00' || val === '00:00') {
+        return 0;
+      }
       const parts = val.split(':');
       if (parts.length >= 2) {
-        shiftDuration = (parseFloat(parts[0]) || 0) + (parseFloat(parts[1]) || 0) / 60;
+        const h = parseFloat(parts[0]);
+        const m = parseFloat(parts[1]);
+        if (!isNaN(h) && !isNaN(m)) {
+          const dur = h + (m / 60.0);
+          return dur >= 0 ? dur : 8.0;
+        }
       } else if (!isNaN(parseFloat(val))) {
-        shiftDuration = parseFloat(val);
+        const dur = parseFloat(val);
+        return dur >= 0 ? dur : 8.0;
       }
     }
-    return shiftDuration > 0 ? shiftDuration : 8.0;
+    return 8.0;
   }
 
   // When Hourly changes
@@ -765,6 +776,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const hourly = parseFloat(inputHourly.value) || 0;
     if (hourly <= 0) return;
     const dur = getShiftDuration();
+    if (dur === 0) {
+      if (inputDay) inputDay.value = '0';
+      if (inputHalfDay) inputHalfDay.value = '0';
+      return;
+    }
     const day = hourly * dur;
     inputDay.value = day.toFixed(2);
     inputHalfDay.value = (day / 2).toFixed(2);
@@ -775,6 +791,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const day = parseFloat(inputDay.value) || 0;
     if (day <= 0) return;
     const dur = getShiftDuration();
+    if (dur === 0) return;
     const st = inputSalaryType ? inputSalaryType.value : 'daily';
     if (st === 'hourly') {
       inputHourly.value = (day / dur).toFixed(2);
@@ -790,6 +807,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const half = parseFloat(inputHalfDay.value) || 0;
     if (half <= 0) return;
     const dur = getShiftDuration();
+    if (dur === 0) return;
     const st = inputSalaryType ? inputSalaryType.value : 'daily';
     if (st === 'hourly') {
       const day = half * 2;
@@ -842,15 +860,30 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   if (inputShift) {
+    inputShift.addEventListener('input', function () {
+      if (getShiftDuration() === 0) {
+        if (inputDay) inputDay.value = '0';
+        if (inputHalfDay) inputHalfDay.value = '0';
+      }
+    });
     inputShift.addEventListener('change', function () {
-      if (this.value) this.value = normalizeTimeInput(this.value);
+      if (this.value !== '') this.value = normalizeTimeInput(this.value);
+      if (getShiftDuration() === 0) {
+        if (inputDay) inputDay.value = '0';
+        if (inputHalfDay) inputHalfDay.value = '0';
+        return;
+      }
       const st = inputSalaryType ? inputSalaryType.value : 'daily';
       if (st === 'hourly') onHourlyInput();
       else if (st === 'daily') onDayInput();
       else onHalfDayInput();
     });
     inputShift.addEventListener('blur', function () {
-      if (this.value) this.value = normalizeTimeInput(this.value);
+      if (this.value !== '') this.value = normalizeTimeInput(this.value);
+      if (getShiftDuration() === 0) {
+        if (inputDay) inputDay.value = '0';
+        if (inputHalfDay) inputHalfDay.value = '0';
+      }
     });
   }
 
@@ -868,7 +901,11 @@ document.addEventListener('DOMContentLoaded', function () {
       const halfVal = inputHalfDay ? (parseFloat(inputHalfDay.value) || 0) : 0;
       const dur = getShiftDuration();
 
-      if (dayVal > 0) {
+      if (dur === 0) {
+        if (inputDay) inputDay.value = '0';
+        if (inputHalfDay) inputHalfDay.value = '0';
+        if (inputHourly && !inputHourly.value) inputHourly.value = '0.00';
+      } else if (dayVal > 0) {
         if (hourlyVal <= 0 && inputHourly) inputHourly.value = (dayVal / dur).toFixed(2);
         if (halfVal <= 0 && inputHalfDay) inputHalfDay.value = (dayVal / 2).toFixed(2);
       } else if (hourlyVal > 0) {
