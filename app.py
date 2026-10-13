@@ -938,6 +938,12 @@ def google_login():
     if login_type not in ['admin', 'company', 'employee']:
         login_type = 'admin'
 
+    next_url = (request.args.get('next') or '').strip()
+    if next_url.startswith('/'):
+        session['oauth_next_url'] = next_url
+    else:
+        session.pop('oauth_next_url', None)
+
     state = secrets.token_urlsafe(32)
     session['oauth_state'] = state
     session['oauth_login_type'] = login_type
@@ -965,8 +971,11 @@ def google_callback():
     """Handles Google OAuth 2.0 Callback and role-based authorization."""
     error = request.args.get('error')
     login_type = session.get('oauth_login_type', 'admin')
+    oauth_next = session.pop('oauth_next_url', None)
 
     def render_oauth_error(msg):
+        if oauth_next == '/field-worker':
+            return render_template('field_worker_login.html', error=msg, selected_role='field_worker' if login_type == 'employee' else 'company_admin')
         if login_type == 'company':
             return render_template('company_login.html', error=msg)
         elif login_type == 'employee':
@@ -1032,7 +1041,7 @@ def google_callback():
         session['role'] = 'super_admin'
         session['company_id'] = 'ARGUS_MASTER'
         session['company_name'] = 'ARGUS TECHNOLOGIES'
-        resp = redirect(url_for('dashboard'))
+        resp = redirect(oauth_next if oauth_next == '/field-worker' else url_for('dashboard'))
         return finalize_login_session(resp, 'super_admin', adm_user)
 
     def _do_company_login(comp):
@@ -1044,7 +1053,7 @@ def google_callback():
         session['company_id'] = str(comp.get('id') or comp.get('_id', ''))
         session['company_name'] = comp.get('company_name', '')
         session['company_email'] = comp.get('email', '')
-        resp = redirect(url_for('dashboard'))
+        resp = redirect(oauth_next if oauth_next == '/field-worker' else url_for('dashboard'))
         return finalize_login_session(resp, 'company_admin', comp)
 
     def _do_employee_login(emp):
@@ -1059,7 +1068,7 @@ def google_callback():
         session['company_id'] = c_id
         c_rec = database.get_company_by_id(c_id) if c_id != 'ARGUS_MASTER' else None
         session['company_name'] = c_rec.get('company_name', 'ARGUS TECHNOLOGIES') if c_rec else 'ARGUS TECHNOLOGIES'
-        resp = redirect(url_for('employee_portal'))
+        resp = redirect(oauth_next if oauth_next == '/field-worker' else url_for('employee_portal'))
         return finalize_login_session(resp, 'employee', emp)
 
     # Authorized Role Verification with cross-portal smart role detection
@@ -4714,30 +4723,141 @@ def api_download_all_attachments(ticket_id):
 
 
 # ==============================================================================
-# FIELD WORKER MODULE ROUTES (/field-worker & /api/field-worker/*)
+# FIELD WORKER MODULE ROUTES (/field-worker/login, /field-worker & /api/field-worker/*)
 # ==============================================================================
 
+def _is_field_authenticated():
+    """Checks if the current session is authenticated as Admin, Company Admin, or Field Worker."""
+    return bool(session.get('admin_logged_in') or session.get('employee_logged_in'))
+
+
 def _resolve_field_company_id(req_company_id=None):
-    """Resolves the active company_id for Field Worker Module operations."""
+    """
+    Resolves the active company_id with strict multi-tenant isolation:
+    - Company Admins & Employees (Field Workers) are strictly locked to their session['company_id'].
+    - Only Super Admin can switch across companies via req_company_id.
+    """
     role = session.get('role')
     sess_cid = session.get('company_id')
-    if role in ['company_admin', 'employee'] and sess_cid and sess_cid != 'ALL':
-        return str(sess_cid)
-    if req_company_id and str(req_company_id).strip() not in ['', 'ALL', 'None', 'null']:
+    if role in ['company_admin', 'employee']:
+        return str(sess_cid or 'ARGUS_MASTER')
+    if role == 'super_admin' and req_company_id and str(req_company_id).strip() not in ['', 'ALL', 'None', 'null']:
         return str(req_company_id).strip()
     if sess_cid and sess_cid != 'ALL':
         return str(sess_cid)
     return 'ARGUS_MASTER'
 
 
+@app.route('/field-worker/login', methods=['GET', 'POST'])
+def field_worker_login():
+    """
+    Dedicated Multi-Tenant Login Gate for the Field Worker Module.
+    Automatically detects which company a Field Worker or Company Admin belongs to
+    and locks their session to prevent unauthorized cross-company access.
+    """
+    if request.method == 'GET' and _is_field_authenticated():
+        return redirect(url_for('field_worker_module_page'))
+
+    if request.method == 'POST':
+        login_role = (request.form.get('login_role') or 'field_worker').strip().lower()
+        email = (request.form.get('email') or '').strip()
+        password = (request.form.get('password') or '').strip()
+
+        if not email or not password:
+            return render_template(
+                'field_worker_login.html',
+                error='Please enter your registered email and password.',
+                selected_role=login_role
+            )
+
+        if login_role == 'field_worker':
+            result = database.validate_employee_login(email, password=password)
+            if isinstance(result, dict) and result.get('success'):
+                employee = result['employee']
+                session.clear()
+                session.permanent = True
+                session['employee_logged_in'] = True
+                session['role'] = 'employee'
+                session['employee_id'] = str(employee.get('id', employee.get('_id', '')))
+                session['employee_name'] = employee.get('employee_name', '')
+                session['employee_email'] = employee.get('email_id', '')
+                comp_id = employee.get('company_id', 'ARGUS_MASTER')
+                session['company_id'] = comp_id
+                comp_rec = database.get_company_by_id(comp_id) if comp_id != 'ARGUS_MASTER' else None
+                session['company_name'] = comp_rec.get('company_name', 'ARGUS TECHNOLOGIES') if comp_rec else 'ARGUS TECHNOLOGIES'
+                resp = redirect(url_for('field_worker_module_page'))
+                return finalize_login_session(resp, 'employee', employee)
+
+            err_code = result.get('error') if isinstance(result, dict) else None
+            if err_code == 'COMPANY_DEACTIVATED':
+                msg = result.get('message') or 'Access Denied: Your company account is deactivated.'
+            elif err_code == 'EMPLOYEE_INACTIVE':
+                msg = result.get('message') or 'Access Denied: Your employee profile is currently Inactive.'
+            elif err_code == 'PASSWORD_NOT_SET':
+                msg = "Password not set yet. Please click 'Continue with Google' below for first-time verification."
+            elif err_code == 'NOT_REGISTERED':
+                msg = 'Access Denied: This email is not registered as a Field Worker in any company.'
+            else:
+                msg = 'Invalid password. Please verify your credentials or continue with Google.'
+            return render_template('field_worker_login.html', error=msg, selected_role='field_worker')
+
+        else:
+            # Company Admin (or Super Admin fallback) Sign-In
+            comp_res = database.validate_company_login(email, password=password)
+            if isinstance(comp_res, dict) and comp_res.get('success'):
+                company = comp_res['company']
+                session.clear()
+                session.permanent = True
+                session['admin_logged_in'] = True
+                session['admin_username'] = company.get('company_name', 'Company Admin')
+                session['role'] = 'company_admin'
+                session['company_id'] = str(company.get('id') or company.get('_id', ''))
+                session['company_name'] = company.get('company_name', '')
+                session['company_email'] = company.get('email', '')
+                resp = redirect(url_for('field_worker_module_page'))
+                return finalize_login_session(resp, 'company_admin', company)
+
+            # Fallback: Check if System Super Admin
+            adm_res = database.validate_admin_login(email, password=password)
+            if isinstance(adm_res, dict) and adm_res.get('success'):
+                admin_user = adm_res['admin']
+                session.clear()
+                session.permanent = True
+                session['admin_logged_in'] = True
+                session['admin_username'] = admin_user.get('username', 'Admin')
+                session['admin_email'] = admin_user.get('email', 'technologiesargus@gmail.com')
+                session['role'] = 'super_admin'
+                session['company_id'] = 'ARGUS_MASTER'
+                session['company_name'] = 'ARGUS TECHNOLOGIES'
+                resp = redirect(url_for('field_worker_module_page'))
+                return finalize_login_session(resp, 'super_admin', admin_user)
+
+            err_code = comp_res.get('error') if isinstance(comp_res, dict) else None
+            if err_code == 'COMPANY_DEACTIVATED':
+                msg = comp_res.get('message') or 'Access Denied: This company account is deactivated.'
+            elif err_code == 'PASSWORD_NOT_SET':
+                msg = "Password not set yet. Please click 'Continue with Google' below."
+            else:
+                msg = 'Access Denied: Invalid company admin email or password.'
+            return render_template('field_worker_login.html', error=msg, selected_role='company_admin')
+
+    return render_template('field_worker_login.html', selected_role='field_worker')
+
+
 @app.route('/field-worker')
 def field_worker_module_page():
-    """Renders the dedicated Field Worker Force Management Module UI."""
+    """Renders the dedicated Field Worker Force Management Module UI with Multi-Tenant Isolation."""
+    if not _is_field_authenticated():
+        return redirect(url_for('field_worker_login'))
+
     now_ist = database.get_ist_now()
     today_str = request.args.get('date') or now_ist.strftime('%Y-%m-%d')
     month_year = request.args.get('month') or now_ist.strftime('%Y-%m')
 
-    companies = database.get_all_companies() or []
+    user_role = session.get('role', 'company_admin')
+    logged_in_emp_name = session.get('employee_name', '') if user_role == 'employee' else ''
+
+    companies = database.get_all_companies() or [] if user_role == 'super_admin' else []
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
     active_comp = database.get_company_by_id(active_cid) or {
         'id': 'ARGUS_MASTER',
@@ -4747,18 +4867,25 @@ def field_worker_module_page():
         'address': 'SF NO. 515, Bharathiyar Road, Ganapathy, Coimbatore'
     }
 
+    emp_scope = logged_in_emp_name if user_role == 'employee' else None
+
     field_workers = database.get_field_workers(company_id=active_cid, include_all_employees=False)
-    all_employees = database.get_field_workers(company_id=active_cid, include_all_employees=True)
-    assignments = database.get_field_assignments(company_id=active_cid, date_str=today_str)
-    tracking = database.get_field_live_tracking(company_id=active_cid, date_str=today_str)
-    visits = database.get_field_customer_visits(company_id=active_cid)
-    salary_reports = database.get_field_worker_salary_report(company_id=active_cid, month_year=month_year)
+    if emp_scope:
+        field_workers = [w for w in field_workers if w.get('employee_name') == emp_scope]
+
+    all_employees = database.get_field_workers(company_id=active_cid, include_all_employees=True) if user_role in ['super_admin', 'company_admin'] else field_workers
+    assignments = database.get_field_assignments(company_id=active_cid, employee_name=emp_scope, date_str=today_str)
+    tracking = database.get_field_live_tracking(company_id=active_cid, date_str=today_str, employee_name=emp_scope)
+    visits = database.get_field_customer_visits(company_id=active_cid, employee_name=emp_scope)
+    salary_reports = database.get_field_worker_salary_report(company_id=active_cid, month_year=month_year, employee_name=emp_scope)
 
     return render_template(
         'field_worker_module.html',
         companies=companies,
         active_company=active_comp,
         active_company_id=active_cid,
+        user_role=user_role,
+        logged_in_employee_name=logged_in_emp_name,
         field_workers=field_workers,
         all_employees=all_employees,
         assignments=assignments,
@@ -4772,16 +4899,22 @@ def field_worker_module_page():
 
 @app.route('/api/field-worker/overview', methods=['GET'])
 def api_field_worker_overview():
-    """Returns live JSON state for the Field Worker Module dashboard."""
+    """Returns live JSON state for the Field Worker Module dashboard (isolated by tenant & role)."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
     now_ist = database.get_ist_now()
     cid = _resolve_field_company_id(request.args.get('company_id'))
     date_str = request.args.get('date') or now_ist.strftime('%Y-%m-%d')
     month_year = request.args.get('month') or now_ist.strftime('%Y-%m')
-    emp_filter = request.args.get('employee_name') or None
+    user_role = session.get('role')
+    emp_filter = session.get('employee_name') if user_role == 'employee' else (request.args.get('employee_name') or None)
 
     comp = database.get_company_by_id(cid) or {'id': cid, 'company_name': 'ARGUS TECHNOLOGIES', 'latitude': 11.0298, 'longitude': 76.9740}
     workers = database.get_field_workers(company_id=cid, include_all_employees=False)
-    all_emps = database.get_field_workers(company_id=cid, include_all_employees=True)
+    if user_role == 'employee' and emp_filter:
+        workers = [w for w in workers if w.get('employee_name') == emp_filter]
+    all_emps = database.get_field_workers(company_id=cid, include_all_employees=True) if user_role in ['super_admin', 'company_admin'] else workers
     assignments = database.get_field_assignments(company_id=cid, employee_name=emp_filter, date_str=date_str)
     tracking = database.get_field_live_tracking(company_id=cid, date_str=date_str, employee_name=emp_filter)
     visits = database.get_field_customer_visits(company_id=cid, employee_name=emp_filter)
@@ -4804,7 +4937,9 @@ def api_field_worker_overview():
 
 @app.route('/api/field-worker/register', methods=['POST'])
 def api_field_worker_register():
-    """Registers a new Field Worker or updates an existing employee with Field Worker configuration."""
+    """Registers a new Field Worker or updates an existing employee with Field Worker configuration (Admin only)."""
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'error': 'Only Company Admin or System Admin can register field workers.'}), 403
     try:
         data = request.get_json(silent=True) or request.form.to_dict()
         cid = _resolve_field_company_id(data.get('company_id'))
@@ -4860,13 +4995,19 @@ def api_field_worker_register():
 @app.route('/api/field-worker/assignments', methods=['GET', 'POST'])
 def api_field_worker_assignments():
     """Lists or creates target customer location assignments for field workers."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
     if request.method == 'GET':
         cid = _resolve_field_company_id(request.args.get('company_id'))
-        emp = request.args.get('employee_name') or None
+        emp = session.get('employee_name') if session.get('role') == 'employee' else (request.args.get('employee_name') or None)
         dt = request.args.get('date') or None
         st = request.args.get('status') or None
         items = database.get_field_assignments(company_id=cid, employee_name=emp, date_str=dt, status=st)
         return jsonify({'success': True, 'assignments': items})
+
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'error': 'Only Company Admin or System Admin can assign locations.'}), 403
 
     try:
         data = request.get_json(silent=True) or request.form.to_dict()
@@ -4880,8 +5021,13 @@ def api_field_worker_assignments():
 @app.route('/api/field-worker/assignments/<assignment_id>', methods=['PUT', 'DELETE'])
 def api_field_worker_assignment_detail(assignment_id):
     """Updates or deletes a specific field location assignment."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
     cid = _resolve_field_company_id(request.args.get('company_id'))
     if request.method == 'DELETE':
+        if not session.get('admin_logged_in'):
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
         ok = database.delete_field_assignment(assignment_id, company_id=cid)
         return jsonify({'success': ok, 'message': 'Assignment deleted.' if ok else 'Assignment not found.'})
 
@@ -4893,9 +5039,14 @@ def api_field_worker_assignment_detail(assignment_id):
 @app.route('/api/field-worker/location-ping', methods=['POST'])
 def api_field_worker_location_ping():
     """Records a live GPS ping from a field worker and detects Company Site vs Personal Detour."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
     try:
         data = request.get_json(silent=True) or request.form.to_dict()
         cid = _resolve_field_company_id(data.get('company_id'))
+        if session.get('role') == 'employee' and session.get('employee_name'):
+            data['employee_name'] = session.get('employee_name')
         ping = database.record_field_location_ping(data, company_id=cid)
         return jsonify({
             'success': True,
@@ -4909,9 +5060,12 @@ def api_field_worker_location_ping():
 @app.route('/api/field-worker/visits', methods=['GET', 'POST'])
 def api_field_worker_visits():
     """Lists or logs Customer Visits (Lead CRM) with automatic geo-verification."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
     if request.method == 'GET':
         cid = _resolve_field_company_id(request.args.get('company_id'))
-        emp = request.args.get('employee_name') or None
+        emp = session.get('employee_name') if session.get('role') == 'employee' else (request.args.get('employee_name') or None)
         start_d = request.args.get('start_date') or None
         end_d = request.args.get('end_date') or None
         status = request.args.get('lead_status') or None
@@ -4921,6 +5075,8 @@ def api_field_worker_visits():
     try:
         data = request.get_json(silent=True) or request.form.to_dict()
         cid = _resolve_field_company_id(data.get('company_id'))
+        if session.get('role') == 'employee' and session.get('employee_name'):
+            data['employee_name'] = session.get('employee_name')
         visit = database.create_field_customer_visit(data, company_id=cid)
         return jsonify({
             'success': True,
@@ -4933,6 +5089,8 @@ def api_field_worker_visits():
 
 @app.route('/api/field-worker/visits/<visit_id>', methods=['DELETE'])
 def api_field_worker_delete_visit(visit_id):
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
     cid = _resolve_field_company_id(request.args.get('company_id'))
     ok = database.delete_field_customer_visit(visit_id, company_id=cid)
     return jsonify({'success': ok})
@@ -4941,9 +5099,12 @@ def api_field_worker_delete_visit(visit_id):
 @app.route('/api/field-worker/salary-report', methods=['GET'])
 def api_field_worker_salary_report():
     """Returns monthly Field Worker Salary & Activity report."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
     cid = _resolve_field_company_id(request.args.get('company_id'))
     month_year = request.args.get('month') or database.get_ist_now().strftime('%Y-%m')
-    emp_name = request.args.get('employee_name') or None
+    emp_name = session.get('employee_name') if session.get('role') == 'employee' else (request.args.get('employee_name') or None)
     reports = database.get_field_worker_salary_report(company_id=cid, month_year=month_year, employee_name=emp_name)
     return jsonify({'success': True, 'month_year': month_year, 'reports': reports})
 
@@ -4951,9 +5112,12 @@ def api_field_worker_salary_report():
 @app.route('/api/field-worker/payslip-pdf', methods=['GET'])
 def api_field_worker_payslip_pdf():
     """Generates and downloads an individual Field Worker's branded monthly Payslip PDF."""
+    if not _is_field_authenticated():
+        return redirect(url_for('field_worker_login'))
+
     cid = _resolve_field_company_id(request.args.get('company_id'))
     month_year = request.args.get('month') or database.get_ist_now().strftime('%Y-%m')
-    emp_name = request.args.get('employee_name')
+    emp_name = session.get('employee_name') if session.get('role') == 'employee' else request.args.get('employee_name')
     if not emp_name:
         return jsonify({'error': 'employee_name is required'}), 400
 
@@ -4976,12 +5140,15 @@ def api_field_worker_payslip_pdf():
 @app.route('/api/field-worker/export', methods=['GET'])
 def api_field_worker_export():
     """Exports Field Worker Visits/Leads, Live Route Tracking, or Salary Reports to PDF or Excel."""
+    if not _is_field_authenticated():
+        return redirect(url_for('field_worker_login'))
+
     cid = _resolve_field_company_id(request.args.get('company_id'))
     report_type = (request.args.get('type') or 'visits').strip().lower()
     export_format = (request.args.get('format') or 'pdf').strip().lower()
     date_str = request.args.get('date') or database.get_ist_now().strftime('%Y-%m-%d')
     month_year = request.args.get('month') or database.get_ist_now().strftime('%Y-%m')
-    emp_name = request.args.get('employee_name') or None
+    emp_name = session.get('employee_name') if session.get('role') == 'employee' else (request.args.get('employee_name') or None)
     comp_info = database.get_company_by_id(cid)
 
     if report_type == 'visits':
@@ -5054,4 +5221,5 @@ def api_field_worker_export():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+
 

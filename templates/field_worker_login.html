@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARGUS ATTENDANCE - Field Worker Module Login</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    body {
+      background: radial-gradient(circle at 10% 20%, rgba(90, 150, 200, 0.25) 0%, transparent 40%),
+                  radial-gradient(circle at 90% 80%, rgba(30, 80, 130, 0.4) 0%, transparent 45%),
+                  linear-gradient(135deg, #102a45 0%, #1e3a58 50%, #274768 100%);
+      margin: 0;
+      min-height: 100vh;
+      height: auto;
+      overflow-y: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      box-sizing: border-box;
+    }
+    .login-card {
+      background-color: #ffffff;
+      border-radius: 16px;
+      padding: 34px 30px 28px;
+      width: 100%;
+      max-width: 425px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.28);
+      text-align: center;
+      box-sizing: border-box;
+      position: relative;
+    }
+    .role-switch-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      background: #f1f5f9;
+      padding: 5px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #e2e8f0;
+    }
+    .role-switch-btn {
+      border: none;
+      background: transparent;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 9px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .role-switch-btn.active {
+      background: #102a45;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(16, 42, 69, 0.25);
+    }
+    .input-field-group {
+      position: relative;
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .input-field-group input {
+      width: 100%;
+      padding: 11px 42px 11px 38px;
+      border: 1.5px solid #dbe2ea;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      background: #ffffff;
+      color: #1e293b;
+      box-sizing: border-box;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-field-group input:focus {
+      border-color: #1b4975;
+      box-shadow: 0 0 0 3px rgba(27, 73, 117, 0.12);
+    }
+    .input-icon-left {
+      position: absolute;
+      left: 12px;
+      color: #94a3b8;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-toggle-eye {
+      position: absolute;
+      right: 10px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #94a3b8;
+      padding: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-signin {
+      width: 100%;
+      background-color: #102a45;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(16, 42, 69, 0.25);
+      transition: background-color 0.2s;
+    }
+    .btn-signin:hover {
+      background-color: #1b4975;
+    }
+    .btn-google {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      background-color: #ffffff;
+      color: #1f2937;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      box-sizing: border-box;
+      gap: 10px;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+    .btn-google:hover {
+      background-color: #f9fafb;
+      border-color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-card">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px;">
+      <img src="{{ url_for('static', filename='images/argus_field_logo.jpg') }}" alt="Argus" style="width: 38px; height: 38px; object-fit: contain; border-radius: 50%;">
+      <div style="font-size: 19px; font-weight: 800; color: #102a45; letter-spacing: 0.7px;">ARGUS FIELD FORCE</div>
+    </div>
+    <div style="width: 38px; height: 3px; background-color: #e59819; border-radius: 2px; margin: 0 auto 8px;"></div>
+    <div style="font-size: 11px; color: #475569; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 18px;">
+      MULTI-TENANT COMPANY &amp; FIELD WORKER PORTAL
+    </div>
+
+    {% if error %}
+    <div style="background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 14px; font-size: 12px; line-height: 1.4; margin-bottom: 16px; text-align: left;">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/field-worker/login">
+      <input type="hidden" name="login_role" id="loginRoleInput" value="{{ selected_role or 'field_worker' }}">
+
+      <div class="role-switch-group">
+        <button type="button" id="roleBtnWorker" class="role-switch-btn {% if (selected_role or 'field_worker') == 'field_worker' %}active{% endif %}" onclick="setLoginRole('field_worker')">
+          Field Worker Sign-In
+        </button>
+        <button type="button" id="roleBtnAdmin" class="role-switch-btn {% if selected_role == 'company_admin' %}active{% endif %}" onclick="setLoginRole('company_admin')">
+          Company Admin Sign-In
+        </button>
+      </div>
+
+      <div style="text-align: left; margin-bottom: 14px;">
+        <label id="emailFieldLabel" style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px;">
+          Registered Field Worker Email
+        </label>
+        <div class="input-field-group">
+          <span class="input-icon-left">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          </span>
+          <input type="email" name="email" id="emailFieldInput" required placeholder="Enter your registered email address" autocomplete="username">
+        </div>
+      </div>
+
+      <div style="text-align: left; margin-bottom: 14px;">
+        <label style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px;">Password</label>
+        <div class="input-field-group">
+          <span class="input-icon-left">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </span>
+          <input type="password" id="fwPasswordInput" name="password" required placeholder="Enter your password" autocomplete="current-password">
+          <button type="button" class="btn-toggle-eye" onclick="toggleFwPassword()">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+        </div>
+      </div>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px 12px; font-size: 11.5px; color: #475569; text-align: left; margin-bottom: 16px;">
+        <strong style="color: #0f172a;">Multi-Tenant Isolation Active:</strong> Your account automatically connects to your registered company workspace and blocks unauthorized cross-company access.
+      </div>
+
+      <button type="submit" class="btn-signin">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <span id="submitBtnText">ACCESS FIELD WORKER MODULE</span>
+      </button>
+    </form>
+
+    <div style="display: flex; align-items: center; margin: 18px 0 14px; color: #94a3b8;">
+      <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+      <span style="padding: 0 12px; font-size: 11px; font-weight: 700;">OR</span>
+      <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+    </div>
+
+    <a id="googleLoginBtn" href="/auth/google/login?type=employee&next=/field-worker" class="btn-google">
+      <svg width="18" height="18" viewBox="0 0 18 18">
+        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+        <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.347 2.825.957 4.039l3.007-2.332z"/>
+        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+      </svg>
+      <span>Continue with Google</span>
+    </a>
+
+    <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 12px;">
+      <a href="/" style="color: #475569; text-decoration: none; font-weight: 600;">&larr; Back to Attendance Kiosk</a>
+      <a href="/login" style="color: #1b4975; text-decoration: none; font-weight: 700;">System Admin Login</a>
+    </div>
+  </div>
+
+  <script>
+    function setLoginRole(role) {
+      document.getElementById('loginRoleInput').value = role;
+      const isWorker = role === 'field_worker';
+      document.getElementById('roleBtnWorker').classList.toggle('active', isWorker);
+      document.getElementById('roleBtnAdmin').classList.toggle('active', !isWorker);
+      document.getElementById('emailFieldLabel').textContent = isWorker ? 'Registered Field Worker Email' : 'Registered Company Admin Email';
+      document.getElementById('emailFieldInput').placeholder = isWorker ? 'Enter your field worker email' : 'Enter your company admin email';
+      document.getElementById('googleLoginBtn').href = isWorker ? '/auth/google/login?type=employee&next=/field-worker' : '/auth/google/login?type=company&next=/field-worker';
+    }
+    function toggleFwPassword() {
+      const inp = document.getElementById('fwPasswordInput');
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+    }
+  </script>
+</body>
+</html>
