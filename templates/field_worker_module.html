@@ -669,6 +669,8 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      transform: scaleX(-1);
+      -webkit-transform: scaleX(-1);
     }
 
     .fw-camera-placeholder {
@@ -898,7 +900,7 @@
       border-radius: 12px;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
       width: 100%;
-      max-width: 940px;
+      max-width: 760px;
       max-height: 90vh;
       display: flex;
       flex-direction: column;
@@ -1497,8 +1499,8 @@
 
               <form id="registerFieldWorkerForm" onsubmit="submitFieldWorkerRegistration(event)">
                 <div class="fw-modal-body">
-                  <!-- Row 1: Mode, Name, Email, Mobile -->
-                  <div class="fw-form-grid-4" style="margin-bottom:12px;">
+                  <!-- Row 1: Mode & Full Name -->
+                  <div class="fw-form-grid-2" style="margin-bottom:14px;">
                     <div class="fw-field">
                       <label class="fw-label">Registration Mode</label>
                       <select id="fwExistingEmpSelect" class="fw-select" onchange="populateExistingEmployeeForField(this)">
@@ -1528,7 +1530,10 @@
                       <label class="fw-label">Field Worker Full Name *</label>
                       <input type="text" id="fwRegName" class="fw-input" required placeholder="e.g., Karthik Sundaram">
                     </div>
+                  </div>
 
+                  <!-- Row 2: Email & Mobile -->
+                  <div class="fw-form-grid-2" style="margin-bottom:14px;">
                     <div class="fw-field">
                       <label class="fw-label">Email ID *</label>
                       <input type="email" id="fwRegEmail" class="fw-input" required placeholder="worker@company.com">
@@ -1540,8 +1545,8 @@
                     </div>
                   </div>
 
-                  <!-- Row 2: Department, Designation, Territory, Status -->
-                  <div class="fw-form-grid-4" style="margin-bottom:12px;">
+                  <!-- Row 3: Department & Designation -->
+                  <div class="fw-form-grid-2" style="margin-bottom:14px;">
                     <div class="fw-field">
                       <label class="fw-label">Department</label>
                       <input type="text" id="fwRegDept" class="fw-input" value="Field Sales">
@@ -1551,7 +1556,10 @@
                       <label class="fw-label">Designation</label>
                       <input type="text" id="fwRegDesig" class="fw-input" value="Sales Executive">
                     </div>
+                  </div>
 
+                  <!-- Row 4: Territory / Zone & Status -->
+                  <div class="fw-form-grid-2" style="margin-bottom:14px;">
                     <div class="fw-field">
                       <label class="fw-label">Territory / Zone</label>
                       <input type="text" id="fwRegZone" class="fw-input" value="Coimbatore North">
@@ -1566,8 +1574,8 @@
                     </div>
                   </div>
 
-                  <!-- Biometric Photo Row -->
-                  <div class="fw-form-grid-2" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:12px; align-items:center;">
+                  <!-- Row 5: Face Biometrics Photo Row -->
+                  <div class="fw-form-grid-2" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px; margin-bottom:14px; align-items:center;">
                     <div class="fw-field">
                       <label class="fw-label"><i class="fa-solid fa-camera" style="color:#0284c7; margin-right:4px;"></i> Face Biometrics Photo (For Main '/' Camera Punch)</label>
                       <div style="display:flex; gap:8px; align-items:center;">
@@ -1579,7 +1587,7 @@
                       <input type="hidden" id="fwRegPhotoData" value="">
                     </div>
                     <div style="display:flex; align-items:center; gap:10px;">
-                      <div id="fwPhotoPreviewContainer" style="width:40px; height:40px; border-radius:50%; border:2px solid #cbd5e1; background:#e2e8f0; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                      <div id="fwPhotoPreviewContainer" style="width:42px; height:42px; border-radius:50%; border:2px solid #cbd5e1; background:#e2e8f0; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                         <i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>
                       </div>
                       <div style="font-size:11px; color:#64748b; line-height:1.35;">
@@ -1588,12 +1596,14 @@
                     </div>
                   </div>
 
-                  <!-- Row 3: Compensation & Field Incentives Strip -->
+                  <!-- Compensation Strip (2 Fields per row) -->
                   <div class="fw-incentive-strip" style="margin-bottom:0;">
-                    <div class="fw-incentive-strip-title">
+                    <div class="fw-incentive-strip-title" style="margin-bottom:12px;">
                       <i class="fa-solid fa-coins"></i> Compensation Basis, Shift Hours &amp; Field Performance Incentives
                     </div>
-                    <div class="fw-form-grid-4" style="grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: end;">
+
+                    <!-- Row 6: Base Salary Type & Shift Hours -->
+                    <div class="fw-form-grid-2" style="margin-bottom:12px;">
                       <div class="fw-field">
                         <label class="fw-label">Base Salary Type</label>
                         <select id="fwRegSalaryType" class="fw-select">
@@ -1607,7 +1617,10 @@
                         <label class="fw-label">Shift Hours (00:00 = Flex)</label>
                         <input type="text" id="fwRegShiftHours" class="fw-input" value="08:00">
                       </div>
+                    </div>
 
+                    <!-- Row 7: Base Rate & Visit Incentive -->
+                    <div class="fw-form-grid-2" style="margin-bottom:12px;">
                       <div class="fw-field">
                         <label class="fw-label">Daily / Hourly Rate (₹)</label>
                         <input type="number" step="0.01" id="fwRegBaseRate" class="fw-input" value="600">
@@ -1617,10 +1630,19 @@
                         <label class="fw-label">Per Verified Visit (₹)</label>
                         <input type="number" step="0.5" id="fwRegVisitIncentive" class="fw-input" value="75">
                       </div>
+                    </div>
 
+                    <!-- Row 8: Travel Rate & Incentive note -->
+                    <div class="fw-form-grid-2">
                       <div class="fw-field">
                         <label class="fw-label">GPS Travel Rate (₹ / KM)</label>
                         <input type="number" step="0.5" id="fwRegKmRate" class="fw-input" value="6">
+                      </div>
+
+                      <div class="fw-field" style="justify-content:center;">
+                        <div style="font-size:11.5px; color:#0f766e; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:8px 10px; line-height:1.35;">
+                          <i class="fa-solid fa-circle-check"></i> Automatically calculates daily KM distance &amp; visit incentives into monthly payslip.
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1857,7 +1879,7 @@
                     <i class="fa-solid fa-face-viewfinder" style="font-size:28px; color:#64748b;"></i>
                     <span>Click "Start Camera" or "AI Face + GPS Punch" to verify attendance</span>
                   </div>
-                  <video id="fwPunchVideo" autoplay playsinline muted style="position:relative; z-index:2;"></video>
+                  <video id="fwPunchVideo" autoplay playsinline muted style="position:relative; z-index:2; transform:scaleX(-1); -webkit-transform:scaleX(-1);"></video>
                   <canvas id="fwPunchCanvas" class="d-none"></canvas>
                 </div>
 
@@ -2068,15 +2090,14 @@
                   </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                  <span class="badge-onsite"><i class="fa-solid fa-shield-halved"></i> Automatic Geofence Verification</span>
                   <button type="button" class="fw-modal-close-btn" onclick="closeAddLeadModal()">&times;</button>
                 </div>
               </div>
 
               <form id="customerVisitForm" onsubmit="submitCustomerVisit(event)">
                 <div class="fw-modal-body">
-                  <!-- Row 1 -->
-                  <div class="fw-form-grid-4" style="margin-bottom:12px;">
+                  <!-- Row 1: Worker & Linked Site -->
+                  <div class="fw-form-grid-2" style="margin-bottom:14px;">
                     <div class="fw-field">
                       <label class="fw-label">Field Worker *</label>
                       <select id="visitWorkerName" class="fw-select" required {% if user_role == 'employee' %}disabled{% endif %}>
@@ -2107,7 +2128,10 @@
                         {% endfor %}
                       </select>
                     </div>
+                  </div>
 
+                  <!-- Row 2: Customer Name & Contact Person -->
+                  <div class="fw-form-grid-2" style="margin-bottom:14px;">
                     <div class="fw-field">
                       <label class="fw-label">Customer / Shop / Company Name *</label>
                       <input type="text" id="visitCustomerName" class="fw-input" required placeholder="e.g., Apex Industrial Supplies">
@@ -2119,8 +2143,8 @@
                     </div>
                   </div>
 
-                  <!-- Row 2 -->
-                  <div class="fw-form-grid-4" style="margin-bottom:12px;">
+                  <!-- Row 3: Customer Phone & Product Pitched -->
+                  <div class="fw-form-grid-2" style="margin-bottom:14px;">
                     <div class="fw-field">
                       <label class="fw-label">Customer Phone</label>
                       <input type="text" id="visitCustomerPhone" class="fw-input" placeholder="9876543210">
@@ -2130,7 +2154,10 @@
                       <label class="fw-label">Product / Service Pitched</label>
                       <input type="text" id="visitProduct" class="fw-input" value="Company Products">
                     </div>
+                  </div>
 
+                  <!-- Row 4: Lead Outcome & Order Value -->
+                  <div class="fw-form-grid-2" style="margin-bottom:14px;">
                     <div class="fw-field">
                       <label class="fw-label">Lead Outcome Status *</label>
                       <select id="visitLeadStatus" class="fw-select">
@@ -2149,13 +2176,8 @@
                     </div>
                   </div>
 
-                  <!-- Row 3 -->
-                  <div class="fw-form-grid-4" style="grid-template-columns: 1fr 1fr 1fr 2fr; align-items: end;">
-                    <div class="fw-field">
-                      <label class="fw-label">Follow-Up Date</label>
-                      <input type="date" id="visitFollowUpDate" class="fw-input">
-                    </div>
-
+                  <!-- Row 5: GPS Coordinates -->
+                  <div class="fw-form-grid-2" style="margin-bottom:14px;">
                     <div class="fw-field">
                       <label class="fw-label">Visit GPS Lat</label>
                       <input type="number" step="0.000001" id="visitLat" class="fw-input" value="11.018300">
@@ -2164,6 +2186,14 @@
                     <div class="fw-field">
                       <label class="fw-label">Visit GPS Lng</label>
                       <input type="number" step="0.000001" id="visitLng" class="fw-input" value="76.968500">
+                    </div>
+                  </div>
+
+                  <!-- Row 6: Follow-Up Date & Remarks -->
+                  <div class="fw-form-grid-2" style="margin-bottom:0;">
+                    <div class="fw-field">
+                      <label class="fw-label">Follow-Up Date</label>
+                      <input type="date" id="visitFollowUpDate" class="fw-input">
                     </div>
 
                     <div class="fw-field">
@@ -2189,16 +2219,8 @@
         <!-- ========================================================================= -->
         <div id="paneFieldPayroll" class="fw-section-pane" data-title="PAYSLIP &amp; SALARY REPORTS">
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap:wrap; gap:12px; border-bottom:1px solid #eef2f6; padding-bottom:14px; margin-bottom:14px;">
-              <div>
-                <div class="fw-card-title" style="font-size:13.5px;">
-                  <i class="fa-solid fa-file-invoice-dollar" style="color:#15803d; margin-right:6px;"></i>
-                  MONTHLY FIELD WORKER SALARY, VISIT INCENTIVES &amp; KM TRAVEL ALLOWANCE REPORT (<span id="payrollMonthTitle">{{ month_year }}</span>)
-                </div>
-                <div style="font-size:11.5px; color:#64748b; margin-top:3px;">
-                  Formula: <strong style="color:#0f172a;">Net Field Payable</strong> = Base Attendance Salary + (Verified Visits &times; Per-Visit Incentive) + (GPS Travel KM &times; KM Allowance Rate) &minus; Deductions
-                </div>
-              </div>
+            <div class="table-toolbar" style="flex-wrap:wrap; gap:12px; border-bottom:1px solid #eef2f6; padding-bottom:14px; margin-bottom:14px; justify-content:flex-end;">
+              <span id="payrollMonthTitle" class="d-none">{{ month_year }}</span>
 
               <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <div class="export-btn-group">
