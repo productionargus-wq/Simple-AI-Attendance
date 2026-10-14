@@ -5444,14 +5444,29 @@ def branch_management_page():
 
     comp_res = database.get_all_companies(limit=1000) if user_role == 'super_admin' else None
     companies = comp_res.get('data', []) if isinstance(comp_res, dict) else (comp_res or [])
+    company_map = {str(c['id']): c.get('company_name', 'Company') for c in companies}
+    company_map['ARGUS_MASTER'] = 'ARGUS TECHNOLOGIES'
 
-    branches = database.get_company_branches(active_cid)
+    req_cid = request.args.get('company_id')
+    if user_role == 'super_admin':
+        if req_cid and req_cid not in ['ALL', 'all', 'None', 'null']:
+            branches = database.get_company_branches(req_cid)
+        else:
+            branches = database.get_company_branches('ALL')
+
+        for b in branches:
+            cid = str(b.get('company_id', ''))
+            b['company_name'] = company_map.get(cid, 'ARGUS TECHNOLOGIES')
+    else:
+        branches = database.get_company_branches(active_cid)
+        for b in branches:
+            b['company_name'] = active_comp.get('company_name', 'Company')
 
     return render_template(
         'branch_management_module.html',
         branches=branches,
         active_company=active_comp,
-        active_company_id=active_cid,
+        active_company_id=req_cid or active_cid,
         companies=companies,
         user_role=user_role,
         total_branches=len(branches),
@@ -5506,6 +5521,8 @@ def api_create_branch():
 
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
     data = request.get_json() or {}
+    if session.get('role') == 'super_admin' and data.get('company_id'):
+        active_cid = str(data.get('company_id')).strip()
 
     b_name = (data.get('branch_name') or '').strip()
     if not b_name:
@@ -5526,6 +5543,13 @@ def api_update_branch(branch_id):
 
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
     data = request.get_json() or {}
+    if session.get('role') == 'super_admin':
+        if data.get('company_id'):
+            active_cid = str(data.get('company_id')).strip()
+        else:
+            b_doc = database.get_branch_by_id(branch_id, company_id='ALL')
+            if b_doc and b_doc.get('company_id'):
+                active_cid = str(b_doc.get('company_id'))
 
     try:
         success = database.update_company_branch(branch_id, data, active_cid)
@@ -5541,6 +5565,14 @@ def api_delete_branch(branch_id):
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
 
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
+    if session.get('role') == 'super_admin':
+        req_cid = request.args.get('company_id')
+        if req_cid and req_cid not in ['ALL', 'all']:
+            active_cid = str(req_cid).strip()
+        else:
+            b_doc = database.get_branch_by_id(branch_id, company_id='ALL')
+            if b_doc and b_doc.get('company_id'):
+                active_cid = str(b_doc.get('company_id'))
     try:
         success = database.delete_company_branch(branch_id, active_cid)
         return jsonify({'success': True, 'message': 'Branch deleted and employees unassigned successfully'})

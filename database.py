@@ -274,6 +274,7 @@ def init_db():
                 'longitude': 76.97400,
                 'status': 'Active',
                 'employee_limit': 1000,
+                'branch_limit': 100,
                 'shift_hours': '08:00',
                 'auto_email_reports': True,
                 'created_at': datetime.now(),
@@ -434,6 +435,7 @@ def create_company(data):
         'coordinates_locked_at': now_ist if coords_locked else None,
         'status': 'Deactive' if str(data.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active',
         'employee_limit': int(data.get('employee_limit') or data.get('employee_count') or 50),
+        'branch_limit': int(data.get('branch_limit') or 5),
         'shift_hours': str(data.get('shift_hours') or '08:00').strip(),
         'auto_email_reports': str(data.get('auto_email_reports', 'false')).lower() in ['true', '1', 'yes'],
         'daily_report_time': str(data.get('daily_report_time') or '07:00').strip(),
@@ -500,9 +502,10 @@ def get_all_companies(search='', page=1, limit=10):
     companies = []
     company_docs = list(cursor)
     
-    # Batch calculate employee counts in a single query instead of N sequential calls
+    # Batch calculate employee & branch counts in single queries instead of N sequential calls
     comp_ids = [doc.get('id') for doc in company_docs if doc.get('id')]
     counts_map = {}
+    branch_counts_map = {}
     if comp_ids:
         try:
             agg_res = db.employees.aggregate([
@@ -518,6 +521,14 @@ def get_all_companies(search='', page=1, limit=10):
             counts_map = {item['_id']: item for item in agg_res}
         except Exception:
             pass
+        try:
+            br_agg = db.company_branches.aggregate([
+                {'$match': {'company_id': {'$in': [str(cid) for cid in comp_ids]}, 'status': {'$ne': 'Deleted'}}},
+                {'$group': {'_id': '$company_id', 'count': {'$sum': 1}}}
+            ])
+            branch_counts_map = {str(item['_id']): item['count'] for item in br_agg}
+        except Exception:
+            pass
 
     for doc in company_docs:
         c = clean_doc(doc)
@@ -527,6 +538,8 @@ def get_all_companies(search='', page=1, limit=10):
         c['total_count'] = comp_counts.get('total_count', 0)
         c['employee_count'] = c['active_count']
         c['employee_limit'] = int(c.get('employee_limit') or c['employee_count'] or 50)
+        c['branch_count'] = branch_counts_map.get(str(c['id']), 0)
+        c['branch_limit'] = int(c.get('branch_limit') or 5)
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
@@ -593,6 +606,7 @@ def get_company_by_id(comp_id, include_counts=False):
         c['status'] = 'Deactive' if str(c.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active'
         c['registered_date'] = format_company_reg_date(c.get('registered_date') or c.get('created_at'))
         c['employee_limit'] = int(c.get('employee_limit') or 50)
+        c['branch_limit'] = int(c.get('branch_limit') or 5)
 
         # Store in in-memory cache
         _company_cache[key] = (now_ts, dict(c))
@@ -602,10 +616,12 @@ def get_company_by_id(comp_id, include_counts=False):
             c['total_count'] = db.employees.count_documents({'company_id': c['id']})
             c['employee_count'] = c['active_count']
             c['employee_limit'] = int(c.get('employee_limit') or c['employee_count'] or 50)
+            c['branch_count'] = db.company_branches.count_documents({'company_id': str(c['id']), 'status': {'$ne': 'Deleted'}})
         else:
             c['active_count'] = 0
             c['total_count'] = 0
             c['employee_count'] = 0
+            c['branch_count'] = 0
         return c
     return None
 
@@ -682,6 +698,13 @@ def update_company(comp_id, data):
         if lim:
             try:
                 upd['employee_limit'] = int(lim)
+            except Exception:
+                pass
+    if 'branch_limit' in data:
+        b_lim = data.get('branch_limit')
+        if b_lim:
+            try:
+                upd['branch_limit'] = int(b_lim)
             except Exception:
                 pass
     if 'shift_hours' in data and data['shift_hours']:
@@ -7681,6 +7704,16 @@ def create_company_branch(data, company_id):
         raise ValueError("Branch Name is required.")
         
     db = get_db()
+    # Check branch creation limit quota
+    comp = get_company_by_id(str(company_id), include_counts=False)
+    branch_limit = int(comp.get('branch_limit') or 5) if comp else 5
+    current_count = db.company_branches.count_documents({
+        'company_id': str(company_id),
+        'status': {'$ne': 'Deleted'}
+    })
+    if current_count >= branch_limit:
+        raise ValueError(f"Branch creation limit reached. This company is allowed a maximum of {branch_limit} branches. Contact system admin to upgrade your branch quota.")
+
     now_ist = get_ist_now()
     branch_id = str(data.get('id') or f"branch_{int(time.time() * 1000)}")
     

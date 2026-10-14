@@ -15,28 +15,43 @@
   </script>
   <style>
     /* Navbar Branch Switcher Dropdown */
-    .nav-company-dropdown-btn {
-      background: transparent;
-      border: 1px solid transparent;
+    .nav-branch-toggle-btn {
+      background: rgba(2, 132, 199, 0.08);
+      border: 1px solid rgba(2, 132, 199, 0.25);
       outline: none;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 5px 12px;
+      gap: 6px;
+      padding: 0 12px;
+      height: 34px;
       border-radius: 9999px;
       transition: all 0.2s ease;
+      box-sizing: border-box;
+      line-height: 1;
+      vertical-align: middle;
     }
-    .nav-company-dropdown-btn:hover {
-      background: rgba(15, 23, 42, 0.04);
-      border-color: rgba(203, 213, 225, 0.6);
+    .nav-branch-toggle-btn:hover {
+      background: rgba(2, 132, 199, 0.15);
+      border-color: rgba(2, 132, 199, 0.45);
+    }
+    .nav-active-branch-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #0284c7;
+      font-size: 11.5px;
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
     }
     .nav-branch-dropdown-menu {
       display: none;
       position: absolute;
-      top: calc(100% + 10px);
-      left: 50%;
-      transform: translateX(-50%);
+      top: calc(100% + 8px);
+      right: 0;
+      left: auto;
+      transform: none;
       width: 310px;
       background: #ffffff;
       border-radius: 12px;
@@ -82,19 +97,22 @@
       </button>
     </div>
     
-    <div class="nav-center" style="display: flex; align-items: center; justify-content: center; position: relative;">
+    <div class="nav-center">
+      <div class="nav-title">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
+    </div>
+    
+    <div class="nav-right">
       {% if company_modules and company_modules.branch_company and user_branches and user_branches|length > 0 %}
       <div class="nav-company-dropdown-container" id="navBranchDropdownContainer" style="position: relative;">
-        <button type="button" class="nav-company-dropdown-btn" id="navCompanyDropdownBtn" onclick="toggleNavBranchDropdown(event)" title="Click to switch active branch view">
-          <span class="nav-title" style="margin: 0; font-size: 15px; font-weight: 800; color: #0f172a; letter-spacing: 0.2px;">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</span>
-          <span class="nav-active-branch-badge" style="display: inline-flex; align-items: center; gap: 4px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: #0284c7; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px;">
+        <button type="button" class="nav-branch-toggle-btn" id="navCompanyDropdownBtn" onclick="toggleNavBranchDropdown(event)" title="Click to switch active branch view">
+          <span class="nav-active-branch-badge">
             {% if session.get('active_branch_name') %}
               📍 {{ session.get('active_branch_name') }}
             {% else %}
               🏢 All Branches
             {% endif %}
           </span>
-          <svg class="nav-dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s ease;">
+          <svg class="nav-dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s ease;">
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>
         </button>
@@ -151,12 +169,8 @@
           {% endif %}
         </div>
       </div>
-      {% else %}
-      <div class="nav-title">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
       {% endif %}
-    </div>
-    
-    <div class="nav-right" style="display: flex; align-items: center; justify-content: flex-end;">
+
       <div class="top-nav-logo-circle" title="{{ session.get('company_name') or 'Company' }}">
         {% if has_company_logo and current_company_logo_url %}
           <img src="{{ current_company_logo_url }}" alt="Company Logo" class="top-nav-logo-img" onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/default_profile.svg') }}';">
@@ -166,7 +180,6 @@
             <path fill="#64748b" fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd"/>
           </svg>
         {% endif %}
-      </div>
     </div>
   </header>
 

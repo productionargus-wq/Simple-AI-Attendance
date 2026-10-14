@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const inputLongitude = document.getElementById('inputLongitude');
   const inputStatus = document.getElementById('inputStatus');
   const inputEmployeeLimit = document.getElementById('inputEmployeeLimit');
+  const inputBranchLimit = document.getElementById('inputBranchLimit');
   const inputCompanyShiftHours = document.getElementById('inputShiftHours');
   const inputRegisteredDate = document.getElementById('inputRegisteredDate');
   const inputAutoEmailReports = document.getElementById('inputAutoEmailReports');
@@ -91,6 +92,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const viewCompanyLocation = document.getElementById('viewCompanyLocation');
   const viewCompanyShiftHours = document.getElementById('viewCompanyShiftHours');
   const viewCompanyEmployees = document.getElementById('viewCompanyEmployees');
+  const viewCompanyBranches = document.getElementById('viewCompanyBranches');
   const viewCompanyStatusBadge = document.getElementById('viewCompanyStatusBadge');
   const viewCompanyReportsBadge = document.getElementById('viewCompanyReportsBadge');
   const viewCompanyDailyTime = document.getElementById('viewCompanyDailyTime');
@@ -246,10 +248,12 @@ document.addEventListener('DOMContentLoaded', function () {
             </span>
           </td>
           <td style="text-align: center; white-space: nowrap;">
-            <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 3px 8px; border-radius: 12px; font-weight: 800; font-size: 11px;" title="Active employees vs Limit (Total preserved in DB: ${comp.total_count ?? comp.employee_count ?? 0})">
-              ${comp.active_count ?? comp.employee_count ?? 0}/${comp.employee_limit || 50} Active
+            <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 2px 7px; border-radius: 10px; font-weight: 800; font-size: 11px;" title="Active employees vs Limit (Total preserved in DB: ${comp.total_count ?? comp.employee_count ?? 0})">
+              👥 ${comp.active_count ?? comp.employee_count ?? 0}/${comp.employee_limit || 50} Emps
             </span>
-            ${(comp.total_count !== undefined && comp.total_count !== (comp.active_count ?? comp.employee_count ?? 0)) ? `<span style="display: block; font-size: 10px; color: #64748b; font-weight: 600; margin-top: 2px;">(${comp.total_count} Total)</span>` : ''}
+            <span style="display: block; font-size: 10px; color: #0284c7; font-weight: 700; margin-top: 2px;" title="Branch creation limit">
+              🏢 ${comp.branch_count ?? 0}/${comp.branch_limit || 5} Branches
+            </span>
           </td>
           <td style="text-align: center; white-space: nowrap;">${statusBadge}</td>
           <td style="text-align: center; white-space: nowrap;">${autoReportsBadge}</td>
@@ -381,6 +385,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
           if (viewCompanyShiftHours) viewCompanyShiftHours.textContent = comp.shift_hours || '08:00';
           if (viewCompanyEmployees) viewCompanyEmployees.textContent = `${comp.active_count ?? comp.employee_count ?? 0} Active / ${comp.employee_limit || 50} Limit (${comp.total_count ?? comp.employee_count ?? 0} Total in DB)`;
+          if (viewCompanyBranches) viewCompanyBranches.textContent = `${comp.branch_count ?? 0} Active / ${comp.branch_limit || 5} Limit`;
 
           if (viewCompanyStatusBadge) {
             const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
@@ -468,6 +473,7 @@ document.addEventListener('DOMContentLoaded', function () {
           const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
           inputStatus.value = isDeactive ? 'Deactive' : 'Active';
           if (inputEmployeeLimit) inputEmployeeLimit.value = comp.employee_limit || 50;
+          if (inputBranchLimit) inputBranchLimit.value = comp.branch_limit || 5;
           if (inputCompanyShiftHours) inputCompanyShiftHours.value = comp.shift_hours || '08:00';
           if (inputRegisteredDate) inputRegisteredDate.value = formatDateForDateInput(comp.registered_date);
           if (inputAutoEmailReports) inputAutoEmailReports.value = (comp.auto_email_reports !== false) ? 'true' : 'false';
@@ -596,6 +602,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (companyModalTitle) companyModalTitle.textContent = 'Register New Company';
       if (btnSaveCompany) btnSaveCompany.textContent = 'Save Company';
       if (inputEmployeeLimit) inputEmployeeLimit.value = 25;
+      if (inputBranchLimit) inputBranchLimit.value = 5;
       if (inputCompanyShiftHours) inputCompanyShiftHours.value = '08:00';
       if (inputRegisteredDate) inputRegisteredDate.value = new Date().toISOString().split('T')[0];
       if (inputStatus) inputStatus.value = 'Active';
@@ -695,6 +702,7 @@ document.addEventListener('DOMContentLoaded', function () {
         longitude: (formData.get('longitude') !== null && String(formData.get('longitude')).trim() !== '') ? String(formData.get('longitude')).trim() : null,
         status: (formData.get('status') === 'Deactive' || formData.get('status') === 'Inactive') ? 'Deactive' : 'Active',
         employee_limit: parseInt(formData.get('employee_limit'), 10) || 50,
+        branch_limit: parseInt(formData.get('branch_limit'), 10) || 5,
         shift_hours: (formData.get('shift_hours') || '08:00').trim(),
         registered_date: formData.get('registered_date') || '',
         auto_email_reports: formData.get('auto_email_reports') === 'true',

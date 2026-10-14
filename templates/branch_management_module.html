@@ -92,6 +92,7 @@
 <div class="dash-container">
 
   <!-- PAGE HEADER -->
+  <!-- PAGE HEADER -->
   <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 14px;">
     <div>
       <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
@@ -99,64 +100,157 @@
       </h2>
       <p style="font-size: 13px; color: #64748b; margin: 0;">Configure branch offices, geofence radius bounds, and designated branch locations.</p>
     </div>
-    <button type="button" class="dash-pdf-btn-action btn-primary-action" id="btnAddNewBranchDirect" style="padding: 9px 18px; font-size: 13px;">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-      Register New Branch
-    </button>
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      {% if user_role == 'super_admin' %}
+      <div style="display: flex; align-items: center; gap: 6px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 4px 10px;">
+        <span style="font-size: 12px; font-weight: 700; color: #475569;">Company:</span>
+        <select id="filterCompanySelect" onchange="filterBranchCompany(this.value)" style="padding: 4px 8px; font-size: 12px; font-weight: 700; border: none; outline: none; background: transparent; cursor: pointer; color: #0f172a;">
+          <option value="ALL" {% if not active_company_id or active_company_id in ['ALL', 'all'] %}selected{% endif %}>🏢 All Companies (All Branches)</option>
+          {% for c in companies %}
+          <option value="{{ c.id }}" {% if active_company_id == c.id %}selected{% endif %}>{{ c.company_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <button type="button" class="dash-pdf-btn-action btn-primary-action" id="btnAddNewBranchDirect" style="padding: 9px 18px; font-size: 13px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Register New Branch
+      </button>
+    </div>
   </div>
 
-  <!-- BRANCH DIRECTORY GRID -->
-  <div class="branch-directory-grid">
-    {% for b in branches %}
-    <div class="branch-dir-card">
-      <div>
-        <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px;">
-          <div style="font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
-            <span style="color: #0284c7;">📍</span> {{ b.branch_name }}
-          </div>
-          <span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-family: monospace;">
-            {{ b.branch_code or 'BRANCH' }}
+  <!-- BRANCH DIRECTORY -->
+  {% if user_role == 'super_admin' and (not active_company_id or active_company_id in ['ALL', 'all']) %}
+    {% for group in branches | groupby('company_name') %}
+    <div class="company-branches-section" style="margin-bottom: 30px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0;">
+        <div style="font-size: 15px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+          <span>🏢</span> {{ group.grouper }}
+          <span style="font-size: 11px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 12px; font-weight: 700;">
+            {{ group.list | length }} {% if group.list | length == 1 %}Branch{% else %}Branches{% endif %}
           </span>
         </div>
-
-        <div style="font-size: 12.5px; color: #475569; display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;">
-          <div><strong style="color: #334155;">District:</strong> {{ b.district or 'Main Hub' }}</div>
-          <div><strong style="color: #334155;">Address:</strong> {{ b.address or 'Address not specified' }}</div>
-          <div><strong style="color: #334155;">Geofence Radius:</strong> {{ b.geofence_radius or 150 }} meters</div>
-          {% if b.latitude and b.longitude %}
-          <div style="font-size: 11.5px; color: #64748b; font-family: monospace;">GPS: {{ b.latitude|round(5) }}, {{ b.longitude|round(5) }}</div>
-          {% endif %}
-        </div>
       </div>
+      <div class="branch-directory-grid">
+        {% for b in group.list %}
+        <div class="branch-dir-card">
+          <div>
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
+              <div style="font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                <span style="color: #0284c7;">📍</span> {{ b.branch_name }}
+              </div>
+              <span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-family: monospace;">
+                {{ b.branch_code or 'BRANCH' }}
+              </span>
+            </div>
 
-      <div style="border-top: 1px solid #f1f5f9; padding-top: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-        <span style="font-size: 11.5px; font-weight: 700; color: #059669; background: #ecfdf5; padding: 4px 10px; border-radius: 12px; border: 1px solid #a7f3d0;">
-          👥 {{ b.headcount or 0 }} staff
-        </span>
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <a href="/branches/kiosk?branch_id={{ b.id }}" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" style="padding: 5px 10px; font-size: 11.5px; color: #059669; border-color: #a7f3d0;" title="Launch Attendance Kiosk">
-            Kiosk ↗
-          </a>
-          <button type="button" class="dash-pdf-btn-action btn-edit-branch" data-branch='{{ b|tojson }}' style="padding: 5px 10px; font-size: 11.5px;" title="Edit branch settings">
-            Edit
-          </button>
-          <button type="button" class="dash-pdf-btn-action btn-delete-branch" data-id="{{ b.id }}" data-name="{{ b.branch_name }}" style="padding: 5px 10px; font-size: 11.5px; color: #dc2626;" title="Delete branch">
-            Delete
-          </button>
+            <div style="margin-bottom: 10px;">
+              <span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: #0284c7; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
+                🏢 {{ b.company_name or 'ARGUS TECHNOLOGIES' }}
+              </span>
+            </div>
+
+            <div style="font-size: 12.5px; color: #475569; display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;">
+              <div><strong style="color: #334155;">District:</strong> {{ b.district or 'Main Hub' }}</div>
+              <div><strong style="color: #334155;">Address:</strong> {{ b.address or 'Address not specified' }}</div>
+              <div><strong style="color: #334155;">Geofence Radius:</strong> {{ b.geofence_radius or 150 }} meters</div>
+              {% if b.latitude and b.longitude %}
+              <div style="font-size: 11.5px; color: #64748b; font-family: monospace;">GPS: {{ b.latitude|round(5) }}, {{ b.longitude|round(5) }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid #f1f5f9; padding-top: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <span style="font-size: 11.5px; font-weight: 700; color: #059669; background: #ecfdf5; padding: 4px 10px; border-radius: 12px; border: 1px solid #a7f3d0;">
+              👥 {{ b.headcount or 0 }} staff
+            </span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <a href="/branches/kiosk?branch_id={{ b.id }}" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" style="padding: 5px 10px; font-size: 11.5px; color: #059669; border-color: #a7f3d0;" title="Launch Attendance Kiosk">
+                Kiosk ↗
+              </a>
+              <button type="button" class="dash-pdf-btn-action btn-edit-branch" data-branch='{{ b|tojson }}' style="padding: 5px 10px; font-size: 11.5px;" title="Edit branch settings">
+                Edit
+              </button>
+              <button type="button" class="dash-pdf-btn-action btn-delete-branch" data-id="{{ b.id }}" data-name="{{ b.branch_name }}" data-company-id="{{ b.company_id }}" style="padding: 5px 10px; font-size: 11.5px; color: #dc2626;" title="Delete branch">
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
+        {% endfor %}
       </div>
     </div>
     {% else %}
-    <div style="grid-column: 1 / -1; text-align: center; padding: 48px 24px; color: #64748b; background: #ffffff; border-radius: 12px; border: 1px dashed #cbd5e1;">
+    <div style="text-align: center; padding: 48px 24px; color: #64748b; background: #ffffff; border-radius: 12px; border: 1px dashed #cbd5e1; margin-bottom: 24px;">
       <div style="font-size: 38px; margin-bottom: 12px;">🏢</div>
       <div style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 6px;">No Branches Configured Yet</div>
-      <div style="font-size: 13px; margin-bottom: 18px; max-width: 420px; margin-left: auto; margin-right: auto; line-height: 1.5;">Create your first branch office location to organize physical attendance, staff allocation, and geofenced checkpoints.</div>
+      <div style="font-size: 13px; margin-bottom: 18px; max-width: 420px; margin-left: auto; margin-right: auto; line-height: 1.5;">There are no branch offices registered under this view yet.</div>
       <button type="button" class="dash-pdf-btn-action btn-primary-action" id="btnEmptyCreateBranch" style="padding: 9px 18px; margin: 0 auto; font-size: 13px;">
         + Register First Branch
       </button>
     </div>
     {% endfor %}
-  </div>
+  {% else %}
+    <div class="branch-directory-grid">
+      {% for b in branches %}
+      <div class="branch-dir-card">
+        <div>
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
+            <div style="font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+              <span style="color: #0284c7;">📍</span> {{ b.branch_name }}
+            </div>
+            <span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-family: monospace;">
+              {{ b.branch_code or 'BRANCH' }}
+            </span>
+          </div>
+
+          {% if user_role == 'super_admin' %}
+          <div style="margin-bottom: 10px;">
+            <span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: #0284c7; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
+              🏢 {{ b.company_name or 'ARGUS TECHNOLOGIES' }}
+            </span>
+          </div>
+          {% endif %}
+
+          <div style="font-size: 12.5px; color: #475569; display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;">
+            <div><strong style="color: #334155;">District:</strong> {{ b.district or 'Main Hub' }}</div>
+            <div><strong style="color: #334155;">Address:</strong> {{ b.address or 'Address not specified' }}</div>
+            <div><strong style="color: #334155;">Geofence Radius:</strong> {{ b.geofence_radius or 150 }} meters</div>
+            {% if b.latitude and b.longitude %}
+            <div style="font-size: 11.5px; color: #64748b; font-family: monospace;">GPS: {{ b.latitude|round(5) }}, {{ b.longitude|round(5) }}</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid #f1f5f9; padding-top: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <span style="font-size: 11.5px; font-weight: 700; color: #059669; background: #ecfdf5; padding: 4px 10px; border-radius: 12px; border: 1px solid #a7f3d0;">
+            👥 {{ b.headcount or 0 }} staff
+          </span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <a href="/branches/kiosk?branch_id={{ b.id }}" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" style="padding: 5px 10px; font-size: 11.5px; color: #059669; border-color: #a7f3d0;" title="Launch Attendance Kiosk">
+              Kiosk ↗
+            </a>
+            <button type="button" class="dash-pdf-btn-action btn-edit-branch" data-branch='{{ b|tojson }}' style="padding: 5px 10px; font-size: 11.5px;" title="Edit branch settings">
+              Edit
+            </button>
+            <button type="button" class="dash-pdf-btn-action btn-delete-branch" data-id="{{ b.id }}" data-name="{{ b.branch_name }}" data-company-id="{{ b.company_id }}" style="padding: 5px 10px; font-size: 11.5px; color: #dc2626;" title="Delete branch">
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div style="grid-column: 1 / -1; text-align: center; padding: 48px 24px; color: #64748b; background: #ffffff; border-radius: 12px; border: 1px dashed #cbd5e1;">
+        <div style="font-size: 38px; margin-bottom: 12px;">🏢</div>
+        <div style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 6px;">No Branches Configured Yet</div>
+        <div style="font-size: 13px; margin-bottom: 18px; max-width: 420px; margin-left: auto; margin-right: auto; line-height: 1.5;">Create your first branch office location to organize physical attendance, staff allocation, and geofenced checkpoints.</div>
+        <button type="button" class="dash-pdf-btn-action btn-primary-action" id="btnEmptyCreateBranch" style="padding: 9px 18px; margin: 0 auto; font-size: 13px;">
+          + Register First Branch
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
 
 </div>
 
@@ -171,6 +265,17 @@
       <input type="hidden" id="formBranchId" value="">
       <!-- Branch code is automatically generated by the backend and not shown on the form -->
       <input type="hidden" id="formBranchCode" value="">
+      
+      {% if user_role == 'super_admin' %}
+      <div id="companySelectWrapper">
+        <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Assign to Company *</label>
+        <select id="formTargetCompanyId" style="width: 100%; padding: 8px 12px; font-size: 12.5px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; box-sizing: border-box;">
+          {% for c in companies %}
+          <option value="{{ c.id }}" {% if active_company_id == c.id %}selected{% endif %}>{{ c.company_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
       
       <div>
         <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Branch Name *</label>
@@ -228,6 +333,14 @@
     const btnCancelModal = document.getElementById('btnCancelBranchModal');
     const btnGetGps = document.getElementById('btnGetGpsCurrent');
 
+    window.filterBranchCompany = function (cid) {
+      if (!cid || cid === 'ALL') {
+        window.location.href = '/branches';
+      } else {
+        window.location.href = '/branches?company_id=' + encodeURIComponent(cid);
+      }
+    };
+
     function openModal(branchData = null) {
       if (!branchModal) return;
       document.getElementById('branchModalTitle').textContent = branchData ? 'Edit Branch Office' : 'Register New Branch Office';
@@ -239,6 +352,10 @@
       document.getElementById('formLat').value = branchData ? (branchData.latitude || '') : '';
       document.getElementById('formLng').value = branchData ? (branchData.longitude || '') : '';
       document.getElementById('formRadius').value = branchData ? (branchData.geofence_radius || 150) : 150;
+      if (document.getElementById('formTargetCompanyId')) {
+        const defaultCid = (ACTIVE_COMPANY_ID && ACTIVE_COMPANY_ID !== 'ALL') ? ACTIVE_COMPANY_ID : (document.getElementById('formTargetCompanyId').options[0]?.value || 'ARGUS_MASTER');
+        document.getElementById('formTargetCompanyId').value = branchData ? (branchData.company_id || defaultCid) : defaultCid;
+      }
       branchModal.style.display = 'flex';
     }
 
@@ -275,9 +392,10 @@
       btn.addEventListener('click', function () {
         const id = this.getAttribute('data-id');
         const name = this.getAttribute('data-name');
+        const compId = this.getAttribute('data-company-id') || ACTIVE_COMPANY_ID;
         if (!confirm(`Are you sure you want to delete branch "${name}"? Assigned employees will be unassigned to Headquarters.`)) return;
 
-        fetch(`/api/branches/${id}?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}`, {
+        fetch(`/api/branches/${id}?company_id=${encodeURIComponent(compId)}`, {
           method: 'DELETE'
         })
         .then(r => r.json())
@@ -322,7 +440,9 @@
       branchForm.addEventListener('submit', function (e) {
         e.preventDefault();
         const branchId = document.getElementById('formBranchId').value;
+        const targetCompanyId = document.getElementById('formTargetCompanyId') ? document.getElementById('formTargetCompanyId').value : (ACTIVE_COMPANY_ID !== 'ALL' ? ACTIVE_COMPANY_ID : 'ARGUS_MASTER');
         const payload = {
+          company_id: targetCompanyId,
           branch_name: document.getElementById('formBranchName').value.trim(),
           branch_code: document.getElementById('formBranchCode').value.trim(),
           district: document.getElementById('formDistrict').value.trim(),
@@ -333,7 +453,7 @@
         };
 
         const isEdit = Boolean(branchId);
-        const url = isEdit ? `/api/branches/${branchId}?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}` : `/api/branches?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}`;
+        const url = isEdit ? `/api/branches/${branchId}?company_id=${encodeURIComponent(targetCompanyId)}` : `/api/branches?company_id=${encodeURIComponent(targetCompanyId)}`;
         const method = isEdit ? 'PUT' : 'POST';
 
         document.getElementById('btnSaveBranch').textContent = 'Saving...';

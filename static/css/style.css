@@ -95,22 +95,37 @@ body.modal-open {
 .nav-center {
   position: absolute;
   left: 50%;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
+  pointer-events: none;
+  z-index: 101;
+  max-width: 50vw;
 }
 
 .nav-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.6px;
   color: #0f172a;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: auto;
+  line-height: 1.2;
 }
 
 .nav-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-left: auto;
+  height: 100%;
 }
 
 /* ---------------- Layout Wrapper ---------------- */
@@ -132,14 +147,16 @@ body.modal-open {
   left: 0;
   width: 220px;
   height: 100vh;
+  max-height: 100vh;
   background-color: #102a45;
   display: flex;
   flex-direction: column;
-  padding: 16px 12px;
+  padding: 14px 10px;
   transition: width 0.25s ease, transform 0.25s ease;
   z-index: 200;
   flex-shrink: 0;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .sidebar.collapsed {
@@ -228,8 +245,32 @@ body.sidebar-collapsed .app-footer {
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  flex: 1;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+  margin-bottom: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .nav-item-btn {
@@ -313,7 +354,10 @@ body.sidebar-collapsed .app-footer {
 
 .sidebar-footer {
   margin-top: auto;
-  padding-top: 15px;
+  padding-top: 10px;
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .btn-back {
@@ -2321,6 +2365,27 @@ body.drawer-open {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .nav-branch-toggle-btn {
+    height: 32px;
+    padding: 0 8px;
+    max-width: 130px;
+  }
+
+  .nav-active-branch-badge {
+    font-size: 11px;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .hamburger-btn {
