@@ -1481,6 +1481,7 @@ def api_dashboard_yesterday_activity_pdf():
             comp_id = current_comp_id
             company_info = get_current_company_info()
 
+        target_date = request.args.get('date') or get_yesterday_ist()
         branch_id = get_current_branch_id()
         activity_data = build_yesterdays_activity_full_data(comp_id, target_date=target_date, branch_id=branch_id)
         pdf_buffer = pdf_generator.generate_yesterdays_activity_report_pdf(
