@@ -7243,8 +7243,8 @@ def get_company_modules(comp_id):
         if isinstance(mods, dict):
             res = {
                 'single_company': bool(mods.get('single_company', True)),
-                'branch_company': bool(mods.get('branch_company', False)),
-                'field_worker': bool(mods.get('field_worker', False))
+                'branch_company': bool(mods.get('branch_company', True)),
+                'field_worker': bool(mods.get('field_worker', True))
             }
         else:
             # Default for all companies before explicit restriction: all modules active

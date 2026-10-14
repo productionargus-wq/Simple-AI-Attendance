@@ -172,6 +172,7 @@ def finalize_login_session(resp, role, user_info=None):
     """
     session.permanent = True
     session.modified = True
+    session['logged_in'] = True
     token = database.create_user_session({
         'role': role,
         'company_id': session.get('company_id', ''),
@@ -674,8 +675,9 @@ def ensure_persistent_session():
                 session['company_id'] = s_doc.get('company_id')
                 session['company_name'] = s_doc.get('company_name')
                 session['remember_token'] = rem_token
-                if role in ['super_admin', 'company_admin']:
+                if role in ['super_admin', 'company_admin', 'admin']:
                     session['admin_logged_in'] = True
+                    session['logged_in'] = True
                     session['admin_username'] = s_doc.get('username') or ('Company Admin' if role == 'company_admin' else 'Admin')
                     session['admin_email'] = s_doc.get('email', '')
                     if role == 'company_admin':
@@ -932,6 +934,7 @@ def login():
             session.clear()
             session.permanent = True
             session['admin_logged_in'] = True
+            session['logged_in'] = True
             session['admin_username'] = admin_user.get('username', 'Admin')
             session['admin_email'] = admin_user.get('email', 'technologiesargus@gmail.com')
             session['role'] = 'super_admin'
@@ -1190,6 +1193,7 @@ def company_login():
             session.clear()
             session.permanent = True
             session['admin_logged_in'] = True
+            session['logged_in'] = True
             session['admin_username'] = company.get('company_name', 'Company Admin')
             session['role'] = 'company_admin'
             session['company_id'] = str(company.get('id') or company.get('_id', ''))
@@ -4777,7 +4781,7 @@ def _resolve_field_company_id(req_company_id=None):
     """
     role = session.get('role')
     sess_cid = session.get('company_id')
-    if role in ['company_admin', 'employee']:
+    if role in ['company_admin', 'admin', 'employee']:
         return str(sess_cid or 'ARGUS_MASTER')
     if role == 'super_admin' and req_company_id and str(req_company_id).strip() not in ['', 'ALL', 'None', 'null']:
         return str(req_company_id).strip()
@@ -5299,19 +5303,31 @@ def api_field_worker_export():
 # MULTI-BRANCH ENTERPRISE MODULE (DISTRICT HUBS & EMPLOYEE ALLOCATION)
 # ==============================================================================
 
+def _is_branch_admin_authenticated():
+    """Checks if the current session is an authenticated admin (Super Admin, Company Admin, or Admin)."""
+    if not (session.get('admin_logged_in') or session.get('logged_in')):
+        return False
+    role = session.get('role', 'company_admin')
+    return role in ['super_admin', 'company_admin', 'admin']
+
+
 @app.route('/branches')
 def branch_management_page():
     """Renders the Multi-Branch Enterprise Hub UI with district mapping & employee allocation."""
-    if not session.get('logged_in'):
+    if not (session.get('admin_logged_in') or session.get('logged_in')):
         return redirect(url_for('login'))
 
     user_role = session.get('role', 'company_admin')
+    if user_role not in ['super_admin', 'company_admin', 'admin']:
+        flash('Admin authorization required to access the Multi-Branch Hub.', 'warning')
+        return redirect(url_for('dashboard'))
+
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
 
     # Check subscription entitlement
-    if user_role != 'super_admin':
+    if user_role not in ['super_admin', 'admin']:
         comp_modules = database.get_company_modules(active_cid)
-        if not comp_modules.get('branch_company', False):
+        if not comp_modules.get('branch_company', True):
             flash('The Multi-Branch Module is not authorized for your company subscription. Please contact your administrator.', 'warning')
             return redirect(url_for('dashboard'))
 
@@ -5357,7 +5373,7 @@ def branch_management_page():
 @app.route('/api/branches', methods=['GET'])
 def api_get_branches():
     """Returns JSON list of branches for the active company."""
-    if not session.get('logged_in'):
+    if not _is_branch_admin_authenticated():
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
 
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
@@ -5368,10 +5384,8 @@ def api_get_branches():
 @app.route('/api/branches', methods=['POST'])
 def api_create_branch():
     """Creates a new branch for the active company."""
-    if not session.get('logged_in'):
+    if not _is_branch_admin_authenticated():
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
-    if session.get('role') not in ['super_admin', 'company_admin']:
-        return jsonify({'success': False, 'error': 'Forbidden'}), 403
 
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
     data = request.get_json() or {}
@@ -5390,10 +5404,8 @@ def api_create_branch():
 @app.route('/api/branches/<branch_id>', methods=['PUT'])
 def api_update_branch(branch_id):
     """Updates an existing branch location."""
-    if not session.get('logged_in'):
+    if not _is_branch_admin_authenticated():
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
-    if session.get('role') not in ['super_admin', 'company_admin']:
-        return jsonify({'success': False, 'error': 'Forbidden'}), 403
 
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
     data = request.get_json() or {}
@@ -5408,10 +5420,8 @@ def api_update_branch(branch_id):
 @app.route('/api/branches/<branch_id>', methods=['DELETE'])
 def api_delete_branch(branch_id):
     """Deletes a branch and safely unassigns its employees."""
-    if not session.get('logged_in'):
+    if not _is_branch_admin_authenticated():
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
-    if session.get('role') not in ['super_admin', 'company_admin']:
-        return jsonify({'success': False, 'error': 'Forbidden'}), 403
 
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
     try:
@@ -5424,10 +5434,8 @@ def api_delete_branch(branch_id):
 @app.route('/api/branches/assign-employee', methods=['POST'])
 def api_assign_employee_branch():
     """Assigns one or more employees to a branch (or unassigns if branch_id is empty)."""
-    if not session.get('logged_in'):
+    if not _is_branch_admin_authenticated():
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
-    if session.get('role') not in ['super_admin', 'company_admin']:
-        return jsonify({'success': False, 'error': 'Forbidden'}), 403
 
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
     data = request.get_json() or {}
@@ -5452,7 +5460,7 @@ def api_assign_employee_branch():
 @app.route('/api/branches/stats', methods=['GET'])
 def api_branch_stats():
     """Returns today's attendance summary grouped by branch."""
-    if not session.get('logged_in'):
+    if not _is_branch_admin_authenticated():
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
 
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
@@ -5463,7 +5471,7 @@ def api_branch_stats():
 @app.route('/api/branches/set-active', methods=['POST'])
 def api_set_active_branch():
     """Sets or clears the active branch filter in session for top navigation."""
-    if not session.get('logged_in'):
+    if not _is_branch_admin_authenticated():
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
 
     data = request.get_json() or {}
