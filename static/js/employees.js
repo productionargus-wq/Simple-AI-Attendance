@@ -571,6 +571,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('inputSalaryType').value = 'daily';
     const inStatus = document.getElementById('inputStatus');
     if (inStatus) inStatus.value = 'Active';
+    const inBranch = document.getElementById('inputBranchId');
+    if (inBranch) inBranch.value = '';
     const inDob = document.getElementById('inputDob');
     if (inDob) inDob.value = '';
     const inStart = document.getElementById('inputShiftStart');
@@ -621,6 +623,8 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('inputSalaryType').value = emp.salary_type || 'hourly';
       const inEditStatus = document.getElementById('inputStatus');
       if (inEditStatus) inEditStatus.value = (emp.status === 'Inactive') ? 'Inactive' : 'Active';
+      const inBranch = document.getElementById('inputBranchId');
+      if (inBranch) inBranch.value = emp.branch_id || '';
       document.getElementById('inputMobile').value = emp.mobile_number || '';
       document.getElementById('inputHourlySalary').value = (emp.hourly_salary !== undefined && emp.hourly_salary !== null) ? emp.hourly_salary : '';
       document.getElementById('inputDaySalary').value = (emp.day_salary !== undefined && emp.day_salary !== null) ? emp.day_salary : '';
@@ -1119,6 +1123,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ['DEPARTMENT', emp.department || emp.designation || '-'],
         ['DESIGNATION', emp.designation],
         ['STATUS', (emp.status === 'Inactive') ? '<span class="status-pill status-inactive">Inactive</span>' : '<span class="status-pill status-active">Active</span>'],
+        ['ASSIGNED BRANCH', emp.branch_name ? `📍 ${escapeHtml(emp.branch_name)}` : '🏢 Main / Head Office (Unassigned)'],
         ['SALARY BASIS', stLabels[emp.salary_type] || 'Hourly-Based'],
         ['HOURLY SALARY', emp.hourly_salary],
         ['DAY SALARY', emp.day_salary],

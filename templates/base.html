@@ -13,6 +13,60 @@
     window.IS_SYSTEM_ADMIN = {{ 'true' if is_system_admin else 'false' }};
     window.CAN_DELETE_ENTRIES = {{ 'true' if can_delete_entries else 'false' }};
   </script>
+  <style>
+    /* Navbar Branch Switcher Dropdown */
+    .nav-company-dropdown-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      outline: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      transition: all 0.2s ease;
+    }
+    .nav-company-dropdown-btn:hover {
+      background: rgba(15, 23, 42, 0.04);
+      border-color: rgba(203, 213, 225, 0.6);
+    }
+    .nav-branch-dropdown-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 310px;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+      border: 1px solid #e2e8f0;
+      z-index: 99999;
+      padding: 6px;
+      box-sizing: border-box;
+    }
+    .nav-branch-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #1e293b;
+      font-size: 12.5px;
+      font-weight: 600;
+      transition: all 0.12s ease;
+    }
+    .nav-branch-item:hover {
+      background: #f8fafc;
+      color: #0284c7;
+    }
+    .nav-branch-item.active {
+      background: #f0f9ff;
+      color: #0284c7;
+    }
+  </style>
 </head>
 <body class="page-{{ (active_tab or '') | lower | replace(' ', '-') }}">
   <!-- Top Progress Bar for Instant SPA Navigation -->
@@ -28,18 +82,77 @@
       </button>
     </div>
     
-    <div class="nav-center" style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
-      <div class="nav-title">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
-      {% if company_modules and company_modules.branch_company %}
-      <a href="{{ url_for('branch_management_page') }}" title="Multi-Branch Network Active - Click to Manage Branches" style="text-decoration: none;">
-        <span class="top-nav-branch-pill" style="display: inline-flex; align-items: center; gap: 5px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 9999px; letter-spacing: 0.3px; transition: all 0.2s ease;">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-          <span>{{ session.get('active_branch_name') or 'Multi-Branch Network' }}</span>
-          {% if total_branches_count %}
-          <span style="background: rgba(56, 189, 248, 0.25); color: #0284c7; padding: 0 5px; border-radius: 8px; font-size: 10px; font-weight: 700;">{{ total_branches_count }}</span>
+    <div class="nav-center" style="display: flex; align-items: center; justify-content: center; position: relative;">
+      {% if company_modules and company_modules.branch_company and user_branches and user_branches|length > 0 %}
+      <div class="nav-company-dropdown-container" id="navBranchDropdownContainer" style="position: relative;">
+        <button type="button" class="nav-company-dropdown-btn" id="navCompanyDropdownBtn" onclick="toggleNavBranchDropdown(event)" title="Click to switch active branch view">
+          <span class="nav-title" style="margin: 0; font-size: 15px; font-weight: 800; color: #0f172a; letter-spacing: 0.2px;">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</span>
+          <span class="nav-active-branch-badge" style="display: inline-flex; align-items: center; gap: 4px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: #0284c7; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px;">
+            {% if session.get('active_branch_name') %}
+              📍 {{ session.get('active_branch_name') }}
+            {% else %}
+              🏢 All Branches
+            {% endif %}
+          </span>
+          <svg class="nav-dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s ease;">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+
+        <!-- Floating Dropdown Menu -->
+        <div class="nav-branch-dropdown-menu" id="navBranchDropdownMenu">
+          <div style="padding: 6px 10px 4px 10px; font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px;">
+            Switch Branch Location
+          </div>
+
+          <!-- All Branches Option -->
+          <a href="javascript:void(0)" onclick="globalSwitchBranch('ALL')" class="nav-branch-item {% if not session.get('active_branch_id') %}active{% endif %}">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 15px;">🏢</span>
+              <div style="text-align: left;">
+                <div style="font-weight: 700; font-size: 12px;">All Branches</div>
+                <div style="font-size: 10.5px; color: #64748b; font-weight: 500;">Consolidated overview ({{ user_branches|length }} locations)</div>
+              </div>
+            </div>
+            {% if not session.get('active_branch_id') %}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            {% endif %}
+          </a>
+
+          <div style="height: 1px; background: #f1f5f9; margin: 4px 0;"></div>
+
+          <!-- Branch List -->
+          <div style="max-height: 220px; overflow-y: auto;">
+            {% for b in user_branches %}
+            <a href="javascript:void(0)" onclick="globalSwitchBranch('{{ b.id }}')" class="nav-branch-item {% if session.get('active_branch_id') == b.id %}active{% endif %}">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 15px;">📍</span>
+                <div style="text-align: left;">
+                  <div style="font-weight: 700; font-size: 12px;">{{ b.branch_name }}</div>
+                  <div style="font-size: 10.5px; color: #64748b; font-weight: 500;">{{ b.district or 'Hub' }} &bull; Radius: {{ b.geofence_radius or 150 }}m</div>
+                </div>
+              </div>
+              {% if session.get('active_branch_id') == b.id %}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              {% endif %}
+            </a>
+            {% endfor %}
+          </div>
+
+          {% if session.get('role') in ['super_admin', 'company_admin', 'admin'] %}
+          <div style="height: 1px; background: #f1f5f9; margin: 4px 0;"></div>
+          <a href="{{ url_for('branch_management_page') }}" style="display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 8px; text-decoration: none; color: #0284c7; font-size: 11.5px; font-weight: 700; background: #f8fafc; transition: all 0.12s ease;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+            <span>Manage Branches Directory &rarr;</span>
+          </a>
           {% endif %}
-        </span>
-      </a>
+        </div>
+      </div>
+      {% else %}
+      <div class="nav-title">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
       {% endif %}
     </div>
     
@@ -309,6 +422,65 @@
         });
       }
     })();
+
+    function toggleNavBranchDropdown(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      var menu = document.getElementById('navBranchDropdownMenu');
+      var btn = document.getElementById('navCompanyDropdownBtn');
+      if (!menu) return;
+      var isOpen = menu.style.display === 'block';
+      menu.style.display = isOpen ? 'none' : 'block';
+      if (btn) {
+        var chevron = btn.querySelector('.nav-dropdown-chevron');
+        if (chevron) chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+      }
+    }
+
+    function globalSwitchBranch(branchId) {
+      var pb = document.getElementById('appTopProgressBar');
+      if (pb) {
+        pb.style.opacity = '1';
+        pb.style.width = '60%';
+      }
+      fetch('/api/branches/set-active', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branch_id: branchId })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.success) {
+          var u = new URL(window.location.href);
+          if (branchId && branchId !== 'ALL') {
+            u.searchParams.set('branch_id', branchId);
+          } else {
+            u.searchParams.delete('branch_id');
+          }
+          window.location.href = u.toString();
+        } else {
+          window.location.reload();
+        }
+      })
+      .catch(function () {
+        window.location.reload();
+      });
+    }
+
+    document.addEventListener('click', function (e) {
+      var container = document.getElementById('navBranchDropdownContainer');
+      if (container && !container.contains(e.target)) {
+        var menu = document.getElementById('navBranchDropdownMenu');
+        if (menu) menu.style.display = 'none';
+        var btn = document.getElementById('navCompanyDropdownBtn');
+        if (btn) {
+          var chevron = btn.querySelector('.nav-dropdown-chevron');
+          if (chevron) chevron.style.transform = 'rotate(0deg)';
+        }
+      }
+    });
   </script>
   {% block scripts %}{% endblock %}
 </body>

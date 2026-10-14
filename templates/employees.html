@@ -177,6 +177,17 @@
               <option value="Inactive">Inactive (Unlimited / Quota Exempt)</option>
             </select>
           </div>
+          {% if company_modules and company_modules.branch_company %}
+          <div class="form-group" id="groupBranchAssign">
+            <label class="form-label">Assigned Branch Location</label>
+            <select class="form-input" id="inputBranchId" name="branch_id">
+              <option value="">🏢 Main / Head Office (Unassigned)</option>
+              {% for b in branches or [] %}
+              <option value="{{ b.id }}">📍 {{ b.branch_name }} ({{ b.district or 'Hub' }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
 
           <!-- Row 3: Salary Structure -->
           <div class="form-group">

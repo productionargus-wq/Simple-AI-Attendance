@@ -544,13 +544,15 @@ def inject_delete_permissions():
         except Exception:
             company_modules = {'single_company': True, 'branch_company': False, 'field_worker': False}
 
-    # Resolve total branches count for current company
+    # Resolve total branches list & count for current company
     total_branches_count = 0
+    branches_list = []
     if target_comp_id:
         try:
             branches_list = database.get_company_branches(target_comp_id)
             total_branches_count = len(branches_list)
         except Exception:
+            branches_list = []
             total_branches_count = 0
 
     return {
@@ -563,7 +565,8 @@ def inject_delete_permissions():
         'current_company_logo_url': logo_url,
         'has_company_logo': has_custom_logo,
         'company_modules': company_modules,
-        'total_branches_count': total_branches_count
+        'total_branches_count': total_branches_count,
+        'user_branches': branches_list
     }
 
 import traceback
@@ -1532,7 +1535,14 @@ def api_dashboard_previous_month_salary_pdf():
 @app.route('/employee-details')
 @login_required
 def employee_details():
-    return render_template('employees.html', active_tab='EMPLOYEE DETAILS')
+    comp_id = get_current_company_id()
+    branches = []
+    if comp_id:
+        try:
+            branches = database.get_company_branches(comp_id)
+        except Exception:
+            branches = []
+    return render_template('employees.html', active_tab='EMPLOYEE DETAILS', branches=branches)
 
 @app.route('/live-report')
 @login_required
@@ -5391,72 +5401,14 @@ def branch_management_page():
 
     branches = database.get_company_branches(active_cid)
 
-    # Active branch resolution
-    active_bid = request.args.get('branch_id')
-    if not active_bid and session.get('active_branch_id'):
-        active_bid = session.get('active_branch_id')
-    if active_bid in ['ALL', 'all', '', 'none', 'None']:
-        active_bid = None
-
-    active_branch = None
-    if active_bid:
-        active_branch = database.get_branch_by_id(active_bid, active_cid)
-        if not active_branch:
-            active_bid = None
-
-    # Fetch branch-scoped attendance stats matching dashboard.html exactly
-    stats = database.get_dashboard_stats(company_id=active_cid, branch_id=active_bid)
-
-    # Get all active employees for this company
-    emp_res = database.get_all_employees(company_id=active_cid, limit=1000)
-    all_employees = emp_res.get('data', []) if isinstance(emp_res, dict) else []
-
-    # Compute high-level KPIs
-    total_branches = len(branches)
-    total_assigned = sum(1 for e in all_employees if e.get('branch_id'))
-    unassigned_count = sum(1 for e in all_employees if not e.get('branch_id'))
-    districts = sorted(list(set(b.get('district') for b in branches if b.get('district'))))
-
-    # Yesterday & Previous Month formatted dates for PDF previews
-    try:
-        from report_scheduler import get_yesterday_ist, get_previous_month_ist
-        yesterday_str = get_yesterday_ist()
-        prev_month_str = get_previous_month_ist()
-        try:
-            y_dt = datetime.strptime(yesterday_str, '%Y-%m-%d')
-            yesterday_display = y_dt.strftime('%d %b %Y')
-        except Exception:
-            yesterday_display = yesterday_str
-        try:
-            p_dt = datetime.strptime(f"{prev_month_str}-01", '%Y-%m-%d')
-            prev_month_display = p_dt.strftime('%B %Y')
-        except Exception:
-            prev_month_display = prev_month_str
-    except Exception:
-        yesterday_str = ''
-        yesterday_display = 'Yesterday'
-        prev_month_str = ''
-        prev_month_display = 'Previous Month'
-
     return render_template(
         'branch_management_module.html',
-        stats=stats,
         branches=branches,
-        active_branch=active_branch,
-        active_branch_id=active_bid,
-        all_employees=all_employees,
         active_company=active_comp,
         active_company_id=active_cid,
         companies=companies,
         user_role=user_role,
-        total_branches=total_branches,
-        total_assigned=total_assigned,
-        unassigned_count=unassigned_count,
-        districts=districts,
-        yesterday_str=yesterday_str,
-        yesterday_display=yesterday_display,
-        prev_month_str=prev_month_str,
-        prev_month_display=prev_month_display,
+        total_branches=len(branches),
         active_tab='MANAGE BRANCHES'
     )
 

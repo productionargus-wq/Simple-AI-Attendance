@@ -1356,9 +1356,22 @@ def create_employee(data, company_id=None):
         'territory_zone': str(data.get('territory_zone') or '').strip(),
         'per_visit_incentive': round(safe_float(data.get('per_visit_incentive')), 2),
         'km_allowance_rate': round(safe_float(data.get('km_allowance_rate')), 2),
+        'branch_id': None,
+        'branch_name': None,
         'created_at': get_ist_now(),
         'updated_at': get_ist_now()
     }
+
+    # Resolve branch assignment if provided
+    raw_bid = str(data.get('branch_id') or '').strip()
+    if raw_bid and raw_bid not in ['ALL', 'all', '', 'none', 'None']:
+        try:
+            b_doc = get_branch_by_id(raw_bid, assigned_company_id)
+            if b_doc:
+                doc['branch_id'] = raw_bid
+                doc['branch_name'] = b_doc.get('branch_name')
+        except Exception:
+            pass
     
     db.employees.insert_one(doc)
     invalidate_dashboard_cache(assigned_company_id)
@@ -1446,6 +1459,25 @@ def update_employee(emp_id, data, company_id=None):
         upd['documents'] = data['documents']
     if 'company_id' in data and data['company_id']:
         upd['company_id'] = str(data['company_id'])
+
+    if 'branch_id' in data:
+        raw_bid = str(data.get('branch_id') or '').strip()
+        if raw_bid and raw_bid not in ['ALL', 'all', '', 'none', 'None']:
+            assigned_c_id = (existing_emp.get('company_id') if existing_emp else None) or company_id
+            try:
+                b_doc = get_branch_by_id(raw_bid, assigned_c_id)
+                if b_doc:
+                    upd['branch_id'] = raw_bid
+                    upd['branch_name'] = b_doc.get('branch_name')
+                else:
+                    upd['branch_id'] = None
+                    upd['branch_name'] = None
+            except Exception:
+                upd['branch_id'] = None
+                upd['branch_name'] = None
+        else:
+            upd['branch_id'] = None
+            upd['branch_name'] = None
 
     if 'status' in data and data['status'] is not None:
         raw_st_val = str(data['status']).strip().capitalize()
@@ -7382,11 +7414,21 @@ def create_company_branch(data, company_id):
     except (ValueError, TypeError):
         rad = 150.0
     
+    # Auto-generate branch code if not provided
+    b_code = (data.get('branch_code') or '').strip().upper()
+    if not b_code:
+        try:
+            existing_count = db.company_branches.count_documents({'company_id': str(company_id)})
+            clean_prefix = ''.join(c for c in b_name if c.isalnum()).upper()[:3] or "BR"
+            b_code = f"{clean_prefix}-{(existing_count + 1):03d}"
+        except Exception:
+            b_code = f"BR-{(int(time.time()) % 1000):03d}"
+
     doc = {
         'id': branch_id,
         'company_id': str(company_id),
         'branch_name': b_name,
-        'branch_code': (data.get('branch_code') or '').strip().upper(),
+        'branch_code': b_code,
         'district': (data.get('district') or '').strip(),
         'address': (data.get('address') or '').strip(),
         'latitude': lat,
