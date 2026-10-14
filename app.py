@@ -544,6 +544,15 @@ def inject_delete_permissions():
         except Exception:
             company_modules = {'single_company': True, 'branch_company': False, 'field_worker': False}
 
+    # Resolve total branches count for current company
+    total_branches_count = 0
+    if target_comp_id:
+        try:
+            branches_list = database.get_company_branches(target_comp_id)
+            total_branches_count = len(branches_list)
+        except Exception:
+            total_branches_count = 0
+
     return {
         'is_system_admin': is_super,
         'can_delete_entries': comp_can_del,
@@ -553,7 +562,8 @@ def inject_delete_permissions():
         'admin_support_count': admin_support_count,
         'current_company_logo_url': logo_url,
         'has_company_logo': has_custom_logo,
-        'company_modules': company_modules
+        'company_modules': company_modules,
+        'total_branches_count': total_branches_count
     }
 
 import traceback
@@ -1376,7 +1386,34 @@ def dashboard():
         comp = database.get_company_by_id(comp_id)
         if comp and comp.get('company_name'):
             session['company_name'] = comp['company_name']
-    stats = database.get_dashboard_stats(company_id=comp_id)
+    # Resolve multi-branch context if company has branches
+    branches = []
+    active_bid = request.args.get('branch_id')
+    if active_bid is None:
+        active_bid = session.get('active_branch_id')
+    if active_bid in ['ALL', 'all', '', 'none', 'None']:
+        active_bid = None
+
+    active_branch = None
+    if comp_id:
+        try:
+            branches = database.get_company_branches(comp_id)
+            if active_bid:
+                active_branch = database.get_branch_by_id(active_bid, comp_id)
+                if not active_branch:
+                    active_bid = None
+        except Exception as e:
+            print(f"Error resolving branches for dashboard: {e}")
+            branches = []
+            active_bid = None
+
+    session['active_branch_id'] = active_bid
+    if active_branch:
+        session['active_branch_name'] = active_branch.get('branch_name')
+    else:
+        session.pop('active_branch_name', None)
+
+    stats = database.get_dashboard_stats(company_id=comp_id, branch_id=active_bid)
 
     try:
         from report_scheduler import get_yesterday_ist, get_previous_month_ist
@@ -1406,7 +1443,14 @@ def dashboard():
         stats['previous_month'] = ''
         stats['previous_month_display'] = 'Previous Month'
 
-    return render_template('dashboard.html', active_tab='DASHBOARD', stats=stats)
+    return render_template(
+        'dashboard.html',
+        active_tab='DASHBOARD',
+        stats=stats,
+        branches=branches,
+        active_branch=active_branch,
+        active_branch_id=active_bid
+    )
 
 @app.route('/api/dashboard/yesterday-activity/pdf', methods=['GET'])
 @login_required
@@ -5313,6 +5357,7 @@ def _is_branch_admin_authenticated():
     return role in ['super_admin', 'company_admin', 'admin']
 
 
+@app.route('/manage-branches')
 @app.route('/branches')
 def branch_management_page():
     """Renders the Multi-Branch Enterprise Hub UI with district mapping & employee allocation."""
@@ -5412,7 +5457,7 @@ def branch_management_page():
         yesterday_display=yesterday_display,
         prev_month_str=prev_month_str,
         prev_month_display=prev_month_display,
-        active_tab='BRANCH MANAGEMENT'
+        active_tab='MANAGE BRANCHES'
     )
 
 
