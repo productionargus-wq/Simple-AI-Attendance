@@ -207,6 +207,16 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 app.session_interface = PersistentSessionInterface()
 
+@app.route('/health')
+@app.route('/ping')
+def health_check():
+    """Ultra-lightweight keep-alive endpoint for uptime monitors and cloud health checks."""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'ARGUS Attendance Engine',
+        'timestamp': int(time.time())
+    }), 200
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', os.path.join(BASE_DIR, 'static', 'uploads'))
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max
