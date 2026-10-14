@@ -1,8 +1,10 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<!-- Leaflet & FontAwesome Assets -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet & FontAwesome Assets (Fast Cloudflare CDN) -->
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-h9FcoyWjZKGiZQEVCZT1HZn12MQn5zduCJAtKSWDknDPeLSN35nXg5c45vTrHKYMfKnQcrmSycFlu4354BXcnA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
 <style>
@@ -1214,7 +1216,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-BwHfrr4c9kmRkLw6iXFdzcdWV/PGkVgiIyIWLLlTSXzSmGxKG05S27FqnECUGThzOuMMuNl92WgDnuvXGoAtTQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
   (function () {
     const ACTIVE_COMPANY_ID = "{{ active_company_id }}";

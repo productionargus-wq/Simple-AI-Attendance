@@ -697,6 +697,7 @@ def update_company(comp_id, data):
             'field_worker': str(data.get('module_field_worker', False)).lower() in ['true', '1', 'yes', 'on']
         }
     db.company_admin.update_one(build_id_filter(comp_id), {'$set': upd})
+    invalidate_company_modules_cache(comp_id)
     return True
 
 def toggle_company_auto_reports(comp_id, enabled=None):
@@ -7200,40 +7201,61 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
 # MODULE ENTITLEMENTS & MULTI-BRANCH ENTERPRISE MANAGEMENT
 # =========================================================================
 
+_company_modules_cache = {}
+_company_modules_cache_ttl = 30  # seconds
+
+def invalidate_company_modules_cache(company_id=None):
+    global _company_modules_cache
+    if company_id:
+        _company_modules_cache.pop(str(company_id), None)
+        _company_modules_cache.pop('ALL', None)
+    else:
+        _company_modules_cache.clear()
+
+
 def get_company_modules(comp_id):
     """
     Returns a dict of active modules for a given company.
     Guarantees backwards-compatibility for existing companies.
     """
-    if not comp_id or str(comp_id) in ['ALL', 'ARGUS_MASTER']:
+    if not comp_id or str(comp_id) in ['ALL', 'ARGUS_MASTER', 'SUPER_ADMIN']:
         return {
             'single_company': True,
             'branch_company': True,
             'field_worker': True
         }
+    key = str(comp_id)
+    now_ts = time.time()
+    if key in _company_modules_cache:
+        t, val = _company_modules_cache[key]
+        if now_ts - t < _company_modules_cache_ttl:
+            return val
+
     comp = get_company_by_id(comp_id)
     if not comp:
-        return {
+        res = {
             'single_company': True,
-            'branch_company': False,
-            'field_worker': False
+            'branch_company': True,
+            'field_worker': True
         }
-    mods = comp.get('modules')
-    if isinstance(mods, dict):
-        return {
-            'single_company': bool(mods.get('single_company', True)),
-            'branch_company': bool(mods.get('branch_company', False)),
-            'field_worker': bool(mods.get('field_worker', False))
-        }
-    
-    # Backwards-compatible default: MATT TECH gets branch & field worker enabled for verification
-    c_name = str(comp.get('company_name', '')).upper()
-    is_matt_tech = 'MATT' in c_name
-    return {
-        'single_company': True,
-        'branch_company': is_matt_tech,
-        'field_worker': is_matt_tech
-    }
+    else:
+        mods = comp.get('modules')
+        if isinstance(mods, dict):
+            res = {
+                'single_company': bool(mods.get('single_company', True)),
+                'branch_company': bool(mods.get('branch_company', False)),
+                'field_worker': bool(mods.get('field_worker', False))
+            }
+        else:
+            # Default for all companies before explicit restriction: all modules active
+            res = {
+                'single_company': True,
+                'branch_company': True,
+                'field_worker': True
+            }
+
+    _company_modules_cache[key] = (now_ts, res)
+    return res
 
 
 def get_company_branches(company_id, status=None):
@@ -7252,18 +7274,25 @@ def get_company_branches(company_id, status=None):
     
     branches = list(db.company_branches.find(query).sort('branch_name', ASCENDING))
     
-    # Calculate live employee count for each branch
+    # Calculate live employee count for each branch in 1 single aggregation query
+    emp_match = {'status': {'$nin': ['Deactive', 'Inactive']}}
+    if str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        emp_match['company_id'] = str(company_id)
+        
+    counts = db.employees.aggregate([
+        {'$match': emp_match},
+        {'$group': {'_id': '$branch_id', 'count': {'$sum': 1}}}
+    ])
+    count_map = {str(c['_id']): c['count'] for c in counts if c['_id']}
+    
+    cleaned_branches = []
     for b in branches:
-        bid = b.get('id')
-        emp_filter = {
-            'branch_id': bid,
-            'status': {'$nin': ['Deactive', 'Inactive']}
-        }
-        if b.get('company_id'):
-            emp_filter['company_id'] = b.get('company_id')
-        b['employee_count'] = db.employees.count_documents(emp_filter)
-        clean_doc(b)
-    return branches
+        bid = str(b.get('id') or '')
+        b['employee_count'] = count_map.get(bid, 0)
+        cb = clean_doc(b)
+        cb.pop('_id', None)
+        cleaned_branches.append(cb)
+    return cleaned_branches
 
 
 def get_branch_by_id(branch_id, company_id=None):
