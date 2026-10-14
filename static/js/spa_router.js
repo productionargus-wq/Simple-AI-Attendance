@@ -105,7 +105,7 @@
     // Exclude logout, login portals, kiosk, dedicated field worker module, and file download endpoints
     if (url.pathname === '/logout' || url.pathname.includes('/logout')) return false;
     if (url.pathname === '/login' || url.pathname === '/company-login' || url.pathname === '/employee-login' || url.pathname === '/kiosk') return false;
-    if (url.pathname.startsWith('/field-worker')) return false;
+    if (url.pathname.startsWith('/field-worker') || url.pathname.startsWith('/branches')) return false;
     if (url.pathname.startsWith('/api/') && (url.pathname.includes('/pdf') || url.pathname.includes('/excel') || url.pathname.includes('/download'))) {
       return false;
     }
