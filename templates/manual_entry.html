@@ -137,6 +137,9 @@
             <label class="form-label">Name</label>
             <select class="form-input" id="inputEmployeeName" name="employee_name" required>
               <option value="" disabled selected>Select</option>
+              {% for emp in employees %}
+              <option value="{{ emp }}">{{ emp }}</option>
+              {% endfor %}
             </select>
           </div>
 

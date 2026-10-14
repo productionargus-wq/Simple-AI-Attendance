@@ -572,7 +572,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const inStatus = document.getElementById('inputStatus');
     if (inStatus) inStatus.value = 'Active';
     const inBranch = document.getElementById('inputBranchId');
-    if (inBranch) inBranch.value = '';
+    if (inBranch) inBranch.value = window.ACTIVE_BRANCH_ID || inBranch.getAttribute('data-default-branch') || '';
     const inDob = document.getElementById('inputDob');
     if (inDob) inDob.value = '';
     const inStart = document.getElementById('inputShiftStart');

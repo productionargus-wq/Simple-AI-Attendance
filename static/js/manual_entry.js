@@ -46,9 +46,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // Load employee names for modal dropdown
   async function loadEmployees() {
     try {
-      const res = await fetch('/api/employees');
+      const res = await fetch('/api/employees?limit=1000');
       const data = await res.json();
-      if (empNameSelect && data.data) {
+      if (empNameSelect && data.data && data.data.length > 0) {
         empNameSelect.innerHTML = '<option value="" disabled selected>Select</option>';
         data.data.forEach(e => {
           const opt = document.createElement('option');

@@ -396,22 +396,46 @@ def get_current_company_id():
 
     return comp_id or 'ARGUS_MASTER'
 
+def get_current_branch_id():
+    """Returns active branch_id from request args or session. Returns None if ALL, unassigned, or invalid."""
+    bid = request.args.get('branch_id')
+    if bid is None:
+        bid = session.get('active_branch_id')
+    if not bid or str(bid).strip().upper() in ['ALL', 'NONE', '', 'NULL']:
+        return None
+    return str(bid).strip()
+
 def get_current_company_info():
     """Returns dynamic company dictionary for PDF generation and headers."""
     comp_id = get_current_company_id()
+    branch_id = get_current_branch_id()
+    branch_doc = None
+    if comp_id and branch_id:
+        try:
+            branch_doc = database.get_branch_by_id(branch_id, comp_id)
+        except Exception:
+            branch_doc = None
+
     if comp_id and comp_id != 'ARGUS_MASTER':
         comp = database.get_company_by_id(comp_id)
         if comp:
             addr = comp.get('address') or comp.get('location') or ''
             if not addr and comp.get('latitude') and comp.get('longitude'):
                 addr = f"Location: Lat {comp.get('latitude')}, Lng {comp.get('longitude')}"
+            comp_name = comp.get('company_name') or session.get('company_name', 'ARGUS TECHNOLOGIES')
+            if branch_doc and branch_doc.get('branch_name'):
+                comp_name = f"{comp_name} - {branch_doc.get('branch_name')}"
+                if branch_doc.get('location'):
+                    addr = branch_doc.get('location')
             return {
                 'id': comp.get('id', comp_id),
-                'company_name': comp.get('company_name') or session.get('company_name', 'ARGUS TECHNOLOGIES'),
+                'company_name': comp_name,
                 'company_address': addr,
                 'email': comp.get('email', ''),
                 'phone': comp.get('phone', ''),
-                'gstin': comp.get('gstin', '')
+                'gstin': comp.get('gstin', ''),
+                'branch_name': branch_doc.get('branch_name') if branch_doc else '',
+                'branch_id': branch_id or ''
             }
     # Master / Default ARGUS info
     master_comp = database.get_company_by_id('ARGUS_MASTER')
@@ -496,13 +520,15 @@ def inject_delete_permissions():
         comp_can_del = bool(comp_doc.get('can_delete_entries', False)) if comp_doc else False
         company_support_enabled = bool(comp_doc.get('support_enabled', True)) if comp_doc else False
 
+    active_bid = get_current_branch_id()
+
     # 2. Cached badge counts (served from in-memory cache)
     if is_super:
-        pending_cnt = database.get_pending_leave_requests_count(None)
+        pending_cnt = database.get_pending_leave_requests_count(None, branch_id=active_bid)
         admin_support_count = database.get_support_badge_count(None)
         support_open_count = 0
     else:
-        pending_cnt = database.get_pending_leave_requests_count(target_comp_id) if target_comp_id else 0
+        pending_cnt = database.get_pending_leave_requests_count(target_comp_id, branch_id=active_bid) if target_comp_id else 0
         support_open_count = database.get_support_badge_count(target_comp_id) if target_comp_id else 0
         admin_support_count = 0
 
@@ -546,7 +572,9 @@ def inject_delete_permissions():
         'has_company_logo': has_custom_logo,
         'company_modules': company_modules,
         'total_branches_count': len(branches_list),
-        'user_branches': branches_list
+        'user_branches': branches_list,
+        'active_branch_id': active_bid,
+        'active_branch_name': session.get('active_branch_name', '')
     }
 
 import traceback
@@ -1330,8 +1358,9 @@ def company_profile():
 @login_required
 def leave_permission():
     comp_id = get_current_company_id()
+    branch_id = get_current_branch_id()
     policy = database.get_company_leave_policy(comp_id)
-    stats = database.get_admin_leave_stats(company_id=comp_id)
+    stats = database.get_admin_leave_stats(company_id=comp_id, branch_id=branch_id)
     companies = []
     if session.get('role') == 'super_admin':
         companies = database.get_all_companies()
@@ -1452,9 +1481,8 @@ def api_dashboard_yesterday_activity_pdf():
             comp_id = current_comp_id
             company_info = get_current_company_info()
 
-        target_date = request.args.get('date') or get_yesterday_ist()
-
-        activity_data = build_yesterdays_activity_full_data(comp_id, target_date=target_date)
+        branch_id = get_current_branch_id()
+        activity_data = build_yesterdays_activity_full_data(comp_id, target_date=target_date, branch_id=branch_id)
         pdf_buffer = pdf_generator.generate_yesterdays_activity_report_pdf(
             activity_data,
             company_info=company_info
@@ -1485,7 +1513,8 @@ def api_dashboard_previous_month_salary_pdf():
             start_month=prev_month,
             end_month=prev_month,
             limit=1000,
-            company_id=comp_id
+            company_id=comp_id,
+            branch_id=get_current_branch_id()
         )
         data = result.get('data', []) if isinstance(result, dict) else []
         if not data:
@@ -1494,7 +1523,8 @@ def api_dashboard_previous_month_salary_pdf():
                 start_month=prev_month,
                 end_month=prev_month,
                 limit=1000,
-                company_id=comp_id
+                company_id=comp_id,
+                branch_id=get_current_branch_id()
             )
             data = result.get('data', []) if isinstance(result, dict) else []
 
@@ -1522,7 +1552,7 @@ def employee_details():
             branches = database.get_company_branches(comp_id)
         except Exception:
             branches = []
-    return render_template('employees.html', active_tab='EMPLOYEE DETAILS', branches=branches)
+    return render_template('employees.html', active_tab='EMPLOYEE DETAILS', branches=branches, active_branch_id=get_current_branch_id())
 
 @app.route('/live-report')
 @login_required
@@ -1532,31 +1562,32 @@ def live_report():
 @app.route('/attendance-report')
 @login_required
 def attendance_report():
-    employees = database.get_employee_names_cached(company_id=get_current_company_id())
+    employees = database.get_employee_names_cached(company_id=get_current_company_id(), branch_id=get_current_branch_id())
     return render_template('attendance_report.html', active_tab='ATTENDANCE REPORT', employees=employees)
 
 @app.route('/manual-entry')
 @login_required
 def manual_entry():
-    return render_template('manual_entry.html', active_tab='MANUAL ENTRY')
+    employees = database.get_employee_names_cached(company_id=get_current_company_id(), branch_id=get_current_branch_id())
+    return render_template('manual_entry.html', active_tab='MANUAL ENTRY', employees=employees)
 
 @app.route('/payment-entry')
 @login_required
 def payment_entry():
-    employees = database.get_employee_names_cached(company_id=get_current_company_id())
+    employees = database.get_employee_names_cached(company_id=get_current_company_id(), branch_id=get_current_branch_id())
     return render_template('payment_entry.html', active_tab='PAYMENT ENTRY', employees=employees)
 
 @app.route('/advance-management')
 @login_required
 def advance_management():
-    employees = database.get_employee_names_cached(company_id=get_current_company_id())
+    employees = database.get_employee_names_cached(company_id=get_current_company_id(), branch_id=get_current_branch_id())
     return render_template('advance_management.html', active_tab='PAYMENT ENTRY', employees=employees)
 
 @app.route('/advance-summary')
 @app.route('/balance-report')
 @login_required
 def balance_report():
-    employees = database.get_employee_names_cached(company_id=get_current_company_id())
+    employees = database.get_employee_names_cached(company_id=get_current_company_id(), branch_id=get_current_branch_id())
     return render_template('balance_report.html', active_tab='PAYMENT ENTRY', employees=employees)
 
 @app.route('/monthly-payslip')
@@ -1564,16 +1595,14 @@ def balance_report():
 @login_required
 def monthly_payslip():
     comp_id = get_current_company_id()
-    if session.get('role') == 'super_admin':
-        comp_id = 'ALL'
-    employees_res = database.get_all_employees(company_id=comp_id, limit=1000)
+    employees_res = database.get_all_employees(company_id=comp_id, branch_id=get_current_branch_id(), limit=1000)
     employees = [e['employee_name'] for e in employees_res['data']]
     return render_template('monthly_payslip.html', active_tab='PAYSLIP PREVIEW', employees=employees)
 
 @app.route('/salary-report')
 @login_required
 def salary_report():
-    employees_res = database.get_all_employees(company_id=get_current_company_id(), limit=1000)
+    employees_res = database.get_all_employees(company_id=get_current_company_id(), branch_id=get_current_branch_id(), limit=1000)
     employees = [e['employee_name'] for e in employees_res['data']]
     return render_template('salary_report.html', active_tab='SALARY REPORT', employees=employees)
 
@@ -2499,7 +2528,7 @@ def api_admin_leave_stats():
     req_comp = request.args.get('company_id')
     if req_comp and session.get('role') == 'super_admin':
         comp_id = req_comp
-    stats = database.get_admin_leave_stats(company_id=comp_id)
+    stats = database.get_admin_leave_stats(company_id=comp_id, branch_id=get_current_branch_id())
     return jsonify({'success': True, 'stats': stats})
 
 @app.route('/api/admin/leave-permission/policy', methods=['GET', 'POST'])
@@ -2531,7 +2560,7 @@ def api_admin_leave_balances():
     if req_comp and session.get('role') == 'super_admin':
         comp_id = req_comp
     search = request.args.get('search', '').strip()
-    bals = database.get_all_employees_leave_balances(company_id=comp_id, search=search)
+    bals = database.get_all_employees_leave_balances(company_id=comp_id, search=search, branch_id=get_current_branch_id())
     return jsonify({'success': True, 'balances': bals})
 
 @app.route('/api/admin/leave-permission/employee-quota', methods=['POST'])
@@ -2581,7 +2610,7 @@ def api_admin_leave_requests():
     limit = int(request.args.get('limit', 50))
     page = int(request.args.get('page', 1))
     emp_id = request.args.get('employee_id', None)
-    res = database.get_leave_requests(company_id=comp_id, employee_id=emp_id, status=status, limit=limit, page=page)
+    res = database.get_leave_requests(company_id=comp_id, employee_id=emp_id, status=status, limit=limit, page=page, branch_id=get_current_branch_id())
     return jsonify({
         'success': True,
         'requests': res['requests'],
@@ -2629,7 +2658,7 @@ def api_admin_leave_request_action(request_id):
 @app.route('/api/dashboard/stats')
 @login_required
 def api_dashboard_stats():
-    stats = database.get_dashboard_stats(company_id=get_current_company_id())
+    stats = database.get_dashboard_stats(company_id=get_current_company_id(), branch_id=get_current_branch_id())
     return jsonify(stats)
 
 @app.route('/api/employees', methods=['GET'])
@@ -2649,7 +2678,8 @@ def api_get_employees():
         sort_dir=sort_dir,
         page=page,
         limit=limit,
-        status=status
+        status=status,
+        branch_id=get_current_branch_id()
     )
     return jsonify(result)
 
@@ -2788,6 +2818,9 @@ def api_create_employee():
         except Exception as doc_err:
             print(f"Warning: processing employee documents failed: {doc_err}")
             data['documents'] = []
+
+        if not data.get('branch_id') and get_current_branch_id():
+            data['branch_id'] = get_current_branch_id()
 
         emp_id = database.create_employee(data, company_id=get_current_company_id())
         success_msg = 'Employee created successfully'
@@ -2978,7 +3011,7 @@ def api_employees_export_excel():
     search = request.args.get('search', '').strip()
     status = request.args.get('status', '').strip()
     comp_id = get_current_company_id()
-    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status)
+    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status, branch_id=get_current_branch_id())
     
     headers = ['SL NO', 'EMPLOYEE ID', 'EMPLOYEE NAME', 'STATUS', 'SALARY BASIS', 'HOURLY SALARY', 'DAY SALARY', 'HALF DAY SALARY', 'MOBILE NUMBER', 'SHIFT HOURS', 'BANK NAME', 'ACCOUNT NUMBER', 'DATE OF JOINING']
     rows = []
@@ -3010,7 +3043,7 @@ def api_employees_export_pdf():
     search = request.args.get('search', '').strip()
     status = request.args.get('status', '').strip()
     comp_id = get_current_company_id()
-    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status)
+    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status, branch_id=get_current_branch_id())
     company_info = get_current_company_info()
     pdf_buffer = pdf_generator.generate_employees_pdf(result['data'], company_info=company_info)
     filename = "employee_directory.pdf"
@@ -3116,7 +3149,8 @@ def api_get_live_entries():
         search=search,
         page=page,
         limit=limit,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     return jsonify(result)
 
@@ -3171,7 +3205,8 @@ def api_export_excel():
         start_date=start_date,
         end_date=end_date,
         limit=10000,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     
     time_header = 'EXIT TIME' if entry_type == 'timeout' else 'ENTRY TIME'
@@ -3208,7 +3243,8 @@ def api_export_pdf():
         start_date=start_date,
         end_date=end_date,
         limit=10000,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     
     title = "Live Entries Report" if entry_type == 'live' else "Timeout Entries Report"
@@ -3575,7 +3611,8 @@ def api_get_attendance_reports():
         search=search,
         page=page,
         limit=limit,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     return jsonify(result)
 
@@ -3591,7 +3628,8 @@ def api_get_attendance_simple():
         employee=employee,
         start_date=start_date,
         end_date=end_date,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     return jsonify(result)
 
@@ -3620,10 +3658,11 @@ def api_attendance_export_excel():
     end_date = request.args.get('end_date', '').strip()
     employee = request.args.get('employee', 'All').strip()
     comp_id = get_current_company_id()
+    branch_id = get_current_branch_id()
     
     rows = []
     if report_type in ['simple', 'compact']:
-        result = database.get_attendance_simple_table(employee=employee, start_date=start_date, end_date=end_date, company_id=comp_id)
+        result = database.get_attendance_simple_table(employee=employee, start_date=start_date, end_date=end_date, company_id=comp_id, branch_id=branch_id)
         headers = ['EMPLOYEE NAME', 'ENTRY TIME', 'EXIT TIME', 'WORKING HOURS', 'SHIFT VARIANCE', 'WORKING SALARY', 'STATUS']
         for r in result.get('data', []):
             rows.append([
@@ -3637,7 +3676,7 @@ def api_attendance_export_excel():
             ])
         rows.append(['TOTAL', '', '', result.get('total_working_hours', '00:00'), '----', result.get('total_working_salary', '0.00'), ''])
     else:
-        result = database.get_attendance_reports(report_type=report_type, start_date=start_date, end_date=end_date, employee=employee, limit=10000, company_id=comp_id)
+        result = database.get_attendance_reports(report_type=report_type, start_date=start_date, end_date=end_date, employee=employee, limit=10000, company_id=comp_id, branch_id=branch_id)
         headers = ['EMPLOYEE NAME', 'ENTRY TIME', 'ENTRY DISTANCE', 'ENTRY LOCATION', 'ENTRY STATUS', 'EXIT TIME', 'EXIT DISTANCE', 'EXIT LOCATION', 'EXIT STATUS', 'WORKING HOURS', 'SHIFT VARIANCE', 'WORKING SALARY']
         for r in result.get('data', []):
             rows.append([
@@ -3666,10 +3705,11 @@ def api_attendance_export_pdf():
     end_date = request.args.get('end_date', '').strip()
     employee = request.args.get('employee', 'All').strip()
     comp_id = get_current_company_id()
+    branch_id = get_current_branch_id()
     
     company_info = get_current_company_info()
     if report_type in ['simple', 'compact']:
-        result = database.get_attendance_simple_table(employee=employee, start_date=start_date, end_date=end_date, company_id=comp_id)
+        result = database.get_attendance_simple_table(employee=employee, start_date=start_date, end_date=end_date, company_id=comp_id, branch_id=branch_id)
         emp_title = f" - {employee}" if (employee and employee not in ['All', 'All Employees']) else ""
         date_title = f" ({start_date} to {end_date})" if (start_date and end_date) else (f" (From {start_date})" if start_date else (f" (Up to {end_date})" if end_date else ""))
         title = f"Attendance Report (Compact View){emp_title}{date_title}"
@@ -3679,7 +3719,7 @@ def api_attendance_export_pdf():
         }
         pdf_buffer = pdf_generator.generate_attendance_report_pdf(title, result['data'], is_simple=True, totals=totals, company_info=company_info)
     else:
-        result = database.get_attendance_reports(report_type=report_type, start_date=start_date, end_date=end_date, employee=employee, limit=10000, company_id=comp_id)
+        result = database.get_attendance_reports(report_type=report_type, start_date=start_date, end_date=end_date, employee=employee, limit=10000, company_id=comp_id, branch_id=branch_id)
         titles = {
             'all': 'All Attendance Entries',
             'proper': 'Proper Attendance Entries',
@@ -3716,7 +3756,8 @@ def api_get_manual_entries():
         search=search,
         page=page,
         limit=limit,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     return jsonify(result)
 
@@ -3735,6 +3776,10 @@ def api_create_manual_entry():
     if not data.get('employee_name'):
         return jsonify({'error': 'Employee name is required'}), 400
         
+    bid = get_current_branch_id()
+    if bid and 'branch_id' not in data:
+        data['branch_id'] = bid
+
     inserted_id = database.create_manual_entry(data, company_id=get_current_company_id())
     return jsonify({'success': True, 'id': inserted_id, 'message': 'Manual entry created successfully'})
 
@@ -3774,7 +3819,8 @@ def api_manual_entries_export_excel():
         to_date=to_date,
         status=status,
         limit=10000,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     
     headers = ['NAME', 'DATE', 'HOURS', 'STATUS', 'SUBMITTED', 'HOURLY', 'DAY', 'HALF', 'WORKING SALARY']
@@ -3805,7 +3851,8 @@ def api_manual_entries_export_pdf():
         to_date=to_date,
         status=status,
         limit=10000,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     company_info = get_current_company_info()
     pdf_buffer = pdf_generator.generate_manual_entries_pdf(result['data'], company_info=company_info)
@@ -3848,7 +3895,8 @@ def api_get_payments():
         search=search,
         page=page,
         limit=limit,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     return jsonify(result)
 
@@ -3880,6 +3928,10 @@ def api_create_payment():
     if not data.get('employee_name'):
         return jsonify({'error': 'Employee name is required'}), 400
         
+    bid = get_current_branch_id()
+    if bid and 'branch_id' not in data:
+        data['branch_id'] = bid
+
     inserted_id = database.create_payment(data, company_id=get_current_company_id())
     return jsonify({'success': True, 'id': inserted_id, 'message': 'Payment created successfully'})
 
@@ -3938,7 +3990,8 @@ def api_payments_export_excel():
         payment_type=payment_type,
         status=status,
         limit=10000,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     
     headers = ['TIMESTAMP', 'EMPLOYEE', 'DATE', 'AMOUNT', 'BANK', 'PAYMENT TYPE', 'STATUS']
@@ -3974,7 +4027,8 @@ def api_payments_export_pdf():
         payment_type=payment_type,
         status=status,
         limit=10000,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     company_info = get_current_company_info()
     pdf_buffer = pdf_generator.generate_payments_pdf(result['data'], company_info=company_info)
@@ -4005,7 +4059,8 @@ def api_get_advances():
         search=search,
         page=page,
         limit=limit,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     return jsonify(result)
 
@@ -4024,6 +4079,10 @@ def api_create_advance():
     if not data.get('employee_name'):
         return jsonify({'error': 'Employee name is required'}), 400
         
+    bid = get_current_branch_id()
+    if bid and 'branch_id' not in data:
+        data['branch_id'] = bid
+
     inserted_id = database.create_advance(data, company_id=get_current_company_id())
     return jsonify({'success': True, 'id': inserted_id, 'message': 'Advance created successfully'})
 
@@ -4063,7 +4122,8 @@ def api_advances_export_excel():
         start_date=start_date,
         end_date=end_date,
         limit=10000,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     
     headers = ['TIMESTAMP', 'EMPLOYEE', 'DATE', 'AMOUNT']
@@ -4089,7 +4149,8 @@ def api_advances_export_pdf():
         start_date=start_date,
         end_date=end_date,
         limit=10000,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     company_info = get_current_company_info()
     pdf_buffer = pdf_generator.generate_advances_pdf(result['data'], company_info=company_info)
@@ -4116,7 +4177,8 @@ def api_get_balance_report():
         search=search,
         page=page,
         limit=limit,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     return jsonify(result)
 
@@ -4127,7 +4189,7 @@ def api_get_balance_report():
 @login_required
 def api_balance_report_export_excel():
     employee = request.args.get('employee', 'All').strip()
-    result = database.get_balance_report(employee=employee, limit=10000, company_id=get_current_company_id())
+    result = database.get_balance_report(employee=employee, limit=10000, company_id=get_current_company_id(), branch_id=get_current_branch_id())
     
     headers = ['DATE&TIME', 'NAME', 'DATE', 'ADVANCE AMOUNT', 'REPAYMENT AMOUNT', 'BALANCE AMOUNT']
     rows = []
@@ -4149,7 +4211,7 @@ def api_balance_report_export_excel():
 @login_required
 def api_balance_report_export_pdf():
     employee = request.args.get('employee', 'All').strip()
-    result = database.get_balance_report(employee=employee, limit=10000, company_id=get_current_company_id())
+    result = database.get_balance_report(employee=employee, limit=10000, company_id=get_current_company_id(), branch_id=get_current_branch_id())
     totals = {
         'total_advance': result['total_advance'],
         'total_repayment': result.get('total_payment', result.get('total_repayment', 0.0)),
@@ -4204,7 +4266,7 @@ def api_export_payslip_pdf():
     if session.get('role') == 'super_admin':
         comp_id = None
     if not employee:
-        emp_res = database.get_all_employees(company_id=comp_id or 'ALL', limit=1)
+        emp_res = database.get_all_employees(company_id=comp_id or 'ALL', branch_id=get_current_branch_id(), limit=1)
         if emp_res['data']:
             employee = emp_res['data'][0]['employee_name']
         else:
@@ -4239,7 +4301,8 @@ def api_get_salary_reports():
         search=search,
         page=page,
         limit=limit,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     return jsonify(result)
 
@@ -4256,7 +4319,8 @@ def api_salary_reports_export_excel():
         start_month=start_month,
         end_month=end_month,
         limit=10000,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     
     headers = [
@@ -4288,7 +4352,8 @@ def api_salary_reports_export_pdf():
         start_month=start_month,
         end_month=end_month,
         limit=10000,
-        company_id=get_current_company_id()
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
     )
     company_info = get_current_company_info()
     pdf_buffer = pdf_generator.generate_salary_report_pdf(result['data'], company_info=company_info)

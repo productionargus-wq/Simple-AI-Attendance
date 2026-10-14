@@ -1142,11 +1142,15 @@ def generate_employee_id():
     import secrets
     return f"{int(time.time() * 1000)}{secrets.randbelow(100):02d}"
 
-def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc', page=1, limit=10, status=None):
+def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc', page=1, limit=10, status=None, branch_id=None):
     db = get_db()
     query = {}
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
+
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    if b_id:
+        query['branch_id'] = b_id
 
     # Filter by employee status if specified
     if status and str(status).strip().lower() not in ['all', '', 'none']:
@@ -1191,6 +1195,8 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc'
 
     # Compute company active quota summary stats
     base_comp_query = {'company_id': str(company_id)} if (company_id and company_id != 'ALL') else {}
+    if b_id:
+        base_comp_query['branch_id'] = b_id
     active_count = db.employees.count_documents({**base_comp_query, 'status': {'$ne': 'Inactive'}})
     inactive_count = db.employees.count_documents({**base_comp_query, 'status': 'Inactive'})
     total_preserved = db.employees.count_documents(base_comp_query)
@@ -1611,8 +1617,9 @@ def invalidate_employee_names_cache(company_id=None):
     else:
         _employee_names_cache.clear()
 
-def get_employee_names_cached(company_id=None):
-    cache_key = str(company_id or 'ALL')
+def get_employee_names_cached(company_id=None, branch_id=None):
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    cache_key = f"{company_id or 'ALL'}:{b_id or 'ALL'}"
     now_ts = time.time()
     if cache_key in _employee_names_cache:
         entry_time, cached_val = _employee_names_cache[cache_key]
@@ -1623,6 +1630,8 @@ def get_employee_names_cached(company_id=None):
     filt = {}
     if company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
         filt['company_id'] = str(company_id)
+    if b_id:
+        filt['branch_id'] = b_id
 
     cursor = db.employees.find(filt, {'employee_name': 1}).sort('employee_name', 1)
     names = [doc.get('employee_name') for doc in cursor if doc.get('employee_name')]
@@ -1664,26 +1673,24 @@ def get_dashboard_stats(company_id=None, branch_id=None):
     comp_base = {'company_id': str(company_id)} if (company_id and company_id != 'ALL') else {}
     if b_id:
         branch_punch_matcher = {'$or': [{'branch_id': b_id}, {'employee_name': {'$in': list(branch_emp_names)}}]} if branch_emp_names else {'branch_id': b_id}
-        p_filter = {**comp_base, 'date': today_str, **branch_punch_matcher}
-        ar_today_filter = {**comp_base, 'date': today_str, **branch_punch_matcher}
-        l_filter = {**comp_base, 'entry_time': {'$regex': today_slash}, **branch_punch_matcher}
+        record_base = {**comp_base, **branch_punch_matcher}
+        p_filter = {**record_base, 'date': today_str}
+        ar_today_filter = {**record_base, 'date': today_str}
+        l_filter = {**record_base, 'entry_time': {'$regex': today_slash}}
         m_filter = {
-            **comp_base,
-            '$and': [
-                branch_punch_matcher,
-                {'$or': [
-                    {'entry_date': today_str},
-                    {'submitted_at': {'$regex': today_str}},
-                    {'submitted_at': {'$regex': today_slash}}
-                ]}
+            **record_base,
+            '$or': [
+                {'entry_date': today_str},
+                {'submitted_at': {'$regex': today_str}},
+                {'submitted_at': {'$regex': today_slash}}
             ]
         }
         timeout_filter = {
-            **comp_base,
-            **branch_punch_matcher,
+            **record_base,
             '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
         }
     else:
+        record_base = dict(t_filter)
         p_filter = dict(t_filter)
         p_filter['date'] = today_str
         ar_today_filter = dict(t_filter)
@@ -1718,9 +1725,9 @@ def get_dashboard_stats(company_id=None, branch_id=None):
     on_leave_percentage = round((on_leave_count / total_employees * 100), 1) if total_employees > 0 else 0.0
     absent_percentage = round((absent_count / total_employees * 100), 1) if total_employees > 0 else 0.0
     
-    tout_filter = dict(t_filter)
+    tout_filter = dict(record_base)
     tout_filter['is_timeout'] = 1
-    timeout_count = db.timeout_entries.count_documents(dict(t_filter)) + db.live_entries.count_documents(tout_filter)
+    timeout_count = db.timeout_entries.count_documents(dict(record_base)) + db.live_entries.count_documents(tout_filter)
     timeout_percentage = round((timeout_count / total_employees * 100), 1) if total_employees > 0 else 0.0
     
     # Last 7 days dynamic calculation in BATCH queries (replaces 35 individual network calls)
@@ -1729,13 +1736,13 @@ def get_dashboard_stats(company_id=None, branch_id=None):
     day_strs = list(day_map.keys())
     day_slashes = [v['slash'] for v in day_map.values()]
 
-    att_7d = list(db.attendance.find({**t_filter, 'date': {'$in': day_strs}}, {'employee_name': 1, 'date': 1}))
+    att_7d = list(db.attendance.find({**record_base, 'date': {'$in': day_strs}}, {'employee_name': 1, 'date': 1}))
     for a in att_7d:
         dt = a.get('date')
         if dt in day_map and a.get('employee_name'):
             day_map[dt]['present'].add(a['employee_name'])
 
-    ar_7d = list(db.attendance_reports.find({**t_filter, 'date': {'$in': day_strs}}, {'employee_name': 1, 'date': 1}))
+    ar_7d = list(db.attendance_reports.find({**record_base, 'date': {'$in': day_strs}}, {'employee_name': 1, 'date': 1}))
     for a in ar_7d:
         dt = a.get('date')
         if dt in day_map and a.get('employee_name'):
@@ -1744,7 +1751,7 @@ def get_dashboard_stats(company_id=None, branch_id=None):
     slash_pattern = "|".join([d.replace('/', '\\/') for d in day_slashes])
     hyphen_pattern = "|".join(day_strs)
     me_7d = list(db.manual_entries.find({
-        **t_filter,
+        **record_base,
         '$or': [
             {'entry_date': {'$in': day_strs}},
             {'submitted_at': {'$regex': hyphen_pattern}},
@@ -1760,7 +1767,7 @@ def get_dashboard_stats(company_id=None, branch_id=None):
                     info['present'].add(ename)
                 break
 
-    live_7d = list(db.live_entries.find({**t_filter, 'entry_time': {'$regex': slash_pattern}}, {'employee_name': 1, 'entry_time': 1, 'is_timeout': 1}))
+    live_7d = list(db.live_entries.find({**record_base, 'entry_time': {'$regex': slash_pattern}}, {'employee_name': 1, 'entry_time': 1, 'is_timeout': 1}))
     for l in live_7d:
         et = l.get('entry_time', '')
         ename = l.get('employee_name')
@@ -1772,7 +1779,7 @@ def get_dashboard_stats(company_id=None, branch_id=None):
                     info['timeouts'] += 1
                 break
 
-    timeout_7d = list(db.timeout_entries.find({**t_filter, '$or': [{'entry_time': {'$regex': slash_pattern}}, {'exit_time': {'$regex': slash_pattern}}]}, {'employee_name': 1, 'entry_time': 1, 'exit_time': 1}))
+    timeout_7d = list(db.timeout_entries.find({**record_base, '$or': [{'entry_time': {'$regex': slash_pattern}}, {'exit_time': {'$regex': slash_pattern}}]}, {'employee_name': 1, 'entry_time': 1, 'exit_time': 1}))
     for t_doc in timeout_7d:
         et = t_doc.get('exit_time') or t_doc.get('entry_time', '')
         ename = t_doc.get('employee_name')
@@ -1799,7 +1806,7 @@ def get_dashboard_stats(company_id=None, branch_id=None):
     months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     monthly_map = {m_idx: {'present_cnt': 0, 'timeout_cnt': 0} for m_idx in range(1, 13)}
 
-    year_att = list(db.attendance.find({**t_filter, 'date': {'$regex': f"^{curr_year}-"}}, {'date': 1}))
+    year_att = list(db.attendance.find({**record_base, 'date': {'$regex': f"^{curr_year}-"}}, {'date': 1}))
     for a in year_att:
         dt = a.get('date', '')
         if len(dt) >= 7:
@@ -1810,7 +1817,7 @@ def get_dashboard_stats(company_id=None, branch_id=None):
             except Exception:
                 pass
 
-    year_ar = list(db.attendance_reports.find({**t_filter, 'date': {'$regex': f"^{curr_year}-"}}, {'date': 1}))
+    year_ar = list(db.attendance_reports.find({**record_base, 'date': {'$regex': f"^{curr_year}-"}}, {'date': 1}))
     for a in year_ar:
         dt = a.get('date', '')
         if len(dt) >= 7:
@@ -1822,7 +1829,7 @@ def get_dashboard_stats(company_id=None, branch_id=None):
                 pass
 
     year_me = list(db.manual_entries.find({
-        **t_filter,
+        **record_base,
         '$or': [
             {'entry_date': {'$regex': f"^{curr_year}-"}},
             {'submitted_at': {'$regex': f"^{curr_year}-"}},
@@ -1844,7 +1851,7 @@ def get_dashboard_stats(company_id=None, branch_id=None):
             except Exception:
                 pass
 
-    year_live = list(db.live_entries.find({**t_filter, 'entry_time': {'$regex': f"/{curr_year}"}}, {'entry_time': 1, 'is_timeout': 1}))
+    year_live = list(db.live_entries.find({**record_base, 'entry_time': {'$regex': f"/{curr_year}"}}, {'entry_time': 1, 'is_timeout': 1}))
     for l in year_live:
         et = l.get('entry_time', '')
         sp = et.split('/')
@@ -2303,13 +2310,23 @@ def sync_live_and_timeout_entries(company_id=None):
     except Exception as e:
         print(f"Warning in sync_live_and_timeout_entries: {e}")
 
-def get_live_report_entries(tab='live', start_date=None, end_date=None, search=None, page=1, limit=10, company_id=None):
+def get_live_report_entries(tab='live', start_date=None, end_date=None, search=None, page=1, limit=10, company_id=None, branch_id=None):
     sync_live_and_timeout_entries(company_id=company_id)
     db = get_db()
     query = {}
     
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
+
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    if b_id:
+        b_emp_q = {'branch_id': b_id}
+        if company_id and company_id != 'ALL':
+            b_emp_q['company_id'] = str(company_id)
+        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
+        b_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        branch_cond = {'$or': [{'branch_id': b_id}, {'employee_name': {'$in': list(b_names)}}]} if b_names else {'branch_id': b_id}
+        query.setdefault('$and', []).append(branch_cond)
         
     target_coll = db.timeout_entries if tab == 'timeout' else db.live_entries
 
@@ -2322,6 +2339,8 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
     emp_q = {}
     if company_id and company_id != 'ALL':
         emp_q['company_id'] = str(company_id)
+    if b_id:
+        emp_q['branch_id'] = b_id
     for emp_d in db.employees.find(emp_q, {'employee_name': 1, 'shift_start': 1, 'shift_end': 1, 'shift_hours': 1}):
         if emp_d.get('employee_name'):
             emp_shifts[emp_d['employee_name']] = {
@@ -3183,18 +3202,31 @@ def extract_sort_timestamp(row):
             
     return '1970-01-01 00:00:00'
 
-def get_attendance_reports(report_type='all', start_date=None, end_date=None, employee='All', search=None, page=1, limit=10, company_id=None):
+def get_attendance_reports(report_type='all', start_date=None, end_date=None, employee='All', search=None, page=1, limit=10, company_id=None, branch_id=None):
     db = get_db()
 
     if not start_date and not end_date:
         def_start, _, _, _ = get_default_two_month_range()
         start_date = def_start
 
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    b_names = set()
+    branch_cond = None
+    if b_id:
+        b_emp_q = {'branch_id': b_id}
+        if company_id and company_id != 'ALL':
+            b_emp_q['company_id'] = str(company_id)
+        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
+        b_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        branch_cond = {'$or': [{'branch_id': b_id}, {'employee_name': {'$in': list(b_names)}}]} if b_names else {'branch_id': b_id}
+
     # Pre-load employee shift hours for dynamic status computation
     emp_shifts = {}
     emp_q = {}
     if company_id and company_id != 'ALL':
         emp_q['company_id'] = str(company_id)
+    if b_id:
+        emp_q['branch_id'] = b_id
     for emp_d in db.employees.find(emp_q, {'employee_name': 1, 'shift_start': 1, 'shift_end': 1, 'shift_hours': 1}):
         if emp_d.get('employee_name'):
             emp_shifts[emp_d['employee_name']] = {
@@ -3207,6 +3239,8 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         m_query = {}
         if company_id and company_id != 'ALL':
             m_query['company_id'] = str(company_id)
+        if branch_cond:
+            m_query.setdefault('$and', []).append(branch_cond)
         if employee and employee != 'All':
             m_query['employee_name'] = employee
         if start_date:
@@ -3256,6 +3290,8 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
     query = {}
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
+    if branch_cond:
+        query.setdefault('$and', []).append(branch_cond)
         
     if report_type == 'proper':
         query['entry_type'] = {'$ne': 'improper'}
@@ -3381,6 +3417,8 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
     m_query = {}
     if company_id and company_id != 'ALL':
         m_query['company_id'] = str(company_id)
+    if branch_cond:
+        m_query.setdefault('$and', []).append(branch_cond)
     if employee and employee != 'All':
         m_query['employee_name'] = employee
     if start_date:
@@ -3420,6 +3458,8 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
     l_query = {'request_type': 'Leave', 'status': 'Approved'}
     if company_id and company_id != 'ALL':
         l_query['company_id'] = str(company_id)
+    if b_id:
+        l_query['employee_name'] = {'$in': list(b_names)} if b_names else {'$in': []}
     if employee and employee != 'All':
         l_query['employee_name'] = employee
     if start_date:
@@ -3471,7 +3511,7 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         'data': p_data
     }
 
-def get_attendance_simple_table(employee='All', start_date=None, end_date=None, company_id=None):
+def get_attendance_simple_table(employee='All', start_date=None, end_date=None, company_id=None, branch_id=None):
     db = get_db()
     
     clean_emp = str(employee or '').strip()
@@ -3496,10 +3536,23 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
     s_iso = extract_iso_date(start_date) if start_date else ''
     e_iso = extract_iso_date(end_date) if end_date else ''
 
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    branch_names = set()
+    branch_cond = None
+    if b_id:
+        b_emp_q = {'branch_id': b_id}
+        if company_id and company_id != 'ALL':
+            b_emp_q['company_id'] = str(company_id)
+        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
+        branch_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        branch_cond = {'$or': [{'branch_id': b_id}, {'employee_name': {'$in': list(branch_names)}}]} if branch_names else {'branch_id': b_id}
+
     # Pre-fetch employees in company for rate configurations
     emp_filter = {}
     if company_id and company_id != 'ALL':
         emp_filter['company_id'] = str(company_id)
+    if b_id:
+        emp_filter['branch_id'] = b_id
     emp_docs = list(db.employees.find(emp_filter))
     emp_map = {e.get('employee_name'): clean_doc(e) for e in emp_docs if e.get('employee_name')}
 
@@ -3557,6 +3610,8 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
     rep_query = {}
     if company_id and company_id != 'ALL':
         rep_query['company_id'] = str(company_id)
+    if branch_cond:
+        rep_query.setdefault('$and', []).append(branch_cond)
     if not is_all_emp:
         rep_query['employee_name'] = clean_emp
 
@@ -3616,6 +3671,8 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
     m_query = {}
     if company_id and company_id != 'ALL':
         m_query['company_id'] = str(company_id)
+    if branch_cond:
+        m_query.setdefault('$and', []).append(branch_cond)
     if not is_all_emp:
         m_query['employee_name'] = clean_emp
 
@@ -3719,12 +3776,22 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
 
 # ----------------- MANUAL ENTRIES ----------------- #
 
-def get_manual_entries(from_date=None, to_date=None, status='All', search=None, page=1, limit=10, company_id=None):
+def get_manual_entries(from_date=None, to_date=None, status='All', search=None, page=1, limit=10, company_id=None, branch_id=None):
     db = get_db()
     query = {}
     
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
+
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    if b_id:
+        b_emp_q = {'branch_id': b_id}
+        if company_id and company_id != 'ALL':
+            b_emp_q['company_id'] = str(company_id)
+        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
+        b_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        branch_cond = {'$or': [{'branch_id': b_id}, {'employee_name': {'$in': list(b_names)}}]} if b_names else {'branch_id': b_id}
+        query.setdefault('$and', []).append(branch_cond)
         
     if not from_date and not to_date:
         def_start, _, _, _ = get_default_two_month_range()
@@ -3833,6 +3900,7 @@ def create_manual_entry(data, company_id=None):
     entry_id = int(time.time() * 1000)
     
     reason = str(data.get('reason') or '').strip()
+    assigned_branch_id = data.get('branch_id') or (emp.get('branch_id') if emp else None)
     doc = {
         'id': entry_id,
         'company_id': assigned_company_id,
@@ -3852,6 +3920,8 @@ def create_manual_entry(data, company_id=None):
         'mode': mode,
         'created_at': get_ist_now().isoformat()
     }
+    if assigned_branch_id:
+        doc['branch_id'] = str(assigned_branch_id)
     # Deduplication guard: check if identical manual entry was inserted within the last 5 seconds
     recent_entry = db.manual_entries.find_one({
         'company_id': assigned_company_id,
@@ -4015,12 +4085,22 @@ def delete_attendance_report(report_id, is_manual=False, company_id=None):
 
 # ----------------- PAYMENT MANAGEMENT ----------------- #
 
-def get_payments(employee=None, start_date=None, end_date=None, bank=None, payment_type=None, status=None, reason=None, search=None, page=1, limit=10, company_id=None):
+def get_payments(employee=None, start_date=None, end_date=None, bank=None, payment_type=None, status=None, reason=None, search=None, page=1, limit=10, company_id=None, branch_id=None):
     db = get_db()
     conditions = []
     
     if company_id and company_id != 'ALL':
         conditions.append({'company_id': str(company_id)})
+
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    if b_id:
+        b_emp_q = {'branch_id': b_id}
+        if company_id and company_id != 'ALL':
+            b_emp_q['company_id'] = str(company_id)
+        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
+        b_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        branch_cond = {'$or': [{'branch_id': b_id}, {'employee_name': {'$in': list(b_names)}}]} if b_names else {'branch_id': b_id}
+        conditions.append(branch_cond)
         
     if employee and employee != 'All':
         conditions.append({'employee_name': employee})
@@ -4118,6 +4198,7 @@ def create_payment(data, company_id=None):
         
     reason = (reason or '').strip()
     receipt_filename = data.get('receipt_filename', '')
+    assigned_branch_id = data.get('branch_id') or (emp.get('branch_id') if emp else None)
     
     doc = {
         'id': int(time.time() * 1000),
@@ -4134,6 +4215,8 @@ def create_payment(data, company_id=None):
         'receipt_filename': receipt_filename,
         'created_at': datetime.now()
     }
+    if assigned_branch_id:
+        doc['branch_id'] = str(assigned_branch_id)
     # Deduplication guard: check if identical payment was recorded within the last 5 seconds
     now_ms = int(time.time() * 1000)
     recent_payment = db.payments.find_one({
@@ -4183,12 +4266,22 @@ def delete_payment(payment_id):
 
 # ----------------- ADVANCE MANAGEMENT ----------------- #
 
-def get_advances(employee=None, start_date=None, end_date=None, search=None, page=1, limit=10, company_id=None):
+def get_advances(employee=None, start_date=None, end_date=None, search=None, page=1, limit=10, company_id=None, branch_id=None):
     db = get_db()
     query = {}
     
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
+
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    if b_id:
+        b_emp_q = {'branch_id': b_id}
+        if company_id and company_id != 'ALL':
+            b_emp_q['company_id'] = str(company_id)
+        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
+        b_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        branch_cond = {'$or': [{'branch_id': b_id}, {'employee_name': {'$in': list(b_names)}}]} if b_names else {'branch_id': b_id}
+        query.setdefault('$and', []).append(branch_cond)
         
     if employee and employee != 'All':
         query['employee_name'] = employee
@@ -4232,6 +4325,7 @@ def create_advance(data, company_id=None):
     emp = db.employees.find_one({'employee_name': emp_name})
     emp_id = emp['id'] if emp and 'id' in emp else 'EMP_' + str(int(time.time()))
     assigned_company_id = str(company_id or data.get('company_id') or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
+    assigned_branch_id = data.get('branch_id') or (emp.get('branch_id') if emp else None)
     
     now_ts = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
     advance_date = data.get('advance_date') or datetime.now().strftime("%Y-%m-%d")
@@ -4248,6 +4342,8 @@ def create_advance(data, company_id=None):
         'status': 'Active',
         'created_at': datetime.now()
     }
+    if assigned_branch_id:
+        doc['branch_id'] = str(assigned_branch_id)
     # Deduplication guard: check if identical advance was recorded within the last 5 seconds
     now_ms = int(time.time() * 1000)
     recent_advance = db.advances.find_one({
@@ -4280,13 +4376,25 @@ def delete_advance(advance_id):
 
 # ----------------- BALANCE REPORT ----------------- #
 
-def get_balance_report(employee=None, search=None, page=1, limit=10, company_id=None):
+def get_balance_report(employee=None, search=None, page=1, limit=10, company_id=None, branch_id=None):
     db = get_db()
     
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    branch_cond = None
+    if b_id:
+        b_emp_q = {'branch_id': b_id}
+        if company_id and company_id != 'ALL':
+            b_emp_q['company_id'] = str(company_id)
+        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
+        b_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        branch_cond = {'$or': [{'branch_id': b_id}, {'employee_name': {'$in': list(b_names)}}]} if b_names else {'branch_id': b_id}
+
     # Query all advances
     adv_query = {}
     if company_id and company_id != 'ALL':
         adv_query['company_id'] = str(company_id)
+    if branch_cond:
+        adv_query.setdefault('$and', []).append(branch_cond)
     if employee and employee != 'All':
         adv_query['employee_name'] = employee
     if search:
@@ -4299,6 +4407,8 @@ def get_balance_report(employee=None, search=None, page=1, limit=10, company_id=
     rep_conditions = [{'$or': [{'status': 'Advance Repayment'}, {'reason': 'Advance Repayment'}]}]
     if company_id and company_id != 'ALL':
         rep_conditions.append({'company_id': str(company_id)})
+    if branch_cond:
+        rep_conditions.append(branch_cond)
     if employee and employee != 'All':
         rep_conditions.append({'employee_name': employee})
     if search:
@@ -4386,12 +4496,22 @@ def get_balance_report(employee=None, search=None, page=1, limit=10, company_id=
 
 # ----------------- SALARY REPORTS ----------------- #
 
-def get_salary_reports(start_month=None, end_month=None, search=None, page=1, limit=10, company_id=None):
+def get_salary_reports(start_month=None, end_month=None, search=None, page=1, limit=10, company_id=None, branch_id=None):
     db = get_db()
     query = {}
     
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
+
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    if b_id:
+        b_emp_q = {'branch_id': b_id}
+        if company_id and company_id != 'ALL':
+            b_emp_q['company_id'] = str(company_id)
+        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
+        b_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        branch_cond = {'$or': [{'branch_id': b_id}, {'employee_name': {'$in': list(b_names)}}]} if b_names else {'branch_id': b_id}
+        query.setdefault('$and', []).append(branch_cond)
         
     if not start_month and not end_month:
         _, _, def_start_month, _ = get_default_two_month_range()
@@ -4626,6 +4746,17 @@ def get_payslip_data(employee_name, month_year, company_id=None):
                 company_address = f"Location: Lat {lat}, Lng {lng}"
         comp_logo = str(comp_doc.get('logo') or comp_doc.get('company_logo') or '')
         comp_logo_data = str(comp_doc.get('logo_data') or '')
+
+    if emp and (emp.get('branch_name') or emp.get('branch_id')):
+        b_name = emp.get('branch_name')
+        if not b_name and emp.get('branch_id'):
+            b_obj = db.company_branches.find_one({'id': emp.get('branch_id')})
+            if b_obj:
+                b_name = b_obj.get('branch_name')
+                if b_obj.get('location'):
+                    company_address = b_obj.get('location')
+        if b_name:
+            company_name = f"{company_name} - {b_name}"
 
     shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
     shift_target_minutes = parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
@@ -5639,7 +5770,7 @@ def get_employee_leave_balance(emp_id, company_id=None, year=None):
     bal['custom_leaves'] = c_leaves or []
     return bal
 
-def get_all_employees_leave_balances(company_id=None, year=None, search=None):
+def get_all_employees_leave_balances(company_id=None, year=None, search=None, branch_id=None):
     """
     Returns list of all employees in company along with their leave balances.
     Matches Image 4's Employee Leave Balance table.
@@ -5651,6 +5782,9 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None):
     e_query = {}
     if company_id and company_id != 'ALL':
         e_query['company_id'] = str(company_id)
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    if b_id:
+        e_query['branch_id'] = b_id
     
     employees = list(db.employees.find(e_query).sort('employee_name', ASCENDING))
     results = []
@@ -5863,12 +5997,32 @@ def submit_permission_request(req_data):
     db.leave_requests.insert_one(doc)
     return clean_doc(doc)
 
-def get_leave_requests(company_id=None, employee_id=None, status=None, limit=50, page=1):
+def get_leave_requests(company_id=None, employee_id=None, status=None, limit=50, page=1, branch_id=None):
     """Retrieves paginated list of leave & permission requests."""
     db = get_db()
     base_query = {}
     if company_id and company_id != 'ALL':
         base_query['company_id'] = str(company_id)
+
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    if b_id:
+        b_emp_q = {'branch_id': b_id}
+        if company_id and company_id != 'ALL':
+            b_emp_q['company_id'] = str(company_id)
+        b_emps = list(db.employees.find(b_emp_q, {'id': 1, '_id': 1, 'employee_name': 1}))
+        b_emp_ids = set()
+        b_emp_names = set()
+        for e in b_emps:
+            if e.get('id'): b_emp_ids.add(str(e.get('id')))
+            if e.get('_id'): b_emp_ids.add(str(e.get('_id')))
+            if e.get('employee_name'): b_emp_names.add(e.get('employee_name'))
+        branch_cond = {'$or': [
+            {'branch_id': b_id},
+            {'employee_id': {'$in': list(b_emp_ids)}},
+            {'employee_name': {'$in': list(b_emp_names)}}
+        ]}
+        base_query.setdefault('$and', []).append(branch_cond)
+
     if employee_id:
         base_query['$or'] = [{'employee_id': str(employee_id)}, {'employee_id': int(employee_id) if str(employee_id).isdigit() else str(employee_id)}]
     
@@ -6079,12 +6233,31 @@ def update_leave_request_status(request_id, new_status, admin_remark=None, revie
     db.leave_requests.update_one(q, {'$set': upd})
     return {'success': True, 'status': normalized_status, 'message': f'Request {normalized_status} successfully'}
 
-def get_admin_leave_stats(company_id=None):
+def get_admin_leave_stats(company_id=None, branch_id=None):
     """Returns the 4 KPI card metrics shown in Image 4."""
     db = get_db()
     query = {}
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
+
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    if b_id:
+        b_emp_q = {'branch_id': b_id}
+        if company_id and company_id != 'ALL':
+            b_emp_q['company_id'] = str(company_id)
+        b_emps = list(db.employees.find(b_emp_q, {'id': 1, '_id': 1, 'employee_name': 1}))
+        b_emp_ids = set()
+        b_emp_names = set()
+        for e in b_emps:
+            if e.get('id'): b_emp_ids.add(str(e.get('id')))
+            if e.get('_id'): b_emp_ids.add(str(e.get('_id')))
+            if e.get('employee_name'): b_emp_names.add(e.get('employee_name'))
+        branch_cond = {'$or': [
+            {'branch_id': b_id},
+            {'employee_id': {'$in': list(b_emp_ids)}},
+            {'employee_name': {'$in': list(b_emp_names)}}
+        ]}
+        query.setdefault('$and', []).append(branch_cond)
 
     today_str = get_ist_now().strftime('%Y-%m-%d')
 
@@ -6096,7 +6269,7 @@ def get_admin_leave_stats(company_id=None):
     })
     rejected_count = db.leave_requests.count_documents({**query, 'status': 'Rejected'})
 
-    all_bals = get_all_employees_leave_balances(company_id=company_id)
+    all_bals = get_all_employees_leave_balances(company_id=company_id, branch_id=b_id)
     low_balance_count = sum(1 for b in all_bals if b.get('is_low_balance'))
 
     return {
@@ -6171,11 +6344,12 @@ def invalidate_badge_counts_cache(company_id=None):
     else:
         _badge_counts_cache.clear()
 
-def get_pending_leave_requests_count(company_id=None):
+def get_pending_leave_requests_count(company_id=None, branch_id=None):
     """
     Returns the count of Pending leave & permission requests with 20s TTL caching.
     """
-    key = f"leave:{company_id or 'ALL'}"
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    key = f"leave:{company_id or 'ALL'}:{b_id or 'ALL'}"
     now_ts = time.time()
     if key in _badge_counts_cache:
         t, val = _badge_counts_cache[key]
@@ -6185,6 +6359,23 @@ def get_pending_leave_requests_count(company_id=None):
     query = {'status': 'Pending'}
     if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', 'DEFAULT']:
         query['company_id'] = str(company_id)
+    if b_id:
+        b_emp_q = {'branch_id': b_id}
+        if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', 'DEFAULT']:
+            b_emp_q['company_id'] = str(company_id)
+        b_emps = list(db.employees.find(b_emp_q, {'id': 1, '_id': 1, 'employee_name': 1}))
+        b_emp_ids = set()
+        b_emp_names = set()
+        for e in b_emps:
+            if e.get('id'): b_emp_ids.add(str(e.get('id')))
+            if e.get('_id'): b_emp_ids.add(str(e.get('_id')))
+            if e.get('employee_name'): b_emp_names.add(e.get('employee_name'))
+        branch_cond = {'$or': [
+            {'branch_id': b_id},
+            {'employee_id': {'$in': list(b_emp_ids)}},
+            {'employee_name': {'$in': list(b_emp_names)}}
+        ]}
+        query.setdefault('$and', []).append(branch_cond)
     cnt = db.leave_requests.count_documents(query)
     _badge_counts_cache[key] = (now_ts, cnt)
     return cnt

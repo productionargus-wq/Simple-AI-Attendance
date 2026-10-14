@@ -223,7 +223,7 @@ def format_distance_str(dist_val):
             return s.lower()
     return s
 
-def build_yesterdays_activity_full_data(company_id, target_date=None):
+def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=None):
     """
     Compiles complete 6-category dynamic activity data for yesterday's activity report:
     1. Proper Entries
@@ -262,8 +262,22 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
     comp_address = comp.get('address') or comp.get('location') or ''
     comp_location = comp.get('location') or comp.get('address') or ''
 
-    # Cache active company employees for salary calculation and absent analysis
-    emp_docs = list(db.employees.find({'company_id': comp_id_str}))
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    branch_cond = None
+    if b_id:
+        emp_docs = list(db.employees.find({'company_id': comp_id_str, 'branch_id': b_id}))
+        b_branch = db.company_branches.find_one({'branch_id': b_id}) or db.company_branches.find_one({'_id': b_id})
+        if b_branch:
+            comp_name = f"{comp_name} - {b_branch.get('branch_name', '')}"
+            if b_branch.get('location'):
+                comp_location = b_branch.get('location')
+                comp_address = b_branch.get('location')
+        branch_names = set(e.get('employee_name') for e in emp_docs if e.get('employee_name'))
+        branch_cond = {'$or': [{'branch_id': b_id}, {'employee_name': {'$in': list(branch_names)}}]} if branch_names else {'branch_id': b_id}
+    else:
+        # Cache active company employees for salary calculation and absent analysis
+        emp_docs = list(db.employees.find({'company_id': comp_id_str}))
+
     emp_map = {e.get('employee_name'): e for e in emp_docs if e.get('employee_name')}
 
     def calculate_employee_working_salary(emp_info, working_hours_str, punch_doc=None):
@@ -339,6 +353,8 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
             {'created_at': {'$regex': f"^{d_alt}"}}
         ]
     }
+    if branch_cond:
+        punch_query['$and'] = [branch_cond]
     punches_cursor = db.attendance_reports.find(punch_query).sort('entry_time', 1)
     all_punches = list(punches_cursor)
     if not all_punches:
@@ -423,6 +439,8 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
             {'created_at': {'$regex': f"^{d_alt}"}}
         ]
     }
+    if branch_cond:
+        timeout_query['$and'] = [branch_cond]
     timeouts_raw = list(db.timeout_entries.find(timeout_query).sort('entry_time', 1))
     if not timeouts_raw:
         timeouts_raw = list(db.attendance_reports.find({
@@ -470,6 +488,8 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
             {'created_at': {'$regex': f"^{target_date}"}}
         ]
     }
+    if branch_cond:
+        manual_query['$and'] = [branch_cond]
     manuals_raw = list(db.manual_entries.find(manual_query).sort('submitted_at', 1))
     manual_entries = []
     for m in manuals_raw:
@@ -543,6 +563,8 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
             {'request_type': 'Permission', 'date': {'$in': date_variants}}
         ]
     }
+    if branch_cond:
+        leave_query['$and'] = [branch_cond]
     leaves_raw = list(db.leave_requests.find(leave_query).sort('created_at', 1))
     leave_entries = []
     for lr in leaves_raw:
@@ -597,10 +619,13 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
         if str(lr.get('status')).lower() == 'approved' and 'leave' in str(lr.get('type', '')).lower():
             approved_leave_names.add(lr.get('name'))
 
-    active_emps = list(db.employees.find({
+    active_emp_query = {
         'company_id': comp_id_str,
         'status': {'$nin': ['inactive', 'Inactive', 'Disabled', 'Terminated']}
-    }).sort('employee_name', 1))
+    }
+    if b_id:
+        active_emp_query['branch_id'] = b_id
+    active_emps = list(db.employees.find(active_emp_query).sort('employee_name', 1))
 
     absent_entries = []
     for e in active_emps:
@@ -628,6 +653,9 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
             {'created_at': {'$regex': f"^{target_date}"}}
         ]
     }
+    if branch_cond:
+        pay_query['$and'] = [branch_cond]
+
     adv_query = {
         'company_id': comp_id_str,
         '$or': [
@@ -638,6 +666,9 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
             {'created_at': {'$regex': f"^{target_date}"}}
         ]
     }
+    if branch_cond:
+        adv_query['$and'] = [branch_cond]
+
     payments_raw = list(db.payments.find(pay_query).sort('timestamp', 1))
     advances_raw = list(db.advances.find(adv_query).sort('timestamp', 1))
 
@@ -676,6 +707,8 @@ def build_yesterdays_activity_full_data(company_id, target_date=None):
             {'created_at': {'$regex': f"^{d_alt}"}}
         ]
     }
+    if b_id:
+        emp_query['branch_id'] = b_id
     updated_emps = list(db.employees.find(emp_query))
     employee_details = []
     for e in updated_emps:

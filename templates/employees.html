@@ -180,10 +180,10 @@
           {% if company_modules and company_modules.branch_company %}
           <div class="form-group" id="groupBranchAssign">
             <label class="form-label">Assigned Branch Location</label>
-            <select class="form-input" id="inputBranchId" name="branch_id">
+            <select class="form-input" id="inputBranchId" name="branch_id" data-default-branch="{{ active_branch_id or '' }}">
               <option value="">🏢 Main / Head Office (Unassigned)</option>
               {% for b in branches or [] %}
-              <option value="{{ b.id }}">📍 {{ b.branch_name }} ({{ b.district or 'Hub' }})</option>
+              <option value="{{ b.id }}" {% if active_branch_id and (active_branch_id == b.id or active_branch_id == b.branch_id) %}selected{% endif %}>📍 {{ b.branch_name }} ({{ b.district or 'Hub' }})</option>
               {% endfor %}
             </select>
           </div>
@@ -425,5 +425,8 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261012_status"></script>
+<script>
+  window.ACTIVE_BRANCH_ID = "{{ active_branch_id or '' }}";
+</script>
+<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261014_branch"></script>
 {% endblock %}
