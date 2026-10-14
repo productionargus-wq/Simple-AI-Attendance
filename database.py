@@ -7626,7 +7626,7 @@ def get_company_branches(company_id, status=None, include_headcount=True):
 
     db = get_db()
     query = {}
-    if str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+    if company_id and str(company_id) != 'ALL':
         query['company_id'] = str(company_id)
     if status:
         query['status'] = status
@@ -7636,7 +7636,7 @@ def get_company_branches(company_id, status=None, include_headcount=True):
     count_map = {}
     if include_headcount:
         emp_match = {'status': {'$nin': ['Deactive', 'Inactive']}}
-        if str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        if company_id and str(company_id) != 'ALL':
             emp_match['company_id'] = str(company_id)
             
         counts = db.employees.aggregate([
@@ -7666,7 +7666,7 @@ def get_branch_by_id(branch_id, company_id=None):
         return None
     db = get_db()
     query = {'id': str(branch_id)}
-    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+    if company_id and str(company_id) != 'ALL':
         query['company_id'] = str(company_id)
     b = db.company_branches.find_one(query)
     return clean_doc(b)
@@ -7758,7 +7758,7 @@ def update_company_branch(branch_id, data, company_id=None):
         upd['status'] = data['status']
         
     query = {'id': str(branch_id)}
-    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+    if company_id and str(company_id) != 'ALL':
         query['company_id'] = str(company_id)
         
     res = db.company_branches.update_one(query, {'$set': upd})
@@ -7780,7 +7780,7 @@ def delete_company_branch(branch_id, company_id=None):
         return False
     db = get_db()
     query = {'id': str(branch_id)}
-    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+    if company_id and str(company_id) != 'ALL':
         query['company_id'] = str(company_id)
         
     db.company_branches.delete_one(query)

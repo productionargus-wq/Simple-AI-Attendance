@@ -177,7 +177,7 @@
               <option value="Inactive">Inactive (Unlimited / Quota Exempt)</option>
             </select>
           </div>
-          {% if company_modules and company_modules.branch_company %}
+          {% if company_modules and company_modules.branch_company and branches and branches|length > 0 %}
           <div class="form-group" id="groupBranchAssign">
             <label class="form-label">Assigned Branch Location</label>
             <select class="form-input" id="inputBranchId" name="branch_id" data-default-branch="{{ active_branch_id or '' }}">
