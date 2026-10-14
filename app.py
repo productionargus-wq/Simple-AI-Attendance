@@ -3456,6 +3456,7 @@ def api_face_recognize():
                 result['company_name'] = 'Argus Technologies'
 
             # Mark Attendance Punch In / Punch Out Lifecycle & Live Entry (Company-aware, 12-hour format)
+            req_branch_id = (request.form.get('branch_id') or data_dict.get('branch_id') or request.args.get('branch_id') or '').strip() or None
             try:
                 punch_res = database.record_face_attendance(
                     employee_id=emp_id,
@@ -3464,7 +3465,8 @@ def api_face_recognize():
                     user_lng=user_lng,
                     company_id=portal_company_id,
                     client_time=client_time,
-                    live_address=live_address
+                    live_address=live_address,
+                    branch_id=req_branch_id
                 )
                 result['live_entry_id'] = str(punch_res.get('live_id', ''))
                 result['punch_status'] = str(punch_res.get('status', ''))
@@ -5344,6 +5346,22 @@ def branch_management_page():
 
     branches = database.get_company_branches(active_cid)
 
+    # Active branch resolution
+    active_bid = request.args.get('branch_id')
+    if not active_bid and session.get('active_branch_id'):
+        active_bid = session.get('active_branch_id')
+    if active_bid in ['ALL', 'all', '', 'none', 'None']:
+        active_bid = None
+
+    active_branch = None
+    if active_bid:
+        active_branch = database.get_branch_by_id(active_bid, active_cid)
+        if not active_branch:
+            active_bid = None
+
+    # Fetch branch-scoped attendance stats matching dashboard.html exactly
+    stats = database.get_dashboard_stats(company_id=active_cid, branch_id=active_bid)
+
     # Get all active employees for this company
     emp_res = database.get_all_employees(company_id=active_cid, limit=1000)
     all_employees = emp_res.get('data', []) if isinstance(emp_res, dict) else []
@@ -5354,9 +5372,33 @@ def branch_management_page():
     unassigned_count = sum(1 for e in all_employees if not e.get('branch_id'))
     districts = sorted(list(set(b.get('district') for b in branches if b.get('district'))))
 
+    # Yesterday & Previous Month formatted dates for PDF previews
+    try:
+        from report_scheduler import get_yesterday_ist, get_previous_month_ist
+        yesterday_str = get_yesterday_ist()
+        prev_month_str = get_previous_month_ist()
+        try:
+            y_dt = datetime.strptime(yesterday_str, '%Y-%m-%d')
+            yesterday_display = y_dt.strftime('%d %b %Y')
+        except Exception:
+            yesterday_display = yesterday_str
+        try:
+            p_dt = datetime.strptime(f"{prev_month_str}-01", '%Y-%m-%d')
+            prev_month_display = p_dt.strftime('%B %Y')
+        except Exception:
+            prev_month_display = prev_month_str
+    except Exception:
+        yesterday_str = ''
+        yesterday_display = 'Yesterday'
+        prev_month_str = ''
+        prev_month_display = 'Previous Month'
+
     return render_template(
         'branch_management_module.html',
+        stats=stats,
         branches=branches,
+        active_branch=active_branch,
+        active_branch_id=active_bid,
         all_employees=all_employees,
         active_company=active_comp,
         active_company_id=active_cid,
@@ -5366,7 +5408,39 @@ def branch_management_page():
         total_assigned=total_assigned,
         unassigned_count=unassigned_count,
         districts=districts,
+        yesterday_str=yesterday_str,
+        yesterday_display=yesterday_display,
+        prev_month_str=prev_month_str,
+        prev_month_display=prev_month_display,
         active_tab='BRANCH MANAGEMENT'
+    )
+
+
+@app.route('/branches/kiosk')
+def branch_kiosk_page():
+    """Dedicated Branch Attendance Kiosk with branch branding & geofence tracking."""
+    active_cid = _resolve_field_company_id(request.args.get('company_id'))
+    active_bid = request.args.get('branch_id')
+    active_branch = None
+    if active_bid:
+        active_branch = database.get_branch_by_id(active_bid, active_cid)
+
+    active_comp = database.get_company_by_id(active_cid) or {
+        'id': 'ARGUS_MASTER',
+        'company_name': 'ARGUS TECHNOLOGIES',
+        'latitude': 11.02980,
+        'longitude': 76.97400,
+        'address': 'SF NO. 515, Bharathiyar Road, Ganapathy, Coimbatore'
+    }
+    branches = database.get_company_branches(active_cid)
+    return render_template(
+        'attendance.html',
+        is_branch_kiosk=True,
+        active_branch=active_branch,
+        active_branch_id=active_bid,
+        branches=branches,
+        active_company=active_comp,
+        active_company_id=active_cid
     )
 
 
@@ -5459,13 +5533,15 @@ def api_assign_employee_branch():
 
 @app.route('/api/branches/stats', methods=['GET'])
 def api_branch_stats():
-    """Returns today's attendance summary grouped by branch."""
+    """Returns attendance summary, optionally filtered by branch_id."""
     if not _is_branch_admin_authenticated():
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
 
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
-    stats = database.get_branch_attendance_summary(active_cid)
-    return jsonify({'success': True, 'data': stats})
+    branch_id = request.args.get('branch_id')
+    stats = database.get_dashboard_stats(active_cid, branch_id=branch_id)
+    summary = database.get_branch_attendance_summary(active_cid)
+    return jsonify({'success': True, 'stats': stats, 'data': summary})
 
 
 @app.route('/api/branches/set-active', methods=['POST'])

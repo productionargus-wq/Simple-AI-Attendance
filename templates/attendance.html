@@ -900,7 +900,14 @@
       <div class="nav-logo-badge">
         <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="Argus" style="width: 24px; height: 24px; object-fit: contain;">
       </div>
-      <div class="nav-title"><span>ARGUS</span><span class="nav-title-attendance"> ATTENDANCE</span></div>
+      <div class="nav-title">
+        <span>ARGUS</span><span class="nav-title-attendance"> ATTENDANCE</span>
+        {% if is_branch_kiosk and active_branch %}
+          <span style="margin-left: 10px; font-size: 11px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); padding: 3px 10px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px;">
+            📍 {{ active_branch.branch_name }}
+          </span>
+        {% endif %}
+      </div>
     </a>
 
     <!-- Right Navigation (Direct Links - NO Dropdown carets) -->
@@ -1787,6 +1794,9 @@
           formData.append('longitude', coords.longitude);
         }
         formData.append('client_time', clientTimestamp);
+        {% if active_branch_id %}
+        formData.append('branch_id', '{{ active_branch_id }}');
+        {% endif %}
 
             try {
               const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });

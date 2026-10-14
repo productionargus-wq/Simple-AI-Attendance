@@ -1,278 +1,356 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<!-- Leaflet & FontAwesome Assets (Fast Cloudflare CDN) -->
-<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-<link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-h9FcoyWjZKGiZQEVCZT1HZn12MQn5zduCJAtKSWDknDPeLSN35nXg5c45vTrHKYMfKnQcrmSycFlu4354BXcnA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-
 <style>
-  /* Multi-Branch Enterprise Hub Unified Styles */
-  .branch-module-container {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding-bottom: 30px;
+  /* ----------------- EXACT DASHBOARD SYMMETRICAL 2-COLUMN & STATS LAYOUT ----------------- */
+  .dash-charts-row,
+  .dash-bottom-row,
+  .dash-pdf-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 16px !important;
+    margin-bottom: 24px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
-  /* Header Banner Card */
-  .branch-banner-card {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    border-radius: 14px;
-    padding: 20px 24px;
-    color: #ffffff;
+  /* All cards share identical card container styling */
+  .dash-card,
+  .dash-chart-card,
+  .dash-pdf-card {
+    background-color: #ffffff !important;
+    border-radius: 12px !important;
+    padding: 16px 20px !important;
+    border: 1px solid #eef2f6 !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Tables inside Today's Attendance & Department Summary */
+  .card-table-scroll {
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    max-height: 270px;
+    min-height: 200px;
+    width: 100%;
+    scrollbar-width: thin;
+  }
+
+  .dash-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 11.5px !important;
+    table-layout: auto !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  .dash-table thead th {
+    padding: 7px 6px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #475569 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    border: 1px solid #cbd5e1 !important;
+    background-color: #f8fafc !important;
+    white-space: nowrap !important;
+  }
+
+  .dash-table tbody td {
+    padding: 6px 6px !important;
+    color: #334155 !important;
+    border: 1px solid #e2e8f0 !important;
+    vertical-align: middle !important;
+    font-size: 11.5px !important;
+  }
+
+  .dash-table tbody tr:hover {
+    background-color: #f8fafc !important;
+  }
+
+  .dash-table .table-badge {
+    display: inline-block !important;
+    white-space: nowrap !important;
+    padding: 2.5px 8px !important;
+    border-radius: 12px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    line-height: 1.2 !important;
+  }
+
+  /* PDF Card Specific Styling */
+  .dash-pdf-card {
+    min-height: 460px !important;
+  }
+
+  .dash-pdf-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 2px 9px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    border-radius: 12px !important;
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+    white-space: nowrap !important;
+    margin-left: 6px !important;
+  }
+
+  .dash-pdf-header-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .dash-pdf-btn-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 5px 12px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    text-decoration: none !important;
+    transition: all 0.15s ease !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #334155 !important;
+    background: #ffffff !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
+    line-height: 1.2 !important;
+  }
+
+  .dash-pdf-btn-action:hover {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
+  }
+
+  .dash-pdf-btn-action.btn-primary-action {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border-color: #2563eb !important;
+  }
+
+  .dash-pdf-btn-action.btn-primary-action:hover {
+    background: #1d4ed8 !important;
+    border-color: #1d4ed8 !important;
+    color: #ffffff !important;
+  }
+
+  .dash-pdf-container {
+    width: 100% !important;
+    height: 380px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+    background-color: #f8fafc !important;
+    margin-top: 10px !important;
+    position: relative !important;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.03) !important;
+    display: block !important;
+  }
+
+  .dash-pdf-frame {
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    display: block !important;
+    background: #ffffff !important;
+  }
+
+  /* ----------------- DASHBOARD 5 STATS CARDS: SINGLE ROW (ALL NON-MOBILE) ----------------- */
+  .dash-stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+    margin-bottom: 24px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .dash-stat-card {
+    padding: 14px 16px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+
+  .dash-stat-card .stat-icon-badge {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  .dash-stat-card .stat-icon-badge svg {
+    width: 22px !important;
+    height: 22px !important;
+    stroke: #ffffff !important;
+  }
+
+  .dash-stat-card .stat-info {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+  }
+
+  .dash-stat-card .stat-title {
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    color: #1e293b !important;
+    margin-bottom: 3px !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .dash-stat-card .stat-value-row {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 6px !important;
+    line-height: 1 !important;
+  }
+
+  .dash-stat-card .stat-num {
+    font-size: 24px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    letter-spacing: -0.5px !important;
+    line-height: 1 !important;
+  }
+
+  .dash-stat-card .stat-trend {
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 2px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  /* Multi-Branch Header Controls */
+  .branch-header-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #eef2f6;
+    padding: 16px 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    margin-bottom: 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.08);
     flex-wrap: wrap;
-    gap: 16px;
-  }
-
-  .branch-banner-left {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-
-  .branch-banner-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    background: rgba(56, 189, 248, 0.18);
-    border: 1px solid rgba(56, 189, 248, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #38bdf8;
-    flex-shrink: 0;
-  }
-
-  .branch-banner-title {
-    font-size: 19px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .branch-banner-subtitle {
-    font-size: 12px;
-    color: #94a3b8;
-    margin-top: 3px;
-  }
-
-  .branch-banner-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  /* Metric KPI Cards */
-  .branch-kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     gap: 14px;
   }
 
-  .branch-kpi-card {
-    background: #ffffff;
-    border-radius: 12px;
-    padding: 16px 18px;
-    border: 1px solid #e2e8f0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  .branch-kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
-  }
-
-  .branch-kpi-info h4 {
-    font-size: 11px;
-    text-transform: uppercase;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    color: #64748b;
-    margin: 0 0 4px 0;
-  }
-
-  .branch-kpi-info .kpi-val {
-    font-size: 22px;
+  .branch-selector-pill {
+    padding: 7px 14px;
+    font-size: 13px;
     font-weight: 700;
-    color: #0f172a;
-    line-height: 1.2;
-  }
-
-  .branch-kpi-info .kpi-sub {
-    font-size: 11px;
-    color: #94a3b8;
-    margin-top: 2px;
-  }
-
-  .branch-kpi-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-  }
-
-  .kpi-blue { background: #e0f2fe; color: #0284c7; }
-  .kpi-emerald { background: #d1fae5; color: #059669; }
-  .kpi-amber { background: #fef3c7; color: #d97706; }
-  .kpi-indigo { background: #e0e7ff; color: #4f46e5; }
-
-  /* Tab Navigation */
-  .branch-nav-tabs {
-    display: flex;
-    background: #ffffff;
-    border-radius: 10px;
-    padding: 4px;
-    border: 1px solid #e2e8f0;
-    gap: 4px;
-    overflow-x: auto;
-  }
-
-  .branch-tab-btn {
-    padding: 9px 16px;
     border-radius: 8px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #64748b;
-    background: transparent;
-    border: none;
+    border: 1.5px solid #0284c7;
+    background: #f0f9ff;
+    color: #0369a1;
     cursor: pointer;
+    outline: none;
+    transition: all 0.15s ease;
+  }
+
+  .branch-selector-pill:hover,
+  .branch-selector-pill:focus {
+    border-color: #0369a1;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+  }
+
+  /* Sub-tab pills matching exact single company style */
+  .branch-tabs-bar {
     display: flex;
     align-items: center;
     gap: 8px;
-    white-space: nowrap;
-    transition: all 0.2s ease;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
   }
 
-  .branch-tab-btn:hover {
-    color: #0f172a;
-    background: #f8fafc;
-  }
-
-  .branch-tab-btn.active {
-    background: #0f172a;
-    color: #ffffff;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
-  }
-
-  .branch-tab-btn .tab-badge {
-    background: rgba(255, 255, 255, 0.2);
-    color: #ffffff;
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 9999px;
-  }
-
-  .branch-tab-btn:not(.active) .tab-badge {
-    background: #e2e8f0;
+  .branch-pill-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
     color: #475569;
+    transition: all 0.15s ease;
+    text-decoration: none;
   }
 
-  /* Tab Panes */
-  .branch-tab-pane {
+  .branch-pill-tab:hover {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: #cbd5e1;
+  }
+
+  .branch-pill-tab.active {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+  }
+
+  .branch-tab-badge {
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.08);
+    font-weight: 700;
+  }
+
+  .branch-pill-tab.active .branch-tab-badge {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+
+  .branch-tab-content {
     display: none;
   }
 
-  .branch-tab-pane.active {
+  .branch-tab-content.active {
     display: block;
   }
 
-  /* Map View Layout */
-  .map-layout-grid {
-    display: grid;
-    grid-template-columns: 1fr 340px;
-    gap: 16px;
-    height: 580px;
-  }
-
-  @media (max-width: 992px) {
-    .map-layout-grid {
-      grid-template-columns: 1fr;
-      height: auto;
-    }
-  }
-
-  .map-card-wrapper {
-    background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  }
-
-  #branchNetworkMap {
-    width: 100%;
-    height: 100%;
-    min-height: 480px;
-    background: #e2e8f0;
-    z-index: 1;
-  }
-
-  .map-sidebar-list {
-    background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    padding: 16px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: 580px;
-  }
-
-  .branch-list-item-card {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 12px 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .branch-list-item-card:hover {
-    border-color: #38bdf8;
-    background: #f0f9ff;
-    transform: translateX(3px);
-  }
-
-  .branch-list-item-card.selected {
-    border-color: #0284c7;
-    background: #e0f2fe;
-    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.15);
-  }
-
-  /* Directory Card Grid */
+  /* Branch Directory Cards */
   .branch-directory-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 16px;
+    margin-bottom: 24px;
   }
 
   .branch-dir-card {
     background: #ffffff;
     border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    padding: 18px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid #eef2f6;
+    padding: 18px 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -280,1498 +358,914 @@
   }
 
   .branch-dir-card:hover {
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
     border-color: #cbd5e1;
   }
 
-  .branch-card-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 12px;
-  }
-
-  .branch-card-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: #0f172a;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .branch-card-code {
-    font-size: 11px;
-    background: #f1f5f9;
-    color: #475569;
-    padding: 2px 7px;
-    border-radius: 6px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-  }
-
-  .branch-card-body {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    font-size: 12px;
-    color: #475569;
-    margin-bottom: 16px;
-  }
-
-  .branch-info-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .branch-info-row i {
-    width: 14px;
-    color: #94a3b8;
-    text-align: center;
-  }
-
-  .branch-card-footer {
-    border-top: 1px solid #f1f5f9;
-    padding-top: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .branch-staff-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: #ecfdf5;
-    color: #059669;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 9999px;
-  }
-
-  /* Employee Allocation Table */
-  .table-card {
-    background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-  }
-
-  .table-toolbar {
-    padding: 14px 18px;
-    border-bottom: 1px solid #e2e8f0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    background: #f8fafc;
-  }
-
-  .toolbar-left, .toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .search-box {
-    position: relative;
-    width: 260px;
-  }
-
-  .search-box input {
-    width: 100%;
-    padding: 7px 12px 7px 32px;
-    border-radius: 8px;
-    border: 1px solid #cbd5e1;
-    font-size: 12px;
-    background: #ffffff;
-    outline: none;
-  }
-
-  .search-box i {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #94a3b8;
-    font-size: 12px;
-  }
-
-  .filter-select {
-    padding: 7px 12px;
-    border-radius: 8px;
-    border: 1px solid #cbd5e1;
-    font-size: 12px;
-    background: #ffffff;
-    color: #334155;
-    outline: none;
-    font-weight: 500;
-  }
-
-  .branch-data-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12.5px;
-    text-align: left;
-  }
-
-  .branch-data-table th {
-    background: #f8fafc;
-    color: #475569;
-    font-weight: 600;
-    padding: 12px 16px;
-    border-bottom: 1px solid #e2e8f0;
-    font-size: 11.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .branch-data-table td {
-    padding: 12px 16px;
-    border-bottom: 1px solid #f1f5f9;
-    color: #1e293b;
-    vertical-align: middle;
-  }
-
-  .branch-data-table tbody tr:hover {
-    background: #f8fafc;
-  }
-
-  .branch-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 9px;
-    border-radius: 9999px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-
-  .branch-badge-assigned {
-    background: #e0f2fe;
-    color: #0284c7;
-    border: 1px solid #bae6fd;
-  }
-
-  .branch-badge-unassigned {
-    background: #f1f5f9;
-    color: #64748b;
-    border: 1px solid #e2e8f0;
-  }
-
-  .inline-branch-select {
-    padding: 5px 10px;
-    border-radius: 6px;
-    border: 1px solid #cbd5e1;
-    font-size: 11.5px;
-    background: #ffffff;
-    color: #0f172a;
-    font-weight: 500;
-    cursor: pointer;
-  }
-
-  .inline-branch-select:focus {
-    border-color: #0284c7;
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
-  }
-
-  /* Comparison Analytics Grid */
-  .analytics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-    gap: 16px;
-  }
-
-  .analytics-card {
-    background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    padding: 18px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-  }
-
-  .analytics-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 14px;
-  }
-
-  .analytics-card-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .analytics-stats-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    text-align: center;
-    background: #f8fafc;
-    border-radius: 8px;
-    padding: 10px 6px;
-    margin-bottom: 12px;
-  }
-
-  .astat-item .astat-num {
-    font-size: 16px;
-    font-weight: 700;
-  }
-
-  .astat-item .astat-lbl {
-    font-size: 10px;
-    color: #64748b;
-    text-transform: uppercase;
-    margin-top: 2px;
-  }
-
-  .astat-present { color: #059669; }
-  .astat-leave { color: #d97706; }
-  .astat-absent { color: #dc2626; }
-  .astat-total { color: #0f172a; }
-
-  .attendance-progress-bar-bg {
-    width: 100%;
-    height: 8px;
-    background: #e2e8f0;
-    border-radius: 9999px;
-    overflow: hidden;
-    display: flex;
-  }
-
-  .prog-present { background: #10b981; height: 100%; }
-  .prog-leave { background: #f59e0b; height: 100%; }
-  .prog-absent { background: #ef4444; height: 100%; }
-
-  /* Buttons */
-  .btn-branch-primary {
-    background: #0284c7;
-    color: #ffffff;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 16px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s ease;
-  }
-
-  .btn-branch-primary:hover {
-    background: #0369a1;
-  }
-
-  .btn-branch-secondary {
-    background: #ffffff;
-    color: #334155;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    padding: 8px 14px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s ease;
-  }
-
-  .btn-branch-secondary:hover {
-    background: #f8fafc;
-    border-color: #94a3b8;
-  }
-
-  /* Modals */
-  .branch-modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(4px);
-    z-index: 9999;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-  }
-
-  .branch-modal-content {
-    background: #ffffff;
-    border-radius: 14px;
-    max-width: 640px;
-    width: 100%;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
-    border: 1px solid #e2e8f0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .branch-modal-header {
-    padding: 18px 24px;
-    border-bottom: 1px solid #e2e8f0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #f8fafc;
-  }
-
-  .branch-modal-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #0f172a;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .branch-modal-body {
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .form-row-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-  }
-
-  @media (max-width: 580px) {
-    .form-row-2 {
-      grid-template-columns: 1fr;
+  /* Responsive layout */
+  @media (max-width: 992px) {
+    .dash-charts-row,
+    .dash-bottom-row,
+    .dash-pdf-row {
+      grid-template-columns: 1fr !important;
+      gap: 14px !important;
     }
   }
 
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  @media (max-width: 768px) {
+    .dash-stats-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 12px !important;
+    }
   }
 
-  .form-group label {
-    font-size: 11.5px;
-    font-weight: 600;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-  }
-
-  .form-group input, .form-group select, .form-group textarea {
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid #cbd5e1;
-    font-size: 12.5px;
-    outline: none;
-    background: #ffffff;
-  }
-
-  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-    border-color: #0284c7;
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
-  }
-
-  .branch-modal-footer {
-    padding: 16px 24px;
-    border-top: 1px solid #e2e8f0;
-    background: #f8fafc;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-  }
-
-  /* Toast Notification */
-  .branch-toast {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    background: #0f172a;
-    color: #ffffff;
-    padding: 12px 20px;
-    border-radius: 8px;
-    font-size: 12.5px;
-    font-weight: 500;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    z-index: 10000;
-    transform: translateY(100px);
-    opacity: 0;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .branch-toast.show {
-    transform: translateY(0);
-    opacity: 1;
+  @media (max-width: 480px) {
+    .dash-stats-grid {
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+    }
   }
 </style>
 
-<div class="branch-module-container">
-  <!-- Banner Card -->
-  <div class="branch-banner-card">
-    <div class="branch-banner-left">
-      <div class="branch-banner-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+<div class="dash-container">
+
+  <!-- TOP MULTI-BRANCH CONTEXT HEADER BAR -->
+  <div class="branch-header-card">
+    <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+      <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(2, 132, 199, 0.1); border: 1px solid rgba(2, 132, 199, 0.25); display: flex; align-items: center; justify-content: center; color: #0284c7; flex-shrink: 0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
           <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
         </svg>
       </div>
       <div>
-        <div class="branch-banner-title">
-          <span>MULTI-BRANCH ENTERPRISE HUB</span>
-          <span style="font-size: 11px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); padding: 2px 8px; border-radius: 9999px;">Enterprise Multi-Location</span>
+        <div style="font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+          <span>{{ active_company.company_name }}</span>
+          <span style="font-size: 11px; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; border: 1px solid #bae6fd;">MULTI-BRANCH HUB</span>
         </div>
-        <div class="branch-banner-subtitle">
-          District hubs, branch geofences, and multi-location employee allocation for {{ active_company.company_name or 'ARGUS TECHNOLOGIES' }}
+        <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+          {% if active_branch %}
+            📍 <strong>{{ active_branch.branch_name }}</strong> ({{ active_branch.district or 'Main District' }}) &bull; {{ active_branch.address or 'HQ Address' }} &bull; Radius: <strong>{{ active_branch.geofence_radius or 150 }}m</strong>
+          {% else %}
+            🏢 Showing All Branches Consolidated Overview &bull; {{ total_branches }} Active Locations
+          {% endif %}
         </div>
+      </div>
+
+      <!-- Branch Context Switcher Dropdown -->
+      <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
+        <label for="branchContextSelect" style="font-size: 12px; font-weight: 700; color: #334155; white-space: nowrap;">Switch Branch:</label>
+        <select id="branchContextSelect" class="branch-selector-pill">
+          <option value="ALL" {% if not active_branch_id %}selected{% endif %}>🏢 All Branches (Consolidated View)</option>
+          {% for b in branches %}
+          <option value="{{ b.id }}" {% if active_branch_id == b.id %}selected{% endif %}>📍 {{ b.branch_name }} ({{ b.district or 'Hub' }})</option>
+          {% endfor %}
+        </select>
       </div>
     </div>
 
-    <div class="branch-banner-actions">
-      {% if user_role == 'super_admin' and companies %}
-      <select id="branchCompanySelector" class="filter-select" style="background: rgba(255, 255, 255, 0.1); color: #ffffff; border-color: rgba(255, 255, 255, 0.2);">
-        {% for comp in companies %}
-          <option value="{{ comp.id }}" {% if comp.id == active_company_id %}selected{% endif %} style="color: #0f172a;">
-            🏢 {{ comp.company_name }}
-          </option>
-        {% endfor %}
-      </select>
-      {% endif %}
-
-      <select id="activeBranchContextSelector" class="filter-select" style="background: rgba(255, 255, 255, 0.1); color: #ffffff; border-color: rgba(255, 255, 255, 0.2);">
-        <option value="ALL" {% if not session.get('active_branch_id') %}selected{% endif %} style="color: #0f172a;">
-          🌐 View All Branches ({{ total_branches }})
-        </option>
-        {% for b in branches %}
-          <option value="{{ b.id }}" {% if session.get('active_branch_id') == b.id %}selected{% endif %} style="color: #0f172a;">
-            📍 {{ b.branch_name }} ({{ b.employee_count or 0 }} staff)
-          </option>
-        {% endfor %}
-      </select>
-
-      <button class="btn-branch-primary" id="btnOpenAddBranchModal" style="background: #38bdf8; color: #0f172a;">
-        <i class="fa-solid fa-plus"></i> Register New Branch
+    <!-- Right Actions: Launch Branch Kiosk -->
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <a href="/branches/kiosk{% if active_branch_id %}?branch_id={{ active_branch_id }}{% endif %}" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action btn-primary-action" style="padding: 9px 16px; font-size: 12.5px; font-weight: 700; background: #059669; border-color: #059669; color: #ffffff;" title="Open Camera Attendance Kiosk for this branch in a new tab">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+        Launch Branch Kiosk ↗
+      </a>
+      <button type="button" class="dash-pdf-btn-action" id="btnOpenNewBranchModal" style="padding: 9px 14px; font-size: 12.5px; font-weight: 700;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Add Branch
       </button>
     </div>
   </div>
 
-  <!-- KPI Metrics Grid -->
-  <div class="branch-kpi-grid">
-    <div class="branch-kpi-card">
-      <div class="branch-kpi-info">
-        <h4>Registered Branches</h4>
-        <div class="kpi-val">{{ total_branches }}</div>
-        <div class="kpi-sub">Active corporate branch sites</div>
-      </div>
-      <div class="branch-kpi-icon kpi-blue">
-        <i class="fa-solid fa-building"></i>
-      </div>
-    </div>
-
-    <div class="branch-kpi-card">
-      <div class="branch-kpi-info">
-        <h4>Allocated Employees</h4>
-        <div class="kpi-val">{{ total_assigned }} / {{ all_employees|length }}</div>
-        <div class="kpi-sub">{{ ((total_assigned / all_employees|length * 100)|round|int) if all_employees else 0 }}% of total workforce mapped</div>
-      </div>
-      <div class="branch-kpi-icon kpi-emerald">
-        <i class="fa-solid fa-users"></i>
-      </div>
-    </div>
-
-    <div class="branch-kpi-card">
-      <div class="branch-kpi-info">
-        <h4>Districts Covered</h4>
-        <div class="kpi-val">{{ districts|length }}</div>
-        <div class="kpi-sub">{% if districts %}{{ districts|join(', ') }}{% else %}No districts set{% endif %}</div>
-      </div>
-      <div class="branch-kpi-icon kpi-amber">
-        <i class="fa-solid fa-map-location-dot"></i>
-      </div>
-    </div>
-
-    <div class="branch-kpi-card">
-      <div class="branch-kpi-info">
-        <h4>HQ Unassigned Pool</h4>
-        <div class="kpi-val">{{ unassigned_count }}</div>
-        <div class="kpi-sub">Ready for branch allocation</div>
-      </div>
-      <div class="branch-kpi-icon kpi-indigo">
-        <i class="fa-solid fa-user-tag"></i>
-      </div>
-    </div>
-  </div>
-
-  <!-- Tab Navigation -->
-  <div class="branch-nav-tabs">
-    <button class="branch-tab-btn active" data-tab="tabNetworkMap">
-      <i class="fa-solid fa-map-marked-alt"></i> District Network Map
-      <span class="tab-badge">{{ total_branches }}</span>
+  <!-- NAVIGATION TABS -->
+  <div class="branch-tabs-bar">
+    <button type="button" class="branch-pill-tab active" data-tab="tabAttendance">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+      </svg>
+      Live Branch Attendance
     </button>
-    <button class="branch-tab-btn" data-tab="tabDirectory">
-      <i class="fa-solid fa-sitemap"></i> Branch Directory & Geofences
-      <span class="tab-badge">{{ total_branches }}</span>
+    <button type="button" class="branch-pill-tab" data-tab="tabDirectory">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+      </svg>
+      Branch Directory & Geofences
+      <span class="branch-tab-badge">{{ total_branches }}</span>
     </button>
-    <button class="branch-tab-btn" data-tab="tabAllocation">
-      <i class="fa-solid fa-user-check"></i> Employee Allocation & Transfers
-      <span class="tab-badge">{{ all_employees|length }}</span>
-    </button>
-    <button class="branch-tab-btn" data-tab="tabAnalytics">
-      <i class="fa-solid fa-chart-column"></i> Branch Attendance Comparison
+    <button type="button" class="branch-pill-tab" data-tab="tabAllocation">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      Staff Allocation & Transfers
+      <span class="branch-tab-badge">{{ total_assigned }}/{{ all_employees|length }}</span>
     </button>
   </div>
 
-  <!-- Tab 1: District Network Map -->
-  <div class="branch-tab-pane active" id="tabNetworkMap">
-    <div class="map-layout-grid">
-      <div class="map-card-wrapper">
-        <div id="branchNetworkMap"></div>
-      </div>
+  <!-- TAB 1: EXACT SINGLE-COMPANY ATTENDANCE UI (ADJUSTED BY BRANCH) -->
+  <div id="tabAttendance" class="branch-tab-content active">
 
-      <div class="map-sidebar-list">
-        <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
-          <span>Branch Locations</span>
-          <span style="font-size: 11px; color: #64748b;">Click to Locate</span>
+    <!-- ROW 1: 5 Stat Summary Cards (Scoped to Active Branch) -->
+    <div class="dash-stats-grid">
+      <!-- 1. Total Employees -->
+      <div class="dash-stat-card card-total">
+        <div class="stat-icon-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
         </div>
-
-        {% if branches %}
-          {% for b in branches %}
-            <div class="branch-list-item-card" data-bid="{{ b.id }}" data-lat="{{ b.latitude }}" data-lng="{{ b.longitude }}" data-radius="{{ b.geofence_radius or 150 }}">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                <span style="font-weight: 700; font-size: 13px; color: #0f172a;">{{ b.branch_name }}</span>
-                {% if b.district %}
-                  <span style="font-size: 10px; background: #e0f2fe; color: #0284c7; padding: 1px 6px; border-radius: 4px; font-weight: 600;">{{ b.district }}</span>
-                {% endif %}
-              </div>
-              <div style="font-size: 11.5px; color: #64748b; margin-bottom: 6px;">
-                <i class="fa-solid fa-location-dot" style="margin-right: 4px; color: #94a3b8;"></i> {{ b.address or 'No address specified' }}
-              </div>
-              <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
-                <span style="color: #059669; font-weight: 600;"><i class="fa-solid fa-user-group"></i> {{ b.employee_count or 0 }} Employees</span>
-                <span style="color: #64748b;"><i class="fa-solid fa-bullseye"></i> {{ b.geofence_radius or 150 }}m Geofence</span>
-              </div>
-            </div>
-          {% endfor %}
-        {% else %}
-          <div style="padding: 30px 10px; text-align: center; color: #94a3b8;">
-            <i class="fa-solid fa-map-location" style="font-size: 32px; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
-            No branches registered yet.<br>Click "+ Register New Branch" to create Chennai, Coimbatore, or other district hubs.
+        <div class="stat-info">
+          <div class="stat-title">Total Employees</div>
+          <div class="stat-value-row">
+            <span class="stat-num" id="statTotal">{{ stats.total }}</span>
+            <span class="stat-trend trend-total"><span class="trend-arrow">&uarr;</span> <span>0%</span></span>
           </div>
-        {% endif %}
+        </div>
+      </div>
+
+      <!-- 2. Present Today -->
+      <div class="dash-stat-card card-present">
+        <div class="stat-icon-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </div>
+        <div class="stat-info">
+          <div class="stat-title">Present Today</div>
+          <div class="stat-value-row">
+            <span class="stat-num" id="statPresent">{{ stats.present }}</span>
+            <span class="stat-trend trend-present"><span class="trend-arrow">&uarr;</span> <span id="statPresentPct">{{ stats.present_percent }}</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. On Leave -->
+      <div class="dash-stat-card card-leave">
+        <div class="stat-icon-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </div>
+        <div class="stat-info">
+          <div class="stat-title">On Leave</div>
+          <div class="stat-value-row">
+            <span class="stat-num" id="statOnLeave">{{ stats.on_leave or 0 }}</span>
+            <span class="stat-trend trend-leave"><span class="trend-arrow">&darr;</span> <span id="statOnLeavePct">{{ stats.on_leave_percent or '0.0%' }}</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Absent Today -->
+      <div class="dash-stat-card card-absent">
+        <div class="stat-icon-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="8.5" cy="7" r="4"></circle>
+            <line x1="18" y1="8" x2="23" y2="13"></line>
+            <line x1="23" y1="8" x2="18" y2="13"></line>
+          </svg>
+        </div>
+        <div class="stat-info">
+          <div class="stat-title">Absent Today</div>
+          <div class="stat-value-row">
+            <span class="stat-num" id="statAbsent">{{ stats.absent }}</span>
+            <span class="stat-trend trend-absent"><span class="trend-arrow">&uarr;</span> <span id="statAbsentPct">{{ stats.absent_percent }}</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. On Timeout -->
+      <div class="dash-stat-card card-timeout">
+        <div class="stat-icon-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <div class="stat-info">
+          <div class="stat-title">On Timeout</div>
+          <div class="stat-value-row">
+            <span class="stat-num" id="statTimeout">{{ stats.timeout }}</span>
+            <span class="stat-trend trend-timeout"><span class="trend-arrow">&uarr;</span> <span id="statTimeoutPct">{{ stats.timeout_percent }}</span></span>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Tab 2: Branch Directory & Geofences -->
-  <div class="branch-tab-pane" id="tabDirectory">
-    {% if branches %}
-      <div class="branch-directory-grid">
-        {% for b in branches %}
-          <div class="branch-dir-card">
-            <div>
-              <div class="branch-card-header">
-                <div>
-                  <div class="branch-card-title">
-                    <span>{{ b.branch_name }}</span>
-                    {% if b.branch_code %}
-                      <span class="branch-card-code">{{ b.branch_code }}</span>
-                    {% endif %}
-                  </div>
-                  {% if b.district %}
-                    <span style="display: inline-block; font-size: 11px; color: #0284c7; font-weight: 600; margin-top: 2px;">
-                      📍 {{ b.district }} District
+    <!-- ROW 2: Two Interactive Charts (50% / 50%) -->
+    <div class="dash-charts-row">
+      <!-- Left: Last 7 Days Attendance -->
+      <div class="dash-chart-card">
+        <div class="card-head">
+          <div class="card-title-group">
+            <div class="card-title-icon text-blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+            </div>
+            <h3 class="card-title-text">
+              Last 7 Days Attendance
+              {% if active_branch %}<span style="font-size: 11px; font-weight: 500; color: #0284c7;">({{ active_branch.branch_name }})</span>{% endif %}
+            </h3>
+          </div>
+          <div class="card-filter-dropdown" style="padding: 2px 8px;">
+            <select id="filterTrendRange" style="background: transparent; border: none; font-size: 11px; font-weight: 700; color: #475569; outline: none; cursor: pointer;">
+              <option value="7" selected>Last 7 Days</option>
+              <option value="14">Last 14 Days</option>
+              <option value="30">Last 30 Days</option>
+            </select>
+          </div>
+        </div>
+        <div class="chart-canvas-container">
+          <canvas id="last7DaysLineChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Right: Monthly Attendance -->
+      <div class="dash-chart-card">
+        <div class="card-head">
+          <div class="card-title-group">
+            <div class="card-title-icon text-blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+            </div>
+            <h3 class="card-title-text">
+              Monthly Attendance
+              {% if active_branch %}<span style="font-size: 11px; font-weight: 500; color: #0284c7;">({{ active_branch.branch_name }})</span>{% endif %}
+            </h3>
+          </div>
+          <div class="card-filter-dropdown" style="padding: 2px 8px;">
+            <select id="filterMonthlyRange" style="background: transparent; border: none; font-size: 11px; font-weight: 700; color: #475569; outline: none; cursor: pointer;">
+              <option value="current" selected>This Month</option>
+              <option value="last3">Last 3 Months</option>
+              <option value="year">Full Year (12M)</option>
+            </select>
+          </div>
+        </div>
+        <div class="chart-canvas-container">
+          <canvas id="monthlyAttendanceBarChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 3: Equal-Sized Bottom Cards (50% / 50%) -->
+    <div class="dash-bottom-row">
+
+      <!-- Card 1: Today's Attendance -->
+      <div class="dash-card card-today-attendance">
+        <div class="card-head">
+          <div class="card-title-group">
+            <div class="card-title-icon text-blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <h3 class="card-title-text">Today's Attendance</h3>
+          </div>
+          <a href="{{ url_for('attendance_report') }}" class="card-link-action">View All &rarr;</a>
+        </div>
+        <div class="card-table-scroll">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th style="width: 28px; text-align: center;">#</th>
+                <th style="min-width: 120px;">Employee Name</th>
+                {% if not active_branch_id %}
+                <th style="min-width: 100px; text-align: center;">Branch</th>
+                {% endif %}
+                <th style="text-align: center; white-space: nowrap; width: 68px;">In Time</th>
+                <th style="text-align: center; white-space: nowrap; width: 68px;">Out Time</th>
+                <th style="text-align: center; white-space: nowrap; width: 60px;">Hours</th>
+                <th style="text-align: center; white-space: nowrap; min-width: 78px; width: 85px;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="todayAttendanceTableBody">
+              {% if stats.today_attendance and stats.today_attendance|length > 0 %}
+                {% for row in stats.today_attendance[:8] %}
+                <tr>
+                  <td class="text-muted" style="text-align: center;">{{ loop.index }}</td>
+                  <td class="font-semibold text-dark" style="white-space: nowrap;">{{ row.employee_name }}</td>
+                  {% if not active_branch_id %}
+                  <td style="text-align: center; white-space: nowrap;">
+                    <span class="table-badge" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">
+                      {{ row.branch_name or 'HQ' }}
                     </span>
+                  </td>
                   {% endif %}
-                </div>
-                <span style="font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: 600; {% if b.status == 'Active' %}background: #dcfce7; color: #15803d;{% else %}background: #fee2e2; color: #b91c1c;{% endif %}">
-                  {{ b.status or 'Active' }}
-                </span>
-              </div>
-
-              <div class="branch-card-body">
-                <div class="branch-info-row">
-                  <i class="fa-solid fa-location-arrow"></i>
-                  <span>{{ b.address or 'Address not specified' }}</span>
-                </div>
-                {% if b.branch_head_name %}
-                <div class="branch-info-row">
-                  <i class="fa-solid fa-user-tie"></i>
-                  <span>Head: <strong>{{ b.branch_head_name }}</strong></span>
-                </div>
-                {% endif %}
-                {% if b.branch_head_phone %}
-                <div class="branch-info-row">
-                  <i class="fa-solid fa-phone"></i>
-                  <span>{{ b.branch_head_phone }}</span>
-                </div>
-                {% endif %}
-                <div class="branch-info-row">
-                  <i class="fa-solid fa-draw-polygon"></i>
-                  <span>Geofence Radius: <strong>{{ b.geofence_radius or 150 }} meters</strong></span>
-                </div>
-              </div>
-            </div>
-
-            <div class="branch-card-footer">
-              <span class="branch-staff-pill">
-                <i class="fa-solid fa-users"></i> {{ b.employee_count or 0 }} Assigned Staff
-              </span>
-
-              <div style="display: flex; gap: 6px;">
-                <button class="btn-branch-secondary btn-edit-branch" style="padding: 5px 10px; font-size: 11px;"
-                  data-branch='{{ b|tojson|safe }}'>
-                  <i class="fa-solid fa-pen"></i> Edit
-                </button>
-                <button class="btn-branch-secondary btn-delete-branch" style="padding: 5px 10px; font-size: 11px; color: #dc2626; border-color: #fca5a5;"
-                  data-bid="{{ b.id }}" data-bname="{{ b.branch_name }}">
-                  <i class="fa-solid fa-trash"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 48px 20px; text-align: center;">
-        <div style="width: 56px; height: 56px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 14px;">
-          <i class="fa-solid fa-building-circle-plus"></i>
+                  <td style="text-align: center; white-space: nowrap;">{{ row.in_time }}</td>
+                  <td style="text-align: center; white-space: nowrap;">{{ row.out_time }}</td>
+                  <td style="text-align: center; white-space: nowrap;">{{ row.hours }}</td>
+                  <td style="text-align: center; white-space: nowrap;">
+                    {% if row.status == 'Present' %}
+                      <span class="table-badge badge-present">Present</span>
+                    {% elif row.status == 'Timeout' %}
+                      <span class="table-badge badge-timeout">Timeout</span>
+                    {% elif row.status == 'On Leave' or row.status == 'Leave' %}
+                      <span class="table-badge badge-leave">On Leave</span>
+                    {% else %}
+                      <span class="table-badge badge-absent">Absent</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="{% if not active_branch_id %}7{% else %}6{% endif %}" class="table-empty">No attendance records today for this branch</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
         </div>
-        <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 6px;">No Branches Registered</h3>
-        <p style="font-size: 13px; color: #64748b; max-width: 420px; margin: 0 auto 20px auto;">
-          Empower your enterprise with multi-location attendance by registering your district branches (e.g. Chennai Office, Coimbatore Unit).
-        </p>
-        <button class="btn-branch-primary" id="btnOpenAddBranchModalEmpty">
-          <i class="fa-solid fa-plus"></i> Register First Branch
+      </div>
+
+      <!-- Card 2: Department Wise Summary -->
+      <div class="dash-card card-dept-summary">
+        <div class="card-head">
+          <div class="card-title-group">
+            <div class="card-title-icon text-blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+            <h3 class="card-title-text">Department Wise Summary</h3>
+          </div>
+          <a href="{{ url_for('attendance_report') }}" class="card-link-action">View Report &rarr;</a>
+        </div>
+        <div class="card-table-scroll">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th style="min-width: 90px;">Department</th>
+                <th style="text-align: center; white-space: nowrap; width: 44px;">Total</th>
+                <th style="text-align: center; white-space: nowrap; width: 50px;">Present</th>
+                <th style="text-align: center; white-space: nowrap; width: 46px;">Leave</th>
+                <th style="text-align: center; white-space: nowrap; width: 46px;">Absent</th>
+                <th style="text-align: center; white-space: nowrap; min-width: 60px;">Timeout</th>
+              </tr>
+            </thead>
+            <tbody id="deptSummaryTableBody">
+              {% if stats.department_summary and stats.department_summary|length > 0 %}
+                {% for dept in stats.department_summary %}
+                <tr>
+                  <td class="font-semibold text-dark">{{ dept.department }}</td>
+                  <td style="text-align: center; font-weight: 700;">{{ dept.total }}</td>
+                  <td style="text-align: center; color: #16a34a; font-weight: 700;">{{ dept.present }}</td>
+                  <td style="text-align: center; color: #8b5cf6; font-weight: 700;">{{ dept.leave or 0 }}</td>
+                  <td style="text-align: center; color: #dc2626; font-weight: 700;">{{ dept.absent }}</td>
+                  <td style="text-align: center; color: #d97706; font-weight: 700;">{{ dept.timeout }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="6" class="table-empty">No department summary data</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ROW 4: Inbuilt Dynamic PDF Viewers (50% / 50%) -->
+    <div class="dash-pdf-row">
+
+      <!-- Card 1: Yesterday's Activity -->
+      <div class="dash-card dash-pdf-card">
+        <div class="card-head">
+          <div class="card-title-group">
+            <div class="card-title-icon text-blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <h3 class="card-title-text">Yesterday's Activity Report</h3>
+            <span class="dash-pdf-badge">{{ yesterday_display or 'Yesterday' }}</span>
+          </div>
+          <div class="dash-pdf-header-actions">
+            <a href="/api/dashboard/yesterday-activity/pdf" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" title="Open PDF in new tab">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+              Open
+            </a>
+            <a href="/api/dashboard/yesterday-activity/pdf?download=1" class="dash-pdf-btn-action btn-primary-action" title="Download PDF Report">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Download
+            </a>
+          </div>
+        </div>
+        <div class="dash-pdf-container">
+          <iframe src="/api/dashboard/yesterday-activity/pdf#toolbar=0&navpanes=0&scrollbar=1&view=FitH" class="dash-pdf-frame" title="Yesterday's Activity Report" loading="lazy"></iframe>
+        </div>
+      </div>
+
+      <!-- Card 2: Previous Month Salary Report -->
+      <div class="dash-card dash-pdf-card">
+        <div class="card-head">
+          <div class="card-title-group">
+            <div class="card-title-icon text-blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                <line x1="2" y1="10" x2="22" y2="10"></line>
+              </svg>
+            </div>
+            <h3 class="card-title-text">Previous Month Salary Report</h3>
+            <span class="dash-pdf-badge">{{ prev_month_display or 'Previous Month' }}</span>
+          </div>
+          <div class="dash-pdf-header-actions">
+            <a href="/api/dashboard/previous-month-salary/pdf" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" title="Open PDF in new tab">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+              Open
+            </a>
+            <a href="/api/dashboard/previous-month-salary/pdf?download=1" class="dash-pdf-btn-action btn-primary-action" title="Download PDF Report">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Download
+            </a>
+          </div>
+        </div>
+        <div class="dash-pdf-container">
+          <iframe src="/api/dashboard/previous-month-salary/pdf#toolbar=0&navpanes=0&scrollbar=1&view=FitH" class="dash-pdf-frame" title="Previous Month Salary Report" loading="lazy"></iframe>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- TAB 2: BRANCH DIRECTORY & GEOFENCES -->
+  <div id="tabDirectory" class="branch-tab-content">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;">Registered Company Branch Locations</h3>
+        <p style="font-size: 12px; color: #64748b; margin: 3px 0 0 0;">Manage physical branch offices, geofence radius bounds, and designated branch personnel.</p>
+      </div>
+      <button type="button" class="dash-pdf-btn-action btn-primary-action" id="btnAddNewBranchDirect" style="padding: 8px 16px; font-size: 12px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Register New Branch
+      </button>
+    </div>
+
+    <div class="branch-directory-grid">
+      {% for b in branches %}
+      <div class="branch-dir-card">
+        <div>
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px;">
+            <div style="font-size: 15px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+              <span style="color: #0284c7;">📍</span> {{ b.branch_name }}
+            </div>
+            <span style="font-size: 11px; background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 6px; font-weight: 700;">
+              {{ b.branch_code or 'BRANCH' }}
+            </span>
+          </div>
+
+          <div style="font-size: 12px; color: #475569; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;">
+            <div><strong>District:</strong> {{ b.district or 'Main Hub' }}</div>
+            <div><strong>Address:</strong> {{ b.address or 'Address not specified' }}</div>
+            <div><strong>Geofence Radius:</strong> {{ b.geofence_radius or 150 }} meters</div>
+            {% if b.latitude and b.longitude %}
+            <div style="font-size: 11px; color: #64748b;">GPS: {{ b.latitude|round(4) }}, {{ b.longitude|round(4) }}</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid #f1f5f9; padding-top: 12px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 11px; font-weight: 700; color: #059669; background: #ecfdf5; padding: 3px 8px; border-radius: 12px;">
+            👥 {{ b.headcount or 0 }} staff
+          </span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <a href="/branches/kiosk?branch_id={{ b.id }}" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" style="padding: 4px 8px; font-size: 11px; color: #059669;" title="Launch Attendance Kiosk">
+              Kiosk ↗
+            </a>
+            <button type="button" class="dash-pdf-btn-action btn-edit-branch" data-branch='{{ b|tojson }}' style="padding: 4px 8px; font-size: 11px;" title="Edit branch settings">
+              Edit
+            </button>
+            <button type="button" class="dash-pdf-btn-action btn-delete-branch" data-id="{{ b.id }}" data-name="{{ b.branch_name }}" style="padding: 4px 8px; font-size: 11px; color: #dc2626;" title="Delete branch">
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="dash-card" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: #64748b;">
+        <div style="font-size: 32px; margin-bottom: 8px;">🏢</div>
+        <div style="font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">No Branches Configured Yet</div>
+        <div style="font-size: 12px; margin-bottom: 16px;">Create your first branch office location to organize attendance and geofences.</div>
+        <button type="button" class="dash-pdf-btn-action btn-primary-action" id="btnEmptyCreateBranch" style="padding: 8px 16px; margin: 0 auto;">
+          + Create First Branch
         </button>
       </div>
-    {% endif %}
+      {% endfor %}
+    </div>
   </div>
 
-  <!-- Tab 3: Employee Allocation & Transfers -->
-  <div class="branch-tab-pane" id="tabAllocation">
-    <div class="table-card">
-      <div class="table-toolbar">
-        <div class="toolbar-left">
-          <div class="search-box">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" id="employeeSearchInput" placeholder="Search employee by name, ID...">
-          </div>
-
-          <select id="branchFilterSelect" class="filter-select">
-            <option value="ALL">All Branches</option>
-            <option value="unassigned">Unassigned (HQ Pool)</option>
-            {% for b in branches %}
-              <option value="{{ b.id }}">{{ b.branch_name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div class="toolbar-right">
-          <button class="btn-branch-secondary" id="btnBulkAssignModal" style="display: none;">
-            <i class="fa-solid fa-arrows-split-up-and-left"></i> Bulk Reassign (<span id="bulkSelectedCount">0</span>)
-          </button>
-        </div>
+  <!-- TAB 3: STAFF ALLOCATION & TRANSFERS -->
+  <div id="tabAllocation" class="branch-tab-content">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;">Employee Branch Allocation & Instant Transfers</h3>
+        <p style="font-size: 12px; color: #64748b; margin: 3px 0 0 0;">Assign staff to branch hubs or transfer them between offices with instant geofence sync.</p>
       </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <input type="text" id="employeeFilterInput" placeholder="Filter employees..." style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; width: 200px;">
+      </div>
+    </div>
 
-      <div style="overflow-x: auto;">
-        <table class="branch-data-table" id="employeeAllocationTable">
+    <div class="dash-card" style="padding: 0; overflow: hidden;">
+      <div style="overflow-x: auto; max-height: 520px;">
+        <table class="dash-table" id="allocationTable">
           <thead>
             <tr>
-              <th style="width: 40px; text-align: center;">
-                <input type="checkbox" id="selectAllEmployees">
-              </th>
-              <th>Employee Name & ID</th>
-              <th>Designation & Dept</th>
-              <th>Contact Info</th>
-              <th>Current Branch Allocation</th>
-              <th style="text-align: right;">Quick Transfer / Allocate</th>
+              <th style="width: 32px; text-align: center;">#</th>
+              <th style="min-width: 140px;">Employee Name</th>
+              <th style="min-width: 100px;">Employee Code</th>
+              <th style="min-width: 110px;">Department</th>
+              <th style="min-width: 140px; text-align: center;">Assigned Branch</th>
+              <th style="min-width: 180px; text-align: center;">Transfer / Reassign Branch</th>
             </tr>
           </thead>
           <tbody>
-            {% if all_employees %}
-              {% for emp in all_employees %}
-                <tr data-emp-id="{{ emp.id }}" data-branch-id="{{ emp.branch_id or '' }}" data-emp-name="{{ emp.employee_name }}">
-                  <td style="text-align: center;">
-                    <input type="checkbox" class="emp-row-check" value="{{ emp.id }}">
-                  </td>
-                  <td>
-                    <div style="font-weight: 700; color: #0f172a;">{{ emp.employee_name }}</div>
-                    <div style="font-size: 11px; color: #64748b;">ID: {{ emp.id }}</div>
-                  </td>
-                  <td>
-                    <div style="font-weight: 500;">{{ emp.designation or 'Staff' }}</div>
-                    <div style="font-size: 11px; color: #64748b;">{{ emp.department or 'General' }}</div>
-                  </td>
-                  <td>
-                    <div style="font-size: 12px;">{{ emp.mobile_number or '—' }}</div>
-                    <div style="font-size: 11px; color: #64748b;">{{ emp.email_id or '' }}</div>
-                  </td>
-                  <td>
-                    {% if emp.branch_name %}
-                      <span class="branch-badge branch-badge-assigned">
-                        <i class="fa-solid fa-building"></i> {{ emp.branch_name }}
-                      </span>
-                    {% else %}
-                      <span class="branch-badge branch-badge-unassigned">
-                        <i class="fa-solid fa-inbox"></i> Unassigned HQ
-                      </span>
-                    {% endif %}
-                  </td>
-                  <td style="text-align: right;">
-                    <select class="inline-branch-select emp-branch-selector" data-emp-id="{{ emp.id }}">
-                      <option value="" {% if not emp.branch_id %}selected{% endif %}>— Unassigned HQ —</option>
-                      {% for b in branches %}
-                        <option value="{{ b.id }}" {% if emp.branch_id == b.id %}selected{% endif %}>
-                          🏢 {{ b.branch_name }}
-                        </option>
-                      {% endfor %}
-                    </select>
-                  </td>
-                </tr>
-              {% endfor %}
+            {% for emp in all_employees %}
+            <tr class="emp-allocation-row" data-name="{{ emp.employee_name|lower }}" data-code="{{ (emp.employee_id or emp.id)|lower }}">
+              <td class="text-muted" style="text-align: center;">{{ loop.index }}</td>
+              <td class="font-semibold text-dark" style="white-space: nowrap;">{{ emp.employee_name }}</td>
+              <td style="color: #64748b; font-family: monospace; font-size: 11px;">{{ emp.employee_id or emp.id }}</td>
+              <td style="color: #475569;">{{ emp.department or 'General' }}</td>
+              <td style="text-align: center; white-space: nowrap;">
+                {% if emp.branch_name %}
+                  <span class="table-badge" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">
+                    📍 {{ emp.branch_name }}
+                  </span>
+                {% else %}
+                  <span class="table-badge" style="background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0;">
+                    Unassigned (HQ)
+                  </span>
+                {% endif %}
+              </td>
+              <td style="text-align: center; white-space: nowrap;">
+                <select class="branch-assign-select" data-emp-id="{{ emp.id or emp.employee_id }}" style="padding: 4px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; cursor: pointer; outline: none;">
+                  <option value="" {% if not emp.branch_id %}selected{% endif %}>-- Clear / Unassign (HQ) --</option>
+                  {% for b in branches %}
+                  <option value="{{ b.id }}" {% if emp.branch_id == b.id %}selected{% endif %}>📍 {{ b.branch_name }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+            </tr>
             {% else %}
-              <tr>
-                <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
-                  No employees found for this company.
-                </td>
-              </tr>
-            {% endif %}
+            <tr>
+              <td colspan="6" class="table-empty">No active employees found in this company</td>
+            </tr>
+            {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- Tab 4: Branch Attendance Comparison -->
-  <div class="branch-tab-pane" id="tabAnalytics">
-    <div id="analyticsLoadingState" style="text-align: center; padding: 40px; color: #64748b;">
-      <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i>
-      <div>Loading live cross-district attendance data...</div>
-    </div>
-    <div class="analytics-grid" id="analyticsGridContent" style="display: none;"></div>
-  </div>
 </div>
 
-<!-- Add / Edit Branch Modal -->
-<div class="branch-modal-overlay" id="branchModal">
-  <div class="branch-modal-content">
-    <div class="branch-modal-header">
-      <div class="branch-modal-title">
-        <i class="fa-solid fa-building-flag" style="color: #0284c7;"></i>
-        <span id="branchModalTitle">Register New Branch</span>
-      </div>
-      <button type="button" class="btn-close-modal" id="btnCloseBranchModal" style="background: none; border: none; font-size: 18px; color: #94a3b8; cursor: pointer;">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
+<!-- MODAL: ADD / EDIT BRANCH -->
+<div id="branchModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+  <div style="background: #ffffff; border-radius: 14px; width: 92%; max-width: 520px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); overflow: hidden; animation: slideInDown 0.2s ease;">
+    <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+      <h3 id="branchModalTitle" style="font-size: 15px; font-weight: 700; color: #0f172a; margin: 0;">Register New Branch Office</h3>
+      <button type="button" id="btnCloseBranchModal" style="background: none; border: none; font-size: 18px; color: #94a3b8; cursor: pointer;">&times;</button>
     </div>
-
-    <form id="branchForm">
-      <input type="hidden" id="editBranchId" value="">
-      <div class="branch-modal-body">
-        <div class="form-row-2">
-          <div class="form-group">
-            <label>Branch Name *</label>
-            <input type="text" id="inputBranchName" placeholder="e.g. Chennai Corporate Office" required>
-          </div>
-          <div class="form-group">
-            <label>Branch Code</label>
-            <input type="text" id="inputBranchCode" placeholder="e.g. CHN-01" style="text-transform: uppercase;">
-          </div>
+    <form id="branchForm" style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+      <input type="hidden" id="formBranchId" value="">
+      <div>
+        <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Branch Name *</label>
+        <input type="text" id="formBranchName" required placeholder="e.g. Coimbatore Main Campus" style="width: 100%; padding: 8px 12px; font-size: 12.5px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; box-sizing: border-box;">
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Branch Code</label>
+          <input type="text" id="formBranchCode" placeholder="e.g. CBE-01" style="width: 100%; padding: 8px 12px; font-size: 12.5px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; box-sizing: border-box;">
         </div>
-
-        <div class="form-row-2">
-          <div class="form-group">
-            <label>District / Region *</label>
-            <input type="text" id="inputDistrict" placeholder="e.g. Chennai, Coimbatore, Madurai" required>
-          </div>
-          <div class="form-group">
-            <label>Status</label>
-            <select id="inputStatus">
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Office Address</label>
-          <textarea id="inputAddress" rows="2" placeholder="Full physical street address of the branch site"></textarea>
-        </div>
-
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 12px; font-weight: 600; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
-            <span><i class="fa-solid fa-location-crosshairs" style="color: #0284c7;"></i> GPS Coordinates & Geofence</span>
-            <button type="button" id="btnDetectCurrentLocation" class="btn-branch-secondary" style="padding: 3px 8px; font-size: 10.5px;">
-              <i class="fa-solid fa-location-arrow"></i> Use My GPS
-            </button>
-          </div>
-
-          <div class="form-row-2" style="margin-bottom: 8px;">
-            <div class="form-group">
-              <label>Latitude</label>
-              <input type="number" step="any" id="inputLatitude" placeholder="13.0827" value="13.0827">
-            </div>
-            <div class="form-group">
-              <label>Longitude</label>
-              <input type="number" step="any" id="inputLongitude" placeholder="80.2707" value="80.2707">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Geofence Radius (Meters)</label>
-            <input type="number" id="inputGeofenceRadius" placeholder="150" value="150">
-            <span style="font-size: 10.5px; color: #64748b;">Employees must be within this circle radius to mark punch in.</span>
-          </div>
-        </div>
-
-        <div class="form-row-2">
-          <div class="form-group">
-            <label>Branch Head / Manager</label>
-            <input type="text" id="inputBranchHeadName" placeholder="Manager Name">
-          </div>
-          <div class="form-group">
-            <label>Branch Head Phone</label>
-            <input type="tel" id="inputBranchHeadPhone" placeholder="Mobile / Landline">
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Branch Email</label>
-          <input type="email" id="inputBranchHeadEmail" placeholder="branch@company.com">
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">District</label>
+          <input type="text" id="formDistrict" placeholder="e.g. Coimbatore" style="width: 100%; padding: 8px 12px; font-size: 12.5px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; box-sizing: border-box;">
         </div>
       </div>
-
-      <div class="branch-modal-footer">
-        <button type="button" class="btn-branch-secondary" id="btnCancelBranchModal">Cancel</button>
-        <button type="submit" class="btn-branch-primary" id="btnSaveBranch">
-          <i class="fa-solid fa-check"></i> Save Branch
+      <div>
+        <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Street Address</label>
+        <textarea id="formAddress" rows="2" placeholder="Complete physical address..." style="width: 100%; padding: 8px 12px; font-size: 12.5px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; box-sizing: border-box; resize: vertical;"></textarea>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Latitude</label>
+          <input type="number" step="any" id="formLat" placeholder="11.0168" style="width: 100%; padding: 8px 12px; font-size: 12.5px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; box-sizing: border-box;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Longitude</label>
+          <input type="number" step="any" id="formLng" placeholder="76.9558" style="width: 100%; padding: 8px 12px; font-size: 12.5px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; box-sizing: border-box;">
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <button type="button" id="btnGetGpsCurrent" class="dash-pdf-btn-action" style="font-size: 11px;">
+          📍 Get Current Device Coordinates
         </button>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <label style="font-size: 11.5px; font-weight: 700; color: #475569;">Geofence Radius:</label>
+          <input type="number" id="formRadius" value="150" min="20" max="5000" style="width: 70px; padding: 5px 8px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none;">
+          <span style="font-size: 11px; color: #64748b;">meters</span>
+        </div>
+      </div>
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px; display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
+        <button type="button" id="btnCancelBranchModal" class="dash-pdf-btn-action">Cancel</button>
+        <button type="submit" id="btnSaveBranch" class="dash-pdf-btn-action btn-primary-action" style="padding: 8px 18px; font-size: 12px;">Save Branch</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- Bulk Reassign Modal -->
-<div class="branch-modal-overlay" id="bulkAssignModal">
-  <div class="branch-modal-content" style="max-width: 440px;">
-    <div class="branch-modal-header">
-      <div class="branch-modal-title">
-        <i class="fa-solid fa-arrows-turn-to-dots" style="color: #0284c7;"></i>
-        <span>Bulk Assign Employees</span>
-      </div>
-      <button type="button" class="btn-close-modal" id="btnCloseBulkModal" style="background: none; border: none; font-size: 18px; color: #94a3b8; cursor: pointer;">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-
-    <div class="branch-modal-body">
-      <p style="font-size: 13px; color: #475569;">
-        Assign <strong id="bulkModalCount">0</strong> selected employees to target branch:
-      </p>
-
-      <div class="form-group">
-        <label>Target Branch</label>
-        <select id="bulkTargetBranchSelect" class="filter-select" style="width: 100%;">
-          <option value="">— Unassign (Move to HQ Pool) —</option>
-          {% for b in branches %}
-            <option value="{{ b.id }}">🏢 {{ b.branch_name }} ({{ b.district or 'Site' }})</option>
-          {% endfor %}
-        </select>
-      </div>
-    </div>
-
-    <div class="branch-modal-footer">
-      <button type="button" class="btn-branch-secondary" id="btnCancelBulkModal">Cancel</button>
-      <button type="button" class="btn-branch-primary" id="btnConfirmBulkAssign">
-        <i class="fa-solid fa-check"></i> Apply Assignment
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- Floating Toast Notification -->
-<div class="branch-toast" id="branchToast">
-  <i class="fa-solid fa-circle-check" style="color: #38bdf8;"></i>
-  <span id="toastMessage">Action completed successfully</span>
-</div>
-
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-BwHfrr4c9kmRkLw6iXFdzcdWV/PGkVgiIyIWLLlTSXzSmGxKG05S27FqnECUGThzOuMMuNl92WgDnuvXGoAtTQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script id="statsData" type="application/json">
+  {{ stats | tojson }}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
 <script>
   (function () {
     const ACTIVE_COMPANY_ID = "{{ active_company_id }}";
-    const BRANCHES_DATA = {{ branches|tojson|safe }};
-    let mapInstance = null;
-    let mapMarkers = {};
-    let mapCircles = {};
 
-    function showToast(msg, isError = false) {
-      const toast = document.getElementById('branchToast');
-      const text = document.getElementById('toastMessage');
-      if (!toast || !text) return;
-      text.textContent = msg;
-      toast.querySelector('i').className = isError ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-circle-check';
-      toast.querySelector('i').style.color = isError ? '#ef4444' : '#38bdf8';
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 3500);
-    }
-
-    // --------------------------------------------------------------------------
-    // Tab Switching
-    // --------------------------------------------------------------------------
-    const tabButtons = document.querySelectorAll('.branch-tab-btn');
-    const tabPanes = document.querySelectorAll('.branch-tab-pane');
-
-    tabButtons.forEach(btn => {
-      btn.addEventListener('click', function () {
-        tabButtons.forEach(b => b.classList.remove('active'));
-        tabPanes.forEach(p => p.classList.remove('active'));
-
-        this.classList.add('active');
-        const targetId = this.dataset.tab;
-        const targetPane = document.getElementById(targetId);
-        if (targetPane) {
-          targetPane.classList.add('active');
-        }
-
-        if (targetId === 'tabNetworkMap') {
-          setTimeout(() => {
-            if (mapInstance) mapInstance.invalidateSize();
-          }, 200);
-        } else if (targetId === 'tabAnalytics') {
-          loadBranchAnalytics();
-        }
-      });
-    });
-
-    // --------------------------------------------------------------------------
-    // Interactive Leaflet District Map
-    // --------------------------------------------------------------------------
-    function initMap() {
-      const mapEl = document.getElementById('branchNetworkMap');
-      if (!mapEl) return;
-
-      // Default center around Tamil Nadu / South India
-      const defaultLat = 11.1271;
-      const defaultLng = 78.6569;
-
-      mapInstance = L.map('branchNetworkMap', {
-        zoomControl: true,
-        attributionControl: false
-      }).setView([defaultLat, defaultLng], 7);
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18
-      }).addTo(mapInstance);
-
-      renderMapBranches();
-    }
-
-    function renderMapBranches() {
-      if (!mapInstance) return;
-
-      // Clear existing layers
-      Object.values(mapMarkers).forEach(m => mapInstance.removeLayer(m));
-      Object.values(mapCircles).forEach(c => mapInstance.removeLayer(c));
-      mapMarkers = {};
-      mapCircles = {};
-
-      const bounds = [];
-
-      BRANCHES_DATA.forEach(b => {
-        const lat = parseFloat(b.latitude);
-        const lng = parseFloat(b.longitude);
-        const radius = parseFloat(b.geofence_radius || 150);
-
-        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-          bounds.push([lat, lng]);
-
-          // Marker
-          const marker = L.circleMarker([lat, lng], {
-            radius: 8,
-            fillColor: '#0284c7',
-            color: '#ffffff',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.9
-          }).addTo(mapInstance);
-
-          // Geofence Circle
-          const circle = L.circle([lat, lng], {
-            radius: radius,
-            color: '#38bdf8',
-            fillColor: '#38bdf8',
-            fillOpacity: 0.15,
-            weight: 1.5,
-            dashArray: '4, 4'
-          }).addTo(mapInstance);
-
-          const popupContent = `
-            <div style="font-family: inherit; font-size: 12px; line-height: 1.4; padding: 4px;">
-              <strong style="font-size: 13px; color: #0f172a;">${b.branch_name}</strong>
-              ${b.district ? `<div style="color: #0284c7; font-weight: 600;">📍 ${b.district} District</div>` : ''}
-              <div style="color: #64748b; margin-top: 3px;">${b.address || ''}</div>
-              <hr style="margin: 6px 0; border: none; border-top: 1px solid #e2e8f0;">
-              <div><strong>Staff:</strong> ${b.employee_count || 0} Allocated</div>
-              <div><strong>Geofence:</strong> ${radius}m radius</div>
-            </div>
-          `;
-          marker.bindPopup(popupContent);
-
-          mapMarkers[b.id] = marker;
-          mapCircles[b.id] = circle;
-        }
-      });
-
-      if (bounds.length > 0) {
-        if (bounds.length === 1) {
-          mapInstance.setView(bounds[0], 14);
+    // 1. Branch Context Switcher -> Reloads with branch_id query parameter
+    const branchContextSelect = document.getElementById('branchContextSelect');
+    if (branchContextSelect) {
+      branchContextSelect.addEventListener('change', function () {
+        const selectedBranch = this.value;
+        const targetUrl = new URL(window.location.href);
+        if (selectedBranch && selectedBranch !== 'ALL') {
+          targetUrl.searchParams.set('branch_id', selectedBranch);
         } else {
-          mapInstance.fitBounds(bounds, { padding: [40, 40] });
+          targetUrl.searchParams.delete('branch_id');
         }
-      }
+        window.location.href = targetUrl.toString();
+      });
     }
 
-    // Map list item clicks to center and open popup
-    document.querySelectorAll('.branch-list-item-card').forEach(card => {
-      card.addEventListener('click', function () {
-        const bid = this.dataset.bid;
-        const lat = parseFloat(this.dataset.lat);
-        const lng = parseFloat(this.dataset.lng);
-
-        document.querySelectorAll('.branch-list-item-card').forEach(c => c.classList.remove('selected'));
-        this.classList.add('selected');
-
-        if (mapInstance && !isNaN(lat) && !isNaN(lng)) {
-          mapInstance.flyTo([lat, lng], 15, { duration: 1.2 });
-          if (mapMarkers[bid]) {
-            setTimeout(() => mapMarkers[bid].openPopup(), 1200);
-          }
-        }
+    // 2. Tab Switching
+    const tabs = document.querySelectorAll('.branch-pill-tab');
+    const tabPanes = document.querySelectorAll('.branch-tab-content');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', function () {
+        const targetId = this.getAttribute('data-tab');
+        tabs.forEach(t => t.classList.remove('active'));
+        tabPanes.forEach(p => p.classList.remove('active'));
+        this.classList.add('active');
+        const targetPane = document.getElementById(targetId);
+        if (targetPane) targetPane.classList.add('active');
       });
     });
 
-    // --------------------------------------------------------------------------
-    // Company & Branch Context Switchers
-    // --------------------------------------------------------------------------
-    const compSelector = document.getElementById('branchCompanySelector');
-    if (compSelector) {
-      compSelector.addEventListener('change', function () {
-        window.location.href = `/branches?company_id=${encodeURIComponent(this.value)}`;
-      });
-    }
-
-    const branchContextSelector = document.getElementById('activeBranchContextSelector');
-    if (branchContextSelector) {
-      branchContextSelector.addEventListener('change', function () {
-        const val = this.value;
-        fetch('/api/branches/set-active', {
+    // 3. Employee Allocation Live Dropdown Change
+    document.querySelectorAll('.branch-assign-select').forEach(sel => {
+      sel.addEventListener('change', function () {
+        const empId = this.getAttribute('data-emp-id');
+        const targetBranchId = this.value;
+        const originalVal = this.dataset.prevVal || '';
+        
+        this.disabled = true;
+        fetch(`/api/branches/assign-employee?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ branch_id: val })
+          body: JSON.stringify({ employee_id: empId, branch_id: targetBranchId })
         })
-        .then(res => res.json())
+        .then(r => r.json())
         .then(data => {
+          this.disabled = false;
           if (data.success) {
-            showToast(`Active Branch Context: ${data.active_branch_name}`);
+            this.dataset.prevVal = targetBranchId;
+            showNotification('Branch allocation updated successfully!', 'success');
             setTimeout(() => window.location.reload(), 400);
+          } else {
+            this.value = originalVal;
+            showNotification(data.error || 'Failed to update branch assignment', 'error');
+          }
+        })
+        .catch(err => {
+          this.disabled = false;
+          this.value = originalVal;
+          showNotification('Network error updating assignment', 'error');
+        });
+      });
+    });
+
+    // 4. Employee Filter in Allocation Tab
+    const empFilter = document.getElementById('employeeFilterInput');
+    if (empFilter) {
+      empFilter.addEventListener('input', function () {
+        const q = this.value.toLowerCase().trim();
+        document.querySelectorAll('.emp-allocation-row').forEach(row => {
+          const name = row.getAttribute('data-name') || '';
+          const code = row.getAttribute('data-code') || '';
+          if (!q || name.includes(q) || code.includes(q)) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
           }
         });
       });
     }
 
-    // --------------------------------------------------------------------------
-    // Add / Edit Branch Modal Logic
-    // --------------------------------------------------------------------------
+    // 5. Branch Modal Logic
     const branchModal = document.getElementById('branchModal');
-    const btnOpenAdd = document.getElementById('btnOpenAddBranchModal');
-    const btnOpenAddEmpty = document.getElementById('btnOpenAddBranchModalEmpty');
+    const branchForm = document.getElementById('branchForm');
+    const btnOpenNew = document.getElementById('btnOpenNewBranchModal');
+    const btnEmptyCreate = document.getElementById('btnEmptyCreateBranch');
+    const btnAddNewDirect = document.getElementById('btnAddNewBranchDirect');
     const btnCloseModal = document.getElementById('btnCloseBranchModal');
     const btnCancelModal = document.getElementById('btnCancelBranchModal');
-    const branchForm = document.getElementById('branchForm');
+    const btnGetGps = document.getElementById('btnGetGpsCurrent');
 
-    function openModalForCreate() {
-      document.getElementById('branchModalTitle').textContent = 'Register New Branch';
-      document.getElementById('editBranchId').value = '';
-      branchForm.reset();
-      document.getElementById('inputGeofenceRadius').value = '150';
-      document.getElementById('inputStatus').value = 'Active';
+    function openModal(branchData = null) {
+      if (!branchModal) return;
+      document.getElementById('branchModalTitle').textContent = branchData ? 'Edit Branch Office' : 'Register New Branch Office';
+      document.getElementById('formBranchId').value = branchData ? (branchData.id || branchData._id || '') : '';
+      document.getElementById('formBranchName').value = branchData ? (branchData.branch_name || '') : '';
+      document.getElementById('formBranchCode').value = branchData ? (branchData.branch_code || '') : '';
+      document.getElementById('formDistrict').value = branchData ? (branchData.district || '') : '';
+      document.getElementById('formAddress').value = branchData ? (branchData.address || '') : '';
+      document.getElementById('formLat').value = branchData ? (branchData.latitude || '') : '';
+      document.getElementById('formLng').value = branchData ? (branchData.longitude || '') : '';
+      document.getElementById('formRadius').value = branchData ? (branchData.geofence_radius || 150) : 150;
       branchModal.style.display = 'flex';
     }
 
-    if (btnOpenAdd) btnOpenAdd.addEventListener('click', openModalForCreate);
-    if (btnOpenAddEmpty) btnOpenAddEmpty.addEventListener('click', openModalForCreate);
-
     function closeModal() {
-      branchModal.style.display = 'none';
+      if (branchModal) branchModal.style.display = 'none';
     }
+
+    if (btnOpenNew) btnOpenNew.addEventListener('click', () => openModal());
+    if (btnEmptyCreate) btnEmptyCreate.addEventListener('click', () => openModal());
+    if (btnAddNewDirect) btnAddNewDirect.addEventListener('click', () => openModal());
     if (btnCloseModal) btnCloseModal.addEventListener('click', closeModal);
     if (btnCancelModal) btnCancelModal.addEventListener('click', closeModal);
 
-    // Edit branch handlers
+    // Edit branch button handlers
     document.querySelectorAll('.btn-edit-branch').forEach(btn => {
       btn.addEventListener('click', function () {
         try {
-          const b = JSON.parse(this.dataset.branch);
-          document.getElementById('branchModalTitle').textContent = `Edit Branch: ${b.branch_name}`;
-          document.getElementById('editBranchId').value = b.id || '';
-          document.getElementById('inputBranchName').value = b.branch_name || '';
-          document.getElementById('inputBranchCode').value = b.branch_code || '';
-          document.getElementById('inputDistrict').value = b.district || '';
-          document.getElementById('inputAddress').value = b.address || '';
-          document.getElementById('inputLatitude').value = b.latitude || '';
-          document.getElementById('inputLongitude').value = b.longitude || '';
-          document.getElementById('inputGeofenceRadius').value = b.geofence_radius || 150;
-          document.getElementById('inputBranchHeadName').value = b.branch_head_name || '';
-          document.getElementById('inputBranchHeadPhone').value = b.branch_head_phone || '';
-          document.getElementById('inputBranchHeadEmail').value = b.branch_head_email || '';
-          document.getElementById('inputStatus').value = b.status || 'Active';
-          branchModal.style.display = 'flex';
+          const data = JSON.parse(this.getAttribute('data-branch'));
+          openModal(data);
         } catch (e) {
-          console.error('Error opening edit branch:', e);
+          console.error(e);
         }
       });
     });
 
-    // Delete branch handlers
+    // Delete branch button handlers
     document.querySelectorAll('.btn-delete-branch').forEach(btn => {
       btn.addEventListener('click', function () {
-        const bid = this.dataset.bid;
-        const bname = this.dataset.bname;
-        if (!confirm(`Are you sure you want to delete branch "${bname}"?\nEmployees assigned to this branch will be moved to the Unassigned HQ Pool.`)) {
-          return;
-        }
+        const id = this.getAttribute('data-id');
+        const name = this.getAttribute('data-name');
+        if (!confirm(`Are you sure you want to delete branch "${name}"? Assigned employees will be unassigned to Headquarters.`)) return;
 
-        fetch(`/api/branches/${bid}?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}`, {
+        fetch(`/api/branches/${id}?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}`, {
           method: 'DELETE'
         })
-        .then(res => res.json())
+        .then(r => r.json())
         .then(data => {
           if (data.success) {
-            showToast(`Branch "${bname}" deleted successfully.`);
-            setTimeout(() => window.location.reload(), 500);
+            showNotification(`Branch "${name}" deleted successfully`, 'success');
+            setTimeout(() => window.location.reload(), 400);
           } else {
-            showToast(data.error || 'Failed to delete branch', true);
+            showNotification(data.error || 'Failed to delete branch', 'error');
           }
         })
-        .catch(err => showToast('Error deleting branch', true));
+        .catch(err => showNotification('Error deleting branch', 'error'));
       });
     });
 
-    // Form Submit (Create / Update)
-    branchForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      const editId = document.getElementById('editBranchId').value;
-      const payload = {
-        branch_name: document.getElementById('inputBranchName').value.trim(),
-        branch_code: document.getElementById('inputBranchCode').value.trim(),
-        district: document.getElementById('inputDistrict').value.trim(),
-        address: document.getElementById('inputAddress').value.trim(),
-        latitude: parseFloat(document.getElementById('inputLatitude').value),
-        longitude: parseFloat(document.getElementById('inputLongitude').value),
-        geofence_radius: parseFloat(document.getElementById('inputGeofenceRadius').value) || 150,
-        branch_head_name: document.getElementById('inputBranchHeadName').value.trim(),
-        branch_head_phone: document.getElementById('inputBranchHeadPhone').value.trim(),
-        branch_head_email: document.getElementById('inputBranchHeadEmail').value.trim(),
-        status: document.getElementById('inputStatus').value
-      };
-
-      const url = editId ? `/api/branches/${editId}?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}` : `/api/branches?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}`;
-      const method = editId ? 'PUT' : 'POST';
-
-      fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          closeModal();
-          showToast(data.message || 'Branch saved successfully');
-          setTimeout(() => window.location.reload(), 500);
-        } else {
-          showToast(data.error || 'Error saving branch', true);
-        }
-      })
-      .catch(err => showToast('Network error saving branch', true));
-    });
-
-    // Geolocation detection
-    const btnGPS = document.getElementById('btnDetectCurrentLocation');
-    if (btnGPS) {
-      btnGPS.addEventListener('click', function () {
+    // GPS autofill
+    if (btnGetGps) {
+      btnGetGps.addEventListener('click', function () {
         if (!navigator.geolocation) {
-          alert('Geolocation not supported by this browser.');
+          alert('Geolocation is not supported by your browser');
           return;
         }
-        btnGPS.textContent = 'Locating...';
+        btnGetGps.textContent = 'Acquiring GPS...';
         navigator.geolocation.getCurrentPosition(
           pos => {
-            document.getElementById('inputLatitude').value = pos.coords.latitude.toFixed(6);
-            document.getElementById('inputLongitude').value = pos.coords.longitude.toFixed(6);
-            btnGPS.innerHTML = '<i class="fa-solid fa-check"></i> Found';
-            setTimeout(() => { btnGPS.innerHTML = '<i class="fa-solid fa-location-arrow"></i> Use My GPS'; }, 2000);
+            document.getElementById('formLat').value = pos.coords.latitude.toFixed(6);
+            document.getElementById('formLng').value = pos.coords.longitude.toFixed(6);
+            btnGetGps.textContent = '📍 Coordinates Acquired!';
+            setTimeout(() => { btnGetGps.textContent = '📍 Get Current Device Coordinates'; }, 2000);
           },
           err => {
-            alert('Unable to retrieve location: ' + err.message);
-            btnGPS.innerHTML = '<i class="fa-solid fa-location-arrow"></i> Use My GPS';
+            btnGetGps.textContent = 'GPS Acquisition Failed';
+            setTimeout(() => { btnGetGps.textContent = '📍 Get Current Device Coordinates'; }, 2000);
           },
           { enableHighAccuracy: true, timeout: 8000 }
         );
       });
     }
 
-    // --------------------------------------------------------------------------
-    // Employee Allocation: Inline Dropdown Changes
-    // --------------------------------------------------------------------------
-    document.querySelectorAll('.emp-branch-selector').forEach(select => {
-      select.addEventListener('change', function () {
-        const empId = this.dataset.empId;
-        const branchId = this.value;
-        const row = this.closest('tr');
-        const badgeCell = row.cells[4];
+    // Form save handler
+    if (branchForm) {
+      branchForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const branchId = document.getElementById('formBranchId').value;
+        const payload = {
+          branch_name: document.getElementById('formBranchName').value.trim(),
+          branch_code: document.getElementById('formBranchCode').value.trim(),
+          district: document.getElementById('formDistrict').value.trim(),
+          address: document.getElementById('formAddress').value.trim(),
+          latitude: parseFloat(document.getElementById('formLat').value) || null,
+          longitude: parseFloat(document.getElementById('formLng').value) || null,
+          geofence_radius: parseFloat(document.getElementById('formRadius').value) || 150
+        };
 
-        fetch(`/api/branches/assign-employee?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}`, {
-          method: 'POST',
+        const isEdit = Boolean(branchId);
+        const url = isEdit ? `/api/branches/${branchId}?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}` : `/api/branches?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}`;
+        const method = isEdit ? 'PUT' : 'POST';
+
+        document.getElementById('btnSaveBranch').textContent = 'Saving...';
+        fetch(url, {
+          method: method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ employee_id: empId, branch_id: branchId })
+          body: JSON.stringify(payload)
         })
-        .then(res => res.json())
+        .then(r => r.json())
         .then(data => {
+          document.getElementById('btnSaveBranch').textContent = 'Save Branch';
           if (data.success) {
-            const selectedText = select.options[select.selectedIndex].text.replace('🏢 ', '');
-            if (branchId) {
-              badgeCell.innerHTML = `<span class="branch-badge branch-badge-assigned"><i class="fa-solid fa-building"></i> ${selectedText}</span>`;
-            } else {
-              badgeCell.innerHTML = `<span class="branch-badge branch-badge-unassigned"><i class="fa-solid fa-inbox"></i> Unassigned HQ</span>`;
-            }
-            row.dataset.branchId = branchId;
-            showToast('Branch assignment updated');
+            closeModal();
+            showNotification(data.message || 'Branch saved successfully', 'success');
+            setTimeout(() => window.location.reload(), 400);
           } else {
-            showToast(data.error || 'Failed to update assignment', true);
-          }
-        })
-        .catch(err => showToast('Error updating assignment', true));
-      });
-    });
-
-    // --------------------------------------------------------------------------
-    // Filter & Search in Employee Table
-    // --------------------------------------------------------------------------
-    const searchInput = document.getElementById('employeeSearchInput');
-    const branchFilter = document.getElementById('branchFilterSelect');
-    const tableRows = document.querySelectorAll('#employeeAllocationTable tbody tr');
-
-    function filterEmployees() {
-      const q = (searchInput ? searchInput.value : '').toLowerCase().trim();
-      const bFilter = (branchFilter ? branchFilter.value : 'ALL');
-
-      tableRows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        const rowBranchId = row.dataset.branchId || '';
-
-        const matchesQuery = !q || text.includes(q);
-        let matchesBranch = true;
-        if (bFilter === 'unassigned') {
-          matchesBranch = !rowBranchId;
-        } else if (bFilter !== 'ALL') {
-          matchesBranch = (rowBranchId === bFilter);
-        }
-
-        row.style.display = (matchesQuery && matchesBranch) ? '' : 'none';
-      });
-    }
-
-    if (searchInput) searchInput.addEventListener('input', filterEmployees);
-    if (branchFilter) branchFilter.addEventListener('change', filterEmployees);
-
-    // --------------------------------------------------------------------------
-    // Bulk Selection & Reassign Modal
-    // --------------------------------------------------------------------------
-    const selectAllCheck = document.getElementById('selectAllEmployees');
-    const rowChecks = document.querySelectorAll('.emp-row-check');
-    const btnBulkTrigger = document.getElementById('btnBulkAssignModal');
-    const bulkCountSpan = document.getElementById('bulkSelectedCount');
-    const bulkModal = document.getElementById('bulkAssignModal');
-    const bulkModalCount = document.getElementById('bulkModalCount');
-    const btnCloseBulk = document.getElementById('btnCloseBulkModal');
-    const btnCancelBulk = document.getElementById('btnCancelBulkModal');
-    const btnConfirmBulk = document.getElementById('btnConfirmBulkAssign');
-
-    function updateBulkButton() {
-      const selected = Array.from(rowChecks).filter(c => c.checked).map(c => c.value);
-      if (bulkCountSpan) bulkCountSpan.textContent = selected.length;
-      if (btnBulkTrigger) btnBulkTrigger.style.display = selected.length > 0 ? 'inline-flex' : 'none';
-    }
-
-    if (selectAllCheck) {
-      selectAllCheck.addEventListener('change', function () {
-        rowChecks.forEach(c => {
-          const row = c.closest('tr');
-          if (row.style.display !== 'none') {
-            c.checked = selectAllCheck.checked;
-          }
-        });
-        updateBulkButton();
-      });
-    }
-
-    rowChecks.forEach(c => c.addEventListener('change', updateBulkButton));
-
-    if (btnBulkTrigger) {
-      btnBulkTrigger.addEventListener('click', function () {
-        const selected = Array.from(rowChecks).filter(c => c.checked).map(c => c.value);
-        if (selected.length === 0) return;
-        bulkModalCount.textContent = selected.length;
-        bulkModal.style.display = 'flex';
-      });
-    }
-
-    function closeBulkModal() {
-      if (bulkModal) bulkModal.style.display = 'none';
-    }
-    if (btnCloseBulk) btnCloseBulk.addEventListener('click', closeBulkModal);
-    if (btnCancelBulk) btnCancelBulk.addEventListener('click', closeBulkModal);
-
-    if (btnConfirmBulk) {
-      btnConfirmBulk.addEventListener('click', function () {
-        const selected = Array.from(rowChecks).filter(c => c.checked).map(c => c.value);
-        const targetBranchId = document.getElementById('bulkTargetBranchSelect').value;
-
-        if (selected.length === 0) return;
-        btnConfirmBulk.textContent = 'Assigning...';
-
-        fetch(`/api/branches/assign-employee?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ employee_ids: selected, branch_id: targetBranchId })
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            closeBulkModal();
-            showToast(data.message || 'Bulk assignment complete');
-            setTimeout(() => window.location.reload(), 500);
-          } else {
-            showToast(data.error || 'Failed bulk assignment', true);
-            btnConfirmBulk.textContent = 'Apply Assignment';
+            showNotification(data.error || 'Failed to save branch', 'error');
           }
         })
         .catch(err => {
-          showToast('Error executing bulk assignment', true);
-          btnConfirmBulk.textContent = 'Apply Assignment';
+          document.getElementById('btnSaveBranch').textContent = 'Save Branch';
+          showNotification('Network error saving branch', 'error');
         });
       });
     }
 
-    // --------------------------------------------------------------------------
-    // Tab 4: Live Branch Analytics Loading
-    // --------------------------------------------------------------------------
-    let analyticsLoaded = false;
-    function loadBranchAnalytics() {
-      if (analyticsLoaded) return;
-      const loading = document.getElementById('analyticsLoadingState');
-      const container = document.getElementById('analyticsGridContent');
-
-      fetch(`/api/branches/stats?company_id=${encodeURIComponent(ACTIVE_COMPANY_ID)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (!data.success || !data.data || data.data.length === 0) {
-          if (loading) loading.innerHTML = '<div>No active branch attendance data recorded for today.</div>';
-          return;
-        }
-
-        analyticsLoaded = true;
-        if (loading) loading.style.display = 'none';
-        if (container) {
-          container.style.display = 'grid';
-          container.innerHTML = '';
-
-          data.data.forEach(stat => {
-            const total = stat.total_employees || 0;
-            const pres = stat.present_count || 0;
-            const leave = stat.leave_count || 0;
-            const absent = stat.absent_count || 0;
-            const presPct = total > 0 ? Math.round((pres / total) * 100) : 0;
-            const leavePct = total > 0 ? Math.round((leave / total) * 100) : 0;
-            const absentPct = total > 0 ? Math.round((absent / total) * 100) : 0;
-
-            const card = document.createElement('div');
-            card.className = 'analytics-card';
-            card.innerHTML = `
-              <div class="analytics-card-header">
-                <div>
-                  <div class="analytics-card-title">
-                    <i class="fa-solid fa-building" style="color: #0284c7;"></i>
-                    <span>${stat.branch_name}</span>
-                  </div>
-                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
-                    ${stat.district ? `📍 ${stat.district} District` : 'Headquarters'}
-                  </div>
-                </div>
-                <div style="font-size: 14px; font-weight: 700; color: #059669;">
-                  ${presPct}% Present
-                </div>
-              </div>
-
-              <div class="analytics-stats-row">
-                <div class="astat-item">
-                  <div class="astat-num astat-total">${total}</div>
-                  <div class="astat-lbl">Total</div>
-                </div>
-                <div class="astat-item">
-                  <div class="astat-num astat-present">${pres}</div>
-                  <div class="astat-lbl">Present</div>
-                </div>
-                <div class="astat-item">
-                  <div class="astat-num astat-leave">${leave}</div>
-                  <div class="astat-lbl">On Leave</div>
-                </div>
-                <div class="astat-item">
-                  <div class="astat-num astat-absent">${absent}</div>
-                  <div class="astat-lbl">Absent</div>
-                </div>
-              </div>
-
-              <div class="attendance-progress-bar-bg" title="Present: ${presPct}%, Leave: ${leavePct}%, Absent: ${absentPct}%">
-                <div class="prog-present" style="width: ${presPct}%;"></div>
-                <div class="prog-leave" style="width: ${leavePct}%;"></div>
-                <div class="prog-absent" style="width: ${absentPct}%;"></div>
-              </div>
-            `;
-            container.appendChild(card);
-          });
-        }
-      })
-      .catch(err => {
-        if (loading) loading.innerHTML = '<div style="color: #ef4444;">Failed to load attendance analytics.</div>';
-      });
+    function showNotification(msg, type = 'info') {
+      const banner = document.createElement('div');
+      banner.style.position = 'fixed';
+      banner.style.bottom = '24px';
+      banner.style.right = '24px';
+      banner.style.padding = '12px 20px';
+      banner.style.borderRadius = '8px';
+      banner.style.fontSize = '13px';
+      banner.style.fontWeight = '600';
+      banner.style.zIndex = '10000';
+      banner.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
+      banner.style.color = '#ffffff';
+      banner.style.backgroundColor = type === 'success' ? '#059669' : (type === 'error' ? '#dc2626' : '#0284c7');
+      banner.textContent = msg;
+      document.body.appendChild(banner);
+      setTimeout(() => banner.remove(), 3200);
     }
-
-    // Initialize Map on page load
-    initMap();
-
   })();
 </script>
 {% endblock %}

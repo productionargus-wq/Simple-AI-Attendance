@@ -1563,8 +1563,9 @@ def get_employee_names_cached(company_id=None):
     _employee_names_cache[cache_key] = (now_ts, names)
     return names
 
-def get_dashboard_stats(company_id=None):
-    cache_key = str(company_id or 'ALL')
+def get_dashboard_stats(company_id=None, branch_id=None):
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', ''] else None
+    cache_key = f"{company_id or 'ALL'}:{b_id or 'ALL'}"
     now_ts = time.time()
     if cache_key in _dashboard_cache:
         entry_time, cached_val = _dashboard_cache[cache_key]
@@ -1576,6 +1577,12 @@ def get_dashboard_stats(company_id=None):
     if company_id and company_id != 'ALL':
         t_filter['company_id'] = str(company_id)
         
+    branch_emp_names = set()
+    if b_id:
+        t_filter['branch_id'] = b_id
+        b_emps = list(db.employees.find(t_filter, {'employee_name': 1}))
+        branch_emp_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+
     total_preserved_employees = db.employees.count_documents(t_filter)
     total_employees = db.employees.count_documents({**t_filter, 'status': {'$ne': 'Inactive'}})
     
@@ -1588,32 +1595,55 @@ def get_dashboard_stats(company_id=None):
     curr_month = now_ist.month
 
     # Fetch today's records upfront in batch (avoids duplicate queries)
-    p_filter = dict(t_filter)
-    p_filter['date'] = today_str
+    comp_base = {'company_id': str(company_id)} if (company_id and company_id != 'ALL') else {}
+    if b_id:
+        branch_punch_matcher = {'$or': [{'branch_id': b_id}, {'employee_name': {'$in': list(branch_emp_names)}}]} if branch_emp_names else {'branch_id': b_id}
+        p_filter = {**comp_base, 'date': today_str, **branch_punch_matcher}
+        ar_today_filter = {**comp_base, 'date': today_str, **branch_punch_matcher}
+        l_filter = {**comp_base, 'entry_time': {'$regex': today_slash}, **branch_punch_matcher}
+        m_filter = {
+            **comp_base,
+            '$and': [
+                branch_punch_matcher,
+                {'$or': [
+                    {'entry_date': today_str},
+                    {'submitted_at': {'$regex': today_str}},
+                    {'submitted_at': {'$regex': today_slash}}
+                ]}
+            ]
+        }
+        timeout_filter = {
+            **comp_base,
+            **branch_punch_matcher,
+            '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
+        }
+    else:
+        p_filter = dict(t_filter)
+        p_filter['date'] = today_str
+        ar_today_filter = dict(t_filter)
+        ar_today_filter['date'] = today_str
+        l_filter = dict(t_filter)
+        l_filter['entry_time'] = {'$regex': today_slash}
+        m_filter = dict(t_filter)
+        m_filter['$or'] = [
+            {'entry_date': today_str},
+            {'submitted_at': {'$regex': today_str}},
+            {'submitted_at': {'$regex': today_slash}}
+        ]
+        timeout_filter = {**t_filter, '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]}
+
     att_docs = {a['employee_name']: a for a in db.attendance.find(p_filter)}
-    
-    ar_today_filter = dict(t_filter)
-    ar_today_filter['date'] = today_str
     ar_docs = {a['employee_name']: a for a in db.attendance_reports.find(ar_today_filter)}
-    
-    l_filter = dict(t_filter)
-    l_filter['entry_time'] = {'$regex': today_slash}
     live_docs = {l['employee_name']: l for l in db.live_entries.find(l_filter)}
-    
-    m_filter = dict(t_filter)
-    m_filter['$or'] = [
-        {'entry_date': today_str},
-        {'submitted_at': {'$regex': today_str}},
-        {'submitted_at': {'$regex': today_slash}}
-    ]
     manual_docs = {m['employee_name']: m for m in db.manual_entries.find(m_filter)}
-    
-    timeout_today = {t['employee_name']: t for t in db.timeout_entries.find({**t_filter, '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]})}
+    timeout_today = {t['employee_name']: t for t in db.timeout_entries.find(timeout_filter)}
     combined_present = set(att_docs.keys()).union(set(ar_docs.keys())).union(set(live_docs.keys())).union(set(manual_docs.keys())).union(set(timeout_today.keys()))
     present_count = len(combined_present)
 
     # Approved leaves today integration
     approved_leaves_today = get_approved_leaves_for_date(today_str, company_id=company_id)
+    if b_id:
+        approved_leaves_today = {k: v for k, v in approved_leaves_today.items() if k in branch_emp_names}
     on_leave_set = set(approved_leaves_today.keys()).difference(combined_present)
     on_leave_count = len(on_leave_set)
 
@@ -1774,7 +1804,7 @@ def get_dashboard_stats(company_id=None):
         })
         
     # Today's attendance list & Department summary (Active employees only)
-    employees = list(db.employees.find({**t_filter, 'status': {'$ne': 'Inactive'}}, {'_id': 0, 'id': 1, 'employee_name': 1, 'department': 1, 'designation': 1}))
+    employees = list(db.employees.find({**t_filter, 'status': {'$ne': 'Inactive'}}, {'_id': 0, 'id': 1, 'employee_name': 1, 'department': 1, 'designation': 1, 'branch_id': 1, 'branch_name': 1}))
     
     today_attendance = []
     present_names_set = set()
@@ -1850,6 +1880,8 @@ def get_dashboard_stats(company_id=None):
         today_attendance.append({
             'employee_name': ename,
             'department': emp.get('department') or emp.get('designation') or 'General',
+            'branch_id': emp.get('branch_id') or '',
+            'branch_name': emp.get('branch_name') or '',
             'in_time': in_time,
             'out_time': out_time,
             'hours': hours,
@@ -2570,7 +2602,7 @@ def calculate_realistic_proximity(user_lat, user_lng, office_lat=OFFICE_LAT, off
     except Exception:
         return 0.0
 
-def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=None, entry_distance=0.0, is_timeout=0, user_lat=None, user_lng=None, company_id='ARGUS_MASTER', target_lat=None, target_lng=None, live_address=None):
+def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=None, entry_distance=0.0, is_timeout=0, user_lat=None, user_lng=None, company_id='ARGUS_MASTER', target_lat=None, target_lng=None, live_address=None, branch_id=None, branch_name=None):
     db = get_db()
     if not entry_time:
         entry_time = get_ist_now().strftime('%d/%m/%Y %I:%M:%S %p')
@@ -2594,6 +2626,8 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
             
     doc = {
         'company_id': str(company_id or 'ARGUS_MASTER'),
+        'branch_id': str(branch_id) if branch_id else None,
+        'branch_name': str(branch_name) if branch_name else None,
         'employee_id': str(employee_id),
         'employee_name': employee_name,
         'entry_time': entry_time,
@@ -2610,7 +2644,7 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
     invalidate_dashboard_cache(doc.get('company_id'))
     return str(result.inserted_id)
 
-def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=None, company_id=None, client_time=None, live_address=None):
+def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=None, company_id=None, client_time=None, live_address=None, branch_id=None):
     """
     Punch In / Punch Out Attendance Lifecycle Engine with Multi-Tenant Geolocation Support:
     1. Records Live Entry in db.live_entries with real-time location address and company_id in 12-hour format (IST).
@@ -2656,6 +2690,21 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             if comp.get('address'):
                 loc_str = comp.get('address')
             company_geofence_radius = float(comp.get('geofence_radius') or comp.get('radius_meters') or GEOFENCE_RADIUS_METERS)
+
+    # Branch-specific geofencing and tagging override
+    active_branch_id = str(branch_id).strip() if branch_id and str(branch_id).strip() not in ['None', 'null', '', 'ALL'] else (emp.get('branch_id') if emp else None)
+    active_branch_name = None
+    if active_branch_id:
+        branch = db.company_branches.find_one({'id': str(active_branch_id)})
+        if branch:
+            active_branch_name = branch.get('branch_name')
+            if branch.get('latitude') is not None and branch.get('longitude') is not None:
+                target_lat = parse_coordinate_to_float(branch.get('latitude'), target_lat)
+                target_lng = parse_coordinate_to_float(branch.get('longitude'), target_lng)
+            if branch.get('address'):
+                loc_str = branch.get('address')
+            if branch.get('geofence_radius'):
+                company_geofence_radius = float(branch.get('geofence_radius'))
             
     # Calculate proximity distance
     dist_meters = calculate_realistic_proximity(user_lat, user_lng, target_lat, target_lng)
@@ -2703,13 +2752,17 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             user_lat=user_lat,
             user_lng=user_lng,
             company_id=comp_id,
-            live_address=live_loc_str
+            live_address=live_loc_str,
+            branch_id=active_branch_id,
+            branch_name=active_branch_name
         )
 
         # Geofencing threshold: Dynamic per company (defaults to 200m)
         punch_in_entry_type = 'proper' if dist_meters <= company_geofence_radius else 'improper'
         rep_doc = {
             'company_id': comp_id,
+            'branch_id': active_branch_id,
+            'branch_name': active_branch_name,
             'employee_id': str(employee_id),
             'employee_name': employee_name,
             'date': today_date,
@@ -2883,6 +2936,9 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'entry_type': final_entry_type,
             'updated_at': now.isoformat()
         }
+        if active_branch_id:
+            upd_data['branch_id'] = str(active_branch_id)
+            upd_data['branch_name'] = str(active_branch_name or '')
         db.attendance_reports.update_one({'_id': existing_rep['_id']}, {'$set': upd_data})
         
         # PUNCH OUT:
