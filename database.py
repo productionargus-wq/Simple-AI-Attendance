@@ -204,6 +204,16 @@ def init_db():
         db.advances.create_index([("company_id", ASCENDING), ("advance_date", DESCENDING)])
         db.salary_reports.create_index([("company_id", ASCENDING), ("pay_period", DESCENDING), ("employee_name", ASCENDING)])
         db.leave_requests.create_index([("company_id", ASCENDING), ("status", ASCENDING), ("created_at", DESCENDING)])
+        # Multi-Branch & Support Tickets Performance Indexes
+        db.company_branches.create_index([("company_id", ASCENDING), ("status", ASCENDING)])
+        db.company_branches.create_index([("id", ASCENDING)], unique=True)
+        db.company_branches.create_index([("branch_name", ASCENDING)])
+        db.support_tickets.create_index([("company_id", ASCENDING), ("status", ASCENDING)])
+        db.support_tickets.create_index([("status", ASCENDING)])
+        db.employees.create_index([("company_id", ASCENDING), ("branch_id", ASCENDING)])
+        db.employees.create_index([("branch_id", ASCENDING)])
+        db.employees.create_index([("status", ASCENDING)])
+        db.attendance_reports.create_index([("company_id", ASCENDING), ("branch_id", ASCENDING), ("date", DESCENDING)])
         # Field Worker Module Indexes
         db.field_assignments.create_index([("company_id", ASCENDING), ("assigned_date", DESCENDING), ("employee_name", ASCENDING)])
         db.field_location_logs.create_index([("company_id", ASCENDING), ("date", DESCENDING), ("employee_name", ASCENDING), ("created_at", DESCENDING)])
@@ -539,21 +549,37 @@ def get_all_companies(search='', page=1, limit=10):
         'data': companies
     }
 
-def get_company_by_id(comp_id):
-    """Fetches company details by ID with current employee count, limit, and registered date."""
-    db = get_db()
+_company_cache = {}
+_company_cache_ttl = 60  # seconds
+
+def invalidate_company_cache(comp_id=None):
+    global _company_cache
+    if comp_id:
+        _company_cache.pop(str(comp_id), None)
+        _company_cache.pop('ALL', None)
+        _company_cache.pop('ARGUS_MASTER', None)
+    else:
+        _company_cache.clear()
+    invalidate_company_modules_cache(comp_id)
+
+def get_company_by_id(comp_id, include_counts=False):
+    """Fetches company details by ID with in-memory caching. When include_counts=False (default), skips expensive employee count queries."""
     if not comp_id:
         return None
-    doc = db.company_admin.find_one({'id': str(comp_id)})
+    key = str(comp_id)
+    now_ts = time.time()
+    if not include_counts and key in _company_cache:
+        t, val = _company_cache[key]
+        if now_ts - t < _company_cache_ttl:
+            return dict(val)
+
+    db = get_db()
+    doc = db.company_admin.find_one({'id': key})
     if not doc:
         doc = db.company_admin.find_one(build_id_filter(comp_id))
     if doc:
         c = clean_doc(doc)
         c['address'] = c.get('address') or c.get('location') or ''
-        c['active_count'] = db.employees.count_documents({'company_id': c['id'], 'status': {'$ne': 'Inactive'}})
-        c['total_count'] = db.employees.count_documents({'company_id': c['id']})
-        c['employee_count'] = c['active_count']
-        c['employee_limit'] = int(c.get('employee_limit') or c['employee_count'] or 50)
         c['shift_hours'] = str(c.get('shift_hours') or '08:00').strip()
         if 'auto_email_reports' not in c:
             c['auto_email_reports'] = True
@@ -566,6 +592,20 @@ def get_company_by_id(comp_id):
         c['radius_meters'] = c['geofence_radius']
         c['status'] = 'Deactive' if str(c.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active'
         c['registered_date'] = format_company_reg_date(c.get('registered_date') or c.get('created_at'))
+        c['employee_limit'] = int(c.get('employee_limit') or 50)
+
+        # Store in in-memory cache
+        _company_cache[key] = (now_ts, dict(c))
+
+        if include_counts:
+            c['active_count'] = db.employees.count_documents({'company_id': c['id'], 'status': {'$ne': 'Inactive'}})
+            c['total_count'] = db.employees.count_documents({'company_id': c['id']})
+            c['employee_count'] = c['active_count']
+            c['employee_limit'] = int(c.get('employee_limit') or c['employee_count'] or 50)
+        else:
+            c['active_count'] = 0
+            c['total_count'] = 0
+            c['employee_count'] = 0
         return c
     return None
 
@@ -698,6 +738,7 @@ def update_company(comp_id, data):
         }
     db.company_admin.update_one(build_id_filter(comp_id), {'$set': upd})
     invalidate_company_modules_cache(comp_id)
+    invalidate_company_cache(comp_id)
     return True
 
 def toggle_company_auto_reports(comp_id, enabled=None):
@@ -715,13 +756,8 @@ def can_company_delete_entries(comp_id):
     """Checks whether a company has permission to delete attendance / report entries."""
     if not comp_id:
         return False
-    db = get_db()
-    comp = db.company_admin.find_one({'id': str(comp_id)})
-    if not comp:
-        comp = db.company_admin.find_one(build_id_filter(comp_id))
-    if not comp:
-        return False
-    return bool(comp.get('can_delete_entries', False))
+    c = get_company_by_id(comp_id, include_counts=False)
+    return bool(c.get('can_delete_entries', False)) if c else False
 
 def toggle_company_delete_entries(comp_id, enabled=None):
     """Toggles or sets the entry deletion permission for a company."""
@@ -734,6 +770,7 @@ def toggle_company_delete_entries(comp_id, enabled=None):
     current_val = bool(comp.get('can_delete_entries', False))
     new_val = not current_val if enabled is None else bool(str(enabled).lower() in ['true', '1', 'yes'])
     db.company_admin.update_one({'_id': comp['_id']}, {'$set': {'can_delete_entries': new_val, 'updated_at': get_ist_now()}})
+    invalidate_company_cache(comp_id)
     return new_val
 
 def is_company_active(comp_id):
@@ -838,14 +875,8 @@ def is_company_support_enabled(comp_id):
     """Checks whether Support & Help is enabled for a company. Defaults to False."""
     if not comp_id or str(comp_id).strip() in ['ALL', 'ARGUS_MASTER']:
         return True  # System Administrator always has access
-    db = get_db()
-    cid_str = str(comp_id).strip()
-    comp = db.company_admin.find_one({'id': cid_str})
-    if not comp:
-        comp = db.company_admin.find_one(build_id_filter(cid_str))
-    if not comp:
-        return False
-    return bool(comp.get('support_enabled', False))
+    c = get_company_by_id(comp_id, include_counts=False)
+    return bool(c.get('support_enabled', False)) if c else False
 
 def toggle_company_support(comp_id, enabled=None):
     """Toggles or sets the support feature permission for a company."""
@@ -861,6 +892,7 @@ def toggle_company_support(comp_id, enabled=None):
     current_val = bool(comp.get('support_enabled', False))
     new_val = not current_val if enabled is None else (str(enabled).lower() in ['true', '1', 'yes'])
     db.company_admin.update_one({'_id': comp['_id']}, {'$set': {'support_enabled': new_val, 'updated_at': get_ist_now()}})
+    invalidate_company_cache(comp_id)
     return new_val
 
 def delete_company(comp_id):
@@ -933,6 +965,8 @@ def delete_company(comp_id):
     # Invalidate dashboard metrics caches
     try:
         invalidate_dashboard_cache(actual_id)
+        invalidate_company_cache(actual_id)
+        invalidate_company_branches_cache(actual_id)
     except Exception:
         pass
         
@@ -6124,15 +6158,36 @@ def get_approved_permissions_for_date(date_str, company_id=None):
             result[str(p['employee_id'])] = cd
     return result
 
+_badge_counts_cache = {}
+_badge_counts_ttl = 20  # seconds
+
+def invalidate_badge_counts_cache(company_id=None):
+    global _badge_counts_cache
+    if company_id:
+        _badge_counts_cache.pop(f"leave:{company_id}", None)
+        _badge_counts_cache.pop(f"support:{company_id}", None)
+        _badge_counts_cache.pop("leave:ALL", None)
+        _badge_counts_cache.pop("support:ALL", None)
+    else:
+        _badge_counts_cache.clear()
+
 def get_pending_leave_requests_count(company_id=None):
     """
-    Returns the count of Pending leave & permission requests.
+    Returns the count of Pending leave & permission requests with 20s TTL caching.
     """
+    key = f"leave:{company_id or 'ALL'}"
+    now_ts = time.time()
+    if key in _badge_counts_cache:
+        t, val = _badge_counts_cache[key]
+        if now_ts - t < _badge_counts_ttl:
+            return val
     db = get_db()
     query = {'status': 'Pending'}
     if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', 'DEFAULT']:
         query['company_id'] = str(company_id)
-    return db.leave_requests.count_documents(query)
+    cnt = db.leave_requests.count_documents(query)
+    _badge_counts_cache[key] = (now_ts, cnt)
+    return cnt
 
 def delete_employee_leave_request(request_id, emp_id=None):
     """
@@ -6651,15 +6706,21 @@ def update_support_ticket_status(ticket_id, new_status, updated_by_name, updated
 
 def get_support_badge_count(company_id=None):
     """
-    Returns un-resolved ticket count for sidebar badge.
-    If company_id: open + in progress count for that company.
-    If None / Super Admin: open + in progress count across all companies.
+    Returns un-resolved ticket count for sidebar badge with 20s TTL caching.
     """
+    key = f"support:{company_id or 'ALL'}"
+    now_ts = time.time()
+    if key in _badge_counts_cache:
+        t, val = _badge_counts_cache[key]
+        if now_ts - t < _badge_counts_ttl:
+            return val
     db = get_db()
     q = {'status': {'$in': ['Open', 'In Progress']}}
     if company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
         q['company_id'] = str(company_id)
-    return db.support_tickets.count_documents(q)
+    cnt = db.support_tickets.count_documents(q)
+    _badge_counts_cache[key] = (now_ts, cnt)
+    return cnt
 
 
 # ==============================================================================
@@ -7346,13 +7407,32 @@ def get_company_modules(comp_id):
     return res
 
 
-def get_company_branches(company_id, status=None):
+_company_branches_cache = {}
+_company_branches_cache_ttl = 60  # seconds
+
+def invalidate_company_branches_cache(company_id=None):
+    global _company_branches_cache
+    if company_id:
+        _company_branches_cache.pop(str(company_id), None)
+        _company_branches_cache.pop('ALL', None)
+        _company_branches_cache.pop('ARGUS_MASTER', None)
+    else:
+        _company_branches_cache.clear()
+
+def get_company_branches(company_id, status=None, include_headcount=True):
     """
     Returns list of branch locations for a given company.
-    Computes live employee headcount per branch.
+    When include_headcount=False, skips employee aggregation for ultra-fast performance.
     """
     if not company_id:
         return []
+    key = str(company_id)
+    now_ts = time.time()
+    if not include_headcount and status is None and key in _company_branches_cache:
+        t, val = _company_branches_cache[key]
+        if now_ts - t < _company_branches_cache_ttl:
+            return [dict(b) for b in val]
+
     db = get_db()
     query = {}
     if str(company_id) not in ['ALL', 'ARGUS_MASTER']:
@@ -7362,24 +7442,30 @@ def get_company_branches(company_id, status=None):
     
     branches = list(db.company_branches.find(query).sort('branch_name', ASCENDING))
     
-    # Calculate live employee count for each branch in 1 single aggregation query
-    emp_match = {'status': {'$nin': ['Deactive', 'Inactive']}}
-    if str(company_id) not in ['ALL', 'ARGUS_MASTER']:
-        emp_match['company_id'] = str(company_id)
-        
-    counts = db.employees.aggregate([
-        {'$match': emp_match},
-        {'$group': {'_id': '$branch_id', 'count': {'$sum': 1}}}
-    ])
-    count_map = {str(c['_id']): c['count'] for c in counts if c['_id']}
+    count_map = {}
+    if include_headcount:
+        emp_match = {'status': {'$nin': ['Deactive', 'Inactive']}}
+        if str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+            emp_match['company_id'] = str(company_id)
+            
+        counts = db.employees.aggregate([
+            {'$match': emp_match},
+            {'$group': {'_id': '$branch_id', 'count': {'$sum': 1}}}
+        ])
+        count_map = {str(c['_id']): c['count'] for c in counts if c['_id']}
     
     cleaned_branches = []
     for b in branches:
         bid = str(b.get('id') or '')
         b['employee_count'] = count_map.get(bid, 0)
+        b['headcount'] = b['employee_count']
         cb = clean_doc(b)
         cb.pop('_id', None)
         cleaned_branches.append(cb)
+        
+    if not include_headcount and status is None:
+        _company_branches_cache[key] = (now_ts, [dict(b) for b in cleaned_branches])
+
     return cleaned_branches
 
 
@@ -7442,6 +7528,7 @@ def create_company_branch(data, company_id):
         'updated_at': now_ist
     }
     db.company_branches.insert_one(doc)
+    invalidate_company_branches_cache(company_id)
     return branch_id
 
 
@@ -7491,6 +7578,8 @@ def update_company_branch(branch_id, data, company_id=None):
             {'branch_id': str(branch_id)},
             {'$set': {'branch_name': upd['branch_name']}}
         )
+    actual_cid = company_id or (res.matched_count and query.get('company_id'))
+    invalidate_company_branches_cache(actual_cid)
     return res.modified_count > 0
 
 
@@ -7509,6 +7598,7 @@ def delete_company_branch(branch_id, company_id=None):
         {'branch_id': str(branch_id)},
         {'$set': {'branch_id': None, 'branch_name': None}}
     )
+    invalidate_company_branches_cache(company_id)
     return True
 
 
