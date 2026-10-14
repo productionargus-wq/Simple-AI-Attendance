@@ -277,66 +277,6 @@
 
 <div class="dash-container">
 
-  <!-- MULTI-BRANCH CONTEXT SWITCHER (NATIVE COMPANY UI) -->
-  {% if company_modules and company_modules.branch_company and branches and branches|length > 0 %}
-  <div class="dash-branch-bar" style="background: #ffffff; border-radius: 12px; border: 1px solid #eef2f6; padding: 10px 16px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-      <div style="display: flex; align-items: center; gap: 6px; color: #0284c7; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-        </svg>
-        <span>Branch View:</span>
-      </div>
-
-      <div style="position: relative; display: inline-flex; align-items: center;">
-        <select id="dashBranchSelector" class="dash-branch-select" onchange="switchDashboardBranch(this.value)" style="padding: 6px 32px 6px 12px; font-size: 12.5px; font-weight: 700; color: #0f172a; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; cursor: pointer; outline: none; appearance: none; -webkit-appearance: none; transition: all 0.15s ease;">
-          <option value="ALL" {% if not active_branch_id %}selected{% endif %}>🏢 All Branches (Consolidated View)</option>
-          {% for b in branches %}
-          <option value="{{ b.id }}" {% if active_branch_id == b.id %}selected{% endif %}>📍 {{ b.branch_name }} ({{ b.district or 'Hub' }})</option>
-          {% endfor %}
-        </select>
-        <svg style="position: absolute; right: 10px; pointer-events: none;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-      </div>
-
-      {% if active_branch %}
-      <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(2, 132, 199, 0.2); border-radius: 6px; padding: 4px 10px; font-size: 11.5px; color: #0369a1; font-weight: 600;">
-        <span>📍 Radius: <strong>{{ active_branch.geofence_radius or 150 }}m</strong></span>
-        {% if active_branch.address %}&bull; <span style="max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ active_branch.address }}</span>{% endif %}
-      </div>
-      {% else %}
-      <div style="font-size: 12px; color: #64748b;">
-        Showing enterprise-wide metrics across <strong>{{ branches|length }}</strong> active branch locations
-      </div>
-      {% endif %}
-    </div>
-
-    <!-- Quick Actions -->
-    <div style="display: flex; align-items: center; gap: 8px;">
-      {% if active_branch %}
-      <a href="/branches/kiosk?branch_id={{ active_branch.id }}" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action btn-primary-action" style="padding: 5px 12px; font-size: 11.5px; background: #059669; border-color: #059669;" title="Launch Attendance Camera Kiosk for {{ active_branch.branch_name }}">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-          <circle cx="12" cy="13" r="4"></circle>
-        </svg>
-        Launch Kiosk ↗
-      </a>
-      {% endif %}
-      {% if session.get('role') in ['super_admin', 'company_admin', 'admin'] %}
-      <a href="{{ url_for('branch_management_page') }}" class="dash-pdf-btn-action" style="padding: 5px 12px; font-size: 11.5px; color: #0284c7; border-color: #bae6fd; background: #f0f9ff;" title="Open Branch Management">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-        Manage Branches
-      </a>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
-
   <!-- ROW 1: 5 Stat Summary Cards -->
   <div class="dash-stats-grid">
     <!-- 1. Total Employees -->
@@ -689,13 +629,4 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
-<script>
-  function switchDashboardBranch(branchId) {
-    var targetUrl = '/dashboard';
-    if (branchId && branchId !== 'ALL') {
-      targetUrl += '?branch_id=' + encodeURIComponent(branchId);
-    }
-    window.location.href = targetUrl;
-  }
-</script>
 {% endblock %}
