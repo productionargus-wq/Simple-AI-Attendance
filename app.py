@@ -535,6 +535,14 @@ def inject_delete_permissions():
     if not has_custom_logo:
         logo_url = url_for('static', filename='images/default_profile.svg')
 
+    # Resolve company modules / subscription entitlements
+    company_modules = {'single_company': True, 'branch_company': True, 'field_worker': True}
+    if not is_super and target_comp_id:
+        try:
+            company_modules = database.get_company_modules(target_comp_id)
+        except Exception:
+            company_modules = {'single_company': True, 'branch_company': False, 'field_worker': False}
+
     return {
         'is_system_admin': is_super,
         'can_delete_entries': comp_can_del,
@@ -543,7 +551,8 @@ def inject_delete_permissions():
         'support_open_count': support_open_count,
         'admin_support_count': admin_support_count,
         'current_company_logo_url': logo_url,
-        'has_company_logo': has_custom_logo
+        'has_company_logo': has_custom_logo,
+        'company_modules': company_modules
     }
 
 import traceback
@@ -4889,6 +4898,14 @@ def field_worker_module_page():
     comp_res = database.get_all_companies(limit=1000) if user_role == 'super_admin' else None
     companies = comp_res.get('data', []) if isinstance(comp_res, dict) else (comp_res or [])
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
+
+    # Check subscription entitlement for Field Worker module
+    if user_role != 'super_admin':
+        comp_modules = database.get_company_modules(active_cid)
+        if not comp_modules.get('field_worker', False):
+            flash('The Field Worker Module is not authorized for your company subscription. Please contact your administrator.', 'warning')
+            return redirect(url_for('dashboard'))
+
     active_comp = database.get_company_by_id(active_cid) or {
         'id': 'ARGUS_MASTER',
         'company_name': 'ARGUS TECHNOLOGIES',
@@ -5276,6 +5293,196 @@ def api_field_worker_export():
         headers, rows, title=title, subtitle=f"Generated on {database.get_ist_now().strftime('%d/%m/%Y %I:%M %p')}", company_info=comp_info
     )
     return send_file(pdf_buf, mimetype='application/pdf', as_attachment=True, download_name=f"{fname}.pdf")
+
+
+# ==============================================================================
+# MULTI-BRANCH ENTERPRISE MODULE (DISTRICT HUBS & EMPLOYEE ALLOCATION)
+# ==============================================================================
+
+@app.route('/branches')
+def branch_management_page():
+    """Renders the Multi-Branch Enterprise Hub UI with district mapping & employee allocation."""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    user_role = session.get('role', 'company_admin')
+    active_cid = _resolve_field_company_id(request.args.get('company_id'))
+
+    # Check subscription entitlement
+    if user_role != 'super_admin':
+        comp_modules = database.get_company_modules(active_cid)
+        if not comp_modules.get('branch_company', False):
+            flash('The Multi-Branch Module is not authorized for your company subscription. Please contact your administrator.', 'warning')
+            return redirect(url_for('dashboard'))
+
+    active_comp = database.get_company_by_id(active_cid) or {
+        'id': 'ARGUS_MASTER',
+        'company_name': 'ARGUS TECHNOLOGIES',
+        'latitude': 11.02980,
+        'longitude': 76.97400,
+        'address': 'SF NO. 515, Bharathiyar Road, Ganapathy, Coimbatore'
+    }
+
+    comp_res = database.get_all_companies(limit=1000) if user_role == 'super_admin' else None
+    companies = comp_res.get('data', []) if isinstance(comp_res, dict) else (comp_res or [])
+
+    branches = database.get_company_branches(active_cid)
+
+    # Get all active employees for this company
+    emp_res = database.get_all_employees(company_id=active_cid, limit=1000)
+    all_employees = emp_res.get('data', []) if isinstance(emp_res, dict) else []
+
+    # Compute high-level KPIs
+    total_branches = len(branches)
+    total_assigned = sum(1 for e in all_employees if e.get('branch_id'))
+    unassigned_count = sum(1 for e in all_employees if not e.get('branch_id'))
+    districts = sorted(list(set(b.get('district') for b in branches if b.get('district'))))
+
+    return render_template(
+        'branch_management_module.html',
+        branches=branches,
+        all_employees=all_employees,
+        active_company=active_comp,
+        active_company_id=active_cid,
+        companies=companies,
+        user_role=user_role,
+        total_branches=total_branches,
+        total_assigned=total_assigned,
+        unassigned_count=unassigned_count,
+        districts=districts,
+        active_tab='BRANCH MANAGEMENT'
+    )
+
+
+@app.route('/api/branches', methods=['GET'])
+def api_get_branches():
+    """Returns JSON list of branches for the active company."""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    active_cid = _resolve_field_company_id(request.args.get('company_id'))
+    branches = database.get_company_branches(active_cid)
+    return jsonify({'success': True, 'company_id': active_cid, 'branches': branches})
+
+
+@app.route('/api/branches', methods=['POST'])
+def api_create_branch():
+    """Creates a new branch for the active company."""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    if session.get('role') not in ['super_admin', 'company_admin']:
+        return jsonify({'success': False, 'error': 'Forbidden'}), 403
+
+    active_cid = _resolve_field_company_id(request.args.get('company_id'))
+    data = request.get_json() or {}
+
+    b_name = (data.get('branch_name') or '').strip()
+    if not b_name:
+        return jsonify({'success': False, 'error': 'Branch name is required'}), 400
+
+    try:
+        branch_id = database.create_company_branch(data, active_cid)
+        return jsonify({'success': True, 'branch_id': branch_id, 'message': f'Branch "{b_name}" registered successfully!'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/branches/<branch_id>', methods=['PUT'])
+def api_update_branch(branch_id):
+    """Updates an existing branch location."""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    if session.get('role') not in ['super_admin', 'company_admin']:
+        return jsonify({'success': False, 'error': 'Forbidden'}), 403
+
+    active_cid = _resolve_field_company_id(request.args.get('company_id'))
+    data = request.get_json() or {}
+
+    try:
+        success = database.update_company_branch(branch_id, data, active_cid)
+        return jsonify({'success': True, 'message': 'Branch updated successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/branches/<branch_id>', methods=['DELETE'])
+def api_delete_branch(branch_id):
+    """Deletes a branch and safely unassigns its employees."""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    if session.get('role') not in ['super_admin', 'company_admin']:
+        return jsonify({'success': False, 'error': 'Forbidden'}), 403
+
+    active_cid = _resolve_field_company_id(request.args.get('company_id'))
+    try:
+        success = database.delete_company_branch(branch_id, active_cid)
+        return jsonify({'success': True, 'message': 'Branch deleted and employees unassigned successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/branches/assign-employee', methods=['POST'])
+def api_assign_employee_branch():
+    """Assigns one or more employees to a branch (or unassigns if branch_id is empty)."""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    if session.get('role') not in ['super_admin', 'company_admin']:
+        return jsonify({'success': False, 'error': 'Forbidden'}), 403
+
+    active_cid = _resolve_field_company_id(request.args.get('company_id'))
+    data = request.get_json() or {}
+
+    branch_id = data.get('branch_id')
+    emp_ids = data.get('employee_ids') or []
+    single_emp_id = data.get('employee_id')
+    if single_emp_id and single_emp_id not in emp_ids:
+        emp_ids.append(single_emp_id)
+
+    if not emp_ids:
+        return jsonify({'success': False, 'error': 'No employee selected for assignment'}), 400
+
+    try:
+        for eid in emp_ids:
+            database.assign_employee_to_branch(eid, branch_id, active_cid)
+        return jsonify({'success': True, 'message': f'Successfully updated branch assignment for {len(emp_ids)} employee(s)'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/branches/stats', methods=['GET'])
+def api_branch_stats():
+    """Returns today's attendance summary grouped by branch."""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    active_cid = _resolve_field_company_id(request.args.get('company_id'))
+    stats = database.get_branch_attendance_summary(active_cid)
+    return jsonify({'success': True, 'data': stats})
+
+
+@app.route('/api/branches/set-active', methods=['POST'])
+def api_set_active_branch():
+    """Sets or clears the active branch filter in session for top navigation."""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    data = request.get_json() or {}
+    bid = data.get('branch_id')
+    if not bid or bid in ['ALL', 'all', '', 'none']:
+        session.pop('active_branch_id', None)
+        session.pop('active_branch_name', None)
+        return jsonify({'success': True, 'active_branch_id': None, 'active_branch_name': 'All Branches'})
+
+    active_cid = _resolve_field_company_id(None)
+    branch = database.get_branch_by_id(bid, active_cid)
+    if branch:
+        session['active_branch_id'] = str(bid)
+        session['active_branch_name'] = branch.get('branch_name')
+        return jsonify({'success': True, 'active_branch_id': str(bid), 'active_branch_name': branch.get('branch_name')})
+
+    return jsonify({'success': False, 'error': 'Branch not found'}), 404
+
+
 
 
 if __name__ == '__main__':

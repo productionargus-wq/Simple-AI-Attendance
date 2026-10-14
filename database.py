@@ -432,6 +432,11 @@ def create_company(data):
         'radius_meters': float(data.get('geofence_radius') or data.get('radius_meters') or 200.0),
         'can_delete_entries': str(data.get('can_delete_entries', False)).lower() in ['true', '1', 'yes'],
         'support_enabled': str(data.get('support_enabled', False)).lower() in ['true', '1', 'yes'],
+        'modules': {
+            'single_company': bool(data.get('modules', {}).get('single_company', True) if isinstance(data.get('modules'), dict) else str(data.get('module_single_company', True)).lower() in ['true', '1', 'yes', 'on']),
+            'branch_company': bool(data.get('modules', {}).get('branch_company', False) if isinstance(data.get('modules'), dict) else str(data.get('module_branch_company', False)).lower() in ['true', '1', 'yes', 'on']),
+            'field_worker': bool(data.get('modules', {}).get('field_worker', False) if isinstance(data.get('modules'), dict) else str(data.get('module_field_worker', False)).lower() in ['true', '1', 'yes', 'on'])
+        },
         'registered_date': reg_date_str,
         'created_at': now_ist,
         'updated_at': now_ist
@@ -678,6 +683,19 @@ def update_company(comp_id, data):
                 upd['radius_meters'] = r_num
         except Exception:
             pass
+    if 'modules' in data and isinstance(data['modules'], dict):
+        raw_m = data['modules']
+        upd['modules'] = {
+            'single_company': bool(raw_m.get('single_company', True)),
+            'branch_company': bool(raw_m.get('branch_company', False)),
+            'field_worker': bool(raw_m.get('field_worker', False))
+        }
+    elif any(k.startswith('module_') for k in data.keys()):
+        upd['modules'] = {
+            'single_company': str(data.get('module_single_company', True)).lower() in ['true', '1', 'yes', 'on'],
+            'branch_company': str(data.get('module_branch_company', False)).lower() in ['true', '1', 'yes', 'on'],
+            'field_worker': str(data.get('module_field_worker', False)).lower() in ['true', '1', 'yes', 'on']
+        }
     db.company_admin.update_one(build_id_filter(comp_id), {'$set': upd})
     return True
 
@@ -7178,4 +7196,326 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
     return reports
 
 
+# =========================================================================
+# MODULE ENTITLEMENTS & MULTI-BRANCH ENTERPRISE MANAGEMENT
+# =========================================================================
+
+def get_company_modules(comp_id):
+    """
+    Returns a dict of active modules for a given company.
+    Guarantees backwards-compatibility for existing companies.
+    """
+    if not comp_id or str(comp_id) in ['ALL', 'ARGUS_MASTER']:
+        return {
+            'single_company': True,
+            'branch_company': True,
+            'field_worker': True
+        }
+    comp = get_company_by_id(comp_id)
+    if not comp:
+        return {
+            'single_company': True,
+            'branch_company': False,
+            'field_worker': False
+        }
+    mods = comp.get('modules')
+    if isinstance(mods, dict):
+        return {
+            'single_company': bool(mods.get('single_company', True)),
+            'branch_company': bool(mods.get('branch_company', False)),
+            'field_worker': bool(mods.get('field_worker', False))
+        }
+    
+    # Backwards-compatible default: MATT TECH gets branch & field worker enabled for verification
+    c_name = str(comp.get('company_name', '')).upper()
+    is_matt_tech = 'MATT' in c_name
+    return {
+        'single_company': True,
+        'branch_company': is_matt_tech,
+        'field_worker': is_matt_tech
+    }
+
+
+def get_company_branches(company_id, status=None):
+    """
+    Returns list of branch locations for a given company.
+    Computes live employee headcount per branch.
+    """
+    if not company_id:
+        return []
+    db = get_db()
+    query = {}
+    if str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        query['company_id'] = str(company_id)
+    if status:
+        query['status'] = status
+    
+    branches = list(db.company_branches.find(query).sort('branch_name', ASCENDING))
+    
+    # Calculate live employee count for each branch
+    for b in branches:
+        bid = b.get('id')
+        emp_filter = {
+            'branch_id': bid,
+            'status': {'$nin': ['Deactive', 'Inactive']}
+        }
+        if b.get('company_id'):
+            emp_filter['company_id'] = b.get('company_id')
+        b['employee_count'] = db.employees.count_documents(emp_filter)
+        clean_doc(b)
+    return branches
+
+
+def get_branch_by_id(branch_id, company_id=None):
+    """Returns single branch document by ID."""
+    if not branch_id:
+        return None
+    db = get_db()
+    query = {'id': str(branch_id)}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        query['company_id'] = str(company_id)
+    b = db.company_branches.find_one(query)
+    return clean_doc(b)
+
+
+def create_company_branch(data, company_id):
+    """Creates a new branch location for a company."""
+    if not company_id:
+        raise ValueError("Company ID is required to create a branch.")
+    b_name = (data.get('branch_name') or '').strip()
+    if not b_name:
+        raise ValueError("Branch Name is required.")
+        
+    db = get_db()
+    now_ist = get_ist_now()
+    branch_id = str(data.get('id') or f"branch_{int(time.time() * 1000)}")
+    
+    lat = parse_coordinate_value(data.get('latitude'))
+    lng = parse_coordinate_value(data.get('longitude'))
+    try:
+        rad = float(data.get('geofence_radius') or 150.0)
+    except (ValueError, TypeError):
+        rad = 150.0
+    
+    doc = {
+        'id': branch_id,
+        'company_id': str(company_id),
+        'branch_name': b_name,
+        'branch_code': (data.get('branch_code') or '').strip().upper(),
+        'district': (data.get('district') or '').strip(),
+        'address': (data.get('address') or '').strip(),
+        'latitude': lat,
+        'longitude': lng,
+        'geofence_radius': rad,
+        'branch_head_name': (data.get('branch_head_name') or '').strip(),
+        'branch_head_email': (data.get('branch_head_email') or '').strip().lower(),
+        'branch_head_phone': (data.get('branch_head_phone') or '').strip(),
+        'status': data.get('status', 'Active'),
+        'created_at': now_ist,
+        'updated_at': now_ist
+    }
+    db.company_branches.insert_one(doc)
+    return branch_id
+
+
+def update_company_branch(branch_id, data, company_id=None):
+    """Updates an existing branch location."""
+    if not branch_id:
+        raise ValueError("Branch ID is required.")
+    db = get_db()
+    now_ist = get_ist_now()
+    upd = {'updated_at': now_ist}
+    
+    if 'branch_name' in data:
+        upd['branch_name'] = str(data['branch_name']).strip()
+    if 'branch_code' in data:
+        upd['branch_code'] = str(data['branch_code']).strip().upper()
+    if 'district' in data:
+        upd['district'] = str(data['district']).strip()
+    if 'address' in data:
+        upd['address'] = str(data['address']).strip()
+    if 'latitude' in data:
+        upd['latitude'] = parse_coordinate_value(data['latitude'])
+    if 'longitude' in data:
+        upd['longitude'] = parse_coordinate_value(data['longitude'])
+    if 'geofence_radius' in data:
+        try:
+            upd['geofence_radius'] = float(data['geofence_radius'])
+        except (ValueError, TypeError):
+            pass
+    if 'branch_head_name' in data:
+        upd['branch_head_name'] = str(data['branch_head_name']).strip()
+    if 'branch_head_email' in data:
+        upd['branch_head_email'] = str(data['branch_head_email']).strip().lower()
+    if 'branch_head_phone' in data:
+        upd['branch_head_phone'] = str(data['branch_head_phone']).strip()
+    if 'status' in data:
+        upd['status'] = data['status']
+        
+    query = {'id': str(branch_id)}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        query['company_id'] = str(company_id)
+        
+    res = db.company_branches.update_one(query, {'$set': upd})
+    
+    # If branch_name changed, sync with assigned employees
+    if 'branch_name' in upd:
+        db.employees.update_many(
+            {'branch_id': str(branch_id)},
+            {'$set': {'branch_name': upd['branch_name']}}
+        )
+    return res.modified_count > 0
+
+
+def delete_company_branch(branch_id, company_id=None):
+    """Deletes a branch and unassigns employees linked to it."""
+    if not branch_id:
+        return False
+    db = get_db()
+    query = {'id': str(branch_id)}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        query['company_id'] = str(company_id)
+        
+    db.company_branches.delete_one(query)
+    # Unassign employees linked to this branch
+    db.employees.update_many(
+        {'branch_id': str(branch_id)},
+        {'$set': {'branch_id': None, 'branch_name': None}}
+    )
+    return True
+
+
+def assign_employee_to_branch(employee_id, branch_id, company_id=None):
+    """Assigns or transfers an employee to a specific branch."""
+    if not employee_id:
+        raise ValueError("Employee ID is required.")
+    db = get_db()
+    
+    if not branch_id:
+        # Clear branch allocation
+        db.employees.update_one(
+            {'id': str(employee_id)},
+            {'$set': {'branch_id': None, 'branch_name': None}}
+        )
+        return True
+        
+    branch = get_branch_by_id(branch_id, company_id)
+    if not branch:
+        raise ValueError("Selected branch not found.")
+        
+    db.employees.update_one(
+        {'id': str(employee_id)},
+        {'$set': {
+            'branch_id': str(branch_id),
+            'branch_name': branch.get('branch_name')
+        }}
+    )
+    return True
+
+
+def get_branch_attendance_summary(company_id=None):
+    """
+    Returns branch-wise attendance summary for today:
+    Total employees, Present today, Absent today, and On Leave today for each branch.
+    """
+    db = get_db()
+    branches = get_company_branches(company_id)
+    if not branches:
+        return []
+    
+    t_filter = {}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        t_filter['company_id'] = str(company_id)
+        
+    now_ist = get_ist_now()
+    today_str = now_ist.strftime('%Y-%m-%d')
+    today_slash = now_ist.strftime('%d/%m/%Y')
+    
+    # Batch query today's punches
+    p_filter = dict(t_filter)
+    p_filter['date'] = today_str
+    att_docs = {a.get('employee_name'): a for a in db.attendance.find(p_filter)}
+    
+    ar_today_filter = dict(t_filter)
+    ar_today_filter['date'] = today_str
+    ar_docs = {a.get('employee_name'): a for a in db.attendance_reports.find(ar_today_filter)}
+    
+    l_filter = dict(t_filter)
+    l_filter['entry_time'] = {'$regex': today_slash}
+    live_docs = {l.get('employee_name'): l for l in db.live_entries.find(l_filter)}
+    
+    m_filter = dict(t_filter)
+    m_filter['$or'] = [
+        {'entry_date': today_str},
+        {'submitted_at': {'$regex': today_str}},
+        {'submitted_at': {'$regex': today_slash}}
+    ]
+    manual_docs = {m.get('employee_name'): m for m in db.manual_entries.find(m_filter)}
+    
+    timeout_today = {t.get('employee_name'): t for t in db.timeout_entries.find({**t_filter, '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]})}
+    combined_present = set(k for k in att_docs.keys() if k).union(
+        set(k for k in ar_docs.keys() if k),
+        set(k for k in live_docs.keys() if k),
+        set(k for k in manual_docs.keys() if k),
+        set(k for k in timeout_today.keys() if k)
+    )
+    
+    approved_leaves_today = get_approved_leaves_for_date(today_str, company_id=company_id)
+    
+    # Query all active employees with branch_id
+    emp_query = {**t_filter, 'status': {'$ne': 'Inactive'}}
+    all_emps = list(db.employees.find(emp_query, {'id': 1, 'employee_name': 1, 'branch_id': 1}))
+    
+    # Group employees by branch
+    branch_map = {}
+    for b in branches:
+        bid = b.get('id')
+        branch_map[bid] = {
+            'branch_id': bid,
+            'branch_name': b.get('branch_name'),
+            'branch_code': b.get('branch_code'),
+            'district': b.get('district'),
+            'address': b.get('address'),
+            'latitude': b.get('latitude'),
+            'longitude': b.get('longitude'),
+            'geofence_radius': b.get('geofence_radius', 150),
+            'branch_head_name': b.get('branch_head_name'),
+            'status': b.get('status', 'Active'),
+            'total_employees': 0,
+            'present_count': 0,
+            'leave_count': 0,
+            'absent_count': 0
+        }
+    
+    unassigned_stat = {
+        'branch_id': 'unassigned',
+        'branch_name': 'Unassigned HQ',
+        'district': 'Main Office',
+        'status': 'Active',
+        'total_employees': 0,
+        'present_count': 0,
+        'leave_count': 0,
+        'absent_count': 0
+    }
+    
+    for emp in all_emps:
+        bid = emp.get('branch_id')
+        ename = emp.get('employee_name')
+        target_stat = branch_map.get(bid, unassigned_stat) if bid else unassigned_stat
+        target_stat['total_employees'] += 1
+        
+        is_pres = ename in combined_present
+        is_leave = (ename in approved_leaves_today) or (str(emp.get('id')) in approved_leaves_today)
+        
+        if is_pres:
+            target_stat['present_count'] += 1
+        elif is_leave:
+            target_stat['leave_count'] += 1
+        else:
+            target_stat['absent_count'] += 1
+            
+    result = list(branch_map.values())
+    if unassigned_stat['total_employees'] > 0:
+        result.append(unassigned_stat)
+    return result
 

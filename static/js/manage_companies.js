@@ -425,6 +425,20 @@ document.addEventListener('DOMContentLoaded', function () {
               : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Disabled</span>`;
           }
 
+          const viewCompanyModulesBadges = document.getElementById('viewCompanyModulesBadges');
+          if (viewCompanyModulesBadges) {
+            const m = comp.modules || {};
+            const isSingle = m.single_company !== false;
+            const isBranch = !!m.branch_company;
+            const isField = !!m.field_worker;
+            let mHtml = '';
+            if (isSingle) mHtml += `<span class="status-pill" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-size:11px;font-weight:700;"><i class="fa-solid fa-building" style="margin-right:4px;"></i> Single Office</span>`;
+            if (isBranch) mHtml += `<span class="status-pill" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-size:11px;font-weight:700;"><i class="fa-solid fa-code-branch" style="margin-right:4px;"></i> Multi-Branch</span>`;
+            if (isField) mHtml += `<span class="status-pill" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-size:11px;font-weight:700;"><i class="fa-solid fa-location-crosshairs" style="margin-right:4px;"></i> Field Worker</span>`;
+            if (!mHtml) mHtml = `<span class="status-pill status-inactive">No modules assigned</span>`;
+            viewCompanyModulesBadges.innerHTML = mHtml;
+          }
+
           if (viewCompanyModal) {
             viewCompanyModal.classList.add('active');
           }
@@ -460,8 +474,15 @@ document.addEventListener('DOMContentLoaded', function () {
           if (inputDailyReportTime) inputDailyReportTime.value = comp.daily_report_time || '07:00';
           if (inputMonthlyReportDay) inputMonthlyReportDay.value = String(comp.monthly_report_day || 1);
           if (inputCanDeleteEntries) inputCanDeleteEntries.value = (comp.can_delete_entries === true) ? 'true' : 'false';
-          if (inputSupportEnabled) inputSupportEnabled.value = (comp.support_enabled === true) ? 'true' : 'false';
           if (inputGeofenceRadius) inputGeofenceRadius.value = comp.geofence_radius || comp.radius_meters || 200;
+
+          const inModSingle = document.getElementById('inputModSingleCompany');
+          const inModBranch = document.getElementById('inputModBranchCompany');
+          const inModField = document.getElementById('inputModFieldWorker');
+          const m = comp.modules || {};
+          if (inModSingle) inModSingle.checked = !comp.modules || m.single_company !== false;
+          if (inModBranch) inModBranch.checked = !!m.branch_company;
+          if (inModField) inModField.checked = !!m.field_worker;
 
           companyModal.classList.add('active');
         });
@@ -584,6 +605,12 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inputCanDeleteEntries) inputCanDeleteEntries.value = 'false';
       if (inputSupportEnabled) inputSupportEnabled.value = 'false';
       if (inputGeofenceRadius) inputGeofenceRadius.value = 200;
+      const inModSingle = document.getElementById('inputModSingleCompany');
+      const inModBranch = document.getElementById('inputModBranchCompany');
+      const inModField = document.getElementById('inputModFieldWorker');
+      if (inModSingle) inModSingle.checked = true;
+      if (inModBranch) inModBranch.checked = false;
+      if (inModField) inModField.checked = false;
       companyModal.classList.add('active');
     });
   }
@@ -675,7 +702,12 @@ document.addEventListener('DOMContentLoaded', function () {
         monthly_report_day: parseInt(formData.get('monthly_report_day'), 10) || 1,
         can_delete_entries: formData.get('can_delete_entries') === 'true',
         support_enabled: formData.get('support_enabled') === 'true',
-        geofence_radius: parseFloat(formData.get('geofence_radius')) || 200
+        geofence_radius: parseFloat(formData.get('geofence_radius')) || 200,
+        modules: {
+          single_company: document.getElementById('inputModSingleCompany') ? document.getElementById('inputModSingleCompany').checked : true,
+          branch_company: document.getElementById('inputModBranchCompany') ? document.getElementById('inputModBranchCompany').checked : false,
+          field_worker: document.getElementById('inputModFieldWorker') ? document.getElementById('inputModFieldWorker').checked : false
+        }
       };
 
       try {

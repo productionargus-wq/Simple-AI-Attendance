@@ -28,8 +28,16 @@
       </button>
     </div>
     
-    <div class="nav-center">
+    <div class="nav-center" style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
       <div class="nav-title">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
+      {% if company_modules and company_modules.branch_company %}
+      <a href="/branches" title="Multi-Branch Network Active - Click to Manage" style="text-decoration: none;">
+        <span class="top-nav-branch-pill" style="display: inline-flex; align-items: center; gap: 5px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 9999px; letter-spacing: 0.3px; transition: all 0.2s ease;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          <span>{{ session.get('active_branch_name') or 'Multi-Branch Network' }}</span>
+        </span>
+      </a>
+      {% endif %}
     </div>
     
     <div class="nav-right" style="display: flex; align-items: center; justify-content: flex-end;">
@@ -79,10 +87,21 @@
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
           <span>Employee Details</span>
         </a>
+        {% if company_modules and company_modules.branch_company %}
+        <a href="/branches" id="sidebarBranchModuleBtn" data-no-spa="true" class="nav-item-btn {% if active_tab == 'BRANCH MANAGEMENT' %}active{% endif %}">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+          </svg>
+          <span style="color: #38bdf8; font-weight: 700;">Multi-Branch Hub</span>
+        </a>
+        {% endif %}
+        {% if company_modules and company_modules.field_worker %}
         <a href="/field-worker" id="sidebarFieldWorkerBtn" data-no-spa="true" class="nav-item-btn {% if active_tab == 'FIELD WORKER MODULE' %}active{% endif %}">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
           <span style="color: #fbbf24; font-weight: 700;">Field Worker Module</span>
         </a>
+        {% endif %}
         {% if session.get('role') in ['super_admin', 'company_admin'] %}
         <a href="{{ url_for('leave_permission') }}" class="nav-item-btn {% if active_tab == 'LEAVE & PERMISSION' %}active{% endif %}">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -240,6 +259,39 @@
           var span = fwBtn.querySelector('span');
           if (span) {
             span.textContent = 'Opening...';
+          }
+        });
+      }
+
+      var brBtn = document.getElementById('sidebarBranchModuleBtn');
+      if (brBtn) {
+        var brPrefetched = false;
+        function prefetchBr() {
+          if (brPrefetched) return;
+          brPrefetched = true;
+          try {
+            var l = document.createElement('link');
+            l.rel = 'prefetch';
+            l.href = '/branches';
+            document.head.appendChild(l);
+            fetch('/branches', { priority: 'low' }).catch(function () {});
+          } catch (e) {}
+        }
+        brBtn.addEventListener('mouseenter', prefetchBr, { passive: true, once: true });
+        brBtn.addEventListener('touchstart', prefetchBr, { passive: true, once: true });
+        brBtn.addEventListener('focus', prefetchBr, { passive: true, once: true });
+
+        brBtn.addEventListener('click', function () {
+          var pb = document.getElementById('appTopProgressBar');
+          if (pb) {
+            pb.style.opacity = '1';
+            pb.style.width = '70%';
+          }
+          brBtn.style.opacity = '0.75';
+          brBtn.style.pointerEvents = 'none';
+          var span = brBtn.querySelector('span');
+          if (span) {
+            span.textContent = 'Opening Hub...';
           }
         });
       }

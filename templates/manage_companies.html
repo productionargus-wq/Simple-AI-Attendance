@@ -277,6 +277,61 @@
             </select>
             <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Controls if company admin has access to the Support & Help tab.</span>
           </div>
+
+          <!-- Field: Authorized Company Modules (Feature Toggles) -->
+          <div class="form-group" style="grid-column: span 2; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin-top: 4px;">
+            <label class="form-label" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.4px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              <span>Authorized Platform Modules &amp; Subscriptions</span>
+            </label>
+            <div style="font-size: 11.5px; color: #64748b; margin-bottom: 12px; line-height: 1.4;">
+              Select the feature modules granted to this client. Only checked modules will be accessible in their navigation and portal.
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <!-- Module 1: Single Company -->
+              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
+                <input type="checkbox" id="inputModSingleCompany" name="module_single_company" checked style="width: 17px; height: 17px; margin-top: 2px; accent-color: #2563eb; cursor: pointer;">
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                    <span>1. Single Company Module</span>
+                    <span style="font-size: 10px; background: #eff6ff; color: #1d4ed8; padding: 1px 6px; border-radius: 10px; font-weight: 700;">Base Office</span>
+                  </div>
+                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                    Enables core company attendance, AI gate camera punch, basic shift management, leave permissions, and monthly payroll.
+                  </div>
+                </div>
+              </label>
+
+              <!-- Module 2: Branch Company -->
+              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
+                <input type="checkbox" id="inputModBranchCompany" name="module_branch_company" style="width: 17px; height: 17px; margin-top: 2px; accent-color: #0284c7; cursor: pointer;">
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                    <span>2. Multi-Branch Enterprise Module</span>
+                    <span style="font-size: 10px; background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 10px; font-weight: 700;">Multi-Site Hub</span>
+                  </div>
+                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                    Enables multiple regional branches (e.g., Chennai, Coimbatore), individual branch geofences, branch manager logins, and district-filtered attendance &amp; payroll.
+                  </div>
+                </div>
+              </label>
+
+              <!-- Module 3: Field Worker -->
+              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
+                <input type="checkbox" id="inputModFieldWorker" name="module_field_worker" style="width: 17px; height: 17px; margin-top: 2px; accent-color: #d97706; cursor: pointer;">
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                    <span>3. Field Worker Module</span>
+                    <span style="font-size: 10px; background: #fef3c7; color: #b45309; padding: 1px 6px; border-radius: 10px; font-weight: 700;">GPS &amp; CRM</span>
+                  </div>
+                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                    Enables live GPS route telemetry, customer visit CRM, KM travel allowances, detour detection, and field attendance terminal.
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -436,6 +491,11 @@
         <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
           <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Support & Help Access</div>
           <div id="viewCompanySupportBadge" style="margin-top: 4px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; grid-column: span 2;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">Authorized Platform Modules</div>
+          <div id="viewCompanyModulesBadges" style="display: flex; flex-wrap: wrap; gap: 8px;">-</div>
         </div>
       </div>
     </div>
