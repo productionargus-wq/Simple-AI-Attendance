@@ -858,22 +858,177 @@
       .fw-split-50-50 {
         grid-template-columns: 1fr;
       }
+      .fw-main-content {
+        padding: 16px 14px 80px 14px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .fw-main-content {
+        padding: 14px 12px 85px 12px;
+      }
+      .content-banner-card {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 12px;
+      }
+      .fw-banner-controls {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .fw-filter-pill {
+        flex: 1 1 calc(50% - 6px);
+        min-width: 130px;
+        justify-content: space-between;
+      }
+      .fw-filter-pill select,
+      .fw-filter-pill input {
+        width: 100%;
+        min-width: 0;
+      }
+      .export-btn-group {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .export-btn-group .btn-export {
+        flex: 1 1 calc(50% - 6px);
+        justify-content: center;
+        text-align: center;
+      }
     }
 
     @media (max-width: 640px) {
       .fw-kpi-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
       }
       .fw-form-grid-4,
       .fw-form-grid-3,
       .fw-form-grid-2,
       .fw-sim-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
       }
       .fw-col-span-2,
       .fw-col-span-3,
       .fw-col-span-4 {
-        grid-column: span 1;
+        grid-column: span 1 !important;
+      }
+      #fieldLiveMap {
+        height: 290px;
+      }
+      #assignPickerMap {
+        height: 210px;
+      }
+      .fw-camera-box {
+        height: 215px;
+      }
+      .fw-card-header {
+        padding: 10px 12px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      .fw-card-body {
+        padding: 12px 10px;
+      }
+      /* Modal Mobile System */
+      .fw-modal-backdrop {
+        padding: 8px;
+        align-items: flex-end;
+      }
+      .fw-modal-dialog {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 94vh !important;
+        margin: 0 !important;
+        border-radius: 14px 14px 0 0 !important;
+      }
+      .fw-modal-header {
+        padding: 12px 14px;
+      }
+      .fw-modal-header .fw-card-subtitle {
+        display: none;
+      }
+      .fw-modal-body {
+        padding: 14px 12px;
+        max-height: calc(94vh - 110px);
+        -webkit-overflow-scrolling: touch;
+      }
+      .fw-modal-footer {
+        padding: 10px 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .fw-modal-footer .fw-btn {
+        flex: 1 1 calc(50% - 6px);
+        min-height: 38px;
+        justify-content: center;
+      }
+      /* Table toolbars on mobile */
+      .table-toolbar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+      }
+      .table-toolbar > div {
+        width: 100% !important;
+      }
+      .table-toolbar .search-box-wrapper {
+        width: 100% !important;
+        flex: 1;
+      }
+      .table-toolbar .search-box-wrapper .search-input {
+        width: 100% !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .fw-main-content {
+        padding: 10px 6px 90px 6px;
+      }
+      .top-navbar {
+        padding: 0 8px;
+      }
+      .top-navbar .nav-title {
+        font-size: 11.5px;
+        max-width: 120px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .top-navbar .badge-neutral {
+        font-size: 10px;
+        padding: 2px 6px;
+        max-width: 115px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .fw-kpi-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .fw-kpi-card {
+        padding: 10px 12px;
+      }
+      .fw-filter-pill {
+        flex: 1 1 100%;
+        width: 100%;
+      }
+      .fw-modal-dialog {
+        border-radius: 12px 12px 0 0 !important;
+        max-height: 96vh !important;
+      }
+      .fw-modal-body {
+        max-height: calc(96vh - 105px);
+        padding: 12px 8px;
+      }
+      .fw-modal-footer .fw-btn {
+        flex: 1 1 100%;
       }
     }
 
@@ -1578,8 +1733,8 @@
                   <div class="fw-form-grid-2" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px; margin-bottom:14px; align-items:center;">
                     <div class="fw-field">
                       <label class="fw-label"><i class="fa-solid fa-camera" style="color:#0284c7; margin-right:4px;"></i> Face Biometrics Photo (For Main '/' Camera Punch)</label>
-                      <div style="display:flex; gap:8px; align-items:center;">
-                        <input type="file" id="fwRegPhotoFile" class="fw-input" accept="image/*" onchange="handlePhotoUpload(this)" style="padding-top:4px;">
+                      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <input type="file" id="fwRegPhotoFile" class="fw-input" accept="image/*" onchange="handlePhotoUpload(this)" style="padding-top:4px; min-width:0; flex:1 1 180px;">
                         <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="triggerWebcamCapture()" title="Capture from webcam">
                           <i class="fa-solid fa-video"></i> Camera Snap
                         </button>
@@ -1883,7 +2038,7 @@
                   <canvas id="fwPunchCanvas" class="d-none"></canvas>
                 </div>
 
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
                   <div style="display:flex; gap:8px;">
                     <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="startFieldPunchCamera()">
                       <i class="fa-solid fa-video"></i> Start Camera
