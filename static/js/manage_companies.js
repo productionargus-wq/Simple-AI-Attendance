@@ -121,14 +121,667 @@ document.addEventListener('DOMContentLoaded', function () {
     return dateStr;
   }
 
+  // View Toggle State (Default to 'grid')
+  let currentView = localStorage.getItem('argus_company_view') || 'grid';
+  const btnCompanyListView = document.getElementById('btnCompanyListView');
+  const btnCompanyGridView = document.getElementById('btnCompanyGridView');
+  const companyListSection = document.getElementById('companyListSection');
+  const companyGridSection = document.getElementById('companyGridSection');
+
+  // Sorting state
+  let currentSortCol = null;
+  let currentSortDir = 'asc';
+
+  function getCompanyInitials(name) {
+    if (!name) return 'CO';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  }
+
+  function getCompanyLogoHtml(comp, sizeClass = 'comp-table-logo', placeholderClass = 'comp-avatar-placeholder') {
+    const logoFile = comp.logo || comp.company_logo || comp.logo_filename;
+    const logoSrc = comp.logo_data || (logoFile ? (logoFile.startsWith('data:') ? logoFile : `/uploads/${encodeURIComponent(logoFile)}`) : '');
+    const initials = getCompanyInitials(comp.company_name);
+    if (logoSrc) {
+      return `<img src="${logoSrc}" class="${sizeClass}" alt="${escapeHtml(comp.company_name)}" onerror="this.outerHTML='<div class=\\'${placeholderClass}\\'>${initials}</div>'">`;
+    }
+    return `<div class="${placeholderClass}">${initials}</div>`;
+  }
+
+  function updateViewDisplay() {
+    if (currentView === 'grid') {
+      if (btnCompanyGridView) btnCompanyGridView.classList.add('active');
+      if (btnCompanyListView) btnCompanyListView.classList.remove('active');
+      if (companyListSection) companyListSection.style.display = 'none';
+      if (companyGridSection) companyGridSection.style.display = 'grid';
+      renderCompanyGridCards(loadedCompanies);
+    } else {
+      if (btnCompanyListView) btnCompanyListView.classList.add('active');
+      if (btnCompanyGridView) btnCompanyGridView.classList.remove('active');
+      if (companyListSection) companyListSection.style.display = 'block';
+      if (companyGridSection) companyGridSection.style.display = 'none';
+      renderCompanyTableRows(loadedCompanies, (currentPage - 1) * currentLimit);
+    }
+    attachCompanyRowEvents();
+  }
+
+  if (btnCompanyListView && btnCompanyGridView) {
+    btnCompanyListView.addEventListener('click', function () {
+      currentView = 'list';
+      localStorage.setItem('argus_company_view', 'list');
+      updateViewDisplay();
+    });
+
+    btnCompanyGridView.addEventListener('click', function () {
+      currentView = 'grid';
+      localStorage.setItem('argus_company_view', 'grid');
+      updateViewDisplay();
+    });
+  }
+
+  // Column header sorting
+  document.querySelectorAll('#companyDataTable th[data-col]').forEach(th => {
+    th.addEventListener('click', function () {
+      const col = this.getAttribute('data-col');
+      if (currentSortCol === col) {
+        currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSortCol = col;
+        currentSortDir = 'asc';
+      }
+
+      document.querySelectorAll('#companyDataTable th[data-col]').forEach(h => {
+        const icon = h.querySelector('.sort-icon');
+        if (icon) icon.textContent = '⇅';
+      });
+      const thisIcon = this.querySelector('.sort-icon');
+      if (thisIcon) thisIcon.textContent = currentSortDir === 'asc' ? '▲' : '▼';
+
+      sortAndRenderCompanies();
+    });
+  });
+
+  function sortAndRenderCompanies() {
+    if (currentSortCol && loadedCompanies && loadedCompanies.length > 0) {
+      loadedCompanies.sort((a, b) => {
+        let vA = a[currentSortCol] || '';
+        let vB = b[currentSortCol] || '';
+        if (typeof vA === 'string') vA = vA.toLowerCase();
+        if (typeof vB === 'string') vB = vB.toLowerCase();
+        if (vA < vB) return currentSortDir === 'asc' ? -1 : 1;
+        if (vA > vB) return currentSortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    if (currentView === 'grid') {
+      renderCompanyGridCards(loadedCompanies);
+    } else {
+      renderCompanyTableRows(loadedCompanies, (currentPage - 1) * currentLimit);
+    }
+    attachCompanyRowEvents();
+  }
+
+  function renderCompanyTableRows(companies, startIndex = 0) {
+    if (!companyTableBody) return;
+    companyTableBody.innerHTML = '';
+
+    if (!companies || companies.length === 0) {
+      companyTableBody.innerHTML = `
+        <tr>
+          <td colspan="15" style="text-align: center; padding: 28px; color: #6c757d;">
+            No registered companies found. Click <strong>+ Add Company</strong> above to register a new tenant.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    companies.forEach((comp, idx) => {
+      const slNo = startIndex + idx + 1;
+      const hasCoords = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') &&
+                        (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '');
+      const lat = hasCoords ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
+      const lng = hasCoords ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
+      const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
+      const statusBadge = !isDeactive
+        ? `<span class="status-pill status-active">Active</span>`
+        : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
+
+      const isAutoReports = comp.auto_email_reports !== false;
+      const autoReportsBadge = isAutoReports
+        ? `<button type="button" class="btn-toggle-auto-reports btn-reports-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Auto Email Reports: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <span>ON</span>
+          </button>`
+        : `<button type="button" class="btn-toggle-auto-reports btn-reports-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Auto Email Reports: DISABLED (Click to turn on)" style="background-color: #f1f5f9; color: #64748b; border: 1.5px solid #cbd5e1; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; opacity: 0.85; white-space: nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <line x1="2" y1="2" x2="22" y2="22"></line>
+            </svg>
+            <span>OFF</span>
+          </button>`;
+
+      const isDeleteEnabled = comp.can_delete_entries === true;
+      const deleteEntriesBadge = isDeleteEnabled
+        ? `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Delete Entries: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Delete Enabled</span>
+          </button>`
+        : `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Delete Entries: DISABLED (Click to turn on)" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+            </svg>
+            <span>Enable Delete Entries</span>
+          </button>`;
+
+      const isSupportEnabled = comp.support_enabled === true;
+      const supportBadge = isSupportEnabled
+        ? `<button type="button" class="btn-toggle-support btn-support-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Support: Enabled (Click to Disable)" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 4px 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+            </svg>
+            <span>Disable</span>
+          </button>`
+        : `<button type="button" class="btn-toggle-support btn-support-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Support: Disabled (Click to Enable)" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 4px 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Enable</span>
+          </button>`;
+
+      const formattedDate = formatDisplayDate(comp.registered_date);
+      const regDateDisplay = formattedDate && formattedDate !== '-'
+        ? `<span style="display: inline-block; background-color: #f1f5f9; color: #334155; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap;">${escapeHtml(formattedDate)}</span>`
+        : `<span style="color: #94a3b8; font-size: 11px;">-</span>`;
+
+      const logoHtml = getCompanyLogoHtml(comp, 'comp-table-logo', 'comp-avatar-placeholder');
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td style="font-weight: 700; color: #64748b; text-align: center; white-space: nowrap;">${slNo}</td>
+        <td style="text-align: center; vertical-align: middle;">${logoHtml}</td>
+        <td class="col-wrap" style="min-width: 170px; max-width: 280px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important;">
+          <div style="font-weight: 800; color: #0f172a; font-size: 12.5px; line-height: 1.35; word-break: break-word;">${escapeHtml(comp.company_name)}</div>
+          <div style="font-size: 10.5px; color: #64748b; font-family: monospace; margin-top: 2px; white-space: nowrap;">ID: ${comp.id}</div>
+        </td>
+        <td style="white-space: nowrap; text-align: center;">${regDateDisplay}</td>
+        <td style="white-space: nowrap;"><code style="background-color: #f1f5f9; padding: 3px 6px; border-radius: 4px; font-size: 11px; color: #334155; font-weight: 600;">${escapeHtml(comp.gstin || '-')}</code></td>
+        <td style="white-space: nowrap;">
+          <a href="mailto:${escapeHtml(comp.email)}" style="color: #2563eb; text-decoration: none; font-weight: 700;">
+            ${escapeHtml(comp.email)}
+          </a>
+        </td>
+        <td style="white-space: nowrap; font-weight: 600; color: #334155;">${escapeHtml(comp.phone || '-')}</td>
+        <td style="white-space: nowrap;">
+          <div style="font-size: 11px; color: #334155; font-weight: 600;">
+            ${hasCoords ? `📍 ${lat}, ${lng} <span style="display: block; font-size: 10px; color: #0284c7; font-weight: 700; margin-top: 2px;">⭕ ${comp.geofence_radius || 200}m radius</span>` : `<span style="color: #94a3b8; font-size: 11px;">-</span>`}
+          </div>
+        </td>
+        <td style="text-align: center; white-space: nowrap;">
+          <span style="font-weight: 700; color: #0f172a; font-size: 11.5px; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 6px; display: inline-block;">
+            ${escapeHtml(comp.shift_hours || '08:00')}
+          </span>
+        </td>
+        <td style="text-align: center; white-space: nowrap;">
+          <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 2px 7px; border-radius: 10px; font-weight: 800; font-size: 11px;" title="Active employees vs Limit (Total preserved in DB: ${comp.total_count ?? comp.employee_count ?? 0})">
+            👥 ${comp.active_count ?? comp.employee_count ?? 0}/${comp.employee_limit || 50} Emps
+          </span>
+          <span style="display: block; font-size: 10px; color: #0284c7; font-weight: 700; margin-top: 2px;" title="Branch creation limit">
+            🏢 ${comp.branch_count ?? 0}/${comp.branch_limit || 5} Branches
+          </span>
+        </td>
+        <td style="text-align: center; white-space: nowrap;">${statusBadge}</td>
+        <td style="text-align: center; white-space: nowrap;">${autoReportsBadge}</td>
+        <td style="text-align: center; white-space: nowrap;">${deleteEntriesBadge}</td>
+        <td style="text-align: center; white-space: nowrap;">${supportBadge}</td>
+        <td style="text-align: center; white-space: nowrap;">
+          <div class="table-actions">
+            <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+            <button class="btn-action-icon btn-action-edit" data-id="${comp.id}" title="Edit Company">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </button>
+            <button class="btn-action-icon btn-action-delete" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Delete Company">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
+        </td>
+      `;
+      companyTableBody.appendChild(row);
+    });
+  }
+
+  function renderCompanyGridCards(companies) {
+    if (!companyGridSection) return;
+    companyGridSection.innerHTML = '';
+
+    if (!companies || companies.length === 0) {
+      companyGridSection.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #64748b; background: #ffffff; border-radius: 12px; border: 1px dashed #cbd5e1;">
+          <div style="font-size: 32px; margin-bottom: 8px;">🏢</div>
+          <div style="font-size: 14px; font-weight: 700; color: #1e293b;">No registered companies found</div>
+          <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Click <strong>+ Add Company</strong> above to register a new tenant.</div>
+        </div>
+      `;
+      return;
+    }
+
+    companies.forEach(comp => {
+      const card = document.createElement('div');
+      card.className = 'comp-grid-card';
+
+      const hasCoords = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') &&
+                        (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '');
+      const lat = hasCoords ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
+      const lng = hasCoords ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
+
+      const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
+      const statusBadge = !isDeactive
+        ? `<span class="status-pill status-active" style="font-size: 10.5px; padding: 2px 7px;">Active</span>`
+        : `<span class="status-pill status-inactive" style="font-size: 10.5px; padding: 2px 7px; background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
+
+      const isAutoReports = comp.auto_email_reports !== false;
+      const autoReportsBadge = isAutoReports
+        ? `<button type="button" class="btn-toggle-auto-reports btn-reports-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Auto Email Reports: ENABLED" style="background-color: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>Auto: ON</span>
+          </button>`
+        : `<button type="button" class="btn-toggle-auto-reports btn-reports-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Auto Email Reports: DISABLED" style="background-color: #f1f5f9; color: #64748b; border: 1.5px solid #cbd5e1; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="2" y1="2" x2="22" y2="22"></line></svg>
+            <span>Auto: OFF</span>
+          </button>`;
+
+      const isDeleteEnabled = comp.can_delete_entries === true;
+      const deleteEntriesBadge = isDeleteEnabled
+        ? `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Delete Entries: ENABLED" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>Delete: ON</span>
+          </button>`
+        : `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Delete Entries: DISABLED" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+            <span>Delete: OFF</span>
+          </button>`;
+
+      const isSupportEnabled = comp.support_enabled === true;
+      const supportBadge = isSupportEnabled
+        ? `<button type="button" class="btn-toggle-support btn-support-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Support: Enabled" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>Support: ON</span>
+          </button>`
+        : `<button type="button" class="btn-toggle-support btn-support-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Support: Disabled" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+            <span>Support: OFF</span>
+          </button>`;
+
+      const formattedDate = formatDisplayDate(comp.registered_date);
+      const logoHtml = getCompanyLogoHtml(comp, 'comp-grid-logo', 'comp-grid-avatar-placeholder');
+
+      card.innerHTML = `
+        <div class="comp-grid-header">
+          ${logoHtml}
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 6px;">
+              <div class="comp-grid-info-title">${escapeHtml(comp.company_name)}</div>
+              ${statusBadge}
+            </div>
+            <div class="comp-grid-info-sub">ID: ${escapeHtml(comp.id)}</div>
+          </div>
+        </div>
+
+        <div class="comp-grid-body">
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">📅 Registered:</span>
+            <span class="comp-grid-val" style="font-size: 11px;">${escapeHtml(formattedDate)}</span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">🧾 GSTIN:</span>
+            <span class="comp-grid-val"><code style="background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 11px;">${escapeHtml(comp.gstin || '-')}</code></span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">✉️ Email:</span>
+            <span class="comp-grid-val" style="font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;" title="${escapeHtml(comp.email || '-')}">
+              <a href="mailto:${escapeHtml(comp.email || '')}" style="color: #2563eb; text-decoration: none;">${escapeHtml(comp.email || '-')}</a>
+            </span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">📞 Phone:</span>
+            <span class="comp-grid-val">${escapeHtml(comp.phone || '-')}</span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">📍 Geofence:</span>
+            <span class="comp-grid-val" style="font-size: 11px;">
+              ${hasCoords ? `${lat}, ${lng} (⭕ ${comp.geofence_radius || 200}m)` : '-'}
+            </span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">🕒 Shift Hours:</span>
+            <span class="comp-grid-val">${escapeHtml(comp.shift_hours || '08:00')} hrs</span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">👥 Quota / Limits:</span>
+            <span class="comp-grid-val" style="font-size: 11px; color: #0369a1;">
+              ${comp.active_count ?? comp.employee_count ?? 0}/${comp.employee_limit || 50} Emps &bull; ${comp.branch_count ?? 0}/${comp.branch_limit || 5} Branches
+            </span>
+          </div>
+        </div>
+
+        <div class="comp-grid-switches">
+          ${autoReportsBadge}
+          ${deleteEntriesBadge}
+          ${supportBadge}
+        </div>
+
+        <div class="comp-grid-actions">
+          <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+          <button class="btn-action-icon btn-action-edit" data-id="${comp.id}" title="Edit Company">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+          <button class="btn-action-icon btn-action-delete" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Delete Company">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      `;
+      companyGridSection.appendChild(card);
+    });
+  }
+
+  function attachCompanyRowEvents() {
+    // Attach auto reports toggle handlers
+    document.querySelectorAll('.btn-toggle-auto-reports').forEach(btn => {
+      btn.addEventListener('click', async function () {
+        const compId = this.getAttribute('data-id');
+        const compName = this.getAttribute('data-name');
+        const currentState = this.getAttribute('data-state') === 'true';
+        const nextState = !currentState;
+
+        this.disabled = true;
+        this.style.opacity = '0.6';
+
+        try {
+          const res = await fetch(`/api/companies/${compId}/toggle-auto-reports`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: nextState })
+          });
+          const resp = await res.json();
+          if (resp.success) {
+            loadCompanies(currentPage);
+          } else {
+            alert(`Error: ${resp.error || 'Failed to update auto reports setting'}`);
+            this.disabled = false;
+            this.style.opacity = '1';
+          }
+        } catch (err) {
+          alert('Network error while updating auto reports setting.');
+          this.disabled = false;
+          this.style.opacity = '1';
+        }
+      });
+    });
+
+    // Attach delete entries toggle handlers
+    document.querySelectorAll('.btn-toggle-delete-entries').forEach(btn => {
+      btn.addEventListener('click', async function () {
+        const compId = this.getAttribute('data-id');
+        const compName = this.getAttribute('data-name');
+        const currentState = this.getAttribute('data-state') === 'true';
+        const nextState = !currentState;
+
+        this.disabled = true;
+        this.style.opacity = '0.6';
+
+        try {
+          const res = await fetch(`/api/companies/${compId}/toggle-delete-entries`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: nextState })
+          });
+          const resp = await res.json();
+          if (resp.success) {
+            loadCompanies(currentPage);
+          } else {
+            alert(`Error: ${resp.error || 'Failed to update delete entries permission'}`);
+            this.disabled = false;
+            this.style.opacity = '1';
+          }
+        } catch (err) {
+          alert('Network error while updating delete entries permission.');
+          this.disabled = false;
+          this.style.opacity = '1';
+        }
+      });
+    });
+
+    // Attach view handlers
+    document.querySelectorAll('.btn-action-view').forEach(btn => {
+      btn.addEventListener('click', async function () {
+        const compId = this.getAttribute('data-id');
+        let comp = loadedCompanies.find(c => String(c.id) === String(compId));
+        if (!comp) {
+          try {
+            const res = await fetch(`/api/companies/${compId}`);
+            comp = await res.json();
+          } catch (err) {
+            console.error('Error fetching company details:', err);
+          }
+        }
+        if (!comp) return;
+
+        if (viewCompanyName) viewCompanyName.textContent = comp.company_name || '-';
+        if (viewCompanyId) viewCompanyId.textContent = comp.id || '-';
+        if (viewCompanyRegisteredDate) viewCompanyRegisteredDate.textContent = comp.registered_date && comp.registered_date !== '-' ? comp.registered_date : 'Not recorded';
+        if (viewCompanyGstin) viewCompanyGstin.textContent = comp.gstin || '-';
+        if (viewCompanyPhone) viewCompanyPhone.textContent = comp.phone || '-';
+        if (viewCompanyEmail) viewCompanyEmail.textContent = comp.email || '-';
+
+        const lat = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
+        const lng = (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '') ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
+        if (viewCompanyLocation) viewCompanyLocation.textContent = (lat !== '-' && lng !== '-') ? `Lat: ${lat}, Long: ${lng}` : '-';
+
+        if (viewCompanyShiftHours) viewCompanyShiftHours.textContent = comp.shift_hours || '08:00';
+        if (viewCompanyEmployees) viewCompanyEmployees.textContent = `${comp.active_count ?? comp.employee_count ?? 0} Active / ${comp.employee_limit || 50} Limit (${comp.total_count ?? comp.employee_count ?? 0} Total in DB)`;
+        if (viewCompanyBranches) viewCompanyBranches.textContent = `${comp.branch_count ?? 0} Active / ${comp.branch_limit || 5} Limit`;
+
+        if (viewCompanyStatusBadge) {
+          const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
+          viewCompanyStatusBadge.innerHTML = !isDeactive
+            ? `<span class="status-pill status-active">Active</span>`
+            : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
+        }
+
+        if (viewCompanyReportsBadge) {
+          viewCompanyReportsBadge.innerHTML = (comp.auto_email_reports !== false)
+            ? `<span class="status-pill status-active">Enabled</span>`
+            : `<span class="status-pill status-inactive">Disabled</span>`;
+        }
+
+        if (viewCompanyDailyTime) {
+          let t = comp.daily_report_time || '07:00';
+          if (t.includes(':')) {
+            let [h, m] = t.split(':').map(Number);
+            let ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12 || 12;
+            t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+          }
+          viewCompanyDailyTime.textContent = t;
+        }
+
+        if (viewCompanyMonthlyDay) {
+          const d = parseInt(comp.monthly_report_day || 1, 10);
+          const nth = (d === 1 || d === 21 || d === 31) ? 'st' : ((d === 2 || d === 22) ? 'nd' : ((d === 3 || d === 23) ? 'rd' : 'th'));
+          viewCompanyMonthlyDay.textContent = `${d}${nth} of month`;
+        }
+
+        if (viewCompanyDeleteEntriesBadge) {
+          viewCompanyDeleteEntriesBadge.innerHTML = (comp.can_delete_entries === true)
+            ? `<span class="status-pill status-active">Enabled</span>`
+            : `<span class="status-pill status-inactive">Disabled</span>`;
+        }
+
+        const viewCompanySupportBadge = document.getElementById('viewCompanySupportBadge');
+        if (viewCompanySupportBadge) {
+          viewCompanySupportBadge.innerHTML = (comp.support_enabled === true)
+            ? `<span class="status-pill status-active" style="background-color: #e8f5e9; color: #166534; border: 1px solid #86efac;">Enabled</span>`
+            : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Disabled</span>`;
+        }
+
+        const viewCompanyModulesBadges = document.getElementById('viewCompanyModulesBadges');
+        if (viewCompanyModulesBadges) {
+          const m = comp.modules || {};
+          const isSingle = m.single_company !== false;
+          const isBranch = !!m.branch_company;
+          const isField = !!m.field_worker;
+          let mHtml = '';
+          if (isSingle) mHtml += `<span class="status-pill" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-size:11px;font-weight:700;"><i class="fa-solid fa-building" style="margin-right:4px;"></i> Single Office</span>`;
+          if (isBranch) mHtml += `<span class="status-pill" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-size:11px;font-weight:700;"><i class="fa-solid fa-code-branch" style="margin-right:4px;"></i> Multi-Branch</span>`;
+          if (isField) mHtml += `<span class="status-pill" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-size:11px;font-weight:700;"><i class="fa-solid fa-location-crosshairs" style="margin-right:4px;"></i> Field Worker</span>`;
+          if (!mHtml) mHtml = `<span class="status-pill status-inactive">No modules assigned</span>`;
+          viewCompanyModulesBadges.innerHTML = mHtml;
+        }
+
+        if (viewCompanyModal) {
+          viewCompanyModal.classList.add('active');
+        }
+      });
+    });
+
+    // Attach edit handlers
+    document.querySelectorAll('.btn-action-edit').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const compId = this.getAttribute('data-id');
+        const comp = loadedCompanies.find(c => String(c.id) === String(compId));
+        if (!comp) return;
+
+        editingCompanyId = comp.id;
+        companyForm.reset();
+        companyFormAlert.style.display = 'none';
+
+        if (companyModalTitle) companyModalTitle.textContent = `Edit Company - ${comp.company_name}`;
+        if (btnSaveCompany) btnSaveCompany.textContent = 'Update Company';
+
+        inputCompanyName.value = comp.company_name || '';
+        inputGstin.value = comp.gstin || '';
+        inputPhone.value = comp.phone || '';
+        inputEmail.value = comp.email || '';
+        inputLatitude.value = (comp.latitude !== undefined && comp.latitude !== null) ? comp.latitude : '';
+        inputLongitude.value = (comp.longitude !== undefined && comp.longitude !== null) ? comp.longitude : '';
+        const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
+        inputStatus.value = isDeactive ? 'Deactive' : 'Active';
+        if (inputEmployeeLimit) inputEmployeeLimit.value = comp.employee_limit || 50;
+        if (inputBranchLimit) inputBranchLimit.value = comp.branch_limit || 5;
+        if (inputCompanyShiftHours) inputCompanyShiftHours.value = comp.shift_hours || '08:00';
+        if (inputRegisteredDate) inputRegisteredDate.value = formatDateForDateInput(comp.registered_date);
+        if (inputAutoEmailReports) inputAutoEmailReports.value = (comp.auto_email_reports !== false) ? 'true' : 'false';
+        if (inputDailyReportTime) inputDailyReportTime.value = comp.daily_report_time || '07:00';
+        if (inputMonthlyReportDay) inputMonthlyReportDay.value = String(comp.monthly_report_day || 1);
+        if (inputCanDeleteEntries) inputCanDeleteEntries.value = (comp.can_delete_entries === true) ? 'true' : 'false';
+        if (inputGeofenceRadius) inputGeofenceRadius.value = comp.geofence_radius || comp.radius_meters || 200;
+
+        const inModSingle = document.getElementById('inputModSingleCompany');
+        const inModBranch = document.getElementById('inputModBranchCompany');
+        const inModField = document.getElementById('inputModFieldWorker');
+        const m = comp.modules || {};
+        if (inModSingle) inModSingle.checked = !comp.modules || m.single_company !== false;
+        if (inModBranch) inModBranch.checked = !!m.branch_company;
+        if (inModField) inModField.checked = !!m.field_worker;
+
+        companyModal.classList.add('active');
+      });
+    });
+
+    // Attach delete handlers to open Confirmation Modal
+    document.querySelectorAll('.btn-action-delete').forEach(btn => {
+      btn.addEventListener('click', function () {
+        companyToDeleteId = this.getAttribute('data-id');
+        companyToDeleteName = this.getAttribute('data-name');
+        if (deleteCompanyTargetName) deleteCompanyTargetName.textContent = companyToDeleteName;
+        if (deleteCompanyTargetId) deleteCompanyTargetId.textContent = companyToDeleteId;
+        if (btnConfirmDeleteText) btnConfirmDeleteText.textContent = 'Yes, Delete Company & All Records';
+        if (btnConfirmDeleteCompany) btnConfirmDeleteCompany.disabled = false;
+        if (deleteCompanyModal) deleteCompanyModal.classList.add('active');
+      });
+    });
+
+    // Attach support toggle handlers
+    document.querySelectorAll('.btn-toggle-support').forEach(btn => {
+      btn.addEventListener('click', async function (e) {
+        e.preventDefault();
+        const compId = this.getAttribute('data-id');
+        const currentState = this.getAttribute('data-state') === 'true';
+        const newState = !currentState;
+
+        this.disabled = true;
+        this.style.opacity = '0.6';
+
+        try {
+          const res = await fetch(`/api/companies/${compId}/toggle-support`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: newState })
+          });
+          const data = await res.json();
+          if (data.success) {
+            loadCompanies(currentPage);
+          } else {
+            alert(`Error: ${data.error || 'Failed to update support status.'}`);
+            this.disabled = false;
+            this.style.opacity = '1';
+          }
+        } catch (err) {
+          alert('Network error while updating support status.');
+          this.disabled = false;
+          this.style.opacity = '1';
+        }
+      });
+    });
+  }
+
   // Fetch and display companies
   async function loadCompanies(page = 1) {
     currentPage = page;
-    companyTableBody.innerHTML = `
-      <tr>
-        <td colspan="12" style="text-align: center; padding: 24px; color: #6c757d;">Loading companies...</td>
-      </tr>
-    `;
+    if (companyTableBody) {
+      companyTableBody.innerHTML = `
+        <tr>
+          <td colspan="15" style="text-align: center; padding: 24px; color: #6c757d;">Loading companies...</td>
+        </tr>
+      `;
+    }
+    if (companyGridSection) {
+      companyGridSection.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #6c757d;">Loading companies...</div>
+      `;
+    }
 
     try {
       const params = new URLSearchParams({
@@ -142,412 +795,80 @@ document.addEventListener('DOMContentLoaded', function () {
       loadedCompanies = data.companies || [];
 
       if (!data.companies || data.companies.length === 0) {
-        companyTableBody.innerHTML = `
-          <tr>
-            <td colspan="13" style="text-align: center; padding: 28px; color: #6c757d;">
-              No registered companies found. Click <strong>+ Add Company</strong> above to register a new tenant.
-            </td>
-          </tr>
-        `;
+        if (companyTableBody) {
+          companyTableBody.innerHTML = `
+            <tr>
+              <td colspan="15" style="text-align: center; padding: 28px; color: #6c757d;">
+                No registered companies found. Click <strong>+ Add Company</strong> above to register a new tenant.
+              </td>
+            </tr>
+          `;
+        }
+        if (companyGridSection) {
+          companyGridSection.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #64748b; background: #ffffff; border-radius: 12px; border: 1px dashed #cbd5e1;">
+              <div style="font-size: 32px; margin-bottom: 8px;">🏢</div>
+              <div style="font-size: 14px; font-weight: 700; color: #1e293b;">No registered companies found</div>
+              <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Click <strong>+ Add Company</strong> above to register a new tenant.</div>
+            </div>
+          `;
+        }
         companyTableInfo.textContent = 'Showing 0 to 0 of 0 entries';
         updatePagination(0, 0);
         return;
       }
 
-      companyTableBody.innerHTML = '';
+      // Sort if sort column is active
+      if (currentSortCol) {
+        loadedCompanies.sort((a, b) => {
+          let vA = a[currentSortCol] || '';
+          let vB = b[currentSortCol] || '';
+          if (typeof vA === 'string') vA = vA.toLowerCase();
+          if (typeof vB === 'string') vB = vB.toLowerCase();
+          if (vA < vB) return currentSortDir === 'asc' ? -1 : 1;
+          if (vA > vB) return currentSortDir === 'asc' ? 1 : -1;
+          return 0;
+        });
+      }
+
       const startIndex = (data.page - 1) * data.limit;
+      renderCompanyTableRows(loadedCompanies, startIndex);
+      renderCompanyGridCards(loadedCompanies);
+      attachCompanyRowEvents();
 
-      data.companies.forEach((comp, idx) => {
-        const slNo = startIndex + idx + 1;
-        const hasCoords = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') &&
-                          (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '');
-        const lat = hasCoords ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
-        const lng = hasCoords ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
-        const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
-        const statusBadge = !isDeactive
-          ? `<span class="status-pill status-active">Active</span>`
-          : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
-
-        const isAutoReports = comp.auto_email_reports !== false;
-        const autoReportsBadge = isAutoReports
-          ? `<button type="button" class="btn-toggle-auto-reports btn-reports-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Auto Email Reports: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                <polyline points="22,6 12,13 2,6"></polyline>
-              </svg>
-              <span>ON</span>
-            </button>`
-          : `<button type="button" class="btn-toggle-auto-reports btn-reports-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Auto Email Reports: DISABLED (Click to turn on)" style="background-color: #f1f5f9; color: #64748b; border: 1.5px solid #cbd5e1; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; opacity: 0.85; white-space: nowrap;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                <line x1="2" y1="2" x2="22" y2="22"></line>
-              </svg>
-              <span>OFF</span>
-            </button>`;
-
-        const isDeleteEnabled = comp.can_delete_entries === true;
-        const deleteEntriesBadge = isDeleteEnabled
-          ? `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Delete Entries: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-              <span>Delete Enabled</span>
-            </button>`
-          : `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Delete Entries: DISABLED (Click to turn on)" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-              </svg>
-              <span>Enable Delete Entries</span>
-            </button>`;
-
-        const isSupportEnabled = comp.support_enabled === true;
-        const supportBadge = isSupportEnabled
-          ? `<button type="button" class="btn-toggle-support btn-support-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Support: Enabled (Click to Disable)" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 4px 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-              </svg>
-              <span>Disable</span>
-            </button>`
-          : `<button type="button" class="btn-toggle-support btn-support-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Support: Disabled (Click to Enable)" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 4px 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-              <span>Enable</span>
-            </button>`;
-
-        const formattedDate = formatDisplayDate(comp.registered_date);
-        const regDateDisplay = formattedDate && formattedDate !== '-'
-          ? `<span style="display: inline-block; background-color: #f1f5f9; color: #334155; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap;">${escapeHtml(formattedDate)}</span>`
-          : `<span style="color: #94a3b8; font-size: 11px;">-</span>`;
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td style="font-weight: 700; color: #64748b; text-align: center; white-space: nowrap;">${slNo}</td>
-          <td class="col-wrap" style="min-width: 170px; max-width: 280px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important;">
-            <div style="font-weight: 800; color: #0f172a; font-size: 12.5px; line-height: 1.35; word-break: break-word;">${escapeHtml(comp.company_name)}</div>
-            <div style="font-size: 10.5px; color: #64748b; font-family: monospace; margin-top: 2px; white-space: nowrap;">ID: ${comp.id}</div>
-          </td>
-          <td style="white-space: nowrap; text-align: center;">${regDateDisplay}</td>
-          <td style="white-space: nowrap;"><code style="background-color: #f1f5f9; padding: 3px 6px; border-radius: 4px; font-size: 11px; color: #334155; font-weight: 600;">${escapeHtml(comp.gstin || '-')}</code></td>
-          <td style="white-space: nowrap;">
-            <a href="mailto:${escapeHtml(comp.email)}" style="color: #2563eb; text-decoration: none; font-weight: 700;">
-              ${escapeHtml(comp.email)}
-            </a>
-          </td>
-          <td style="white-space: nowrap; font-weight: 600; color: #334155;">${escapeHtml(comp.phone || '-')}</td>
-          <td style="white-space: nowrap;">
-            <div style="font-size: 11px; color: #334155; font-weight: 600;">
-              ${hasCoords ? `📍 ${lat}, ${lng} <span style="display: block; font-size: 10px; color: #0284c7; font-weight: 700; margin-top: 2px;">⭕ ${comp.geofence_radius || 200}m radius</span>` : `<span style="color: #94a3b8; font-size: 11px;">-</span>`}
-            </div>
-          </td>
-          <td style="text-align: center; white-space: nowrap;">
-            <span style="font-weight: 700; color: #0f172a; font-size: 11.5px; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 6px; display: inline-block;">
-              ${escapeHtml(comp.shift_hours || '08:00')}
-            </span>
-          </td>
-          <td style="text-align: center; white-space: nowrap;">
-            <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 2px 7px; border-radius: 10px; font-weight: 800; font-size: 11px;" title="Active employees vs Limit (Total preserved in DB: ${comp.total_count ?? comp.employee_count ?? 0})">
-              👥 ${comp.active_count ?? comp.employee_count ?? 0}/${comp.employee_limit || 50} Emps
-            </span>
-            <span style="display: block; font-size: 10px; color: #0284c7; font-weight: 700; margin-top: 2px;" title="Branch creation limit">
-              🏢 ${comp.branch_count ?? 0}/${comp.branch_limit || 5} Branches
-            </span>
-          </td>
-          <td style="text-align: center; white-space: nowrap;">${statusBadge}</td>
-          <td style="text-align: center; white-space: nowrap;">${autoReportsBadge}</td>
-          <td style="text-align: center; white-space: nowrap;">${deleteEntriesBadge}</td>
-          <td style="text-align: center; white-space: nowrap;">${supportBadge}</td>
-          <td style="text-align: center; white-space: nowrap;">
-            <div class="table-actions">
-              <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-              </button>
-              <button class="btn-action-icon btn-action-edit" data-id="${comp.id}" title="Edit Company">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
-              </button>
-              <button class="btn-action-icon btn-action-delete" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Delete Company">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-              </button>
-            </div>
-          </td>
-        `;
-        companyTableBody.appendChild(row);
-      });
+      // Ensure appropriate view section is displayed
+      if (currentView === 'grid') {
+        if (companyListSection) companyListSection.style.display = 'none';
+        if (companyGridSection) companyGridSection.style.display = 'grid';
+        if (btnCompanyGridView) btnCompanyGridView.classList.add('active');
+        if (btnCompanyListView) btnCompanyListView.classList.remove('active');
+      } else {
+        if (companyListSection) companyListSection.style.display = 'block';
+        if (companyGridSection) companyGridSection.style.display = 'none';
+        if (btnCompanyListView) btnCompanyListView.classList.add('active');
+        if (btnCompanyGridView) btnCompanyGridView.classList.remove('active');
+      }
 
       // Update footer info
       const startEntry = startIndex + 1;
       const endEntry = Math.min(startIndex + data.companies.length, data.total);
       companyTableInfo.textContent = `Showing ${startEntry} to ${endEntry} of ${data.total} entries`;
       updatePagination(data.page, data.pages);
-
-      // Attach auto reports toggle handlers
-      document.querySelectorAll('.btn-toggle-auto-reports').forEach(btn => {
-        btn.addEventListener('click', async function () {
-          const compId = this.getAttribute('data-id');
-          const compName = this.getAttribute('data-name');
-          const currentState = this.getAttribute('data-state') === 'true';
-          const nextState = !currentState;
-
-          this.disabled = true;
-          this.style.opacity = '0.6';
-
-          try {
-            const res = await fetch(`/api/companies/${compId}/toggle-auto-reports`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ enabled: nextState })
-            });
-            const resp = await res.json();
-            if (resp.success) {
-              loadCompanies(currentPage);
-            } else {
-              alert(`Error: ${resp.error || 'Failed to update auto reports setting'}`);
-              this.disabled = false;
-              this.style.opacity = '1';
-            }
-          } catch (err) {
-            alert('Network error while updating auto reports setting.');
-            this.disabled = false;
-            this.style.opacity = '1';
-          }
-        });
-      });
-
-      // Attach delete entries toggle handlers
-      document.querySelectorAll('.btn-toggle-delete-entries').forEach(btn => {
-        btn.addEventListener('click', async function () {
-          const compId = this.getAttribute('data-id');
-          const compName = this.getAttribute('data-name');
-          const currentState = this.getAttribute('data-state') === 'true';
-          const nextState = !currentState;
-
-          this.disabled = true;
-          this.style.opacity = '0.6';
-
-          try {
-            const res = await fetch(`/api/companies/${compId}/toggle-delete-entries`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ enabled: nextState })
-            });
-            const resp = await res.json();
-            if (resp.success) {
-              loadCompanies(currentPage);
-            } else {
-              alert(`Error: ${resp.error || 'Failed to update delete entries permission'}`);
-              this.disabled = false;
-              this.style.opacity = '1';
-            }
-          } catch (err) {
-            alert('Network error while updating delete entries permission.');
-            this.disabled = false;
-            this.style.opacity = '1';
-          }
-        });
-      });
-
-      // Attach view handlers
-      document.querySelectorAll('.btn-action-view').forEach(btn => {
-        btn.addEventListener('click', async function () {
-          const compId = this.getAttribute('data-id');
-          let comp = loadedCompanies.find(c => String(c.id) === String(compId));
-          if (!comp) {
-            try {
-              const res = await fetch(`/api/companies/${compId}`);
-              comp = await res.json();
-            } catch (err) {
-              console.error('Error fetching company details:', err);
-            }
-          }
-          if (!comp) return;
-
-          if (viewCompanyName) viewCompanyName.textContent = comp.company_name || '-';
-          if (viewCompanyId) viewCompanyId.textContent = comp.id || '-';
-          if (viewCompanyRegisteredDate) viewCompanyRegisteredDate.textContent = comp.registered_date && comp.registered_date !== '-' ? comp.registered_date : 'Not recorded';
-          if (viewCompanyGstin) viewCompanyGstin.textContent = comp.gstin || '-';
-          if (viewCompanyPhone) viewCompanyPhone.textContent = comp.phone || '-';
-          if (viewCompanyEmail) viewCompanyEmail.textContent = comp.email || '-';
-
-          const lat = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
-          const lng = (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '') ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
-          if (viewCompanyLocation) viewCompanyLocation.textContent = (lat !== '-' && lng !== '-') ? `Lat: ${lat}, Long: ${lng}` : '-';
-
-          if (viewCompanyShiftHours) viewCompanyShiftHours.textContent = comp.shift_hours || '08:00';
-          if (viewCompanyEmployees) viewCompanyEmployees.textContent = `${comp.active_count ?? comp.employee_count ?? 0} Active / ${comp.employee_limit || 50} Limit (${comp.total_count ?? comp.employee_count ?? 0} Total in DB)`;
-          if (viewCompanyBranches) viewCompanyBranches.textContent = `${comp.branch_count ?? 0} Active / ${comp.branch_limit || 5} Limit`;
-
-          if (viewCompanyStatusBadge) {
-            const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
-            viewCompanyStatusBadge.innerHTML = !isDeactive
-              ? `<span class="status-pill status-active">Active</span>`
-              : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
-          }
-
-          if (viewCompanyReportsBadge) {
-            viewCompanyReportsBadge.innerHTML = (comp.auto_email_reports !== false)
-              ? `<span class="status-pill status-active">Enabled</span>`
-              : `<span class="status-pill status-inactive">Disabled</span>`;
-          }
-
-          if (viewCompanyDailyTime) {
-            let t = comp.daily_report_time || '07:00';
-            if (t.includes(':')) {
-              let [h, m] = t.split(':').map(Number);
-              let ampm = h >= 12 ? 'PM' : 'AM';
-              h = h % 12 || 12;
-              t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
-            }
-            viewCompanyDailyTime.textContent = t;
-          }
-
-          if (viewCompanyMonthlyDay) {
-            const d = parseInt(comp.monthly_report_day || 1, 10);
-            const nth = (d === 1 || d === 21 || d === 31) ? 'st' : ((d === 2 || d === 22) ? 'nd' : ((d === 3 || d === 23) ? 'rd' : 'th'));
-            viewCompanyMonthlyDay.textContent = `${d}${nth} of month`;
-          }
-
-          if (viewCompanyDeleteEntriesBadge) {
-            viewCompanyDeleteEntriesBadge.innerHTML = (comp.can_delete_entries === true)
-              ? `<span class="status-pill status-active">Enabled</span>`
-              : `<span class="status-pill status-inactive">Disabled</span>`;
-          }
-
-          const viewCompanySupportBadge = document.getElementById('viewCompanySupportBadge');
-          if (viewCompanySupportBadge) {
-            viewCompanySupportBadge.innerHTML = (comp.support_enabled === true)
-              ? `<span class="status-pill status-active" style="background-color: #e8f5e9; color: #166534; border: 1px solid #86efac;">Enabled</span>`
-              : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Disabled</span>`;
-          }
-
-          const viewCompanyModulesBadges = document.getElementById('viewCompanyModulesBadges');
-          if (viewCompanyModulesBadges) {
-            const m = comp.modules || {};
-            const isSingle = m.single_company !== false;
-            const isBranch = !!m.branch_company;
-            const isField = !!m.field_worker;
-            let mHtml = '';
-            if (isSingle) mHtml += `<span class="status-pill" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-size:11px;font-weight:700;"><i class="fa-solid fa-building" style="margin-right:4px;"></i> Single Office</span>`;
-            if (isBranch) mHtml += `<span class="status-pill" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-size:11px;font-weight:700;"><i class="fa-solid fa-code-branch" style="margin-right:4px;"></i> Multi-Branch</span>`;
-            if (isField) mHtml += `<span class="status-pill" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-size:11px;font-weight:700;"><i class="fa-solid fa-location-crosshairs" style="margin-right:4px;"></i> Field Worker</span>`;
-            if (!mHtml) mHtml = `<span class="status-pill status-inactive">No modules assigned</span>`;
-            viewCompanyModulesBadges.innerHTML = mHtml;
-          }
-
-          if (viewCompanyModal) {
-            viewCompanyModal.classList.add('active');
-          }
-        });
-      });
-
-      // Attach edit handlers
-      document.querySelectorAll('.btn-action-edit').forEach(btn => {
-        btn.addEventListener('click', function () {
-          const compId = this.getAttribute('data-id');
-          const comp = loadedCompanies.find(c => String(c.id) === String(compId));
-          if (!comp) return;
-
-          editingCompanyId = comp.id;
-          companyForm.reset();
-          companyFormAlert.style.display = 'none';
-
-          if (companyModalTitle) companyModalTitle.textContent = `Edit Company - ${comp.company_name}`;
-          if (btnSaveCompany) btnSaveCompany.textContent = 'Update Company';
-
-          inputCompanyName.value = comp.company_name || '';
-          inputGstin.value = comp.gstin || '';
-          inputPhone.value = comp.phone || '';
-          inputEmail.value = comp.email || '';
-          inputLatitude.value = (comp.latitude !== undefined && comp.latitude !== null) ? comp.latitude : '';
-          inputLongitude.value = (comp.longitude !== undefined && comp.longitude !== null) ? comp.longitude : '';
-          const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
-          inputStatus.value = isDeactive ? 'Deactive' : 'Active';
-          if (inputEmployeeLimit) inputEmployeeLimit.value = comp.employee_limit || 50;
-          if (inputBranchLimit) inputBranchLimit.value = comp.branch_limit || 5;
-          if (inputCompanyShiftHours) inputCompanyShiftHours.value = comp.shift_hours || '08:00';
-          if (inputRegisteredDate) inputRegisteredDate.value = formatDateForDateInput(comp.registered_date);
-          if (inputAutoEmailReports) inputAutoEmailReports.value = (comp.auto_email_reports !== false) ? 'true' : 'false';
-          if (inputDailyReportTime) inputDailyReportTime.value = comp.daily_report_time || '07:00';
-          if (inputMonthlyReportDay) inputMonthlyReportDay.value = String(comp.monthly_report_day || 1);
-          if (inputCanDeleteEntries) inputCanDeleteEntries.value = (comp.can_delete_entries === true) ? 'true' : 'false';
-          if (inputGeofenceRadius) inputGeofenceRadius.value = comp.geofence_radius || comp.radius_meters || 200;
-
-          const inModSingle = document.getElementById('inputModSingleCompany');
-          const inModBranch = document.getElementById('inputModBranchCompany');
-          const inModField = document.getElementById('inputModFieldWorker');
-          const m = comp.modules || {};
-          if (inModSingle) inModSingle.checked = !comp.modules || m.single_company !== false;
-          if (inModBranch) inModBranch.checked = !!m.branch_company;
-          if (inModField) inModField.checked = !!m.field_worker;
-
-          companyModal.classList.add('active');
-        });
-      });
-
-      // Attach delete handlers to open Confirmation Modal
-      document.querySelectorAll('.btn-action-delete').forEach(btn => {
-        btn.addEventListener('click', function () {
-          companyToDeleteId = this.getAttribute('data-id');
-          companyToDeleteName = this.getAttribute('data-name');
-          if (deleteCompanyTargetName) deleteCompanyTargetName.textContent = companyToDeleteName;
-          if (deleteCompanyTargetId) deleteCompanyTargetId.textContent = companyToDeleteId;
-          if (btnConfirmDeleteText) btnConfirmDeleteText.textContent = 'Yes, Delete Company & All Records';
-          if (btnConfirmDeleteCompany) btnConfirmDeleteCompany.disabled = false;
-          if (deleteCompanyModal) deleteCompanyModal.classList.add('active');
-        });
-      });
-
-      // Attach support toggle handlers
-      document.querySelectorAll('.btn-toggle-support').forEach(btn => {
-        btn.addEventListener('click', async function (e) {
-          e.preventDefault();
-          const compId = this.getAttribute('data-id');
-          const currentState = this.getAttribute('data-state') === 'true';
-          const newState = !currentState;
-
-          this.disabled = true;
-          this.style.opacity = '0.6';
-
-          try {
-            const res = await fetch(`/api/companies/${compId}/toggle-support`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ enabled: newState })
-            });
-            const data = await res.json();
-            if (data.success) {
-              loadCompanies(currentPage);
-            } else {
-              alert(`Error: ${data.error || 'Failed to update support status.'}`);
-              this.disabled = false;
-              this.style.opacity = '1';
-            }
-          } catch (err) {
-            alert('Network error while updating support status.');
-            this.disabled = false;
-            this.style.opacity = '1';
-          }
-        });
-      });
-
     } catch (err) {
-      companyTableBody.innerHTML = `
-        <tr>
-          <td colspan="10" style="text-align: center; padding: 24px; color: #dc3545;">
-            Failed to load companies. Please check database connection.
-          </td>
-        </tr>
-      `;
+      if (companyTableBody) {
+        companyTableBody.innerHTML = `
+          <tr>
+            <td colspan="15" style="text-align: center; padding: 24px; color: #dc3545;">
+              Failed to load companies. Please check database connection.
+            </td>
+          </tr>
+        `;
+      }
+      if (companyGridSection) {
+        companyGridSection.innerHTML = `
+          <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #dc3545;">Failed to load companies. Please check database connection.</div>
+        `;
+      }
     }
   }
 

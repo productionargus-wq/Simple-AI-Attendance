@@ -60,38 +60,69 @@
       </div>
     </div>
 
-    <div class="search-box-wrapper">
-      <label for="companyTableSearch">Search:</label>
-      <input type="text" id="companyTableSearch" class="search-input" placeholder="Search company, GSTIN, email...">
+    <!-- Right Controls: Toggle Icons + Search Box -->
+    <div class="toolbar-right-controls" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto;">
+      <div class="view-toggle-wrapper">
+        <button type="button" class="btn-icon-view" id="btnCompanyListView" title="List View" aria-label="List View">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+        </button>
+        <button type="button" class="btn-icon-view active" id="btnCompanyGridView" title="Grid View" aria-label="Grid View">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+        </button>
+      </div>
+
+      <div class="search-box-wrapper">
+        <label for="companyTableSearch">Search:</label>
+        <input type="text" id="companyTableSearch" class="search-input" placeholder="Search company, GSTIN, email...">
+      </div>
     </div>
   </div>
 
-  <div class="table-responsive">
+  <!-- List View Table Section -->
+  <div class="table-responsive" id="companyListSection" style="display: none;">
     <table class="employee-table" id="companyDataTable">
       <thead>
         <tr>
-          <th style="width: 50px; text-align: center; white-space: nowrap;">SL NO</th>
-          <th style="min-width: 170px; white-space: nowrap;">COMPANY NAME</th>
-          <th style="min-width: 145px; white-space: nowrap; text-align: center;">REGISTERED DATE</th>
-          <th style="min-width: 140px; white-space: nowrap;">GSTIN NUMBER</th>
-          <th style="min-width: 170px; white-space: nowrap;">REGISTERED EMAIL</th>
-          <th style="min-width: 120px; white-space: nowrap;">PHONE NUMBER</th>
+          <th data-col="sl_no" style="width: 50px; text-align: center; white-space: nowrap;">SL NO <span class="sort-icon">⇅</span></th>
+          <th style="width: 55px; text-align: center; white-space: nowrap;">LOGO</th>
+          <th data-col="company_name" style="min-width: 170px; white-space: nowrap;">COMPANY NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="registered_date" style="min-width: 145px; white-space: nowrap; text-align: center;">REGISTERED DATE <span class="sort-icon">⇅</span></th>
+          <th data-col="gstin" style="min-width: 140px; white-space: nowrap;">GSTIN NUMBER <span class="sort-icon">⇅</span></th>
+          <th data-col="email" style="min-width: 170px; white-space: nowrap;">REGISTERED EMAIL <span class="sort-icon">⇅</span></th>
+          <th data-col="phone" style="min-width: 120px; white-space: nowrap;">PHONE NUMBER <span class="sort-icon">⇅</span></th>
           <th style="min-width: 150px; white-space: nowrap;">LOCATION</th>
-          <th style="min-width: 70px; text-align: center; white-space: nowrap;">SHIFT</th>
+          <th data-col="shift_hours" style="min-width: 70px; text-align: center; white-space: nowrap;">SHIFT <span class="sort-icon">⇅</span></th>
           <th style="min-width: 70px; text-align: center; white-space: nowrap;">LIMIT</th>
-          <th style="min-width: 80px; text-align: center; white-space: nowrap;">STATUS</th>
+          <th data-col="status" style="min-width: 80px; text-align: center; white-space: nowrap;">STATUS <span class="sort-icon">⇅</span></th>
           <th style="min-width: 110px; text-align: center; white-space: nowrap;">AUTO REPORTS</th>
           <th style="min-width: 165px; text-align: center; white-space: nowrap;">DELETE ENTRIES</th>
           <th style="min-width: 110px; text-align: center; white-space: nowrap;">SUPPORT</th>
-          <th style="min-width: 115px; text-align: center; white-space: nowrap;">ACTIONS</th>
+          <th style="min-width: 115px; text-align: center; white-space: nowrap;">ACTIONS <span class="sort-icon">⇅</span></th>
         </tr>
       </thead>
       <tbody id="companyTableBody">
         <tr>
-          <td colspan="14" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
+          <td colspan="15" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
         </tr>
       </tbody>
     </table>
+  </div>
+
+  <!-- Responsive Card Grid Section -->
+  <div id="companyGridSection" class="company-grid-container" style="display: grid;">
+    <!-- Rendered dynamically via JavaScript -->
   </div>
 
   <div class="table-footer">
