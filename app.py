@@ -5041,7 +5041,7 @@ def field_worker_module_page():
         comp_modules = database.get_company_modules(active_cid)
         if not comp_modules.get('field_worker', False):
             flash('The Field Worker Module is not authorized for your company subscription. Please contact your administrator.', 'warning')
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('employee_portal') if user_role == 'employee' else url_for('dashboard'))
 
     active_comp = database.get_company_by_id(active_cid) or {
         'id': 'ARGUS_MASTER',
@@ -5239,7 +5239,7 @@ def api_field_worker_assignment_detail(assignment_id):
 
     cid = _resolve_field_company_id(request.args.get('company_id'))
     if request.method == 'DELETE':
-        if not session.get('admin_logged_in'):
+        if not session.get('admin_logged_in') and session.get('role') != 'employee':
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
         ok = database.delete_field_assignment(assignment_id, company_id=cid)
         return jsonify({'success': ok, 'message': 'Assignment deleted.' if ok else 'Assignment not found.'})
