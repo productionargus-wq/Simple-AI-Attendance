@@ -405,38 +405,9 @@
       }
 
       var brBtn = document.getElementById('sidebarManageBranchesBtn') || document.getElementById('sidebarBranchModuleBtn');
-      if (brBtn) {
-        var brPrefetched = false;
-        function prefetchBr() {
-          if (brPrefetched) return;
-          brPrefetched = true;
-          try {
-            var l = document.createElement('link');
-            l.rel = 'prefetch';
-            l.href = '/branches';
-            document.head.appendChild(l);
-            fetch('/branches', { priority: 'low' }).catch(function () {});
-          } catch (e) {}
-        }
-        brBtn.addEventListener('mouseenter', prefetchBr, { passive: true, once: true });
-        brBtn.addEventListener('touchstart', prefetchBr, { passive: true, once: true });
-        brBtn.addEventListener('focus', prefetchBr, { passive: true, once: true });
-
-        brBtn.addEventListener('click', function () {
-          var pb = document.getElementById('appTopProgressBar');
-          if (pb) {
-            pb.style.opacity = '1';
-            pb.style.width = '70%';
-            setTimeout(function () {
-              pb.style.opacity = '0';
-              pb.style.width = '0%';
-            }, 800);
-          }
-          brBtn.style.opacity = '0.7';
-          setTimeout(function () {
-            brBtn.style.opacity = '1';
-          }, 600);
-        });
+      if (brBtn && window.spaPrefetch) {
+        brBtn.addEventListener('mouseenter', function () { window.spaPrefetch('/branches'); }, { passive: true, once: true });
+        brBtn.addEventListener('touchstart', function () { window.spaPrefetch('/branches'); }, { passive: true, once: true });
       }
     })();
 
@@ -470,13 +441,18 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.success) {
+          if (window.spaClearCache) window.spaClearCache();
           var u = new URL(window.location.href);
           if (branchId && branchId !== 'ALL') {
             u.searchParams.set('branch_id', branchId);
           } else {
             u.searchParams.delete('branch_id');
           }
-          window.location.href = u.toString();
+          if (window.spaNavigate) {
+            window.spaNavigate(u.toString());
+          } else {
+            window.location.href = u.toString();
+          }
         } else {
           window.location.reload();
         }

@@ -2,13 +2,6 @@
 
 {% block content %}
 <style>
-  .dash-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 24px 20px;
-    box-sizing: border-box;
-  }
-
   .dash-pdf-btn-action {
     display: inline-flex !important;
     align-items: center !important;
@@ -31,18 +24,6 @@
     background: #f8fafc !important;
     color: #0f172a !important;
     border-color: #94a3b8 !important;
-  }
-
-  .dash-pdf-btn-action.btn-primary-action {
-    background: #0284c7 !important;
-    color: #ffffff !important;
-    border-color: #0284c7 !important;
-  }
-
-  .dash-pdf-btn-action.btn-primary-action:hover {
-    background: #0369a1 !important;
-    border-color: #0369a1 !important;
-    color: #ffffff !important;
   }
 
   /* Branch Directory Cards Grid */
@@ -89,35 +70,41 @@
   }
 </style>
 
-<div class="dash-container">
-
-  <!-- PAGE HEADER -->
-  <!-- PAGE HEADER -->
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 14px;">
-    <div>
-      <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
-        <span>🏢</span> Manage Company Branches
-      </h2>
-      <p style="font-size: 13px; color: #64748b; margin: 0;">Configure branch offices, geofence radius bounds, and designated branch locations.</p>
+<!-- Top Manage Branches Banner -->
+<div class="content-banner-card">
+  <div class="banner-left">
+    <div class="banner-icon-badge">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+      </svg>
     </div>
-    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-      {% if user_role == 'super_admin' %}
-      <div style="display: flex; align-items: center; gap: 6px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 4px 10px;">
-        <span style="font-size: 12px; font-weight: 700; color: #475569;">Company:</span>
-        <select id="filterCompanySelect" onchange="filterBranchCompany(this.value)" style="padding: 4px 8px; font-size: 12px; font-weight: 700; border: none; outline: none; background: transparent; cursor: pointer; color: #0f172a;">
-          <option value="ALL" {% if not active_company_id or active_company_id in ['ALL', 'all'] %}selected{% endif %}>🏢 All Companies (All Branches)</option>
-          {% for c in companies %}
-          <option value="{{ c.id }}" {% if active_company_id == c.id %}selected{% endif %}>{{ c.company_name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      {% endif %}
-      <button type="button" class="dash-pdf-btn-action btn-primary-action" id="btnAddNewBranchDirect" style="padding: 9px 18px; font-size: 13px;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        Register New Branch
-      </button>
+    <div class="banner-text-group">
+      <div class="banner-title">MANAGE BRANCHES</div>
+      <div class="banner-subtitle">Configure branch offices, geofence radius bounds, and designated branch locations</div>
     </div>
   </div>
+  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+    {% if user_role == 'super_admin' %}
+    <div style="display: flex; align-items: center; gap: 6px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 4px 10px;">
+      <span style="font-size: 12px; font-weight: 700; color: #475569;">Company:</span>
+      <select id="filterCompanySelect" onchange="filterBranchCompany(this.value)" style="padding: 4px 8px; font-size: 12px; font-weight: 700; border: none; outline: none; background: transparent; cursor: pointer; color: #0f172a;">
+        <option value="ALL" {% if not active_company_id or active_company_id in ['ALL', 'all'] %}selected{% endif %}>🏢 All Companies (All Branches)</option>
+        {% for c in companies %}
+        <option value="{{ c.id }}" {% if active_company_id == c.id %}selected{% endif %}>{{ c.company_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <button type="button" class="btn-primary-action" id="btnAddNewBranchDirect">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      Add Branch
+    </button>
+  </div>
+</div>
 
   <!-- BRANCH DIRECTORY -->
   {% if user_role == 'super_admin' and (not active_company_id or active_company_id in ['ALL', 'all']) %}
@@ -165,9 +152,6 @@
               👥 {{ b.headcount or 0 }} staff
             </span>
             <div style="display: flex; align-items: center; gap: 6px;">
-              <a href="/branches/kiosk?branch_id={{ b.id }}" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" style="padding: 5px 10px; font-size: 11.5px; color: #059669; border-color: #a7f3d0;" title="Launch Attendance Kiosk">
-                Kiosk ↗
-              </a>
               <button type="button" class="dash-pdf-btn-action btn-edit-branch" data-branch='{{ b|tojson }}' style="padding: 5px 10px; font-size: 11.5px;" title="Edit branch settings">
                 Edit
               </button>
@@ -185,7 +169,7 @@
       <div style="font-size: 38px; margin-bottom: 12px;">🏢</div>
       <div style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 6px;">No Branches Configured Yet</div>
       <div style="font-size: 13px; margin-bottom: 18px; max-width: 420px; margin-left: auto; margin-right: auto; line-height: 1.5;">There are no branch offices registered under this view yet.</div>
-      <button type="button" class="dash-pdf-btn-action btn-primary-action" id="btnEmptyCreateBranch" style="padding: 9px 18px; margin: 0 auto; font-size: 13px;">
+      <button type="button" class="btn-primary-action" id="btnEmptyCreateBranch" style="padding: 9px 18px; margin: 0 auto; font-size: 13px;">
         + Register First Branch
       </button>
     </div>
@@ -227,9 +211,6 @@
             👥 {{ b.headcount or 0 }} staff
           </span>
           <div style="display: flex; align-items: center; gap: 6px;">
-            <a href="/branches/kiosk?branch_id={{ b.id }}" target="_blank" rel="noopener noreferrer" class="dash-pdf-btn-action" style="padding: 5px 10px; font-size: 11.5px; color: #059669; border-color: #a7f3d0;" title="Launch Attendance Kiosk">
-              Kiosk ↗
-            </a>
             <button type="button" class="dash-pdf-btn-action btn-edit-branch" data-branch='{{ b|tojson }}' style="padding: 5px 10px; font-size: 11.5px;" title="Edit branch settings">
               Edit
             </button>
@@ -244,15 +225,13 @@
         <div style="font-size: 38px; margin-bottom: 12px;">🏢</div>
         <div style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 6px;">No Branches Configured Yet</div>
         <div style="font-size: 13px; margin-bottom: 18px; max-width: 420px; margin-left: auto; margin-right: auto; line-height: 1.5;">Create your first branch office location to organize physical attendance, staff allocation, and geofenced checkpoints.</div>
-        <button type="button" class="dash-pdf-btn-action btn-primary-action" id="btnEmptyCreateBranch" style="padding: 9px 18px; margin: 0 auto; font-size: 13px;">
+        <button type="button" class="btn-primary-action" id="btnEmptyCreateBranch" style="padding: 9px 18px; margin: 0 auto; font-size: 13px;">
           + Register First Branch
         </button>
       </div>
       {% endfor %}
     </div>
   {% endif %}
-
-</div>
 
 <!-- MODAL: ADD / EDIT BRANCH -->
 <div id="branchModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
@@ -324,161 +303,179 @@
   (function () {
     const ACTIVE_COMPANY_ID = "{{ active_company_id }}";
 
-    // Branch Modal Logic
-    const branchModal = document.getElementById('branchModal');
-    const branchForm = document.getElementById('branchForm');
-    const btnAddNewDirect = document.getElementById('btnAddNewBranchDirect');
-    const btnEmptyCreate = document.getElementById('btnEmptyCreateBranch');
-    const btnCloseModal = document.getElementById('btnCloseBranchModal');
-    const btnCancelModal = document.getElementById('btnCancelBranchModal');
-    const btnGetGps = document.getElementById('btnGetGpsCurrent');
-
     window.filterBranchCompany = function (cid) {
-      if (!cid || cid === 'ALL') {
-        window.location.href = '/branches';
+      const targetUrl = (!cid || cid === 'ALL') ? '/branches' : ('/branches?company_id=' + encodeURIComponent(cid));
+      if (window.spaNavigate) {
+        window.spaNavigate(targetUrl);
       } else {
-        window.location.href = '/branches?company_id=' + encodeURIComponent(cid);
+        window.location.href = targetUrl;
       }
     };
 
-    function openModal(branchData = null) {
-      if (!branchModal) return;
-      document.getElementById('branchModalTitle').textContent = branchData ? 'Edit Branch Office' : 'Register New Branch Office';
-      document.getElementById('formBranchId').value = branchData ? (branchData.id || branchData._id || '') : '';
-      document.getElementById('formBranchCode').value = branchData ? (branchData.branch_code || '') : '';
-      document.getElementById('formBranchName').value = branchData ? (branchData.branch_name || '') : '';
-      document.getElementById('formDistrict').value = branchData ? (branchData.district || '') : '';
-      document.getElementById('formAddress').value = branchData ? (branchData.address || '') : '';
-      document.getElementById('formLat').value = branchData ? (branchData.latitude || '') : '';
-      document.getElementById('formLng').value = branchData ? (branchData.longitude || '') : '';
-      document.getElementById('formRadius').value = branchData ? (branchData.geofence_radius || 150) : 150;
-      if (document.getElementById('formTargetCompanyId')) {
-        const defaultCid = (ACTIVE_COMPANY_ID && ACTIVE_COMPANY_ID !== 'ALL') ? ACTIVE_COMPANY_ID : (document.getElementById('formTargetCompanyId').options[0]?.value || 'ARGUS_MASTER');
-        document.getElementById('formTargetCompanyId').value = branchData ? (branchData.company_id || defaultCid) : defaultCid;
+    function initBranchManagement() {
+      // Branch Modal Logic
+      const branchModal = document.getElementById('branchModal');
+      const branchForm = document.getElementById('branchForm');
+      const btnAddNewDirect = document.getElementById('btnAddNewBranchDirect');
+      const btnEmptyCreate = document.getElementById('btnEmptyCreateBranch');
+      const btnCloseModal = document.getElementById('btnCloseBranchModal');
+      const btnCancelModal = document.getElementById('btnCancelBranchModal');
+      const btnGetGps = document.getElementById('btnGetGpsCurrent');
+
+      function openModal(branchData = null) {
+        if (!branchModal) return;
+        document.getElementById('branchModalTitle').textContent = branchData ? 'Edit Branch Office' : 'Register New Branch Office';
+        document.getElementById('formBranchId').value = branchData ? (branchData.id || branchData._id || '') : '';
+        document.getElementById('formBranchCode').value = branchData ? (branchData.branch_code || '') : '';
+        document.getElementById('formBranchName').value = branchData ? (branchData.branch_name || '') : '';
+        document.getElementById('formDistrict').value = branchData ? (branchData.district || '') : '';
+        document.getElementById('formAddress').value = branchData ? (branchData.address || '') : '';
+        document.getElementById('formLat').value = branchData ? (branchData.latitude || '') : '';
+        document.getElementById('formLng').value = branchData ? (branchData.longitude || '') : '';
+        document.getElementById('formRadius').value = branchData ? (branchData.geofence_radius || 150) : 150;
+        if (document.getElementById('formTargetCompanyId')) {
+          const defaultCid = (ACTIVE_COMPANY_ID && ACTIVE_COMPANY_ID !== 'ALL') ? ACTIVE_COMPANY_ID : (document.getElementById('formTargetCompanyId').options[0]?.value || 'ARGUS_MASTER');
+          document.getElementById('formTargetCompanyId').value = branchData ? (branchData.company_id || defaultCid) : defaultCid;
+        }
+        branchModal.style.display = 'flex';
       }
-      branchModal.style.display = 'flex';
-    }
 
-    function closeModal() {
-      if (branchModal) branchModal.style.display = 'none';
-    }
+      function closeModal() {
+        if (branchModal) branchModal.style.display = 'none';
+      }
 
-    if (btnAddNewDirect) btnAddNewDirect.addEventListener('click', () => openModal());
-    if (btnEmptyCreate) btnEmptyCreate.addEventListener('click', () => openModal());
-    if (btnCloseModal) btnCloseModal.addEventListener('click', closeModal);
-    if (btnCancelModal) btnCancelModal.addEventListener('click', closeModal);
+      if (btnAddNewDirect) btnAddNewDirect.onclick = () => openModal();
+      if (btnEmptyCreate) btnEmptyCreate.onclick = () => openModal();
+      if (btnCloseModal) btnCloseModal.onclick = closeModal;
+      if (btnCancelModal) btnCancelModal.onclick = closeModal;
 
-    // Close on backdrop click
-    if (branchModal) {
-      branchModal.addEventListener('click', function (e) {
-        if (e.target === branchModal) closeModal();
-      });
-    }
-
-    // Edit branch button handlers
-    document.querySelectorAll('.btn-edit-branch').forEach(btn => {
-      btn.addEventListener('click', function () {
-        try {
-          const data = JSON.parse(this.getAttribute('data-branch'));
-          openModal(data);
-        } catch (e) {
-          console.error(e);
-        }
-      });
-    });
-
-    // Delete branch button handlers
-    document.querySelectorAll('.btn-delete-branch').forEach(btn => {
-      btn.addEventListener('click', function () {
-        const id = this.getAttribute('data-id');
-        const name = this.getAttribute('data-name');
-        const compId = this.getAttribute('data-company-id') || ACTIVE_COMPANY_ID;
-        if (!confirm(`Are you sure you want to delete branch "${name}"? Assigned employees will be unassigned to Headquarters.`)) return;
-
-        fetch(`/api/branches/${id}?company_id=${encodeURIComponent(compId)}`, {
-          method: 'DELETE'
-        })
-        .then(r => r.json())
-        .then(data => {
-          if (data.success) {
-            showNotification(`Branch "${name}" deleted successfully`, 'success');
-            setTimeout(() => window.location.reload(), 400);
-          } else {
-            showNotification(data.error || 'Failed to delete branch', 'error');
-          }
-        })
-        .catch(err => showNotification('Error deleting branch', 'error'));
-      });
-    });
-
-    // GPS device autofill
-    if (btnGetGps) {
-      btnGetGps.addEventListener('click', function () {
-        if (!navigator.geolocation) {
-          alert('Geolocation is not supported by your browser');
-          return;
-        }
-        btnGetGps.textContent = 'Acquiring GPS...';
-        navigator.geolocation.getCurrentPosition(
-          pos => {
-            document.getElementById('formLat').value = pos.coords.latitude.toFixed(6);
-            document.getElementById('formLng').value = pos.coords.longitude.toFixed(6);
-            btnGetGps.textContent = '📍 Coordinates Acquired!';
-            setTimeout(() => { btnGetGps.textContent = '📍 Get Current Device Coordinates'; }, 2000);
-          },
-          err => {
-            btnGetGps.textContent = 'GPS Acquisition Failed';
-            setTimeout(() => { btnGetGps.textContent = '📍 Get Current Device Coordinates'; }, 2000);
-          },
-          { enableHighAccuracy: true, timeout: 8000 }
-        );
-      });
-    }
-
-    // Form save handler
-    if (branchForm) {
-      branchForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-        const branchId = document.getElementById('formBranchId').value;
-        const targetCompanyId = document.getElementById('formTargetCompanyId') ? document.getElementById('formTargetCompanyId').value : (ACTIVE_COMPANY_ID !== 'ALL' ? ACTIVE_COMPANY_ID : 'ARGUS_MASTER');
-        const payload = {
-          company_id: targetCompanyId,
-          branch_name: document.getElementById('formBranchName').value.trim(),
-          branch_code: document.getElementById('formBranchCode').value.trim(),
-          district: document.getElementById('formDistrict').value.trim(),
-          address: document.getElementById('formAddress').value.trim(),
-          latitude: parseFloat(document.getElementById('formLat').value) || null,
-          longitude: parseFloat(document.getElementById('formLng').value) || null,
-          geofence_radius: parseFloat(document.getElementById('formRadius').value) || 150
+      // Close on backdrop click
+      if (branchModal) {
+        branchModal.onclick = function (e) {
+          if (e.target === branchModal) closeModal();
         };
+      }
 
-        const isEdit = Boolean(branchId);
-        const url = isEdit ? `/api/branches/${branchId}?company_id=${encodeURIComponent(targetCompanyId)}` : `/api/branches?company_id=${encodeURIComponent(targetCompanyId)}`;
-        const method = isEdit ? 'PUT' : 'POST';
-
-        document.getElementById('btnSaveBranch').textContent = 'Saving...';
-        fetch(url, {
-          method: method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        .then(r => r.json())
-        .then(data => {
-          document.getElementById('btnSaveBranch').textContent = 'Save Branch';
-          if (data.success) {
-            closeModal();
-            showNotification(data.message || 'Branch saved successfully', 'success');
-            setTimeout(() => window.location.reload(), 400);
-          } else {
-            showNotification(data.error || 'Failed to save branch', 'error');
+      // Edit branch button handlers
+      document.querySelectorAll('.btn-edit-branch').forEach(btn => {
+        btn.onclick = function () {
+          try {
+            const data = JSON.parse(this.getAttribute('data-branch'));
+            openModal(data);
+          } catch (e) {
+            console.error(e);
           }
-        })
-        .catch(err => {
-          document.getElementById('btnSaveBranch').textContent = 'Save Branch';
-          showNotification('Network error saving branch', 'error');
-        });
+        };
       });
+
+      // Delete branch button handlers
+      document.querySelectorAll('.btn-delete-branch').forEach(btn => {
+        btn.onclick = function () {
+          const id = this.getAttribute('data-id');
+          const name = this.getAttribute('data-name');
+          const compId = this.getAttribute('data-company-id') || ACTIVE_COMPANY_ID;
+          if (!confirm(`Are you sure you want to delete branch "${name}"? Assigned employees will be unassigned to Headquarters.`)) return;
+
+          fetch(`/api/branches/${id}?company_id=${encodeURIComponent(compId)}`, {
+            method: 'DELETE'
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.success) {
+              showNotification(`Branch "${name}" deleted successfully`, 'success');
+              if (window.spaClearCache) window.spaClearCache();
+              if (window.spaNavigate) {
+                setTimeout(() => window.spaNavigate(window.location.href), 350);
+              } else {
+                setTimeout(() => window.location.reload(), 350);
+              }
+            } else {
+              showNotification(data.error || 'Failed to delete branch', 'error');
+            }
+          })
+          .catch(err => showNotification('Error deleting branch', 'error'));
+        };
+      });
+
+      // GPS device autofill
+      if (btnGetGps) {
+        btnGetGps.onclick = function () {
+          if (!navigator.geolocation) {
+            alert('Geolocation is not supported by your browser');
+            return;
+          }
+          btnGetGps.textContent = 'Acquiring GPS...';
+          navigator.geolocation.getCurrentPosition(
+            pos => {
+              document.getElementById('formLat').value = pos.coords.latitude.toFixed(6);
+              document.getElementById('formLng').value = pos.coords.longitude.toFixed(6);
+              btnGetGps.textContent = '📍 Coordinates Acquired!';
+              setTimeout(() => { btnGetGps.textContent = '📍 Get Current Device Coordinates'; }, 2000);
+            },
+            err => {
+              btnGetGps.textContent = 'GPS Acquisition Failed';
+              setTimeout(() => { btnGetGps.textContent = '📍 Get Current Device Coordinates'; }, 2000);
+            },
+            { enableHighAccuracy: true, timeout: 8000 }
+          );
+        };
+      }
+
+      // Form save handler
+      if (branchForm) {
+        branchForm.onsubmit = function (e) {
+          e.preventDefault();
+          const branchId = document.getElementById('formBranchId').value;
+          const targetCompanyId = document.getElementById('formTargetCompanyId') ? document.getElementById('formTargetCompanyId').value : (ACTIVE_COMPANY_ID !== 'ALL' ? ACTIVE_COMPANY_ID : 'ARGUS_MASTER');
+          const payload = {
+            company_id: targetCompanyId,
+            branch_name: document.getElementById('formBranchName').value.trim(),
+            branch_code: document.getElementById('formBranchCode').value.trim(),
+            district: document.getElementById('formDistrict').value.trim(),
+            address: document.getElementById('formAddress').value.trim(),
+            latitude: parseFloat(document.getElementById('formLat').value) || null,
+            longitude: parseFloat(document.getElementById('formLng').value) || null,
+            geofence_radius: parseFloat(document.getElementById('formRadius').value) || 150
+          };
+
+          const isEdit = Boolean(branchId);
+          const url = isEdit ? `/api/branches/${branchId}?company_id=${encodeURIComponent(targetCompanyId)}` : `/api/branches?company_id=${encodeURIComponent(targetCompanyId)}`;
+          const method = isEdit ? 'PUT' : 'POST';
+
+          const saveBtn = document.getElementById('btnSaveBranch');
+          if (saveBtn) saveBtn.textContent = 'Saving...';
+          fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (saveBtn) saveBtn.textContent = 'Save Branch';
+            if (data.success) {
+              closeModal();
+              showNotification(data.message || 'Branch saved successfully', 'success');
+              if (window.spaClearCache) window.spaClearCache();
+              if (window.spaNavigate) {
+                setTimeout(() => window.spaNavigate(window.location.href), 350);
+              } else {
+                setTimeout(() => window.location.reload(), 350);
+              }
+            } else {
+              showNotification(data.error || 'Failed to save branch', 'error');
+            }
+          })
+          .catch(err => {
+            if (saveBtn) saveBtn.textContent = 'Save Branch';
+            showNotification('Network error saving branch', 'error');
+          });
+        };
+      }
     }
+
+    // Initialize handlers
+    initBranchManagement();
+    window.addEventListener('page:loaded', initBranchManagement);
 
     function showNotification(msg, type = 'info') {
       const banner = document.createElement('div');

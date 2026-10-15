@@ -105,7 +105,7 @@
     // Exclude logout, login portals, kiosk, dedicated field worker module, and file download endpoints
     if (url.pathname === '/logout' || url.pathname.includes('/logout')) return false;
     if (url.pathname === '/login' || url.pathname === '/company-login' || url.pathname === '/employee-login' || url.pathname === '/kiosk') return false;
-    if (url.pathname.startsWith('/field-worker') || url.pathname.startsWith('/branches')) return false;
+    if (url.pathname.startsWith('/field-worker') || url.pathname.startsWith('/branches/kiosk')) return false;
     if (url.pathname.startsWith('/api/') && (url.pathname.includes('/pdf') || url.pathname.includes('/excel') || url.pathname.includes('/download'))) {
       return false;
     }
@@ -259,6 +259,12 @@
 
     isNavigating = true;
     startProgress();
+
+    // Dismiss any open dropdowns upon navigating
+    const navBranchMenu = document.getElementById('navBranchDropdownMenu');
+    if (navBranchMenu) navBranchMenu.style.display = 'none';
+    const navChevron = document.querySelector('#navCompanyDropdownBtn .nav-dropdown-chevron');
+    if (navChevron) navChevron.style.transform = 'rotate(0deg)';
 
     activeAbortController = new AbortController();
 
@@ -422,7 +428,7 @@
 
   // 12. Idle Pre-loading: Pre-load common routes when CPU & Network are idle
   function preloadCommonTabs() {
-    const commonTabs = ['/dashboard', '/live-report', '/attendance-report', '/employee-details'];
+    const commonTabs = ['/dashboard', '/live-report', '/attendance-report', '/employee-details', '/branches'];
     const idleRunner = window.requestIdleCallback || ((cb) => setTimeout(cb, 1200));
 
     idleRunner(() => {
