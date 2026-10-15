@@ -5,7 +5,7 @@ import json
 import re
 import calendar
 import secrets
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, time as dt_time, timedelta, timezone
 from dotenv import load_dotenv
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from bson import ObjectId
@@ -282,6 +282,26 @@ def init_db():
             })
         except Exception as e:
             print(f"Master company seeding notice: {e}")
+
+    # Ensure master company has at least one default branch for System Admin view
+    try:
+        if db.company_branches.count_documents({'company_id': 'ARGUS_MASTER'}) == 0:
+            db.company_branches.insert_one({
+                'id': f"branch_{int(time.time() * 1000)}",
+                'company_id': 'ARGUS_MASTER',
+                'branch_name': 'Coimbatore',
+                'branch_code': 'ARG-CBE',
+                'district': 'Coimbatore',
+                'address': 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy, Coimbatore - 641 006',
+                'latitude': 11.02980,
+                'longitude': 76.97400,
+                'geofence_radius': 150.0,
+                'status': 'Active',
+                'created_at': datetime.now(),
+                'updated_at': datetime.now()
+            })
+    except Exception as e:
+        print(f"Master branch seeding notice: {e}")
 
     try:
         sync_geofence_entry_types()
@@ -2116,7 +2136,7 @@ def process_company_timeout_entries(company_id=None):
             except Exception:
                 pass
         if not end_time_obj:
-            end_time_obj = time(18, 0)  # Default 06:00 PM
+            end_time_obj = dt_time(18, 0)  # Default 06:00 PM
 
         # Scheduled shift end on the exact entry date
         scheduled_end_dt = datetime.combine(entry_dt.date(), end_time_obj).replace(tzinfo=IST)
@@ -2147,7 +2167,7 @@ def process_company_timeout_entries(company_id=None):
                 if entry_dt < scheduled_end_dt:
                     auto_exit_dt = scheduled_end_dt
                 else:
-                    same_day_end = datetime.combine(entry_dt.date(), time(23, 59, 59)).replace(tzinfo=IST)
+                    same_day_end = datetime.combine(entry_dt.date(), dt_time(23, 59, 59)).replace(tzinfo=IST)
                     auto_exit_dt = min(entry_dt + timedelta(minutes=30), same_day_end)
         
         # If current time is strictly past scheduled shift exit, auto timeout punch-out

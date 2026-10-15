@@ -521,6 +521,16 @@ def inject_delete_permissions():
         company_support_enabled = bool(comp_doc.get('support_enabled', True)) if comp_doc else False
 
     active_bid = get_current_branch_id()
+    active_bname = session.get('active_branch_name')
+    if active_bid:
+        if not active_bname or session.get('active_branch_id') != active_bid:
+            b_doc = database.get_branch_by_id(active_bid, company_id='ALL')
+            if b_doc:
+                active_bname = b_doc.get('branch_name', '')
+                session['active_branch_id'] = str(active_bid)
+                session['active_branch_name'] = active_bname
+    else:
+        active_bname = None
 
     # 2. Cached badge counts (served from in-memory cache)
     if is_super:
@@ -574,7 +584,7 @@ def inject_delete_permissions():
         'total_branches_count': len(branches_list),
         'user_branches': branches_list,
         'active_branch_id': active_bid,
-        'active_branch_name': session.get('active_branch_name', '')
+        'active_branch_name': active_bname or ''
     }
 
 import traceback
@@ -5450,13 +5460,18 @@ def branch_management_page():
     req_cid = request.args.get('company_id')
     if user_role == 'super_admin':
         if req_cid and req_cid not in ['ALL', 'all', 'None', 'null']:
-            branches = database.get_company_branches(req_cid)
+            active_cid = str(req_cid).strip()
+            branches = database.get_company_branches(active_cid)
         else:
+            active_cid = 'ALL'
             branches = database.get_company_branches('ALL')
 
         for b in branches:
             cid = str(b.get('company_id', ''))
             b['company_name'] = company_map.get(cid, 'ARGUS TECHNOLOGIES')
+
+        # Pre-sort by company name then branch name so Jinja2 groupby functions correctly without disjoint chunks
+        branches.sort(key=lambda b: (b.get('company_name', '').lower(), b.get('branch_name', '').lower()))
     else:
         branches = database.get_company_branches(active_cid)
         for b in branches:
@@ -5466,7 +5481,7 @@ def branch_management_page():
         'branch_management_module.html',
         branches=branches,
         active_company=active_comp,
-        active_company_id=req_cid or active_cid,
+        active_company_id=active_cid,
         companies=companies,
         user_role=user_role,
         total_branches=len(branches),
@@ -5632,11 +5647,16 @@ def api_set_active_branch():
         session.pop('active_branch_name', None)
         return jsonify({'success': True, 'active_branch_id': None, 'active_branch_name': 'All Branches'})
 
-    active_cid = _resolve_field_company_id(None)
-    branch = database.get_branch_by_id(bid, active_cid)
+    if session.get('role') == 'super_admin':
+        branch = database.get_branch_by_id(bid, company_id='ALL')
+    else:
+        active_cid = _resolve_field_company_id(None)
+        branch = database.get_branch_by_id(bid, active_cid)
+
     if branch:
         session['active_branch_id'] = str(bid)
         session['active_branch_name'] = branch.get('branch_name')
+        session.modified = True
         return jsonify({'success': True, 'active_branch_id': str(bid), 'active_branch_name': branch.get('branch_name')})
 
     return jsonify({'success': False, 'error': 'Branch not found'}), 404

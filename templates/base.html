@@ -98,16 +98,22 @@
     </div>
     
     <div class="nav-center">
-      <div class="nav-title">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</div>
+      <div class="nav-title">
+        {% if active_branch_name %}
+          {{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }} - {{ active_branch_name }}
+        {% else %}
+          {{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}
+        {% endif %}
+      </div>
     </div>
     
     <div class="nav-right">
-      {% if company_modules and company_modules.branch_company and user_branches and user_branches|length > 0 %}
+      {% if (company_modules and company_modules.branch_company) or is_system_admin %}
       <div class="nav-company-dropdown-container" id="navBranchDropdownContainer" style="position: relative;">
         <button type="button" class="nav-branch-toggle-btn" id="navCompanyDropdownBtn" onclick="toggleNavBranchDropdown(event)" title="Click to switch active branch view">
           <span class="nav-active-branch-badge">
-            {% if session.get('active_branch_name') %}
-              📍 {{ session.get('active_branch_name') }}
+            {% if active_branch_name %}
+              📍 {{ active_branch_name }}
             {% else %}
               🏢 All Branches
             {% endif %}
@@ -124,7 +130,7 @@
           </div>
 
           <!-- All Branches Option -->
-          <a href="javascript:void(0)" onclick="globalSwitchBranch('ALL')" class="nav-branch-item {% if not session.get('active_branch_id') %}active{% endif %}">
+          <a href="javascript:void(0)" onclick="globalSwitchBranch('ALL')" class="nav-branch-item {% if not active_branch_id %}active{% endif %}">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 15px;">🏢</span>
               <div style="text-align: left;">
@@ -132,7 +138,7 @@
                 <div style="font-size: 10.5px; color: #64748b; font-weight: 500;">Consolidated overview ({{ user_branches|length }} locations)</div>
               </div>
             </div>
-            {% if not session.get('active_branch_id') %}
+            {% if not active_branch_id %}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             {% endif %}
           </a>
@@ -142,7 +148,7 @@
           <!-- Branch List -->
           <div style="max-height: 220px; overflow-y: auto;">
             {% for b in user_branches %}
-            <a href="javascript:void(0)" onclick="globalSwitchBranch('{{ b.id }}')" class="nav-branch-item {% if session.get('active_branch_id') == b.id %}active{% endif %}">
+            <a href="javascript:void(0)" onclick="globalSwitchBranch('{{ b.id }}')" class="nav-branch-item {% if active_branch_id == b.id %}active{% endif %}">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 15px;">📍</span>
                 <div style="text-align: left;">
@@ -150,10 +156,14 @@
                   <div style="font-size: 10.5px; color: #64748b; font-weight: 500;">{{ b.district or 'Hub' }} &bull; Radius: {{ b.geofence_radius or 150 }}m</div>
                 </div>
               </div>
-              {% if session.get('active_branch_id') == b.id %}
+              {% if active_branch_id == b.id %}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
               {% endif %}
             </a>
+            {% else %}
+            <div style="padding: 12px 14px; text-align: center; color: #94a3b8; font-size: 11.5px; font-weight: 500;">
+              No branches registered yet
+            </div>
             {% endfor %}
           </div>
 
@@ -223,7 +233,6 @@
             <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
           </svg>
           <span style="flex: 1;">Manage Branches</span>
-          <span class="nav-count-badge" id="sidebarBranchBadge" {% if not total_branches_count %}style="display: none;"{% endif %}>{{ total_branches_count or 0 }}</span>
         </a>
         {% endif %}
         {% if company_modules and company_modules.field_worker %}
