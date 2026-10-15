@@ -5220,14 +5220,13 @@ def api_field_worker_assignments():
         items = database.get_field_assignments(company_id=cid, employee_name=emp, date_str=dt, status=st)
         return jsonify({'success': True, 'assignments': items})
 
-    if not session.get('admin_logged_in'):
-        return jsonify({'success': False, 'error': 'Only Company Admin or System Admin can assign locations.'}), 403
-
     try:
         data = request.get_json(silent=True) or request.form.to_dict()
         cid = _resolve_field_company_id(data.get('company_id'))
+        if session.get('role') == 'employee' and session.get('employee_name'):
+            data['employee_name'] = session.get('employee_name')
         created = database.create_field_assignment(data, company_id=cid)
-        return jsonify({'success': True, 'assignment': created, 'message': 'Target location assigned to field worker!'})
+        return jsonify({'success': True, 'assignment': created, 'message': 'Visit destination scheduled successfully!'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
@@ -5301,13 +5300,22 @@ def api_field_worker_visits():
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
-@app.route('/api/field-worker/visits/<visit_id>', methods=['DELETE'])
-def api_field_worker_delete_visit(visit_id):
-    if not session.get('admin_logged_in'):
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+@app.route('/api/field-worker/visits/<visit_id>', methods=['PUT', 'DELETE'])
+def api_field_worker_visit_detail(visit_id):
+    """Updates or deletes a specific field customer visit / lead."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
     cid = _resolve_field_company_id(request.args.get('company_id'))
-    ok = database.delete_field_customer_visit(visit_id, company_id=cid)
-    return jsonify({'success': ok})
+    if request.method == 'DELETE':
+        if not session.get('admin_logged_in'):
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        ok = database.delete_field_customer_visit(visit_id, company_id=cid)
+        return jsonify({'success': ok, 'message': 'Lead deleted.' if ok else 'Lead not found.'})
+
+    data = request.get_json(silent=True) or request.form.to_dict()
+    ok = database.update_field_customer_visit(visit_id, data, company_id=cid)
+    return jsonify({'success': ok, 'message': 'Lead updated successfully!' if ok else 'Lead not found.'})
 
 
 @app.route('/api/field-worker/salary-report', methods=['GET'])

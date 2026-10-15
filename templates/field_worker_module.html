@@ -1179,26 +1179,15 @@
       </div>
 
       <nav class="sidebar-nav" id="fwSidebarNav">
+        {% if user_role in ['super_admin', 'company_admin'] %}
         <button type="button" class="nav-item-btn active" data-pane="paneLiveTracking" onclick="switchFieldTab('paneLiveTracking', this)">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
           <span>Live Monitor</span>
         </button>
 
-        {% if user_role in ['super_admin', 'company_admin'] %}
         <button type="button" class="nav-item-btn" data-pane="paneRegisterWorkers" onclick="switchFieldTab('paneRegisterWorkers', this)">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
           <span>Register Field Workers</span>
-        </button>
-
-        <button type="button" class="nav-item-btn" data-pane="paneAssignLocations" onclick="switchFieldTab('paneAssignLocations', this)">
-          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-          <span>Assign Locations</span>
-        </button>
-        {% endif %}
-
-        <button type="button" class="nav-item-btn" data-pane="paneFieldPunch" onclick="switchFieldTab('paneFieldPunch', this)">
-          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-          <span>Field Attendance Punch</span>
         </button>
 
         <button type="button" class="nav-item-btn" data-pane="paneCustomerVisits" onclick="switchFieldTab('paneCustomerVisits', this)">
@@ -1210,6 +1199,29 @@
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
           <span>Payslip &amp; Salary Reports</span>
         </button>
+
+        {% else %}
+        {# Field Worker (employee) #}
+        <button type="button" class="nav-item-btn active" data-pane="paneFieldPunch" onclick="switchFieldTab('paneFieldPunch', this)">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+          <span>My Attendance &amp; Punch</span>
+        </button>
+
+        <button type="button" class="nav-item-btn" data-pane="paneAssignLocations" onclick="switchFieldTab('paneAssignLocations', this)">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          <span>Schedule Planned Visits</span>
+        </button>
+
+        <button type="button" class="nav-item-btn" data-pane="paneCustomerVisits" onclick="switchFieldTab('paneCustomerVisits', this)">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+          <span>Record &amp; View Leads</span>
+        </button>
+
+        <button type="button" class="nav-item-btn" data-pane="paneFieldPayroll" onclick="switchFieldTab('paneFieldPayroll', this)">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          <span>My Payslips</span>
+        </button>
+        {% endif %}
 
         {% if user_role in ['company_admin', 'employee'] and company_support_enabled %}
         <a href="{{ url_for('support_center') }}" target="_blank" rel="noopener noreferrer" class="nav-item-btn" style="text-decoration: none;">
@@ -1270,7 +1282,7 @@
               </svg>
             </div>
             <div class="banner-text-group">
-              <div class="banner-title" id="activePaneHeading">LIVE MONITOR</div>
+              <div class="banner-title" id="activePaneHeading">{% if user_role == 'employee' %}FIELD ATTENDANCE PUNCH &amp; PROFILE{% else %}LIVE MONITOR{% endif %}</div>
               <div class="banner-subtitle">
                 Company Workspace: <strong style="color: #0f172a;">{{ active_company.company_name }}</strong>
                 {% if user_role == 'employee' %}
@@ -1318,8 +1330,9 @@
         </div>
 
         <!-- ========================================================================= -->
-        <!-- TAB 1: LIVE MONITOR (KPI CARDS INSIDE THIS TAB ALONE)                     -->
+        <!-- TAB 1: LIVE MONITOR (ADMIN ONLY)                                          -->
         <!-- ========================================================================= -->
+        {% if user_role in ['super_admin', 'company_admin'] %}
         <div id="paneLiveTracking" class="fw-section-pane active" data-title="LIVE MONITOR">
           <!-- 6 Live KPI Summary Cards (Displayed in Live Route Tab ALONE) -->
           <div class="fw-kpi-grid">
@@ -1559,7 +1572,6 @@
         <!-- ========================================================================= -->
         <!-- TAB 2: REGISTER FIELD WORKERS (ADMIN ONLY)                                -->
         <!-- ========================================================================= -->
-        {% if user_role in ['super_admin', 'company_admin'] %}
         <div id="paneRegisterWorkers" class="fw-section-pane" data-title="REGISTER FIELD WORKERS">
           <!-- Full-Width Card: Registered Field Force Directory (Moved to Top) -->
           <div class="table-card">
@@ -1591,7 +1603,6 @@
                     <th>SALARY BASIS &amp; SHIFT</th>
                     <th>BASE RATE</th>
                     <th>VISIT INCENTIVE</th>
-                    <th>TRAVEL ALLOWANCE</th>
                     <th>STATUS</th>
                     <th style="text-align:center;">ACTION</th>
                   </tr>
@@ -1628,7 +1639,6 @@
                       {% endif %}
                     </td>
                     <td style="font-weight:700; color:#15803d;">₹{{ "%.2f"|format(w.per_visit_incentive or 0) }} / visit</td>
-                    <td style="font-weight:700; color:#2563eb;">₹{{ "%.2f"|format(w.km_allowance_rate or 0) }} / km</td>
                     <td>
                       {% if (w.status or 'Active') == 'Inactive' %}
                       <span class="status-pill status-inactive">Inactive</span>
@@ -1807,17 +1817,11 @@
                       </div>
                     </div>
 
-                    <!-- Row 8: Travel Rate & Incentive note -->
-                    <div class="fw-form-grid-2">
-                      <div class="fw-field">
-                        <label class="fw-label">GPS Travel Rate (₹ / KM)</label>
-                        <input type="number" step="0.5" id="fwRegKmRate" class="fw-input" value="6">
-                      </div>
-
-                      <div class="fw-field" style="justify-content:center;">
-                        <div style="font-size:11.5px; color:#0f766e; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:8px 10px; line-height:1.35;">
-                          <i class="fa-solid fa-circle-check"></i> Automatically calculates daily KM distance &amp; visit incentives into monthly payslip.
-                        </div>
+                    <!-- Row 8: Travel & Petrol Allowance Note (No Rate Input) -->
+                    <input type="hidden" id="fwRegKmRate" value="5.0">
+                    <div style="margin-top:4px;">
+                      <div style="font-size:11.5px; color:#0f766e; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:10px 12px; line-height:1.4;">
+                        <i class="fa-solid fa-circle-check"></i> Automatically calculates daily travel distance, verified visits, and petrol/diesel allowance into monthly payslips.
                       </div>
                     </div>
                   </div>
@@ -1833,11 +1837,16 @@
             </div>
           </div>
         </div>
+        {% endif %}
 
         <!-- ========================================================================= -->
         <!-- TAB 3: ASSIGN LOCATIONS (ADMIN ONLY)                                      -->
         <!-- ========================================================================= -->
-        <div id="paneAssignLocations" class="fw-section-pane" data-title="ASSIGN LOCATIONS">
+        <!-- ========================================================================= -->
+        <!-- TAB 3: SCHEDULE PLANNED VISITS (FIELD WORKER SELF-SERVICE)                -->
+        <!-- ========================================================================= -->
+        {% if user_role == 'employee' %}
+        <div id="paneAssignLocations" class="fw-section-pane" data-title="SCHEDULE PLANNED VISITS">
           <form id="assignLocationForm" onsubmit="submitLocationAssignment(event)">
             <div class="fw-split-50-50">
               <!-- Left Card: Assignment Form Details -->
@@ -1848,25 +1857,17 @@
                       <i class="fa-solid fa-map-pin"></i>
                     </span>
                     <div>
-                      <div class="fw-card-title">Assign Target Customer Site</div>
-                      <div class="fw-card-subtitle">Schedule daily customer visits &amp; geofence checkpoints</div>
+                      <div class="fw-card-title">Schedule Destination / Company to Visit</div>
+                      <div class="fw-card-subtitle">Schedule customer destinations &amp; geofence checkpoints</div>
                     </div>
                   </div>
                 </div>
                 <div class="fw-card-body" style="gap:12px;">
                   <div class="fw-form-grid-2">
                     <div class="fw-field">
-                      <label class="fw-label">Assign To Field Worker *</label>
-                      <select id="asgnWorkerName" class="fw-select" required>
-                        {% if field_workers %}
-                        <option value="">-- Select Field Worker --</option>
-                        {% for w in field_workers %}
-                        <option value="{{ w.employee_name }}">{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
-                        {% endfor %}
-                        {% else %}
-                        <option value="">-- No Field Workers Registered --</option>
-                        {% endif %}
-                      </select>
+                      <label class="fw-label">Field Worker</label>
+                      <input type="text" class="fw-input" value="{{ logged_in_employee_name }}" readonly style="background:#f8fafc; font-weight:700;">
+                      <input type="hidden" id="asgnWorkerName" value="{{ logged_in_employee_name }}">
                     </div>
                     <div class="fw-field">
                       <label class="fw-label">Assignment Date *</label>
@@ -1909,7 +1910,7 @@
 
                   <div style="margin-top:auto; padding-top:6px;">
                     <button type="submit" class="fw-btn fw-btn-success fw-btn-block">
-                      <i class="fa-solid fa-paper-plane"></i> Assign Target Location &amp; Activate Geofence
+                      <i class="fa-solid fa-paper-plane"></i> Schedule Destination &amp; Activate Geofence
                     </button>
                   </div>
                 </div>
@@ -1956,7 +1957,7 @@
             <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
               <div class="fw-card-title" style="font-size:13px;">
                 <i class="fa-solid fa-clipboard-check" style="color:#2563eb; margin-right:6px;"></i>
-                ASSIGNED FIELD LOCATIONS &amp; GEOFENCE STATUS (<span id="assignedCountBadge">{{ assignments|length }}</span>)
+                MY SCHEDULED VISITS &amp; DESTINATIONS (<span id="assignedCountBadge">{{ assignments|length }}</span>)
               </div>
               <div class="search-box-wrapper">
                 <label>Search:</label>
@@ -2025,12 +2026,57 @@
             </div>
           </div>
         </div>
-        {% endif %}
 
         <!-- ========================================================================= -->
-        <!-- TAB 4: FIELD ATTENDANCE PUNCH                                             -->
+        <!-- TAB 4: FIELD ATTENDANCE PUNCH & WORKER DETAILS                            -->
         <!-- ========================================================================= -->
-        <div id="paneFieldPunch" class="fw-section-pane" data-title="FIELD ATTENDANCE PUNCH">
+        <div id="paneFieldPunch" class="fw-section-pane active" data-title="FIELD ATTENDANCE PUNCH">
+          {% set my_worker = (field_workers[0] if field_workers else {}) %}
+          <!-- Field Worker Profile Card (Displays Worker Details, Territory & Shift) -->
+          <div class="fw-card" style="margin-bottom: 16px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #fff; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 4px 18px rgba(0,0,0,0.12);">
+            <div class="fw-card-body" style="padding: 18px 22px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+                <!-- Profile Left -->
+                <div style="display:flex; align-items:center; gap:14px;">
+                  <div class="avatar-circle" style="width:48px; height:48px; font-size:18px; font-weight:800; background: linear-gradient(135deg, #f59e0b, #d97706); color:#fff; box-shadow:0 2px 8px rgba(245,158,11,0.35);">
+                    {{ (logged_in_employee_name or 'FW')[:2]|upper }}
+                  </div>
+                  <div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span style="font-size:17px; font-weight:800; letter-spacing:-0.2px; color:#ffffff;">{{ logged_in_employee_name }}</span>
+                      <span class="badge-neutral" style="background:rgba(255,255,255,0.12); color:#fbbf24; border-color:rgba(251,191,36,0.3); font-size:11px;">
+                        <i class="fa-solid fa-person-walking-luggage"></i> Field Worker
+                      </span>
+                    </div>
+                    <div style="font-size:12px; color:#94a3b8; margin-top:2px;">
+                      {{ my_worker.designation or 'Field Executive' }} &bull; {{ my_worker.department or 'Sales & Field Operations' }} &bull; <i class="fa-solid fa-map-pin" style="color:#14b8a6;"></i> {{ my_worker.territory_zone or 'Assigned Territory' }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Quick Metrics Chips -->
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                  <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:8px 14px; text-align:center;">
+                    <div style="font-size:10px; text-transform:uppercase; color:#94a3b8; font-weight:700; letter-spacing:0.5px;">Today's Shift</div>
+                    <div style="font-size:14px; font-weight:800; color:#38bdf8;">{{ my_worker.shift_hours or '08:00' }} Hours</div>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:8px 14px; text-align:center;">
+                    <div style="font-size:10px; text-transform:uppercase; color:#94a3b8; font-weight:700; letter-spacing:0.5px;">Planned Visits</div>
+                    <div style="font-size:14px; font-weight:800; color:#34d399;" id="myPlannedVisitsCount">{{ assignments|length }}</div>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:8px 14px; text-align:center;">
+                    <div style="font-size:10px; text-transform:uppercase; color:#94a3b8; font-weight:700; letter-spacing:0.5px;">Leads Recorded</div>
+                    <div style="font-size:14px; font-weight:800; color:#fbbf24;" id="myLeadsCount">{{ visits|length }}</div>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:8px 14px; text-align:center;">
+                    <div style="font-size:10px; text-transform:uppercase; color:#94a3b8; font-weight:700; letter-spacing:0.5px;">Contact Phone</div>
+                    <div style="font-size:12.5px; font-weight:700; color:#e2e8f0;">{{ my_worker.mobile_number or '-' }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="fw-split-50-50">
             <!-- Left Card: AI Face + Live GPS Attendance Terminal -->
             <div class="fw-card">
@@ -2095,15 +2141,8 @@
                 <div class="fw-form-grid-2">
                   <div class="fw-field">
                     <label class="fw-label">Field Worker</label>
-                    <select id="quickPunchWorker" class="fw-select" {% if user_role == 'employee' %}disabled{% endif %}>
-                      {% if field_workers %}
-                      {% for w in field_workers %}
-                      <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
-                      {% endfor %}
-                      {% else %}
-                      <option value="">-- No Field Workers Registered --</option>
-                      {% endif %}
-                    </select>
+                    <input type="text" class="fw-input" value="{{ logged_in_employee_name }}" readonly style="background:#f8fafc; font-weight:700;">
+                    <input type="hidden" id="quickPunchWorker" value="{{ logged_in_employee_name }}">
                   </div>
                   <div class="fw-field">
                     <label class="fw-label">Current Field Location / Site Note</label>
@@ -2161,6 +2200,7 @@
             </div>
           </div>
         </div>
+        {% endif %}
 
         <!-- ========================================================================= -->
         <!-- TAB 5: LEAD MANAGEMENT                                                    -->
@@ -2188,9 +2228,11 @@
                   <label>Search:</label>
                   <input type="text" class="search-input" placeholder="Search customer, worker, status..." oninput="filterFieldTable(this, 'customerVisitsTable')">
                 </div>
+                {% if user_role == 'employee' %}
                 <button type="button" class="fw-btn fw-btn-primary" onclick="openAddLeadModal()">
-                  <i class="fa-solid fa-plus"></i> Add Lead
+                  <i class="fa-solid fa-plus"></i> Record New Lead
                 </button>
+                {% endif %}
               </div>
             </div>
 
@@ -2234,9 +2276,14 @@
                     </td>
                     {% if user_role in ['super_admin', 'company_admin'] %}
                     <td style="text-align:center;">
-                      <button type="button" class="btn-action-icon btn-action-delete" title="Delete Visit" onclick="deleteCustomerVisit('{{ v.id }}')">
-                        <i class="fa-solid fa-trash"></i>
-                      </button>
+                      <div style="display:inline-flex; align-items:center; gap:6px;">
+                        <button type="button" class="btn-action-icon btn-action-edit" title="Edit Lead" onclick="openEditLeadModal('{{ v.id }}')">
+                          <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button type="button" class="btn-action-icon btn-action-delete" title="Delete Visit" onclick="deleteCustomerVisit('{{ v.id }}')">
+                          <i class="fa-solid fa-trash"></i>
+                        </button>
+                      </div>
                     </td>
                     {% endif %}
                   </tr>
@@ -2387,6 +2434,98 @@
               </form>
             </div>
           </div>
+
+          <!-- Modal Dialog: Edit Captured Lead & Status (Company Admin) -->
+          <div class="fw-modal-backdrop d-none" id="editLeadModalBackdrop">
+            <div class="fw-modal-dialog" style="max-width: 580px;">
+              <div class="fw-modal-header">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background:#dbeafe; color:#2563eb;">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title">Edit Captured Lead &amp; Status</div>
+                    <div class="fw-card-subtitle">Review and update lead details, outcome status, deal value &amp; follow-up</div>
+                  </div>
+                </div>
+                <button type="button" class="fw-modal-close-btn" onclick="closeEditLeadModal()">&times;</button>
+              </div>
+
+              <form id="editLeadForm" onsubmit="submitEditLead(event)">
+                <input type="hidden" id="editLeadId">
+                <div class="fw-modal-body" style="gap:14px;">
+                  <!-- Row 1: Customer & Worker -->
+                  <div class="fw-form-grid-2">
+                    <div class="fw-field">
+                      <label class="fw-label">Customer / Company</label>
+                      <input type="text" id="editCustomerName" class="fw-input" style="background:#f8fafc; font-weight:700;" readonly>
+                    </div>
+                    <div class="fw-field">
+                      <label class="fw-label">Recorded By (Field Worker)</label>
+                      <input type="text" id="editWorkerName" class="fw-input" style="background:#f8fafc;" readonly>
+                    </div>
+                  </div>
+
+                  <!-- Row 2: Contact Person & Phone -->
+                  <div class="fw-form-grid-2">
+                    <div class="fw-field">
+                      <label class="fw-label">Contact Person</label>
+                      <input type="text" id="editContactPerson" class="fw-input">
+                    </div>
+                    <div class="fw-field">
+                      <label class="fw-label">Contact Phone</label>
+                      <input type="text" id="editCustomerPhone" class="fw-input">
+                    </div>
+                  </div>
+
+                  <!-- Row 3: Lead Status & Deal Value -->
+                  <div class="fw-form-grid-2">
+                    <div class="fw-field">
+                      <label class="fw-label">Lead Outcome Status *</label>
+                      <select id="editLeadStatus" class="fw-select" required>
+                        <option value="Interested">Interested (Hot Lead)</option>
+                        <option value="Follow-Up Required">Follow-Up Required</option>
+                        <option value="Order Booked">Order Booked (Converted)</option>
+                        <option value="Demo Completed">Demo Completed</option>
+                        <option value="Payment Collected">Payment Collected</option>
+                        <option value="Deal Closed">Deal Closed</option>
+                        <option value="Not Interested">Not Interested / Lost</option>
+                      </select>
+                    </div>
+                    <div class="fw-field">
+                      <label class="fw-label">Order / Deal Value (₹)</label>
+                      <input type="number" step="0.01" id="editOrderAmount" class="fw-input" value="0">
+                    </div>
+                  </div>
+
+                  <!-- Row 4: Product & Follow-Up Date -->
+                  <div class="fw-form-grid-2">
+                    <div class="fw-field">
+                      <label class="fw-label">Product / Service Pitched</label>
+                      <input type="text" id="editProductPitched" class="fw-input">
+                    </div>
+                    <div class="fw-field">
+                      <label class="fw-label">Follow-Up Date</label>
+                      <input type="date" id="editFollowUpDate" class="fw-input">
+                    </div>
+                  </div>
+
+                  <!-- Row 5: Admin Remarks -->
+                  <div class="fw-field">
+                    <label class="fw-label">Admin Notes &amp; Follow-up Remarks</label>
+                    <textarea id="editLeadRemarks" class="fw-textarea" rows="2" placeholder="Add administrative review notes or progress..."></textarea>
+                  </div>
+                </div>
+
+                <div class="fw-modal-footer">
+                  <button type="button" class="fw-btn fw-btn-neutral" onclick="closeEditLeadModal()">Cancel</button>
+                  <button type="submit" class="fw-btn fw-btn-primary">
+                    <i class="fa-solid fa-check"></i> Save Lead Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
 
         <!-- ========================================================================= -->
@@ -2425,7 +2564,7 @@
                     <th>GPS DISTANCE</th>
                     <th>BASE ATTENDANCE PAY</th>
                     <th style="background-color:#f0fdf4; color:#166534;">VISIT INCENTIVE</th>
-                    <th style="background-color:#eff6ff; color:#1d4ed8;">KM TRAVEL ALLOWANCE</th>
+                    <th style="background-color:#eff6ff; color:#1d4ed8;">PETROL / DIESEL ALLOWANCE</th>
                     <th style="background-color:#f8fafc; color:#0f172a;">NET FIELD PAYABLE</th>
                     <th style="text-align:center;">PAYSLIP PDF</th>
                   </tr>
@@ -2466,7 +2605,7 @@
                     </td>
                     <td style="background-color:#eff6ff; white-space:nowrap;">
                       <div style="font-weight:700; color:#1d4ed8;">+ ₹{{ "%.2f"|format(r.travel_allowance_pay or 0) }}</div>
-                      <div class="fw-cell-sub">@ ₹{{ "%.0f"|format(r.km_allowance_rate or 0) }}/km</div>
+                      <div class="fw-cell-sub">Distance: {{ "%.1f"|format(r.total_km_traveled or 0) }} KM</div>
                     </td>
                     <td style="background-color:#f8fafc; white-space:nowrap;">
                       <span style="font-size:13px; font-weight:800; color:#0f172a;">₹{{ "%.2f"|format(r.net_field_payable or 0) }}</span>
@@ -2752,32 +2891,38 @@
     }
 
     function initFieldMaps() {
-      liveMap = L.map('fieldLiveMap').setView([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap'
-      }).addTo(liveMap);
-      liveMapLayerGroup = L.layerGroup().addTo(liveMap);
-      renderLiveMapLayers();
+      const liveEl = document.getElementById('fieldLiveMap');
+      if (liveEl) {
+        liveMap = L.map('fieldLiveMap').setView([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(liveMap);
+        liveMapLayerGroup = L.layerGroup().addTo(liveMap);
+        renderLiveMapLayers();
+      }
 
       const assignEl = document.getElementById('assignPickerMap');
       if (assignEl) {
         assignMap = L.map('assignPickerMap').setView([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(assignMap);
 
-        const defaultLat = parseFloat(document.getElementById('asgnLat').value) || INITIAL_COMPANY_LAT;
-        const defaultLng = parseFloat(document.getElementById('asgnLng').value) || INITIAL_COMPANY_LNG;
+        const latInput = document.getElementById('asgnLat');
+        const lngInput = document.getElementById('asgnLng');
+        const defaultLat = latInput ? (parseFloat(latInput.value) || INITIAL_COMPANY_LAT) : INITIAL_COMPANY_LAT;
+        const defaultLng = lngInput ? (parseFloat(lngInput.value) || INITIAL_COMPANY_LNG) : INITIAL_COMPANY_LNG;
         assignMarker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(assignMap);
+        const radInput = document.getElementById('asgnRadius');
         assignCircle = L.circle([defaultLat, defaultLng], {
-          radius: parseFloat(document.getElementById('asgnRadius').value) || 150,
+          radius: radInput ? (parseFloat(radInput.value) || 150) : 150,
           color: '#0d9488',
           fillColor: '#14b8a6',
           fillOpacity: 0.2
         }).addTo(assignMap);
 
         assignMap.on('click', function(e) {
-          document.getElementById('asgnLat').value = e.latlng.lat.toFixed(6);
-          document.getElementById('asgnLng').value = e.latlng.lng.toFixed(6);
+          if (document.getElementById('asgnLat')) document.getElementById('asgnLat').value = e.latlng.lat.toFixed(6);
+          if (document.getElementById('asgnLng')) document.getElementById('asgnLng').value = e.latlng.lng.toFixed(6);
           assignMarker.setLatLng(e.latlng);
           assignCircle.setLatLng(e.latlng);
         });
@@ -2999,7 +3144,6 @@
           </td>
           <td style="font-weight:700; color:#0f172a;">${baseRateFormatted}</td>
           <td style="font-weight:700; color:#15803d;">₹${Number(w.per_visit_incentive || 0).toFixed(2)} / visit</td>
-          <td style="font-weight:700; color:#2563eb;">₹${Number(w.km_allowance_rate || 0).toFixed(2)} / km</td>
           <td>${stPill}</td>
           <td style="text-align:center;">
             <button type="button" class="btn-action-icon btn-action-edit" title="Edit / Configure Worker" onclick="editFieldWorkerFromRow('${w.id}')">
@@ -3113,9 +3257,14 @@
           `<span class="badge-detour"><i class="fa-solid fa-circle-exclamation"></i> ${v.verification_badge || 'Unverified'}</span>`;
         const actionCol = (CURRENT_USER_ROLE === 'super_admin' || CURRENT_USER_ROLE === 'company_admin') ?
           `<td style="text-align:center;">
-            <button type="button" class="btn-action-icon btn-action-delete" title="Delete Visit" onclick="deleteCustomerVisit('${v.id}')">
-              <i class="fa-solid fa-trash"></i>
-            </button>
+            <div style="display:inline-flex; align-items:center; gap:6px;">
+              <button type="button" class="btn-action-icon btn-action-edit" title="Edit Lead" onclick="openEditLeadModal('${v.id}')">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button type="button" class="btn-action-icon btn-action-delete" title="Delete Visit" onclick="deleteCustomerVisit('${v.id}')">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
           </td>` : '';
         return `<tr>
           <td style="font-weight:700; white-space:nowrap;">${v.timestamp}</td>
@@ -3228,7 +3377,7 @@
           </td>
           <td style="background-color:#eff6ff; white-space:nowrap;">
             <div style="font-weight:700; color:#1d4ed8;">+ ₹${Number(r.travel_allowance_pay || 0).toFixed(2)}</div>
-            <div class="fw-cell-sub">@ ₹${Number(r.km_allowance_rate || 0).toFixed(0)}/km</div>
+            <div class="fw-cell-sub">Distance: ${Number(r.total_km_traveled || 0).toFixed(1)} KM</div>
           </td>
           <td style="background-color:#f8fafc; white-space:nowrap;">
             <span style="font-size:13px; font-weight:800; color:#0f172a;">₹${Number(r.net_field_payable || 0).toFixed(2)}</span>
@@ -3642,11 +3791,79 @@
       }
     }
 
+    function openEditLeadModal(visitId) {
+      const v = VISITS_DATA.find(x => String(x.id) === String(visitId));
+      if (!v) {
+        showToast('Lead record not found.', true);
+        return;
+      }
+      document.getElementById('editLeadId').value = v.id;
+      document.getElementById('editCustomerName').value = v.customer_name || '';
+      document.getElementById('editWorkerName').value = v.employee_name || '';
+      document.getElementById('editContactPerson').value = v.contact_person || '';
+      document.getElementById('editCustomerPhone').value = v.customer_phone || '';
+      document.getElementById('editLeadStatus').value = v.lead_status || 'Interested';
+      document.getElementById('editOrderAmount').value = v.order_amount || 0;
+      document.getElementById('editProductPitched').value = v.product_pitched || '';
+      document.getElementById('editFollowUpDate').value = v.follow_up_date || '';
+      document.getElementById('editLeadRemarks').value = v.remarks || '';
+
+      const modal = document.getElementById('editLeadModalBackdrop');
+      if (modal) modal.classList.remove('d-none');
+    }
+
+    function closeEditLeadModal() {
+      const modal = document.getElementById('editLeadModalBackdrop');
+      if (modal) modal.classList.add('d-none');
+    }
+
+    async function submitEditLead(e) {
+      e.preventDefault();
+      const visitId = document.getElementById('editLeadId').value;
+      if (!visitId) return;
+
+      const payload = {
+        contact_person: document.getElementById('editContactPerson').value.trim(),
+        customer_phone: document.getElementById('editCustomerPhone').value.trim(),
+        lead_status: document.getElementById('editLeadStatus').value,
+        order_amount: parseFloat(document.getElementById('editOrderAmount').value) || 0,
+        product_pitched: document.getElementById('editProductPitched').value.trim(),
+        follow_up_date: document.getElementById('editFollowUpDate').value,
+        remarks: document.getElementById('editLeadRemarks').value.trim(),
+        company_id: getActiveCompanyId()
+      };
+
+      try {
+        const res = await fetch(`/api/field-worker/visits/${encodeURIComponent(visitId)}?company_id=${encodeURIComponent(getActiveCompanyId())}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Lead updated successfully!');
+          closeEditLeadModal();
+          const idx = VISITS_DATA.findIndex(x => String(x.id) === String(visitId));
+          if (idx !== -1) {
+            VISITS_DATA[idx] = { ...VISITS_DATA[idx], ...payload };
+            renderCustomerVisitsTable(VISITS_DATA);
+          } else {
+            await refreshOverviewState();
+          }
+        } else {
+          showToast(data.error || 'Failed to update lead.', true);
+        }
+      } catch (err) {
+        showToast('Error updating lead: ' + err.message, true);
+      }
+    }
+
     // Dismiss modals on Escape key or backdrop click
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeRegisterWorkerModal();
         closeAddLeadModal();
+        closeEditLeadModal();
       }
     });
 
@@ -3657,17 +3874,32 @@
       if (e.target && e.target.id === 'addLeadModalBackdrop') {
         closeAddLeadModal();
       }
+      if (e.target && e.target.id === 'editLeadModalBackdrop') {
+        closeEditLeadModal();
+      }
     });
 
     document.addEventListener('DOMContentLoaded', () => {
       initCollapsibleSidebar();
       initFieldMaps();
 
-      // Restore active tab from hash or sessionStorage
+      // Restore active tab from hash or sessionStorage with role isolation
       const hashTab = (window.location.hash || '').replace('#', '');
-      const savedTab = hashTab || sessionStorage.getItem('activeFieldTab') || 'paneLiveTracking';
+      const defaultTab = (CURRENT_USER_ROLE === 'employee') ? 'paneFieldPunch' : 'paneLiveTracking';
+      let savedTab = hashTab || sessionStorage.getItem('activeFieldTab') || defaultTab;
+      if (CURRENT_USER_ROLE === 'employee') {
+        if (savedTab === 'paneLiveTracking' || savedTab === 'paneRegisterWorkers') {
+          savedTab = 'paneFieldPunch';
+        }
+      } else {
+        if (savedTab === 'paneFieldPunch' || savedTab === 'paneAssignLocations') {
+          savedTab = 'paneLiveTracking';
+        }
+      }
       if (savedTab && document.getElementById(savedTab)) {
         switchFieldTab(savedTab);
+      } else {
+        switchFieldTab(defaultTab);
       }
 
       // Background periodic polling every 20s

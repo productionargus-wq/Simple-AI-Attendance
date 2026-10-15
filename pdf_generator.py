@@ -3567,9 +3567,9 @@ def generate_field_worker_payslip_pdf(data, company_info=None):
             Paragraph(f"{float(data.get('visit_incentive_pay', 0)):,.2f}", amt_style)
         ],
         [
-            Paragraph("3. GPS Travel Distance Allowance", lbl_style),
-            Paragraph(f"{float(data.get('total_km_traveled', 0)):.2f} KM x Rs. {float(data.get('km_allowance_rate', 0)):,.2f}/km", val_style),
-            Paragraph(f"{float(data.get('travel_allowance_pay', 0)):,.2f}", amt_style)
+            Paragraph("3. Petrol / Diesel Allowance", lbl_style),
+            Paragraph(f"Distance Travelled: {float(data.get('total_km_traveled', 0)):.2f} KM", val_style),
+            Paragraph(f"{float(data.get('travel_allowance_pay', data.get('petrol_allowance', 0))):,.2f}", amt_style)
         ],
         [
             Paragraph("4. Regular Allowance / Other Earnings", lbl_style),

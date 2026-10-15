@@ -7448,6 +7448,24 @@ def get_field_customer_visits(company_id=None, employee_name=None, start_date=No
     return [clean_doc(d) for d in docs]
 
 
+def update_field_customer_visit(visit_id, data, company_id=None):
+    """Updates customer visit / lead fields such as lead_status, order_amount, remarks, follow_up_date, etc."""
+    db = get_db()
+    q = build_id_filter(visit_id)
+    if company_id and company_id != 'ALL':
+        q = {'$and': [q, {'company_id': str(company_id)}]}
+
+    upd = {'updated_at': get_ist_now()}
+    for k in ['customer_name', 'contact_person', 'customer_phone', 'customer_email', 'product_pitched', 'lead_status', 'follow_up_date', 'remarks', 'address']:
+        if k in data and data[k] is not None:
+            upd[k] = str(data[k]).strip()
+    if 'order_amount' in data and data['order_amount'] is not None:
+        upd['order_amount'] = round(safe_float(data['order_amount'], 0.0), 2)
+
+    res = db.field_customer_visits.update_one(q, {'$set': upd})
+    return res.matched_count > 0
+
+
 def delete_field_customer_visit(visit_id, company_id=None):
     """Deletes a customer visit / lead entry."""
     db = get_db()
@@ -7520,7 +7538,9 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
 
         # 4. Compensation Calculation
         per_visit_rate = round(safe_float(w.get('per_visit_incentive', 0.0)), 2)
-        km_rate = round(safe_float(w.get('km_allowance_rate', 0.0)), 2)
+        km_rate = round(safe_float(w.get('km_allowance_rate', 5.0)), 2)
+        if km_rate <= 0:
+            km_rate = 5.0
 
         visit_incentive_pay = round(verified_visits * per_visit_rate, 2)
         travel_allowance_pay = round(total_km * km_rate, 2)
@@ -7567,6 +7587,8 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
             'base_attendance_pay': base_attendance_pay,
             'visit_incentive_pay': visit_incentive_pay,
             'travel_allowance_pay': travel_allowance_pay,
+            'petrol_allowance': travel_allowance_pay,
+            'fuel_allowance': travel_allowance_pay,
             'regular_allowance': regular_allowance + regular_incentive + other_earnings,
             'total_deduction': total_deduction,
             'gross_field_salary': gross_field_salary,
