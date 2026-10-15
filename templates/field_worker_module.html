@@ -1490,8 +1490,8 @@
 
           <!-- Bottom Card: Live GPS Trail & Route Compliance Table -->
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
-              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; overflow-x: auto;">
+              <div style="display:flex; align-items:center; gap:8px; flex-shrink: 0; white-space: nowrap;">
                 <div class="fw-card-title" style="font-size:13px;">
                   <i class="fa-solid fa-list-check" style="color:#2563eb; margin-right:6px;"></i>
                   LIVE GPS TRAIL &amp; ROUTE COMPLIANCE LOG
@@ -1564,14 +1564,14 @@
         <div id="paneRegisterWorkers" class="fw-section-pane" data-title="REGISTER FIELD WORKERS">
           <!-- Full-Width Card: Registered Field Force Directory (Moved to Top) -->
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap:wrap; gap:10px; justify-content:space-between;">
-              <div style="display:flex; align-items:center; gap:10px;">
+            <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; justify-content:space-between; overflow-x: auto;">
+              <div style="display:flex; align-items:center; gap:8px; flex-shrink: 0; white-space: nowrap;">
                 <div class="fw-card-title" style="font-size:13px;">
                   <i class="fa-solid fa-users-gear" style="color:#2563eb; margin-right:6px;"></i>
                   REGISTERED FIELD FORCE DIRECTORY (<span id="dirWorkersCount">{{ field_workers|length }}</span>)
                 </div>
               </div>
-              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:8px; flex-shrink: 0; white-space: nowrap; margin-left: auto;">
                 <div class="search-box-wrapper">
                   <label>Search:</label>
                   <input type="text" class="search-input" placeholder="Search name, zone, mobile..." oninput="filterFieldTable(this, 'fieldWorkersDirTable')">
@@ -1948,12 +1948,12 @@
 
           <!-- Bottom Card: Assigned Field Locations Schedule Table -->
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
-              <div class="fw-card-title" style="font-size:13px;">
+            <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; overflow-x: auto; justify-content: space-between;">
+              <div class="fw-card-title" style="font-size:13px; flex-shrink: 0; white-space: nowrap;">
                 <i class="fa-solid fa-clipboard-check" style="color:#2563eb; margin-right:6px;"></i>
                 MY SCHEDULED VISITS &amp; DESTINATIONS (<span id="assignedCountBadge">{{ assignments|length }}</span>)
               </div>
-              <div class="search-box-wrapper">
+              <div class="search-box-wrapper" style="margin-left: auto; flex-shrink: 0;">
                 <label>Search:</label>
                 <input type="text" class="search-input" placeholder="Search worker, site, status..." oninput="filterFieldTable(this, 'assignedSitesTable')">
               </div>
@@ -2202,28 +2202,28 @@
         <div id="paneCustomerVisits" class="fw-section-pane" data-title="LEAD MANAGEMENT">
           <!-- Full-Width Card: Customer Visits & Sales Leads Pipeline Table (Moved to Top) -->
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap:wrap; gap:10px; justify-content:space-between;">
-              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <div class="fw-card-title" style="font-size:13px;">
+            <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; justify-content: space-between; overflow-x: auto;">
+              <div style="display:flex; align-items:center; gap:8px; flex-shrink: 0; white-space: nowrap;">
+                <div class="fw-card-title" style="font-size:13px; flex-shrink: 0; white-space: nowrap;">
                   <i class="fa-solid fa-chart-line" style="color:#2563eb; margin-right:6px;"></i>
                   CUSTOMER VISITS &amp; SALES LEADS PIPELINE (<span id="visitsCountBadge">{{ visits|length }}</span>)
                 </div>
-                <div class="export-btn-group">
-                  <a id="btnExportVisitsPdf" href="/api/field-worker/export?type=visits&format=pdf&company_id={{ active_company_id }}" class="btn-export btn-pdf" style="text-decoration:none;">
-                    <i class="fa-solid fa-file-pdf"></i> Export Visits PDF
+                <div class="export-btn-group" style="flex-shrink: 0; white-space: nowrap;">
+                  <a id="btnExportVisitsPdf" href="/api/field-worker/export?type=visits&format=pdf&company_id={{ active_company_id }}" class="btn-export btn-pdf" style="text-decoration:none; padding: 4px 8px; font-size: 11px;">
+                    <i class="fa-solid fa-file-pdf"></i> Export PDF
                   </a>
-                  <a id="btnExportVisitsExcel" href="/api/field-worker/export?type=visits&format=excel&company_id={{ active_company_id }}" class="btn-export btn-excel" style="text-decoration:none;">
-                    <i class="fa-solid fa-file-excel"></i> Export Visits Excel
+                  <a id="btnExportVisitsExcel" href="/api/field-worker/export?type=visits&format=excel&company_id={{ active_company_id }}" class="btn-export btn-excel" style="text-decoration:none; padding: 4px 8px; font-size: 11px;">
+                    <i class="fa-solid fa-file-excel"></i> Export Excel
                   </a>
                 </div>
               </div>
-              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <div class="search-box-wrapper">
+              <div style="display:flex; align-items:center; gap:8px; flex-shrink: 0; white-space: nowrap; margin-left: auto;">
+                <div class="search-box-wrapper" style="flex-shrink: 0;">
                   <label>Search:</label>
                   <input type="text" class="search-input" placeholder="Search customer, worker, status..." oninput="filterFieldTable(this, 'customerVisitsTable')">
                 </div>
                 {% if user_role == 'employee' %}
-                <button type="button" class="fw-btn fw-btn-primary" onclick="openAddLeadModal()">
+                <button type="button" class="fw-btn fw-btn-primary" onclick="openAddLeadModal()" style="white-space: nowrap; flex-shrink: 0; padding: 5px 10px; font-size: 11.5px;">
                   <i class="fa-solid fa-plus"></i> Record New Lead
                 </button>
                 {% endif %}
@@ -2546,19 +2546,19 @@
         <!-- ========================================================================= -->
         <div id="paneFieldPayroll" class="fw-section-pane" data-title="PAYSLIP &amp; SALARY REPORTS">
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap:wrap; gap:12px; border-bottom:1px solid #eef2f6; padding-bottom:14px; margin-bottom:14px; justify-content:flex-end;">
+            <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; border-bottom: 1px solid #eef2f6; padding-bottom: 14px; margin-bottom: 14px; justify-content: flex-end; overflow-x: auto;">
               <span id="payrollMonthTitle" class="d-none">{{ month_year }}</span>
 
-              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <div class="export-btn-group">
-                  <a href="/api/field-worker/export?type=salary&format=pdf&company_id={{ active_company_id }}&month={{ month_year }}" id="btnExportPayrollPdf" class="btn-export btn-pdf" style="text-decoration:none;">
+              <div style="display:flex; align-items:center; gap: 8px; flex-shrink: 0; white-space: nowrap; margin-left: auto;">
+                <div class="export-btn-group" style="flex-shrink: 0; white-space: nowrap;">
+                  <a href="/api/field-worker/export?type=salary&format=pdf&company_id={{ active_company_id }}&month={{ month_year }}" id="btnExportPayrollPdf" class="btn-export btn-pdf" style="text-decoration:none; padding: 4px 8px; font-size: 11px;">
                     <i class="fa-solid fa-file-pdf"></i> Export Payroll PDF
                   </a>
-                  <a href="/api/field-worker/export?type=salary&format=excel&company_id={{ active_company_id }}&month={{ month_year }}" id="btnExportPayrollExcel" class="btn-export btn-excel" style="text-decoration:none;">
+                  <a href="/api/field-worker/export?type=salary&format=excel&company_id={{ active_company_id }}&month={{ month_year }}" id="btnExportPayrollExcel" class="btn-export btn-excel" style="text-decoration:none; padding: 4px 8px; font-size: 11px;">
                     <i class="fa-solid fa-file-excel"></i> Export Payroll Excel
                   </a>
                 </div>
-                <div class="search-box-wrapper">
+                <div class="search-box-wrapper" style="flex-shrink: 0;">
                   <label>Search:</label>
                   <input type="text" class="search-input" placeholder="Filter worker or zone..." oninput="filterFieldTable(this, 'fieldPayrollTable')">
                 </div>
