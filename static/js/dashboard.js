@@ -17,9 +17,17 @@ document.addEventListener('DOMContentLoaded', function () {
   const dataScript = document.getElementById('statsData');
   if (dataScript && dataScript.textContent) {
     try {
-      stats = JSON.parse(dataScript.textContent);
+      let rawText = dataScript.textContent.trim();
+      if (rawText.startsWith('(function')) {
+        const startIdx = rawText.indexOf('{');
+        const endIdx = rawText.lastIndexOf('}');
+        if (startIdx !== -1 && endIdx !== -1) {
+          rawText = rawText.substring(startIdx, endIdx + 1);
+        }
+      }
+      stats = JSON.parse(rawText);
     } catch (e) {
-      console.error('Failed to parse dynamic stats JSON:', e);
+      console.warn('Failed to parse dynamic stats JSON:', e);
     }
   }
 

@@ -118,8 +118,8 @@
 
 <!-- Modal: Payslip PDF Preview (Read-Only: No Download / Print / Delete) -->
 <div class="modal-overlay" id="salaryPdfModal">
-  <div class="modal-box modal-box-large" style="max-width: 960px; width: 95vw; height: 90vh; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 8px; box-shadow: 0 12px 36px rgba(0,0,0,0.25);">
-    <div class="modal-header" style="padding: 14px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; background: #ffffff;">
+  <div class="modal-box modal-box-large" style="max-width: 980px; width: 95vw; height: 92vh; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 8px; box-shadow: 0 12px 36px rgba(0,0,0,0.25);">
+    <div class="modal-header" style="padding: 12px 18px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; background: #ffffff; flex-wrap: wrap; gap: 10px;">
       <div style="display: flex; align-items: center; gap: 12px;">
         <div style="width: 34px; height: 34px; border-radius: 8px; background-color: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -132,10 +132,38 @@
         </div>
         <div>
           <div class="modal-header-title" style="font-size: 15px; font-weight: 700; color: #1e293b; margin: 0; line-height: 1.2;">PAYSLIP PREVIEW</div>
-          <div id="salaryPdfEmpTitle" style="font-size: 12px; color: #64748b; font-weight: 500; margin-top: 2px;">Loading payslip document...</div>
+          <div id="salaryPdfEmpTitle" style="font-size: 11.5px; color: #64748b; font-weight: 500; margin-top: 2px;">Loading payslip document...</div>
         </div>
       </div>
-      <button type="button" class="modal-close-btn" onclick="closeSalaryPdfModal()" title="Close">&times;</button>
+
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <!-- Template Selector -->
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <label for="salaryPdfTemplateSelect" style="font-size: 11.5px; font-weight: 700; color: #475569; white-space: nowrap;">Template:</label>
+          <select id="salaryPdfTemplateSelect" style="padding: 5px 8px; font-size: 11.5px; font-weight: 600; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 5px; background-color: #f8fafc; cursor: pointer;">
+            <option value="template_1">Template 1: Modern Executive</option>
+            <option value="template_2">Template 2: Modern Streamlined</option>
+            <option value="template_3">Template 3: Premium Executive</option>
+            <option value="template_4">Template 4: Classic Corporate Grid</option>
+            <option value="template_5">Template 5: Modern Minimalist Card</option>
+            <option value="template_6">Template 6: Professional Elegant</option>
+            <option value="template_7">Template 7: Mint Corporate Summary</option>
+            <option value="template_8">Template 8: Wave Modern Executive</option>
+          </select>
+        </div>
+
+        <!-- Theme Selector -->
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <label for="salaryPdfThemeSelect" style="font-size: 11.5px; font-weight: 700; color: #475569; white-space: nowrap;">Theme:</label>
+          <select id="salaryPdfThemeSelect" style="padding: 5px 8px; font-size: 11.5px; font-weight: 600; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 5px; background-color: #f8fafc; cursor: pointer;">
+            <option value="navy">Navy Classic</option>
+            <option value="emerald">Forest Emerald</option>
+            <option value="burgundy">Burgundy Wine</option>
+          </select>
+        </div>
+
+        <button type="button" class="modal-close-btn" onclick="closeSalaryPdfModal()" title="Close">&times;</button>
+      </div>
     </div>
 
     <div class="modal-body" style="flex: 1; padding: 0; position: relative; overflow: hidden; background-color: #525659; display: flex; flex-direction: column;">
@@ -196,6 +224,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const startMonth = document.getElementById('salaryStartMonth').value;
     const endMonth = document.getElementById('salaryEndMonth').value;
     const search = document.getElementById('salarySearch').value.trim();
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeBranchId = urlParams.get('branch_id') || '{{ active_branch_id or "" }}';
 
     const params = new URLSearchParams({
       start_month: startMonth,
@@ -204,6 +234,9 @@ document.addEventListener('DOMContentLoaded', function () {
       page: salaryPage,
       limit: salaryLimit
     });
+    if (activeBranchId && activeBranchId !== 'ALL') {
+      params.set('branch_id', activeBranchId);
+    }
 
     fetch(`/api/salary-reports?${params.toString()}`)
       .then(res => res.json())
@@ -363,41 +396,81 @@ document.addEventListener('DOMContentLoaded', function () {
       .replace(/"/g, '&quot;');
   }
 
-  window.openSalaryPdfModal = function (empName, period) {
-    const theme = localStorage.getItem('argus_payslip_theme') || 'navy';
-    const template = localStorage.getItem('argus_payslip_template') || 'template_1';
+  let currentSalaryModalEmp = null;
+  let currentSalaryModalPeriod = null;
+
+  function loadSalaryPdfPreview() {
+    if (!currentSalaryModalEmp || !currentSalaryModalPeriod) return;
+
+    const tmplSelect = document.getElementById('salaryPdfTemplateSelect');
+    const themeSelect = document.getElementById('salaryPdfThemeSelect');
+    const template = tmplSelect ? tmplSelect.value : (localStorage.getItem('argus_payslip_template') || 'template_1');
+    const theme = themeSelect ? themeSelect.value : (localStorage.getItem('argus_payslip_theme') || 'navy');
 
     const urlParams = new URLSearchParams(window.location.search);
     const branchId = urlParams.get('branch_id') || '{{ active_branch_id or "" }}';
 
-    const modal = document.getElementById('salaryPdfModal');
     const iframe = document.getElementById('salaryPdfFrame');
     const loading = document.getElementById('salaryPdfLoading');
     const title = document.getElementById('salaryPdfEmpTitle');
 
     if (title) {
-      title.innerText = `${empName} • Pay Period: ${period}`;
+      title.innerText = `${currentSalaryModalEmp} • Pay Period: ${currentSalaryModalPeriod}`;
     }
 
     if (loading) loading.style.display = 'flex';
     if (iframe) {
       iframe.style.display = 'none';
-      const pdfUrl = `/api/payslip/export/pdf?employee_name=${encodeURIComponent(empName)}&month=${encodeURIComponent(period)}&template=${encodeURIComponent(template)}&theme=${encodeURIComponent(theme)}&branch_id=${encodeURIComponent(branchId)}&view=1#toolbar=0&navpanes=0&scrollbar=1`;
+      const pdfUrl = `/api/payslip/export/pdf?employee_name=${encodeURIComponent(currentSalaryModalEmp)}&month=${encodeURIComponent(currentSalaryModalPeriod)}&template=${encodeURIComponent(template)}&theme=${encodeURIComponent(theme)}&branch_id=${encodeURIComponent(branchId)}&view=1#toolbar=0&navpanes=0&scrollbar=1`;
       iframe.src = pdfUrl;
       iframe.onload = function () {
         if (loading) loading.style.display = 'none';
         iframe.style.display = 'block';
       };
     }
+  }
 
+  window.openSalaryPdfModal = function (empName, period) {
+    currentSalaryModalEmp = empName;
+    currentSalaryModalPeriod = period;
+
+    const savedTheme = localStorage.getItem('argus_payslip_theme') || 'navy';
+    const savedTemplate = localStorage.getItem('argus_payslip_template') || 'template_1';
+
+    const tmplSelect = document.getElementById('salaryPdfTemplateSelect');
+    const themeSelect = document.getElementById('salaryPdfThemeSelect');
+    if (tmplSelect) tmplSelect.value = savedTemplate;
+    if (themeSelect) themeSelect.value = savedTheme;
+
+    const modal = document.getElementById('salaryPdfModal');
     if (modal) modal.classList.add('active');
+
+    loadSalaryPdfPreview();
   };
+
+  const tmplSelectEl = document.getElementById('salaryPdfTemplateSelect');
+  if (tmplSelectEl) {
+    tmplSelectEl.addEventListener('change', function () {
+      localStorage.setItem('argus_payslip_template', this.value);
+      loadSalaryPdfPreview();
+    });
+  }
+
+  const themeSelectEl = document.getElementById('salaryPdfThemeSelect');
+  if (themeSelectEl) {
+    themeSelectEl.addEventListener('change', function () {
+      localStorage.setItem('argus_payslip_theme', this.value);
+      loadSalaryPdfPreview();
+    });
+  }
 
   window.closeSalaryPdfModal = function () {
     const modal = document.getElementById('salaryPdfModal');
     const iframe = document.getElementById('salaryPdfFrame');
     if (modal) modal.classList.remove('active');
     if (iframe) iframe.src = 'about:blank';
+    currentSalaryModalEmp = null;
+    currentSalaryModalPeriod = null;
   };
 
   const salaryPdfModalEl = document.getElementById('salaryPdfModal');
@@ -459,6 +532,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Initial load
   loadSalaryReports();
+  window.addEventListener('page:loaded', function () {
+    loadSalaryReports();
+  });
 });
 </script>
 {% endblock %}

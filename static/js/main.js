@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function setupMiniSidebarTooltips() {
     if (!sidebar || !miniTooltip) return;
 
-    const items = sidebar.querySelectorAll('.nav-item-btn, .sidebar-logout-card');
+    const items = sidebar.querySelectorAll('.nav-item-btn, .sidebar-logout-card, .sidebar-fw-card');
     items.forEach(item => {
       item.addEventListener('mouseenter', function () {
         if (!document.body.classList.contains('sidebar-mini') || isMobile()) return;
@@ -232,29 +232,12 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   // Modal backdrop touch dismiss
+  // Passive touchstart for mobile modal dismissal
   document.addEventListener('touchstart', function (e) {
     if (e.target.classList && e.target.classList.contains('modal-overlay') && e.target.classList.contains('active')) {
       e.target.classList.remove('active');
     }
   }, { passive: true });
-
-  // Handle window resize dynamically
-  window.addEventListener('resize', function () {
-    if (!sidebar) return;
-    const isCollapsed = sidebar.classList.contains('collapsed');
-    if (isMobile()) {
-      if (topNavbar) topNavbar.style.marginLeft = '0px';
-      if (appContainer) appContainer.style.marginLeft = '0px';
-      if (isCollapsed) {
-        document.body.classList.remove('drawer-open');
-      }
-    } else {
-      document.body.classList.remove('drawer-open');
-      const marginValue = isCollapsed ? '0px' : '220px';
-      if (topNavbar) topNavbar.style.marginLeft = marginValue;
-      if (appContainer) appContainer.style.marginLeft = marginValue;
-    }
-  });
 });
 
 // Universal safe clipboard copy helper with fallback for non-secure HTTP / LAN mobile

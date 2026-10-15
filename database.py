@@ -1206,23 +1206,56 @@ def get_branch_employee_query(b_id, company_id=None):
             q['branch_id'] = clean_bid
     return q
 
+_branch_emp_names_cache = {}
+_BRANCH_CACHE_TTL = 30.0
+
+def get_cached_branch_names_and_ids(b_id, company_id=None):
+    clean_bid = str(b_id).strip() if b_id and str(b_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    if not clean_bid:
+        return set(), set()
+    key = (str(company_id or ''), clean_bid)
+    now_ts = time.time()
+    if key in _branch_emp_names_cache:
+        ts, names, ids = _branch_emp_names_cache[key]
+        if now_ts - ts < _BRANCH_CACHE_TTL:
+            return set(names), set(ids)
+    
+    b_emp_q = get_branch_employee_query(clean_bid, company_id)
+    b_emps = list(get_db().employees.find(b_emp_q, {'id': 1, '_id': 1, 'employee_name': 1}))
+    names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+    ids = set()
+    for e in b_emps:
+        if e.get('id'):
+            ids.add(str(e.get('id')))
+        if e.get('_id'):
+            ids.add(str(e.get('_id')))
+    _branch_emp_names_cache[key] = (now_ts, names, ids)
+    return set(names), set(ids)
+
+def invalidate_branch_emp_cache(company_id=None):
+    global _branch_emp_names_cache
+    if company_id:
+        c_str = str(company_id)
+        _branch_emp_names_cache = {k: v for k, v in _branch_emp_names_cache.items() if k[0] != c_str}
+    else:
+        _branch_emp_names_cache.clear()
+
 def get_branch_record_condition(b_id, b_names=None):
     """
     Returns query condition for attendance, punches, payments, and other records.
-    - For HOME: matches records where branch_id in [None, '', 'HOME', ...] or employee_name in b_names.
-    - For specific branch: matches records where branch_id == branch_id or employee_name in b_names.
+    - For HOME: matches records where employee_name in b_names OR branch_id in ['HOME', 'HQ', 'MAIN'].
+    - For specific branch: matches records where branch_id == clean_bid OR employee_name in b_names.
     """
     clean_bid = str(b_id).strip() if b_id and str(b_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     if not clean_bid:
         return None
     if is_home_branch_id(clean_bid):
-        conditions = [
-            {'branch_id': {'$in': [None, '', 'HOME', 'HQ', 'MAIN', 'unassigned']}},
-            {'branch_id': {'$exists': False}}
-        ]
         if b_names:
-            conditions.append({'employee_name': {'$in': list(b_names)}})
-        return {'$or': conditions}
+            return {'$or': [
+                {'employee_name': {'$in': list(b_names)}},
+                {'branch_id': {'$in': ['HOME', 'HQ', 'MAIN']}}
+            ]}
+        return {'branch_id': {'$in': ['HOME', 'HQ', 'MAIN']}}
     else:
         if b_names:
             return {'$or': [{'branch_id': clean_bid}, {'employee_name': {'$in': list(b_names)}}]}
@@ -1233,17 +1266,17 @@ def get_branch_leave_condition(b_id, b_emp_ids=None, b_emp_names=None):
     clean_bid = str(b_id).strip() if b_id and str(b_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     if not clean_bid:
         return None
+    conds = []
     if is_home_branch_id(clean_bid):
-        conds = [
-            {'branch_id': {'$in': [None, '', 'HOME', 'HQ', 'MAIN', 'unassigned']}},
-            {'branch_id': {'$exists': False}}
-        ]
+        conds.append({'branch_id': {'$in': ['HOME', 'HQ', 'MAIN']}})
     else:
-        conds = [{'branch_id': clean_bid}]
+        conds.append({'branch_id': clean_bid})
     if b_emp_ids:
         conds.append({'employee_id': {'$in': list(b_emp_ids)}})
     if b_emp_names:
         conds.append({'employee_name': {'$in': list(b_emp_names)}})
+    if len(conds) == 1:
+        return conds[0]
     return {'$or': conds}
 
 def generate_employee_id():
@@ -1529,6 +1562,7 @@ def create_employee(data, company_id=None):
     
     db.employees.insert_one(doc)
     invalidate_dashboard_cache(assigned_company_id)
+    invalidate_branch_emp_cache(assigned_company_id)
     return emp_id
 
 def update_employee(emp_id, data, company_id=None):
@@ -1664,6 +1698,7 @@ def update_employee(emp_id, data, company_id=None):
         
     db.employees.update_one(f, {'$set': upd})
     invalidate_dashboard_cache(company_id)
+    invalidate_branch_emp_cache(company_id)
     return True
 
 def delete_employee(emp_id, company_id=None):
@@ -1673,6 +1708,7 @@ def delete_employee(emp_id, company_id=None):
         f = {'$and': [f, {'company_id': str(company_id)}]}
     db.employees.delete_one(f)
     invalidate_dashboard_cache(company_id)
+    invalidate_branch_emp_cache(company_id)
     return True
 
 def get_all_face_embeddings(company_id=None):
@@ -1780,22 +1816,28 @@ def get_dashboard_stats(company_id=None, branch_id=None):
     comp_base = {'company_id': str(company_id)} if (company_id and company_id != 'ALL') else {}
     if b_id:
         branch_punch_matcher = get_branch_record_condition(b_id, branch_emp_names)
-        record_base = {**comp_base, **branch_punch_matcher} if branch_punch_matcher else comp_base
-        p_filter = {**record_base, 'date': today_str}
-        ar_today_filter = {**record_base, 'date': today_str}
-        l_filter = {**record_base, 'entry_time': {'$regex': today_slash}}
-        m_filter = {
-            **record_base,
+        def _combine_filter(*parts):
+            clean = [p for p in parts if p]
+            if not clean:
+                return {}
+            if len(clean) == 1:
+                return dict(clean[0])
+            return {'$and': [dict(p) for p in clean]}
+
+        record_base = _combine_filter(comp_base, branch_punch_matcher)
+        p_filter = _combine_filter(comp_base, branch_punch_matcher, {'date': today_str})
+        ar_today_filter = _combine_filter(comp_base, branch_punch_matcher, {'date': today_str})
+        l_filter = _combine_filter(comp_base, branch_punch_matcher, {'entry_time': {'$regex': today_slash}})
+        m_filter = _combine_filter(comp_base, branch_punch_matcher, {
             '$or': [
                 {'entry_date': today_str},
                 {'submitted_at': {'$regex': today_str}},
                 {'submitted_at': {'$regex': today_slash}}
             ]
-        }
-        timeout_filter = {
-            **record_base,
+        })
+        timeout_filter = _combine_filter(comp_base, branch_punch_matcher, {
             '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
-        }
+        })
     else:
         record_base = dict(t_filter)
         p_filter = dict(t_filter)
@@ -3315,9 +3357,7 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
     b_names = set()
     branch_cond = None
     if b_id:
-        b_emp_q = get_branch_employee_query(b_id, company_id)
-        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
-        b_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        b_names, _ = get_cached_branch_names_and_ids(b_id, company_id)
         branch_cond = get_branch_record_condition(b_id, b_names)
 
     # Pre-load employee shift hours for dynamic status computation
@@ -4183,9 +4223,7 @@ def get_payments(employee=None, start_date=None, end_date=None, bank=None, payme
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     if b_id:
-        b_emp_q = get_branch_employee_query(b_id, company_id)
-        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
-        b_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        b_names, _ = get_cached_branch_names_and_ids(b_id, company_id)
         branch_cond = get_branch_record_condition(b_id, b_names)
         if branch_cond:
             conditions.append(branch_cond)
@@ -4363,9 +4401,7 @@ def get_advances(employee=None, start_date=None, end_date=None, search=None, pag
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     if b_id:
-        b_emp_q = get_branch_employee_query(b_id, company_id)
-        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
-        b_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        b_names, _ = get_cached_branch_names_and_ids(b_id, company_id)
         branch_cond = get_branch_record_condition(b_id, b_names)
         if branch_cond:
             query.setdefault('$and', []).append(branch_cond)
@@ -4590,9 +4626,7 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     if b_id:
-        b_emp_q = get_branch_employee_query(b_id, company_id)
-        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
-        b_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        b_names, _ = get_cached_branch_names_and_ids(b_id, company_id)
         branch_cond = get_branch_record_condition(b_id, b_names)
         if branch_cond:
             query.setdefault('$and', []).append(branch_cond)
@@ -6112,14 +6146,7 @@ def get_leave_requests(company_id=None, employee_id=None, status=None, limit=50,
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     if b_id:
-        b_emp_q = get_branch_employee_query(b_id, company_id)
-        b_emps = list(db.employees.find(b_emp_q, {'id': 1, '_id': 1, 'employee_name': 1}))
-        b_emp_ids = set()
-        b_emp_names = set()
-        for e in b_emps:
-            if e.get('id'): b_emp_ids.add(str(e.get('id')))
-            if e.get('_id'): b_emp_ids.add(str(e.get('_id')))
-            if e.get('employee_name'): b_emp_names.add(e.get('employee_name'))
+        b_emp_names, b_emp_ids = get_cached_branch_names_and_ids(b_id, company_id)
         branch_cond = get_branch_leave_condition(b_id, b_emp_ids, b_emp_names)
         if branch_cond:
             base_query.setdefault('$and', []).append(branch_cond)
@@ -6343,14 +6370,7 @@ def get_admin_leave_stats(company_id=None, branch_id=None):
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     if b_id:
-        b_emp_q = get_branch_employee_query(b_id, company_id)
-        b_emps = list(db.employees.find(b_emp_q, {'id': 1, '_id': 1, 'employee_name': 1}))
-        b_emp_ids = set()
-        b_emp_names = set()
-        for e in b_emps:
-            if e.get('id'): b_emp_ids.add(str(e.get('id')))
-            if e.get('_id'): b_emp_ids.add(str(e.get('_id')))
-            if e.get('employee_name'): b_emp_names.add(e.get('employee_name'))
+        b_emp_names, b_emp_ids = get_cached_branch_names_and_ids(b_id, company_id)
         branch_cond = get_branch_leave_condition(b_id, b_emp_ids, b_emp_names)
         if branch_cond:
             query.setdefault('$and', []).append(branch_cond)
@@ -6456,14 +6476,7 @@ def get_pending_leave_requests_count(company_id=None, branch_id=None):
     if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', 'DEFAULT']:
         query['company_id'] = str(company_id)
     if b_id:
-        b_emp_q = get_branch_employee_query(b_id, company_id)
-        b_emps = list(db.employees.find(b_emp_q, {'id': 1, '_id': 1, 'employee_name': 1}))
-        b_emp_ids = set()
-        b_emp_names = set()
-        for e in b_emps:
-            if e.get('id'): b_emp_ids.add(str(e.get('id')))
-            if e.get('_id'): b_emp_ids.add(str(e.get('_id')))
-            if e.get('employee_name'): b_emp_names.add(e.get('employee_name'))
+        b_emp_names, b_emp_ids = get_cached_branch_names_and_ids(b_id, company_id)
         branch_cond = get_branch_leave_condition(b_id, b_emp_ids, b_emp_names)
         if branch_cond:
             query.setdefault('$and', []).append(branch_cond)

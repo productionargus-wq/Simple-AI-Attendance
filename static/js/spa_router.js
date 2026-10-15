@@ -230,6 +230,14 @@
           s.onerror = () => resolve();
           scriptContainer.appendChild(s);
         } else {
+          const type = (oldScript.type || '').toLowerCase().trim();
+          const isDataScript = type && !['text/javascript', 'application/javascript', 'module'].includes(type);
+          if (isDataScript) {
+            s.textContent = oldScript.textContent;
+            scriptContainer.appendChild(s);
+            resolve();
+            return;
+          }
           const code = `(function () {\n  try {\n${oldScript.textContent}\n  } catch (err) {\n    console.warn('Page script execution notice:', err);\n  }\n})();`;
           s.textContent = code;
           scriptContainer.appendChild(s);

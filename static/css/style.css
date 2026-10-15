@@ -268,7 +268,36 @@ body.modal-open {
   body.sidebar-mini .sidebar-footer {
     padding: 10px 0 max(6px, env(safe-area-inset-bottom));
     display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
+  }
+
+  body.sidebar-mini .sidebar-fw-card {
+    width: 46px;
+    height: 42px;
+    padding: 0 !important;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 6px auto;
+    position: relative;
+    border-radius: 8px;
+  }
+
+  body.sidebar-mini .sidebar-fw-text-group,
+  body.sidebar-mini .sidebar-fw-ext-box,
+  body.sidebar-mini .sidebar-fw-divider {
+    display: none !important;
+  }
+
+  body.sidebar-mini .sidebar-fw-icon-box svg {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  body.sidebar-mini .sidebar-fw-card:hover .sidebar-fw-icon-box svg {
+    transform: scale(1.18);
   }
 
   body.sidebar-mini .sidebar-logout-card {
@@ -514,6 +543,90 @@ body.modal-open {
   padding-bottom: max(6px, env(safe-area-inset-bottom));
   flex-shrink: 0;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Redesigned Field Worker Module Card Matching Reference Image */
+.sidebar-fw-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background-color: #232c25;
+  background-image: linear-gradient(135deg, rgba(245, 158, 11, 0.16) 0%, rgba(35, 44, 37, 0.95) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.38);
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-decoration: none;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-sizing: border-box;
+}
+
+.sidebar-fw-card:hover {
+  background-color: #2b382d;
+  background-image: linear-gradient(135deg, rgba(245, 158, 11, 0.24) 0%, rgba(43, 56, 45, 0.95) 100%);
+  border-color: #f59e0b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.20);
+}
+
+.sidebar-fw-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #f59e0b;
+}
+
+.sidebar-fw-text-group {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.sidebar-fw-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fbbf24;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.2px;
+}
+
+.sidebar-fw-subtitle {
+  font-size: 11px;
+  font-weight: 500;
+  color: #cbd5e1;
+  opacity: 0.88;
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+.sidebar-fw-ext-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #f59e0b;
+  opacity: 0.9;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sidebar-fw-card:hover .sidebar-fw-ext-box {
+  opacity: 1;
+  transform: translate(1px, -1px);
+}
+
+.sidebar-fw-divider {
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.08);
+  margin: 6px 0 8px 0;
+  width: 100%;
 }
 
 .btn-back {
