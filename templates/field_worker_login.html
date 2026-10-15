@@ -33,32 +33,7 @@
       box-sizing: border-box;
       position: relative;
     }
-    .role-switch-group {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      background: #f1f5f9;
-      padding: 5px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-      border: 1px solid #e2e8f0;
-    }
-    .role-switch-btn {
-      border: none;
-      background: transparent;
-      color: #475569;
-      font-size: 12px;
-      font-weight: 700;
-      padding: 9px 10px;
-      border-radius: 7px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .role-switch-btn.active {
-      background: #102a45;
-      color: #ffffff;
-      box-shadow: 0 2px 6px rgba(16, 42, 69, 0.25);
-    }
+
     .input-field-group {
       position: relative;
       display: flex;
@@ -155,7 +130,7 @@
     </div>
     <div style="width: 38px; height: 3px; background-color: #e59819; border-radius: 2px; margin: 0 auto 8px;"></div>
     <div style="font-size: 11px; color: #475569; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 18px;">
-      MULTI-TENANT COMPANY &amp; FIELD WORKER PORTAL
+      MULTI-TENANT FIELD WORKER PORTAL
     </div>
 
     {% if error %}
@@ -165,16 +140,7 @@
     {% endif %}
 
     <form method="POST" action="/field-worker/login">
-      <input type="hidden" name="login_role" id="loginRoleInput" value="{{ selected_role or 'field_worker' }}">
-
-      <div class="role-switch-group">
-        <button type="button" id="roleBtnWorker" class="role-switch-btn {% if (selected_role or 'field_worker') == 'field_worker' %}active{% endif %}" onclick="setLoginRole('field_worker')">
-          Field Worker Sign-In
-        </button>
-        <button type="button" id="roleBtnAdmin" class="role-switch-btn {% if selected_role == 'company_admin' %}active{% endif %}" onclick="setLoginRole('company_admin')">
-          Company Admin Sign-In
-        </button>
-      </div>
+      <input type="hidden" name="login_role" id="loginRoleInput" value="field_worker">
 
       <div style="text-align: left; margin-bottom: 14px;">
         <label id="emailFieldLabel" style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px;">
@@ -184,7 +150,7 @@
           <span class="input-icon-left">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
           </span>
-          <input type="email" name="email" id="emailFieldInput" required placeholder="Enter your registered email address" autocomplete="username">
+          <input type="email" name="email" id="emailFieldInput" required placeholder="Enter your registered field worker email" autocomplete="username">
         </div>
       </div>
 
@@ -207,7 +173,7 @@
 
       <button type="submit" class="btn-signin">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-        <span id="submitBtnText">ACCESS FIELD WORKER MODULE</span>
+        <span id="submitBtnText">ACCESS FIELD WORKER PORTAL</span>
       </button>
     </form>
 
@@ -234,15 +200,6 @@
   </div>
 
   <script>
-    function setLoginRole(role) {
-      document.getElementById('loginRoleInput').value = role;
-      const isWorker = role === 'field_worker';
-      document.getElementById('roleBtnWorker').classList.toggle('active', isWorker);
-      document.getElementById('roleBtnAdmin').classList.toggle('active', !isWorker);
-      document.getElementById('emailFieldLabel').textContent = isWorker ? 'Registered Field Worker Email' : 'Registered Company Admin Email';
-      document.getElementById('emailFieldInput').placeholder = isWorker ? 'Enter your field worker email' : 'Enter your company admin email';
-      document.getElementById('googleLoginBtn').href = isWorker ? '/auth/google/login?type=employee&next=/field-worker' : '/auth/google/login?type=company&next=/field-worker';
-    }
     function toggleFwPassword() {
       const inp = document.getElementById('fwPasswordInput');
       inp.type = inp.type === 'password' ? 'text' : 'password';

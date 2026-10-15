@@ -3016,9 +3016,12 @@
     // =========================================================================
     async function refreshOverviewState() {
       const cid = getActiveCompanyId();
-      const dt = document.getElementById('globalDateInput').value;
-      const mo = document.getElementById('globalMonthInput').value;
-      const activePane = sessionStorage.getItem('activeFieldTab') || 'paneLiveTracking';
+      const dateEl = document.getElementById('globalDateInput');
+      const dt = dateEl ? dateEl.value : '';
+      const moEl = document.getElementById('globalMonthInput');
+      const mo = moEl ? moEl.value : '';
+      const defaultPane = (CURRENT_USER_ROLE === 'employee') ? 'paneFieldPunch' : 'paneLiveTracking';
+      const activePane = sessionStorage.getItem('activeFieldTab') || defaultPane;
       const incSalary = (activePane === 'paneFieldPayroll') ? '&include_salary=1' : '';
 
       try {
@@ -3330,7 +3333,8 @@
 
     function handleMonthFilterChange() {
       PAYROLL_DATA = [];
-      const activePane = sessionStorage.getItem('activeFieldTab') || 'paneLiveTracking';
+      const defaultPane = (CURRENT_USER_ROLE === 'employee') ? 'paneFieldPunch' : 'paneLiveTracking';
+      const activePane = sessionStorage.getItem('activeFieldTab') || defaultPane;
       if (activePane === 'paneFieldPayroll') {
         loadFieldPayrollDataAsync();
       }
@@ -3415,18 +3419,49 @@
       }
     }
 
+    async function getDeviceCurrentPosition() {
+      return new Promise((resolve) => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy || 10 }),
+            () => {
+              const latEl = document.getElementById('pingLat');
+              const lngEl = document.getElementById('pingLng');
+              const lat = latEl ? (parseFloat(latEl.value) || INITIAL_COMPANY_LAT) : INITIAL_COMPANY_LAT;
+              const lng = lngEl ? (parseFloat(lngEl.value) || INITIAL_COMPANY_LNG) : INITIAL_COMPANY_LNG;
+              resolve({ lat, lng, accuracy: 50 });
+            },
+            { enableHighAccuracy: true, timeout: 6000 }
+          );
+        } else {
+          const latEl = document.getElementById('pingLat');
+          const lngEl = document.getElementById('pingLng');
+          const lat = latEl ? (parseFloat(latEl.value) || INITIAL_COMPANY_LAT) : INITIAL_COMPANY_LAT;
+          const lng = lngEl ? (parseFloat(lngEl.value) || INITIAL_COMPANY_LNG) : INITIAL_COMPANY_LNG;
+          resolve({ lat, lng, accuracy: 50 });
+        }
+      });
+    }
+
     function captureAndSendLiveGPS() {
-      const empName = document.getElementById('pingWorkerSelect').value;
+      const pingSel = document.getElementById('pingWorkerSelect');
+      const empName = pingSel ? pingSel.value : LOGGED_IN_EMPLOYEE_NAME;
       if (!empName) {
         showToast('Please select or register a field worker first.', true);
         return;
       }
-      const note = document.getElementById('pingNote').value;
+      const noteEl = document.getElementById('pingNote');
+      const note = noteEl ? noteEl.value : 'Live Device GPS Check-In';
+      const latEl = document.getElementById('pingLat');
+      const lngEl = document.getElementById('pingLng');
+      const fallbackLat = latEl ? (parseFloat(latEl.value) || INITIAL_COMPANY_LAT) : INITIAL_COMPANY_LAT;
+      const fallbackLng = lngEl ? (parseFloat(lngEl.value) || INITIAL_COMPANY_LNG) : INITIAL_COMPANY_LNG;
+
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           pos => {
-            document.getElementById('pingLat').value = pos.coords.latitude.toFixed(6);
-            document.getElementById('pingLng').value = pos.coords.longitude.toFixed(6);
+            if (latEl) latEl.value = pos.coords.latitude.toFixed(6);
+            if (lngEl) lngEl.value = pos.coords.longitude.toFixed(6);
             sendLocationPingPayload({
               employee_name: empName,
               latitude: pos.coords.latitude,
@@ -3438,8 +3473,8 @@
           () => {
             sendLocationPingPayload({
               employee_name: empName,
-              latitude: parseFloat(document.getElementById('pingLat').value),
-              longitude: parseFloat(document.getElementById('pingLng').value),
+              latitude: fallbackLat,
+              longitude: fallbackLng,
               activity_note: note || 'Manual Coordinates Check-In'
             });
           },
@@ -3448,15 +3483,16 @@
       } else {
         sendLocationPingPayload({
           employee_name: empName,
-          latitude: parseFloat(document.getElementById('pingLat').value),
-          longitude: parseFloat(document.getElementById('pingLng').value),
+          latitude: fallbackLat,
+          longitude: fallbackLng,
           activity_note: note || 'GPS Check-In'
         });
       }
     }
 
     function simulateScenarioPing(mode) {
-      const empName = document.getElementById('pingWorkerSelect').value;
+      const pingSel = document.getElementById('pingWorkerSelect');
+      const empName = pingSel ? pingSel.value : LOGGED_IN_EMPLOYEE_NAME;
       if (!empName) {
         showToast('Please register/select a field worker first.', true);
         return;
@@ -3480,9 +3516,12 @@
         note = 'Unassigned Stop >2.5km away from target route';
       }
 
-      document.getElementById('pingLat').value = baseLat.toFixed(6);
-      document.getElementById('pingLng').value = baseLng.toFixed(6);
-      document.getElementById('pingNote').value = note;
+      const latEl = document.getElementById('pingLat');
+      const lngEl = document.getElementById('pingLng');
+      const noteEl = document.getElementById('pingNote');
+      if (latEl) latEl.value = baseLat.toFixed(6);
+      if (lngEl) lngEl.value = baseLng.toFixed(6);
+      if (noteEl) noteEl.value = note;
 
       sendLocationPingPayload({
         employee_name: empName,
@@ -3675,11 +3714,11 @@
     async function performFieldFacePunch() {
       const video = document.getElementById('fwPunchVideo');
       const canvas = document.getElementById('fwPunchCanvas');
-      if (!fwVideoStream || !video.videoWidth) {
+      if (!fwVideoStream || !video || !video.videoWidth) {
         await startFieldPunchCamera();
         await new Promise(r => setTimeout(r, 600));
       }
-      if (!video.videoWidth) {
+      if (!video || !video.videoWidth) {
         showToast('Please start camera or use Quick Field Check-In on the right.', true);
         return;
       }
@@ -3688,8 +3727,10 @@
       canvas.getContext('2d').drawImage(video, 0, 0);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
-      const lat = parseFloat(document.getElementById('pingLat').value) || INITIAL_COMPANY_LAT;
-      const lng = parseFloat(document.getElementById('pingLng').value) || INITIAL_COMPANY_LNG;
+      showToast('Acquiring device GPS coordinates...');
+      const coords = await getDeviceCurrentPosition();
+      const lat = coords.lat;
+      const lng = coords.lng;
 
       try {
         const res = await fetch('/api/recognize_face', {
@@ -3700,27 +3741,43 @@
         const out = await res.json();
         const box = document.getElementById('fwPunchResultBox');
         if (out.success || out.matched) {
-          box.innerHTML = `<div class="fw-toast-banner fw-toast-success" style="margin-bottom:0;"><span><b>${out.employee_name || 'Field Worker'}</b>: ${out.message || 'Field Attendance Recorded!'}</span></div>`;
+          if (box) box.innerHTML = `<div class="fw-toast-banner fw-toast-success" style="margin-bottom:0;"><span><b>${out.employee_name || 'Field Worker'}</b>: ${out.message || 'Field Attendance Recorded!'}</span></div>`;
           await sendLocationPingPayload({
-            employee_name: out.employee_name,
+            employee_name: out.employee_name || LOGGED_IN_EMPLOYEE_NAME,
             latitude: lat,
             longitude: lng,
+            accuracy: coords.accuracy || 10,
             activity_note: `AI Face Attendance Punch (${out.punch_type || 'Verified'})`
           });
         } else {
-          box.innerHTML = `<div class="fw-toast-banner fw-toast-danger" style="margin-bottom:0;"><span>${out.message || out.error || 'Face not matched'}</span></div>`;
+          if (box) box.innerHTML = `<div class="fw-toast-banner fw-toast-danger" style="margin-bottom:0;"><span>${out.message || out.error || 'Face not matched'}</span></div>`;
         }
       } catch (err) {
         showToast('Face punch network error: ' + err.message, true);
       }
     }
 
-    function submitQuickFieldCheckIn() {
-      const emp = document.getElementById('quickPunchWorker').value;
-      const note = document.getElementById('quickPunchNote').value;
-      document.getElementById('pingWorkerSelect').value = emp;
-      document.getElementById('pingNote').value = note;
-      captureAndSendLiveGPS();
+    async function submitQuickFieldCheckIn() {
+      const workerEl = document.getElementById('quickPunchWorker');
+      const emp = workerEl ? (workerEl.value || LOGGED_IN_EMPLOYEE_NAME) : LOGGED_IN_EMPLOYEE_NAME;
+      const noteEl = document.getElementById('quickPunchNote');
+      const note = noteEl ? noteEl.value : 'Field Duty Check-In - Verified at Client Site';
+
+      if (!emp) {
+        showToast('Field worker name not identified.', true);
+        return;
+      }
+
+      showToast('Acquiring device GPS coordinates...');
+      const coords = await getDeviceCurrentPosition();
+      await sendLocationPingPayload({
+        employee_name: emp,
+        latitude: coords.lat,
+        longitude: coords.lng,
+        accuracy: coords.accuracy || 10,
+        activity_note: note || 'Quick Field Duty Check-In'
+      });
+      showToast('GPS Field Check-In recorded successfully!');
     }
 
     function prefillVisitFromAssignment(sel) {
@@ -3748,8 +3805,8 @@
         lead_status: document.getElementById('visitLeadStatus').value,
         order_amount: parseFloat(document.getElementById('visitOrderAmount').value) || 0,
         follow_up_date: document.getElementById('visitFollowUpDate').value,
-        latitude: parseFloat(document.getElementById('visitLat').value),
-        longitude: parseFloat(document.getElementById('visitLng').value),
+        latitude: (document.getElementById('visitLat') ? parseFloat(document.getElementById('visitLat').value) : null) || INITIAL_COMPANY_LAT,
+        longitude: (document.getElementById('visitLng') ? parseFloat(document.getElementById('visitLng').value) : null) || INITIAL_COMPANY_LNG,
         remarks: document.getElementById('visitRemarks').value
       };
 
