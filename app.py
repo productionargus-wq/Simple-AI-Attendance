@@ -289,6 +289,27 @@ try:
     threading.Thread(target=_background_startup, daemon=True, name="FaceSyncStartup").start()
     import report_scheduler
     report_scheduler.start_scheduler()
+
+    def _keep_alive_worker():
+        """Periodically pings public web service URL on Render every 10 minutes to prevent sleep."""
+        import urllib.request
+        import urllib.error
+        external_url = (os.environ.get('RENDER_EXTERNAL_URL') or os.environ.get('APP_URL') or '').strip()
+        if not external_url:
+            return
+        ping_url = f"{external_url.rstrip('/')}/health"
+        print(f"[KeepAlive] Render self-keepalive worker active for: {ping_url}")
+        time.sleep(90)
+        while True:
+            try:
+                req = urllib.request.Request(ping_url, headers={'User-Agent': 'ArgusKeepAliveWorker/1.0'})
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    pass
+            except Exception:
+                pass
+            time.sleep(600)  # Ping every 10 minutes (safely inside Render's 15m window)
+
+    threading.Thread(target=_keep_alive_worker, daemon=True, name="RenderKeepAlive").start()
 except Exception as e:
     print(f"Warning: database/face/scheduler init error: {e}")
 
