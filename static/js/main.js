@@ -1,10 +1,9 @@
-// Main application script: Navigation, mobile drawer, responsive sidebar
+// Main application script: Navigation, mobile drawer, responsive sidebar & desktop mini-sidebar
 document.addEventListener('DOMContentLoaded', function () {
   const sidebar = document.getElementById('appSidebar');
   const sidebarToggle = document.getElementById('sidebarToggle');
   const sidebarBackdrop = document.getElementById('sidebarBackdrop');
-  const appContainer = document.querySelector('.app-container');
-  const topNavbar = document.querySelector('.top-navbar');
+  const miniTooltip = document.getElementById('sidebarMiniTooltip');
 
   function isMobile() {
     return window.innerWidth <= 992;
@@ -12,47 +11,143 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function toggleSidebar(forceState) {
     if (!sidebar) return;
-    if (typeof forceState === 'boolean') {
-      sidebar.classList.toggle('collapsed', !forceState);
-    } else {
-      sidebar.classList.toggle('collapsed');
-    }
-
-    const isCollapsed = sidebar.classList.contains('collapsed');
-    document.body.classList.toggle('sidebar-collapsed', isCollapsed);
 
     if (isMobile()) {
-      // On mobile, lock/unlock body scroll when drawer is open
-      if (!isCollapsed) {
-        document.body.classList.add('drawer-open');
+      // ---------------- Mobile View (<= 992px) ----------------
+      // Always treat as full off-canvas drawer with backdrop overlay
+      document.body.classList.remove('sidebar-mini');
+      if (miniTooltip) miniTooltip.classList.remove('visible');
+
+      if (typeof forceState === 'boolean') {
+        if (forceState) {
+          document.body.classList.add('drawer-open');
+          sidebar.classList.remove('collapsed');
+        } else {
+          document.body.classList.remove('drawer-open');
+          sidebar.classList.add('collapsed');
+        }
       } else {
-        document.body.classList.remove('drawer-open');
+        const isOpening = !document.body.classList.contains('drawer-open');
+        document.body.classList.toggle('drawer-open', isOpening);
+        sidebar.classList.toggle('collapsed', !isOpening);
       }
-      if (topNavbar) topNavbar.style.marginLeft = '0px';
-      if (appContainer) appContainer.style.marginLeft = '0px';
     } else {
+      // ---------------- Desktop View (> 992px) ----------------
+      // Toggle Mini-Sidebar (icon-only mode with tooltips & full-width content expansion)
       document.body.classList.remove('drawer-open');
-      const marginValue = isCollapsed ? '0px' : '220px';
-      if (topNavbar) topNavbar.style.marginLeft = marginValue;
-      if (appContainer) appContainer.style.marginLeft = marginValue;
+      sidebar.classList.remove('collapsed');
+
+      let isMini;
+      if (typeof forceState === 'boolean') {
+        isMini = !forceState;
+        document.body.classList.toggle('sidebar-mini', isMini);
+        sidebar.classList.toggle('mini', isMini);
+      } else {
+        isMini = document.body.classList.toggle('sidebar-mini');
+        sidebar.classList.toggle('mini', isMini);
+      }
+
+      // Persist desktop mini preference in localStorage
+      try {
+        localStorage.setItem('argus_desktop_sidebar_mini', isMini ? 'true' : 'false');
+      } catch (err) {
+        console.warn('Could not save sidebar preference:', err);
+      }
+
+      if (miniTooltip) miniTooltip.classList.remove('visible');
     }
   }
 
-  // Initial state setup on page load
-  if (isMobile() && sidebar) {
-    sidebar.classList.add('collapsed');
-    document.body.classList.add('sidebar-collapsed');
-    document.body.classList.remove('drawer-open');
-    if (topNavbar) topNavbar.style.marginLeft = '0px';
-    if (appContainer) appContainer.style.marginLeft = '0px';
-  } else if (sidebar) {
-    const isCollapsed = sidebar.classList.contains('collapsed');
-    const marginValue = isCollapsed ? '0px' : '220px';
-    if (topNavbar) topNavbar.style.marginLeft = marginValue;
-    if (appContainer) appContainer.style.marginLeft = marginValue;
+  // Floating Tooltip for Desktop Mini-Sidebar
+  function setupMiniSidebarTooltips() {
+    if (!sidebar || !miniTooltip) return;
+
+    const items = sidebar.querySelectorAll('.nav-item-btn, .sidebar-logout-card');
+    items.forEach(item => {
+      item.addEventListener('mouseenter', function () {
+        if (!document.body.classList.contains('sidebar-mini') || isMobile()) return;
+
+        const text = item.getAttribute('data-tooltip') || item.querySelector('span')?.innerText?.trim() || '';
+        if (!text) return;
+
+        miniTooltip.textContent = text;
+        const rect = item.getBoundingClientRect();
+        miniTooltip.style.top = (rect.top + rect.height / 2) + 'px';
+        miniTooltip.style.left = (rect.right + 12) + 'px';
+        miniTooltip.classList.add('visible');
+      });
+
+      item.addEventListener('mouseleave', function () {
+        miniTooltip.classList.remove('visible');
+      });
+
+      item.addEventListener('click', function () {
+        miniTooltip.classList.remove('visible');
+      });
+    });
+
+    const sidebarNav = sidebar.querySelector('.sidebar-nav');
+    if (sidebarNav) {
+      sidebarNav.addEventListener('scroll', function () {
+        miniTooltip.classList.remove('visible');
+      });
+    }
   }
 
-  // Navbar hamburger toggle (open / close)
+  // Initial State Setup on Page Load
+  if (isMobile()) {
+    document.body.classList.remove('drawer-open');
+    document.body.classList.remove('sidebar-mini');
+    if (sidebar) {
+      sidebar.classList.add('collapsed');
+      sidebar.classList.remove('mini');
+    }
+  } else {
+    document.body.classList.remove('drawer-open');
+    if (sidebar) sidebar.classList.remove('collapsed');
+
+    // Restore desktop mini state from localStorage
+    try {
+      const savedMini = localStorage.getItem('argus_desktop_sidebar_mini');
+      if (savedMini === 'true') {
+        document.body.classList.add('sidebar-mini');
+        if (sidebar) sidebar.classList.add('mini');
+      } else {
+        document.body.classList.remove('sidebar-mini');
+        if (sidebar) sidebar.classList.remove('mini');
+      }
+    } catch (e) {
+      // Default to expanded on desktop
+    }
+  }
+
+  setupMiniSidebarTooltips();
+
+  // Window resize handler: seamlessly switch between mobile drawer and desktop mini states
+  window.addEventListener('resize', function () {
+    if (isMobile()) {
+      document.body.classList.remove('sidebar-mini');
+      if (miniTooltip) miniTooltip.classList.remove('visible');
+      if (!document.body.classList.contains('drawer-open') && sidebar) {
+        sidebar.classList.add('collapsed');
+      }
+    } else {
+      document.body.classList.remove('drawer-open');
+      if (sidebar) sidebar.classList.remove('collapsed');
+      try {
+        const savedMini = localStorage.getItem('argus_desktop_sidebar_mini');
+        if (savedMini === 'true') {
+          document.body.classList.add('sidebar-mini');
+          if (sidebar) sidebar.classList.add('mini');
+        } else {
+          document.body.classList.remove('sidebar-mini');
+          if (sidebar) sidebar.classList.remove('mini');
+        }
+      } catch (e) {}
+    }
+  });
+
+  // Navbar hamburger toggle (open / close / mini)
   if (sidebarToggle) {
     sidebarToggle.addEventListener('click', function (e) {
       e.stopPropagation();
