@@ -3216,7 +3216,8 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    fetch(`/api/payslip/generate?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}`)
+    const activeBid = (new URL(window.location.href)).searchParams.get('branch_id') || '{{ active_branch_id or "" }}';
+    fetch(`/api/payslip/generate?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}&branch_id=${encodeURIComponent(activeBid)}`)
       .then(res => res.json())
       .then(p => {
         lastPayslipData = p;
@@ -3288,7 +3289,8 @@ document.addEventListener('DOMContentLoaded', function () {
     btnPdfPayslip.addEventListener('click', function () {
       const employee = selectPayslipEmployee ? selectPayslipEmployee.value : '';
       const month = selectPayslipMonth ? selectPayslipMonth.value : '';
-      window.location.href = `/api/payslip/export/pdf?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}&template=${encodeURIComponent(currentTemplate)}&theme=${encodeURIComponent(currentTheme)}`;
+      const activeBid = (new URL(window.location.href)).searchParams.get('branch_id') || '{{ active_branch_id or "" }}';
+      window.location.href = `/api/payslip/export/pdf?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}&template=${encodeURIComponent(currentTemplate)}&theme=${encodeURIComponent(currentTheme)}&branch_id=${encodeURIComponent(activeBid)}`;
     });
   }
 });

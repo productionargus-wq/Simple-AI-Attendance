@@ -4278,9 +4278,11 @@ def api_generate_payslip():
         data = request.get_json() if request.is_json else request.form.to_dict()
         employee = (data.get('employee_name') or data.get('employee') or '').strip()
         month = data.get('month', '').strip()
+        branch_id = data.get('branch_id') or request.args.get('branch_id') or get_current_branch_id()
     else:
         employee = (request.args.get('employee_name') or request.args.get('employee') or '').strip()
         month = request.args.get('month', '').strip()
+        branch_id = request.args.get('branch_id') or get_current_branch_id()
         
     if not employee:
         return jsonify({'error': 'Employee name is required'}), 400
@@ -4290,15 +4292,16 @@ def api_generate_payslip():
     comp_id = get_current_company_id()
     if session.get('role') == 'super_admin':
         comp_id = None
-    payslip = database.get_payslip_data(employee, month, company_id=comp_id)
+    payslip = database.get_payslip_data(employee, month, company_id=comp_id, branch_id=branch_id)
     database.save_generated_salary_report(payslip, company_id=payslip.get('company_id') or comp_id)
     return jsonify(payslip)
 
 @app.route('/api/payslip/export/pdf', methods=['GET'])
 def api_export_payslip_pdf():
-    """Generates and downloads payslip PDF. Available to Admins and Employees."""
+    """Generates and downloads or views payslip PDF. Available to Admins and Employees."""
     employee = (request.args.get('employee_name') or request.args.get('employee') or '').strip()
     month = request.args.get('month', '').strip()
+    branch_id = request.args.get('branch_id') or get_current_branch_id()
     
     if not month:
         month = datetime.now().strftime("%Y-%m")
@@ -4307,7 +4310,7 @@ def api_export_payslip_pdf():
     if session.get('role') == 'super_admin':
         comp_id = None
     if not employee:
-        emp_res = database.get_all_employees(company_id=comp_id or 'ALL', branch_id=get_current_branch_id(), limit=1)
+        emp_res = database.get_all_employees(company_id=comp_id or 'ALL', branch_id=branch_id, limit=1)
         if emp_res['data']:
             employee = emp_res['data'][0]['employee_name']
         else:
@@ -4315,12 +4318,14 @@ def api_export_payslip_pdf():
     
     template = request.args.get('template', 'template_1').strip()
     theme = request.args.get('theme', 'navy').strip()
-    payslip = database.get_payslip_data(employee, month, company_id=comp_id)
+    payslip = database.get_payslip_data(employee, month, company_id=comp_id, branch_id=branch_id)
     pdf_buffer = pdf_generator.generate_payslip_pdf(payslip, template_id=template, theme=theme)
     filename = f"payslip_{employee}_{month}.pdf"
+
+    view_inline = (request.args.get('view') == '1' or request.args.get('inline') == '1')
     return send_file(
         pdf_buffer,
-        as_attachment=True,
+        as_attachment=not view_inline,
         download_name=filename,
         mimetype='application/pdf'
     )

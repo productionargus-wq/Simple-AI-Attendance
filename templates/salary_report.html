@@ -96,11 +96,12 @@
           <th data-col="other_deductions">OTHER DEDUCTIONS <span class="sort-icon">⇅</span></th>
           <th data-col="total_deductions" style="color: #dc3545 !important;">TOTAL DEDUCTIONS <span class="sort-icon">⇅</span></th>
           <th data-col="net_salary" style="background-color: #e3f2fd !important; color: #0d6efd !important;">NET SALARY <span class="sort-icon">⇅</span></th>
+          <th style="text-align: center; width: 85px;" class="no-print">ACTIONS</th>
         </tr>
       </thead>
       <tbody id="salaryTableBody">
         <tr>
-          <td colspan="14" class="table-empty-message">No data available in table</td>
+          <td colspan="15" class="table-empty-message">No data available in table</td>
         </tr>
       </tbody>
     </table>
@@ -114,6 +115,74 @@
     </div>
   </div>
 </div>
+
+<!-- Modal: Payslip PDF Preview (Read-Only: No Download / Print / Delete) -->
+<div class="modal-overlay" id="salaryPdfModal">
+  <div class="modal-box modal-box-large" style="max-width: 960px; width: 95vw; height: 90vh; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 8px; box-shadow: 0 12px 36px rgba(0,0,0,0.25);">
+    <div class="modal-header" style="padding: 14px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; background: #ffffff;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 34px; height: 34px; border-radius: 8px; background-color: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </div>
+        <div>
+          <div class="modal-header-title" style="font-size: 15px; font-weight: 700; color: #1e293b; margin: 0; line-height: 1.2;">PAYSLIP PREVIEW</div>
+          <div id="salaryPdfEmpTitle" style="font-size: 12px; color: #64748b; font-weight: 500; margin-top: 2px;">Loading payslip document...</div>
+        </div>
+      </div>
+      <button type="button" class="modal-close-btn" onclick="closeSalaryPdfModal()" title="Close">&times;</button>
+    </div>
+
+    <div class="modal-body" style="flex: 1; padding: 0; position: relative; overflow: hidden; background-color: #525659; display: flex; flex-direction: column;">
+      <div id="salaryPdfLoading" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: rgba(255, 255, 255, 0.95); z-index: 10;">
+        <div style="width: 38px; height: 38px; border: 3px solid #e2e8f0; border-top-color: #0284c7; border-radius: 50%; animation: spinPdf 0.8s linear infinite;"></div>
+        <span style="margin-top: 14px; font-size: 13px; font-weight: 600; color: #475569;">Generating Payslip PDF Preview...</span>
+      </div>
+      <iframe id="salaryPdfFrame" src="about:blank" style="width: 100%; height: 100%; border: none; display: none;" title="Payslip PDF Preview"></iframe>
+    </div>
+
+    <div class="modal-footer" style="padding: 10px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background-color: #f8fafc;">
+      <button type="button" class="btn-cancel" onclick="closeSalaryPdfModal()" style="padding: 7px 22px; font-size: 13px; border-radius: 6px; font-weight: 600; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; cursor: pointer; transition: all 0.15s ease;">Close</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  @keyframes spinPdf {
+    to { transform: rotate(360deg); }
+  }
+  .btn-action-view {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background-color: #f8fafc;
+    color: #0284c7;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    padding: 0;
+  }
+  .btn-action-view:hover {
+    background-color: #e0f2fe;
+    border-color: #38bdf8;
+    color: #0369a1;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(2, 132, 199, 0.15);
+  }
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  }
+</style>
 {% endblock %}
 
 {% block scripts %}
@@ -156,7 +225,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const data = res.data;
 
     if (!data || data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="14" class="table-empty-message">No data available in table</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="15" class="table-empty-message">No data available in table</td></tr>';
       infoText.innerText = 'Showing 0 to 0 of 0 entries';
       prevBtn.classList.add('disabled');
       nextBtn.classList.add('disabled');
@@ -181,22 +250,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let rowsHtml = '';
     data.forEach(r => {
+      const empNameSafe = escapeHtml(r.employee_name || '');
+      const payPeriodSafe = escapeHtml(r.pay_period || '');
+      const empAttrSafe = escapeAttr(r.employee_name || '');
+      const periodAttrSafe = escapeAttr(r.pay_period || '');
+
       rowsHtml += `
         <tr>
-          <td class="col-wrap" style="font-weight: 600; white-space: normal !important; word-break: break-word !important; min-width: 140px;">${r.employee_name}</td>
-          <td>${r.pay_period}</td>
+          <td class="col-wrap" style="font-weight: 600; white-space: normal !important; word-break: break-word !important; min-width: 140px;">${empNameSafe}</td>
+          <td>${payPeriodSafe}</td>
           <td>${r.working_days}</td>
           <td>${r.working_hours}</td>
-          <td>₹ ${parseInt(r.allowance)}</td>
-          <td>₹ ${parseInt(r.incentive)}</td>
-          <td>₹ ${parseInt(r.other_earnings)}</td>
-          <td>₹ ${parseInt(r.basic_earnings)}</td>
-          <td style="background-color: #e8f5e9; color: #198754; font-weight: 700;">₹ ${parseInt(r.total_earnings)}</td>
-          <td>₹ ${parseInt(r.paid_salary)}</td>
-          <td>₹ ${parseInt(r.advance_repayment)}</td>
-          <td>₹ ${parseInt(r.other_deductions)}</td>
-          <td style="color: #dc3545; font-weight: 700;">₹ ${parseInt(r.total_deductions)}</td>
-          <td style="background-color: #e3f2fd; color: #0d6efd; font-weight: 700;">₹ ${parseInt(r.net_salary)}</td>
+          <td>₹ ${parseInt(r.allowance || 0)}</td>
+          <td>₹ ${parseInt(r.incentive || 0)}</td>
+          <td>₹ ${parseInt(r.other_earnings || 0)}</td>
+          <td>₹ ${parseInt(r.basic_earnings || 0)}</td>
+          <td style="background-color: #e8f5e9; color: #198754; font-weight: 700;">₹ ${parseInt(r.total_earnings || 0)}</td>
+          <td>₹ ${parseInt(r.paid_salary || 0)}</td>
+          <td>₹ ${parseInt(r.advance_repayment || 0)}</td>
+          <td>₹ ${parseInt(r.other_deductions || 0)}</td>
+          <td style="color: #dc3545; font-weight: 700;">₹ ${parseInt(r.total_deductions || 0)}</td>
+          <td style="background-color: #e3f2fd; color: #0d6efd; font-weight: 700;">₹ ${parseInt(r.net_salary || 0)}</td>
+          <td style="text-align: center; white-space: nowrap;" class="no-print">
+            <button type="button" class="btn-action-view" onclick="openSalaryPdfModal('${empAttrSafe}', '${periodAttrSafe}')" title="View Payslip PDF">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </td>
         </tr>
       `;
     });
@@ -262,6 +344,76 @@ document.addEventListener('DOMContentLoaded', function () {
     window.location.href = `/api/salary-reports/export/pdf?start_month=${encodeURIComponent(startMonth)}&end_month=${encodeURIComponent(endMonth)}`;
   });
 
+  // Modal controls for Payslip PDF preview (Strictly Read-Only: No Download / Print / Delete)
+  function escapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function escapeAttr(text) {
+    if (!text) return '';
+    return String(text)
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '&quot;');
+  }
+
+  window.openSalaryPdfModal = function (empName, period) {
+    const theme = localStorage.getItem('argus_payslip_theme') || 'navy';
+    const template = localStorage.getItem('argus_payslip_template') || 'template_1';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const branchId = urlParams.get('branch_id') || '{{ active_branch_id or "" }}';
+
+    const modal = document.getElementById('salaryPdfModal');
+    const iframe = document.getElementById('salaryPdfFrame');
+    const loading = document.getElementById('salaryPdfLoading');
+    const title = document.getElementById('salaryPdfEmpTitle');
+
+    if (title) {
+      title.innerText = `${empName} • Pay Period: ${period}`;
+    }
+
+    if (loading) loading.style.display = 'flex';
+    if (iframe) {
+      iframe.style.display = 'none';
+      const pdfUrl = `/api/payslip/export/pdf?employee_name=${encodeURIComponent(empName)}&month=${encodeURIComponent(period)}&template=${encodeURIComponent(template)}&theme=${encodeURIComponent(theme)}&branch_id=${encodeURIComponent(branchId)}&view=1#toolbar=0&navpanes=0&scrollbar=1`;
+      iframe.src = pdfUrl;
+      iframe.onload = function () {
+        if (loading) loading.style.display = 'none';
+        iframe.style.display = 'block';
+      };
+    }
+
+    if (modal) modal.classList.add('active');
+  };
+
+  window.closeSalaryPdfModal = function () {
+    const modal = document.getElementById('salaryPdfModal');
+    const iframe = document.getElementById('salaryPdfFrame');
+    if (modal) modal.classList.remove('active');
+    if (iframe) iframe.src = 'about:blank';
+  };
+
+  const salaryPdfModalEl = document.getElementById('salaryPdfModal');
+  if (salaryPdfModalEl) {
+    salaryPdfModalEl.addEventListener('click', function (e) {
+      if (e.target === salaryPdfModalEl) {
+        closeSalaryPdfModal();
+      }
+    });
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && salaryPdfModalEl && salaryPdfModalEl.classList.contains('active')) {
+      closeSalaryPdfModal();
+    }
+  });
+
   document.getElementById('btnSalaryPrint').addEventListener('click', function () {
     const printContents = document.getElementById('printableSalarySection').innerHTML;
     const printWindow = window.open('', '', 'height=600,width=850');
@@ -273,6 +425,7 @@ document.addEventListener('DOMContentLoaded', function () {
       table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
       th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
       th { background: #2c3e50; color: #fff; }
+      .no-print { display: none !important; }
     `);
     const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS TECHNOLOGIES';
     printWindow.document.write(`<h2>${compName} - MONTHLY SALARY REPORT</h2>`);
@@ -292,6 +445,7 @@ document.addEventListener('DOMContentLoaded', function () {
     for (let row of table.rows) {
       let rowData = [];
       for (let cell of row.cells) {
+        if (cell.classList.contains('no-print')) continue;
         rowData.push(cell.innerText.trim());
       }
       text += rowData.join('\t') + '\n';

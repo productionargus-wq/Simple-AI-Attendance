@@ -4755,7 +4755,7 @@ def save_generated_salary_report(p, company_id=None):
     )
     return True
 
-def get_payslip_data(employee_name, month_year, company_id=None):
+def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None):
     db = get_db()
     emp = None
     if company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
@@ -4831,16 +4831,43 @@ def get_payslip_data(employee_name, month_year, company_id=None):
         comp_logo = str(comp_doc.get('logo') or comp_doc.get('company_logo') or '')
         comp_logo_data = str(comp_doc.get('logo_data') or '')
 
-    if emp and (emp.get('branch_name') or emp.get('branch_id')):
-        b_name = emp.get('branch_name')
-        if not b_name and emp.get('branch_id'):
-            b_obj = db.company_branches.find_one({'id': emp.get('branch_id')})
+    active_b = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    
+    resolved_branch_name = None
+    if active_b:
+        if is_home_branch_id(active_b):
+            resolved_branch_name = 'HOME'
+        else:
+            b_obj = db.company_branches.find_one({'id': active_b})
+            if not b_obj and company_id and company_id != 'ALL':
+                b_obj = db.company_branches.find_one({'id': active_b, 'company_id': str(company_id)})
             if b_obj:
-                b_name = b_obj.get('branch_name')
+                resolved_branch_name = b_obj.get('branch_name')
                 if b_obj.get('location'):
                     company_address = b_obj.get('location')
-        if b_name:
-            company_name = f"{company_name} - {b_name}"
+            else:
+                resolved_branch_name = active_b
+    else:
+        # Fall back to employee's assigned branch
+        if emp:
+            emp_bid = emp.get('branch_id')
+            if emp_bid and not is_home_branch_id(emp_bid):
+                b_obj = db.company_branches.find_one({'id': emp_bid})
+                if b_obj:
+                    resolved_branch_name = b_obj.get('branch_name')
+                    if b_obj.get('location'):
+                        company_address = b_obj.get('location')
+                else:
+                    resolved_branch_name = emp.get('branch_name') or emp_bid
+            else:
+                resolved_branch_name = 'HOME'
+        else:
+            resolved_branch_name = 'HOME'
+
+    if resolved_branch_name:
+        suffix = f" - {resolved_branch_name.upper()}"
+        if not company_name.upper().endswith(suffix.upper()):
+            company_name = f"{company_name}{suffix}"
 
     shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
     shift_target_minutes = parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
