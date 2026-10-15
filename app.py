@@ -5085,7 +5085,8 @@ def field_worker_module_page():
         visits=visits,
         salary_reports=salary_reports,
         today_str=today_str,
-        month_year=month_year
+        month_year=month_year,
+        company_support_enabled=bool(active_comp.get('support_enabled', True))
     )
 
 
