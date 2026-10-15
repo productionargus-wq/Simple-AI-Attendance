@@ -431,7 +431,7 @@ def get_current_company_info():
     comp_id = get_current_company_id()
     branch_id = get_current_branch_id()
     branch_doc = None
-    if comp_id and branch_id:
+    if comp_id and branch_id and str(branch_id).strip().upper() not in ['HOME', 'HQ', 'MAIN', 'UNASSIGNED']:
         try:
             branch_doc = database.get_branch_by_id(branch_id, comp_id)
         except Exception:
@@ -544,7 +544,12 @@ def inject_delete_permissions():
     active_bid = get_current_branch_id()
     active_bname = session.get('active_branch_name')
     if active_bid:
-        if not active_bname or session.get('active_branch_id') != active_bid:
+        if str(active_bid).strip().upper() in ['HOME', 'HQ', 'MAIN', 'UNASSIGNED']:
+            active_bid = 'HOME'
+            active_bname = 'Home Branch'
+            session['active_branch_id'] = 'HOME'
+            session['active_branch_name'] = 'Home Branch'
+        elif not active_bname or session.get('active_branch_id') != active_bid:
             b_doc = database.get_branch_by_id(active_bid, company_id='ALL')
             if b_doc:
                 active_bname = b_doc.get('branch_name', '')
@@ -1434,7 +1439,7 @@ def dashboard():
     active_bid = request.args.get('branch_id')
     if active_bid is None:
         active_bid = session.get('active_branch_id')
-    if active_bid in ['ALL', 'all', '', 'none', 'None']:
+    if not active_bid or str(active_bid).strip().upper() in ['ALL', 'NONE', '']:
         active_bid = None
 
     active_branch = None
@@ -1442,9 +1447,13 @@ def dashboard():
         try:
             branches = database.get_company_branches(comp_id)
             if active_bid:
-                active_branch = database.get_branch_by_id(active_bid, comp_id)
-                if not active_branch:
-                    active_bid = None
+                if str(active_bid).strip().upper() in ['HOME', 'HQ', 'MAIN', 'UNASSIGNED']:
+                    active_bid = 'HOME'
+                    active_branch = {'id': 'HOME', 'branch_name': 'Home Branch'}
+                else:
+                    active_branch = database.get_branch_by_id(active_bid, comp_id)
+                    if not active_branch:
+                        active_bid = None
         except Exception as e:
             print(f"Error resolving branches for dashboard: {e}")
             branches = []
@@ -5672,10 +5681,16 @@ def api_set_active_branch():
 
     data = request.get_json() or {}
     bid = data.get('branch_id')
-    if not bid or bid in ['ALL', 'all', '', 'none']:
+    if not bid or str(bid).strip().upper() in ['ALL', 'NONE', '']:
         session.pop('active_branch_id', None)
         session.pop('active_branch_name', None)
         return jsonify({'success': True, 'active_branch_id': None, 'active_branch_name': 'All Branches'})
+
+    if str(bid).strip().upper() in ['HOME', 'HQ', 'MAIN', 'UNASSIGNED']:
+        session['active_branch_id'] = 'HOME'
+        session['active_branch_name'] = 'Home Branch'
+        session.modified = True
+        return jsonify({'success': True, 'active_branch_id': 'HOME', 'active_branch_name': 'Home Branch'})
 
     if session.get('role') == 'super_admin':
         branch = database.get_branch_by_id(bid, company_id='ALL')

@@ -572,7 +572,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const inStatus = document.getElementById('inputStatus');
     if (inStatus) inStatus.value = 'Active';
     const inBranch = document.getElementById('inputBranchId');
-    if (inBranch) inBranch.value = window.ACTIVE_BRANCH_ID || inBranch.getAttribute('data-default-branch') || '';
+    if (inBranch) inBranch.value = window.ACTIVE_BRANCH_ID || inBranch.getAttribute('data-default-branch') || (inBranch.querySelector('option[value="HOME"]') ? 'HOME' : '');
     const inDob = document.getElementById('inputDob');
     if (inDob) inDob.value = '';
     const inStart = document.getElementById('inputShiftStart');
@@ -624,7 +624,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const inEditStatus = document.getElementById('inputStatus');
       if (inEditStatus) inEditStatus.value = (emp.status === 'Inactive') ? 'Inactive' : 'Active';
       const inBranch = document.getElementById('inputBranchId');
-      if (inBranch) inBranch.value = emp.branch_id || '';
+      if (inBranch) inBranch.value = (emp.branch_id && emp.branch_id !== 'HOME') ? emp.branch_id : (inBranch.querySelector('option[value="HOME"]') ? 'HOME' : '');
       document.getElementById('inputMobile').value = emp.mobile_number || '';
       document.getElementById('inputHourlySalary').value = (emp.hourly_salary !== undefined && emp.hourly_salary !== null) ? emp.hourly_salary : '';
       document.getElementById('inputDaySalary').value = (emp.day_salary !== undefined && emp.day_salary !== null) ? emp.day_salary : '';

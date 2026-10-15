@@ -112,7 +112,9 @@
       <div class="nav-company-dropdown-container" id="navBranchDropdownContainer" style="position: relative;">
         <button type="button" class="nav-branch-toggle-btn" id="navCompanyDropdownBtn" onclick="toggleNavBranchDropdown(event)" title="Click to switch active branch view">
           <span class="nav-active-branch-badge">
-            {% if active_branch_name %}
+            {% if active_branch_id == 'HOME' %}
+              🏠 Home Branch
+            {% elif active_branch_name %}
               📍 {{ active_branch_name }}
             {% else %}
               🏢 All Branches
@@ -130,15 +132,29 @@
           </div>
 
           <!-- All Branches Option -->
-          <a href="javascript:void(0)" onclick="globalSwitchBranch('ALL')" class="nav-branch-item {% if not active_branch_id %}active{% endif %}">
+          <a href="javascript:void(0)" onclick="globalSwitchBranch('ALL')" class="nav-branch-item {% if not active_branch_id or active_branch_id == 'ALL' %}active{% endif %}">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 15px;">🏢</span>
               <div style="text-align: left;">
                 <div style="font-weight: 700; font-size: 12px;">All Branches</div>
-                <div style="font-size: 10.5px; color: #64748b; font-weight: 500;">Consolidated overview ({{ user_branches|length }} locations)</div>
+                <div style="font-size: 10.5px; color: #64748b; font-weight: 500;">Consolidated overview (all locations)</div>
               </div>
             </div>
-            {% if not active_branch_id %}
+            {% if not active_branch_id or active_branch_id == 'ALL' %}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            {% endif %}
+          </a>
+
+          <!-- Home Branch Option (Initial Company Account) -->
+          <a href="javascript:void(0)" onclick="globalSwitchBranch('HOME')" class="nav-branch-item {% if active_branch_id == 'HOME' %}active{% endif %}">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 15px;">🏠</span>
+              <div style="text-align: left;">
+                <div style="font-weight: 700; font-size: 12px;">Home Branch</div>
+                <div style="font-size: 10.5px; color: #64748b; font-weight: 500;">Headquarters / Initial company account</div>
+              </div>
+            </div>
+            {% if active_branch_id == 'HOME' %}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             {% endif %}
           </a>

@@ -181,7 +181,7 @@
           <div class="form-group" id="groupBranchAssign">
             <label class="form-label">Assigned Branch Location</label>
             <select class="form-input" id="inputBranchId" name="branch_id" data-default-branch="{{ active_branch_id or '' }}">
-              <option value="">🏢 Main / Head Office (Unassigned)</option>
+              <option value="HOME" {% if active_branch_id == 'HOME' or not active_branch_id or active_branch_id == 'ALL' %}selected{% endif %}>🏠 Home Branch (Head Office / Initial Company)</option>
               {% for b in branches or [] %}
               <option value="{{ b.id }}" {% if active_branch_id and (active_branch_id == b.id or active_branch_id == b.branch_id) %}selected{% endif %}>📍 {{ b.branch_name }} ({{ b.district or 'Hub' }})</option>
               {% endfor %}
