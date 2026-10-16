@@ -1185,12 +1185,13 @@ def is_home_branch_id(b_id):
     """Returns True if branch ID represents Home Branch / Main Company HQ."""
     return bool(b_id and str(b_id).strip().upper() in ['HOME', 'HQ', 'MAIN', 'UNASSIGNED'])
 
-def get_branch_employee_query(b_id, company_id=None):
+def get_branch_employee_query(b_id, company_id=None, exclude_field_workers=True):
     """
     Returns a MongoDB query dictionary for matching employees by branch_id.
     - If branch_id is None or ALL: returns base company query without branch restriction.
     - If branch_id is HOME: matches employees belonging to initial company account (branch_id in [None, '', 'HOME', 'HQ', 'MAIN', 'unassigned'] or missing).
     - If branch_id is a specific ID: matches employees with that exact branch_id.
+    - If exclude_field_workers is True: strictly filters out field workers for isolation.
     """
     q = {}
     if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
@@ -1204,7 +1205,32 @@ def get_branch_employee_query(b_id, company_id=None):
             ]
         else:
             q['branch_id'] = clean_bid
+
+    if exclude_field_workers:
+        fw_condition = {
+            'is_field_worker': {'$ne': True},
+            'employee_type': {'$nin': ['field_worker', 'field', 'fw']}
+        }
+        if '$or' in q:
+            branch_or = q.pop('$or')
+            q['$and'] = [{'$or': branch_or}, fw_condition]
+        else:
+            q.update(fw_condition)
+
     return q
+
+def get_field_worker_names(company_id=None):
+    """Returns set of employee names registered as field workers for the company."""
+    db = get_db()
+    q = {
+        '$or': [
+            {'is_field_worker': True},
+            {'employee_type': {'$in': ['field_worker', 'field', 'fw']}}
+        ]
+    }
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        q['company_id'] = str(company_id)
+    return set(e.get('employee_name') for e in db.employees.find(q, {'employee_name': 1}) if e.get('employee_name'))
 
 _branch_emp_names_cache = {}
 _BRANCH_CACHE_TTL = 30.0
@@ -1283,7 +1309,7 @@ def generate_employee_id():
     import secrets
     return f"{int(time.time() * 1000)}{secrets.randbelow(100):02d}"
 
-def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc', page=1, limit=10, status=None, branch_id=None):
+def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc', page=1, limit=10, status=None, branch_id=None, exclude_field_workers=True):
     db = get_db()
     query = {}
     if company_id and company_id != 'ALL':
@@ -1306,6 +1332,19 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc'
             query['status'] = 'Inactive'
         elif st_clean == 'Active':
             query['status'] = {'$ne': 'Inactive'}
+
+    # Exclude field workers from standard employee listings
+    if exclude_field_workers:
+        fw_condition = {
+            'is_field_worker': {'$ne': True},
+            'employee_type': {'$nin': ['field_worker', 'field', 'fw']}
+        }
+        if '$or' in query:
+            existing_or = query.pop('$or')
+            query.setdefault('$and', []).append({'$or': existing_or})
+            query['$and'].append(fw_condition)
+        else:
+            query.update(fw_condition)
 
     if search:
         reg = {'$regex': re.escape(search), '$options': 'i'}
@@ -1344,6 +1383,9 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc'
     base_comp_query = {'company_id': str(company_id)} if (company_id and company_id != 'ALL') else {}
     if b_id:
         base_comp_query['branch_id'] = b_id
+    if exclude_field_workers:
+        base_comp_query['is_field_worker'] = {'$ne': True}
+        base_comp_query['employee_type'] = {'$nin': ['field_worker', 'field', 'fw']}
     active_count = db.employees.count_documents({**base_comp_query, 'status': {'$ne': 'Inactive'}})
     inactive_count = db.employees.count_documents({**base_comp_query, 'status': 'Inactive'})
     total_preserved = db.employees.count_documents(base_comp_query)
@@ -3355,8 +3397,9 @@ def extract_sort_timestamp(row):
             
     return '1970-01-01 00:00:00'
 
-def get_attendance_reports(report_type='all', start_date=None, end_date=None, employee='All', search=None, page=1, limit=10, company_id=None, branch_id=None):
+def get_attendance_reports(report_type='all', start_date=None, end_date=None, employee='All', search=None, page=1, limit=10, company_id=None, branch_id=None, exclude_field_workers=True):
     db = get_db()
+    fw_names = get_field_worker_names(company_id) if exclude_field_workers else set()
 
     if not start_date and not end_date:
         def_start, _, _, _ = get_default_two_month_range()
@@ -3371,7 +3414,7 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
 
     # Pre-load employee shift hours for dynamic status computation
     emp_shifts = {}
-    emp_q = get_branch_employee_query(b_id, company_id)
+    emp_q = get_branch_employee_query(b_id, company_id, exclude_field_workers=exclude_field_workers)
     for emp_d in db.employees.find(emp_q, {'employee_name': 1, 'shift_start': 1, 'shift_end': 1, 'shift_hours': 1}):
         if emp_d.get('employee_name'):
             emp_shifts[emp_d['employee_name']] = {
@@ -3388,6 +3431,8 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
             m_query.setdefault('$and', []).append(branch_cond)
         if employee and employee != 'All':
             m_query['employee_name'] = employee
+        elif fw_names:
+            m_query['employee_name'] = {'$nin': list(fw_names)}
         if start_date:
             m_query.setdefault('entry_date', {})['$gte'] = start_date.strip()
         if end_date:
@@ -3445,6 +3490,8 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         
     if employee and employee != 'All':
         query['employee_name'] = employee
+    elif fw_names:
+        query['employee_name'] = {'$nin': list(fw_names)}
         
     if start_date:
         s_date = start_date.strip()
@@ -3746,6 +3793,7 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
     data = []
 
     # 1. Fetch Facial Attendance Punches (attendance_reports)
+    fw_names = get_field_worker_names(company_id)
     rep_query = {}
     if company_id and company_id != 'ALL':
         rep_query['company_id'] = str(company_id)
@@ -3753,6 +3801,8 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
         rep_query.setdefault('$and', []).append(branch_cond)
     if not is_all_emp:
         rep_query['employee_name'] = clean_emp
+    elif fw_names:
+        rep_query.setdefault('employee_name', {})['$nin'] = list(fw_names)
 
     for doc in db.attendance_reports.find(rep_query):
         r = clean_doc(doc)
@@ -3814,6 +3864,8 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
         m_query.setdefault('$and', []).append(branch_cond)
     if not is_all_emp:
         m_query['employee_name'] = clean_emp
+    elif fw_names:
+        m_query.setdefault('employee_name', {})['$nin'] = list(fw_names)
 
     for doc in db.manual_entries.find(m_query):
         m = clean_doc(doc)
@@ -4626,12 +4678,18 @@ def get_balance_report(employee=None, search=None, page=1, limit=10, company_id=
 
 # ----------------- SALARY REPORTS ----------------- #
 
-def get_salary_reports(start_month=None, end_month=None, search=None, page=1, limit=10, company_id=None, branch_id=None):
+def get_salary_reports(start_month=None, end_month=None, search=None, page=1, limit=10, company_id=None, branch_id=None, exclude_field_workers=True):
     db = get_db()
     query = {}
     
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
+
+    if exclude_field_workers:
+        fw_names = get_field_worker_names(company_id)
+        if fw_names:
+            query.setdefault('employee_name', {})['$nin'] = list(fw_names)
+        query.setdefault('$and', []).append({'is_field_worker': {'$ne': True}})
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     if b_id:
@@ -5924,7 +5982,7 @@ def get_employee_leave_balance(emp_id, company_id=None, year=None):
     bal['custom_leaves'] = c_leaves or []
     return bal
 
-def get_all_employees_leave_balances(company_id=None, year=None, search=None, branch_id=None):
+def get_all_employees_leave_balances(company_id=None, year=None, search=None, branch_id=None, for_field_workers=False):
     """
     Returns list of all employees in company along with their leave balances.
     Matches Image 4's Employee Leave Balance table.
@@ -5933,7 +5991,20 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None, br
     if year is None:
         year = get_ist_now().year
 
-    e_query = get_branch_employee_query(branch_id, company_id)
+    if for_field_workers:
+        e_query = {
+            '$or': [{'is_field_worker': True}, {'employee_type': {'$in': ['field_worker', 'field', 'fw']}}]
+        }
+        if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+            e_query['company_id'] = str(company_id)
+        clean_bid = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+        if clean_bid:
+            if is_home_branch_id(clean_bid):
+                e_query['$and'] = [{'branch_id': {'$in': [None, '', 'HOME', 'HQ', 'MAIN', 'unassigned']}}]
+            else:
+                e_query['branch_id'] = clean_bid
+    else:
+        e_query = get_branch_employee_query(branch_id, company_id, exclude_field_workers=True)
     
     employees = list(db.employees.find(e_query).sort('employee_name', ASCENDING))
     results = []
@@ -5984,7 +6055,9 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None, br
             'employee_name': emp_name,
             'employee_id': emp_code,
             'department': dept,
-            'designation': emp.get('designation', ''),
+            'designation': emp.get('designation', 'Field Executive' if for_field_workers else 'Employee'),
+            'branch_name': emp.get('branch_name') or emp.get('branch') or 'Home Branch (Head Office)',
+            'is_field_worker': bool(emp.get('is_field_worker') is True or str(emp.get('employee_type') or '').lower() in ['field_worker', 'field', 'fw']),
             'mobile_number': emp.get('mobile_number', ''),
             'company_id': emp.get('company_id', ''),
             'casual_leave': f"{cl_avail} / {cl_tot} Days",
@@ -6048,6 +6121,15 @@ def submit_leave_request(req_data):
         except Exception:
             total_days = 1.0
 
+    is_fw = bool(
+        req_data.get('is_field_worker') is True
+        or str(req_data.get('employee_type') or '').lower() in ['field_worker', 'field', 'fw']
+    )
+    if not is_fw and req_data.get('employee_id'):
+        emp_doc = db.employees.find_one(build_id_filter(req_data.get('employee_id')), {'is_field_worker': 1, 'employee_type': 1})
+        if emp_doc:
+            is_fw = bool(emp_doc.get('is_field_worker') is True or str(emp_doc.get('employee_type') or '').lower() in ['field_worker', 'field', 'fw'])
+
     doc = {
         'id': req_id,
         'request_id': request_id_code,
@@ -6058,6 +6140,8 @@ def submit_leave_request(req_data):
         'department': str(req_data.get('department', 'General')),
         'designation': str(req_data.get('designation', '')),
         'mobile_number': str(req_data.get('mobile_number', '')),
+        'is_field_worker': is_fw,
+        'employee_type': 'field_worker' if is_fw else 'standard',
         'request_type': 'Leave',
         'leave_type': req_data.get('leave_type', 'Casual Leave (CL)'),
         'session': session_type,
@@ -6108,6 +6192,15 @@ def submit_permission_request(req_data):
     except Exception:
         duration_hours = 2.0
 
+    is_fw = bool(
+        req_data.get('is_field_worker') is True
+        or str(req_data.get('employee_type') or '').lower() in ['field_worker', 'field', 'fw']
+    )
+    if not is_fw and req_data.get('employee_id'):
+        emp_doc = db.employees.find_one(build_id_filter(req_data.get('employee_id')), {'is_field_worker': 1, 'employee_type': 1})
+        if emp_doc:
+            is_fw = bool(emp_doc.get('is_field_worker') is True or str(emp_doc.get('employee_type') or '').lower() in ['field_worker', 'field', 'fw'])
+
     doc = {
         'id': req_id,
         'request_id': request_id_code,
@@ -6118,6 +6211,8 @@ def submit_permission_request(req_data):
         'department': str(req_data.get('department', 'General')),
         'designation': str(req_data.get('designation', '')),
         'mobile_number': str(req_data.get('mobile_number', '')),
+        'is_field_worker': is_fw,
+        'employee_type': 'field_worker' if is_fw else 'standard',
         'request_type': 'Permission',
         'leave_type': 'Permission',
         'permission_type': req_data.get('permission_type', 'Short Leave'),
@@ -6146,12 +6241,22 @@ def submit_permission_request(req_data):
     db.leave_requests.insert_one(doc)
     return clean_doc(doc)
 
-def get_leave_requests(company_id=None, employee_id=None, status=None, limit=50, page=1, branch_id=None):
-    """Retrieves paginated list of leave & permission requests."""
+def get_leave_requests(company_id=None, employee_id=None, status=None, limit=50, page=1, branch_id=None, for_field_workers=False, search=None):
+    """Retrieves paginated list of leave & permission requests with field worker isolation."""
     db = get_db()
     base_query = {}
     if company_id and company_id != 'ALL':
         base_query['company_id'] = str(company_id)
+
+    if for_field_workers:
+        base_query.setdefault('$and', []).append({
+            '$or': [{'is_field_worker': True}, {'employee_type': {'$in': ['field_worker', 'field', 'fw']}}]
+        })
+    else:
+        base_query.setdefault('$and', []).append({
+            'is_field_worker': {'$ne': True},
+            'employee_type': {'$nin': ['field_worker', 'field', 'fw']}
+        })
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     if b_id:
@@ -6163,6 +6268,16 @@ def get_leave_requests(company_id=None, employee_id=None, status=None, limit=50,
     if employee_id:
         base_query['$or'] = [{'employee_id': str(employee_id)}, {'employee_id': int(employee_id) if str(employee_id).isdigit() else str(employee_id)}]
     
+    if search:
+        reg = {'$regex': re.escape(str(search).strip()), '$options': 'i'}
+        search_or = [
+            {'employee_name': reg},
+            {'leave_type': reg},
+            {'reason': reg},
+            {'request_id': reg}
+        ]
+        base_query.setdefault('$and', []).append({'$or': search_or})
+
     query = dict(base_query)
     if status and status != 'ALL':
         query['status'] = status
@@ -6370,12 +6485,18 @@ def update_leave_request_status(request_id, new_status, admin_remark=None, revie
     db.leave_requests.update_one(q, {'$set': upd})
     return {'success': True, 'status': normalized_status, 'message': f'Request {normalized_status} successfully'}
 
-def get_admin_leave_stats(company_id=None, branch_id=None):
-    """Returns the 4 KPI card metrics shown in Image 4."""
+def get_admin_leave_stats(company_id=None, branch_id=None, for_field_workers=False):
+    """Returns the 4 KPI card metrics shown in Image 4, isolated for standard vs field workers."""
     db = get_db()
     query = {}
     if company_id and company_id != 'ALL':
         query['company_id'] = str(company_id)
+
+    if for_field_workers:
+        query['$or'] = [{'is_field_worker': True}, {'employee_type': {'$in': ['field_worker', 'field', 'fw']}}]
+    else:
+        query['is_field_worker'] = {'$ne': True}
+        query['employee_type'] = {'$nin': ['field_worker', 'field', 'fw']}
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     if b_id:
@@ -6394,7 +6515,7 @@ def get_admin_leave_stats(company_id=None, branch_id=None):
     })
     rejected_count = db.leave_requests.count_documents({**query, 'status': 'Rejected'})
 
-    all_bals = get_all_employees_leave_balances(company_id=company_id, branch_id=b_id)
+    all_bals = get_all_employees_leave_balances(company_id=company_id, branch_id=b_id, for_field_workers=for_field_workers)
     low_balance_count = sum(1 for b in all_bals if b.get('is_low_balance'))
 
     return {
@@ -6408,7 +6529,7 @@ def get_admin_leave_stats(company_id=None, branch_id=None):
         'low_balance_count': low_balance_count
     }
 
-def get_approved_leaves_for_date(date_str, company_id=None):
+def get_approved_leaves_for_date(date_str, company_id=None, for_field_workers=False):
     """
     Returns a dictionary of employees who have approved leave covering date_str (YYYY-MM-DD).
     Key: employee_name (and employee_id), Value: leave doc.
@@ -6423,6 +6544,12 @@ def get_approved_leaves_for_date(date_str, company_id=None):
     if company_id and company_id != 'ALL':
         q['company_id'] = str(company_id)
 
+    if for_field_workers:
+        q['$or'] = [{'is_field_worker': True}, {'employee_type': {'$in': ['field_worker', 'field', 'fw']}}]
+    else:
+        q['is_field_worker'] = {'$ne': True}
+        q['employee_type'] = {'$nin': ['field_worker', 'field', 'fw']}
+
     leaves = list(db.leave_requests.find(q))
     result = {}
     for l in leaves:
@@ -6433,7 +6560,7 @@ def get_approved_leaves_for_date(date_str, company_id=None):
             result[str(l['employee_id'])] = cd
     return result
 
-def get_approved_permissions_for_date(date_str, company_id=None):
+def get_approved_permissions_for_date(date_str, company_id=None, for_field_workers=False):
     """
     Returns a dictionary of employees who have approved permission on date_str (YYYY-MM-DD).
     """
@@ -6445,6 +6572,12 @@ def get_approved_permissions_for_date(date_str, company_id=None):
     }
     if company_id and company_id != 'ALL':
         q['company_id'] = str(company_id)
+
+    if for_field_workers:
+        q['$or'] = [{'is_field_worker': True}, {'employee_type': {'$in': ['field_worker', 'field', 'fw']}}]
+    else:
+        q['is_field_worker'] = {'$ne': True}
+        q['employee_type'] = {'$nin': ['field_worker', 'field', 'fw']}
 
     perms = list(db.leave_requests.find(q))
     result = {}
@@ -6469,7 +6602,7 @@ def invalidate_badge_counts_cache(company_id=None):
     else:
         _badge_counts_cache.clear()
 
-def get_pending_leave_requests_count(company_id=None, branch_id=None):
+def get_pending_leave_requests_count(company_id=None, branch_id=None, exclude_field_workers=True):
     """
     Returns the count of Pending leave & permission requests with 20s TTL caching.
     """
@@ -6482,6 +6615,9 @@ def get_pending_leave_requests_count(company_id=None, branch_id=None):
             return val
     db = get_db()
     query = {'status': 'Pending'}
+    if exclude_field_workers:
+        query['is_field_worker'] = {'$ne': True}
+        query['employee_type'] = {'$nin': ['field_worker', 'field', 'fw']}
     if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', 'DEFAULT']:
         query['company_id'] = str(company_id)
     if b_id:
@@ -6492,6 +6628,17 @@ def get_pending_leave_requests_count(company_id=None, branch_id=None):
     cnt = db.leave_requests.count_documents(query)
     _badge_counts_cache[key] = (now_ts, cnt)
     return cnt
+
+def get_pending_field_worker_leave_requests_count(company_id=None):
+    """Returns the count of Pending leave & permission requests specifically for field workers."""
+    db = get_db()
+    query = {
+        'status': 'Pending',
+        '$or': [{'is_field_worker': True}, {'employee_type': {'$in': ['field_worker', 'field', 'fw']}}]
+    }
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', 'DEFAULT']:
+        query['company_id'] = str(company_id)
+    return db.leave_requests.count_documents(query)
 
 def delete_employee_leave_request(request_id, emp_id=None):
     """
@@ -8009,6 +8156,190 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
         })
 
     return reports
+
+
+def get_field_worker_dashboard_stats(company_id=None, date_str=None):
+    """
+    Computes real-time operational dashboard stats for the Field Worker module.
+    Includes Present, Absent, On-Site, In-Transit, On Leave, Leads, Detour Alerts, and KM.
+    """
+    db = get_db()
+    cid = str(company_id) if company_id and company_id != 'ALL' else 'ARGUS_MASTER'
+    if not date_str:
+        date_str = get_ist_now().strftime('%Y-%m-%d')
+
+    workers = get_field_workers(company_id=cid, include_all_employees=False)
+    total_workers = len(workers)
+
+    # 1. Fetch today's approved leaves for field workers
+    approved_leave_q = {
+        'request_type': 'Leave',
+        'status': 'Approved',
+        'from_date': {'$lte': date_str},
+        'to_date': {'$gte': date_str},
+        '$or': [{'is_field_worker': True}, {'employee_type': 'field_worker'}]
+    }
+    if cid != 'ARGUS_MASTER':
+        approved_leave_q['company_id'] = cid
+    leave_docs = list(db.leave_requests.find(approved_leave_q))
+    on_leave_workers = {l.get('employee_name'): l for l in leave_docs if l.get('employee_name')}
+
+    # 2. Fetch today's telemetry & check-in logs
+    log_q = {'date': date_str}
+    if cid != 'ARGUS_MASTER':
+        log_q['company_id'] = cid
+    all_logs = list(db.field_location_logs.find(log_q).sort('timestamp', ASCENDING))
+
+    # Group logs by worker
+    worker_logs = {}
+    for lg in all_logs:
+        emp = lg.get('employee_name')
+        if emp:
+            worker_logs.setdefault(emp, []).append(lg)
+
+    # 3. Fetch today's customer visits (leads)
+    visit_q = {'visit_date': date_str}
+    if cid != 'ARGUS_MASTER':
+        visit_q['company_id'] = cid
+    all_visits = list(db.field_customer_visits.find(visit_q))
+    worker_visits = {}
+    total_orders_val = 0.0
+    for v in all_visits:
+        emp = v.get('employee_name')
+        if emp:
+            worker_visits.setdefault(emp, []).append(v)
+        total_orders_val += safe_float(v.get('order_amount', v.get('deal_value', 0.0)))
+
+    # 4. Fetch unresolved AI Detour incidents
+    inc_q = {'date': date_str, 'status': {'$in': ['Open', 'open', 'Active', 'active']}}
+    if cid != 'ARGUS_MASTER':
+        inc_q['company_id'] = cid
+    active_incidents = list(db.field_ai_incidents.find(inc_q))
+    incident_workers = set(i.get('employee_name') for i in active_incidents if i.get('employee_name'))
+
+    # Compute status per worker
+    worker_status_list = []
+    present_count = 0
+    on_site_count = 0
+    in_transit_count = 0
+    detour_count = len(active_incidents)
+    total_km = 0.0
+
+    branch_map = {}
+
+    for w in workers:
+        emp_name = w.get('employee_name')
+        b_name = w.get('branch_name') or w.get('branch') or 'Home Branch (Head Office)'
+        branch_map.setdefault(b_name, {'total': 0, 'present': 0, 'absent': 0, 'on_leave': 0})
+        branch_map[b_name]['total'] += 1
+
+        logs = worker_logs.get(emp_name, [])
+        visits = worker_visits.get(emp_name, [])
+        is_on_leave = emp_name in on_leave_workers
+        has_detour = emp_name in incident_workers
+
+        # Calculate worker's day KM
+        worker_km = 0.0
+        if len(logs) > 1:
+            for i in range(len(logs) - 1):
+                p1 = (safe_float(logs[i].get('latitude')), safe_float(logs[i].get('longitude')))
+                p2 = (safe_float(logs[i + 1].get('latitude')), safe_float(logs[i + 1].get('longitude')))
+                worker_km += calculate_haversine_distance(p1[0], p1[1], p2[0], p2[1])
+        worker_km = round(worker_km, 2)
+        total_km += worker_km
+
+        # Determine status
+        checkin_time = '-'
+        last_seen = '-'
+        last_coords = '-'
+        last_note = '-'
+
+        if logs:
+            present_count += 1
+            branch_map[b_name]['present'] += 1
+            first_log = logs[0]
+            latest_log = logs[-1]
+            checkin_time = first_log.get('created_at_time') or str(first_log.get('timestamp') or '')[:19]
+            last_seen = latest_log.get('created_at_time') or str(latest_log.get('timestamp') or '')[:19]
+            last_coords = f"{latest_log.get('latitude', 0):.4f}, {latest_log.get('longitude', 0):.4f}"
+            last_note = latest_log.get('activity_note') or latest_log.get('tracking_status') or 'Active'
+
+            st = str(latest_log.get('tracking_status') or '').lower()
+            if has_detour or st == 'off_route_detour':
+                status = 'Detour Alert'
+            elif st == 'on_site':
+                status = 'On-Site'
+                on_site_count += 1
+            elif st == 'in_transit':
+                status = 'In-Transit'
+                in_transit_count += 1
+            else:
+                status = 'Present'
+        elif is_on_leave:
+            status = 'On Leave'
+            branch_map[b_name]['on_leave'] += 1
+            last_note = f"Leave: {on_leave_workers[emp_name].get('leave_type', 'Casual Leave')}"
+        else:
+            status = 'Absent'
+            branch_map[b_name]['absent'] += 1
+            last_note = 'No check-in or GPS ping received today'
+
+        worker_status_list.append({
+            'employee_name': emp_name,
+            'designation': w.get('designation') or 'Field Executive',
+            'mobile_number': w.get('mobile_number') or '-',
+            'branch_name': b_name,
+            'status': status,
+            'attendance_status': status,
+            'checkin_time': checkin_time,
+            'in_time': checkin_time,
+            'out_time': last_seen if status == 'Present' else '--',
+            'last_seen': last_seen,
+            'last_coords': last_coords,
+            'last_note': last_note,
+            'live_status': last_note,
+            'today_km': worker_km,
+            'distance_km': worker_km,
+            'visits_count': len(visits),
+            'avatar_letter': emp_name[:2].upper() if emp_name else 'FW'
+        })
+
+    on_leave_count = len(on_leave_workers)
+    absent_count = max(0, total_workers - present_count - on_leave_count)
+    present_pct = f"{round((present_count / total_workers * 100), 1)}%" if total_workers > 0 else "0.0%"
+    absent_pct = f"{round((absent_count / total_workers * 100), 1)}%" if total_workers > 0 else "0.0%"
+    on_leave_pct = f"{round((on_leave_count / total_workers * 100), 1)}%" if total_workers > 0 else "0.0%"
+
+    branch_breakdown = [{'branch_name': k, **v} for k, v in branch_map.items()]
+
+    return {
+        'total_workers': total_workers,
+        'total_field_workers': total_workers,
+        'present_count': present_count,
+        'present_today': present_count,
+        'present_percent': present_pct,
+        'on_leave_count': on_leave_count,
+        'on_leave_today': on_leave_count,
+        'on_leave_percent': on_leave_pct,
+        'absent_count': absent_count,
+        'absent_today': absent_count,
+        'absent_percent': absent_pct,
+        'on_site_count': on_site_count,
+        'on_site_now': on_site_count,
+        'in_transit_count': in_transit_count,
+        'in_transit_now': in_transit_count,
+        'detour_count': detour_count,
+        'detour_alerts': detour_count,
+        'total_km': round(total_km, 2),
+        'total_distance_km': round(total_km, 2),
+        'total_visits': len(all_visits),
+        'total_orders_value': round(total_orders_val, 2),
+        'total_order_amount': round(total_orders_val, 2),
+        'branch_breakdown': branch_breakdown,
+        'worker_status_list': worker_status_list,
+        'active_incidents_count': len(active_incidents),
+        'date_str': date_str
+    }
 
 
 # =========================================================================

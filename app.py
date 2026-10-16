@@ -1290,6 +1290,16 @@ def employee_login():
         result = database.validate_employee_login(email, password=password)
         if isinstance(result, dict) and result.get('success'):
             employee = result['employee']
+            is_fw = bool(
+                employee.get('is_field_worker') is True
+                or str(employee.get('employee_type') or '').lower() in ['field_worker', 'field', 'fw']
+            )
+            if is_fw:
+                return render_template(
+                    'employee_login.html',
+                    error='Access Denied: This account is registered as a Field Worker. Please sign in via the Field Worker Module login.',
+                    form_data={'email': email}
+                )
             session.clear()
             session.permanent = True
             session['employee_logged_in'] = True
@@ -4977,6 +4987,16 @@ def field_worker_login():
             result = database.validate_employee_login(email, password=password)
             if isinstance(result, dict) and result.get('success'):
                 employee = result['employee']
+                is_fw = bool(
+                    employee.get('is_field_worker') is True
+                    or str(employee.get('employee_type') or '').lower() in ['field_worker', 'field', 'fw']
+                )
+                if not is_fw:
+                    return render_template(
+                        'field_worker_login.html',
+                        error='Access Denied: This account is registered as a Standard Employee. Please login using the Standard Employee Portal.',
+                        selected_role=login_role
+                    )
                 session.clear()
                 session.permanent = True
                 session['employee_logged_in'] = True
@@ -5098,6 +5118,14 @@ def field_worker_module_page():
     # Defer Tab 6 payroll calculation on initial page load: user lands on Tab 1
     salary_reports = []
 
+    # Field Worker Dashboard & Leave stats
+    dashboard_stats = database.get_field_worker_dashboard_stats(company_id=active_cid, date_str=today_str)
+    fw_emp_id = session.get('employee_id') if user_role == 'employee' else None
+    fw_leave_stats = database.get_admin_leave_stats(company_id=active_cid, for_field_workers=True)
+    fw_leave_requests = database.get_leave_requests(company_id=active_cid, employee_id=fw_emp_id, for_field_workers=True, limit=50)
+    fw_leave_balances = database.get_all_employees_leave_balances(company_id=active_cid, for_field_workers=True)
+    fw_pending_leaves = database.get_pending_field_worker_leave_requests_count(active_cid)
+
     return render_template(
         'field_worker_module.html',
         companies=companies,
@@ -5112,6 +5140,12 @@ def field_worker_module_page():
         tracking=tracking,
         visits=visits,
         salary_reports=salary_reports,
+        dashboard_stats=dashboard_stats,
+        fw_leave_stats=fw_leave_stats,
+        fw_leave_requests=fw_leave_requests.get('requests', []),
+        fw_leave_counts=fw_leave_requests.get('status_counts', {}),
+        fw_leave_balances=fw_leave_balances,
+        fw_pending_leaves=fw_pending_leaves,
         today_str=today_str,
         month_year=month_year,
         company_support_enabled=bool(active_comp.get('support_enabled', True))
@@ -5149,6 +5183,11 @@ def api_field_worker_overview():
     visits = database.get_field_customer_visits(company_id=cid, employee_name=emp_filter)
     salary_reports = database.get_field_worker_salary_report(company_id=cid, month_year=month_year, employee_name=emp_filter) if include_salary else []
 
+    dashboard_stats = database.get_field_worker_dashboard_stats(company_id=cid, date_str=date_str)
+    fw_emp_id = session.get('employee_id') if user_role == 'employee' else None
+    fw_leave_stats = database.get_admin_leave_stats(company_id=cid, for_field_workers=True)
+    fw_leave_res = database.get_leave_requests(company_id=cid, employee_id=fw_emp_id, for_field_workers=True, limit=50)
+
     return jsonify({
         'success': True,
         'company': comp,
@@ -5160,6 +5199,10 @@ def api_field_worker_overview():
         'branches': branches,
         'assignments': assignments,
         'tracking': tracking,
+        'dashboard_stats': dashboard_stats,
+        'fw_leave_stats': fw_leave_stats,
+        'fw_leave_requests': fw_leave_res.get('requests', []),
+        'fw_leave_counts': fw_leave_res.get('status_counts', {}),
         'ai_incidents': tracking.get('ai_incidents', []) if isinstance(tracking, dict) else [],
         'active_ai_incidents': tracking.get('active_ai_incidents', []) if isinstance(tracking, dict) else [],
         'ai_summary': tracking.get('ai_summary', {}) if isinstance(tracking, dict) else {},
@@ -5535,6 +5578,249 @@ def api_field_worker_export():
         headers, rows, title=title, subtitle=f"Generated on {database.get_ist_now().strftime('%d/%m/%Y %I:%M %p')}", company_info=comp_info
     )
     return send_file(pdf_buf, mimetype='application/pdf', as_attachment=True, download_name=f"{fname}.pdf")
+
+
+@app.route('/api/field-worker/dashboard-stats', methods=['GET'])
+def api_field_worker_dashboard_stats():
+    """Returns real-time operations dashboard stats for the Field Worker module."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    date_str = request.args.get('date') or database.get_ist_now().strftime('%Y-%m-%d')
+    stats = database.get_field_worker_dashboard_stats(company_id=cid, date_str=date_str)
+    return jsonify({'success': True, 'stats': stats, 'company_id': cid, 'date': date_str})
+
+
+@app.route('/api/field-worker/leave-requests', methods=['GET'])
+def api_field_worker_leave_requests():
+    """Returns leave and permission requests isolated for field workers."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    user_role = session.get('role')
+    status = request.args.get('status', 'ALL')
+    search = request.args.get('search', '').strip()
+    limit = int(request.args.get('limit', 50))
+    page = int(request.args.get('page', 1))
+
+    # If employee logged in, only fetch their own requests
+    emp_id = None
+    if user_role == 'employee':
+        emp_id = session.get('employee_id')
+    else:
+        req_emp = request.args.get('employee_id')
+        if req_emp:
+            emp_id = req_emp
+
+    res = database.get_leave_requests(
+        company_id=cid,
+        employee_id=emp_id,
+        status=status,
+        limit=limit,
+        page=page,
+        for_field_workers=True,
+        search=search
+    )
+    return jsonify({
+        'success': True,
+        'requests': res.get('requests', []),
+        'total': res.get('total', 0),
+        'page': res.get('page', 1),
+        'limit': res.get('limit', limit),
+        'status_counts': res.get('status_counts', {'all': 0, 'pending': 0, 'approved': 0, 'rejected': 0})
+    })
+
+
+@app.route('/api/field-worker/leave-requests/apply', methods=['POST'])
+def api_field_worker_apply_leave():
+    """Submits a leave request for a field worker with strict field worker isolation."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    data = request.form.to_dict() or request.get_json(silent=True) or {}
+    user_role = session.get('role')
+
+    emp_id = session.get('employee_id') if user_role == 'employee' else (data.get('employee_id') or data.get('existing_employee_id'))
+    emp_name = session.get('employee_name') if user_role == 'employee' else (data.get('employee_name') or '')
+
+    # If admin applying on behalf of a field worker
+    if not emp_id and emp_name:
+        emp_doc = database.get_db().employees.find_one({'employee_name': emp_name})
+        if emp_doc:
+            emp_id = str(emp_doc.get('id') or emp_doc.get('_id'))
+
+    emp = database.get_employee_by_id(emp_id) if emp_id else None
+    if not emp and emp_name:
+        emp = database.get_db().employees.find_one({'employee_name': emp_name})
+    if not emp:
+        return jsonify({'success': False, 'error': 'Field worker profile not found'}), 404
+
+    leave_type = data.get('leave_type', 'Casual Leave (CL)').strip()
+    from_date = data.get('from_date', '').strip()
+    to_date = data.get('to_date', '').strip() or from_date
+    session_type = data.get('session', 'Full Day').strip()
+    reason = data.get('reason', '').strip()
+
+    if not leave_type or not from_date or not reason:
+        return jsonify({'success': False, 'error': 'Please fill in all required fields (Leave Type, Dates, Reason).'}), 400
+
+    cid = _resolve_field_company_id(data.get('company_id') or emp.get('company_id'))
+
+    attachments = []
+    if 'attachment' in request.files:
+        file = request.files['attachment']
+        if file and file.filename:
+            fname = werkzeug.utils.secure_filename(file.filename) or 'fw_leave_doc'
+            base_name, ext = os.path.splitext(fname)
+            unique_fname = f"fw_{base_name}_{int(time.time())}{ext}"
+            os.makedirs(LEAVES_FOLDER, exist_ok=True)
+            dest_path = os.path.join(LEAVES_FOLDER, unique_fname)
+            file.save(dest_path)
+            size_kb = round(os.path.getsize(dest_path) / 1024, 1)
+            attachments.append({
+                'filename': unique_fname,
+                'original_name': fname,
+                'file_url': f"/uploads/leaves/{unique_fname}",
+                'size_str': f"{size_kb} KB",
+                'mime_type': file.mimetype or 'application/octet-stream',
+                'uploaded_at': database.get_ist_now().strftime('%d %b %Y %I:%M %p')
+            })
+
+    req_doc = {
+        'company_id': cid,
+        'employee_id': str(emp.get('id') or emp.get('_id')),
+        'employee_code': str(emp.get('id') or emp.get('employee_id') or emp.get('emp_id') or ''),
+        'employee_name': emp.get('employee_name', ''),
+        'department': emp.get('department', 'Field Sales & Operations'),
+        'designation': emp.get('designation', 'Field Executive'),
+        'mobile_number': emp.get('mobile_number', ''),
+        'branch_id': emp.get('branch_id'),
+        'branch_name': emp.get('branch_name') or emp.get('branch') or 'Home Branch (Head Office)',
+        'leave_type': leave_type,
+        'from_date': from_date,
+        'to_date': to_date,
+        'session': session_type,
+        'reason': reason,
+        'attachments': attachments,
+        'is_field_worker': True,
+        'employee_type': 'field_worker'
+    }
+
+    new_req = database.submit_leave_request(req_doc)
+    return jsonify({
+        'success': True,
+        'message': f'Leave request for {emp.get("employee_name")} submitted successfully!',
+        'request': new_req
+    })
+
+
+@app.route('/api/field-worker/permission-requests/apply', methods=['POST'])
+def api_field_worker_apply_permission():
+    """Submits an hourly permission request for a field worker."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    data = request.form.to_dict() or request.get_json(silent=True) or {}
+    user_role = session.get('role')
+
+    emp_id = session.get('employee_id') if user_role == 'employee' else (data.get('employee_id') or data.get('existing_employee_id'))
+    emp_name = session.get('employee_name') if user_role == 'employee' else (data.get('employee_name') or '')
+
+    if not emp_id and emp_name:
+        emp_doc = database.get_db().employees.find_one({'employee_name': emp_name})
+        if emp_doc:
+            emp_id = str(emp_doc.get('id') or emp_doc.get('_id'))
+
+    emp = database.get_employee_by_id(emp_id) if emp_id else None
+    if not emp and emp_name:
+        emp = database.get_db().employees.find_one({'employee_name': emp_name})
+    if not emp:
+        return jsonify({'success': False, 'error': 'Field worker profile not found'}), 404
+
+    perm_type = data.get('permission_type', 'Short Leave').strip()
+    perm_date = data.get('date', '').strip()
+    from_time = data.get('from_time', '').strip()
+    to_time = data.get('to_time', '').strip()
+    duration = data.get('duration', '02:00').strip()
+    reason = data.get('reason', '').strip()
+
+    if not perm_type or not perm_date or not from_time or not to_time or not reason:
+        return jsonify({'success': False, 'error': 'Please fill in all required fields (Date, Times, Reason).'}), 400
+
+    cid = _resolve_field_company_id(data.get('company_id') or emp.get('company_id'))
+
+    req_doc = {
+        'company_id': cid,
+        'employee_id': str(emp.get('id') or emp.get('_id')),
+        'employee_code': str(emp.get('id') or emp.get('employee_id') or emp.get('emp_id') or ''),
+        'employee_name': emp.get('employee_name', ''),
+        'department': emp.get('department', 'Field Sales & Operations'),
+        'designation': emp.get('designation', 'Field Executive'),
+        'mobile_number': emp.get('mobile_number', ''),
+        'branch_id': emp.get('branch_id'),
+        'branch_name': emp.get('branch_name') or emp.get('branch') or 'Home Branch (Head Office)',
+        'permission_type': perm_type,
+        'date': perm_date,
+        'from_time': from_time,
+        'to_time': to_time,
+        'duration': duration,
+        'reason': reason,
+        'attachments': [],
+        'is_field_worker': True,
+        'employee_type': 'field_worker'
+    }
+
+    new_req = database.submit_permission_request(req_doc)
+    return jsonify({
+        'success': True,
+        'message': f'Permission request for {emp.get("employee_name")} submitted successfully!',
+        'request': new_req
+    })
+
+
+@app.route('/api/field-worker/leave-requests/<request_id>/action', methods=['POST'])
+def api_field_worker_leave_request_action(request_id):
+    """Admin approves or rejects a field worker's leave or permission request."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    if session.get('role') == 'employee':
+        return jsonify({'success': False, 'error': 'Unauthorized: Only Company Administrators can approve or reject leaves.'}), 403
+
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    action = str(data.get('action') or data.get('status') or '').strip()
+    if action.lower() in ['approve', 'approved']:
+        action = 'Approved'
+    elif action.lower() in ['reject', 'rejected']:
+        action = 'Rejected'
+    else:
+        return jsonify({'success': False, 'error': "Action must be 'Approved' or 'Rejected'"}), 400
+
+    remark = data.get('admin_remark', '').strip()
+    reviewer = session.get('user') or session.get('admin_username') or 'Field Operations Admin'
+    res = database.update_leave_request_status(request_id, action, admin_remark=remark, reviewer=reviewer)
+    return jsonify(res)
+
+
+@app.route('/api/field-worker/leave-balances', methods=['GET'])
+def api_field_worker_leave_balances():
+    """Returns annual leave quotas and live balances for field workers."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    user_role = session.get('role')
+
+    if user_role == 'employee':
+        emp_id = session.get('employee_id')
+        bal = database.get_employee_leave_balance(emp_id, company_id=cid)
+        return jsonify({'success': True, 'balance': bal, 'balances': [bal] if bal else []})
+
+    search = request.args.get('search', '').strip()
+    bals = database.get_all_employees_leave_balances(company_id=cid, search=search, for_field_workers=True)
+    return jsonify({'success': True, 'balances': bals})
 
 
 # ==============================================================================

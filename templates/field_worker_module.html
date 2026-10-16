@@ -366,6 +366,130 @@
       padding: 0 4px;
     }
 
+    /* ---------------- Field Operations Dashboard 5-Card Grid ---------------- */
+    .dash-stats-grid {
+      display: grid !important;
+      grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+      gap: 14px !important;
+      margin-bottom: 18px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    .dash-stat-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 13px 15px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    .dash-stat-card .stat-icon-badge {
+      width: 42px;
+      height: 42px;
+      min-width: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .dash-stat-card .stat-info {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .dash-stat-card .stat-title {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 3px;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .dash-stat-card .stat-value-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      line-height: 1;
+    }
+
+    .dash-stat-card .stat-num {
+      font-size: 21px;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1;
+    }
+
+    .dash-stat-card .stat-trend {
+      font-size: 11.5px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .card-table-scroll {
+      overflow-x: auto;
+      overflow-y: auto;
+      width: 100%;
+      scrollbar-width: thin;
+    }
+
+    .dash-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+      border: 1px solid #cbd5e1;
+    }
+
+    .dash-table thead th {
+      padding: 7px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      border: 1px solid #cbd5e1;
+      background-color: #f8fafc;
+      white-space: nowrap;
+    }
+
+    .dash-table tbody td {
+      padding: 7px 8px;
+      color: #334155;
+      border: 1px solid #e2e8f0;
+      vertical-align: middle;
+      font-size: 11.5px;
+    }
+
+    .dash-table tbody tr:hover {
+      background-color: #f8fafc;
+    }
+
+    .btn-filter-status {
+      transition: all 0.15s ease;
+    }
+
+    .btn-filter-status.active {
+      background: #2563eb !important;
+      color: #ffffff !important;
+    }
+
     /* ---------------- 6-Card KPI Grid (Tab 1 Alone) ---------------- */
     .fw-kpi-grid {
       display: grid;
@@ -1543,7 +1667,12 @@
 
       <nav class="sidebar-nav" id="fwSidebarNav">
         {% if user_role in ['super_admin', 'company_admin'] %}
-        <button type="button" class="nav-item-btn active" data-pane="paneLiveTracking" data-tooltip="Live Monitor" onclick="switchFieldTab('paneLiveTracking', this)">
+        <button type="button" class="nav-item-btn active" data-pane="paneFieldDashboard" data-tooltip="Dashboard" onclick="switchFieldTab('paneFieldDashboard', this)">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>Dashboard</span>
+        </button>
+
+        <button type="button" class="nav-item-btn" data-pane="paneLiveTracking" data-tooltip="Live Monitor" onclick="switchFieldTab('paneLiveTracking', this)">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
           <span>Live Monitor</span>
         </button>
@@ -1551,6 +1680,12 @@
         <button type="button" class="nav-item-btn" data-pane="paneRegisterWorkers" data-tooltip="Register Field Workers" onclick="switchFieldTab('paneRegisterWorkers', this)">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
           <span>Register Field Workers</span>
+        </button>
+
+        <button type="button" class="nav-item-btn" data-pane="paneFieldLeaves" data-tooltip="Leave &amp; Permission" onclick="switchFieldTab('paneFieldLeaves', this)">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <span style="flex: 1;">Leave &amp; Permission</span>
+          <span class="nav-count-badge" id="sidebarFwLeaveBadge" {% if not fw_pending_leaves %}style="display: none;"{% endif %}>{{ fw_pending_leaves or 0 }}</span>
         </button>
 
         <button type="button" class="nav-item-btn" data-pane="paneCustomerVisits" data-tooltip="Lead Management" onclick="switchFieldTab('paneCustomerVisits', this)">
@@ -1573,6 +1708,11 @@
         <button type="button" class="nav-item-btn" data-pane="paneAssignLocations" data-tooltip="Schedule Planned Visits" onclick="switchFieldTab('paneAssignLocations', this)">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
           <span>Schedule Planned Visits</span>
+        </button>
+
+        <button type="button" class="nav-item-btn" data-pane="paneFieldEmployeeLeaves" data-tooltip="Leave &amp; Permission" onclick="switchFieldTab('paneFieldEmployeeLeaves', this)">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <span>Leave &amp; Permission</span>
         </button>
 
         <button type="button" class="nav-item-btn" data-pane="paneCustomerVisits" data-tooltip="Record &amp; View Leads" onclick="switchFieldTab('paneCustomerVisits', this)">
@@ -1634,7 +1774,7 @@
               </svg>
             </div>
             <div class="banner-text-group">
-              <div class="banner-title" id="activePaneHeading">{% if user_role == 'employee' %}FIELD ATTENDANCE PUNCH &amp; PROFILE{% else %}LIVE MONITOR{% endif %}</div>
+              <div class="banner-title" id="activePaneHeading">{% if user_role == 'employee' %}FIELD ATTENDANCE PUNCH &amp; PROFILE{% else %}FIELD OPERATIONS DASHBOARD{% endif %}</div>
               <div class="banner-subtitle">
                 Company Workspace: <strong style="color: #0f172a;">{{ active_company.company_name }}</strong>
                 {% if user_role == 'employee' %}
@@ -1685,7 +1825,267 @@
         <!-- TAB 1: LIVE MONITOR (ADMIN ONLY)                                          -->
         <!-- ========================================================================= -->
         {% if user_role in ['super_admin', 'company_admin'] %}
-        <div id="paneLiveTracking" class="fw-section-pane active" data-title="LIVE MONITOR">
+        <!-- ========================================================================= -->
+        <!-- TAB 0: FIELD OPERATIONS DASHBOARD (ADMIN ONLY)                            -->
+        <!-- ========================================================================= -->
+        <div id="paneFieldDashboard" class="fw-section-pane active" data-title="FIELD OPERATIONS DASHBOARD">
+          <!-- 5 Symmetrical Stats Cards (Single Row, Matching System & Company Admin Dashboard) -->
+          <div class="dash-stats-grid">
+            <!-- 1. Total Field Workers -->
+            <div class="dash-stat-card card-total">
+              <div class="stat-icon-badge" style="background:#2563eb; color:#ffffff;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+              </div>
+              <div class="stat-info">
+                <div class="stat-title">Total Field Workers</div>
+                <div class="stat-value-row">
+                  <span class="stat-num" id="fwDashTotalWorkers">{{ dashboard_stats.total_field_workers or 0 }}</span>
+                  <span class="stat-trend" style="color:#2563eb; font-weight:700;"><span class="trend-arrow">&bull;</span> <span>Enrolled</span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Present Today -->
+            <div class="dash-stat-card card-present">
+              <div class="stat-icon-badge" style="background:#16a34a; color:#ffffff;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <div class="stat-info">
+                <div class="stat-title">Present Today</div>
+                <div class="stat-value-row">
+                  <span class="stat-num" id="fwDashPresentCount">{{ dashboard_stats.present_today or 0 }}</span>
+                  <span class="stat-trend" style="color:#16a34a; font-weight:700;"><span class="trend-arrow">&uarr;</span> <span id="fwDashPresentPct">{{ dashboard_stats.present_percent or '0.0%' }}</span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. On Leave -->
+            <div class="dash-stat-card card-leave">
+              <div class="stat-icon-badge" style="background:#f59e0b; color:#ffffff;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+              </div>
+              <div class="stat-info">
+                <div class="stat-title">On Leave</div>
+                <div class="stat-value-row">
+                  <span class="stat-num" id="fwDashOnLeaveCount">{{ dashboard_stats.on_leave_today or 0 }}</span>
+                  <span class="stat-trend" style="color:#f59e0b; font-weight:700;"><span class="trend-arrow">&bull;</span> <span id="fwDashOnLeavePct">{{ dashboard_stats.on_leave_percent or '0.0%' }}</span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Absent Today -->
+            <div class="dash-stat-card card-absent">
+              <div class="stat-icon-badge" style="background:#dc2626; color:#ffffff;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="8.5" cy="7" r="4"></circle>
+                  <line x1="18" y1="8" x2="23" y2="13"></line>
+                  <line x1="23" y1="8" x2="18" y2="13"></line>
+                </svg>
+              </div>
+              <div class="stat-info">
+                <div class="stat-title">Absent Today</div>
+                <div class="stat-value-row">
+                  <span class="stat-num" id="fwDashAbsentCount">{{ dashboard_stats.absent_today or 0 }}</span>
+                  <span class="stat-trend" style="color:#dc2626; font-weight:700;"><span class="trend-arrow">&darr;</span> <span id="fwDashAbsentPct">{{ dashboard_stats.absent_percent or '0.0%' }}</span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5. Active In-Transit / Field Operations -->
+            <div class="dash-stat-card card-timeout">
+              <div class="stat-icon-badge" style="background:#8b5cf6; color:#ffffff;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                  <line x1="8" y1="2" x2="8" y2="18"></line>
+                  <line x1="16" y1="6" x2="16" y2="22"></line>
+                </svg>
+              </div>
+              <div class="stat-info">
+                <div class="stat-title">In-Transit / Active</div>
+                <div class="stat-value-row">
+                  <span class="stat-num" id="fwDashTransitCount">{{ dashboard_stats.in_transit_now or 0 }}</span>
+                  <span class="stat-trend" style="color:#8b5cf6; font-weight:700;"><span id="fwDashOnsiteSub">{{ dashboard_stats.on_site_now or 0 }} On-Site</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Operational Summary Row (4 Highlights) -->
+          <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:14px; margin-bottom:18px;">
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 6px rgba(15,23,42,0.02);">
+              <span style="width:36px; height:36px; border-radius:8px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0;">
+                <i class="fa-solid fa-route"></i>
+              </span>
+              <div>
+                <div style="font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Total Travel Distance</div>
+                <div style="font-size:17px; font-weight:800; color:#0f172a;" id="fwDashTotalKm">{{ dashboard_stats.total_distance_km or 0 }} KM</div>
+              </div>
+            </div>
+
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 6px rgba(15,23,42,0.02);">
+              <span style="width:36px; height:36px; border-radius:8px; background:#ccfbf1; color:#0f766e; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0;">
+                <i class="fa-solid fa-handshake"></i>
+              </span>
+              <div>
+                <div style="font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Customer Leads Logged</div>
+                <div style="font-size:17px; font-weight:800; color:#0f172a;" id="fwDashTotalVisits">{{ dashboard_stats.total_visits or 0 }} Visits</div>
+              </div>
+            </div>
+
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 6px rgba(15,23,42,0.02);">
+              <span style="width:36px; height:36px; border-radius:8px; background:#f0fdf4; color:#166534; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0;">
+                <i class="fa-solid fa-indian-rupee-sign"></i>
+              </span>
+              <div>
+                <div style="font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Total Deal Value</div>
+                <div style="font-size:17px; font-weight:800; color:#166534;" id="fwDashTotalOrders">₹{{ "%.2f"|format(dashboard_stats.total_order_amount or 0) }}</div>
+              </div>
+            </div>
+
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 6px rgba(15,23,42,0.02);">
+              <span style="width:36px; height:36px; border-radius:8px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+              </span>
+              <div>
+                <div style="font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Route Detour Alerts</div>
+                <div style="font-size:17px; font-weight:800; color:#dc2626;" id="fwDashDetours">{{ dashboard_stats.detour_alerts or 0 }} Alerts</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Row: Today's Field Attendance & Branch Breakdown (2 Columns) -->
+          <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px; margin-bottom:18px;">
+            <!-- Left Card: Today's Field Worker Attendance & Real-Time Status Table -->
+            <div class="dash-card">
+              <div class="card-head" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div class="card-title-group" style="display:flex; align-items:center; gap:8px;">
+                  <span style="color:#2563eb;"><i class="fa-solid fa-user-clock"></i></span>
+                  <h3 class="card-title-text" style="font-size:13px; font-weight:800; color:#0f172a; margin:0;">Today's Field Worker Attendance &amp; Status</h3>
+                </div>
+                <div class="search-box-wrapper" style="margin:0;">
+                  <input type="text" class="search-input" placeholder="Search field worker..." oninput="filterFieldTable(this, 'fwDashAttendanceTable')" style="width:160px; height:28px;">
+                </div>
+              </div>
+              <div class="card-table-scroll" style="max-height:360px; min-height:220px;">
+                <table class="dash-table" id="fwDashAttendanceTable">
+                  <thead>
+                    <tr>
+                      <th style="width:28px; text-align:center;">#</th>
+                      <th>Worker Name</th>
+                      <th>Branch</th>
+                      <th style="text-align:center;">Attendance</th>
+                      <th style="text-align:center;">In Time</th>
+                      <th style="text-align:center;">Out Time</th>
+                      <th style="text-align:center;">KM</th>
+                      <th style="text-align:center;">Leads</th>
+                      <th style="text-align:center;">Live Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="fwDashAttendanceTableBody">
+                    {% if dashboard_stats.worker_status_list %}
+                    {% for w in dashboard_stats.worker_status_list %}
+                    <tr>
+                      <td style="text-align:center; color:#64748b;">{{ loop.index }}</td>
+                      <td style="font-weight:700; color:#0f172a; white-space:nowrap;">{{ w.employee_name }}</td>
+                      <td style="color:#475569; white-space:nowrap;">{{ w.branch_name }}</td>
+                      <td style="text-align:center; white-space:nowrap;">
+                        {% if w.attendance_status == 'Present' %}
+                        <span class="table-badge badge-present" style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:12px; font-weight:700; font-size:11px;">Present</span>
+                        {% elif w.attendance_status == 'On Leave' %}
+                        <span class="table-badge badge-leave" style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:12px; font-weight:700; font-size:11px;">On Leave</span>
+                        {% else %}
+                        <span class="table-badge badge-absent" style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:12px; font-weight:700; font-size:11px;">Absent</span>
+                        {% endif %}
+                      </td>
+                      <td style="text-align:center; white-space:nowrap;">{{ w.in_time or '--' }}</td>
+                      <td style="text-align:center; white-space:nowrap;">{{ w.out_time or '--' }}</td>
+                      <td style="text-align:center; font-weight:700; color:#2563eb;">{{ "%.1f"|format(w.distance_km or 0) }}</td>
+                      <td style="text-align:center; font-weight:700; color:#0f766e;">{{ w.visits_count or 0 }}</td>
+                      <td style="text-align:center; white-space:nowrap;">
+                        {% if w.live_status == 'Verified On-Site' %}
+                        <span class="badge-onsite" style="font-size:10.5px;"><i class="fa-solid fa-circle-check"></i> On-Site</span>
+                        {% elif w.live_status == 'In-Transit' %}
+                        <span class="badge-transit" style="font-size:10.5px;"><i class="fa-solid fa-route"></i> Transit</span>
+                        {% elif 'Detour' in w.live_status %}
+                        <span class="badge-detour" style="font-size:10.5px;"><i class="fa-solid fa-triangle-exclamation"></i> Detour</span>
+                        {% elif w.attendance_status == 'On Leave' %}
+                        <span class="badge-neutral" style="font-size:10.5px;">On Leave</span>
+                        {% else %}
+                        <span class="badge-neutral" style="font-size:10.5px;">Not Active</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                      <td colspan="9" style="text-align:center; color:#64748b; padding:24px;">No field workers registered yet.</td>
+                    </tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Right Card: Branch Wise Field Worker Breakdown -->
+            <div class="dash-card">
+              <div class="card-head" style="margin-bottom:12px;">
+                <div class="card-title-group" style="display:flex; align-items:center; gap:8px;">
+                  <span style="color:#0d9488;"><i class="fa-solid fa-building"></i></span>
+                  <h3 class="card-title-text" style="font-size:13px; font-weight:800; color:#0f172a; margin:0;">Branch Wise Field Operations</h3>
+                </div>
+              </div>
+              <div class="card-table-scroll" style="max-height:360px; min-height:220px;">
+                <table class="dash-table" id="fwDashBranchTable">
+                  <thead>
+                    <tr>
+                      <th>Branch</th>
+                      <th style="text-align:center;">Workers</th>
+                      <th style="text-align:center;">Present</th>
+                      <th style="text-align:center;">KM</th>
+                      <th style="text-align:center;">Leads</th>
+                    </tr>
+                  </thead>
+                  <tbody id="fwDashBranchTableBody">
+                    {% if dashboard_stats.branch_breakdown %}
+                    {% for b in dashboard_stats.branch_breakdown %}
+                    <tr>
+                      <td style="font-weight:700; color:#0f172a; white-space:nowrap;">{{ b.branch_name }}</td>
+                      <td style="text-align:center; font-weight:700;">{{ b.total }}</td>
+                      <td style="text-align:center; font-weight:700; color:#16a34a;">{{ b.present }}</td>
+                      <td style="text-align:center; font-weight:700; color:#2563eb;">{{ "%.1f"|format(b.km or 0) }}</td>
+                      <td style="text-align:center; font-weight:700; color:#0f766e;">{{ b.visits }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                      <td colspan="5" style="text-align:center; color:#64748b; padding:24px;">No branch activity recorded today.</td>
+                    </tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 1: LIVE MONITOR (ADMIN ONLY)                                          -->
+        <!-- ========================================================================= -->
+        <div id="paneLiveTracking" class="fw-section-pane" data-title="LIVE MONITOR">
 
           <!-- AI Detour & Anomaly Real-Time Alert Banner -->
           <div id="aiLiveAlertBanner" class="ai-detour-alert-banner" style="display:none;">
@@ -2291,6 +2691,274 @@
             </div>
           </div>
         </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB: FIELD WORKER LEAVE & PERMISSION MANAGEMENT (ADMIN ONLY)               -->
+        <!-- ========================================================================= -->
+        <div id="paneFieldLeaves" class="fw-section-pane" data-title="LEAVE &amp; PERMISSION MANAGEMENT">
+          <!-- 4 KPI Summary Cards -->
+          <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:14px; margin-bottom:18px;">
+            <div class="fw-kpi-card" style="border-left: 3px solid #2563eb;">
+              <div>
+                <div class="fw-kpi-lbl">Total Requests</div>
+                <div class="fw-kpi-val" id="fwLeaveStatTotal">{{ fw_leave_stats.total_requests or 0 }}</div>
+                <div class="fw-kpi-sub">All Submitted Requests</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#eff6ff; color:#2563eb;">
+                <i class="fa-solid fa-list-check"></i>
+              </div>
+            </div>
+
+            <div class="fw-kpi-card" style="border-left: 3px solid #f59e0b;">
+              <div>
+                <div class="fw-kpi-lbl" style="color:#d97706;">Pending Review</div>
+                <div class="fw-kpi-val" style="color:#d97706;" id="fwLeaveStatPending">{{ fw_leave_stats.pending_requests or 0 }}</div>
+                <div class="fw-kpi-sub" style="color:#d97706;">Awaiting Admin Decision</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#fef3c7; color:#d97706;">
+                <i class="fa-solid fa-clock"></i>
+              </div>
+            </div>
+
+            <div class="fw-kpi-card" style="border-left: 3px solid #16a34a;">
+              <div>
+                <div class="fw-kpi-lbl" style="color:#15803d;">Approved</div>
+                <div class="fw-kpi-val" style="color:#15803d;" id="fwLeaveStatApproved">{{ fw_leave_stats.approved_requests or 0 }}</div>
+                <div class="fw-kpi-sub" style="color:#15803d;">Granted Requests</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#dcfce7; color:#15803d;">
+                <i class="fa-solid fa-circle-check"></i>
+              </div>
+            </div>
+
+            <div class="fw-kpi-card" style="border-left: 3px solid #6366f1;">
+              <div>
+                <div class="fw-kpi-lbl" style="color:#4f46e5;">On Leave Today</div>
+                <div class="fw-kpi-val" style="color:#4f46e5;" id="fwLeaveStatOnLeave">{{ fw_leave_stats.on_leave_today or 0 }}</div>
+                <div class="fw-kpi-sub" style="color:#4f46e5;">Field Workers Off Today</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#e0e7ff; color:#4f46e5;">
+                <i class="fa-solid fa-calendar-minus"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Leave Applications Card -->
+          <div class="table-card" style="margin-bottom:20px;">
+            <div class="table-toolbar" style="flex-wrap: wrap; gap: 10px; justify-content: space-between;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="fw-card-title" style="font-size:13px; white-space:nowrap;">
+                  <i class="fa-solid fa-envelope-open-text" style="color:#2563eb; margin-right:6px;"></i>
+                  FIELD WORKER LEAVE &amp; PERMISSION REQUESTS
+                </span>
+                <div style="display:inline-flex; border:1px solid #cbd5e1; border-radius:6px; overflow:hidden; background:#ffffff;">
+                  <button type="button" class="btn-filter-status active" onclick="filterFwLeaveStatus('ALL', this)" style="padding:4px 10px; font-size:11px; font-weight:700; border:none; cursor:pointer; background:#2563eb; color:#ffffff;">ALL</button>
+                  <button type="button" class="btn-filter-status" onclick="filterFwLeaveStatus('Pending', this)" style="padding:4px 10px; font-size:11px; font-weight:700; border:none; cursor:pointer; background:transparent; color:#64748b;">Pending (<span id="fwFilterCountPending">{{ fw_leave_counts.pending or 0 }}</span>)</button>
+                  <button type="button" class="btn-filter-status" onclick="filterFwLeaveStatus('Approved', this)" style="padding:4px 10px; font-size:11px; font-weight:700; border:none; cursor:pointer; background:transparent; color:#64748b;">Approved</button>
+                  <button type="button" class="btn-filter-status" onclick="filterFwLeaveStatus('Rejected', this)" style="padding:4px 10px; font-size:11px; font-weight:700; border:none; cursor:pointer; background:transparent; color:#64748b;">Rejected</button>
+                </div>
+              </div>
+
+              <div class="search-box-wrapper" style="margin-left: auto;">
+                <label>Search:</label>
+                <input type="text" class="search-input" placeholder="Search worker, reason..." oninput="filterFieldTable(this, 'fwAdminLeaveRequestsTable')">
+              </div>
+            </div>
+
+            <div class="fw-table-wrapper">
+              <table class="fw-table" id="fwAdminLeaveRequestsTable">
+                <thead>
+                  <tr>
+                    <th>FIELD WORKER</th>
+                    <th>BRANCH</th>
+                    <th style="text-align:center;">TYPE</th>
+                    <th>CATEGORY / SESSION</th>
+                    <th>DATES / TIME</th>
+                    <th style="text-align:center;">DURATION</th>
+                    <th>REASON</th>
+                    <th style="text-align:center;">STATUS</th>
+                    <th style="text-align:center;">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody id="fwAdminLeaveRequestsTableBody">
+                  {% if fw_leave_requests %}
+                  {% for r in fw_leave_requests %}
+                  <tr data-status="{{ r.status }}">
+                    <td>
+                      <div class="fw-cell-title">{{ r.employee_name }}</div>
+                      <div class="fw-cell-sub">{{ r.designation or 'Field Executive' }}</div>
+                    </td>
+                    <td>
+                      <span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> {{ r.branch_name or 'Home Branch' }}</span>
+                    </td>
+                    <td style="text-align:center;">
+                      {% if r.request_type == 'Permission' %}
+                      <span class="badge-neutral" style="background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe;">Permission</span>
+                      {% else %}
+                      <span class="badge-neutral" style="background:#fdf4ff; color:#86198f; border-color:#f5d0fe;">Leave</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <div style="font-weight:700; color:#0f172a;">{{ r.leave_type or r.permission_type or 'Casual Leave' }}</div>
+                      <div class="fw-cell-sub">{{ r.session or 'Full Day' }}</div>
+                    </td>
+                    <td>
+                      {% if r.request_type == 'Permission' %}
+                      <div style="font-weight:700; white-space:nowrap;">{{ r.date or r.from_date }}</div>
+                      <div class="fw-cell-sub">{{ r.from_time }} - {{ r.to_time }}</div>
+                      {% else %}
+                      <div style="font-weight:700; white-space:nowrap;">{{ r.from_date }} to {{ r.to_date }}</div>
+                      {% endif %}
+                    </td>
+                    <td style="text-align:center; font-weight:700;">
+                      {% if r.request_type == 'Permission' %}
+                      {{ r.duration or r.duration_hours or '02:00' }} hrs
+                      {% else %}
+                      {{ r.days_count or r.total_days or 1 }} Day(s)
+                      {% endif %}
+                    </td>
+                    <td style="max-width:200px; line-height:1.35;">
+                      <div style="color:#334155;">{{ r.reason or '-' }}</div>
+                      {% if r.admin_remark %}
+                      <div class="fw-cell-sub" style="color:#0284c7;"><i class="fa-solid fa-comment-dots"></i> Admin: {{ r.admin_remark }}</div>
+                      {% endif %}
+                    </td>
+                    <td style="text-align:center; white-space:nowrap;">
+                      {% if r.status == 'Approved' %}
+                      <span class="badge-onsite"><i class="fa-solid fa-check"></i> Approved</span>
+                      {% elif r.status == 'Rejected' %}
+                      <span class="badge-detour"><i class="fa-solid fa-xmark"></i> Rejected</span>
+                      {% else %}
+                      <span class="badge-transit"><i class="fa-solid fa-clock"></i> Pending</span>
+                      {% endif %}
+                    </td>
+                    <td style="text-align:center; white-space:nowrap;">
+                      {% if r.status == 'Pending' %}
+                      <div style="display:inline-flex; align-items:center; gap:6px;">
+                        <button type="button" class="fw-btn fw-btn-success fw-btn-sm" onclick="openFwLeaveActionModal('{{ r.id }}', '{{ (r.employee_name or '')|replace("'", "\\'") }}', '{{ r.request_type }}', 'Approve')" title="Approve Request">
+                          <i class="fa-solid fa-check"></i> Approve
+                        </button>
+                        <button type="button" class="fw-btn fw-btn-danger fw-btn-sm" onclick="openFwLeaveActionModal('{{ r.id }}', '{{ (r.employee_name or '')|replace("'", "\\'") }}', '{{ r.request_type }}', 'Reject')" title="Reject Request">
+                          <i class="fa-solid fa-xmark"></i> Reject
+                        </button>
+                      </div>
+                      {% else %}
+                      <span style="font-size:11px; color:#64748b;">{{ r.reviewer or 'Processed' }}</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  {% else %}
+                  <tr>
+                    <td colspan="9" style="text-align:center; color:#64748b; padding:28px;">No field worker leave requests submitted yet.</td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Bottom Card: Field Workers Annual Leave Quota & Balances -->
+          <div class="table-card">
+            <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; justify-content: space-between;">
+              <span class="fw-card-title" style="font-size:13px; white-space:nowrap;">
+                <i class="fa-solid fa-scale-balanced" style="color:#0d9488; margin-right:6px;"></i>
+                FIELD WORKERS ANNUAL LEAVE BALANCES &amp; QUOTAS
+              </span>
+              <div class="search-box-wrapper" style="margin-left: auto;">
+                <label>Search:</label>
+                <input type="text" class="search-input" placeholder="Search worker or branch..." oninput="filterFieldTable(this, 'fwLeaveBalancesTable')">
+              </div>
+            </div>
+
+            <div class="fw-table-wrapper">
+              <table class="fw-table" id="fwLeaveBalancesTable">
+                <thead>
+                  <tr>
+                    <th>FIELD WORKER</th>
+                    <th>BRANCH</th>
+                    <th style="text-align:center; background:#eff6ff;">CASUAL LEAVE (CL)</th>
+                    <th style="text-align:center; background:#f0fdf4;">SICK LEAVE (SL)</th>
+                    <th style="text-align:center; background:#fdf4ff;">EARNED LEAVE (EL)</th>
+                    <th style="text-align:center; background:#fffbeb;">MONTHLY PERMISSION</th>
+                    <th style="text-align:center;">TOTAL TAKEN</th>
+                  </tr>
+                </thead>
+                <tbody id="fwLeaveBalancesTableBody">
+                  {% if fw_leave_balances %}
+                  {% for b in fw_leave_balances %}
+                  <tr>
+                    <td>
+                      <div class="fw-cell-title">{{ b.employee_name }}</div>
+                      <div class="fw-cell-sub">{{ b.designation or 'Field Executive' }}</div>
+                    </td>
+                    <td>
+                      <span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> {{ b.branch_name or 'Home Branch' }}</span>
+                    </td>
+                    <td style="text-align:center; background:#eff6ff; font-weight:700;">
+                      <span style="color:#1d4ed8;">{{ b.cl_remaining or 0 }}</span> / <span style="color:#64748b; font-size:11px;">{{ b.cl_quota or 12 }}</span>
+                    </td>
+                    <td style="text-align:center; background:#f0fdf4; font-weight:700;">
+                      <span style="color:#16a34a;">{{ b.sl_remaining or 0 }}</span> / <span style="color:#64748b; font-size:11px;">{{ b.sl_quota or 12 }}</span>
+                    </td>
+                    <td style="text-align:center; background:#fdf4ff; font-weight:700;">
+                      <span style="color:#9333ea;">{{ b.el_remaining or 0 }}</span> / <span style="color:#64748b; font-size:11px;">{{ b.el_quota or 15 }}</span>
+                    </td>
+                    <td style="text-align:center; background:#fffbeb; font-weight:700;">
+                      <span style="color:#d97706;">{{ b.permission_hours_used or 0 }}h used</span> / <span style="color:#64748b; font-size:11px;">2h/mo</span>
+                    </td>
+                    <td style="text-align:center; font-weight:800; color:#0f172a;">
+                      {{ (b.cl_used or 0) + (b.sl_used or 0) + (b.el_used or 0) }} Days
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  {% else %}
+                  <tr>
+                    <td colspan="7" style="text-align:center; color:#64748b; padding:24px;">No field worker leave balances recorded.</td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Modal Dialog: Approve / Reject Field Worker Leave Request (Admin Only) -->
+          <div class="fw-modal-backdrop d-none" id="fwLeaveActionModalBackdrop">
+            <div class="fw-modal-dialog" style="max-width: 480px;">
+              <div class="fw-modal-header">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" id="fwLeaveActionIcon" style="background:#eff6ff; color:#2563eb;">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title" id="fwLeaveActionTitle">Review Leave Request</div>
+                    <div class="fw-card-subtitle" id="fwLeaveActionSubtitle">Field Worker Leave Decision</div>
+                  </div>
+                </div>
+                <button type="button" class="fw-modal-close-btn" onclick="closeFwLeaveActionModal()">&times;</button>
+              </div>
+
+              <div class="fw-modal-body">
+                <input type="hidden" id="fwLeaveActionReqId">
+                <input type="hidden" id="fwLeaveActionStatus">
+                <div style="font-size: 13px; color: #334155; margin-bottom: 14px;" id="fwLeaveActionPrompt">
+                  Are you sure you want to approve this request?
+                </div>
+                <div class="fw-field">
+                  <label class="fw-label">Administrative Remarks (Optional)</label>
+                  <textarea id="fwLeaveAdminRemark" class="fw-textarea" rows="2" placeholder="e.g., Approved as per schedule / Insufficient coverage..."></textarea>
+                </div>
+              </div>
+
+              <div class="fw-modal-footer">
+                <button type="button" class="fw-btn fw-btn-neutral" onclick="closeFwLeaveActionModal()">Cancel</button>
+                <button type="button" class="fw-btn fw-btn-primary" id="fwLeaveActionSubmitBtn" onclick="submitFwLeaveAction()">
+                  Confirm Decision
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
         {% endif %}
 
         <!-- ========================================================================= -->
@@ -2656,6 +3324,271 @@
                   </div>
                 </div>
               </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB: MY LEAVE & PERMISSION APPLICATIONS (FIELD WORKER EMPLOYEE)            -->
+        <!-- ========================================================================= -->
+        <div id="paneFieldEmployeeLeaves" class="fw-section-pane" data-title="MY LEAVE &amp; PERMISSION">
+          <!-- Live Leave Balance Cards (4 Grid) -->
+          {% set my_bal = (fw_leave_balances[0] if fw_leave_balances else {}) %}
+          <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:14px; margin-bottom:18px;">
+            <div class="fw-kpi-card" style="border-left: 3px solid #2563eb;">
+              <div>
+                <div class="fw-kpi-lbl" style="color:#1d4ed8;">Casual Leave (CL)</div>
+                <div class="fw-kpi-val" style="color:#1d4ed8;" id="myClRemaining">{{ my_bal.cl_remaining if my_bal.cl_remaining is defined else 12 }}</div>
+                <div class="fw-kpi-sub">{{ my_bal.cl_used or 0 }} used of {{ my_bal.cl_quota or 12 }} quota</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#eff6ff; color:#2563eb;">
+                <i class="fa-solid fa-umbrella-beach"></i>
+              </div>
+            </div>
+
+            <div class="fw-kpi-card" style="border-left: 3px solid #16a34a;">
+              <div>
+                <div class="fw-kpi-lbl" style="color:#15803d;">Sick Leave (SL)</div>
+                <div class="fw-kpi-val" style="color:#15803d;" id="mySlRemaining">{{ my_bal.sl_remaining if my_bal.sl_remaining is defined else 12 }}</div>
+                <div class="fw-kpi-sub">{{ my_bal.sl_used or 0 }} used of {{ my_bal.sl_quota or 12 }} quota</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#dcfce7; color:#15803d;">
+                <i class="fa-solid fa-heart-pulse"></i>
+              </div>
+            </div>
+
+            <div class="fw-kpi-card" style="border-left: 3px solid #9333ea;">
+              <div>
+                <div class="fw-kpi-lbl" style="color:#7e22ce;">Earned Leave (EL)</div>
+                <div class="fw-kpi-val" style="color:#7e22ce;" id="myElRemaining">{{ my_bal.el_remaining if my_bal.el_remaining is defined else 15 }}</div>
+                <div class="fw-kpi-sub">{{ my_bal.el_used or 0 }} used of {{ my_bal.el_quota or 15 }} quota</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#fdf4ff; color:#9333ea;">
+                <i class="fa-solid fa-award"></i>
+              </div>
+            </div>
+
+            <div class="fw-kpi-card" style="border-left: 3px solid #d97706;">
+              <div>
+                <div class="fw-kpi-lbl" style="color:#b45309;">Monthly Permission</div>
+                <div class="fw-kpi-val" style="color:#b45309;" id="myPermHoursUsed">{{ my_bal.permission_hours_used or 0 }}h</div>
+                <div class="fw-kpi-sub">Allowed: 2.0 hrs/month</div>
+              </div>
+              <div class="fw-kpi-icon" style="background:#fef3c7; color:#d97706;">
+                <i class="fa-solid fa-business-time"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Applications Table with Action Buttons -->
+          <div class="table-card">
+            <div class="table-toolbar" style="flex-wrap: wrap; gap: 10px; justify-content: space-between;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="fw-card-title" style="font-size:13px; white-space:nowrap;">
+                  <i class="fa-solid fa-clipboard-list" style="color:#2563eb; margin-right:6px;"></i>
+                  MY SUBMITTED LEAVE &amp; PERMISSION APPLICATIONS
+                </span>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:8px; margin-left:auto;">
+                <button type="button" class="fw-btn fw-btn-primary fw-btn-sm" onclick="openApplyFwLeaveModal()">
+                  <i class="fa-solid fa-plus"></i> Apply for Leave
+                </button>
+                <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="openApplyFwPermissionModal()">
+                  <i class="fa-solid fa-clock"></i> Apply for Permission
+                </button>
+              </div>
+            </div>
+
+            <div class="fw-table-wrapper">
+              <table class="fw-table" id="myFwLeaveApplicationsTable">
+                <thead>
+                  <tr>
+                    <th>TYPE</th>
+                    <th>CATEGORY</th>
+                    <th>DATES / TIME</th>
+                    <th style="text-align:center;">DURATION</th>
+                    <th>REASON</th>
+                    <th style="text-align:center;">STATUS</th>
+                    <th>ADMIN REMARK</th>
+                  </tr>
+                </thead>
+                <tbody id="myFwLeaveApplicationsTableBody">
+                  {% if fw_leave_requests %}
+                  {% for r in fw_leave_requests %}
+                  <tr>
+                    <td>
+                      {% if r.request_type == 'Permission' %}
+                      <span class="badge-neutral" style="background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe;">Permission</span>
+                      {% else %}
+                      <span class="badge-neutral" style="background:#fdf4ff; color:#86198f; border-color:#f5d0fe;">Leave</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <div style="font-weight:700; color:#0f172a;">{{ r.leave_type or r.permission_type or 'Casual Leave' }}</div>
+                      <div class="fw-cell-sub">{{ r.session or 'Full Day' }}</div>
+                    </td>
+                    <td>
+                      {% if r.request_type == 'Permission' %}
+                      <div style="font-weight:700; white-space:nowrap;">{{ r.date or r.from_date }}</div>
+                      <div class="fw-cell-sub">{{ r.from_time }} - {{ r.to_time }}</div>
+                      {% else %}
+                      <div style="font-weight:700; white-space:nowrap;">{{ r.from_date }} to {{ r.to_date }}</div>
+                      {% endif %}
+                    </td>
+                    <td style="text-align:center; font-weight:700;">
+                      {% if r.request_type == 'Permission' %}
+                      {{ r.duration or r.duration_hours or '02:00' }} hrs
+                      {% else %}
+                      {{ r.days_count or r.total_days or 1 }} Day(s)
+                      {% endif %}
+                    </td>
+                    <td style="max-width:250px;">{{ r.reason or '-' }}</td>
+                    <td style="text-align:center; white-space:nowrap;">
+                      {% if r.status == 'Approved' %}
+                      <span class="badge-onsite"><i class="fa-solid fa-check"></i> Approved</span>
+                      {% elif r.status == 'Rejected' %}
+                      <span class="badge-detour"><i class="fa-solid fa-xmark"></i> Rejected</span>
+                      {% else %}
+                      <span class="badge-transit"><i class="fa-solid fa-clock"></i> Pending</span>
+                      {% endif %}
+                    </td>
+                    <td style="font-size:11.5px; color:#475569;">
+                      {{ r.admin_remark or '-' }}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  {% else %}
+                  <tr>
+                    <td colspan="7" style="text-align:center; color:#64748b; padding:28px;">You haven't submitted any leave or permission requests yet.</td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Modal Dialog: Apply for Leave (Field Worker) -->
+          <div class="fw-modal-backdrop d-none" id="applyFwLeaveModalBackdrop">
+            <div class="fw-modal-dialog" style="max-width: 520px;">
+              <div class="fw-modal-header">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background:#eff6ff; color:#2563eb;">
+                    <i class="fa-solid fa-calendar-plus"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title">Apply for Field Worker Leave</div>
+                    <div class="fw-card-subtitle">Submit leave application for company admin approval</div>
+                  </div>
+                </div>
+                <button type="button" class="fw-modal-close-btn" onclick="closeApplyFwLeaveModal()">&times;</button>
+              </div>
+
+              <form id="applyFwLeaveForm" onsubmit="submitApplyFwLeave(event)">
+                <div class="fw-modal-body">
+                  <div class="fw-field" style="margin-bottom:12px;">
+                    <label class="fw-label">Leave Type *</label>
+                    <select id="fwLeaveTypeSelect" class="fw-select" required>
+                      <option value="Casual Leave (CL)">Casual Leave (CL)</option>
+                      <option value="Sick Leave (SL)">Sick Leave (SL)</option>
+                      <option value="Earned Leave (EL)">Earned Leave (EL)</option>
+                    </select>
+                  </div>
+
+                  <div class="fw-form-grid-2" style="margin-bottom:12px;">
+                    <div class="fw-field">
+                      <label class="fw-label">From Date *</label>
+                      <input type="date" id="fwLeaveFromDate" class="fw-input" value="{{ today_str }}" required>
+                    </div>
+                    <div class="fw-field">
+                      <label class="fw-label">To Date *</label>
+                      <input type="date" id="fwLeaveToDate" class="fw-input" value="{{ today_str }}" required>
+                    </div>
+                  </div>
+
+                  <div class="fw-field" style="margin-bottom:12px;">
+                    <label class="fw-label">Session</label>
+                    <select id="fwLeaveSession" class="fw-select">
+                      <option value="Full Day">Full Day</option>
+                      <option value="Half Day">Half Day (First Half / Afternoon)</option>
+                    </select>
+                  </div>
+
+                  <div class="fw-field">
+                    <label class="fw-label">Reason for Leave *</label>
+                    <textarea id="fwLeaveReason" class="fw-textarea" rows="2" required placeholder="State reason for absence..."></textarea>
+                  </div>
+                </div>
+
+                <div class="fw-modal-footer">
+                  <button type="button" class="fw-btn fw-btn-neutral" onclick="closeApplyFwLeaveModal()">Cancel</button>
+                  <button type="submit" class="fw-btn fw-btn-primary">
+                    <i class="fa-solid fa-paper-plane"></i> Submit Leave Request
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Modal Dialog: Apply for Permission (Field Worker) -->
+          <div class="fw-modal-backdrop d-none" id="applyFwPermissionModalBackdrop">
+            <div class="fw-modal-dialog" style="max-width: 520px;">
+              <div class="fw-modal-header">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background:#fef3c7; color:#d97706;">
+                    <i class="fa-solid fa-business-time"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title">Apply for Hourly Permission</div>
+                    <div class="fw-card-subtitle">Request short duration out-of-field permission</div>
+                  </div>
+                </div>
+                <button type="button" class="fw-modal-close-btn" onclick="closeApplyFwPermissionModal()">&times;</button>
+              </div>
+
+              <form id="applyFwPermissionForm" onsubmit="submitApplyFwPermission(event)">
+                <div class="fw-modal-body">
+                  <div class="fw-field" style="margin-bottom:12px;">
+                    <label class="fw-label">Permission Type *</label>
+                    <select id="fwPermTypeSelect" class="fw-select" required>
+                      <option value="Short Leave">Short Leave</option>
+                      <option value="Late Coming">Late Coming</option>
+                      <option value="Early Going">Early Going</option>
+                    </select>
+                  </div>
+
+                  <div class="fw-field" style="margin-bottom:12px;">
+                    <label class="fw-label">Date *</label>
+                    <input type="date" id="fwPermDate" class="fw-input" value="{{ today_str }}" required>
+                  </div>
+
+                  <div class="fw-form-grid-3" style="margin-bottom:12px;">
+                    <div class="fw-field">
+                      <label class="fw-label">From Time *</label>
+                      <input type="time" id="fwPermFromTime" class="fw-input" value="09:00" required>
+                    </div>
+                    <div class="fw-field">
+                      <label class="fw-label">To Time *</label>
+                      <input type="time" id="fwPermToTime" class="fw-input" value="11:00" required>
+                    </div>
+                    <div class="fw-field">
+                      <label class="fw-label">Duration</label>
+                      <input type="text" id="fwPermDuration" class="fw-input" value="02:00" placeholder="02:00">
+                    </div>
+                  </div>
+
+                  <div class="fw-field">
+                    <label class="fw-label">Reason *</label>
+                    <textarea id="fwPermReason" class="fw-textarea" rows="2" required placeholder="State reason for permission..."></textarea>
+                  </div>
+                </div>
+
+                <div class="fw-modal-footer">
+                  <button type="button" class="fw-btn fw-btn-neutral" onclick="closeApplyFwPermissionModal()">Cancel</button>
+                  <button type="submit" class="fw-btn fw-btn-primary" style="background:#d97706; border-color:#d97706;">
+                    <i class="fa-solid fa-paper-plane"></i> Submit Permission Request
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -3139,6 +4072,10 @@
     let FIELD_WORKERS_DATA = {{ (field_workers or [])|tojson }};
     let VISITS_DATA = {{ (visits or [])|tojson }};
     let PAYROLL_DATA = {{ (salary_reports or [])|tojson }};
+    let DASHBOARD_STATS_DATA = {{ (dashboard_stats or {})|tojson }};
+    let FW_LEAVE_REQUESTS_DATA = {{ (fw_leave_requests or [])|tojson }};
+    let FW_LEAVE_COUNTS_DATA = {{ (fw_leave_counts or {})|tojson }};
+    let FW_LEAVE_BALANCES_DATA = {{ (fw_leave_balances or [])|tojson }};
 
     let liveMap = null;
     let liveMapLayerGroup = null;
@@ -3750,7 +4687,7 @@
       const dt = dateEl ? dateEl.value : '';
       const moEl = document.getElementById('globalMonthInput');
       const mo = moEl ? moEl.value : '';
-      const defaultPane = (CURRENT_USER_ROLE === 'employee') ? 'paneFieldPunch' : 'paneLiveTracking';
+      const defaultPane = (CURRENT_USER_ROLE === 'employee') ? 'paneFieldPunch' : 'paneFieldDashboard';
       const activePane = sessionStorage.getItem('activeFieldTab') || defaultPane;
       const incSalary = (activePane === 'paneFieldPayroll') ? '&include_salary=1' : '';
 
@@ -3765,6 +4702,14 @@
         VISITS_DATA = data.visits || [];
         if (data.salary_reports && data.salary_reports.length > 0) {
           PAYROLL_DATA = data.salary_reports;
+        }
+
+        // 0. Re-render Field Operations Dashboard & Leave System
+        if (data.dashboard_stats) {
+          renderFieldDashboard(data.dashboard_stats);
+        }
+        if (data.fw_leave_requests || data.fw_leave_stats) {
+          renderFieldLeaveSystem(data.fw_leave_requests || [], data.fw_leave_counts || {}, data.fw_leave_stats || {});
         }
 
         // 1. Update KPI counts (Tab 1)
@@ -4862,12 +5807,414 @@
       }
     }
 
+    // =========================================================================
+    // FIELD WORKER DASHBOARD (ADMIN REAL-TIME METRICS & ATTENDANCE)
+    // =========================================================================
+    function renderFieldDashboard(stats) {
+      if (!stats) return;
+      DASHBOARD_STATS_DATA = stats;
+
+      // Update 5 KPI Stat Cards
+      const tot = document.getElementById('fwDashTotalWorkers');
+      if (tot) tot.textContent = stats.total_field_workers || 0;
+      const pres = document.getElementById('fwDashPresentCount');
+      if (pres) pres.textContent = stats.present_today || 0;
+      const presPct = document.getElementById('fwDashPresentPct');
+      if (presPct) presPct.textContent = stats.present_percent || '0.0%';
+      const lv = document.getElementById('fwDashOnLeaveCount');
+      if (lv) lv.textContent = stats.on_leave_today || 0;
+      const lvPct = document.getElementById('fwDashOnLeavePct');
+      if (lvPct) lvPct.textContent = stats.on_leave_percent || '0.0%';
+      const ab = document.getElementById('fwDashAbsentCount');
+      if (ab) ab.textContent = stats.absent_today || 0;
+      const abPct = document.getElementById('fwDashAbsentPct');
+      if (abPct) abPct.textContent = stats.absent_percent || '0.0%';
+      const tr = document.getElementById('fwDashTransitCount');
+      if (tr) tr.textContent = stats.in_transit_now || 0;
+      const os = document.getElementById('fwDashOnsiteSub');
+      if (os) os.textContent = (stats.on_site_now || 0) + ' On-Site';
+
+      // Update Operations Row
+      const km = document.getElementById('fwDashTotalKm');
+      if (km) km.textContent = (stats.total_distance_km || 0) + ' KM';
+      const vis = document.getElementById('fwDashTotalVisits');
+      if (vis) vis.textContent = (stats.total_visits || 0) + ' Visits';
+      const ord = document.getElementById('fwDashTotalOrders');
+      if (ord) ord.textContent = '₹' + Number(stats.total_order_amount || 0).toFixed(2);
+      const det = document.getElementById('fwDashDetours');
+      if (det) det.textContent = (stats.detour_alerts || 0) + ' Alerts';
+
+      // Render Today's Attendance Table
+      const attTbody = document.getElementById('fwDashAttendanceTableBody');
+      if (attTbody && stats.worker_status_list) {
+        if (stats.worker_status_list.length === 0) {
+          attTbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#64748b; padding:24px;">No field workers registered yet.</td></tr>';
+        } else {
+          attTbody.innerHTML = stats.worker_status_list.map((w, idx) => {
+            let attBadge = '<span class="table-badge badge-absent" style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:12px; font-weight:700; font-size:11px;">Absent</span>';
+            if (w.attendance_status === 'Present') {
+              attBadge = '<span class="table-badge badge-present" style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:12px; font-weight:700; font-size:11px;">Present</span>';
+            } else if (w.attendance_status === 'On Leave') {
+              attBadge = '<span class="table-badge badge-leave" style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:12px; font-weight:700; font-size:11px;">On Leave</span>';
+            }
+
+            let liveBadge = '<span class="badge-neutral" style="font-size:10.5px;">Not Active</span>';
+            if (w.live_status === 'Verified On-Site') {
+              liveBadge = '<span class="badge-onsite" style="font-size:10.5px;"><i class="fa-solid fa-circle-check"></i> On-Site</span>';
+            } else if (w.live_status === 'In-Transit') {
+              liveBadge = '<span class="badge-transit" style="font-size:10.5px;"><i class="fa-solid fa-route"></i> Transit</span>';
+            } else if (String(w.live_status || '').includes('Detour')) {
+              liveBadge = '<span class="badge-detour" style="font-size:10.5px;"><i class="fa-solid fa-triangle-exclamation"></i> Detour</span>';
+            } else if (w.attendance_status === 'On Leave') {
+              liveBadge = '<span class="badge-neutral" style="font-size:10.5px;">On Leave</span>';
+            }
+
+            return `<tr>
+              <td style="text-align:center; color:#64748b;">${idx + 1}</td>
+              <td style="font-weight:700; color:#0f172a; white-space:nowrap;">${w.employee_name}</td>
+              <td style="color:#475569; white-space:nowrap;">${w.branch_name || 'Home Branch'}</td>
+              <td style="text-align:center; white-space:nowrap;">${attBadge}</td>
+              <td style="text-align:center; white-space:nowrap;">${w.in_time || '--'}</td>
+              <td style="text-align:center; white-space:nowrap;">${w.out_time || '--'}</td>
+              <td style="text-align:center; font-weight:700; color:#2563eb;">${Number(w.distance_km || 0).toFixed(1)}</td>
+              <td style="text-align:center; font-weight:700; color:#0f766e;">${w.visits_count || 0}</td>
+              <td style="text-align:center; white-space:nowrap;">${liveBadge}</td>
+            </tr>`;
+          }).join('');
+        }
+      }
+
+      // Render Branch Breakdown Table
+      const brTbody = document.getElementById('fwDashBranchTableBody');
+      if (brTbody && stats.branch_breakdown) {
+        if (stats.branch_breakdown.length === 0) {
+          brTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:24px;">No branch activity recorded today.</td></tr>';
+        } else {
+          brTbody.innerHTML = stats.branch_breakdown.map(b => `
+            <tr>
+              <td style="font-weight:700; color:#0f172a; white-space:nowrap;">${b.branch_name}</td>
+              <td style="text-align:center; font-weight:700;">${b.total}</td>
+              <td style="text-align:center; font-weight:700; color:#16a34a;">${b.present}</td>
+              <td style="text-align:center; font-weight:700; color:#2563eb;">${Number(b.km || 0).toFixed(1)}</td>
+              <td style="text-align:center; font-weight:700; color:#0f766e;">${b.visits}</td>
+            </tr>
+          `).join('');
+        }
+      }
+    }
+
+    // =========================================================================
+    // FIELD WORKER LEAVE & PERMISSION MANAGEMENT (ADMIN & EMPLOYEE)
+    // =========================================================================
+    let currentFwLeaveFilter = 'ALL';
+
+    function filterFwLeaveStatus(status, btnEl) {
+      currentFwLeaveFilter = status;
+      if (btnEl) {
+        document.querySelectorAll('.btn-filter-status').forEach(b => {
+          b.classList.remove('active');
+          b.style.background = 'transparent';
+          b.style.color = '#64748b';
+        });
+        btnEl.classList.add('active');
+        btnEl.style.background = '#2563eb';
+        btnEl.style.color = '#ffffff';
+      }
+      const rows = document.querySelectorAll('#fwAdminLeaveRequestsTableBody tr');
+      rows.forEach(r => {
+        const rowStatus = r.getAttribute('data-status');
+        if (status === 'ALL' || rowStatus === status) {
+          r.style.display = '';
+        } else {
+          r.style.display = 'none';
+        }
+      });
+    }
+
+    function renderFieldLeaveSystem(requests, counts, stats) {
+      if (!requests) return;
+      FW_LEAVE_REQUESTS_DATA = requests;
+      if (counts) FW_LEAVE_COUNTS_DATA = counts;
+
+      // Update sidebar badge
+      const pendingCount = (counts && counts.pending) || (stats && stats.pending_requests) || 0;
+      const sideBadge = document.getElementById('sidebarFwLeaveBadge');
+      if (sideBadge) {
+        sideBadge.textContent = pendingCount;
+        sideBadge.style.display = pendingCount > 0 ? '' : 'none';
+      }
+      const filterPending = document.getElementById('fwFilterCountPending');
+      if (filterPending) filterPending.textContent = pendingCount;
+
+      // Update Admin KPI cards
+      if (stats) {
+        const tot = document.getElementById('fwLeaveStatTotal');
+        if (tot) tot.textContent = stats.total_requests || 0;
+        const pnd = document.getElementById('fwLeaveStatPending');
+        if (pnd) pnd.textContent = stats.pending_requests || 0;
+        const app = document.getElementById('fwLeaveStatApproved');
+        if (app) app.textContent = stats.approved_requests || 0;
+        const onl = document.getElementById('fwLeaveStatOnLeave');
+        if (onl) onl.textContent = stats.on_leave_today || 0;
+      }
+
+      // Render Admin Table if present
+      const adminTbody = document.getElementById('fwAdminLeaveRequestsTableBody');
+      if (adminTbody) {
+        if (requests.length === 0) {
+          adminTbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#64748b; padding:28px;">No field worker leave requests submitted yet.</td></tr>';
+        } else {
+          adminTbody.innerHTML = requests.map(r => {
+            const isPerm = r.request_type === 'Permission';
+            const typeBadge = isPerm
+              ? '<span class="badge-neutral" style="background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe;">Permission</span>'
+              : '<span class="badge-neutral" style="background:#fdf4ff; color:#86198f; border-color:#f5d0fe;">Leave</span>';
+            const cat = r.leave_type || r.permission_type || 'Casual Leave';
+            const sessionStr = isPerm ? `${r.from_time || ''} - ${r.to_time || ''}` : (r.session || 'Full Day');
+            const datesStr = isPerm ? (r.date || r.from_date || '') : `${r.from_date || ''} to ${r.to_date || ''}`;
+            const durStr = isPerm ? `${r.duration || r.duration_hours || '02:00'} hrs` : `${r.days_count || r.total_days || 1} Day(s)`;
+            
+            let statusBadge = '<span class="badge-transit"><i class="fa-solid fa-clock"></i> Pending</span>';
+            if (r.status === 'Approved') {
+              statusBadge = '<span class="badge-onsite"><i class="fa-solid fa-check"></i> Approved</span>';
+            } else if (r.status === 'Rejected') {
+              statusBadge = '<span class="badge-detour"><i class="fa-solid fa-xmark"></i> Rejected</span>';
+            }
+
+            let actionsHtml = `<span style="font-size:11px; color:#64748b;">${r.reviewer || 'Processed'}</span>`;
+            if (r.status === 'Pending') {
+              actionsHtml = `
+                <div style="display:inline-flex; align-items:center; gap:6px;">
+                  <button type="button" class="fw-btn fw-btn-success fw-btn-sm" onclick="openFwLeaveActionModal('${r.id}', '${(r.employee_name||'').replace(/'/g, "\\'")}', '${r.request_type}', 'Approve')" title="Approve Request">
+                    <i class="fa-solid fa-check"></i> Approve
+                  </button>
+                  <button type="button" class="fw-btn fw-btn-danger fw-btn-sm" onclick="openFwLeaveActionModal('${r.id}', '${(r.employee_name||'').replace(/'/g, "\\'")}', '${r.request_type}', 'Reject')" title="Reject Request">
+                    <i class="fa-solid fa-xmark"></i> Reject
+                  </button>
+                </div>
+              `;
+            }
+
+            const adminRemarkHtml = r.admin_remark ? `<div class="fw-cell-sub" style="color:#0284c7;"><i class="fa-solid fa-comment-dots"></i> Admin: ${r.admin_remark}</div>` : '';
+
+            return `<tr data-status="${r.status}">
+              <td>
+                <div class="fw-cell-title">${r.employee_name}</div>
+                <div class="fw-cell-sub">${r.designation || 'Field Executive'}</div>
+              </td>
+              <td>
+                <span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> ${r.branch_name || 'Home Branch'}</span>
+              </td>
+              <td style="text-align:center;">${typeBadge}</td>
+              <td>
+                <div style="font-weight:700; color:#0f172a;">${cat}</div>
+                <div class="fw-cell-sub">${sessionStr}</div>
+              </td>
+              <td>
+                <div style="font-weight:700; white-space:nowrap;">${datesStr}</div>
+              </td>
+              <td style="text-align:center; font-weight:700;">${durStr}</td>
+              <td style="max-width:200px; line-height:1.35;">
+                <div style="color:#334155;">${r.reason || '-'}</div>
+                ${adminRemarkHtml}
+              </td>
+              <td style="text-align:center; white-space:nowrap;">${statusBadge}</td>
+              <td style="text-align:center; white-space:nowrap;">${actionsHtml}</td>
+            </tr>`;
+          }).join('');
+        }
+      }
+
+      // Render Employee Table if present
+      const empTbody = document.getElementById('myFwLeaveApplicationsTableBody');
+      if (empTbody) {
+        if (requests.length === 0) {
+          empTbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#64748b; padding:28px;">You haven\'t submitted any leave or permission requests yet.</td></tr>';
+        } else {
+          empTbody.innerHTML = requests.map(r => {
+            const isPerm = r.request_type === 'Permission';
+            const typeBadge = isPerm
+              ? '<span class="badge-neutral" style="background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe;">Permission</span>'
+              : '<span class="badge-neutral" style="background:#fdf4ff; color:#86198f; border-color:#f5d0fe;">Leave</span>';
+            const cat = r.leave_type || r.permission_type || 'Casual Leave';
+            const sessionStr = isPerm ? `${r.from_time || ''} - ${r.to_time || ''}` : (r.session || 'Full Day');
+            const datesStr = isPerm ? (r.date || r.from_date || '') : `${r.from_date || ''} to ${r.to_date || ''}`;
+            const durStr = isPerm ? `${r.duration || r.duration_hours || '02:00'} hrs` : `${r.days_count || r.total_days || 1} Day(s)`;
+
+            let statusBadge = '<span class="badge-transit"><i class="fa-solid fa-clock"></i> Pending</span>';
+            if (r.status === 'Approved') {
+              statusBadge = '<span class="badge-onsite"><i class="fa-solid fa-check"></i> Approved</span>';
+            } else if (r.status === 'Rejected') {
+              statusBadge = '<span class="badge-detour"><i class="fa-solid fa-xmark"></i> Rejected</span>';
+            }
+
+            return `<tr>
+              <td>${typeBadge}</td>
+              <td>
+                <div style="font-weight:700; color:#0f172a;">${cat}</div>
+                <div class="fw-cell-sub">${sessionStr}</div>
+              </td>
+              <td><div style="font-weight:700; white-space:nowrap;">${datesStr}</div></td>
+              <td style="text-align:center; font-weight:700;">${durStr}</td>
+              <td style="max-width:250px;">${r.reason || '-'}</td>
+              <td style="text-align:center; white-space:nowrap;">${statusBadge}</td>
+              <td style="font-size:11.5px; color:#475569;">${r.admin_remark || '-'}</td>
+            </tr>`;
+          }).join('');
+        }
+      }
+    }
+
+    // Modal: Admin Leave Action (Approve / Reject)
+    function openFwLeaveActionModal(reqId, workerName, reqType, action) {
+      document.getElementById('fwLeaveActionReqId').value = reqId;
+      document.getElementById('fwLeaveActionStatus').value = action;
+      document.getElementById('fwLeaveAdminRemark').value = '';
+
+      const isApprove = action === 'Approve';
+      document.getElementById('fwLeaveActionTitle').textContent = isApprove ? 'Approve Request' : 'Reject Request';
+      document.getElementById('fwLeaveActionSubtitle').textContent = `Field Worker: ${workerName} (${reqType})`;
+      document.getElementById('fwLeaveActionPrompt').innerHTML = `Are you sure you want to <strong>${action.toLowerCase()}</strong> the ${reqType.toLowerCase()} request for <strong>${workerName}</strong>?`;
+
+      const submitBtn = document.getElementById('fwLeaveActionSubmitBtn');
+      submitBtn.className = `fw-btn ${isApprove ? 'fw-btn-success' : 'fw-btn-danger'}`;
+      submitBtn.textContent = isApprove ? 'Confirm Approval' : 'Confirm Rejection';
+
+      const iconBox = document.getElementById('fwLeaveActionIcon');
+      if (iconBox) {
+        iconBox.style.background = isApprove ? '#dcfce7' : '#fee2e2';
+        iconBox.style.color = isApprove ? '#15803d' : '#dc2626';
+        iconBox.innerHTML = `<i class="fa-solid ${isApprove ? 'fa-check' : 'fa-xmark'}"></i>`;
+      }
+
+      const modal = document.getElementById('fwLeaveActionModalBackdrop');
+      if (modal) modal.classList.remove('d-none');
+    }
+
+    function closeFwLeaveActionModal() {
+      const modal = document.getElementById('fwLeaveActionModalBackdrop');
+      if (modal) modal.classList.add('d-none');
+    }
+
+    async function submitFwLeaveAction() {
+      const reqId = document.getElementById('fwLeaveActionReqId').value;
+      const action = document.getElementById('fwLeaveActionStatus').value;
+      const remark = document.getElementById('fwLeaveAdminRemark').value.trim();
+      if (!reqId || !action) return;
+
+      try {
+        const res = await fetch(`/api/field-worker/leave-requests/${encodeURIComponent(reqId)}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: action, admin_remark: remark })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || `Leave request ${action.toLowerCase()}d successfully.`);
+          closeFwLeaveActionModal();
+          await refreshOverviewState();
+        } else {
+          showToast(data.error || 'Failed to update request.', true);
+        }
+      } catch (err) {
+        showToast('Error updating request: ' + err.message, true);
+      }
+    }
+
+    // Modal: Field Worker Employee Leave Application
+    function openApplyFwLeaveModal() {
+      const modal = document.getElementById('applyFwLeaveModalBackdrop');
+      if (modal) modal.classList.remove('d-none');
+    }
+
+    function closeApplyFwLeaveModal() {
+      const modal = document.getElementById('applyFwLeaveModalBackdrop');
+      if (modal) modal.classList.add('d-none');
+    }
+
+    async function submitApplyFwLeave(e) {
+      e.preventDefault();
+      const payload = {
+        leave_type: document.getElementById('fwLeaveTypeSelect').value,
+        from_date: document.getElementById('fwLeaveFromDate').value,
+        to_date: document.getElementById('fwLeaveToDate').value,
+        session: document.getElementById('fwLeaveSession').value,
+        reason: document.getElementById('fwLeaveReason').value.trim(),
+        company_id: getActiveCompanyId()
+      };
+
+      try {
+        const res = await fetch('/api/field-worker/leave-requests/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Leave application submitted successfully!');
+          closeApplyFwLeaveModal();
+          document.getElementById('applyFwLeaveForm').reset();
+          await refreshOverviewState();
+        } else {
+          showToast(data.error || 'Failed to submit leave request.', true);
+        }
+      } catch (err) {
+        showToast('Error submitting leave: ' + err.message, true);
+      }
+    }
+
+    // Modal: Field Worker Employee Permission Application
+    function openApplyFwPermissionModal() {
+      const modal = document.getElementById('applyFwPermissionModalBackdrop');
+      if (modal) modal.classList.remove('d-none');
+    }
+
+    function closeApplyFwPermissionModal() {
+      const modal = document.getElementById('applyFwPermissionModalBackdrop');
+      if (modal) modal.classList.add('d-none');
+    }
+
+    async function submitApplyFwPermission(e) {
+      e.preventDefault();
+      const payload = {
+        permission_type: document.getElementById('fwPermTypeSelect').value,
+        date: document.getElementById('fwPermDate').value,
+        from_time: document.getElementById('fwPermFromTime').value,
+        to_time: document.getElementById('fwPermToTime').value,
+        duration: document.getElementById('fwPermDuration').value.trim() || '02:00',
+        reason: document.getElementById('fwPermReason').value.trim(),
+        company_id: getActiveCompanyId()
+      };
+
+      try {
+        const res = await fetch('/api/field-worker/permission-requests/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Permission application submitted successfully!');
+          closeApplyFwPermissionModal();
+          document.getElementById('applyFwPermissionForm').reset();
+          await refreshOverviewState();
+        } else {
+          showToast(data.error || 'Failed to submit permission request.', true);
+        }
+      } catch (err) {
+        showToast('Error submitting permission: ' + err.message, true);
+      }
+    }
+
     // Dismiss modals on Escape key or backdrop click
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeRegisterWorkerModal();
         closeAddLeadModal();
         closeEditLeadModal();
+        closeFwLeaveActionModal();
+        closeApplyFwLeaveModal();
+        closeApplyFwPermissionModal();
       }
     });
 
@@ -4884,6 +6231,15 @@
       if (e.target && e.target.id === 'resolveIncidentModalBackdrop') {
         closeResolveIncidentModal();
       }
+      if (e.target && e.target.id === 'fwLeaveActionModalBackdrop') {
+        closeFwLeaveActionModal();
+      }
+      if (e.target && e.target.id === 'applyFwLeaveModalBackdrop') {
+        closeApplyFwLeaveModal();
+      }
+      if (e.target && e.target.id === 'applyFwPermissionModalBackdrop') {
+        closeApplyFwPermissionModal();
+      }
     });
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -4893,15 +6249,15 @@
 
       // Restore active tab from hash or sessionStorage with role isolation
       const hashTab = (window.location.hash || '').replace('#', '');
-      const defaultTab = (CURRENT_USER_ROLE === 'employee') ? 'paneFieldPunch' : 'paneLiveTracking';
+      const defaultTab = (CURRENT_USER_ROLE === 'employee') ? 'paneFieldPunch' : 'paneFieldDashboard';
       let savedTab = hashTab || sessionStorage.getItem('activeFieldTab') || defaultTab;
       if (CURRENT_USER_ROLE === 'employee') {
-        if (savedTab === 'paneLiveTracking' || savedTab === 'paneRegisterWorkers') {
+        if (savedTab === 'paneLiveTracking' || savedTab === 'paneRegisterWorkers' || savedTab === 'paneFieldDashboard' || savedTab === 'paneFieldLeaves') {
           savedTab = 'paneFieldPunch';
         }
       } else {
-        if (savedTab === 'paneFieldPunch' || savedTab === 'paneAssignLocations') {
-          savedTab = 'paneLiveTracking';
+        if (savedTab === 'paneFieldPunch' || savedTab === 'paneAssignLocations' || savedTab === 'paneFieldEmployeeLeaves') {
+          savedTab = 'paneFieldDashboard';
         }
       }
       if (savedTab && document.getElementById(savedTab)) {
