@@ -7078,8 +7078,8 @@ def create_field_assignment(data, company_id=None):
 
     now_ist = get_ist_now()
     assignment_id = str(data.get('id') or f"FA-{int(time.time() * 1000)}")
-    target_lat = round(safe_float(data.get('target_lat'), 11.0168), 6)
-    target_lng = round(safe_float(data.get('target_lng'), 76.9558), 6)
+    target_lat = round(safe_float(data.get('target_lat') if data.get('target_lat') is not None else data.get('target_latitude'), 11.0168), 6)
+    target_lng = round(safe_float(data.get('target_lng') if data.get('target_lng') is not None else data.get('target_longitude'), 76.9558), 6)
     geofence_radius = max(30.0, round(safe_float(data.get('geofence_radius'), 150.0), 1))
     target_address = str(data.get('target_address') or '').strip()
     if not target_address and target_lat and target_lng:
