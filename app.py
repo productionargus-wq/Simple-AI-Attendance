@@ -5492,10 +5492,11 @@ def api_field_worker_payslip_pdf():
     comp_info = database.get_company_by_id(rep.get('company_id') or cid)
     pdf_buf = pdf_generator.generate_field_worker_payslip_pdf(rep, company_info=comp_info)
     safe_name = re.sub(r'[^A-Za-z0-9_-]', '_', emp_name)
+    view_inline = (request.args.get('view') == '1' or request.args.get('inline') == '1')
     return send_file(
         pdf_buf,
         mimetype='application/pdf',
-        as_attachment=True,
+        as_attachment=not view_inline,
         download_name=f"Field_Worker_Payslip_{safe_name}_{month_year}.pdf"
     )
 
