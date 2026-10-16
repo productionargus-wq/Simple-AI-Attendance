@@ -2685,6 +2685,13 @@ def calculate_distance_meters(lat1, lon1, lat2=OFFICE_LAT, lon2=OFFICE_LNG):
     except Exception:
         return 0.0
 
+def calculate_haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculate distance in kilometers between two GPS coordinates using Haversine formula."""
+    try:
+        return calculate_distance_meters(lat1, lon1, lat2, lon2) / 1000.0
+    except Exception:
+        return 0.0
+
 def format_office_distance(meters):
     """Format distance into human-readable office distance string."""
     try:

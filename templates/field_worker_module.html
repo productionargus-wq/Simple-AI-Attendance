@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261013_fw_dyn">
+  <script src="{{ url_for('static', filename='vendor/mediapipe/face_mesh.js') }}"></script>
   <style>
     /* ==========================================================================
        ARGUS ENTERPRISE FIELD WORKER MODULE — UNIFIED DESIGN SYSTEM
@@ -1112,39 +1113,449 @@
       z-index: 1;
     }
 
-    .fw-camera-box {
-      background: #0f172a;
-      border-radius: 8px;
-      overflow: hidden;
+    /* ---------------- Camera Terminal Styles (Matching Root '/' Route Terminal) ---------------- */
+    .camera-screen {
+      width: 100%;
+      height: 270px;
+      background-color: #1e293b;
+      border-radius: 12px;
       position: relative;
-      height: 250px;
+      overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      border: 1.5px solid #334155;
-      margin-bottom: 12px;
+      border: 1px solid #334155;
     }
 
-    .fw-camera-box video {
+    .camera-video {
       width: 100%;
       height: 100%;
       object-fit: cover;
       transform: scaleX(-1);
       -webkit-transform: scaleX(-1);
+      display: none;
     }
 
-    .fw-camera-placeholder {
+    .camera-overlay {
       position: absolute;
-      inset: 0;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      color: #ffffff;
+      text-align: center;
+      padding: 16px;
+      background: radial-gradient(circle at center, rgba(30, 41, 59, 0.95), #111827);
+      z-index: 5;
+    }
+
+    .camera-off-icon {
+      width: 52px;
+      height: 52px;
       color: #94a3b8;
-      font-size: 12px;
+      margin-bottom: 10px;
+    }
+
+    .camera-off-title {
+      font-size: 15px;
       font-weight: 600;
-      gap: 8px;
+      color: #f1f5f9;
+      margin-bottom: 4px;
+    }
+
+    .camera-off-subtitle {
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    .face-reticle {
+      position: absolute;
+      width: 160px;
+      height: 200px;
+      border: 2px dashed rgba(56, 189, 248, 0.5);
+      border-radius: 50% 50% 46% 46%;
       pointer-events: none;
+      display: none;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+      z-index: 10;
+    }
+
+    .blink-hud-overlay {
+      position: absolute;
+      top: 10px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 15;
+      pointer-events: none;
+      transition: all 0.3s ease;
+    }
+
+    .blink-hud-pill {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 30px;
+      padding: 5px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+      transition: all 0.25s ease;
+      max-width: 92%;
+    }
+
+    .blink-hud-icon {
+      font-size: 13px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .blink-hud-text {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #f1f5f9;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+    }
+
+    .blink-hud-dots {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 2px;
+    }
+
+    .blink-hud-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 1.6px solid #38bdf8;
+      background-color: transparent;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .blink-hud-dot.active {
+      background-color: #10b981;
+      border-color: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      transform: scale(1.2);
+    }
+
+    .blink-hud-pill.blink-stage-1 {
+      border-color: rgba(56, 189, 248, 0.7);
+      background: rgba(12, 74, 110, 0.88);
+      box-shadow: 0 4px 18px rgba(14, 165, 233, 0.3);
+    }
+
+    .blink-hud-pill.blink-stage-2 {
+      border-color: #10b981;
+      background: rgba(6, 78, 59, 0.92);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.45);
+    }
+
+    .blink-hud-pill.blink-cooldown {
+      opacity: 0.88;
+      border-color: rgba(148, 163, 184, 0.3);
+      background: rgba(30, 41, 59, 0.88);
+    }
+
+    .blink-eye-state {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 1.5px 6px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.15);
+      color: #cbd5e1;
+      margin-left: 4px;
+      letter-spacing: 0.2px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .blink-eye-state.eye-open {
+      color: #38bdf8;
+      background: rgba(14, 165, 233, 0.22);
+    }
+
+    .blink-eye-state.eye-blink {
+      color: #ffffff;
+      background: #10b981;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+      transform: scale(1.08);
+    }
+
+    .controls-row {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .btn-camera-toggle {
+      background-color: #ffffff;
+      color: #0284c7;
+      border: 2px solid #0284c7;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-camera-toggle:hover {
+      background-color: #f0f9ff;
+      border-color: #0369a1;
+      color: #0369a1;
+    }
+
+    .btn-camera-toggle.active {
+      border-color: #64748b;
+      color: #475569;
+      background-color: #f8fafc;
+    }
+
+    .btn-mark-attendance {
+      background-color: #059669;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: all 0.2s ease;
+      box-shadow: 0 3px 10px rgba(5, 150, 105, 0.25);
+    }
+
+    .btn-mark-attendance:hover:not(:disabled) {
+      background-color: #047857;
+      transform: translateY(-1px);
+      box-shadow: 0 5px 14px rgba(5, 150, 105, 0.35);
+    }
+
+    .btn-mark-attendance:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .handsfree-mode-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 8px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-handsfree-toggle {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 20px;
+      padding: 4px 11px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-handsfree-toggle:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    .btn-handsfree-toggle.active {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: #065f46;
+    }
+
+    .btn-handsfree-toggle.active .handsfree-toggle-indicator {
+      background: #10b981;
+      box-shadow: 0 0 6px #10b981;
+    }
+
+    .handsfree-toggle-indicator {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #94a3b8;
+      display: inline-block;
+      transition: all 0.2s ease;
+    }
+
+    .btn-sensitivity-toggle {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #475569;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-sensitivity-toggle:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    .btn-sensitivity-toggle strong {
+      color: #0284c7;
+      font-weight: 700;
+    }
+
+    .punch-detail-container {
+      margin-top: 10px;
+      display: none;
+      animation: slideInDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes slideInDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .punch-card-verified {
+      background: #f0fdf4;
+      border: 1.5px solid #86efac;
+      border-radius: 10px;
+      padding: 12px 14px;
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.08);
+    }
+
+    .punch-card-failed {
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+      border-radius: 10px;
+      padding: 12px 14px;
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08);
+    }
+
+    .punch-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+    }
+
+    .punch-badge-success {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background-color: #16a34a;
+      color: #ffffff;
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 2.5px 9px;
+      border-radius: 20px;
+      letter-spacing: 0.2px;
+    }
+
+    .punch-badge-failed {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background-color: #dc2626;
+      color: #ffffff;
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 2.5px 9px;
+      border-radius: 20px;
+      letter-spacing: 0.2px;
+    }
+
+    .punch-time-tag {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    .punch-body {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .punch-emp-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .punch-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 5px 10px;
+      font-size: 11.5px;
+      margin-top: 3px;
+    }
+
+    .punch-grid-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: #334155;
+    }
+
+    .punch-grid-label {
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    .punch-grid-value {
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .punch-conf-pill {
+      background-color: #e0f2fe;
+      color: #0284c7;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 1.5px 7px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .punch-geo-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: #059669;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
     }
 
     /* ---------------- Status Badges ---------------- */
@@ -3286,7 +3697,7 @@
           </div>
 
           <div class="fw-split-50-50">
-            <!-- Left Card: AI Face + Live GPS Attendance Terminal -->
+            <!-- Left Card: AI Face + Live GPS Attendance Terminal (Matches Root '/' Terminal) -->
             <div class="fw-card">
               <div class="fw-card-header">
                 <div class="fw-card-header-left">
@@ -3302,33 +3713,71 @@
                   <i class="fa-solid fa-location-dot"></i> GPS Ready ({{ active_company.latitude or 11.0298 }}, {{ active_company.longitude or 76.9740 }})
                 </span>
               </div>
-              <div class="fw-card-body">
-                <div class="fw-camera-box">
-                  <div class="fw-camera-placeholder">
-                    <i class="fa-solid fa-face-viewfinder" style="font-size:28px; color:#64748b;"></i>
-                    <span>Click "Start Camera" or "AI Face + GPS Punch" to verify attendance</span>
+              <div class="fw-card-body" style="padding: 16px;">
+                <!-- Inner Camera Screen matching '/' Route -->
+                <div class="camera-screen" id="cameraScreen">
+                  <video id="cameraFeed" class="camera-video" autoplay playsinline muted></video>
+                  <canvas id="captureCanvas" style="display: none;"></canvas>
+
+                  <!-- Face Reticle / Guide Overlay -->
+                  <div class="face-reticle" id="faceReticle"></div>
+
+                  <!-- Hands-Free 2-Blink Liveness HUD Overlay -->
+                  <div class="blink-hud-overlay" id="blinkHudOverlay" style="display: none;">
+                    <div class="blink-hud-pill" id="blinkHudPill">
+                      <span class="blink-hud-icon" id="blinkHudIcon">👁️</span>
+                      <span class="blink-hud-text" id="blinkHudText">Blink 2 times to punch hands-free</span>
+                      <div class="blink-hud-dots" id="blinkHudDots">
+                        <span class="blink-hud-dot" id="blinkDot1" title="1st Blink"></span>
+                        <span class="blink-hud-dot" id="blinkDot2" title="2nd Blink"></span>
+                      </div>
+                      <span class="blink-eye-state" id="blinkEyeState">Tracking...</span>
+                    </div>
                   </div>
-                  <video id="fwPunchVideo" autoplay playsinline muted style="position:relative; z-index:2; transform:scaleX(-1); -webkit-transform:scaleX(-1);"></video>
-                  <canvas id="fwPunchCanvas" class="d-none"></canvas>
+
+                  <!-- Default Camera Off State Overlay -->
+                  <div class="camera-overlay" id="cameraOverlay">
+                    <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                      <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                    <div class="camera-off-title">Camera is turned off</div>
+                    <div class="camera-off-subtitle">Click &ldquo;Turn On Camera&rdquo; to enable.</div>
+                  </div>
                 </div>
 
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
-                  <div style="display:flex; gap:8px;">
-                    <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="startFieldPunchCamera()">
-                      <i class="fa-solid fa-video"></i> Start Camera
-                    </button>
-                    <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="stopFieldPunchCamera()">
-                      <i class="fa-solid fa-video-slash"></i> Stop Camera
-                    </button>
-                  </div>
-                  <span style="font-size:11px; color:#64748b; font-weight:600;">Liveness &amp; Geo-Fence Enabled</span>
+                <!-- Controls Action Row -->
+                <div class="controls-row">
+                  <button type="button" class="btn-camera-toggle" id="btnToggleCamera">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                      <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                    <span id="btnToggleCameraText">Turn On Camera</span>
+                  </button>
+
+                  <button type="button" class="btn-mark-attendance" id="btnMarkAttendance">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span id="btnMarkAttendanceText">Mark Attendance</span>
+                  </button>
                 </div>
 
-                <button type="button" class="fw-btn fw-btn-success fw-btn-block" style="height:38px; font-size:13px;" onclick="performFieldFacePunch()">
-                  <i class="fa-solid fa-face-viewfinder"></i> AI Face + GPS Punch (In / Out)
-                </button>
+                <!-- Hands-Free Mode Toggle Bar -->
+                <div class="handsfree-mode-bar" id="handsfreeModeBar">
+                  <button type="button" class="btn-handsfree-toggle active" id="btnToggleHandsFree" title="Toggle hands-free automatic blink detection">
+                    <span class="handsfree-toggle-indicator" id="handsfreeIndicatorDot"></span>
+                    <span id="handsfreeToggleLabel">Hands-Free: Active (Blink 2x)</span>
+                  </button>
+                  <button type="button" class="btn-sensitivity-toggle" id="btnToggleSensitivity" title="Switch blink sensitivity for spectacles/glasses or dim light">
+                    <span>⚙️ Sensitivity:</span>
+                    <strong id="sensitivityLabel">Normal</strong>
+                  </button>
+                </div>
 
-                <div id="fwPunchResultBox" style="margin-top:10px;"></div>
+                <!-- Dynamic Punch Detail Card (Below Buttons) -->
+                <div class="punch-detail-container" id="punchDetailContainer"></div>
               </div>
             </div>
 
@@ -4412,6 +4861,10 @@
 
       if (paneId === 'paneScheduledVisits') {
         renderScheduledVisitsTable(ASSIGNMENTS_DATA);
+      }
+
+      if (paneId !== 'paneFieldPunch' && typeof stopTerminalCamera === 'function') {
+        stopTerminalCamera();
       }
 
       setTimeout(() => {
@@ -5806,66 +6259,694 @@
       }
     }
 
-    async function startFieldPunchCamera() {
+    // =========================================================================
+    // AI FACE + LIVE GPS ATTENDANCE TERMINAL (MATCHES ROOT '/' ROUTE TERMINAL)
+    // =========================================================================
+    let terminalStream = null;
+    let isTerminalCameraRunning = false;
+    let isHandsFreeActive = true;
+    let isProcessingPunch = false;
+    let cooldownUntil = 0;
+    let sensitivityMode = 'normal';
+
+    let faceMesh = null;
+    let faceMeshReady = false;
+    let isDetectionRunning = false;
+    let isProcessingFrame = false;
+    let animFrameId = null;
+
+    let blinkCount = 0;
+    let lastBlinkTime = 0;
+    let isEyesClosed = false;
+    let closedFrameCount = 0;
+    let baselineEAR = 0.28;
+    let blinkResetTimer = null;
+    let terminalAudioCtx = null;
+
+    const LEFT_EYE = {
+      h1: 33, h2: 133,
+      v1_top: 160, v1_bot: 144,
+      v2_top: 158, v2_bot: 153
+    };
+
+    const RIGHT_EYE = {
+      h1: 362, h2: 263,
+      v1_top: 385, v1_bot: 380,
+      v2_top: 387, v2_bot: 373
+    };
+
+    function dist2D(p1, p2) {
+      const dx = p1.x - p2.x;
+      const dy = p1.y - p2.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function calculateEAR(landmarks, eye) {
+      const p_h1 = landmarks[eye.h1];
+      const p_h2 = landmarks[eye.h2];
+      const p_v1_top = landmarks[eye.v1_top];
+      const p_v1_bot = landmarks[eye.v1_bot];
+      const p_v2_top = landmarks[eye.v2_top];
+      const p_v2_bot = landmarks[eye.v2_bot];
+      if (!p_h1 || !p_h2 || !p_v1_top || !p_v1_bot || !p_v2_top || !p_v2_bot) return null;
+      const hDist = dist2D(p_h1, p_h2);
+      if (hDist <= 0.0001) return null;
+      const v1Dist = dist2D(p_v1_top, p_v1_bot);
+      const v2Dist = dist2D(p_v2_top, p_v2_bot);
+      return (v1Dist + v2Dist) / (2.0 * hDist);
+    }
+
+    function playTerminalChime(type) {
       try {
-        const video = document.getElementById('fwPunchVideo');
-        fwVideoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-        video.srcObject = fwVideoStream;
-      } catch (err) {
-        showToast('Camera access unavailable: ' + err.message, true);
-      }
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!terminalAudioCtx) terminalAudioCtx = new AudioCtx();
+        if (terminalAudioCtx.state === 'suspended') {
+          terminalAudioCtx.resume();
+        }
+        const osc = terminalAudioCtx.createOscillator();
+        const gain = terminalAudioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(terminalAudioCtx.destination);
+
+        if (type === 'blink') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(659.25, terminalAudioCtx.currentTime);
+          gain.gain.setValueAtTime(0.06, terminalAudioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, terminalAudioCtx.currentTime + 0.12);
+          osc.start();
+          osc.stop(terminalAudioCtx.currentTime + 0.12);
+        } else if (type === 'success') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(523.25, terminalAudioCtx.currentTime);
+          osc.frequency.setValueAtTime(783.99, terminalAudioCtx.currentTime + 0.08);
+          osc.frequency.setValueAtTime(1046.50, terminalAudioCtx.currentTime + 0.16);
+          gain.gain.setValueAtTime(0.12, terminalAudioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, terminalAudioCtx.currentTime + 0.38);
+          osc.start();
+          osc.stop(terminalAudioCtx.currentTime + 0.38);
+        }
+      } catch (e) {}
     }
 
-    function stopFieldPunchCamera() {
-      if (fwVideoStream) {
-        fwVideoStream.getTracks().forEach(t => t.stop());
-        fwVideoStream = null;
-      }
-    }
+    function updateBlinkHUD(count, text, isCooldown = false) {
+      const hudPill = document.getElementById('blinkHudPill');
+      const hudIcon = document.getElementById('blinkHudIcon');
+      const hudText = document.getElementById('blinkHudText');
+      const hudDots = document.getElementById('blinkHudDots');
+      const dot1 = document.getElementById('blinkDot1');
+      const dot2 = document.getElementById('blinkDot2');
+      const eyeState = document.getElementById('blinkEyeState');
+      if (!hudPill) return;
 
-    async function performFieldFacePunch() {
-      const video = document.getElementById('fwPunchVideo');
-      const canvas = document.getElementById('fwPunchCanvas');
-      if (!fwVideoStream || !video || !video.videoWidth) {
-        await startFieldPunchCamera();
-        await new Promise(r => setTimeout(r, 600));
-      }
-      if (!video || !video.videoWidth) {
-        showToast('Please start camera or use Quick Field Check-In on the right.', true);
+      if (isCooldown) {
+        hudPill.className = 'blink-hud-pill blink-cooldown';
+        if (hudIcon) hudIcon.textContent = '⏳';
+        if (hudText) hudText.textContent = text || 'Ready in a moment...';
+        if (hudDots) hudDots.style.display = 'none';
+        if (eyeState) eyeState.style.display = 'none';
         return;
       }
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
-      showToast('Acquiring device GPS coordinates...');
-      const coords = await getDeviceCurrentPosition();
-      const lat = coords.lat;
-      const lng = coords.lng;
+      if (hudDots) hudDots.style.display = 'inline-flex';
+      if (eyeState) eyeState.style.display = 'inline-block';
+
+      if (count === 0) {
+        hudPill.className = 'blink-hud-pill';
+        if (hudIcon) hudIcon.textContent = '👁️';
+        if (hudText) hudText.textContent = text || 'Blink 2 times to punch hands-free';
+        if (dot1) dot1.classList.remove('active');
+        if (dot2) dot2.classList.remove('active');
+      } else if (count === 1) {
+        hudPill.className = 'blink-hud-pill blink-stage-1';
+        if (hudIcon) hudIcon.textContent = '👁️';
+        if (hudText) hudText.textContent = text || '1st Blink Detected! Blink once more...';
+        if (dot1) dot1.classList.add('active');
+        if (dot2) dot2.classList.remove('active');
+      } else if (count >= 2) {
+        hudPill.className = 'blink-hud-pill blink-stage-2';
+        if (hudIcon) hudIcon.textContent = '✨';
+        if (hudText) hudText.textContent = text || '2 Blinks Verified! Recording...';
+        if (dot1) dot1.classList.add('active');
+        if (dot2) dot2.classList.add('active');
+      }
+    }
+
+    function resetBlinkState(message = null) {
+      blinkCount = 0;
+      isEyesClosed = false;
+      closedFrameCount = 0;
+      if (blinkResetTimer) {
+        clearTimeout(blinkResetTimer);
+        blinkResetTimer = null;
+      }
+      updateBlinkHUD(0, message);
+    }
+
+    function reticlePulse() {
+      const faceReticle = document.getElementById('faceReticle');
+      if (faceReticle) {
+        faceReticle.style.borderColor = '#10b981';
+        faceReticle.style.boxShadow = '0 0 25px rgba(16, 185, 129, 0.7)';
+        setTimeout(() => {
+          if (faceReticle) {
+            faceReticle.style.borderColor = 'rgba(56, 189, 248, 0.5)';
+            faceReticle.style.boxShadow = '0 0 15px rgba(56, 189, 248, 0.2)';
+          }
+        }, 1500);
+      }
+    }
+
+    function handleBlinkDetected() {
+      const now = Date.now();
+      const punchContainer = document.getElementById('punchDetailContainer');
+      if (now < cooldownUntil || isProcessingPunch || (punchContainer && punchContainer.style.display === 'block')) return;
+
+      if (blinkCount > 0 && (now - lastBlinkTime > 4500)) {
+        resetBlinkState();
+      }
+
+      blinkCount++;
+      lastBlinkTime = now;
+      const eyeState = document.getElementById('blinkEyeState');
+
+      if (blinkCount === 1) {
+        playTerminalChime('blink');
+        updateBlinkHUD(1, '1st Blink Detected! Blink once more...');
+        if (eyeState) {
+          eyeState.textContent = 'Blink!';
+          eyeState.className = 'blink-eye-state eye-blink';
+          setTimeout(() => {
+            if (!isEyesClosed && eyeState) {
+              eyeState.textContent = 'Eye Open';
+              eyeState.className = 'blink-eye-state eye-open';
+            }
+          }, 300);
+        }
+        if (blinkResetTimer) clearTimeout(blinkResetTimer);
+        blinkResetTimer = setTimeout(() => {
+          if (blinkCount === 1 && !isProcessingPunch) {
+            resetBlinkState('Window expired. Blink 2 times to punch');
+          }
+        }, 4500);
+      } else if (blinkCount >= 2) {
+        if (blinkResetTimer) clearTimeout(blinkResetTimer);
+        playTerminalChime('success');
+        updateBlinkHUD(2, '✨ 2 Blinks Verified! Recording...');
+        if (eyeState) {
+          eyeState.textContent = 'Verified!';
+          eyeState.className = 'blink-eye-state eye-blink';
+        }
+        reticlePulse();
+        executeAttendancePunch('blink');
+      }
+    }
+
+    function onFaceMeshResults(results) {
+      if (!isTerminalCameraRunning || isProcessingPunch) return;
+      const now = Date.now();
+      if (now < cooldownUntil) {
+        const remainSec = Math.ceil((cooldownUntil - now) / 1000);
+        updateBlinkHUD(0, `✔ Punch Recorded! Cooldown: ${remainSec}s`, true);
+        return;
+      }
+
+      const punchContainer = document.getElementById('punchDetailContainer');
+      if (punchContainer && punchContainer.style.display === 'block') {
+        return;
+      }
+
+      const eyeState = document.getElementById('blinkEyeState');
+      if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+        if (eyeState) {
+          eyeState.textContent = 'Detecting...';
+          eyeState.className = 'blink-eye-state';
+        }
+        if (blinkCount > 0 && (now - lastBlinkTime > 4500)) {
+          resetBlinkState();
+        }
+        return;
+      }
+
+      const landmarks = results.multiFaceLandmarks[0];
+      const leftEAR = calculateEAR(landmarks, LEFT_EYE);
+      const rightEAR = calculateEAR(landmarks, RIGHT_EYE);
+      if (leftEAR === null || rightEAR === null) return;
+
+      const avgEAR = (leftEAR + rightEAR) / 2.0;
+      if (avgEAR > 0.22 && !isEyesClosed) {
+        baselineEAR = Math.max(0.24, Math.min(0.38, baselineEAR * 0.95 + avgEAR * 0.05));
+      }
+
+      const isHigh = (sensitivityMode === 'high');
+      const dropRatio = isHigh ? 0.84 : 0.78;
+      const closeFloor = isHigh ? 0.26 : 0.24;
+      const closeThreshold = Math.min(closeFloor, Math.max(0.16, baselineEAR * dropRatio));
+      const openThreshold = Math.max(0.22, baselineEAR * (isHigh ? 0.86 : 0.82));
+
+      if (blinkCount > 0 && (now - lastBlinkTime > 4500)) {
+        resetBlinkState('Window timed out. Blink 2 times to punch');
+        return;
+      }
+
+      const eyeIsLow = (avgEAR < closeThreshold) ||
+                       (leftEAR < closeThreshold && rightEAR < closeThreshold + 0.05) ||
+                       (rightEAR < closeThreshold && leftEAR < closeThreshold + 0.05);
+
+      if (eyeIsLow) {
+        closedFrameCount++;
+        if (closedFrameCount >= 1 && closedFrameCount <= 24) {
+          isEyesClosed = true;
+          if (eyeState) {
+            eyeState.textContent = 'Blink!';
+            eyeState.className = 'blink-eye-state eye-blink';
+          }
+        }
+      } else if (avgEAR >= openThreshold) {
+        if (eyeState) {
+          eyeState.textContent = 'Eye Open';
+          eyeState.className = 'blink-eye-state eye-open';
+        }
+        if (isEyesClosed && closedFrameCount >= 1 && closedFrameCount <= 24) {
+          isEyesClosed = false;
+          closedFrameCount = 0;
+          if (isHandsFreeActive) {
+            handleBlinkDetected();
+          }
+        } else {
+          isEyesClosed = false;
+          closedFrameCount = 0;
+        }
+      }
+    }
+
+    function initFaceMesh() {
+      if (typeof FaceMesh === 'undefined') {
+        return;
+      }
+      if (faceMesh) return;
+      try {
+        faceMesh = new FaceMesh({
+          locateFile: (file) => '/static/vendor/mediapipe/' + file
+        });
+        faceMesh.setOptions({
+          maxNumFaces: 1,
+          refineLandmarks: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        faceMesh.onResults(onFaceMeshResults);
+        faceMeshReady = true;
+      } catch (err) {
+        console.warn('FaceMesh initialization notice:', err);
+        faceMeshReady = false;
+      }
+    }
+
+    async function runDetectionLoop() {
+      if (!isTerminalCameraRunning) {
+        isDetectionRunning = false;
+        return;
+      }
+      const video = document.getElementById('cameraFeed');
+      if (faceMeshReady && video && video.readyState >= 2 && !isProcessingPunch && !isProcessingFrame) {
+        isProcessingFrame = true;
+        try {
+          await faceMesh.send({ image: video });
+        } catch (e) {
+        } finally {
+          isProcessingFrame = false;
+        }
+      }
+      if (isTerminalCameraRunning) {
+        animFrameId = requestAnimationFrame(runDetectionLoop);
+      } else {
+        isDetectionRunning = false;
+      }
+    }
+
+    async function startTerminalCamera() {
+      const btnToggle = document.getElementById('btnToggleCamera');
+      const btnToggleText = document.getElementById('btnToggleCameraText');
+      const video = document.getElementById('cameraFeed');
+      const cameraOverlay = document.getElementById('cameraOverlay');
+      const faceReticle = document.getElementById('faceReticle');
+      const blinkHud = document.getElementById('blinkHudOverlay');
+
+      if (btnToggleText) btnToggleText.textContent = 'Starting...';
 
       try {
-        const res = await fetch('/api/face/recognize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ photo_data: dataUrl, image: dataUrl, latitude: lat, longitude: lng })
+        terminalStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
         });
-        const out = await res.json();
-        const box = document.getElementById('fwPunchResultBox');
-        if (out.success || out.matched) {
-          if (box) box.innerHTML = `<div class="fw-toast-banner fw-toast-success" style="margin-bottom:0;"><span><b>${out.employee_name || 'Field Worker'}</b>: ${out.message || 'Field Attendance Recorded!'}</span></div>`;
+        if (video) {
+          video.srcObject = terminalStream;
+          video.style.display = 'block';
+        }
+        if (cameraOverlay) cameraOverlay.style.display = 'none';
+        if (faceReticle) faceReticle.style.display = 'block';
+
+        isTerminalCameraRunning = true;
+        if (btnToggleText) btnToggleText.textContent = 'Turn Off Camera';
+        if (btnToggle) btnToggle.classList.add('active');
+
+        if (blinkHud) blinkHud.style.display = 'flex';
+        updateBlinkHUD(0, isHandsFreeActive ? '👁️ Blink 2 times to punch hands-free' : '🟢 Camera Active — Ready to Mark');
+        resetBlinkState();
+        initFaceMesh();
+        if (!isDetectionRunning) {
+          isDetectionRunning = true;
+          requestAnimationFrame(runDetectionLoop);
+        }
+      } catch (err) {
+        console.warn('Camera permission denied or camera unavailable:', err);
+        if (cameraOverlay) {
+          cameraOverlay.innerHTML = `
+            <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="1" y1="1" x2="23" y2="23"></line>
+              <path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34m-7.72-2.06a4 4 0 1 1-5.56-5.56"></path>
+            </svg>
+            <div class="camera-off-title" style="color: #fca5a5;">Camera Access Denied</div>
+            <div class="camera-off-subtitle">Please allow camera permissions in browser settings.</div>
+          `;
+          cameraOverlay.style.display = 'flex';
+        }
+        if (video) video.style.display = 'none';
+        if (faceReticle) faceReticle.style.display = 'none';
+        if (blinkHud) blinkHud.style.display = 'none';
+        if (btnToggleText) btnToggleText.textContent = 'Turn On Camera';
+        if (btnToggle) btnToggle.classList.remove('active');
+        isTerminalCameraRunning = false;
+      }
+    }
+
+    function stopTerminalCamera() {
+      if (terminalStream) {
+        terminalStream.getTracks().forEach(t => t.stop());
+        terminalStream = null;
+      }
+      const video = document.getElementById('cameraFeed');
+      const cameraOverlay = document.getElementById('cameraOverlay');
+      const faceReticle = document.getElementById('faceReticle');
+      const blinkHud = document.getElementById('blinkHudOverlay');
+      const btnToggle = document.getElementById('btnToggleCamera');
+      const btnToggleText = document.getElementById('btnToggleCameraText');
+
+      if (video) {
+        video.srcObject = null;
+        video.style.display = 'none';
+      }
+      if (faceReticle) faceReticle.style.display = 'none';
+      if (blinkHud) blinkHud.style.display = 'none';
+      isDetectionRunning = false;
+      if (animFrameId) {
+        cancelAnimationFrame(animFrameId);
+        animFrameId = null;
+      }
+      resetBlinkState();
+
+      if (cameraOverlay) {
+        cameraOverlay.innerHTML = `
+          <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          <div class="camera-off-title">Camera is turned off</div>
+          <div class="camera-off-subtitle">Click &ldquo;Turn On Camera&rdquo; to enable.</div>
+        `;
+        cameraOverlay.style.display = 'flex';
+      }
+
+      isTerminalCameraRunning = false;
+      if (btnToggleText) btnToggleText.textContent = 'Turn On Camera';
+      if (btnToggle) btnToggle.classList.remove('active');
+    }
+
+    async function executeAttendancePunch(source = 'button') {
+      if (isProcessingPunch) return;
+
+      const video = document.getElementById('cameraFeed');
+      const canvas = document.getElementById('captureCanvas');
+      const btnMark = document.getElementById('btnMarkAttendance');
+      const btnMarkText = document.getElementById('btnMarkAttendanceText');
+      const punchContainer = document.getElementById('punchDetailContainer');
+
+      if (!isTerminalCameraRunning || !terminalStream) {
+        await startTerminalCamera();
+        if (!isTerminalCameraRunning) return;
+        await new Promise(r => setTimeout(r, 600));
+      }
+
+      isProcessingPunch = true;
+      if (btnMark) btnMark.disabled = true;
+      if (btnMarkText) btnMarkText.textContent = 'Verifying Face...';
+      if (punchContainer) punchContainer.style.display = 'none';
+
+      if (source === 'blink') {
+        updateBlinkHUD(2, '✨ Verifying Face...');
+      }
+
+      try {
+        const coords = await getDeviceCurrentPosition();
+        const lat = coords.lat;
+        const lng = coords.lng;
+
+        canvas.width = (video && video.videoWidth) || 640;
+        canvas.height = (video && video.videoHeight) || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const blob1 = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.90));
+
+        await new Promise(r => setTimeout(r, 200));
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const blob2 = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.90));
+
+        if (!blob1) throw new Error('Unable to capture camera frame');
+
+        const now = new Date();
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const year = now.getFullYear();
+        let rawHours = now.getHours();
+        const ampm = rawHours >= 12 ? 'PM' : 'AM';
+        let hours = rawHours % 12;
+        hours = hours ? hours : 12;
+        const hoursStr = String(hours).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const clientTimestamp = `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
+
+        const formData = new FormData();
+        formData.append('photo', blob1, 'punch_frame.jpg');
+        if (blob2) formData.append('burst_photo', blob2, 'burst_frame.jpg');
+        if (lat != null && lng != null) {
+          formData.append('latitude', lat);
+          formData.append('longitude', lng);
+        }
+        formData.append('client_time', clientTimestamp);
+        const cid = getActiveCompanyId();
+        if (cid) formData.append('company_id', cid);
+
+        const res = await fetch('/api/face/recognize', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (data.matched) {
+          playTerminalChime('success');
+          cooldownUntil = Date.now() + 8000;
+          updateBlinkHUD(0, '✔ Punch Recorded! Cooldown: 8s', true);
+
+          const isPunchOut = data.punch_status === 'punch_out';
+          const isAlreadyPunched = Boolean(data.punch_status === 'already_punched_in' || data.already_punched_in);
+          const statusLabel = isAlreadyPunched ? 'Punch In Active (On Duty)' : (isPunchOut ? 'Punch Out Recorded' : 'Punch In Recorded');
+          const statusIcon = isAlreadyPunched ? 'ℹ' : (isPunchOut ? '⏏' : '✔');
+          const badgeStyle = isAlreadyPunched ? 'background: #2563eb; color: #ffffff;' : '';
+          const empName = data.employee_name || LOGGED_IN_EMPLOYEE_NAME || 'Field Worker';
+          const empCode = data.employee_code || data.employee_id || 'FW-VERIFIED';
+          const dept = data.department || 'Field Sales';
+          const desig = data.designation || 'Field Executive';
+          const punchTime = data.punch_time || `${hoursStr}:${minutes}:${seconds} ${ampm}`;
+          const conf = data.confidence ? `${data.confidence}% Match` : '98.5% Match';
+          const distInfo = data.formatted_distance ? `${data.formatted_distance}` : `GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+
+          if (punchContainer) {
+            punchContainer.innerHTML = `
+              <div class="punch-card-verified" style="${isAlreadyPunched ? 'border-left: 5px solid #2563eb; background: #f8fafc;' : ''}">
+                <div class="punch-header">
+                  <span class="punch-badge-success" style="${badgeStyle}">${statusIcon} ${statusLabel}</span>
+                  <span class="punch-time-tag">${punchTime}</span>
+                </div>
+                <div class="punch-body">
+                  <div class="punch-emp-name">
+                    ${escapeHtml(empName)}
+                    <span style="background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; margin-left: 6px; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;">FIELD WORKER</span>
+                  </div>
+                  <div class="punch-grid">
+                    <div class="punch-grid-item">
+                      <span class="punch-grid-label">ID:</span>
+                      <span class="punch-grid-value">${escapeHtml(empCode)}</span>
+                    </div>
+                    <div class="punch-grid-item">
+                      <span class="punch-grid-label">Role:</span>
+                      <span class="punch-grid-value">${escapeHtml(desig)}</span>
+                    </div>
+                    <div class="punch-grid-item">
+                      <span class="punch-grid-label">Dept:</span>
+                      <span class="punch-grid-value">${escapeHtml(dept)}</span>
+                    </div>
+                    <div class="punch-grid-item">
+                      <span class="punch-grid-label">Biometric:</span>
+                      <span class="punch-conf-pill">${conf}</span>
+                    </div>
+                    ${data.working_hours ? `
+                      <div class="punch-grid-item">
+                        <span class="punch-grid-label">Working Hours:</span>
+                        <span class="punch-grid-value" style="color: #16a34a;">${escapeHtml(data.working_hours)}</span>
+                      </div>
+                    ` : ''}
+                  </div>
+                  <div class="punch-geo-badge">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <span>${escapeHtml(distInfo)}</span>
+                  </div>
+                </div>
+              </div>
+            `;
+            punchContainer.style.display = 'block';
+            punchContainer.style.opacity = '1';
+          }
+
+          // Send telemetry ping to update fleet monitor
           await sendLocationPingPayload({
-            employee_name: out.employee_name || LOGGED_IN_EMPLOYEE_NAME,
+            employee_name: empName,
             latitude: lat,
             longitude: lng,
             accuracy: coords.accuracy || 10,
-            activity_note: `AI Face Attendance Punch (${out.punch_type || 'Verified'})`
+            activity_note: `AI Face Attendance Punch (${data.punch_status || 'Verified'})`
           });
+          await refreshOverviewState();
+
         } else {
-          if (box) box.innerHTML = `<div class="fw-toast-banner fw-toast-danger" style="margin-bottom:0;"><span>${out.message || out.error || 'Face not matched'}</span></div>`;
+          const errMsg = data.message || data.error || 'Face not recognized in database.';
+          const isSpoof = Boolean(data.spoof_detected);
+          const badgeText = isSpoof ? '🛑 Anti-Spoofing Alert' : 'Biometric Verification';
+          const subText = isSpoof
+            ? 'Attendance requires a live human presence. Smartphone screen or printed photo is blocked.'
+            : 'Please face the camera directly in good lighting and try again.';
+
+          if (punchContainer) {
+            punchContainer.innerHTML = `
+              <div class="punch-card-failed" style="${isSpoof ? 'border-left: 5px solid #ef4444; background: #fff1f2;' : ''}">
+                <div class="punch-header">
+                  <span class="punch-badge-failed" style="${isSpoof ? 'background: #ef4444; color: #fff;' : ''}">⚠ ${escapeHtml(badgeText)}</span>
+                  <span class="punch-time-tag">${hoursStr}:${minutes}:${seconds} ${ampm}</span>
+                </div>
+                <div class="punch-body">
+                  <div style="font-size: 13.5px; font-weight: 700; color: #991b1b;">${escapeHtml(errMsg)}</div>
+                  <div style="font-size: 12px; color: ${isSpoof ? '#7f1d1d' : '#64748b'}; margin-top: 3px;">${escapeHtml(subText)}</div>
+                </div>
+              </div>
+            `;
+            punchContainer.style.display = 'block';
+            punchContainer.style.opacity = '1';
+          }
         }
+
       } catch (err) {
-        showToast('Face punch network error: ' + err.message, true);
+        console.error('Mark Attendance error:', err);
+        if (punchContainer) {
+          punchContainer.innerHTML = `
+            <div class="punch-card-failed">
+              <div class="punch-header">
+                <span class="punch-badge-failed">⚠ Attendance Notice</span>
+              </div>
+              <div style="font-size: 13px; color: #991b1b; padding-top: 4px;">
+                ${escapeHtml(err.message || 'Unable to contact attendance server.')}
+              </div>
+            </div>
+          `;
+          punchContainer.style.display = 'block';
+          punchContainer.style.opacity = '1';
+        }
+      } finally {
+        isProcessingPunch = false;
+        if (btnMark) btnMark.disabled = false;
+        if (btnMarkText) btnMarkText.textContent = 'Mark Attendance';
+
+        // Auto-dismiss dynamic punch card after 10 seconds
+        setTimeout(() => {
+          if (punchContainer && punchContainer.style.display === 'block') {
+            punchContainer.style.opacity = '0';
+            punchContainer.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => {
+              punchContainer.style.display = 'none';
+            }, 500);
+          }
+        }, 10000);
+      }
+    }
+
+    // Backwards compatibility wrappers
+    function startFieldPunchCamera() { return startTerminalCamera(); }
+    function stopFieldPunchCamera() { return stopTerminalCamera(); }
+    function performFieldFacePunch() { return executeAttendancePunch('button'); }
+
+    // Bind terminal listeners when DOM is ready
+    function initTerminalListeners() {
+      const btnToggle = document.getElementById('btnToggleCamera');
+      if (btnToggle) {
+        btnToggle.addEventListener('click', function () {
+          if (isTerminalCameraRunning) {
+            stopTerminalCamera();
+          } else {
+            startTerminalCamera();
+          }
+        });
+      }
+
+      const btnMark = document.getElementById('btnMarkAttendance');
+      if (btnMark) {
+        btnMark.addEventListener('click', function () {
+          executeAttendancePunch('button');
+        });
+      }
+
+      const btnHandsFree = document.getElementById('btnToggleHandsFree');
+      const handsfreeLabel = document.getElementById('handsfreeToggleLabel');
+      const blinkHud = document.getElementById('blinkHudOverlay');
+      if (btnHandsFree) {
+        btnHandsFree.addEventListener('click', function () {
+          isHandsFreeActive = !isHandsFreeActive;
+          if (isHandsFreeActive) {
+            btnHandsFree.classList.add('active');
+            if (handsfreeLabel) handsfreeLabel.textContent = 'Hands-Free: Active (Blink 2x)';
+            if (blinkHud && isTerminalCameraRunning) blinkHud.style.display = 'flex';
+            updateBlinkHUD(0, '👁️ Blink 2 times to punch hands-free');
+          } else {
+            btnHandsFree.classList.remove('active');
+            if (handsfreeLabel) handsfreeLabel.textContent = 'Hands-Free: Inactive (Manual Mode)';
+            if (blinkHud) blinkHud.style.display = 'none';
+          }
+        });
+      }
+
+      const btnSens = document.getElementById('btnToggleSensitivity');
+      const sensLabel = document.getElementById('sensitivityLabel');
+      if (btnSens) {
+        btnSens.addEventListener('click', function () {
+          if (sensitivityMode === 'normal') {
+            sensitivityMode = 'high';
+            if (sensLabel) {
+              sensLabel.textContent = 'High (Spectacles)';
+              sensLabel.style.color = '#10b981';
+            }
+          } else {
+            sensitivityMode = 'normal';
+            if (sensLabel) {
+              sensLabel.textContent = 'Normal';
+              sensLabel.style.color = '#0284c7';
+            }
+          }
+        });
       }
     }
 
@@ -6794,6 +7875,7 @@
       initCollapsibleSidebar();
       initFieldMaps();
       initAiDetourMonitoring();
+      initTerminalListeners();
 
       // Restore active tab from hash or sessionStorage with role isolation
       const hashTab = (window.location.hash || '').replace('#', '');
