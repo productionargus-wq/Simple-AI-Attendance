@@ -635,6 +635,258 @@
       background: #fee2e2;
     }
 
+    /* ---------------- AI Detour & Anomaly Monitoring Styles ---------------- */
+    .ai-detour-alert-banner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%);
+      border: 1.5px solid #fecdd3;
+      border-left: 6px solid #dc2626;
+      border-radius: 10px;
+      padding: 12px 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08);
+      animation: aiPulseBanner 2.5s infinite;
+    }
+
+    @keyframes aiPulseBanner {
+      0%, 100% { box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08); }
+      50% { box-shadow: 0 4px 18px rgba(220, 38, 38, 0.22); }
+    }
+
+    .ai-alert-beacon {
+      position: relative;
+      width: 40px;
+      height: 40px;
+      background: #dc2626;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .ai-beacon-ring {
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      right: -4px;
+      bottom: -4px;
+      border: 2px solid #ef4444;
+      border-radius: 50%;
+      animation: aiBeaconRipple 1.8s infinite;
+    }
+
+    @keyframes aiBeaconRipple {
+      0% { transform: scale(0.9); opacity: 1; }
+      100% { transform: scale(1.4); opacity: 0; }
+    }
+
+    .ai-alert-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ai-alert-headline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 14px;
+      color: #991b1b;
+      margin-bottom: 2px;
+      flex-wrap: wrap;
+    }
+
+    .ai-badge-severity {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .ai-badge-high {
+      background: #dc2626;
+      color: #ffffff;
+    }
+
+    .ai-badge-med {
+      background: #d97706;
+      color: #ffffff;
+    }
+
+    .ai-badge-low {
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    .ai-model-tag {
+      font-size: 11px;
+      font-weight: 700;
+      color: #7c3aed;
+      background: #f5f3ff;
+      border: 1px solid #ddd6fe;
+      padding: 1px 7px;
+      border-radius: 12px;
+    }
+
+    .ai-alert-desc {
+      font-size: 12.5px;
+      color: #7f1d1d;
+      line-height: 1.4;
+    }
+
+    .ai-alert-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .ai-btn-locate {
+      background: #1e293b;
+      color: #ffffff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .ai-btn-locate:hover {
+      background: #0f172a;
+      transform: translateY(-1px);
+    }
+
+    .ai-btn-resolve {
+      background: #16a34a;
+      color: #ffffff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .ai-btn-resolve:hover {
+      background: #15803d;
+      transform: translateY(-1px);
+    }
+
+    .ai-btn-dismiss {
+      background: transparent;
+      border: none;
+      color: #991b1b;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+      line-height: 1;
+    }
+
+    /* AI Incidents Log Card */
+    .ai-incident-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .ai-incident-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+    }
+
+    .ai-incident-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .ai-incident-worker {
+      font-weight: 800;
+      font-size: 14px;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ai-summary-pill {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 3px solid #6366f1;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #334155;
+      line-height: 1.45;
+    }
+
+    .ai-rec-pill {
+      background: #fffbeb;
+      border: 1px solid #fef3c7;
+      border-left: 3px solid #f59e0b;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #92400e;
+      line-height: 1.45;
+    }
+
+    /* Leaflet AI Pulse Marker */
+    .leaflet-ai-detour-marker {
+      position: relative;
+      width: 26px;
+      height: 26px;
+      background: #dc2626;
+      border: 2.5px solid #ffffff;
+      border-radius: 50%;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.5);
+    }
+
+    .leaflet-ai-pulse {
+      position: absolute;
+      top: -6px;
+      left: -6px;
+      right: -6px;
+      bottom: -6px;
+      border: 2px solid #ef4444;
+      border-radius: 50%;
+      animation: aiMarkerPulse 1.6s infinite ease-out;
+    }
+
+    @keyframes aiMarkerPulse {
+      0% { transform: scale(0.8); opacity: 1; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
     /* ---------------- Maps & Camera Boxes ---------------- */
     #fieldLiveMap {
       width: 100%;
@@ -1323,6 +1575,36 @@
         <!-- ========================================================================= -->
         {% if user_role in ['super_admin', 'company_admin'] %}
         <div id="paneLiveTracking" class="fw-section-pane active" data-title="LIVE MONITOR">
+
+          <!-- AI Detour & Anomaly Real-Time Alert Banner -->
+          <div id="aiLiveAlertBanner" class="ai-detour-alert-banner" style="display:none;">
+            <div class="ai-alert-beacon">
+              <span class="ai-beacon-ring"></span>
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div class="ai-alert-content">
+              <div class="ai-alert-headline">
+                <span class="ai-badge-severity ai-badge-high" id="aiAlertSeverity">HIGH</span>
+                <span id="aiAlertTitle">AI Detour Anomaly Detected</span>
+                <span class="ai-model-tag"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Monitored</span>
+              </div>
+              <div class="ai-alert-desc" id="aiAlertDesc">
+                Worker <b id="aiAlertWorkerName">--</b> deviated off-route (<span id="aiAlertDwell">--</span> dwell at <span id="aiAlertLocation">--</span>).
+              </div>
+            </div>
+            <div class="ai-alert-actions">
+              <button type="button" class="ai-btn-locate" onclick="locateActiveAiIncidentOnMap()">
+                <i class="fa-solid fa-crosshairs"></i> Inspect on Map
+              </button>
+              <button type="button" class="ai-btn-resolve" onclick="openResolveActiveAiIncident()">
+                <i class="fa-solid fa-circle-check"></i> Resolve Alert
+              </button>
+              <button type="button" class="ai-btn-dismiss" onclick="dismissAiAlertBanner()" title="Dismiss banner">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+
           <!-- 6 Live KPI Summary Cards (Displayed in Live Route Tab ALONE) -->
           <div class="fw-kpi-grid">
             <div class="fw-kpi-card">
@@ -1371,9 +1653,12 @@
 
             <div class="fw-kpi-card" style="border-left: 3px solid #dc2626;">
               <div>
-                <div class="fw-kpi-lbl" style="color:#b91c1c;">Personal Detours</div>
+                <div class="fw-kpi-lbl" style="color:#b91c1c; display:flex; align-items:center; gap:6px;">
+                  Personal Detours
+                  <span id="kpiAiBadge" class="ai-badge-severity ai-badge-high" style="display:none; font-size:9px; padding:1px 5px;">AI ALERT</span>
+                </div>
                 <div class="fw-kpi-val" style="color:#dc2626;" id="kpiDetourCount">{{ tracking.counts.off_route_detour if tracking and tracking.counts else 0 }}</div>
-                <div class="fw-kpi-sub">Off-Route (&gt;1 km)</div>
+                <div class="fw-kpi-sub" style="color:#dc2626;"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Monitored</div>
               </div>
               <div class="fw-kpi-icon" style="background:#fee2e2; color:#b91c1c;">
                 <i class="fa-solid fa-triangle-exclamation"></i>
@@ -1488,6 +1773,39 @@
             </div>
           </div>
 
+          <!-- Middle Section: AI Field Detour & Anomaly Monitoring Log -->
+          <div class="fw-card" id="aiIncidentsSection" style="margin-bottom: 20px;">
+            <div class="fw-card-header" style="background: linear-gradient(135deg, #fff1f2 0%, #fef2f2 100%); border-bottom: 1.5px solid #fecdd3;">
+              <div class="fw-card-header-left">
+                <span class="fw-card-icon" style="background:#fee2e2; color:#dc2626;">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </span>
+                <div>
+                  <div class="fw-card-title" style="color:#991b1b; display:flex; align-items:center; gap:8px;">
+                    AI FIELD WORKER DETOUR &amp; ANOMALY AUDITOR
+                    <span id="aiActiveIncidentsBadge" class="ai-badge-severity ai-badge-high" style="display:none;">0 ACTIVE</span>
+                  </div>
+                  <div class="fw-card-subtitle" style="color:#b91c1c;">Autonomous stationary dwell &amp; unauthorized detour detection powered by Gemini AI</div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" class="fw-btn fw-btn-outline" style="font-size:12px; padding:6px 12px; border-color:#fca5a5; color:#991b1b;" onclick="simulateScenarioPing('off_route_detour')" title="Trigger instant AI anomaly simulation">
+                  <i class="fa-solid fa-flask" style="color:#dc2626;"></i> Simulate AI Detour
+                </button>
+                <button type="button" class="fw-btn fw-btn-outline" style="font-size:12px; padding:6px 12px;" onclick="refreshOverviewState()" title="Refresh telemetry">
+                  <i class="fa-solid fa-rotate"></i> Refresh
+                </button>
+              </div>
+            </div>
+            <div class="fw-card-body" style="padding:16px;">
+              <div id="aiIncidentsContainer">
+                <div style="text-align:center; padding:20px; color:#16a34a; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; font-size:13px; font-weight:700;">
+                  <i class="fa-solid fa-circle-check" style="margin-right:6px;"></i> All field routes verified compliant. No unauthorized detours or stationary anomalies detected today.
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Bottom Card: Live GPS Trail & Route Compliance Table -->
           <div class="table-card">
             <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; overflow-x: auto;">
@@ -1554,6 +1872,52 @@
                   {% endif %}
                 </tbody>
               </table>
+          <!-- Modal: Resolve AI Detour Incident -->
+          <div class="fw-modal-backdrop d-none" id="resolveIncidentModalBackdrop">
+            <div class="fw-modal-dialog" style="max-width: 500px;">
+              <div class="fw-modal-header" style="background:#fef2f2; border-bottom:1px solid #fee2e2;">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background:#fee2e2; color:#dc2626;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title" style="color:#991b1b;">Resolve AI Detour Incident</div>
+                    <div class="fw-card-subtitle" style="color:#b91c1c;">Acknowledge detour and record admin investigation notes</div>
+                  </div>
+                </div>
+                <button type="button" class="fw-modal-close-btn" onclick="closeResolveIncidentModal()">&times;</button>
+              </div>
+
+              <form id="resolveIncidentForm" onsubmit="submitResolveIncident(event)">
+                <input type="hidden" id="resolveIncidentId">
+                <div class="fw-modal-body" style="gap:14px;">
+                  <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; font-size:12.5px; line-height:1.6;">
+                    <div><b>Field Worker:</b> <span id="resolveWorkerName" style="color:#0f172a; font-weight:700;">--</span></div>
+                    <div><b>Stop Location:</b> <span id="resolveLocation" style="color:#475569;">--</span></div>
+                    <div><b>Stationary Dwell:</b> <span id="resolveDwell" style="color:#dc2626; font-weight:700;">--</span></div>
+                  </div>
+
+                  <div class="fw-field">
+                    <label class="fw-label">Resolution Action *</label>
+                    <select id="resolveStatusSelect" class="fw-select" required>
+                      <option value="Resolved">Resolved (Authorized / Investigated)</option>
+                      <option value="Acknowledged">Acknowledged (Pending Follow-up)</option>
+                    </select>
+                  </div>
+
+                  <div class="fw-field">
+                    <label class="fw-label">Admin Notes &amp; Justification</label>
+                    <textarea id="resolveAdminNotes" class="fw-textarea" rows="3" placeholder="e.g. Spoke to employee; verified authorized stop or emergency detour." style="resize:vertical;"></textarea>
+                  </div>
+                </div>
+
+                <div class="fw-modal-footer">
+                  <button type="button" class="fw-btn fw-btn-neutral" onclick="closeResolveIncidentModal()">Cancel</button>
+                  <button type="submit" class="fw-btn fw-btn-success">
+                    <i class="fa-solid fa-check-double"></i> Save Resolution
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -2683,6 +3047,37 @@
     let autoTrackTimer = null;
     let fwVideoStream = null;
     let autoRefreshTimer = null;
+    let KNOWN_AI_INCIDENT_IDS = new Set();
+    let ACTIVE_AI_INCIDENTS = [];
+
+    // Web Audio API Dual-Tone Chime Synthesizer (Zero External Audio File Dependency)
+    function playAiAlertChime() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc1.type = 'sine';
+        osc2.type = 'triangle';
+        osc1.frequency.setValueAtTime(880, ctx.currentTime);
+        osc1.frequency.exponentialRampToValueAtTime(1174.66, ctx.currentTime + 0.18);
+        osc2.frequency.setValueAtTime(440, ctx.currentTime);
+        osc2.frequency.exponentialRampToValueAtTime(587.33, ctx.currentTime + 0.18);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+        osc1.start();
+        osc2.start();
+        osc1.stop(ctx.currentTime + 0.6);
+        osc2.stop(ctx.currentTime + 0.6);
+      } catch (e) {
+        // Audio playback muted or blocked
+      }
+    }
 
     // Universal Table Search Filter
     function filterFieldTable(inputEl, tableId) {
@@ -3038,16 +3433,78 @@
         liveMapLayerGroup.addLayer(geofence);
       });
 
+      // Render Breadcrumb Trails (Color-coded: Blue for Corridor, Glowing Red for Detour)
       const crumbsByWorker = (TRACKING_DATA && TRACKING_DATA.breadcrumbs_by_worker) || {};
       Object.keys(crumbsByWorker).forEach(workerName => {
         const pts = crumbsByWorker[workerName] || [];
         const latlngs = pts.filter(p => p.lat && p.lng).map(p => [p.lat, p.lng]);
         if (latlngs.length > 1) {
-          const poly = L.polyline(latlngs, { color: '#475569', weight: 3, dashArray: '4,6' });
+          const hasDetour = pts.some(p => p.status === 'off_route_detour');
+          const poly = L.polyline(latlngs, {
+            color: hasDetour ? '#dc2626' : '#2563eb',
+            weight: hasDetour ? 4 : 3,
+            dashArray: hasDetour ? '6,6' : '4,6',
+            opacity: 0.9
+          });
           liveMapLayerGroup.addLayer(poly);
         }
       });
 
+      // Render Active AI Detour Anomaly Pulse Markers
+      const activeIncidents = (TRACKING_DATA && TRACKING_DATA.active_ai_incidents) || [];
+      activeIncidents.forEach(inc => {
+        if (!inc.latitude || !inc.longitude) return;
+        const incPos = [parseFloat(inc.latitude), parseFloat(inc.longitude)];
+        bounds.push(incPos);
+
+        const aiDivIcon = L.divIcon({
+          className: 'custom-ai-pin-wrapper',
+          html: `
+            <div class="leaflet-ai-detour-marker" title="AI Detour Anomaly: ${inc.employee_name}">
+              <div class="leaflet-ai-pulse"></div>
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+          `,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13]
+        });
+
+        const safeAddr = (inc.address || '').replace(/'/g, "\\'");
+        const safeWorker = (inc.employee_name || '').replace(/'/g, "\\'");
+
+        const aiMarker = L.marker(incPos, { icon: aiDivIcon, zIndexOffset: 1200 }).bindPopup(`
+          <div style="min-width:260px; font-size:12px; font-family:inherit;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+              <span class="ai-badge-severity ${inc.severity === 'HIGH' ? 'ai-badge-high' : 'ai-badge-med'}">
+                ${inc.severity || 'HIGH'} DETOUR
+              </span>
+              <span class="ai-model-tag">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> AI Monitored
+              </span>
+            </div>
+            <div style="font-weight:800; font-size:14px; color:#0f172a; margin-bottom:2px;">
+              ${inc.employee_name}
+            </div>
+            <div style="font-size:11.5px; color:#64748b; margin-bottom:6px;">
+              <i class="fa-solid fa-location-dot" style="color:#ef4444;"></i> ${inc.address || 'Unassigned Location'}
+            </div>
+            <div class="ai-summary-pill" style="margin-bottom:6px;">
+              <b>AI Finding:</b> ${inc.summary}
+            </div>
+            <div class="ai-rec-pill" style="margin-bottom:8px;">
+              <b>Action:</b> ${inc.action_recommendation}
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <button type="button" class="ai-btn-resolve" onclick="openResolveIncidentModal('${inc.id}', '${safeWorker}', '${safeAddr}', '${inc.dwell_minutes}m')">
+                <i class="fa-solid fa-check-double"></i> Acknowledge / Resolve
+              </button>
+            </div>
+          </div>
+        `);
+        liveMapLayerGroup.addLayer(aiMarker);
+      });
+
+      // Render Live Worker Markers
       const workersLive = (TRACKING_DATA && TRACKING_DATA.workers_live) || [];
       workersLive.forEach(w => {
         if (!w.latitude || !w.longitude) return;
@@ -3079,6 +3536,11 @@
               <div><b>Distance Today:</b> ${w.total_km_today || 0} KM</div>
               <div><b>Address:</b> ${w.address || ''}</div>
               <div style="color:#64748b; margin-top:2px;">Last Seen: ${w.last_seen || ''}</div>
+              ${w.active_ai_incident ? `
+                <div style="margin-top:6px; padding:6px; background:#fef2f2; border:1px solid #fecdd3; border-radius:4px; font-size:11px; color:#991b1b;">
+                  <b>AI Detour Alert:</b> ${w.active_ai_incident.summary}
+                </div>
+              ` : ''}
             </div>
           </div>
         `);
@@ -3129,6 +3591,16 @@
         if (kd) kd.textContent = (TRACKING_DATA.counts && TRACKING_DATA.counts.off_route_detour) || 0;
         const kv = document.getElementById('kpiVisitsCount');
         if (kv) kv.textContent = VISITS_DATA.length;
+
+        // Update AI Detour Anomaly Alert Banner & Incident Drawer
+        const aiIncs = data.ai_incidents || (TRACKING_DATA && TRACKING_DATA.ai_incidents) || [];
+        const activeAiIncs = data.active_ai_incidents || (TRACKING_DATA && TRACKING_DATA.active_ai_incidents) || [];
+        updateAiAlertBanner(activeAiIncs);
+        renderAiIncidentsList(aiIncs);
+        const aiBadge = document.getElementById('kpiAiBadge');
+        if (aiBadge) {
+          aiBadge.style.display = activeAiIncs.length > 0 ? 'inline-block' : 'none';
+        }
 
         // 2. Re-render Tab 1 Map & Tracking Logs
         renderLiveMapLayers();
@@ -3197,6 +3669,232 @@
           <td style="color:#475569;">${lg.activity_note || '-'}</td>
         </tr>`;
       }).join('');
+    }
+
+    // =========================================================================
+    // AI DETOUR & ANOMALY ALERT FUNCTIONS
+    // =========================================================================
+    function updateAiAlertBanner(activeIncidents) {
+      const banner = document.getElementById('aiLiveAlertBanner');
+      if (!banner) return;
+      if (!activeIncidents || activeIncidents.length === 0) {
+        banner.style.display = 'none';
+        return;
+      }
+      ACTIVE_AI_INCIDENTS = activeIncidents;
+      const latest = activeIncidents[0];
+
+      // Check if new incident appeared to trigger audio chime
+      const hasNew = activeIncidents.some(inc => !KNOWN_AI_INCIDENT_IDS.has(inc.id));
+      if (hasNew) {
+        playAiAlertChime();
+        activeIncidents.forEach(inc => KNOWN_AI_INCIDENT_IDS.add(inc.id));
+      }
+
+      const sevEl = document.getElementById('aiAlertSeverity');
+      if (sevEl) {
+        sevEl.textContent = latest.severity || 'HIGH';
+        sevEl.className = 'ai-badge-severity ' + (latest.severity === 'HIGH' ? 'ai-badge-high' : 'ai-badge-med');
+      }
+      const titleEl = document.getElementById('aiAlertTitle');
+      if (titleEl) {
+        titleEl.textContent = activeIncidents.length > 1
+          ? `AI Detour Alerts: ${activeIncidents.length} Field Workers Off-Route`
+          : `AI Detour Alert: ${latest.employee_name}`;
+      }
+      const nameEl = document.getElementById('aiAlertWorkerName');
+      if (nameEl) nameEl.textContent = latest.employee_name;
+      const dwellEl = document.getElementById('aiAlertDwell');
+      if (dwellEl) dwellEl.textContent = `${latest.dwell_minutes || 0}m`;
+      const locEl = document.getElementById('aiAlertLocation');
+      if (locEl) locEl.textContent = latest.address || 'Unassigned Site';
+
+      banner.style.display = 'flex';
+    }
+
+    function dismissAiAlertBanner() {
+      const banner = document.getElementById('aiLiveAlertBanner');
+      if (banner) banner.style.display = 'none';
+    }
+
+    function renderAiIncidentsList(incidents) {
+      const container = document.getElementById('aiIncidentsContainer');
+      const badge = document.getElementById('aiActiveIncidentsBadge');
+      if (!container) return;
+
+      const activeList = (incidents || []).filter(i => i.status === 'Active' || i.status === 'Acknowledged');
+      if (badge) {
+        if (activeList.length > 0) {
+          badge.textContent = `${activeList.length} ACTIVE`;
+          badge.className = 'ai-badge-severity ai-badge-high';
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+
+      if (!incidents || incidents.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center; padding:20px; color:#16a34a; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; font-size:13px; font-weight:700;">
+            <i class="fa-solid fa-circle-check" style="margin-right:6px;"></i> All field routes verified compliant. No unauthorized detours or stationary anomalies detected today.
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      incidents.forEach(inc => {
+        const isResolved = inc.status === 'Resolved';
+        const sevClass = inc.severity === 'HIGH' ? 'ai-badge-high' : (inc.severity === 'MEDIUM' ? 'ai-badge-med' : 'ai-badge-low');
+        const safeAddr = (inc.address || '').replace(/'/g, "\\'");
+        const safeWorker = (inc.employee_name || '').replace(/'/g, "\\'");
+
+        html += `
+          <div class="ai-incident-card" style="${isResolved ? 'opacity:0.75; border-left:4px solid #16a34a;' : 'border-left:4px solid #dc2626;'}">
+            <div class="ai-incident-header">
+              <div class="ai-incident-worker">
+                <span style="width:28px; height:28px; border-radius:50%; background:${isResolved ? '#dcfce7; color:#15803d;' : '#fee2e2; color:#dc2626;'} display:flex; align-items:center; justify-content:center; font-size:12px;">
+                  <i class="fa-solid ${isResolved ? 'fa-check' : 'fa-triangle-exclamation'}"></i>
+                </span>
+                <span>${inc.employee_name}</span>
+                <span class="ai-badge-severity ${sevClass}">${inc.severity || 'HIGH'}</span>
+                <span style="font-size:11px; font-weight:700; color:#475569; background:#f1f5f9; padding:2px 7px; border-radius:4px;">
+                  <i class="fa-solid fa-stopwatch" style="color:#d97706;"></i> ${inc.dwell_minutes || 0}m Dwell
+                </span>
+                <span style="font-size:11px; font-weight:700; color:#475569; background:#f1f5f9; padding:2px 7px; border-radius:4px;">
+                  <i class="fa-solid fa-ruler" style="color:#2563eb;"></i> ${inc.detour_distance_km || 0} km Off-Route
+                </span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:11.5px; color:#64748b; font-weight:600;">
+                  <i class="fa-regular fa-clock"></i> ${inc.time_short || inc.timestamp}
+                </span>
+                <span style="font-size:11px; font-weight:800; padding:2px 8px; border-radius:12px; background:${isResolved ? '#dcfce7; color:#15803d;' : '#fee2e2; color:#b91c1c;'}">
+                  ${inc.status || 'Active'}
+                </span>
+              </div>
+            </div>
+
+            <div style="font-size:12px; color:#475569; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <i class="fa-solid fa-location-dot" style="color:#ef4444;"></i>
+              <span><b>Stop Location:</b> ${inc.address || 'Unassigned Location'}</span>
+              <span style="color:#94a3b8;">|</span>
+              <span><b>Target:</b> ${inc.nearest_target_name || 'Assigned Site'}</span>
+            </div>
+
+            <div class="ai-summary-pill">
+              <div style="font-weight:700; color:#4338ca; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> AI Assessment (${inc.ai_model_used || 'Gemini AI Engine'})
+              </div>
+              <div>${inc.summary}</div>
+            </div>
+
+            <div class="ai-rec-pill">
+              <div style="font-weight:700; color:#b45309; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
+                <i class="fa-solid fa-lightbulb"></i> Recommended Action
+              </div>
+              <div>${inc.action_recommendation}</div>
+            </div>
+
+            ${isResolved && inc.admin_notes ? `
+              <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:8px 12px; font-size:12px; color:#166534;">
+                <b>Admin Resolution (${inc.resolved_by || 'Admin'}):</b> ${inc.admin_notes}
+              </div>
+            ` : ''}
+
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:2px;">
+              <button type="button" class="ai-btn-locate" onclick="locateActiveAiIncidentOnMap(${inc.latitude}, ${inc.longitude}, '${inc.id}')">
+                <i class="fa-solid fa-crosshairs"></i> View on Radar
+              </button>
+              ${!isResolved ? `
+                <button type="button" class="ai-btn-resolve" onclick="openResolveIncidentModal('${inc.id}', '${safeWorker}', '${safeAddr}', '${inc.dwell_minutes}m')">
+                  <i class="fa-solid fa-check-double"></i> Acknowledge / Resolve
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function locateActiveAiIncidentOnMap(lat, lng, incidentId) {
+      if (!liveMap) return;
+      if (!lat || !lng) {
+        if (ACTIVE_AI_INCIDENTS.length > 0) {
+          lat = parseFloat(ACTIVE_AI_INCIDENTS[0].latitude);
+          lng = parseFloat(ACTIVE_AI_INCIDENTS[0].longitude);
+        }
+      }
+      if (lat && lng) {
+        liveMap.setView([lat, lng], 16, { animate: true });
+        const mapEl = document.getElementById('fieldLiveMap');
+        if (mapEl) mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    function openResolveActiveAiIncident() {
+      if (ACTIVE_AI_INCIDENTS.length > 0) {
+        const inc = ACTIVE_AI_INCIDENTS[0];
+        openResolveIncidentModal(inc.id, inc.employee_name, inc.address, (inc.dwell_minutes || 0) + 'm');
+      }
+    }
+
+    function openResolveIncidentModal(incId, empName, location, dwell) {
+      document.getElementById('resolveIncidentId').value = incId || '';
+      document.getElementById('resolveWorkerName').textContent = empName || '--';
+      document.getElementById('resolveLocation').textContent = location || '--';
+      document.getElementById('resolveDwell').textContent = dwell || '--';
+      document.getElementById('resolveAdminNotes').value = '';
+      const modal = document.getElementById('resolveIncidentModalBackdrop');
+      if (modal) modal.classList.remove('d-none');
+    }
+
+    function closeResolveIncidentModal() {
+      const modal = document.getElementById('resolveIncidentModalBackdrop');
+      if (modal) modal.classList.add('d-none');
+    }
+
+    async function submitResolveIncident(e) {
+      e.preventDefault();
+      const incId = document.getElementById('resolveIncidentId').value;
+      const status = document.getElementById('resolveStatusSelect').value;
+      const notes = document.getElementById('resolveAdminNotes').value;
+
+      try {
+        const res = await fetch(`/api/field-worker/ai-incidents/${encodeURIComponent(incId)}/resolve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company_id: getActiveCompanyId(),
+            status: status,
+            admin_notes: notes
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Incident marked as ${status}!`);
+          closeResolveIncidentModal();
+          await refreshOverviewState();
+        } else {
+          showToast(data.error || 'Failed to resolve incident', true);
+        }
+      } catch (err) {
+        showToast('Network error resolving incident: ' + err.message, true);
+      }
+    }
+
+    function initAiDetourMonitoring() {
+      const activeIncs = (TRACKING_DATA && TRACKING_DATA.active_ai_incidents) || [];
+      const allIncs = (TRACKING_DATA && TRACKING_DATA.ai_incidents) || [];
+      activeIncs.forEach(i => KNOWN_AI_INCIDENT_IDS.add(i.id));
+      updateAiAlertBanner(activeIncs);
+      renderAiIncidentsList(allIncs);
+      const aiBadge = document.getElementById('kpiAiBadge');
+      if (aiBadge) {
+        aiBadge.style.display = activeIncs.length > 0 ? 'inline-block' : 'none';
+      }
     }
 
     function renderWorkersDirectoryTable(workers) {
@@ -3603,7 +4301,7 @@
       } else {
         baseLat += 0.0240;
         baseLng -= 0.0210;
-        note = 'Unassigned Stop >2.5km away from target route';
+        note = 'Personal Stop / Shopping Mall Detour (Simulation)';
       }
 
       const latEl = document.getElementById('pingLat');
@@ -3618,6 +4316,7 @@
         latitude: baseLat,
         longitude: baseLng,
         tracking_status: mode,
+        dwell_minutes: (mode === 'off_route_detour' ? 35 : 0),
         activity_note: note
       });
     }
@@ -4024,11 +4723,15 @@
       if (e.target && e.target.id === 'editLeadModalBackdrop') {
         closeEditLeadModal();
       }
+      if (e.target && e.target.id === 'resolveIncidentModalBackdrop') {
+        closeResolveIncidentModal();
+      }
     });
 
     document.addEventListener('DOMContentLoaded', () => {
       initCollapsibleSidebar();
       initFieldMaps();
+      initAiDetourMonitoring();
 
       // Restore active tab from hash or sessionStorage with role isolation
       const hashTab = (window.location.hash || '').replace('#', '');

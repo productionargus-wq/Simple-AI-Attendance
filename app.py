@@ -5146,6 +5146,9 @@ def api_field_worker_overview():
         'all_employees': all_emps,
         'assignments': assignments,
         'tracking': tracking,
+        'ai_incidents': tracking.get('ai_incidents', []) if isinstance(tracking, dict) else [],
+        'active_ai_incidents': tracking.get('active_ai_incidents', []) if isinstance(tracking, dict) else [],
+        'ai_summary': tracking.get('ai_summary', {}) if isinstance(tracking, dict) else {},
         'visits': visits,
         'salary_reports': salary_reports
     })
@@ -5278,10 +5281,105 @@ def api_field_worker_location_ping():
         return jsonify({
             'success': True,
             'ping': ping,
+            'ai_incident': ping.get('ai_incident'),
             'message': f"GPS Logged: {ping.get('status_label')} ({ping.get('distance_from_target_m', 0)}m from target)"
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@app.route('/api/field-worker/ai-incidents', methods=['GET'])
+def api_field_worker_ai_incidents():
+    """Returns AI-detected detour and anomaly incidents for the company."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    date_str = request.args.get('date') or database.get_ist_now().strftime('%Y-%m-%d')
+    emp_name = request.args.get('employee_name')
+    status = request.args.get('status')
+
+    incidents = database.get_field_ai_incidents(company_id=cid, date_str=date_str, employee_name=emp_name, status=status)
+    summary = database.get_field_ai_incidents_summary(company_id=cid, date_str=date_str)
+
+    return jsonify({
+        'success': True,
+        'date': date_str,
+        'incidents': incidents,
+        'summary': summary
+    })
+
+
+@app.route('/api/field-worker/ai-incidents/<incident_id>/resolve', methods=['POST'])
+def api_field_worker_ai_incident_resolve(incident_id):
+    """Marks an AI detour incident as Acknowledged or Resolved with admin notes."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    cid = _resolve_field_company_id(data.get('company_id'))
+    status = str(data.get('status') or 'Resolved').strip()
+    notes = str(data.get('admin_notes') or '').strip()
+    admin_user = session.get('admin_user') or session.get('employee_name') or 'Company Admin'
+
+    ok = database.resolve_field_ai_incident(
+        incident_id=incident_id,
+        status=status,
+        admin_notes=notes,
+        resolved_by=admin_user,
+        company_id=cid
+    )
+    if not ok:
+        return jsonify({'success': False, 'error': 'Incident not found or could not be updated'}), 404
+
+    return jsonify({
+        'success': True,
+        'message': f'Incident marked as {status}',
+        'incident_id': incident_id
+    })
+
+
+@app.route('/api/field-worker/ai-test-detour', methods=['POST'])
+def api_field_worker_ai_test_detour():
+    """Admin simulation endpoint to trigger an AI Detour Anomaly immediately for verification."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    cid = _resolve_field_company_id(data.get('company_id'))
+    emp_name = str(data.get('employee_name') or '').strip()
+    if not emp_name:
+        workers = database.get_field_workers(company_id=cid, include_all_employees=True)
+        if workers:
+            emp_name = workers[0].get('employee_name')
+        else:
+            return jsonify({'success': False, 'error': 'No field workers found to simulate'}), 400
+
+    comp = database.get_company_by_id(cid) or {}
+    base_lat = float(comp.get('latitude') or 11.0298)
+    base_lng = float(comp.get('longitude') or 76.9740)
+
+    # Coordinates situated at a mall / off-route commercial hotspot
+    detour_lat = base_lat + 0.0240
+    detour_lng = base_lng - 0.0185
+    dwell = int(data.get('dwell_minutes') or 35)
+
+    ping_payload = {
+        'company_id': cid,
+        'employee_name': emp_name,
+        'latitude': detour_lat,
+        'longitude': detour_lng,
+        'tracking_status': 'off_route_detour',
+        'dwell_minutes': dwell,
+        'activity_note': str(data.get('activity_note') or 'Off-Route Mall / Personal Stop Simulation')
+    }
+    ping = database.record_field_location_ping(ping_payload, company_id=cid)
+    return jsonify({
+        'success': True,
+        'message': f"AI Detour Anomaly evaluated for {emp_name}!",
+        'ping': ping,
+        'ai_incident': ping.get('ai_incident')
+    })
 
 
 @app.route('/api/field-worker/visits', methods=['GET', 'POST'])

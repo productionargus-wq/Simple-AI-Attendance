@@ -7151,11 +7151,267 @@ def delete_field_assignment(assignment_id, company_id=None):
     return res.deleted_count > 0
 
 
+
+def evaluate_field_worker_anomaly(emp_name, lat, lng, address, nearest_target_name, detour_distance_m, dwell_minutes, activity_note='', company_id=None):
+    """
+    Evaluates a field worker GPS anomaly using Google Gemini 1.5 Flash (if API key configured)
+    with a deterministic Heuristic AI Expert System fallback.
+    Returns structured incident assessment dict.
+    """
+    now_ist = get_ist_now()
+    detour_km = round(max(0.0, float(detour_distance_m or 0.0) / 1000.0), 2)
+    dwell_mins = max(1, int(dwell_minutes or 0))
+    addr_lower = (address or '').lower()
+    note_lower = (activity_note or '').lower()
+
+    # Rule-Based Heuristic AI Evaluation (Guaranteed 100% Free & Zero External Latency)
+    anomaly_category = "Off-Route Stationary Dwell"
+    severity = "MEDIUM"
+
+    if any(k in addr_lower or k in note_lower for k in ['mall', 'bazaar', 'market', 'shopping', 'retail', 'complex', 'store', 'hypermarket', 'mart', 'supermarket', 'clothing', 'textile']):
+        anomaly_category = "Unauthorized Personal Shopping / Mall Detour"
+        severity = "HIGH" if (dwell_mins >= 25 or detour_km >= 2.5) else "MEDIUM"
+    elif any(k in addr_lower or k in note_lower for k in ['restaurant', 'cafe', 'hotel', 'bistro', 'coffee', 'dhaba', 'bar', 'juice', 'bakery', 'food court', 'tea', 'mess', 'biryani']):
+        anomaly_category = "Unscheduled Dining / Refreshment Halt"
+        severity = "HIGH" if dwell_mins >= 40 else ("MEDIUM" if dwell_mins >= 20 else "LOW")
+    elif any(k in addr_lower or k in note_lower for k in ['cinema', 'theatre', 'theater', 'movie', 'multiplex', 'park', 'garden', 'resort', 'club', 'stadium', 'play']):
+        anomaly_category = "Entertainment / Recreational Detour"
+        severity = "HIGH"
+    elif any(k in addr_lower or k in note_lower for k in ['residence', 'apartment', 'flat', 'nagar', 'colony', 'layout', 'villas', 'housing', 'house', 'gated community']):
+        anomaly_category = "Suspected Personal / Residential Deviation"
+        severity = "HIGH" if (dwell_mins >= 25 or detour_km >= 3.0) else "MEDIUM"
+    elif any(k in addr_lower or k in note_lower for k in ['highway', 'bypass', 'toll', 'ring road', 'service road', 'fuel', 'petrol', 'pump']):
+        anomaly_category = "Corridor Traffic / Stationary Transit Halt"
+        severity = "MEDIUM" if dwell_mins >= 35 else "LOW"
+    else:
+        if dwell_mins >= 30 or detour_km >= 3.5:
+            severity = "HIGH"
+            anomaly_category = "Severe Off-Route Deviation & Extended Dwell"
+        elif dwell_mins >= 15 or detour_km >= 1.5:
+            severity = "MEDIUM"
+            anomaly_category = "Unassigned Off-Route Stop"
+        else:
+            severity = "LOW"
+            anomaly_category = "Minor Course Deviation"
+
+    est_delay = dwell_mins + int(detour_km * 3) + 10
+    clean_addr = address if address and 'Lat:' not in address else 'Unassigned Location'
+    summary_text = f"Worker {emp_name} deviated {detour_km} km off-route from '{nearest_target_name}' and has been stationary at {clean_addr} for {dwell_mins} minutes during active duty."
+
+    if severity == "HIGH":
+        recommendation_text = f"Contact {emp_name} immediately to verify unauthorized halt and inform destination '{nearest_target_name}' of estimated ~{est_delay} mins delay."
+    elif severity == "MEDIUM":
+        recommendation_text = f"Monitor live radar for next 10 minutes. If worker remains stationary at {clean_addr}, dispatch phone inquiry."
+    else:
+        recommendation_text = f"Log telemetry alert. Worker expected to resume route toward '{nearest_target_name}' shortly."
+
+    heuristic_result = {
+        'is_unauthorized_detour': True,
+        'severity': severity,
+        'anomaly_type': anomaly_category,
+        'summary': summary_text,
+        'estimated_delay_mins': est_delay,
+        'action_recommendation': recommendation_text,
+        'model_used': 'Argus AI Heuristic Rules Engine'
+    }
+
+    # Attempt Google Gemini 1.5 Flash if API Key is configured in environment or settings
+    api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+    if not api_key:
+        try:
+            db = get_db()
+            setting = db.system_settings.find_one({'key': 'gemini_api_key'})
+            if setting and setting.get('value'):
+                api_key = setting['value']
+        except Exception:
+            pass
+
+    if api_key:
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            prompt = (
+                f"You are an AI corporate field operations auditor monitoring mobile sales & service agents in real-time.\n"
+                f"Analyze this field telemetry anomaly:\n"
+                f"- Worker Name: {emp_name}\n"
+                f"- Time: {now_ist.strftime('%I:%M %p, %d %b %Y')}\n"
+                f"- Reverse-Geocoded Location: {clean_addr} (Lat: {lat}, Lng: {lng})\n"
+                f"- Assigned Target Destination: {nearest_target_name}\n"
+                f"- Distance Off-Route: {detour_km} km\n"
+                f"- Stationary Dwell Time: {dwell_mins} minutes\n"
+                f"- Device/Worker Note: {activity_note}\n\n"
+                f"Evaluate if this is an unauthorized personal detour (e.g. shopping mall, cafe, cinema, home visit) vs acceptable transit.\n"
+                f"Return ONLY valid JSON matching this schema:\n"
+                f'{{"is_unauthorized_detour": true, "severity": "HIGH"|"MEDIUM"|"LOW", "anomaly_type": "string", '
+                f'"summary": "concise 1-2 sentence executive explanation", "estimated_delay_mins": int, "action_recommendation": "actionable advice for company admin"}}'
+            )
+            response = model.generate_content(prompt)
+            if response and response.text:
+                raw = response.text.strip()
+                if raw.startswith('```json'):
+                    raw = raw[7:]
+                if raw.startswith('```'):
+                    raw = raw[3:]
+                if raw.endswith('```'):
+                    raw = raw[:-3]
+                parsed = json.loads(raw.strip())
+                if isinstance(parsed, dict) and 'severity' in parsed and 'summary' in parsed:
+                    parsed['model_used'] = 'Google Gemini 1.5 Flash'
+                    return parsed
+        except Exception:
+            pass
+
+    return heuristic_result
+
+
+def save_field_ai_incident(incident_data):
+    """
+    Saves or updates an AI incident in db.field_ai_incidents.
+    De-duplicates active incidents for the same worker and location within 60 minutes.
+    """
+    db = get_db()
+    now_ist = get_ist_now()
+    emp_name = str(incident_data.get('employee_name') or '').strip()
+    company_id = str(incident_data.get('company_id') or 'ARGUS_MASTER').strip()
+    today_str = str(incident_data.get('date') or now_ist.strftime('%Y-%m-%d')).strip()
+    lat = safe_float(incident_data.get('latitude'), 0.0)
+    lng = safe_float(incident_data.get('longitude'), 0.0)
+
+    # Check for existing active or acknowledged incident today for this worker
+    existing = list(db.field_ai_incidents.find({
+        'company_id': company_id,
+        'employee_name': emp_name,
+        'date': today_str,
+        'status': {'$in': ['Active', 'Acknowledged']}
+    }).sort('created_at', DESCENDING).limit(5))
+
+    matched_existing = None
+    for ex in existing:
+        ex_lat = safe_float(ex.get('latitude'), 0.0)
+        ex_lng = safe_float(ex.get('longitude'), 0.0)
+        if ex_lat and ex_lng and lat and lng:
+            dist = calculate_realistic_proximity(lat, lng, ex_lat, ex_lng)
+            d_m = float(dist.get('geodesic_m', 9999.0)) if isinstance(dist, dict) else float(dist or 9999.0)
+            if d_m <= 600.0:
+                matched_existing = ex
+                break
+
+    if matched_existing:
+        new_dwell = max(int(matched_existing.get('dwell_minutes', 0)), int(incident_data.get('dwell_minutes', 0)))
+        upd = {
+            'dwell_minutes': new_dwell,
+            'detour_distance_km': round(safe_float(incident_data.get('detour_distance_km'), matched_existing.get('detour_distance_km', 0.0)), 2),
+            'severity': incident_data.get('severity') or matched_existing.get('severity', 'HIGH'),
+            'summary': incident_data.get('summary') or matched_existing.get('summary', ''),
+            'action_recommendation': incident_data.get('action_recommendation') or matched_existing.get('action_recommendation', ''),
+            'estimated_delay_mins': incident_data.get('estimated_delay_mins') or matched_existing.get('estimated_delay_mins', 30),
+            'last_ping_time': now_ist.strftime('%I:%M %p'),
+            'updated_at': now_ist
+        }
+        db.field_ai_incidents.update_one({'_id': matched_existing['_id']}, {'$set': upd})
+        updated_doc = db.field_ai_incidents.find_one({'_id': matched_existing['_id']})
+        return clean_doc(updated_doc)
+
+    incident_doc = {
+        'id': f"AI-INC-{int(time.time() * 1000)}",
+        'company_id': company_id,
+        'employee_id': str(incident_data.get('employee_id') or '').strip(),
+        'employee_name': emp_name,
+        'date': today_str,
+        'timestamp': now_ist.strftime('%d/%m/%Y %I:%M:%S %p'),
+        'time_short': now_ist.strftime('%I:%M %p'),
+        'latitude': lat,
+        'longitude': lng,
+        'address': str(incident_data.get('address') or '').strip(),
+        'nearest_target_name': str(incident_data.get('nearest_target_name') or 'Assigned Site').strip(),
+        'detour_distance_km': round(safe_float(incident_data.get('detour_distance_km'), 0.0), 2),
+        'dwell_minutes': int(incident_data.get('dwell_minutes') or 0),
+        'severity': str(incident_data.get('severity') or 'HIGH').upper(),
+        'anomaly_type': str(incident_data.get('anomaly_type') or 'Off-Route Detour').strip(),
+        'summary': str(incident_data.get('summary') or '').strip(),
+        'estimated_delay_mins': int(incident_data.get('estimated_delay_mins') or 30),
+        'action_recommendation': str(incident_data.get('action_recommendation') or '').strip(),
+        'is_unauthorized_detour': bool(incident_data.get('is_unauthorized_detour', True)),
+        'ai_model_used': str(incident_data.get('model_used') or 'Argus AI Reasoning Engine').strip(),
+        'status': 'Active',
+        'admin_notes': '',
+        'resolved_by': '',
+        'resolved_at': None,
+        'created_at': now_ist,
+        'updated_at': now_ist
+    }
+    db.field_ai_incidents.insert_one(incident_doc)
+    return clean_doc(incident_doc)
+
+
+def get_field_ai_incidents(company_id=None, date_str=None, employee_name=None, status=None, limit=50):
+    """Fetches AI-detected incidents with optional filtering."""
+    db = get_db()
+    q = {}
+    if company_id and company_id != 'ALL':
+        q['company_id'] = str(company_id)
+    if date_str:
+        q['date'] = str(date_str).strip()
+    if employee_name:
+        q['employee_name'] = str(employee_name).strip()
+    if status and status != 'ALL':
+        if status == 'Active':
+            q['status'] = {'$in': ['Active', 'Acknowledged']}
+        else:
+            q['status'] = str(status).strip()
+
+    docs = list(db.field_ai_incidents.find(q).sort('created_at', DESCENDING).limit(limit))
+    return [clean_doc(d) for d in docs]
+
+
+def resolve_field_ai_incident(incident_id, status='Resolved', admin_notes='', resolved_by='Admin', company_id=None):
+    """Marks an AI incident as Acknowledged or Resolved."""
+    db = get_db()
+    now_ist = get_ist_now()
+    q = build_id_filter(incident_id)
+    if company_id and company_id != 'ALL':
+        q = {'$and': [q, {'company_id': str(company_id)}]}
+
+    upd = {
+        'status': str(status or 'Resolved').strip(),
+        'admin_notes': str(admin_notes or '').strip(),
+        'resolved_by': str(resolved_by or 'Admin').strip(),
+        'resolved_at': now_ist.strftime('%d/%m/%Y %I:%M %p'),
+        'updated_at': now_ist
+    }
+    res = db.field_ai_incidents.update_one(q, {'$set': upd})
+    return res.matched_count > 0
+
+
+def get_field_ai_incidents_summary(company_id=None, date_str=None):
+    """Returns count metrics for AI incidents today."""
+    db = get_db()
+    now_ist = get_ist_now()
+    target_date = str(date_str or now_ist.strftime('%Y-%m-%d')).strip()
+    q = {'date': target_date}
+    if company_id and company_id != 'ALL':
+        q['company_id'] = str(company_id)
+
+    all_incs = list(db.field_ai_incidents.find(q))
+    active_cnt = sum(1 for i in all_incs if i.get('status') in ['Active', 'Acknowledged'])
+    high_cnt = sum(1 for i in all_incs if i.get('status') in ['Active', 'Acknowledged'] and i.get('severity') == 'HIGH')
+    resolved_cnt = sum(1 for i in all_incs if i.get('status') == 'Resolved')
+
+    return {
+        'total': len(all_incs),
+        'active': active_cnt,
+        'high_severity': high_cnt,
+        'resolved': resolved_cnt
+    }
+
+
 def record_field_location_ping(data, company_id=None):
     """
     Records a live GPS location ping from a field worker, evaluates whether they are
     at their assigned company location (on_site), moving toward it (in_transit),
-    or deviating for personal work / detour (off_route_detour), and computes distance traveled.
+    or deviating for personal work / detour (off_route_detour), computes distance traveled,
+    and triggers Autonomous AI Anomaly Evaluation when detours or stationary dwell are detected.
     """
     db = get_db()
     now_ist = get_ist_now()
@@ -7175,11 +7431,14 @@ def record_field_location_ping(data, company_id=None):
         raise ValueError("Valid GPS coordinates (latitude, longitude) are required.")
 
     address = str(data.get('address') or '').strip()
-    if not address:
+    if not address or 'Lat:' in address:
         try:
-            address = reverse_geocode_coordinates(lat, lng)
+            resolved_addr = reverse_geocode_coordinates(lat, lng)
+            if resolved_addr:
+                address = resolved_addr
         except Exception:
-            address = f"Lat: {lat}, Lng: {lng}"
+            if not address:
+                address = f"Lat: {lat}, Lng: {lng}"
 
     # Check worker's previous location ping today to compute incremental step_km
     prev_ping = db.field_location_logs.find_one(
@@ -7195,6 +7454,31 @@ def record_field_location_ping(data, company_id=None):
         # Ignore GPS jitter < 10m and unrealistic jumps > 50km
         if 10.0 <= step_m <= 50000.0:
             step_km = round(step_m / 1000.0, 3)
+
+    # Compute dwell time (stationary outside target)
+    dwell_minutes = int(safe_float(data.get('dwell_minutes'), 0))
+    recent_pings = list(db.field_location_logs.find(
+        {'company_id': assigned_company_id, 'employee_name': emp_name, 'date': today_str},
+        sort=[('created_at', DESCENDING)]
+    ).limit(10))
+
+    if recent_pings:
+        stationary_cluster = []
+        for rp in recent_pings:
+            rp_lat = rp.get('latitude')
+            rp_lng = rp.get('longitude')
+            if rp_lat and rp_lng:
+                p_dist = calculate_realistic_proximity(lat, lng, rp_lat, rp_lng)
+                p_m = float(p_dist.get('geodesic_m', 999.0)) if isinstance(p_dist, dict) else float(p_dist or 999.0)
+                if p_m <= 100.0:
+                    stationary_cluster.append(rp)
+                else:
+                    break
+        if stationary_cluster:
+            earliest_dt = stationary_cluster[-1].get('created_at')
+            if earliest_dt and isinstance(earliest_dt, datetime):
+                calc_dwell = int((now_ist - earliest_dt).total_seconds() / 60.0)
+                dwell_minutes = max(dwell_minutes, calc_dwell)
 
     # Evaluate against today's assigned company locations for this worker
     assignments_today = list(db.field_assignments.find({
@@ -7241,15 +7525,7 @@ def record_field_location_ping(data, company_id=None):
         else:
             tracking_status = 'off_route_detour'
     else:
-        # No assignment today: default to in_transit unless far from company HQ and marked
         tracking_status = 'in_transit'
-
-    status_labels = {
-        'on_site': 'Verified at Assigned Company Location',
-        'in_transit': 'In-Transit on Official Route',
-        'off_route_detour': 'Off-Route / Personal Work Detour Alert'
-    }
-    status_label = status_labels.get(tracking_status, 'In-Transit')
 
     # Auto-update matched assignment if worker arrived on-site
     if tracking_status == 'on_site' and matched_assignment and matched_assignment.get('status') == 'Pending':
@@ -7257,6 +7533,52 @@ def record_field_location_ping(data, company_id=None):
             {'_id': matched_assignment['_id']},
             {'$set': {'status': 'In Progress', 'updated_at': now_ist}}
         )
+
+    # Provide realistic baseline dwell time for explicit detour simulation / test
+    if tracking_status == 'off_route_detour' and dwell_minutes == 0:
+        dwell_minutes = 28 if explicit_mode == 'off_route_detour' else 15
+
+    # Autonomous AI Anomaly Pipeline
+    ai_incident = None
+    if tracking_status == 'off_route_detour' or (min_distance_m is not None and min_distance_m >= 1800.0):
+        tracking_status = 'off_route_detour'
+        ai_eval = evaluate_field_worker_anomaly(
+            emp_name=emp_name,
+            lat=lat,
+            lng=lng,
+            address=address,
+            nearest_target_name=nearest_target_name,
+            detour_distance_m=min_distance_m if min_distance_m is not None else 2500.0,
+            dwell_minutes=dwell_minutes,
+            activity_note=str(data.get('activity_note') or ''),
+            company_id=assigned_company_id
+        )
+        ai_incident = save_field_ai_incident({
+            'company_id': assigned_company_id,
+            'employee_id': str(data.get('employee_id') or '').strip(),
+            'employee_name': emp_name,
+            'date': today_str,
+            'latitude': lat,
+            'longitude': lng,
+            'address': address,
+            'nearest_target_name': nearest_target_name,
+            'detour_distance_km': round((min_distance_m or 2500.0) / 1000.0, 2),
+            'dwell_minutes': dwell_minutes,
+            'severity': ai_eval.get('severity', 'HIGH'),
+            'anomaly_type': ai_eval.get('anomaly_type', 'Off-Route Detour'),
+            'summary': ai_eval.get('summary', ''),
+            'estimated_delay_mins': ai_eval.get('estimated_delay_mins', 30),
+            'action_recommendation': ai_eval.get('action_recommendation', ''),
+            'is_unauthorized_detour': ai_eval.get('is_unauthorized_detour', True),
+            'model_used': ai_eval.get('model_used', 'Argus AI Reasoning Engine')
+        })
+
+    status_labels = {
+        'on_site': 'Verified at Assigned Company Location',
+        'in_transit': 'In-Transit on Official Route',
+        'off_route_detour': f"AI Detour Alert ({ai_incident.get('severity', 'HIGH')})" if ai_incident else 'Off-Route / Personal Work Detour Alert'
+    }
+    status_label = status_labels.get(tracking_status, 'In-Transit')
 
     ping_doc = {
         'id': f"FP-{int(time.time() * 1000)}",
@@ -7272,10 +7594,12 @@ def record_field_location_ping(data, company_id=None):
         'distance_from_target_m': min_distance_m if min_distance_m is not None else 0.0,
         'geofence_radius_m': matched_radius,
         'step_km': step_km,
+        'dwell_minutes': dwell_minutes,
         'tracking_status': tracking_status,
         'status_label': status_label,
         'activity_note': str(data.get('activity_note') or '').strip(),
         'battery_level': str(data.get('battery_level') or '92%').strip(),
+        'ai_incident': ai_incident,
         'date': today_str,
         'timestamp': now_ist.strftime('%d/%m/%Y %I:%M:%S %p'),
         'time_short': now_ist.strftime('%I:%M %p'),
@@ -7287,7 +7611,7 @@ def record_field_location_ping(data, company_id=None):
 
 def get_field_live_tracking(company_id=None, date_str=None, employee_name=None):
     """
-    Returns live worker markers, route breadcrumbs, and summary counts for the Live Field Map.
+    Returns live worker markers, route breadcrumbs, AI detour incident alerts, and summary counts for the Live Field Map.
     """
     db = get_db()
     now_ist = get_ist_now()
@@ -7300,6 +7624,17 @@ def get_field_live_tracking(company_id=None, date_str=None, employee_name=None):
         q['employee_name'] = str(employee_name).strip()
 
     logs = [clean_doc(d) for d in db.field_location_logs.find(q).sort('created_at', ASCENDING)]
+
+    # Fetch AI incidents for today
+    incidents_today = get_field_ai_incidents(company_id=company_id, date_str=target_date, employee_name=employee_name)
+    active_incidents = [i for i in incidents_today if i.get('status') in ['Active', 'Acknowledged']]
+    incidents_summary = get_field_ai_incidents_summary(company_id=company_id, date_str=target_date)
+
+    active_by_worker = {}
+    for inc in active_incidents:
+        wname = inc.get('employee_name')
+        if wname and (wname not in active_by_worker or inc.get('severity') == 'HIGH'):
+            active_by_worker[wname] = inc
 
     workers_map = {}
     breadcrumbs_by_worker = {}
@@ -7337,7 +7672,8 @@ def get_field_live_tracking(company_id=None, date_str=None, employee_name=None):
             'detour_count': detours_cnt,
             'last_seen': lg.get('time_short') or lg.get('timestamp'),
             'battery_level': lg.get('battery_level', '90%'),
-            'activity_note': lg.get('activity_note', '')
+            'activity_note': lg.get('activity_note', ''),
+            'active_ai_incident': active_by_worker.get(ename)
         }
 
     workers_live = list(workers_map.values())
@@ -7350,13 +7686,18 @@ def get_field_live_tracking(company_id=None, date_str=None, employee_name=None):
         'workers_live': workers_live,
         'breadcrumbs_by_worker': breadcrumbs_by_worker,
         'logs': list(reversed(logs)),
+        'ai_incidents': incidents_today,
+        'active_ai_incidents': active_incidents,
+        'ai_summary': incidents_summary,
         'counts': {
             'active_tracked': len(workers_live),
             'on_site': on_site_count,
             'in_transit': in_transit_count,
-            'off_route_detour': detour_count
+            'off_route_detour': detour_count,
+            'ai_alerts': len(active_incidents)
         }
     }
+
 
 
 def create_field_customer_visit(data, company_id=None):
