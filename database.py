@@ -8210,6 +8210,15 @@ def get_field_worker_dashboard_stats(company_id=None, date_str=None):
         if emp:
             worker_logs.setdefault(emp, []).append(lg)
 
+    # 2b. Fetch today's attendance records (from '/' Main Camera Punch, portal punch, or manual entry)
+    att_rep_q = {'date': date_str}
+    att_col_q = {'date': date_str}
+    if cid != 'ARGUS_MASTER':
+        att_rep_q['company_id'] = cid
+        att_col_q['company_id'] = cid
+    today_att_reports = {r.get('employee_name'): r for r in db.attendance_reports.find(att_rep_q) if r.get('employee_name')}
+    today_attendance = {a.get('employee_name'): a for a in db.attendance.find(att_col_q) if a.get('employee_name')}
+
     # 3. Fetch today's customer visits (leads)
     visit_q = {'visit_date': date_str}
     if cid != 'ARGUS_MASTER':
@@ -8250,6 +8259,12 @@ def get_field_worker_dashboard_stats(company_id=None, date_str=None):
         visits = worker_visits.get(emp_name, [])
         is_on_leave = emp_name in on_leave_workers
         has_detour = emp_name in incident_workers
+        att_rep = today_att_reports.get(emp_name)
+        att_doc = today_attendance.get(emp_name)
+        is_punched_in = bool(
+            att_rep
+            or (att_doc and str(att_doc.get('status', '')).lower() in ['present', 'half day', 'proper'])
+        )
 
         # Calculate worker's day KM
         worker_km = 0.0
@@ -8273,6 +8288,8 @@ def get_field_worker_dashboard_stats(company_id=None, date_str=None):
             first_log = logs[0]
             latest_log = logs[-1]
             checkin_time = first_log.get('created_at_time') or str(first_log.get('timestamp') or '')[:19]
+            if att_rep and att_rep.get('entry_time'):
+                checkin_time = att_rep.get('entry_time')
             last_seen = latest_log.get('created_at_time') or str(latest_log.get('timestamp') or '')[:19]
             last_coords = f"{latest_log.get('latitude', 0):.4f}, {latest_log.get('longitude', 0):.4f}"
             last_note = latest_log.get('activity_note') or latest_log.get('tracking_status') or 'Active'
@@ -8288,6 +8305,24 @@ def get_field_worker_dashboard_stats(company_id=None, date_str=None):
                 in_transit_count += 1
             else:
                 status = 'Present'
+        elif is_punched_in:
+            present_count += 1
+            branch_map[b_name]['present'] += 1
+            status = 'Present'
+            if att_rep:
+                checkin_time = str(att_rep.get('entry_time') or '')
+                exit_time = str(att_rep.get('exit_time') or '')
+                last_seen = exit_time if (exit_time and exit_time != '----') else checkin_time
+                if att_rep.get('entry_lat') and att_rep.get('entry_lng'):
+                    try:
+                        last_coords = f"{float(att_rep['entry_lat']):.4f}, {float(att_rep['entry_lng']):.4f}"
+                    except Exception:
+                        last_coords = f"{att_rep.get('entry_lat')}, {att_rep.get('entry_lng')}"
+                last_note = "Punched at Main Gate / Office Camera ('/')"
+            elif att_doc:
+                checkin_time = str(att_doc.get('updated_at', ''))[:19]
+                last_seen = checkin_time
+                last_note = "Present (Office Attendance Punch)"
         elif is_on_leave:
             status = 'On Leave'
             branch_map[b_name]['on_leave'] += 1

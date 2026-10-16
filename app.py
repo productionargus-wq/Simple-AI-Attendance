@@ -3427,6 +3427,7 @@ def api_face_enroll():
     })
 
 @app.route('/api/face/recognize', methods=['POST'])
+@app.route('/api/recognize_face', methods=['POST'])
 def api_face_recognize():
     """
     Recognizes employee face from live camera frame:
@@ -3444,7 +3445,7 @@ def api_face_recognize():
         data_dict = {}
         if not file_bytes:
             data_dict = request.get_json(silent=True) or request.form.to_dict()
-            photo_data = data_dict.get('photo_data') or data_dict.get('photo') or ''
+            photo_data = data_dict.get('photo_data') or data_dict.get('photo') or data_dict.get('image') or ''
             if photo_data and 'base64,' in str(photo_data):
                 try:
                     _, b64_str = str(photo_data).split('base64,', 1)
