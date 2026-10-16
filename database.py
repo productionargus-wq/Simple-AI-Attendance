@@ -8283,7 +8283,10 @@ def get_field_worker_dashboard_stats(company_id=None, date_str=None):
         worker_km = round(worker_km, 2)
         total_km += worker_km
 
-        # Determine status
+        # Determine attendance_status & live_status
+        attendance_status = 'Absent'
+        live_status = 'Not Active'
+        status = 'Absent'
         checkin_time = '-'
         last_seen = '-'
         last_coords = '-'
@@ -8292,6 +8295,7 @@ def get_field_worker_dashboard_stats(company_id=None, date_str=None):
         if logs:
             present_count += 1
             branch_map[b_name]['present'] += 1
+            attendance_status = 'Present'
             first_log = logs[0]
             latest_log = logs[-1]
             checkin_time = first_log.get('created_at_time') or str(first_log.get('timestamp') or '')[:19]
@@ -8303,19 +8307,26 @@ def get_field_worker_dashboard_stats(company_id=None, date_str=None):
 
             st = str(latest_log.get('tracking_status') or '').lower()
             if has_detour or st == 'off_route_detour':
+                live_status = 'Detour Alert'
                 status = 'Detour Alert'
             elif st == 'on_site':
+                live_status = 'Verified On-Site'
                 status = 'On-Site'
                 on_site_count += 1
             elif st == 'in_transit':
+                live_status = 'In-Transit'
                 status = 'In-Transit'
                 in_transit_count += 1
             else:
+                live_status = 'Verified On-Site' if (att_rep and att_rep.get('status') == 'Proper') else 'In-Transit'
                 status = 'Present'
         elif is_punched_in:
             present_count += 1
             branch_map[b_name]['present'] += 1
+            attendance_status = 'Present'
             status = 'Present'
+            live_status = 'Verified On-Site'
+            on_site_count += 1
             if att_rep:
                 checkin_time = str(att_rep.get('entry_time') or '')
                 exit_time = str(att_rep.get('exit_time') or '')
@@ -8331,13 +8342,24 @@ def get_field_worker_dashboard_stats(company_id=None, date_str=None):
                 last_seen = checkin_time
                 last_note = "Present (Office Attendance Punch)"
         elif is_on_leave:
+            attendance_status = 'On Leave'
             status = 'On Leave'
+            live_status = 'On Leave'
             branch_map[b_name]['on_leave'] += 1
             last_note = f"Leave: {on_leave_workers[emp_name].get('leave_type', 'Casual Leave')}"
         else:
+            attendance_status = 'Absent'
             status = 'Absent'
+            live_status = 'Not Active'
             branch_map[b_name]['absent'] += 1
             last_note = 'No check-in or GPS ping received today'
+
+        out_time_val = '--'
+        if attendance_status == 'Present':
+            if att_rep and att_rep.get('exit_time') and att_rep.get('exit_time') != '----':
+                out_time_val = att_rep.get('exit_time')
+            elif last_seen and last_seen != '-' and last_seen != checkin_time:
+                out_time_val = last_seen
 
         worker_status_list.append({
             'employee_name': emp_name,
@@ -8345,14 +8367,14 @@ def get_field_worker_dashboard_stats(company_id=None, date_str=None):
             'mobile_number': w.get('mobile_number') or '-',
             'branch_name': b_name,
             'status': status,
-            'attendance_status': status,
+            'attendance_status': attendance_status,
             'checkin_time': checkin_time,
             'in_time': checkin_time,
-            'out_time': last_seen if status == 'Present' else '--',
+            'out_time': out_time_val,
             'last_seen': last_seen,
             'last_coords': last_coords,
             'last_note': last_note,
-            'live_status': last_note,
+            'live_status': live_status,
             'today_km': worker_km,
             'distance_km': worker_km,
             'visits_count': len(visits),

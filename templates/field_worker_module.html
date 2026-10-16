@@ -2420,9 +2420,9 @@
                       <td style="font-weight:700; color:#0f172a; white-space:nowrap;">{{ w.employee_name }}</td>
                       <td style="color:#475569; white-space:nowrap;">{{ w.branch_name }}</td>
                       <td style="text-align:center; white-space:nowrap;">
-                        {% if w.attendance_status == 'Present' %}
+                        {% if w.attendance_status == 'Present' or w.status in ['Present', 'In-Transit', 'On-Site', 'Detour Alert'] %}
                         <span class="table-badge badge-present" style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:12px; font-weight:700; font-size:11px;">Present</span>
-                        {% elif w.attendance_status == 'On Leave' %}
+                        {% elif w.attendance_status == 'On Leave' or w.status == 'On Leave' %}
                         <span class="table-badge badge-leave" style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:12px; font-weight:700; font-size:11px;">On Leave</span>
                         {% else %}
                         <span class="table-badge badge-absent" style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:12px; font-weight:700; font-size:11px;">Absent</span>
@@ -2433,14 +2433,16 @@
                       <td style="text-align:center; font-weight:700; color:#2563eb;">{{ "%.1f"|format(w.distance_km or 0) }}</td>
                       <td style="text-align:center; font-weight:700; color:#0f766e;">{{ w.visits_count or 0 }}</td>
                       <td style="text-align:center; white-space:nowrap;">
-                        {% if w.live_status == 'Verified On-Site' %}
+                        {% if 'On-Site' in (w.live_status or w.status or '') or 'Verified' in (w.live_status or w.status or '') %}
                         <span class="badge-onsite" style="font-size:10.5px;"><i class="fa-solid fa-circle-check"></i> On-Site</span>
-                        {% elif w.live_status == 'In-Transit' %}
+                        {% elif 'Transit' in (w.live_status or w.status or '') %}
                         <span class="badge-transit" style="font-size:10.5px;"><i class="fa-solid fa-route"></i> Transit</span>
-                        {% elif 'Detour' in w.live_status %}
+                        {% elif 'Detour' in (w.live_status or w.status or '') %}
                         <span class="badge-detour" style="font-size:10.5px;"><i class="fa-solid fa-triangle-exclamation"></i> Detour</span>
-                        {% elif w.attendance_status == 'On Leave' %}
+                        {% elif w.attendance_status == 'On Leave' or w.status == 'On Leave' %}
                         <span class="badge-neutral" style="font-size:10.5px;">On Leave</span>
+                        {% elif w.attendance_status == 'Present' or w.status == 'Present' %}
+                        <span class="badge-onsite" style="font-size:10.5px;"><i class="fa-solid fa-circle-check"></i> Active</span>
                         {% else %}
                         <span class="badge-neutral" style="font-size:10.5px;">Not Active</span>
                         {% endif %}
@@ -7153,21 +7155,24 @@
         } else {
           attTbody.innerHTML = stats.worker_status_list.map((w, idx) => {
             let attBadge = '<span class="table-badge badge-absent" style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:12px; font-weight:700; font-size:11px;">Absent</span>';
-            if (w.attendance_status === 'Present') {
+            if (w.attendance_status === 'Present' || ['Present', 'In-Transit', 'On-Site', 'Detour Alert'].includes(w.status)) {
               attBadge = '<span class="table-badge badge-present" style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:12px; font-weight:700; font-size:11px;">Present</span>';
-            } else if (w.attendance_status === 'On Leave') {
+            } else if (w.attendance_status === 'On Leave' || w.status === 'On Leave') {
               attBadge = '<span class="table-badge badge-leave" style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:12px; font-weight:700; font-size:11px;">On Leave</span>';
             }
 
             let liveBadge = '<span class="badge-neutral" style="font-size:10.5px;">Not Active</span>';
-            if (w.live_status === 'Verified On-Site') {
+            const ls = String(w.live_status || w.status || '');
+            if (ls.includes('On-Site') || ls.includes('Verified')) {
               liveBadge = '<span class="badge-onsite" style="font-size:10.5px;"><i class="fa-solid fa-circle-check"></i> On-Site</span>';
-            } else if (w.live_status === 'In-Transit') {
+            } else if (ls.includes('Transit')) {
               liveBadge = '<span class="badge-transit" style="font-size:10.5px;"><i class="fa-solid fa-route"></i> Transit</span>';
-            } else if (String(w.live_status || '').includes('Detour')) {
+            } else if (ls.includes('Detour')) {
               liveBadge = '<span class="badge-detour" style="font-size:10.5px;"><i class="fa-solid fa-triangle-exclamation"></i> Detour</span>';
-            } else if (w.attendance_status === 'On Leave') {
+            } else if (w.attendance_status === 'On Leave' || w.status === 'On Leave') {
               liveBadge = '<span class="badge-neutral" style="font-size:10.5px;">On Leave</span>';
+            } else if (w.attendance_status === 'Present' || w.status === 'Present') {
+              liveBadge = '<span class="badge-onsite" style="font-size:10.5px;"><i class="fa-solid fa-circle-check"></i> Active</span>';
             }
 
             return `<tr>
