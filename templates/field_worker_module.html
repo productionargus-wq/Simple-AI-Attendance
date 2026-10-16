@@ -3148,23 +3148,23 @@
         <!-- ========================================================================= -->
         <div id="paneScheduledVisits" class="fw-section-pane" data-title="SCHEDULED VISITS">
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; justify-content: space-between; overflow-x: auto;">
-              <div style="display:flex; align-items:center; gap:8px; flex-shrink:0; white-space:nowrap;">
-                <div class="fw-card-title" style="font-size:13px; flex-shrink:0; white-space:nowrap;">
+            <div class="table-toolbar" style="gap: 10px; justify-content: space-between; flex-wrap: wrap;">
+              <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                <div class="fw-card-title" style="font-size:13px;">
                   <i class="fa-solid fa-calendar-check" style="color:#0284c7; margin-right:6px;"></i>
                   FIELD WORKER SCHEDULED VISITS (<span id="scheduledVisitsCountBadge">{{ assignments|length }}</span>)
                 </div>
               </div>
-              <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-                <input type="text" id="filterScheduledVisitsSearch" class="fw-input" placeholder="Search worker, client or site..." oninput="filterScheduledVisitsTable()" style="width:230px; height:32px; font-size:12px;">
-                <select id="filterScheduledVisitsStatus" class="fw-select" onchange="filterScheduledVisitsTable()" style="width:140px; height:32px; font-size:12px;">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap: wrap; flex: 1; justify-content: flex-end; min-width: 0;">
+                <input type="text" id="filterScheduledVisitsSearch" class="fw-input" placeholder="Search worker, client or site..." oninput="filterScheduledVisitsTable()" style="max-width:230px; width:100%; height:32px; font-size:12px;">
+                <select id="filterScheduledVisitsStatus" class="fw-select" onchange="filterScheduledVisitsTable()" style="max-width:140px; width:auto; height:32px; font-size:12px;">
                   <option value="">All Statuses</option>
                   <option value="Scheduled">Scheduled</option>
                   <option value="In Progress">In Progress</option>
                   <option value="Completed">Completed</option>
                   <option value="Cancelled">Cancelled</option>
                 </select>
-                <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="refreshOverviewState()" style="padding:4px 10px; font-size:11.5px; height:32px;">
+                <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="refreshOverviewState()" style="padding:4px 10px; font-size:11.5px; height:32px; white-space:nowrap;">
                   <i class="fa-solid fa-rotate"></i> Refresh
                 </button>
               </div>
