@@ -67,7 +67,8 @@ document.addEventListener('DOMContentLoaded', function () {
   // Fetch and render data
   async function loadEmployees() {
     try {
-      const url = `/api/employees?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}&sort_col=${currentSortCol}&sort_dir=${currentSortDir}&page=${currentPage}&limit=${currentLimit}`;
+      const bParam = new URLSearchParams(window.location.search).get('branch_id');
+      const url = `/api/employees?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}&sort_col=${currentSortCol}&sort_dir=${currentSortDir}&page=${currentPage}&limit=${currentLimit}${bParam ? '&branch_id=' + encodeURIComponent(bParam) : ''}`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -1378,19 +1379,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (btnCsvEmployees) {
     btnCsvEmployees.addEventListener('click', function () {
-      window.location.href = `/api/employees/export/csv?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}`;
+      const bParam = new URLSearchParams(window.location.search).get('branch_id');
+      window.location.href = `/api/employees/export/csv?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}${bParam ? '&branch_id=' + encodeURIComponent(bParam) : ''}`;
     });
   }
 
   if (btnExcelEmployees) {
     btnExcelEmployees.addEventListener('click', function () {
-      window.location.href = `/api/employees/export/excel?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}`;
+      const bParam = new URLSearchParams(window.location.search).get('branch_id');
+      window.location.href = `/api/employees/export/excel?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}${bParam ? '&branch_id=' + encodeURIComponent(bParam) : ''}`;
     });
   }
 
   if (btnPdfEmployees) {
     btnPdfEmployees.addEventListener('click', function () {
-      window.location.href = `/api/employees/export/pdf?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}`;
+      const bParam = new URLSearchParams(window.location.search).get('branch_id');
+      window.location.href = `/api/employees/export/pdf?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}${bParam ? '&branch_id=' + encodeURIComponent(bParam) : ''}`;
     });
   }
 

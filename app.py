@@ -2722,6 +2722,7 @@ def api_get_employees():
     limit = int(request.args.get('limit', 10))
     status = request.args.get('status', '').strip()
     
+    branch_id = request.args.get('branch_id') or get_current_branch_id()
     result = database.get_all_employees(
         company_id=get_current_company_id(),
         search=search,
@@ -2730,7 +2731,7 @@ def api_get_employees():
         page=page,
         limit=limit,
         status=status,
-        branch_id=get_current_branch_id()
+        branch_id=branch_id
     )
     return jsonify(result)
 
@@ -3076,7 +3077,8 @@ def api_employees_export_excel():
     search = request.args.get('search', '').strip()
     status = request.args.get('status', '').strip()
     comp_id = get_current_company_id()
-    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status, branch_id=get_current_branch_id())
+    branch_id = request.args.get('branch_id') or get_current_branch_id()
+    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status, branch_id=branch_id)
     
     headers = ['SL NO', 'EMPLOYEE ID', 'EMPLOYEE NAME', 'STATUS', 'SALARY BASIS', 'HOURLY SALARY', 'DAY SALARY', 'HALF DAY SALARY', 'MOBILE NUMBER', 'SHIFT HOURS', 'BANK NAME', 'ACCOUNT NUMBER', 'DATE OF JOINING']
     rows = []
@@ -3108,7 +3110,8 @@ def api_employees_export_pdf():
     search = request.args.get('search', '').strip()
     status = request.args.get('status', '').strip()
     comp_id = get_current_company_id()
-    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status, branch_id=get_current_branch_id())
+    branch_id = request.args.get('branch_id') or get_current_branch_id()
+    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status, branch_id=branch_id)
     company_info = get_current_company_info()
     pdf_buffer = pdf_generator.generate_employees_pdf(result['data'], company_info=company_info)
     filename = "employee_directory.pdf"

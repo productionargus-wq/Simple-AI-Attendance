@@ -1763,19 +1763,19 @@
     <div class="main-wrapper">
       <main class="fw-main-content">
 
-        <!-- Top Page Banner (Matches Employees / Salary Report Banner) -->
-        <div class="content-banner-card" style="flex-wrap: wrap;">
-          <div class="banner-left">
-            <div class="banner-icon-badge">
+        <!-- Top Page Banner (Single-row layout; hidden on Field Dashboard, visible on other tabs) -->
+        <div class="content-banner-card" id="fwMainBannerCard" style="display: none; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 16px; margin-bottom: 18px;">
+          <div class="banner-left" style="display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1 1 auto;">
+            <div class="banner-icon-badge" style="flex-shrink: 0;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
                 <line x1="8" y1="2" x2="8" y2="18"></line>
                 <line x1="16" y1="6" x2="16" y2="22"></line>
               </svg>
             </div>
-            <div class="banner-text-group">
-              <div class="banner-title" id="activePaneHeading">{% if user_role == 'employee' %}FIELD ATTENDANCE PUNCH &amp; PROFILE{% else %}FIELD OPERATIONS DASHBOARD{% endif %}</div>
-              <div class="banner-subtitle">
+            <div class="banner-text-group" style="min-width: 0;">
+              <div class="banner-title" id="activePaneHeading" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{% if user_role == 'employee' %}FIELD ATTENDANCE PUNCH &amp; PROFILE{% else %}FIELD OPERATIONS DASHBOARD{% endif %}</div>
+              <div class="banner-subtitle" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 Company Workspace: <strong style="color: #0f172a;">{{ active_company.company_name }}</strong>
                 {% if user_role == 'employee' %}
                 &bull; Active Field Worker: <strong style="color: #0d9488;">{{ logged_in_employee_name }}</strong>
@@ -1786,9 +1786,9 @@
             </div>
           </div>
 
-          <div class="fw-banner-controls">
+          <div class="fw-banner-controls" style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; flex-shrink: 0;">
             {% if user_role == 'super_admin' %}
-            <div class="fw-filter-pill">
+            <div class="fw-filter-pill" style="white-space: nowrap;">
               <label for="globalCompanySelect">Company</label>
               <select id="globalCompanySelect" onchange="refreshOverviewState()">
                 <option value="ARGUS_MASTER" {% if active_company_id == 'ARGUS_MASTER' %}selected{% endif %}>ARGUS TECHNOLOGIES (HQ)</option>
@@ -1803,12 +1803,12 @@
             <input type="hidden" id="globalCompanySelect" value="{{ active_company_id }}">
             {% endif %}
 
-            <div class="fw-filter-pill">
+            <div class="fw-filter-pill" style="white-space: nowrap;">
               <label for="globalDateInput">Date</label>
               <input type="date" id="globalDateInput" value="{{ today_str }}" onchange="refreshOverviewState()">
             </div>
 
-            <div class="fw-filter-pill">
+            <div class="fw-filter-pill" style="white-space: nowrap;">
               <label for="globalMonthInput">Payroll Month</label>
               <input type="month" id="globalMonthInput" value="{{ month_year }}" onchange="handleMonthFilterChange()">
             </div>
@@ -2695,268 +2695,218 @@
         <!-- ========================================================================= -->
         <!-- TAB: FIELD WORKER LEAVE & PERMISSION MANAGEMENT (ADMIN ONLY)               -->
         <!-- ========================================================================= -->
+        <!-- ========================================================================= -->
+        <!-- TAB: FIELD WORKER LEAVE & PERMISSION MANAGEMENT (ADMIN ONLY)               -->
+        <!-- ========================================================================= -->
         <div id="paneFieldLeaves" class="fw-section-pane" data-title="LEAVE &amp; PERMISSION MANAGEMENT">
-          <!-- 4 KPI Summary Cards -->
-          <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:14px; margin-bottom:18px;">
-            <div class="fw-kpi-card" style="border-left: 3px solid #2563eb;">
-              <div>
-                <div class="fw-kpi-lbl">Total Requests</div>
-                <div class="fw-kpi-val" id="fwLeaveStatTotal">{{ fw_leave_stats.total_requests or 0 }}</div>
-                <div class="fw-kpi-sub">All Submitted Requests</div>
-              </div>
-              <div class="fw-kpi-icon" style="background:#eff6ff; color:#2563eb;">
-                <i class="fa-solid fa-list-check"></i>
-              </div>
-            </div>
-
-            <div class="fw-kpi-card" style="border-left: 3px solid #f59e0b;">
-              <div>
-                <div class="fw-kpi-lbl" style="color:#d97706;">Pending Review</div>
-                <div class="fw-kpi-val" style="color:#d97706;" id="fwLeaveStatPending">{{ fw_leave_stats.pending_requests or 0 }}</div>
-                <div class="fw-kpi-sub" style="color:#d97706;">Awaiting Admin Decision</div>
-              </div>
-              <div class="fw-kpi-icon" style="background:#fef3c7; color:#d97706;">
-                <i class="fa-solid fa-clock"></i>
-              </div>
-            </div>
-
-            <div class="fw-kpi-card" style="border-left: 3px solid #16a34a;">
-              <div>
-                <div class="fw-kpi-lbl" style="color:#15803d;">Approved</div>
-                <div class="fw-kpi-val" style="color:#15803d;" id="fwLeaveStatApproved">{{ fw_leave_stats.approved_requests or 0 }}</div>
-                <div class="fw-kpi-sub" style="color:#15803d;">Granted Requests</div>
-              </div>
-              <div class="fw-kpi-icon" style="background:#dcfce7; color:#15803d;">
-                <i class="fa-solid fa-circle-check"></i>
-              </div>
-            </div>
-
-            <div class="fw-kpi-card" style="border-left: 3px solid #6366f1;">
-              <div>
-                <div class="fw-kpi-lbl" style="color:#4f46e5;">On Leave Today</div>
-                <div class="fw-kpi-val" style="color:#4f46e5;" id="fwLeaveStatOnLeave">{{ fw_leave_stats.on_leave_today or 0 }}</div>
-                <div class="fw-kpi-sub" style="color:#4f46e5;">Field Workers Off Today</div>
-              </div>
-              <div class="fw-kpi-icon" style="background:#e0e7ff; color:#4f46e5;">
-                <i class="fa-solid fa-calendar-minus"></i>
-              </div>
-            </div>
-          </div>
-
-          <!-- Leave Applications Card -->
-          <div class="table-card" style="margin-bottom:20px;">
-            <div class="table-toolbar" style="flex-wrap: wrap; gap: 10px; justify-content: space-between;">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span class="fw-card-title" style="font-size:13px; white-space:nowrap;">
-                  <i class="fa-solid fa-envelope-open-text" style="color:#2563eb; margin-right:6px;"></i>
-                  FIELD WORKER LEAVE &amp; PERMISSION REQUESTS
-                </span>
-                <div style="display:inline-flex; border:1px solid #cbd5e1; border-radius:6px; overflow:hidden; background:#ffffff;">
-                  <button type="button" class="btn-filter-status active" onclick="filterFwLeaveStatus('ALL', this)" style="padding:4px 10px; font-size:11px; font-weight:700; border:none; cursor:pointer; background:#2563eb; color:#ffffff;">ALL</button>
-                  <button type="button" class="btn-filter-status" onclick="filterFwLeaveStatus('Pending', this)" style="padding:4px 10px; font-size:11px; font-weight:700; border:none; cursor:pointer; background:transparent; color:#64748b;">Pending (<span id="fwFilterCountPending">{{ fw_leave_counts.pending or 0 }}</span>)</button>
-                  <button type="button" class="btn-filter-status" onclick="filterFwLeaveStatus('Approved', this)" style="padding:4px 10px; font-size:11px; font-weight:700; border:none; cursor:pointer; background:transparent; color:#64748b;">Approved</button>
-                  <button type="button" class="btn-filter-status" onclick="filterFwLeaveStatus('Rejected', this)" style="padding:4px 10px; font-size:11px; font-weight:700; border:none; cursor:pointer; background:transparent; color:#64748b;">Rejected</button>
-                </div>
-              </div>
-
-              <div class="search-box-wrapper" style="margin-left: auto;">
-                <label>Search:</label>
-                <input type="text" class="search-input" placeholder="Search worker, reason..." oninput="filterFieldTable(this, 'fwAdminLeaveRequestsTable')">
-              </div>
-            </div>
-
-            <div class="fw-table-wrapper">
-              <table class="fw-table" id="fwAdminLeaveRequestsTable">
-                <thead>
-                  <tr>
-                    <th>FIELD WORKER</th>
-                    <th>BRANCH</th>
-                    <th style="text-align:center;">TYPE</th>
-                    <th>CATEGORY / SESSION</th>
-                    <th>DATES / TIME</th>
-                    <th style="text-align:center;">DURATION</th>
-                    <th>REASON</th>
-                    <th style="text-align:center;">STATUS</th>
-                    <th style="text-align:center;">ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody id="fwAdminLeaveRequestsTableBody">
-                  {% if fw_leave_requests %}
-                  {% for r in fw_leave_requests %}
-                  <tr data-status="{{ r.status }}">
-                    <td>
-                      <div class="fw-cell-title">{{ r.employee_name }}</div>
-                      <div class="fw-cell-sub">{{ r.designation or 'Field Executive' }}</div>
-                    </td>
-                    <td>
-                      <span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> {{ r.branch_name or 'Home Branch' }}</span>
-                    </td>
-                    <td style="text-align:center;">
-                      {% if r.request_type == 'Permission' %}
-                      <span class="badge-neutral" style="background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe;">Permission</span>
-                      {% else %}
-                      <span class="badge-neutral" style="background:#fdf4ff; color:#86198f; border-color:#f5d0fe;">Leave</span>
-                      {% endif %}
-                    </td>
-                    <td>
-                      <div style="font-weight:700; color:#0f172a;">{{ r.leave_type or r.permission_type or 'Casual Leave' }}</div>
-                      <div class="fw-cell-sub">{{ r.session or 'Full Day' }}</div>
-                    </td>
-                    <td>
-                      {% if r.request_type == 'Permission' %}
-                      <div style="font-weight:700; white-space:nowrap;">{{ r.date or r.from_date }}</div>
-                      <div class="fw-cell-sub">{{ r.from_time }} - {{ r.to_time }}</div>
-                      {% else %}
-                      <div style="font-weight:700; white-space:nowrap;">{{ r.from_date }} to {{ r.to_date }}</div>
-                      {% endif %}
-                    </td>
-                    <td style="text-align:center; font-weight:700;">
-                      {% if r.request_type == 'Permission' %}
-                      {{ r.duration or r.duration_hours or '02:00' }} hrs
-                      {% else %}
-                      {{ r.days_count or r.total_days or 1 }} Day(s)
-                      {% endif %}
-                    </td>
-                    <td style="max-width:200px; line-height:1.35;">
-                      <div style="color:#334155;">{{ r.reason or '-' }}</div>
-                      {% if r.admin_remark %}
-                      <div class="fw-cell-sub" style="color:#0284c7;"><i class="fa-solid fa-comment-dots"></i> Admin: {{ r.admin_remark }}</div>
-                      {% endif %}
-                    </td>
-                    <td style="text-align:center; white-space:nowrap;">
-                      {% if r.status == 'Approved' %}
-                      <span class="badge-onsite"><i class="fa-solid fa-check"></i> Approved</span>
-                      {% elif r.status == 'Rejected' %}
-                      <span class="badge-detour"><i class="fa-solid fa-xmark"></i> Rejected</span>
-                      {% else %}
-                      <span class="badge-transit"><i class="fa-solid fa-clock"></i> Pending</span>
-                      {% endif %}
-                    </td>
-                    <td style="text-align:center; white-space:nowrap;">
-                      {% if r.status == 'Pending' %}
-                      <div style="display:inline-flex; align-items:center; gap:6px;">
-                        <button type="button" class="fw-btn fw-btn-success fw-btn-sm" onclick="openFwLeaveActionModal('{{ r.id }}', '{{ (r.employee_name or '')|replace("'", "\\'") }}', '{{ r.request_type }}', 'Approve')" title="Approve Request">
-                          <i class="fa-solid fa-check"></i> Approve
-                        </button>
-                        <button type="button" class="fw-btn fw-btn-danger fw-btn-sm" onclick="openFwLeaveActionModal('{{ r.id }}', '{{ (r.employee_name or '')|replace("'", "\\'") }}', '{{ r.request_type }}', 'Reject')" title="Reject Request">
-                          <i class="fa-solid fa-xmark"></i> Reject
-                        </button>
-                      </div>
-                      {% else %}
-                      <span style="font-size:11px; color:#64748b;">{{ r.reviewer or 'Processed' }}</span>
-                      {% endif %}
-                    </td>
-                  </tr>
-                  {% endfor %}
-                  {% else %}
-                  <tr>
-                    <td colspan="9" style="text-align:center; color:#64748b; padding:28px;">No field worker leave requests submitted yet.</td>
-                  </tr>
-                  {% endif %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Bottom Card: Field Workers Annual Leave Quota & Balances -->
+          <!-- Recent Field Worker Leave & Permission Requests Table Card (Matches Standard Admin Leave & Permission UI) -->
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; justify-content: space-between;">
-              <span class="fw-card-title" style="font-size:13px; white-space:nowrap;">
-                <i class="fa-solid fa-scale-balanced" style="color:#0d9488; margin-right:6px;"></i>
-                FIELD WORKERS ANNUAL LEAVE BALANCES &amp; QUOTAS
-              </span>
-              <div class="search-box-wrapper" style="margin-left: auto;">
-                <label>Search:</label>
-                <input type="text" class="search-input" placeholder="Search worker or branch..." oninput="filterFieldTable(this, 'fwLeaveBalancesTable')">
-              </div>
-            </div>
-
-            <div class="fw-table-wrapper">
-              <table class="fw-table" id="fwLeaveBalancesTable">
-                <thead>
-                  <tr>
-                    <th>FIELD WORKER</th>
-                    <th>BRANCH</th>
-                    <th style="text-align:center; background:#eff6ff;">CASUAL LEAVE (CL)</th>
-                    <th style="text-align:center; background:#f0fdf4;">SICK LEAVE (SL)</th>
-                    <th style="text-align:center; background:#fdf4ff;">EARNED LEAVE (EL)</th>
-                    <th style="text-align:center; background:#fffbeb;">MONTHLY PERMISSION</th>
-                    <th style="text-align:center;">TOTAL TAKEN</th>
-                  </tr>
-                </thead>
-                <tbody id="fwLeaveBalancesTableBody">
-                  {% if fw_leave_balances %}
-                  {% for b in fw_leave_balances %}
-                  <tr>
-                    <td>
-                      <div class="fw-cell-title">{{ b.employee_name }}</div>
-                      <div class="fw-cell-sub">{{ b.designation or 'Field Executive' }}</div>
-                    </td>
-                    <td>
-                      <span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> {{ b.branch_name or 'Home Branch' }}</span>
-                    </td>
-                    <td style="text-align:center; background:#eff6ff; font-weight:700;">
-                      <span style="color:#1d4ed8;">{{ b.cl_remaining or 0 }}</span> / <span style="color:#64748b; font-size:11px;">{{ b.cl_quota or 12 }}</span>
-                    </td>
-                    <td style="text-align:center; background:#f0fdf4; font-weight:700;">
-                      <span style="color:#16a34a;">{{ b.sl_remaining or 0 }}</span> / <span style="color:#64748b; font-size:11px;">{{ b.sl_quota or 12 }}</span>
-                    </td>
-                    <td style="text-align:center; background:#fdf4ff; font-weight:700;">
-                      <span style="color:#9333ea;">{{ b.el_remaining or 0 }}</span> / <span style="color:#64748b; font-size:11px;">{{ b.el_quota or 15 }}</span>
-                    </td>
-                    <td style="text-align:center; background:#fffbeb; font-weight:700;">
-                      <span style="color:#d97706;">{{ b.permission_hours_used or 0 }}h used</span> / <span style="color:#64748b; font-size:11px;">2h/mo</span>
-                    </td>
-                    <td style="text-align:center; font-weight:800; color:#0f172a;">
-                      {{ (b.cl_used or 0) + (b.sl_used or 0) + (b.el_used or 0) }} Days
-                    </td>
-                  </tr>
-                  {% endfor %}
-                  {% else %}
-                  <tr>
-                    <td colspan="7" style="text-align:center; color:#64748b; padding:24px;">No field worker leave balances recorded.</td>
-                  </tr>
-                  {% endif %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Modal Dialog: Approve / Reject Field Worker Leave Request (Admin Only) -->
-          <div class="fw-modal-backdrop d-none" id="fwLeaveActionModalBackdrop">
-            <div class="fw-modal-dialog" style="max-width: 480px;">
-              <div class="fw-modal-header">
-                <div class="fw-modal-header-left">
-                  <span class="fw-card-icon" id="fwLeaveActionIcon" style="background:#eff6ff; color:#2563eb;">
-                    <i class="fa-solid fa-clipboard-check"></i>
-                  </span>
-                  <div>
-                    <div class="fw-card-title" id="fwLeaveActionTitle">Review Leave Request</div>
-                    <div class="fw-card-subtitle" id="fwLeaveActionSubtitle">Field Worker Leave Decision</div>
-                  </div>
+            <div class="table-toolbar">
+              <div class="table-toolbar-left">
+                <div style="display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 11 12 14 22 4"></polyline>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                  </svg>
+                  <div style="font-size: 13px; font-weight: 800; color: #0f172a;">Recent Requests</div>
                 </div>
-                <button type="button" class="fw-modal-close-btn" onclick="closeFwLeaveActionModal()">&times;</button>
-              </div>
 
-              <div class="fw-modal-body">
-                <input type="hidden" id="fwLeaveActionReqId">
-                <input type="hidden" id="fwLeaveActionStatus">
-                <div style="font-size: 13px; color: #334155; margin-bottom: 14px;" id="fwLeaveActionPrompt">
-                  Are you sure you want to approve this request?
-                </div>
-                <div class="fw-field">
-                  <label class="fw-label">Administrative Remarks (Optional)</label>
-                  <textarea id="fwLeaveAdminRemark" class="fw-textarea" rows="2" placeholder="e.g., Approved as per schedule / Insufficient coverage..."></textarea>
+                <!-- Filter Tabs -->
+                <div class="tab-toggle-container" style="margin-bottom: 0;">
+                  <button type="button" class="btn-toggle-tab active req-tab-filter" id="btnFwReqAll" onclick="filterFwLeaveTab('', this)">
+                    <span>All</span>
+                    <span class="tab-count-badge badge-all" id="badgeFwReqAll" style="display: none;">0</span>
+                  </button>
+                  <button type="button" class="btn-toggle-tab req-tab-filter" id="btnFwReqPending" onclick="filterFwLeaveTab('Pending', this)">
+                    <span>Pending</span>
+                    <span class="tab-count-badge badge-pending" id="badgeFwReqPending" style="display: none;">0</span>
+                  </button>
+                  <button type="button" class="btn-toggle-tab req-tab-filter" id="btnFwReqApproved" onclick="filterFwLeaveTab('Approved', this)">
+                    <span>Approved</span>
+                    <span class="tab-count-badge badge-approved" id="badgeFwReqApproved" style="display: none;">0</span>
+                  </button>
+                  <button type="button" class="btn-toggle-tab req-tab-filter" id="btnFwReqRejected" onclick="filterFwLeaveTab('Rejected', this)">
+                    <span>Rejected</span>
+                    <span class="tab-count-badge badge-rejected" id="badgeFwReqRejected" style="display: none;">0</span>
+                  </button>
                 </div>
               </div>
 
-              <div class="fw-modal-footer">
-                <button type="button" class="fw-btn fw-btn-neutral" onclick="closeFwLeaveActionModal()">Cancel</button>
-                <button type="button" class="fw-btn fw-btn-primary" id="fwLeaveActionSubmitBtn" onclick="submitFwLeaveAction()">
-                  Confirm Decision
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="search-box-wrapper" style="max-width: 280px;">
+                  <input type="text" id="fwSearchRequestsInput" class="search-input" placeholder="Search requests..." oninput="filterFwLeaveRequestsLocal()">
+                </div>
+
+                <button type="button" class="btn-primary-action" id="btnOpenFwLeaveBalancesModal" onclick="openFwLeaveBalancesModal()" title="Set Leaves &amp; Quotas for Field Workers" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; white-space: nowrap;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                  </svg>
+                  Set Leaves
+                </button>
+
+                <button type="button" class="btn-secondary-action" id="btnRefreshFwLeaveData" onclick="loadFwRequests()" title="Refresh Data" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; white-space: nowrap;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                  </svg>
+                  Refresh
                 </button>
               </div>
             </div>
+
+            <div class="table-responsive" style="overflow-x: auto;">
+              <table class="table-custom" id="fwLeaveRequestsTable" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr>
+                    <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 60px;">SL NO</th>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 110px;">TYPE</th>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">FIELD WORKER</th>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">DATE / PERIOD</th>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">REASON</th>
+                    <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 100px;">ATTACHMENT</th>
+                    <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; min-width: 150px;">STATUS</th>
+                    <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 140px;">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody id="fwLeaveRequestsTbody">
+                  <tr>
+                    <td colspan="8" style="text-align: center; padding: 24px; color: #64748b; font-size: 12.5px;">Loading field worker requests...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: Quick Reject Remark (Field Worker) -->
+        <div class="modal-overlay" id="fwModalQuickReject" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center;">
+          <div style="background: #ffffff; border-radius: 10px; width: 92%; max-width: 440px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden;">
+            <div style="background-color: #dc2626; color: #ffffff; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-weight: 700; font-size: 14px;">Reject Request</span>
+              <button type="button" onclick="closeFwQuickRejectModal()" style="background: none; border: none; color: #ffffff; font-size: 20px; cursor: pointer;">&times;</button>
+            </div>
+            <div style="padding: 18px;">
+              <p style="font-size: 12.5px; color: #475569; margin-bottom: 12px;">Please provide an admin remark/reason for rejecting this request:</p>
+              <input type="hidden" id="fwQuickRejectReqId" value="">
+              <textarea id="fwQuickRejectRemark" rows="3" class="form-input-leave" placeholder="Enter reason for rejection..." style="width: 100%; box-sizing: border-box;"></textarea>
+              <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+                <button type="button" onclick="closeFwQuickRejectModal()" class="btn-leave-cancel">Cancel</button>
+                <button type="button" id="confirmFwQuickRejectBtn" onclick="confirmFwQuickReject()" style="background-color: #dc2626; color: #ffffff; border: none; border-radius: 6px; padding: 8px 16px; font-weight: 700; font-size: 12px; cursor: pointer;">
+                  Confirm Rejection
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal 1: Field Worker Leave Balances & Quotas List Modal -->
+        <div class="modal-overlay" id="fwModalEmployeeLeaveBalances" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); z-index: 1040; align-items: center; justify-content: center; padding: 16px;">
+          <div style="background: #ffffff; border-radius: 12px; width: 100%; max-width: 980px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 35px -5px rgba(0,0,0,0.25); overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <div>
+                  <div style="font-weight: 800; font-size: 15px;">Field Worker Leave Balances &amp; Quotas</div>
+                  <div style="font-size: 11.5px; opacity: 0.9;">Configure individual custom leave types, allocations, and permissions</div>
+                </div>
+              </div>
+              <button type="button" onclick="closeFwLeaveBalancesModal()" style="background: none; border: none; color: #ffffff; font-size: 24px; cursor: pointer; line-height: 1; padding: 0 4px;">&times;</button>
+            </div>
+
+            <!-- Modal Toolbar -->
+            <div style="padding: 12px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; flex-shrink: 0;">
+              <div class="search-box-wrapper" style="max-width: 320px; width: 100%;">
+                <input type="text" id="fwSearchBalancesInput" class="search-input" placeholder="Search field worker name or ID..." oninput="renderFwBalancesTable()">
+              </div>
+              <div style="font-size: 12px; color: #64748b; font-weight: 600;">
+                Click <strong style="color: #0284c7;">Set</strong> on any worker to configure custom leave types &amp; numbers.
+              </div>
+            </div>
+
+            <!-- Modal Table Content -->
+            <div style="overflow-y: auto; padding: 16px 20px; flex: 1 1 auto;">
+              <table class="table-custom" id="fwLeaveBalancesTable" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 120px;">EMP ID</th>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 180px;">FIELD WORKER NAME</th>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 130px;">DEPARTMENT</th>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">LEAVE TYPES &amp; BALANCES</th>
+                    <th style="padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1.5px solid #e2e8f0; width: 90px;">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody id="fwLeaveBalancesTbody">
+                  <tr>
+                    <td colspan="5" style="text-align: center; padding: 24px; color: #64748b; font-size: 12.5px;">Loading field worker balances...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Modal Footer -->
+            <div style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; flex-shrink: 0;">
+              <button type="button" onclick="closeFwLeaveBalancesModal()" class="btn-secondary-action" style="padding: 6px 18px; font-size: 12.5px;">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal 2: Set Field Worker Custom Leaves & Numbers -->
+        <div class="modal-overlay" id="fwModalSetEmployeeLeaveQuota" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.70); z-index: 1060; align-items: center; justify-content: center; padding: 16px;">
+          <div style="background: #ffffff; border-radius: 12px; width: 100%; max-width: 580px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 40px -5px rgba(0,0,0,0.3); overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                <div>
+                  <div style="font-weight: 800; font-size: 15px; line-height: 1.2;">Set Field Worker Custom Leaves</div>
+                  <div id="fwQuotaModalSubtitle" style="font-size: 11.5px; opacity: 0.9; margin-top: 2px;">Configuring dynamic leaves</div>
+                </div>
+              </div>
+              <button type="button" onclick="closeFwSetQuotaModal()" style="background: none; border: none; color: #ffffff; font-size: 22px; cursor: pointer; line-height: 1; padding: 0 4px;">&times;</button>
+            </div>
+
+            <form id="formSetFwEmployeeLeaveQuota" onsubmit="saveFwEmployeeQuota(event)" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;">
+              <input type="hidden" id="fwQuotaEmpId" name="employee_id" value="">
+              <input type="hidden" id="fwQuotaEmpCompanyId" name="company_id" value="">
+
+              <div style="overflow-y: auto; padding: 20px; flex: 1 1 auto;">
+                <div id="fwQuotaAlertBox" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; margin-bottom: 16px;"></div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                  <label style="font-size: 12.5px; font-weight: 700; color: #1e293b;">
+                    Custom Leave Types &amp; Numbers
+                  </label>
+                  <button type="button" onclick="addFwLeaveTypeRow()" class="btn-secondary-action" style="padding: 4px 10px; font-size: 11.5px; font-weight: 700; border-radius: 6px; color: #0284c7; border-color: #bae6fd; background: #f0f9ff; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Add Leave Type
+                  </button>
+                </div>
+
+                <!-- Dynamic Container for Custom Leave Rows -->
+                <div id="fwCustomLeaveRowsContainer" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px;">
+                  <!-- Dynamically populated rows -->
+                </div>
+              </div>
+
+              <div style="padding: 14px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;">
+                <button type="button" onclick="closeFwSetQuotaModal()" class="btn-leave-cancel" style="padding: 8px 16px; font-size: 12px;">Cancel</button>
+                <button type="submit" id="btnSaveFwEmployeeQuota" class="btn-primary-action" style="padding: 8px 20px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  Save Leaves
+                </button>
+              </div>
+            </form>
           </div>
         </div>
         {% endif %}
@@ -4299,6 +4249,12 @@
       }
       if (btnEl) btnEl.classList.add('active');
 
+      // Hide top banner on Dashboard tab; show single-row banner on all other tabs
+      const banner = document.getElementById('fwMainBannerCard');
+      if (banner) {
+        banner.style.display = (paneId === 'paneFieldDashboard') ? 'none' : 'flex';
+      }
+
       // Persist active tab across reloads
       sessionStorage.setItem('activeFieldTab', paneId);
       try {
@@ -4316,6 +4272,10 @@
 
       if (paneId === 'paneFieldPayroll' && (!PAYROLL_DATA || PAYROLL_DATA.length === 0)) {
         loadFieldPayrollDataAsync();
+      }
+
+      if (paneId === 'paneFieldLeaves') {
+        loadFwRequests();
       }
 
       setTimeout(() => {
@@ -5906,128 +5866,207 @@
     // =========================================================================
     // FIELD WORKER LEAVE & PERMISSION MANAGEMENT (ADMIN & EMPLOYEE)
     // =========================================================================
-    let currentFwLeaveFilter = 'ALL';
+    let currentFwLeaveFilter = '';
+    let cachedFwBalances = [];
 
-    function filterFwLeaveStatus(status, btnEl) {
-      currentFwLeaveFilter = status;
-      if (btnEl) {
-        document.querySelectorAll('.btn-filter-status').forEach(b => {
-          b.classList.remove('active');
-          b.style.background = 'transparent';
-          b.style.color = '#64748b';
-        });
-        btnEl.classList.add('active');
-        btnEl.style.background = '#2563eb';
-        btnEl.style.color = '#ffffff';
-      }
-      const rows = document.querySelectorAll('#fwAdminLeaveRequestsTableBody tr');
-      rows.forEach(r => {
-        const rowStatus = r.getAttribute('data-status');
-        if (status === 'ALL' || rowStatus === status) {
-          r.style.display = '';
-        } else {
-          r.style.display = 'none';
-        }
-      });
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
-    function renderFieldLeaveSystem(requests, counts, stats) {
-      if (!requests) return;
-      FW_LEAVE_REQUESTS_DATA = requests;
-      if (counts) FW_LEAVE_COUNTS_DATA = counts;
+    function filterFwLeaveTab(status, btnEl) {
+      currentFwLeaveFilter = status;
+      document.querySelectorAll('#paneFieldLeaves .req-tab-filter').forEach(b => {
+        b.classList.remove('active');
+      });
+      if (btnEl) btnEl.classList.add('active');
+      renderFwRequestsTable();
+    }
 
-      // Update sidebar badge
-      const pendingCount = (counts && counts.pending) || (stats && stats.pending_requests) || 0;
+    function filterFwLeaveRequestsLocal() {
+      renderFwRequestsTable();
+    }
+
+    async function loadFwRequests() {
+      const cid = getActiveCompanyId();
+      try {
+        const url = `/api/field-worker/leave-requests?company_id=${encodeURIComponent(cid)}&status=${encodeURIComponent(currentFwLeaveFilter || 'ALL')}&limit=100`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.success) return;
+
+        FW_LEAVE_REQUESTS_DATA = data.requests || [];
+        updateFwRequestTabBadges(data.status_counts);
+        renderFwRequestsTable();
+      } catch (err) {
+        console.error('Error fetching FW leave requests:', err);
+      }
+    }
+
+    function updateFwRequestTabBadges(counts = {}) {
+      const allCount = Number(counts.all ?? 0);
+      const pendingCount = Number(counts.pending ?? 0);
+      const approvedCount = Number(counts.approved ?? 0);
+      const rejectedCount = Number(counts.rejected ?? 0);
+
+      const bAll = document.getElementById('badgeFwReqAll');
+      if (bAll) { bAll.textContent = allCount; bAll.style.display = allCount > 0 ? 'inline-flex' : 'none'; }
+      const bPending = document.getElementById('badgeFwReqPending');
+      if (bPending) { bPending.textContent = pendingCount; bPending.style.display = pendingCount > 0 ? 'inline-flex' : 'none'; }
+      const bApproved = document.getElementById('badgeFwReqApproved');
+      if (bApproved) { bApproved.textContent = approvedCount; bApproved.style.display = approvedCount > 0 ? 'inline-flex' : 'none'; }
+      const bRejected = document.getElementById('badgeFwReqRejected');
+      if (bRejected) { bRejected.textContent = rejectedCount; bRejected.style.display = rejectedCount > 0 ? 'inline-flex' : 'none'; }
+
       const sideBadge = document.getElementById('sidebarFwLeaveBadge');
       if (sideBadge) {
         sideBadge.textContent = pendingCount;
         sideBadge.style.display = pendingCount > 0 ? '' : 'none';
       }
-      const filterPending = document.getElementById('fwFilterCountPending');
-      if (filterPending) filterPending.textContent = pendingCount;
+    }
 
-      // Update Admin KPI cards
-      if (stats) {
-        const tot = document.getElementById('fwLeaveStatTotal');
-        if (tot) tot.textContent = stats.total_requests || 0;
-        const pnd = document.getElementById('fwLeaveStatPending');
-        if (pnd) pnd.textContent = stats.pending_requests || 0;
-        const app = document.getElementById('fwLeaveStatApproved');
-        if (app) app.textContent = stats.approved_requests || 0;
-        const onl = document.getElementById('fwLeaveStatOnLeave');
-        if (onl) onl.textContent = stats.on_leave_today || 0;
-      }
+    function renderFwRequestsTable() {
+      const tbody = document.getElementById('fwLeaveRequestsTbody');
+      if (!tbody) return;
 
-      // Render Admin Table if present
-      const adminTbody = document.getElementById('fwAdminLeaveRequestsTableBody');
-      if (adminTbody) {
-        if (requests.length === 0) {
-          adminTbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#64748b; padding:28px;">No field worker leave requests submitted yet.</td></tr>';
-        } else {
-          adminTbody.innerHTML = requests.map(r => {
-            const isPerm = r.request_type === 'Permission';
-            const typeBadge = isPerm
-              ? '<span class="badge-neutral" style="background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe;">Permission</span>'
-              : '<span class="badge-neutral" style="background:#fdf4ff; color:#86198f; border-color:#f5d0fe;">Leave</span>';
-            const cat = r.leave_type || r.permission_type || 'Casual Leave';
-            const sessionStr = isPerm ? `${r.from_time || ''} - ${r.to_time || ''}` : (r.session || 'Full Day');
-            const datesStr = isPerm ? (r.date || r.from_date || '') : `${r.from_date || ''} to ${r.to_date || ''}`;
-            const durStr = isPerm ? `${r.duration || r.duration_hours || '02:00'} hrs` : `${r.days_count || r.total_days || 1} Day(s)`;
-            
-            let statusBadge = '<span class="badge-transit"><i class="fa-solid fa-clock"></i> Pending</span>';
-            if (r.status === 'Approved') {
-              statusBadge = '<span class="badge-onsite"><i class="fa-solid fa-check"></i> Approved</span>';
-            } else if (r.status === 'Rejected') {
-              statusBadge = '<span class="badge-detour"><i class="fa-solid fa-xmark"></i> Rejected</span>';
-            }
+      const searchInput = document.getElementById('fwSearchRequestsInput');
+      const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
 
-            let actionsHtml = `<span style="font-size:11px; color:#64748b;">${r.reviewer || 'Processed'}</span>`;
-            if (r.status === 'Pending') {
-              actionsHtml = `
-                <div style="display:inline-flex; align-items:center; gap:6px;">
-                  <button type="button" class="fw-btn fw-btn-success fw-btn-sm" onclick="openFwLeaveActionModal('${r.id}', '${(r.employee_name||'').replace(/'/g, "\\'")}', '${r.request_type}', 'Approve')" title="Approve Request">
-                    <i class="fa-solid fa-check"></i> Approve
-                  </button>
-                  <button type="button" class="fw-btn fw-btn-danger fw-btn-sm" onclick="openFwLeaveActionModal('${r.id}', '${(r.employee_name||'').replace(/'/g, "\\'")}', '${r.request_type}', 'Reject')" title="Reject Request">
-                    <i class="fa-solid fa-xmark"></i> Reject
-                  </button>
-                </div>
-              `;
-            }
-
-            const adminRemarkHtml = r.admin_remark ? `<div class="fw-cell-sub" style="color:#0284c7;"><i class="fa-solid fa-comment-dots"></i> Admin: ${r.admin_remark}</div>` : '';
-
-            return `<tr data-status="${r.status}">
-              <td>
-                <div class="fw-cell-title">${r.employee_name}</div>
-                <div class="fw-cell-sub">${r.designation || 'Field Executive'}</div>
-              </td>
-              <td>
-                <span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> ${r.branch_name || 'Home Branch'}</span>
-              </td>
-              <td style="text-align:center;">${typeBadge}</td>
-              <td>
-                <div style="font-weight:700; color:#0f172a;">${cat}</div>
-                <div class="fw-cell-sub">${sessionStr}</div>
-              </td>
-              <td>
-                <div style="font-weight:700; white-space:nowrap;">${datesStr}</div>
-              </td>
-              <td style="text-align:center; font-weight:700;">${durStr}</td>
-              <td style="max-width:200px; line-height:1.35;">
-                <div style="color:#334155;">${r.reason || '-'}</div>
-                ${adminRemarkHtml}
-              </td>
-              <td style="text-align:center; white-space:nowrap;">${statusBadge}</td>
-              <td style="text-align:center; white-space:nowrap;">${actionsHtml}</td>
-            </tr>`;
-          }).join('');
+      const filtered = (FW_LEAVE_REQUESTS_DATA || []).filter(r => {
+        if (currentFwLeaveFilter && (r.status || '').toLowerCase() !== currentFwLeaveFilter.toLowerCase()) {
+          return false;
         }
+        if (!query) return true;
+        const empMatch = (r.employee_name || '').toLowerCase().includes(query);
+        const idMatch = (r.employee_id || '').toLowerCase().includes(query);
+        const reqIdMatch = (r.request_id || r.id || '').toLowerCase().includes(query);
+        const reasonMatch = (r.reason || '').toLowerCase().includes(query);
+        return empMatch || idMatch || reqIdMatch || reasonMatch;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 24px; color: #94a3b8; font-size: 12.5px;">No requests found matching criteria.</td></tr>`;
+        return;
       }
 
-      // Render Employee Table if present
+      tbody.innerHTML = filtered.map((r, idx) => {
+        const reqId = r.request_id || r.id;
+        const isPerm = r.request_type === 'Permission';
+        const typeBadge = isPerm
+          ? `<span class="badge-type-perm" style="background:#eff6ff; color:#1d4ed8; padding:3px 8px; border-radius:5px; font-weight:700; font-size:11px;">Permission</span>`
+          : `<span class="badge-type-leave" style="background:#fdf4ff; color:#86198f; padding:3px 8px; border-radius:5px; font-weight:700; font-size:11px;">${escapeHtml(r.leave_type ? r.leave_type.split(' ')[0] : 'Leave')}</span>`;
+
+        const st = (r.status || 'Pending').toLowerCase();
+        const statusLabel = r.status || (st === 'approved' ? 'Approved' : (st === 'rejected' ? 'Rejected' : 'Pending'));
+        const remark = (r.admin_remark || '').trim();
+
+        let badgeBg = '#fef3c7'; let badgeColor = '#d97706';
+        if (st === 'approved') { badgeBg = '#dcfce7'; badgeColor = '#15803d'; }
+        else if (st === 'rejected') { badgeBg = '#fee2e2'; badgeColor = '#dc2626'; }
+
+        let statusBadge = '';
+        if (remark) {
+          statusBadge = `
+            <div style="display: inline-flex; flex-direction: column; align-items: center; gap: 3px; max-width: 200px;">
+              <span style="background:${badgeBg}; color:${badgeColor}; font-size: 11px; padding: 2.5px 8px; border-radius: 5px; font-weight: 700; display: inline-block;">${escapeHtml(statusLabel)}</span>
+              <span style="font-size: 10.5px; color: #475569; line-height: 1.3; font-weight: 500; word-break: break-word;" title="${escapeHtml(remark)}">${escapeHtml(remark)}</span>
+            </div>
+          `;
+        } else {
+          statusBadge = `<span style="background:${badgeBg}; color:${badgeColor}; font-size: 11px; padding: 2.5px 8px; border-radius: 5px; font-weight: 700; display: inline-block;">${escapeHtml(statusLabel)}</span>`;
+        }
+
+        // Date / Period
+        let datePeriod = '';
+        if (isPerm) {
+          datePeriod = `<strong>${escapeHtml(r.date || r.from_date || '-')}</strong><br><span style="font-size: 11px; color: #64748b;">${escapeHtml(r.from_time || '')} - ${escapeHtml(r.to_time || '')} (${escapeHtml(r.duration || r.duration_hours || '02:00')})</span>`;
+        } else {
+          const fromDate = r.from_date || '-';
+          const toDate = r.to_date || fromDate;
+          const count = `${r.days_count || r.total_days || 1} Day(s)`;
+          datePeriod = `<strong>${escapeHtml(fromDate)}</strong>${toDate !== fromDate ? ' to <strong>' + escapeHtml(toDate) + '</strong>' : ''}<br><span style="font-size: 11px; color: #0284c7; font-weight: 700;">${count} (${escapeHtml(r.session || 'Full Day')})</span>`;
+        }
+
+        // Attachment
+        let attCol = `<span style="color: #cbd5e1;">-</span>`;
+        const attUrl = (r.attachments && r.attachments.length > 0) ? r.attachments[0].file_url : r.attachment_url;
+        if (attUrl) {
+          attCol = `
+            <a href="${escapeHtml(attUrl)}" target="_blank" title="View Document" style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background: #e0f2fe; color: #0284c7; text-decoration: none;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+            </a>
+          `;
+        }
+
+        // Quick Actions
+        let actionButtons = `<div style="display: flex; align-items: center; justify-content: center; gap: 6px;">`;
+        if (st === 'pending') {
+          actionButtons += `
+            <button type="button" onclick="quickApproveFwRequest('${reqId}', '${escapeHtml(r.employee_name || '')}')" title="Quick Approve" style="border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background: #dcfce7; color: #16a34a; transition: all 0.15s ease;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </button>
+            <button type="button" onclick="openFwQuickRejectModal('${reqId}')" title="Quick Reject" style="border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background: #fee2e2; color: #dc2626; transition: all 0.15s ease;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          `;
+        } else {
+          actionButtons += `<span style="font-size:11px; color:#64748b;">${escapeHtml(r.reviewer || 'Processed')}</span>`;
+        }
+        actionButtons += `</div>`;
+
+        return `
+          <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 10px 14px; text-align: center; font-size: 11.5px; color: #64748b; font-weight: 600;">${idx + 1}</td>
+            <td style="padding: 10px 14px; font-size: 12px;">${typeBadge}</td>
+            <td style="padding: 10px 14px; font-size: 12px;">
+              <strong style="color: #0f172a;">${escapeHtml(r.employee_name)}</strong><br>
+              <span style="font-size: 11px; color: #64748b;">ID: ${escapeHtml(r.employee_id || r.employee_code || '-')} &bull; ${escapeHtml(r.branch_name || 'Home Branch')}</span>
+            </td>
+            <td style="padding: 10px 14px; font-size: 12px;">${datePeriod}</td>
+            <td style="padding: 10px 14px; font-size: 12px; max-width: 220px; white-space: normal; line-height: 1.4; color: #334155;">
+              ${escapeHtml(r.reason || '-')}
+            </td>
+            <td style="padding: 10px 14px; text-align: center;">${attCol}</td>
+            <td style="padding: 10px 14px; text-align: center; font-size: 11px;">${statusBadge}</td>
+            <td style="padding: 10px 14px; text-align: center;">${actionButtons}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderFieldLeaveSystem(requests, counts, stats) {
+      if (requests) FW_LEAVE_REQUESTS_DATA = requests;
+      if (counts) {
+        FW_LEAVE_COUNTS_DATA = counts;
+        updateFwRequestTabBadges(counts);
+      } else if (requests) {
+        updateFwRequestTabBadges({
+          all: requests.length,
+          pending: requests.filter(r => (r.status || '').toLowerCase() === 'pending').length,
+          approved: requests.filter(r => (r.status || '').toLowerCase() === 'approved').length,
+          rejected: requests.filter(r => (r.status || '').toLowerCase() === 'rejected').length
+        });
+      }
+
+      renderFwRequestsTable();
+
+      // Render Employee self-service table if present
       const empTbody = document.getElementById('myFwLeaveApplicationsTableBody');
-      if (empTbody) {
+      if (empTbody && requests) {
         if (requests.length === 0) {
           empTbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#64748b; padding:28px;">You haven\'t submitted any leave or permission requests yet.</td></tr>';
         } else {
@@ -6065,59 +6104,308 @@
       }
     }
 
-    // Modal: Admin Leave Action (Approve / Reject)
-    function openFwLeaveActionModal(reqId, workerName, reqType, action) {
-      document.getElementById('fwLeaveActionReqId').value = reqId;
-      document.getElementById('fwLeaveActionStatus').value = action;
-      document.getElementById('fwLeaveAdminRemark').value = '';
-
-      const isApprove = action === 'Approve';
-      document.getElementById('fwLeaveActionTitle').textContent = isApprove ? 'Approve Request' : 'Reject Request';
-      document.getElementById('fwLeaveActionSubtitle').textContent = `Field Worker: ${workerName} (${reqType})`;
-      document.getElementById('fwLeaveActionPrompt').innerHTML = `Are you sure you want to <strong>${action.toLowerCase()}</strong> the ${reqType.toLowerCase()} request for <strong>${workerName}</strong>?`;
-
-      const submitBtn = document.getElementById('fwLeaveActionSubmitBtn');
-      submitBtn.className = `fw-btn ${isApprove ? 'fw-btn-success' : 'fw-btn-danger'}`;
-      submitBtn.textContent = isApprove ? 'Confirm Approval' : 'Confirm Rejection';
-
-      const iconBox = document.getElementById('fwLeaveActionIcon');
-      if (iconBox) {
-        iconBox.style.background = isApprove ? '#dcfce7' : '#fee2e2';
-        iconBox.style.color = isApprove ? '#15803d' : '#dc2626';
-        iconBox.innerHTML = `<i class="fa-solid ${isApprove ? 'fa-check' : 'fa-xmark'}"></i>`;
-      }
-
-      const modal = document.getElementById('fwLeaveActionModalBackdrop');
-      if (modal) modal.classList.remove('d-none');
-    }
-
-    function closeFwLeaveActionModal() {
-      const modal = document.getElementById('fwLeaveActionModalBackdrop');
-      if (modal) modal.classList.add('d-none');
-    }
-
-    async function submitFwLeaveAction() {
-      const reqId = document.getElementById('fwLeaveActionReqId').value;
-      const action = document.getElementById('fwLeaveActionStatus').value;
-      const remark = document.getElementById('fwLeaveAdminRemark').value.trim();
-      if (!reqId || !action) return;
+    // Quick Approve Action
+    async function quickApproveFwRequest(reqId, workerName) {
+      if (!confirm(`Are you sure you want to approve request for ${workerName || reqId}?`)) return;
 
       try {
         const res = await fetch(`/api/field-worker/leave-requests/${encodeURIComponent(reqId)}/action`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: action, admin_remark: remark })
+          body: JSON.stringify({ action: 'Approved' })
         });
         const data = await res.json();
         if (data.success) {
-          showToast(data.message || `Leave request ${action.toLowerCase()}d successfully.`);
-          closeFwLeaveActionModal();
-          await refreshOverviewState();
+          showToast(data.message || 'Leave request approved successfully.');
+          await loadFwRequests();
         } else {
-          showToast(data.error || 'Failed to update request.', true);
+          showToast(data.error || 'Failed to approve request.', true);
         }
       } catch (err) {
-        showToast('Error updating request: ' + err.message, true);
+        showToast('Error approving request: ' + err.message, true);
+      }
+    }
+
+    // Quick Reject Modal Handlers
+    function openFwQuickRejectModal(reqId) {
+      const modal = document.getElementById('fwModalQuickReject');
+      const reqIdInput = document.getElementById('fwQuickRejectReqId');
+      const remarkInput = document.getElementById('fwQuickRejectRemark');
+      if (reqIdInput) reqIdInput.value = reqId;
+      if (remarkInput) remarkInput.value = '';
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeFwQuickRejectModal() {
+      const modal = document.getElementById('fwModalQuickReject');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function confirmFwQuickReject() {
+      const reqId = document.getElementById('fwQuickRejectReqId').value;
+      const remark = document.getElementById('fwQuickRejectRemark').value.trim();
+      if (!reqId) return;
+
+      try {
+        const res = await fetch(`/api/field-worker/leave-requests/${encodeURIComponent(reqId)}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'Rejected', admin_remark: remark })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Leave request rejected successfully.');
+          closeFwQuickRejectModal();
+          await loadFwRequests();
+        } else {
+          showToast(data.error || 'Failed to reject request.', true);
+        }
+      } catch (err) {
+        showToast('Error rejecting request: ' + err.message, true);
+      }
+    }
+
+    // Leave Balances & Quotas Modal Handlers
+    async function openFwLeaveBalancesModal() {
+      const modal = document.getElementById('fwModalEmployeeLeaveBalances');
+      if (modal) {
+        modal.style.display = 'flex';
+        await loadFwBalances();
+      }
+    }
+
+    function closeFwLeaveBalancesModal() {
+      const modal = document.getElementById('fwModalEmployeeLeaveBalances');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function loadFwBalances() {
+      const tbody = document.getElementById('fwLeaveBalancesTbody');
+      if (!tbody) return;
+      try {
+        const cid = getActiveCompanyId();
+        const res = await fetch(`/api/field-worker/leave-balances?company_id=${encodeURIComponent(cid)}`);
+        if (!res.ok) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #dc2626;">Failed to load field worker balances.</td></tr>`;
+          return;
+        }
+        const data = await res.json();
+        if (!data.success) return;
+
+        cachedFwBalances = data.balances || [];
+        renderFwBalancesTable();
+      } catch (err) {
+        console.error('Error fetching FW balances:', err);
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #dc2626;">Error loading balances.</td></tr>`;
+      }
+    }
+
+    function renderFwBalancesTable() {
+      const tbody = document.getElementById('fwLeaveBalancesTbody');
+      if (!tbody) return;
+
+      const searchInput = document.getElementById('fwSearchBalancesInput');
+      const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+      const filtered = (cachedFwBalances || []).filter(b => {
+        if (!query) return true;
+        const nameMatch = (b.employee_name || '').toLowerCase().includes(query);
+        const idMatch = (b.employee_id || b.id || '').toLowerCase().includes(query);
+        const deptMatch = (b.department || '').toLowerCase().includes(query);
+        return nameMatch || idMatch || deptMatch;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 24px; color: #94a3b8; font-size: 12.5px;">No field workers found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(b => {
+        const customLeaves = b.custom_leaves || [];
+        let leavesHtml = '';
+        if (customLeaves.length > 0) {
+          leavesHtml = customLeaves.map(lv => {
+            const avail = (lv.available !== undefined) ? lv.available : lv.total;
+            return `<span style="display:inline-block; margin:2px 4px 2px 0; background:#f0f9ff; border:1px solid #bae6fd; color:#0369a1; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700;">${escapeHtml(lv.name)}: ${avail} / ${lv.total} ${escapeHtml(lv.unit || 'Days')}</span>`;
+          }).join('');
+        } else {
+          leavesHtml = `
+            <span style="display:inline-block; margin:2px 4px 2px 0; background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700;">CL: ${b.cl_remaining ?? 12}/${b.cl_quota ?? 12}</span>
+            <span style="display:inline-block; margin:2px 4px 2px 0; background:#f0fdf4; color:#15803d; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700;">SL: ${b.sl_remaining ?? 12}/${b.sl_quota ?? 12}</span>
+            <span style="display:inline-block; margin:2px 4px 2px 0; background:#fdf4ff; color:#86198f; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700;">EL: ${b.el_remaining ?? 15}/${b.el_quota ?? 15}</span>
+            <span style="display:inline-block; margin:2px 4px 2px 0; background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700;">Perm: ${b.permission_hours_used ?? 0}h used</span>
+          `;
+        }
+
+        const bJson = encodeURIComponent(JSON.stringify(b));
+        return `
+          <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 10px 14px; font-size: 11.5px; color: #64748b; font-weight: 700;">${escapeHtml(b.employee_id || b.id || '-')}</td>
+            <td style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: #0f172a;">${escapeHtml(b.employee_name)}</td>
+            <td style="padding: 10px 14px; font-size: 12px; color: #475569;">${escapeHtml(b.department || 'Field Sales & Operations')}</td>
+            <td style="padding: 10px 14px; font-size: 12px;">${leavesHtml}</td>
+            <td style="padding: 10px 14px; text-align: center;">
+              <button type="button" onclick="openFwSetQuotaModal('${bJson}')" class="btn-primary-action" style="padding: 4px 12px; font-size: 11px; font-weight: 700; border-radius: 6px; cursor: pointer;">
+                Set
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Set Custom Quota Modal Handlers
+    function openFwSetQuotaModal(bJsonStr) {
+      const data = JSON.parse(decodeURIComponent(bJsonStr));
+      const modal = document.getElementById('fwModalSetEmployeeLeaveQuota');
+      const empIdInput = document.getElementById('fwQuotaEmpId');
+      const compIdInput = document.getElementById('fwQuotaEmpCompanyId');
+      const subtitle = document.getElementById('fwQuotaModalSubtitle');
+      const container = document.getElementById('fwCustomLeaveRowsContainer');
+      const alertBox = document.getElementById('fwQuotaAlertBox');
+
+      if (empIdInput) empIdInput.value = data.id || data.employee_id || '';
+      if (compIdInput) compIdInput.value = data.company_id || getActiveCompanyId();
+      if (subtitle) {
+        subtitle.textContent = `Configuring: ${data.employee_name || 'Field Worker'} (ID: ${data.employee_id || data.id || ''})`;
+      }
+      if (alertBox) alertBox.style.display = 'none';
+
+      if (container) {
+        container.innerHTML = '';
+        const leaves = Array.isArray(data.custom_leaves) ? data.custom_leaves : [];
+        if (leaves.length > 0) {
+          leaves.forEach(lv => addFwLeaveTypeRow(lv.name, lv.total, lv.unit || 'Days'));
+        } else {
+          addFwLeaveTypeRow('Casual Leave (CL)', data.cl_quota || 12, 'Days');
+          addFwLeaveTypeRow('Sick Leave (SL)', data.sl_quota || 12, 'Days');
+          addFwLeaveTypeRow('Earned Leave (EL)', data.el_quota || 15, 'Days');
+        }
+      }
+
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeFwSetQuotaModal() {
+      const modal = document.getElementById('fwModalSetEmployeeLeaveQuota');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function addFwLeaveTypeRow(name = '', total = '', unit = 'Days') {
+      const container = document.getElementById('fwCustomLeaveRowsContainer');
+      if (!container) return;
+
+      const row = document.createElement('div');
+      row.className = 'custom-leave-row';
+      row.style.cssText = 'display: grid; grid-template-columns: 1fr 100px 90px 32px; gap: 8px; align-items: center;';
+      row.innerHTML = `
+        <div>
+          <input type="text" class="custom-leave-name" placeholder="e.g., Casual Leave, Medical Leave" value="${escapeHtml(name)}" style="width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 6px; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 600;">
+        </div>
+        <div>
+          <input type="number" step="0.5" min="0" max="365" class="custom-leave-total" placeholder="Allowed" value="${total}" style="width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 6px; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 600; text-align: center;">
+        </div>
+        <div>
+          <select class="custom-leave-unit" style="width: 100%; box-sizing: border-box; padding: 7px 6px; border-radius: 6px; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #ffffff;">
+            <option value="Days" ${unit === 'Days' ? 'selected' : ''}>Days</option>
+            <option value="Hours" ${unit === 'Hours' ? 'selected' : ''}>Hours</option>
+          </select>
+        </div>
+        <div style="text-align: center;">
+          <button type="button" class="btn-remove-leave-row" title="Remove" style="background: none; border: none; color: #ef4444; font-size: 20px; font-weight: 700; cursor: pointer; padding: 0; line-height: 1;">
+            &times;
+          </button>
+        </div>
+      `;
+
+      row.querySelector('.btn-remove-leave-row').addEventListener('click', () => {
+        row.remove();
+        if (container.children.length === 0) {
+          addFwLeaveTypeRow('', '', 'Days');
+        }
+      });
+
+      container.appendChild(row);
+    }
+
+    async function saveFwEmployeeQuota(e) {
+      e.preventDefault();
+      const saveBtn = document.getElementById('btnSaveFwEmployeeQuota');
+      const alertBox = document.getElementById('fwQuotaAlertBox');
+      const empId = document.getElementById('fwQuotaEmpId').value;
+      const compId = document.getElementById('fwQuotaEmpCompanyId').value;
+      const rows = document.querySelectorAll('#fwCustomLeaveRowsContainer .custom-leave-row');
+
+      const custom_leaves = [];
+      rows.forEach(r => {
+        const name = (r.querySelector('.custom-leave-name')?.value || '').trim();
+        const total = parseFloat(r.querySelector('.custom-leave-total')?.value) || 0;
+        const unit = r.querySelector('.custom-leave-unit')?.value || 'Days';
+        if (name) {
+          custom_leaves.push({ name, total, unit });
+        }
+      });
+
+      if (!empId) {
+        if (alertBox) {
+          alertBox.style.display = 'block';
+          alertBox.style.backgroundColor = '#fef2f2';
+          alertBox.style.color = '#991b1b';
+          alertBox.textContent = 'Employee ID is missing.';
+        }
+        return;
+      }
+
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+      }
+
+      try {
+        const res = await fetch('/api/admin/leave-permission/employee-custom-leaves', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employee_id: empId,
+            company_id: compId,
+            custom_leaves: custom_leaves
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (alertBox) {
+            alertBox.style.display = 'block';
+            alertBox.style.backgroundColor = '#ecfdf5';
+            alertBox.style.color = '#065f46';
+            alertBox.style.border = '1px solid #a7f3d0';
+            alertBox.textContent = data.message || 'Custom leaves saved successfully!';
+          }
+          await loadFwBalances();
+          setTimeout(() => {
+            closeFwSetQuotaModal();
+          }, 600);
+        } else {
+          if (alertBox) {
+            alertBox.style.display = 'block';
+            alertBox.style.backgroundColor = '#fef2f2';
+            alertBox.style.color = '#991b1b';
+            alertBox.style.border = '1px solid #fecaca';
+            alertBox.textContent = data.error || 'Failed to update custom leaves.';
+          }
+        }
+      } catch (err) {
+        if (alertBox) {
+          alertBox.style.display = 'block';
+          alertBox.style.backgroundColor = '#fef2f2';
+          alertBox.style.color = '#991b1b';
+          alertBox.style.border = '1px solid #fecaca';
+          alertBox.textContent = 'Error: ' + err.message;
+        }
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Save Leaves';
+        }
       }
     }
 

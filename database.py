@@ -382,7 +382,7 @@ def apply_tenant_filter(query, company_id):
     """Applies strict tenant isolation filter to a MongoDB query dictionary."""
     if query is None:
         query = {}
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', 'SUPER_ADMIN', '']:
         query['company_id'] = str(company_id)
     return query
 
@@ -1311,40 +1311,19 @@ def generate_employee_id():
 
 def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc', page=1, limit=10, status=None, branch_id=None, exclude_field_workers=True):
     db = get_db()
-    query = {}
-    if company_id and company_id != 'ALL':
-        query['company_id'] = str(company_id)
-
-    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
-    if b_id:
-        if is_home_branch_id(b_id):
-            query['$or'] = [
-                {'branch_id': {'$in': [None, '', 'HOME', 'HQ', 'MAIN', 'unassigned']}},
-                {'branch_id': {'$exists': False}}
-            ]
-        else:
-            query['branch_id'] = b_id
+    # Build tenant and branch scoped employee query
+    query = get_branch_employee_query(branch_id, company_id, exclude_field_workers=exclude_field_workers)
 
     # Filter by employee status if specified
     if status and str(status).strip().lower() not in ['all', '', 'none']:
         st_clean = str(status).strip().capitalize()
-        if st_clean == 'Inactive':
-            query['status'] = 'Inactive'
-        elif st_clean == 'Active':
-            query['status'] = {'$ne': 'Inactive'}
-
-    # Exclude field workers from standard employee listings
-    if exclude_field_workers:
-        fw_condition = {
-            'is_field_worker': {'$ne': True},
-            'employee_type': {'$nin': ['field_worker', 'field', 'fw']}
-        }
-        if '$or' in query:
-            existing_or = query.pop('$or')
-            query.setdefault('$and', []).append({'$or': existing_or})
-            query['$and'].append(fw_condition)
+        status_cond = {'status': 'Inactive'} if st_clean == 'Inactive' else {'status': {'$ne': 'Inactive'}}
+        if '$and' in query:
+            query['$and'].append(status_cond)
+        elif query:
+            query = {'$and': [query, status_cond]}
         else:
-            query.update(fw_condition)
+            query = status_cond
 
     if search:
         reg = {'$regex': re.escape(search), '$options': 'i'}
@@ -1380,14 +1359,11 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc'
         employees.append(c)
 
     # Compute company active quota summary stats
-    base_comp_query = {'company_id': str(company_id)} if (company_id and company_id != 'ALL') else {}
-    if b_id:
-        base_comp_query['branch_id'] = b_id
-    if exclude_field_workers:
-        base_comp_query['is_field_worker'] = {'$ne': True}
-        base_comp_query['employee_type'] = {'$nin': ['field_worker', 'field', 'fw']}
-    active_count = db.employees.count_documents({**base_comp_query, 'status': {'$ne': 'Inactive'}})
-    inactive_count = db.employees.count_documents({**base_comp_query, 'status': 'Inactive'})
+    base_comp_query = get_branch_employee_query(branch_id, company_id, exclude_field_workers=exclude_field_workers)
+    active_cond = {'$and': [base_comp_query, {'status': {'$ne': 'Inactive'}}]} if base_comp_query else {'status': {'$ne': 'Inactive'}}
+    inactive_cond = {'$and': [base_comp_query, {'status': 'Inactive'}]} if base_comp_query else {'status': 'Inactive'}
+    active_count = db.employees.count_documents(active_cond)
+    inactive_count = db.employees.count_documents(inactive_cond)
     total_preserved = db.employees.count_documents(base_comp_query)
 
     employee_limit = 50
@@ -1413,7 +1389,7 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc'
 def get_employee_by_id(emp_id, company_id=None):
     db = get_db()
     f = build_id_filter(emp_id)
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         f = {'$and': [f, {'company_id': str(company_id)}]}
     doc = db.employees.find_one(f)
     cleaned = clean_doc(doc)
@@ -1615,7 +1591,7 @@ def create_employee(data, company_id=None):
 def update_employee(emp_id, data, company_id=None):
     db = get_db()
     f = build_id_filter(emp_id)
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         f = {'$and': [f, {'company_id': str(company_id)}]}
     if 'email_id' in data and not str(data.get('email_id') or '').strip():
         raise ValueError('Email ID is required.')
@@ -1755,7 +1731,7 @@ def update_employee(emp_id, data, company_id=None):
 def delete_employee(emp_id, company_id=None):
     db = get_db()
     f = build_id_filter(emp_id)
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         f = {'$and': [f, {'company_id': str(company_id)}]}
     db.employees.delete_one(f)
     invalidate_dashboard_cache(company_id)
@@ -1765,7 +1741,7 @@ def delete_employee(emp_id, company_id=None):
 def get_all_face_embeddings(company_id=None):
     db = get_db()
     q = {'face_embedding': {'$nin': ['', 'null', None], '$exists': True}}
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         q['company_id'] = str(company_id)
     employees = db.employees.find(q)
     results = []
@@ -2224,7 +2200,7 @@ def process_company_timeout_entries(company_id=None):
     now = get_ist_now()
     
     rep_query = {'exit_time': '----'}
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         rep_query['company_id'] = str(company_id)
         
     pending_reps = list(db.attendance_reports.find(rep_query))
@@ -2427,7 +2403,7 @@ def sync_live_and_timeout_entries(company_id=None):
         
         # 2. Find all active attendance reports with exit_time == '----'
         rep_query = {'exit_time': '----'}
-        if company_id and company_id != 'ALL':
+        if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
             rep_query['company_id'] = str(company_id)
             
         open_reps = list(db.attendance_reports.find(rep_query))
@@ -2495,7 +2471,7 @@ def sync_live_and_timeout_entries(company_id=None):
             
         # 3. Clean up any entries in live_entries that are no longer open in attendance_reports
         live_query = {}
-        if company_id and company_id != 'ALL':
+        if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
             live_query['company_id'] = str(company_id)
             
         for live_doc in list(db.live_entries.find(live_query)):
@@ -2515,7 +2491,7 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
     db = get_db()
     query = {}
     
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         query['company_id'] = str(company_id)
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
@@ -3425,7 +3401,7 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
 
     if report_type == 'manual':
         m_query = {}
-        if company_id and company_id != 'ALL':
+        if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
             m_query['company_id'] = str(company_id)
         if branch_cond:
             m_query.setdefault('$and', []).append(branch_cond)
@@ -3478,7 +3454,7 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
 
     # Biometric Attendance Reports Query
     query = {}
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         query['company_id'] = str(company_id)
     if branch_cond:
         query.setdefault('$and', []).append(branch_cond)
@@ -3971,7 +3947,7 @@ def get_manual_entries(from_date=None, to_date=None, status='All', search=None, 
     db = get_db()
     query = {}
     
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         query['company_id'] = str(company_id)
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
@@ -4279,7 +4255,7 @@ def get_payments(employee=None, start_date=None, end_date=None, bank=None, payme
     db = get_db()
     conditions = []
     
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         conditions.append({'company_id': str(company_id)})
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
@@ -4457,7 +4433,7 @@ def get_advances(employee=None, start_date=None, end_date=None, search=None, pag
     db = get_db()
     query = {}
     
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         query['company_id'] = str(company_id)
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
@@ -4682,7 +4658,7 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
     db = get_db()
     query = {}
     
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         query['company_id'] = str(company_id)
 
     if exclude_field_workers:
@@ -6245,7 +6221,7 @@ def get_leave_requests(company_id=None, employee_id=None, status=None, limit=50,
     """Retrieves paginated list of leave & permission requests with field worker isolation."""
     db = get_db()
     base_query = {}
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         base_query['company_id'] = str(company_id)
 
     if for_field_workers:
@@ -6489,7 +6465,7 @@ def get_admin_leave_stats(company_id=None, branch_id=None, for_field_workers=Fal
     """Returns the 4 KPI card metrics shown in Image 4, isolated for standard vs field workers."""
     db = get_db()
     query = {}
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         query['company_id'] = str(company_id)
 
     if for_field_workers:
@@ -6541,7 +6517,7 @@ def get_approved_leaves_for_date(date_str, company_id=None, for_field_workers=Fa
         'from_date': {'$lte': date_str},
         'to_date': {'$gte': date_str}
     }
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         q['company_id'] = str(company_id)
 
     if for_field_workers:
@@ -6570,7 +6546,7 @@ def get_approved_permissions_for_date(date_str, company_id=None, for_field_worke
         'status': 'Approved',
         'from_date': date_str
     }
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         q['company_id'] = str(company_id)
 
     if for_field_workers:
@@ -7186,7 +7162,7 @@ def get_field_workers(company_id=None, include_all_employees=False):
     """
     db = get_db()
     q = {}
-    if company_id and company_id != 'ALL':
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         q['company_id'] = str(company_id)
 
     all_emps = [clean_doc(e) for e in db.employees.find(q, {'photo_data': 0, 'face_embedding': 0, 'documents': 0}).sort('employee_name', ASCENDING)]
