@@ -2850,6 +2850,13 @@ def api_create_employee():
             return jsonify({'error': 'Employee name is required'}), 400
         if not (data.get('email_id') or '').strip():
             return jsonify({'error': 'Email ID is required'}), 400
+
+        # Normalize employee type / field worker flag
+        emp_type = str(data.get('employee_type') or '').strip().lower()
+        if emp_type:
+            data['is_field_worker'] = (emp_type == 'field_worker')
+        elif 'is_field_worker' in data:
+            data['is_field_worker'] = str(data['is_field_worker']).strip().lower() in ['true', '1', 'yes']
             
         data['permissions'] = extract_employee_permissions(data, default_val=True)
         
@@ -2898,6 +2905,13 @@ def api_update_employee(emp_id):
             
         if 'email_id' in data and not (data.get('email_id') or '').strip():
             return jsonify({'error': 'Email ID is required'}), 400
+
+        # Normalize employee type / field worker flag
+        emp_type = str(data.get('employee_type') or '').strip().lower()
+        if emp_type:
+            data['is_field_worker'] = (emp_type == 'field_worker')
+        elif 'is_field_worker' in data:
+            data['is_field_worker'] = str(data['is_field_worker']).strip().lower() in ['true', '1', 'yes']
             
         face_registered = False
 
@@ -5071,7 +5085,7 @@ def field_worker_module_page():
     if user_role in ['super_admin', 'company_admin']:
         all_employees = database.get_field_workers(company_id=active_cid, include_all_employees=True)
         field_workers = [w for w in all_employees if w.get('is_field_worker')]
-        if not field_workers:
+        if not field_workers and not any(w.get('is_field_worker') is False for w in all_employees):
             field_workers = all_employees
     else:
         field_workers = database.get_field_workers(company_id=active_cid, include_all_employees=False)
@@ -5123,7 +5137,7 @@ def api_field_worker_overview():
     if user_role in ['super_admin', 'company_admin']:
         all_emps = database.get_field_workers(company_id=cid, include_all_employees=True)
         workers = [w for w in all_emps if w.get('is_field_worker')]
-        if not workers:
+        if not workers and not any(w.get('is_field_worker') is False for w in all_emps):
             workers = all_emps
     else:
         workers = database.get_field_workers(company_id=cid, include_all_employees=False)

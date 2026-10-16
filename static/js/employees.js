@@ -135,10 +135,14 @@ document.addEventListener('DOMContentLoaded', function () {
         photoHtml = `<div class="avatar-circle">${initials}</div>`;
       }
 
-      tr.innerHTML = `
+        const fwBadge = emp.is_field_worker 
+          ? '<span class="status-pill" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; white-space: nowrap;">🏃 Field Worker</span>' 
+          : '';
+
+        tr.innerHTML = `
         <td style="font-weight: 700; color: #0f172a; white-space: nowrap;">${escapeHtml(emp.id)}</td>
         <td style="text-align: center; vertical-align: middle;">${photoHtml}</td>
-        <td class="col-wrap" style="max-width: 180px; white-space: normal !important; word-break: break-word !important;"><strong style="color: #0f172a;">${escapeHtml(emp.employee_name)}</strong></td>
+        <td class="col-wrap" style="max-width: 180px; white-space: normal !important; word-break: break-word !important;"><strong style="color: #0f172a;">${escapeHtml(emp.employee_name)}</strong>${fwBadge}</td>
         <td class="col-wrap" style="color: #475569; max-width: 160px; white-space: normal !important; word-break: break-word !important;">${escapeHtml(emp.designation || '')}</td>
         <td style="white-space: nowrap;">${statusBadgeHtml}</td>
         <td style="white-space: nowrap;">${badgeHtml}</td>
@@ -216,6 +220,7 @@ document.addEventListener('DOMContentLoaded', function () {
               ${statusBadgeHtml}
             </div>
             <div class="emp-grid-info-sub">${escapeHtml(emp.designation || 'Staff')} &bull; ID: ${escapeHtml(emp.id)}</div>
+            ${emp.is_field_worker ? '<div style="margin-top: 3px;"><span style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">🏃 Field Worker</span></div>' : ''}
           </div>
         </div>
         <div class="emp-grid-body">
@@ -554,6 +559,21 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ================= ADD / EDIT MODAL LOGIC =================
+  function toggleFieldWorkerFormFields(empType) {
+    const isFw = (empType === 'field_worker');
+    const groupFw = document.getElementById('groupFieldWorkerSettings');
+    if (groupFw) {
+      groupFw.style.display = isFw ? 'block' : 'none';
+    }
+  }
+
+  const inputEmployeeType = document.getElementById('inputEmployeeType');
+  if (inputEmployeeType) {
+    inputEmployeeType.addEventListener('change', function () {
+      toggleFieldWorkerFormFields(this.value);
+    });
+  }
+
   if (btnOpenNewEntry) {
     btnOpenNewEntry.addEventListener('click', function () {
       openAddEntryModal();
@@ -571,6 +591,15 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('inputSalaryType').value = 'daily';
     const inStatus = document.getElementById('inputStatus');
     if (inStatus) inStatus.value = 'Active';
+    const inEmpType = document.getElementById('inputEmployeeType');
+    if (inEmpType) inEmpType.value = 'standard';
+    const inTerritory = document.getElementById('inputTerritoryZone');
+    if (inTerritory) inTerritory.value = '';
+    const inVisitInc = document.getElementById('inputVisitIncentive');
+    if (inVisitInc) inVisitInc.value = '';
+    const inKmRate = document.getElementById('inputKmAllowance');
+    if (inKmRate) inKmRate.value = '';
+    toggleFieldWorkerFormFields('standard');
     const inBranch = document.getElementById('inputBranchId');
     if (inBranch) inBranch.value = window.ACTIVE_BRANCH_ID || inBranch.getAttribute('data-default-branch') || (inBranch.querySelector('option[value="HOME"]') ? 'HOME' : '');
     const inDob = document.getElementById('inputDob');
@@ -623,6 +652,16 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('inputSalaryType').value = emp.salary_type || 'hourly';
       const inEditStatus = document.getElementById('inputStatus');
       if (inEditStatus) inEditStatus.value = (emp.status === 'Inactive') ? 'Inactive' : 'Active';
+      const isFw = Boolean(emp.is_field_worker);
+      const inEditEmpType = document.getElementById('inputEmployeeType');
+      if (inEditEmpType) inEditEmpType.value = isFw ? 'field_worker' : 'standard';
+      const inEditTerritory = document.getElementById('inputTerritoryZone');
+      if (inEditTerritory) inEditTerritory.value = emp.territory_zone || '';
+      const inEditVisitInc = document.getElementById('inputVisitIncentive');
+      if (inEditVisitInc) inEditVisitInc.value = (emp.per_visit_incentive !== undefined && emp.per_visit_incentive !== null) ? emp.per_visit_incentive : '';
+      const inEditKmRate = document.getElementById('inputKmAllowance');
+      if (inEditKmRate) inEditKmRate.value = (emp.km_allowance_rate !== undefined && emp.km_allowance_rate !== null) ? emp.km_allowance_rate : '';
+      toggleFieldWorkerFormFields(isFw ? 'field_worker' : 'standard');
       const inBranch = document.getElementById('inputBranchId');
       if (inBranch) inBranch.value = (emp.branch_id && emp.branch_id !== 'HOME') ? emp.branch_id : (inBranch.querySelector('option[value="HOME"]') ? 'HOME' : '');
       document.getElementById('inputMobile').value = emp.mobile_number || '';
@@ -704,6 +743,9 @@ document.addEventListener('DOMContentLoaded', function () {
       employeeForm.reset();
       const inStatus = document.getElementById('inputStatus');
       if (inStatus) inStatus.value = 'Active';
+      const inEmpType = document.getElementById('inputEmployeeType');
+      if (inEmpType) inEmpType.value = 'standard';
+      toggleFieldWorkerFormFields('standard');
       const inDob = document.getElementById('inputDob');
       if (inDob) inDob.value = '';
       const pPunch = document.getElementById('permPunchAttendance');
@@ -958,6 +1000,25 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const formData = new FormData(employeeForm);
 
+      // Explicitly serialize employee type and field worker settings
+      const inSubmitEmpType = document.getElementById('inputEmployeeType');
+      const empTypeVal = inSubmitEmpType ? inSubmitEmpType.value : 'standard';
+      const isFwSubmit = (empTypeVal === 'field_worker');
+      formData.set('employee_type', empTypeVal);
+      formData.set('is_field_worker', isFwSubmit ? 'true' : 'false');
+      if (isFwSubmit) {
+        const inTerritory = document.getElementById('inputTerritoryZone');
+        const inVisitInc = document.getElementById('inputVisitIncentive');
+        const inKmRate = document.getElementById('inputKmAllowance');
+        if (inTerritory) formData.set('territory_zone', inTerritory.value.trim());
+        if (inVisitInc) formData.set('per_visit_incentive', inVisitInc.value.trim());
+        if (inKmRate) formData.set('km_allowance_rate', inKmRate.value.trim());
+      } else {
+        formData.set('territory_zone', '');
+        formData.set('per_visit_incentive', '0');
+        formData.set('km_allowance_rate', '0');
+      }
+
       // Explicitly serialize employee portal permissions
       const permPunch = document.getElementById('permPunchAttendance');
       const permHist = document.getElementById('permAttendanceHistory');
@@ -1123,6 +1184,12 @@ document.addEventListener('DOMContentLoaded', function () {
         ['DEPARTMENT', emp.department || emp.designation || '-'],
         ['DESIGNATION', emp.designation],
         ['STATUS', (emp.status === 'Inactive') ? '<span class="status-pill status-inactive">Inactive</span>' : '<span class="status-pill status-active">Active</span>'],
+        ['EMPLOYEE TYPE', emp.is_field_worker ? '<span class="status-pill" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;font-weight:700;">🏃 Field Worker (GPS Tracked)</span>' : '<span class="status-pill status-blue">🏢 Standard Employee (Office / In-House)</span>'],
+        ...(emp.is_field_worker ? [
+          ['TERRITORY / ZONE', emp.territory_zone ? `📍 ${escapeHtml(emp.territory_zone)}` : 'General Zone'],
+          ['PER-VISIT INCENTIVE', emp.per_visit_incentive ? `₹${Number(emp.per_visit_incentive).toFixed(2)}` : '₹0.00'],
+          ['KM ALLOWANCE RATE', emp.km_allowance_rate ? `₹${Number(emp.km_allowance_rate).toFixed(2)} / KM` : '₹0.00 / KM']
+        ] : []),
         ['ASSIGNED BRANCH', emp.branch_name ? `📍 ${escapeHtml(emp.branch_name)}` : '🏢 Main / Head Office (Unassigned)'],
         ['SALARY BASIS', stLabels[emp.salary_type] || 'Hourly-Based'],
         ['HOURLY SALARY', emp.hourly_salary],

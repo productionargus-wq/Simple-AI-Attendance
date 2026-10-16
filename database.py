@@ -1539,7 +1539,12 @@ def create_employee(data, company_id=None):
             'leave_permission': True
         }),
         'documents': data.get('documents', []),
-        'is_field_worker': str(data.get('is_field_worker', '')).strip().lower() in ['true', '1', 'yes'] if data.get('is_field_worker') is not None else False,
+        'is_field_worker': (
+            (str(data.get('employee_type', '')).strip().lower() in ['field_worker', 'field', 'fw'])
+            or (str(data.get('is_field_worker', '')).strip().lower() in ['true', '1', 'yes'])
+            if (data.get('employee_type') is not None or data.get('is_field_worker') is not None)
+            else False
+        ),
         'territory_zone': str(data.get('territory_zone') or '').strip(),
         'per_visit_incentive': round(safe_float(data.get('per_visit_incentive')), 2),
         'km_allowance_rate': round(safe_float(data.get('km_allowance_rate')), 2),
@@ -1585,12 +1590,16 @@ def update_employee(emp_id, data, company_id=None):
         if key in data:
             upd[key] = str(data[key]).strip() if data[key] is not None else ''
 
-    if 'is_field_worker' in data and data['is_field_worker'] is not None:
+    if 'employee_type' in data and data['employee_type'] is not None:
+        upd['is_field_worker'] = str(data['employee_type']).strip().lower() in ['field_worker', 'field', 'fw']
+    elif 'is_field_worker' in data and data['is_field_worker'] is not None:
         if isinstance(data['is_field_worker'], bool):
             upd['is_field_worker'] = data['is_field_worker']
         else:
             upd['is_field_worker'] = str(data['is_field_worker']).strip().lower() in ['true', '1', 'yes']
 
+    if 'territory_zone' in data:
+        upd['territory_zone'] = str(data['territory_zone']).strip() if data['territory_zone'] is not None else ''
     if 'per_visit_incentive' in data:
         upd['per_visit_incentive'] = round(safe_float(data['per_visit_incentive']), 2)
     if 'km_allowance_rate' in data:
@@ -7035,12 +7044,14 @@ def get_field_workers(company_id=None, include_all_employees=False):
 
     all_emps = [clean_doc(e) for e in db.employees.find(q, {'photo_data': 0, 'face_embedding': 0, 'documents': 0}).sort('employee_name', ASCENDING)]
     field_workers = []
+    any_explicit_fw = any(e.get('is_field_worker') is True for e in all_emps)
     for emp in all_emps:
-        is_fw = bool(emp.get('is_field_worker', False))
-        dept = str(emp.get('department') or '').lower()
-        desig = str(emp.get('designation') or '').lower()
-        if not is_fw and any(k in dept or k in desig for k in ['field', 'sales', 'marketing', 'delivery', 'executive', 'visit']):
-            is_fw = True
+        if emp.get('is_field_worker') is not None:
+            is_fw = bool(emp.get('is_field_worker'))
+        else:
+            dept = str(emp.get('department') or '').lower()
+            desig = str(emp.get('designation') or '').lower()
+            is_fw = any(k in dept or k in desig for k in ['field', 'sales', 'marketing', 'delivery', 'visit'])
         emp['is_field_worker'] = is_fw
         emp['territory_zone'] = str(emp.get('territory_zone') or 'General Zone')
         emp['per_visit_incentive'] = round(safe_float(emp.get('per_visit_incentive', 0.0)), 2)
@@ -7049,7 +7060,7 @@ def get_field_workers(company_id=None, include_all_employees=False):
             field_workers.append(emp)
 
     # If no employee is tagged yet and include_all_employees is False, return all active employees so UI isn't empty on first launch
-    if not field_workers and all_emps and not include_all_employees:
+    if not field_workers and all_emps and not include_all_employees and not any_explicit_fw:
         return all_emps
     return field_workers
 

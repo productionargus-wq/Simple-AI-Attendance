@@ -177,6 +177,13 @@
               <option value="Inactive">Inactive (Unlimited / Quota Exempt)</option>
             </select>
           </div>
+          <div class="form-group">
+            <label class="form-label">Employee Type<span class="required">*</span></label>
+            <select class="form-input" id="inputEmployeeType" name="employee_type" required>
+              <option value="standard" selected>🏢 Standard Employee (Office / In-House)</option>
+              <option value="field_worker">🏃 Field Worker (GPS Tracked / Site Visits)</option>
+            </select>
+          </div>
           {% if company_modules and company_modules.branch_company and branches and branches|length > 0 %}
           <div class="form-group" id="groupBranchAssign">
             <label class="form-label">Assigned Branch Location</label>
@@ -188,6 +195,34 @@
             </select>
           </div>
           {% endif %}
+
+          <!-- Contextual Field Worker Settings (Visible when Field Worker is selected) -->
+          <div class="form-group" id="groupFieldWorkerSettings" style="display: none; grid-column: 1 / -1; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 14px; margin-top: 4px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px;">🏃</span>
+                <span style="font-weight: 700; color: #166534; font-size: 13px;">Field Worker Telemetry &amp; Compensation Settings</span>
+              </div>
+              <span style="font-size: 11px; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 12px; font-weight: 700;">Enrolled in Field Worker Module</span>
+            </div>
+            <div style="font-size: 11.5px; color: #166534; margin-bottom: 12px; line-height: 1.4;">
+              This employee is enrolled as an active Field Worker with real-time GPS telemetry, client visit tracking, detour anomaly AI detection, and automated travel reimbursement.
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+              <div>
+                <label class="form-label" style="font-size: 11.5px; color: #14532d; font-weight: 600;">Assigned Territory / Zone</label>
+                <input type="text" class="form-input" id="inputTerritoryZone" name="territory_zone" placeholder="e.g. Coimbatore North, Metro Area">
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11.5px; color: #14532d; font-weight: 600;">Per-Visit Incentive (₹)</label>
+                <input type="number" step="0.01" min="0" class="form-input" id="inputVisitIncentive" name="per_visit_incentive" placeholder="e.g. 150.00">
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11.5px; color: #14532d; font-weight: 600;">KM Allowance Rate (₹/KM)</label>
+                <input type="number" step="0.01" min="0" class="form-input" id="inputKmAllowance" name="km_allowance_rate" placeholder="e.g. 4.50">
+              </div>
+            </div>
+          </div>
 
           <!-- Row 3: Salary Structure -->
           <div class="form-group">
@@ -428,5 +463,5 @@
 <script>
   window.ACTIVE_BRANCH_ID = "{{ active_branch_id or '' }}";
 </script>
-<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261014_branch"></script>
+<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261016_emptype"></script>
 {% endblock %}
