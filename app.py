@@ -5085,14 +5085,13 @@ def field_worker_module_page():
     if user_role in ['super_admin', 'company_admin']:
         all_employees = database.get_field_workers(company_id=active_cid, include_all_employees=True)
         field_workers = [w for w in all_employees if w.get('is_field_worker')]
-        if not field_workers and not any(w.get('is_field_worker') is False for w in all_employees):
-            field_workers = all_employees
     else:
         field_workers = database.get_field_workers(company_id=active_cid, include_all_employees=False)
         if emp_scope:
             field_workers = [w for w in field_workers if w.get('employee_name') == emp_scope]
         all_employees = field_workers
 
+    branches = database.get_company_branches(active_cid)
     assignments = database.get_field_assignments(company_id=active_cid, employee_name=emp_scope, date_str=today_str)
     tracking = database.get_field_live_tracking(company_id=active_cid, date_str=today_str, employee_name=emp_scope)
     visits = database.get_field_customer_visits(company_id=active_cid, employee_name=emp_scope)
@@ -5108,6 +5107,7 @@ def field_worker_module_page():
         logged_in_employee_name=logged_in_emp_name,
         field_workers=field_workers,
         all_employees=all_employees,
+        branches=branches,
         assignments=assignments,
         tracking=tracking,
         visits=visits,
@@ -5137,14 +5137,13 @@ def api_field_worker_overview():
     if user_role in ['super_admin', 'company_admin']:
         all_emps = database.get_field_workers(company_id=cid, include_all_employees=True)
         workers = [w for w in all_emps if w.get('is_field_worker')]
-        if not workers and not any(w.get('is_field_worker') is False for w in all_emps):
-            workers = all_emps
     else:
         workers = database.get_field_workers(company_id=cid, include_all_employees=False)
         if emp_filter:
             workers = [w for w in workers if w.get('employee_name') == emp_filter]
         all_emps = workers
 
+    branches = database.get_company_branches(cid)
     assignments = database.get_field_assignments(company_id=cid, employee_name=emp_filter, date_str=date_str)
     tracking = database.get_field_live_tracking(company_id=cid, date_str=date_str, employee_name=emp_filter)
     visits = database.get_field_customer_visits(company_id=cid, employee_name=emp_filter)
@@ -5158,6 +5157,7 @@ def api_field_worker_overview():
         'month_year': month_year,
         'field_workers': workers,
         'all_employees': all_emps,
+        'branches': branches,
         'assignments': assignments,
         'tracking': tracking,
         'ai_incidents': tracking.get('ai_incidents', []) if isinstance(tracking, dict) else [],
@@ -5178,6 +5178,19 @@ def api_field_worker_register():
         cid = _resolve_field_company_id(data.get('company_id'))
         data['company_id'] = cid
         data['is_field_worker'] = True
+        data['employee_type'] = 'field_worker'
+
+        # Resolve assigned branch location
+        bid = str(data.get('branch_id') or '').strip()
+        if bid and bid not in ['HOME', 'ALL', 'none', 'None']:
+            data['branch_id'] = bid
+            b_doc = database.get_branch_by_id(bid, cid)
+            data['branch_name'] = b_doc.get('branch_name') if b_doc else 'Home Branch (Head Office)'
+        else:
+            data['branch_id'] = None
+            data['branch_name'] = 'Home Branch (Head Office)'
+        data['branch'] = data['branch_name']
+        data['territory_zone'] = data['branch_name']
 
         # Handle optional face photo for biometric enrollment
         photo_b64 = data.get('photo_data') or ''
@@ -5350,49 +5363,6 @@ def api_field_worker_ai_incident_resolve(incident_id):
         'success': True,
         'message': f'Incident marked as {status}',
         'incident_id': incident_id
-    })
-
-
-@app.route('/api/field-worker/ai-test-detour', methods=['POST'])
-def api_field_worker_ai_test_detour():
-    """Admin simulation endpoint to trigger an AI Detour Anomaly immediately for verification."""
-    if not _is_field_authenticated():
-        return jsonify({'success': False, 'error': 'Authentication required'}), 401
-
-    data = request.get_json(silent=True) or request.form.to_dict() or {}
-    cid = _resolve_field_company_id(data.get('company_id'))
-    emp_name = str(data.get('employee_name') or '').strip()
-    if not emp_name:
-        workers = database.get_field_workers(company_id=cid, include_all_employees=True)
-        if workers:
-            emp_name = workers[0].get('employee_name')
-        else:
-            return jsonify({'success': False, 'error': 'No field workers found to simulate'}), 400
-
-    comp = database.get_company_by_id(cid) or {}
-    base_lat = float(comp.get('latitude') or 11.0298)
-    base_lng = float(comp.get('longitude') or 76.9740)
-
-    # Coordinates situated at a mall / off-route commercial hotspot
-    detour_lat = base_lat + 0.0240
-    detour_lng = base_lng - 0.0185
-    dwell = int(data.get('dwell_minutes') or 35)
-
-    ping_payload = {
-        'company_id': cid,
-        'employee_name': emp_name,
-        'latitude': detour_lat,
-        'longitude': detour_lng,
-        'tracking_status': 'off_route_detour',
-        'dwell_minutes': dwell,
-        'activity_note': str(data.get('activity_note') or 'Off-Route Mall / Personal Stop Simulation')
-    }
-    ping = database.record_field_location_ping(ping_payload, company_id=cid)
-    return jsonify({
-        'success': True,
-        'message': f"AI Detour Anomaly evaluated for {emp_name}!",
-        'ping': ping,
-        'ai_incident': ping.get('ai_incident')
     })
 
 

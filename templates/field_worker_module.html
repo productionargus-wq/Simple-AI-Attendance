@@ -719,73 +719,6 @@
       width: 100%;
     }
 
-    /* Simulation Segmented Bar */
-    .fw-sim-box {
-      margin-top: auto;
-      padding-top: 12px;
-      border-top: 1px dashed #e2e8f0;
-    }
-
-    .fw-sim-label {
-      font-size: 10.5px;
-      font-weight: 800;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .fw-sim-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-    }
-
-    .fw-sim-btn {
-      height: 30px;
-      padding: 0 8px;
-      font-size: 11px;
-      font-weight: 700;
-      border-radius: 6px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      white-space: nowrap;
-    }
-
-    .fw-sim-onsite {
-      background: #f0fdf4;
-      color: #166534;
-      border: 1px solid #86efac;
-    }
-    .fw-sim-onsite:hover {
-      background: #dcfce7;
-    }
-
-    .fw-sim-transit {
-      background: #fffbeb;
-      color: #92400e;
-      border: 1px solid #fcd34d;
-    }
-    .fw-sim-transit:hover {
-      background: #fef3c7;
-    }
-
-    .fw-sim-detour {
-      background: #fef2f2;
-      color: #991b1b;
-      border: 1px solid #fca5a5;
-    }
-    .fw-sim-detour:hover {
-      background: #fee2e2;
-    }
-
     /* ---------------- AI Detour & Anomaly Monitoring Styles ---------------- */
     .ai-detour-alert-banner {
       display: flex;
@@ -1898,7 +1831,7 @@
                   <select id="pingWorkerSelect" class="fw-select" {% if user_role == 'employee' %}disabled{% endif %}>
                     {% if field_workers %}
                     {% for w in field_workers %}
-                    <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
+                    <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }} ({{ w.branch_name or 'Home Branch' }})</option>
                     {% endfor %}
                     {% else %}
                     <option value="">-- No Field Workers Registered --</option>
@@ -1930,23 +1863,6 @@
                     <i class="fa-solid fa-satellite"></i> Start Continuous Live Tracking (25s)
                   </button>
                 </div>
-
-                <div class="fw-sim-box">
-                  <div class="fw-sim-label">
-                    <i class="fa-solid fa-flask"></i> Quick Route Verification Simulation
-                  </div>
-                  <div class="fw-sim-grid">
-                    <button type="button" class="fw-sim-btn fw-sim-onsite" onclick="simulateScenarioPing('on_site')" title="Simulate arrival within 150m of assigned target">
-                      <i class="fa-solid fa-check"></i> On-Site
-                    </button>
-                    <button type="button" class="fw-sim-btn fw-sim-transit" onclick="simulateScenarioPing('in_transit')" title="Simulate official travel along corridor">
-                      <i class="fa-solid fa-truck-fast"></i> In-Transit
-                    </button>
-                    <button type="button" class="fw-sim-btn fw-sim-detour" onclick="simulateScenarioPing('off_route_detour')" title="Simulate off-route detour >2km away">
-                      <i class="fa-solid fa-triangle-exclamation"></i> Detour
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -1967,9 +1883,6 @@
                 </div>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
-                <button type="button" class="fw-btn fw-btn-outline" style="font-size:12px; padding:6px 12px; border-color:#fca5a5; color:#991b1b;" onclick="simulateScenarioPing('off_route_detour')" title="Trigger instant AI anomaly simulation">
-                  <i class="fa-solid fa-flask" style="color:#dc2626;"></i> Simulate AI Detour
-                </button>
                 <button type="button" class="fw-btn fw-btn-outline" style="font-size:12px; padding:6px 12px;" onclick="refreshOverviewState()" title="Refresh telemetry">
                   <i class="fa-solid fa-rotate"></i> Refresh
                 </button>
@@ -2119,7 +2032,7 @@
               <div style="display:flex; align-items:center; gap:8px; flex-shrink: 0; white-space: nowrap; margin-left: auto;">
                 <div class="search-box-wrapper">
                   <label>Search:</label>
-                  <input type="text" class="search-input" placeholder="Search name, zone, mobile..." oninput="filterFieldTable(this, 'fieldWorkersDirTable')">
+                  <input type="text" class="search-input" placeholder="Search name, branch, mobile..." oninput="filterFieldTable(this, 'fieldWorkersDirTable')">
                 </div>
                 <button type="button" class="fw-btn fw-btn-primary" onclick="openRegisterWorkerModal()">
                   <i class="fa-solid fa-user-plus"></i> Register
@@ -2133,7 +2046,7 @@
                   <tr>
                     <th>FIELD WORKER</th>
                     <th>CONTACT DETAILS</th>
-                    <th>TERRITORY / ZONE</th>
+                    <th>BRANCH</th>
                     <th>SALARY BASIS &amp; SHIFT</th>
                     <th>BASE RATE</th>
                     <th>VISIT INCENTIVE</th>
@@ -2160,7 +2073,7 @@
                       <div style="font-weight:600; color:#334155;">{{ w.mobile_number or '-' }}</div>
                       <div class="fw-cell-sub">{{ w.email_id or '-' }}</div>
                     </td>
-                    <td><span class="badge-neutral"><i class="fa-solid fa-map-pin" style="color:#0d9488;"></i> {{ w.territory_zone or 'General Zone' }}</span></td>
+                    <td><span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> {{ w.branch_name or 'Home Branch (Head Office)' }}</span></td>
                     <td>
                       <span class="badge-blue">{{ (w.salary_type or 'daily')|upper }}</span>
                       <span class="fw-cell-sub" style="margin-left:4px;">Shift: {{ w.shift_hours or '08:00' }}h</span>
@@ -2231,7 +2144,9 @@
                           data-mobile="{{ emp.mobile_number }}"
                           data-dept="{{ emp.department }}"
                           data-desig="{{ emp.designation }}"
-                          data-zone="{{ emp.territory_zone }}"
+                          data-branchid="{{ emp.branch_id or 'HOME' }}"
+                          data-branchname="{{ emp.branch_name or 'Home Branch (Head Office)' }}"
+                          data-zone="{{ emp.branch_name or emp.territory_zone or 'Home Branch' }}"
                           data-saltype="{{ emp.salary_type }}"
                           data-shifthrs="{{ emp.shift_hours }}"
                           data-daysal="{{ emp.day_salary }}"
@@ -2277,11 +2192,16 @@
                     </div>
                   </div>
 
-                  <!-- Row 4: Territory / Zone & Status -->
+                  <!-- Row 4: Assigned Branch Location & Status -->
                   <div class="fw-form-grid-2" style="margin-bottom:14px;">
                     <div class="fw-field">
-                      <label class="fw-label">Territory / Zone</label>
-                      <input type="text" id="fwRegZone" class="fw-input" value="Coimbatore North">
+                      <label class="fw-label">Assigned Branch Location</label>
+                      <select id="fwRegBranchId" class="fw-select">
+                        <option value="HOME">🏠 Home Branch (Head Office / Initial Company)</option>
+                        {% for b in branches or [] %}
+                        <option value="{{ b.branch_id or b.id }}">{{ b.branch_name }}</option>
+                        {% endfor %}
+                      </select>
                     </div>
 
                     <div class="fw-field">
@@ -2588,7 +2508,7 @@
                       </span>
                     </div>
                     <div style="font-size:12px; color:#94a3b8; margin-top:2px;">
-                      {{ my_worker.designation or 'Field Executive' }} &bull; {{ my_worker.department or 'Sales & Field Operations' }} &bull; <i class="fa-solid fa-map-pin" style="color:#14b8a6;"></i> {{ my_worker.territory_zone or 'Assigned Territory' }}
+                      {{ my_worker.designation or 'Field Executive' }} &bull; {{ my_worker.department or 'Sales & Field Operations' }} &bull; <i class="fa-solid fa-building" style="color:#14b8a6;"></i> {{ my_worker.branch_name or 'Home Branch (Head Office)' }}
                     </div>
                   </div>
                 </div>
@@ -2865,7 +2785,7 @@
                         {% if field_workers %}
                         <option value="">-- Select Field Worker --</option>
                         {% for w in field_workers %}
-                        <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }} ({{ w.territory_zone or 'Field' }})</option>
+                        <option value="{{ w.employee_name }}" {% if logged_in_employee_name == w.employee_name %}selected{% endif %}>{{ w.employee_name }} ({{ w.branch_name or 'Home Branch' }})</option>
                         {% endfor %}
                         {% else %}
                         <option value="">-- No Field Workers Registered --</option>
@@ -3115,7 +3035,7 @@
                 <thead>
                   <tr>
                     <th>FIELD WORKER</th>
-                    <th>ZONE &amp; SHIFT</th>
+                    <th>BRANCH &amp; SHIFT</th>
                     <th>ATTENDANCE</th>
                     <th>SITES DONE</th>
                     <th>VERIFIED VISITS</th>
@@ -3136,7 +3056,7 @@
                       <div class="fw-cell-sub">{{ r.designation }}</div>
                     </td>
                     <td>
-                      <span class="badge-neutral">{{ r.territory_zone }}</span>
+                      <span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> {{ r.branch_name or r.territory_zone or 'Home Branch (Head Office)' }}</span>
                       <div class="fw-cell-sub">{{ r.salary_type|upper }} ({{ r.shift_hours }}h)</div>
                     </td>
                     <td>
@@ -4194,7 +4114,7 @@
             <div style="font-weight:600; color:#334155;">${w.mobile_number || '-'}</div>
             <div class="fw-cell-sub">${w.email_id || '-'}</div>
           </td>
-          <td><span class="badge-neutral"><i class="fa-solid fa-map-pin" style="color:#0d9488;"></i> ${w.territory_zone || 'General Zone'}</span></td>
+          <td><span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> ${w.branch_name || 'Home Branch (Head Office)'}</span></td>
           <td>
             <span class="badge-blue">${salBasis}</span>
             <span class="fw-cell-sub" style="margin-left:4px;">Shift: ${w.shift_hours || '08:00'}h</span>
@@ -4226,7 +4146,7 @@
         }
         opts += workers.map(w => {
           const selected = (w.employee_name === curVal) ? 'selected' : '';
-          return `<option value="${w.employee_name}" ${selected}>${w.employee_name} (${w.territory_zone || 'Field'})</option>`;
+          return `<option value="${w.employee_name}" ${selected}>${w.employee_name} (${w.branch_name || 'Home Branch'})</option>`;
         }).join('');
         sel.innerHTML = opts;
         if (curVal) sel.value = curVal;
@@ -4415,7 +4335,7 @@
             <div class="fw-cell-sub">${r.designation}</div>
           </td>
           <td>
-            <span class="badge-neutral">${r.territory_zone}</span>
+            <span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> ${r.branch_name || r.territory_zone || 'Home Branch (Head Office)'}</span>
             <div class="fw-cell-sub">${(r.salary_type || '').toUpperCase()} (${r.shift_hours}h)</div>
           </td>
           <td>
@@ -4547,49 +4467,6 @@
       }
     }
 
-    function simulateScenarioPing(mode) {
-      const pingSel = document.getElementById('pingWorkerSelect');
-      const empName = pingSel ? pingSel.value : LOGGED_IN_EMPLOYEE_NAME;
-      if (!empName) {
-        showToast('Please register/select a field worker first.', true);
-        return;
-      }
-      const workerAsgn = (ASSIGNMENTS_DATA || []).find(a => a.employee_name === empName) || (ASSIGNMENTS_DATA || [])[0];
-      let baseLat = workerAsgn ? parseFloat(workerAsgn.target_lat) : INITIAL_COMPANY_LAT;
-      let baseLng = workerAsgn ? parseFloat(workerAsgn.target_lng) : INITIAL_COMPANY_LNG;
-      let note = '';
-
-      if (mode === 'on_site') {
-        baseLat += 0.0002;
-        baseLng += 0.0002;
-        note = 'Arrived at Assigned Customer Site for Product Sales Pitch';
-      } else if (mode === 'in_transit') {
-        baseLat += 0.0042;
-        baseLng += 0.0035;
-        note = 'En-route on official sales corridor';
-      } else {
-        baseLat += 0.0240;
-        baseLng -= 0.0210;
-        note = 'Personal Stop / Shopping Mall Detour (Simulation)';
-      }
-
-      const latEl = document.getElementById('pingLat');
-      const lngEl = document.getElementById('pingLng');
-      const noteEl = document.getElementById('pingNote');
-      if (latEl) latEl.value = baseLat.toFixed(6);
-      if (lngEl) lngEl.value = baseLng.toFixed(6);
-      if (noteEl) noteEl.value = note;
-
-      sendLocationPingPayload({
-        employee_name: empName,
-        latitude: baseLat,
-        longitude: baseLng,
-        tracking_status: mode,
-        dwell_minutes: (mode === 'off_route_detour' ? 35 : 0),
-        activity_note: note
-      });
-    }
-
     function toggleAutoGPSTracking() {
       const btn = document.getElementById('btnAutoTrack');
       if (autoTrackTimer) {
@@ -4613,6 +4490,8 @@
         document.getElementById('fwRegEmail').value = '';
         document.getElementById('fwRegMobile').value = '';
         document.getElementById('fwRegPhotoData').value = '';
+        const branchSel = document.getElementById('fwRegBranchId');
+        if (branchSel) branchSel.value = 'HOME';
         document.getElementById('fwPhotoPreviewContainer').innerHTML = '<i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>';
         return;
       }
@@ -4621,7 +4500,8 @@
       document.getElementById('fwRegMobile').value = opt.dataset.mobile || '';
       document.getElementById('fwRegDept').value = opt.dataset.dept || 'Field Sales';
       document.getElementById('fwRegDesig').value = opt.dataset.desig || 'Field Executive';
-      document.getElementById('fwRegZone').value = opt.dataset.zone || 'General Zone';
+      const branchSel = document.getElementById('fwRegBranchId');
+      if (branchSel) branchSel.value = opt.dataset.branchid || 'HOME';
       document.getElementById('fwRegSalaryType').value = opt.dataset.saltype || 'daily';
       document.getElementById('fwRegShiftHours').value = opt.dataset.shifthrs || '08:00';
       const salType = opt.dataset.saltype || 'daily';
@@ -4636,6 +4516,12 @@
       e.preventDefault();
       const salType = document.getElementById('fwRegSalaryType').value;
       const baseRate = parseFloat(document.getElementById('fwRegBaseRate').value) || 0;
+      const branchSel = document.getElementById('fwRegBranchId');
+      const branchId = branchSel ? branchSel.value : 'HOME';
+      const branchName = (branchSel && branchSel.selectedOptions && branchSel.selectedOptions[0]) 
+        ? branchSel.selectedOptions[0].textContent.replace('🏠 ', '').trim() 
+        : 'Home Branch (Head Office)';
+
       const payload = {
         company_id: getActiveCompanyId(),
         existing_employee_id: document.getElementById('fwExistingEmpSelect').value,
@@ -4645,7 +4531,10 @@
         mobile_number: document.getElementById('fwRegMobile').value,
         department: document.getElementById('fwRegDept').value,
         designation: document.getElementById('fwRegDesig').value,
-        territory_zone: document.getElementById('fwRegZone').value,
+        branch_id: branchId,
+        branch_name: branchName,
+        branch: branchName,
+        territory_zone: branchName,
         salary_type: salType,
         shift_hours: document.getElementById('fwRegShiftHours').value,
         day_salary: salType === 'daily' ? baseRate : 0,

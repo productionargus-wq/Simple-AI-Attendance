@@ -7044,24 +7044,20 @@ def get_field_workers(company_id=None, include_all_employees=False):
 
     all_emps = [clean_doc(e) for e in db.employees.find(q, {'photo_data': 0, 'face_embedding': 0, 'documents': 0}).sort('employee_name', ASCENDING)]
     field_workers = []
-    any_explicit_fw = any(e.get('is_field_worker') is True for e in all_emps)
     for emp in all_emps:
-        if emp.get('is_field_worker') is not None:
-            is_fw = bool(emp.get('is_field_worker'))
-        else:
-            dept = str(emp.get('department') or '').lower()
-            desig = str(emp.get('designation') or '').lower()
-            is_fw = any(k in dept or k in desig for k in ['field', 'sales', 'marketing', 'delivery', 'visit'])
+        is_fw = bool(
+            emp.get('is_field_worker') is True
+            or str(emp.get('employee_type') or '').lower() in ['field_worker', 'field', 'fw']
+        )
         emp['is_field_worker'] = is_fw
-        emp['territory_zone'] = str(emp.get('territory_zone') or 'General Zone')
+        emp['branch_id'] = emp.get('branch_id')
+        emp['branch_name'] = emp.get('branch_name') or emp.get('branch') or 'Home Branch (Head Office)'
+        emp['territory_zone'] = str(emp.get('territory_zone') or emp.get('branch_name') or emp.get('branch') or 'Home Branch')
         emp['per_visit_incentive'] = round(safe_float(emp.get('per_visit_incentive', 0.0)), 2)
         emp['km_allowance_rate'] = round(safe_float(emp.get('km_allowance_rate', 0.0)), 2)
         if include_all_employees or is_fw:
             field_workers.append(emp)
 
-    # If no employee is tagged yet and include_all_employees is False, return all active employees so UI isn't empty on first launch
-    if not field_workers and all_emps and not include_all_employees and not any_explicit_fw:
-        return all_emps
     return field_workers
 
 
