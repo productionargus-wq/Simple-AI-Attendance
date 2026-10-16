@@ -5104,15 +5104,14 @@ def field_worker_module_page():
 
     emp_scope = logged_in_emp_name if user_role == 'employee' else None
 
-    # Single DB query for employees with instant in-memory derivation
+    # Only load field workers for the active company; exclude standard employees
     if user_role in ['super_admin', 'company_admin']:
-        all_employees = database.get_field_workers(company_id=active_cid, include_all_employees=True)
-        field_workers = [w for w in all_employees if w.get('is_field_worker')]
+        field_workers = database.get_field_workers(company_id=active_cid, include_all_employees=False)
     else:
         field_workers = database.get_field_workers(company_id=active_cid, include_all_employees=False)
         if emp_scope:
             field_workers = [w for w in field_workers if w.get('employee_name') == emp_scope]
-        all_employees = field_workers
+    all_employees = field_workers
 
     branches = database.get_company_branches(active_cid)
     assignments = database.get_field_assignments(company_id=active_cid, employee_name=emp_scope, date_str=today_str)
@@ -5172,13 +5171,12 @@ def api_field_worker_overview():
     comp = database.get_company_by_id(cid) or {'id': cid, 'company_name': 'ARGUS TECHNOLOGIES', 'latitude': 11.0298, 'longitude': 76.9740}
     
     if user_role in ['super_admin', 'company_admin']:
-        all_emps = database.get_field_workers(company_id=cid, include_all_employees=True)
-        workers = [w for w in all_emps if w.get('is_field_worker')]
+        workers = database.get_field_workers(company_id=cid, include_all_employees=False)
     else:
         workers = database.get_field_workers(company_id=cid, include_all_employees=False)
         if emp_filter:
             workers = [w for w in workers if w.get('employee_name') == emp_filter]
-        all_emps = workers
+    all_emps = workers
 
     branches = database.get_company_branches(cid)
     assignments = database.get_field_assignments(company_id=cid, employee_name=emp_filter, date_str=date_str)

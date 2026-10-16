@@ -2537,13 +2537,13 @@
                       <label class="fw-label">Registration Mode</label>
                       <select id="fwExistingEmpSelect" class="fw-select" onchange="populateExistingEmployeeForField(this)">
                         <option value="">+ Register Brand New Field Worker</option>
-                        {% for emp in all_employees %}
+                        {% for emp in field_workers %}
                         <option value="{{ emp.id }}"
                           data-name="{{ emp.employee_name }}"
                           data-email="{{ emp.email_id }}"
                           data-mobile="{{ emp.mobile_number }}"
-                          data-dept="{{ emp.department }}"
-                          data-desig="{{ emp.designation }}"
+                          data-dept="{{ emp.department or 'Field Operations' }}"
+                          data-desig="{{ emp.designation or 'Field Executive' }}"
                           data-branchid="{{ emp.branch_id or 'HOME' }}"
                           data-branchname="{{ emp.branch_name or 'Home Branch (Head Office)' }}"
                           data-zone="{{ emp.branch_name or emp.territory_zone or 'Home Branch' }}"
@@ -2554,7 +2554,7 @@
                           data-visitinc="{{ emp.per_visit_incentive }}"
                           data-kmrate="{{ emp.km_allowance_rate }}"
                           data-status="{{ emp.status or 'Active' }}">
-                          Edit: {{ emp.employee_name }} ({{ emp.department }})
+                          Edit: {{ emp.employee_name }} ({{ emp.department or 'Field Operations' }})
                         </option>
                         {% endfor %}
                       </select>
@@ -5056,6 +5056,53 @@
         sel.innerHTML = opts;
         if (curVal) sel.value = curVal;
       });
+
+      // Also dynamically update Register Modal's Registration Mode dropdown (fwExistingEmpSelect) with only Field Workers of active company
+      const regSel = document.getElementById('fwExistingEmpSelect');
+      if (regSel) {
+        const curRegVal = regSel.value;
+        let regOpts = '<option value="">+ Register Brand New Field Worker</option>';
+        if (workers && workers.length > 0) {
+          workers.forEach(w => {
+            const wId = w.id || w._id || '';
+            const wName = escapeHtml(w.employee_name || '');
+            const wDept = escapeHtml(w.department || 'Field Sales');
+            const wEmail = escapeHtml(w.email_id || '');
+            const wMobile = escapeHtml(w.mobile_number || '');
+            const wDesig = escapeHtml(w.designation || 'Field Executive');
+            const wBranchId = escapeHtml(w.branch_id || 'HOME');
+            const wBranchName = escapeHtml(w.branch_name || 'Home Branch (Head Office)');
+            const wZone = escapeHtml(w.branch_name || w.territory_zone || 'Home Branch');
+            const wSalType = escapeHtml(w.salary_type || 'daily');
+            const wShiftHrs = escapeHtml(w.shift_hours || '08:00');
+            const wDaySal = (w.day_salary !== undefined && w.day_salary !== null) ? w.day_salary : 600;
+            const wHrSal = (w.hourly_salary !== undefined && w.hourly_salary !== null) ? w.hourly_salary : 100;
+            const wVisitInc = (w.per_visit_incentive !== undefined && w.per_visit_incentive !== null) ? w.per_visit_incentive : 75;
+            const wKmRate = (w.km_allowance_rate !== undefined && w.km_allowance_rate !== null) ? w.km_allowance_rate : 6;
+            const wStatus = escapeHtml(w.status || 'Active');
+            const isSelected = (curRegVal && String(curRegVal) === String(wId)) ? 'selected' : '';
+
+            regOpts += `<option value="${wId}" ${isSelected}
+              data-name="${wName}"
+              data-email="${wEmail}"
+              data-mobile="${wMobile}"
+              data-dept="${wDept}"
+              data-desig="${wDesig}"
+              data-branchid="${wBranchId}"
+              data-branchname="${wBranchName}"
+              data-zone="${wZone}"
+              data-saltype="${wSalType}"
+              data-shifthrs="${wShiftHrs}"
+              data-daysal="${wDaySal}"
+              data-hrsal="${wHrSal}"
+              data-visitinc="${wVisitInc}"
+              data-kmrate="${wKmRate}"
+              data-status="${wStatus}">Edit: ${wName} (${wDept})</option>`;
+          });
+        }
+        regSel.innerHTML = regOpts;
+        if (curRegVal) regSel.value = curRegVal;
+      }
     }
 
     function renderAssignmentsTable(assignments) {

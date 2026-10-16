@@ -1222,14 +1222,27 @@ def get_branch_employee_query(b_id, company_id=None, exclude_field_workers=True)
 def get_field_worker_names(company_id=None):
     """Returns set of employee names registered as field workers for the company."""
     db = get_db()
-    q = {
+    fw_cond = {
         '$or': [
             {'is_field_worker': True},
             {'employee_type': {'$in': ['field_worker', 'field', 'fw']}}
         ]
     }
-    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
-        q['company_id'] = str(company_id)
+    if company_id and str(company_id) != 'ALL':
+        if str(company_id) == 'ARGUS_MASTER':
+            q = {'$and': [
+                fw_cond,
+                {'$or': [
+                    {'company_id': 'ARGUS_MASTER'},
+                    {'company_id': {'$exists': False}},
+                    {'company_id': None},
+                    {'company_id': ''}
+                ]}
+            ]}
+        else:
+            q = {'$and': [fw_cond, {'company_id': str(company_id)}]}
+    else:
+        q = fw_cond
     return set(e.get('employee_name') for e in db.employees.find(q, {'employee_name': 1}) if e.get('employee_name'))
 
 _branch_emp_names_cache = {}
@@ -5971,8 +5984,11 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None, br
         e_query = {
             '$or': [{'is_field_worker': True}, {'employee_type': {'$in': ['field_worker', 'field', 'fw']}}]
         }
-        if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
-            e_query['company_id'] = str(company_id)
+        if company_id and str(company_id) != 'ALL':
+            if str(company_id) == 'ARGUS_MASTER':
+                e_query['$and'] = [{'$or': [{'company_id': 'ARGUS_MASTER'}, {'company_id': {'$exists': False}}, {'company_id': None}, {'company_id': ''}]}]
+            else:
+                e_query['company_id'] = str(company_id)
         clean_bid = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
         if clean_bid:
             if is_home_branch_id(clean_bid):
@@ -6465,14 +6481,27 @@ def get_admin_leave_stats(company_id=None, branch_id=None, for_field_workers=Fal
     """Returns the 4 KPI card metrics shown in Image 4, isolated for standard vs field workers."""
     db = get_db()
     query = {}
-    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
-        query['company_id'] = str(company_id)
+    if company_id and str(company_id) != 'ALL':
+        if str(company_id) == 'ARGUS_MASTER':
+            query['$and'] = [{'$or': [{'company_id': 'ARGUS_MASTER'}, {'company_id': {'$exists': False}}, {'company_id': None}, {'company_id': ''}]}]
+        else:
+            query['company_id'] = str(company_id)
 
     if for_field_workers:
-        query['$or'] = [{'is_field_worker': True}, {'employee_type': {'$in': ['field_worker', 'field', 'fw']}}]
+        fw_clause = {'$or': [{'is_field_worker': True}, {'employee_type': {'$in': ['field_worker', 'field', 'fw']}}]}
+        if '$and' in query:
+            query['$and'].append(fw_clause)
+        else:
+            query.update(fw_clause)
     else:
-        query['is_field_worker'] = {'$ne': True}
-        query['employee_type'] = {'$nin': ['field_worker', 'field', 'fw']}
+        std_clause = {
+            'is_field_worker': {'$ne': True},
+            'employee_type': {'$nin': ['field_worker', 'field', 'fw']}
+        }
+        if '$and' in query:
+            query['$and'].append(std_clause)
+        else:
+            query.update(std_clause)
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     if b_id:
@@ -7162,8 +7191,16 @@ def get_field_workers(company_id=None, include_all_employees=False):
     """
     db = get_db()
     q = {}
-    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
-        q['company_id'] = str(company_id)
+    if company_id and str(company_id) != 'ALL':
+        if str(company_id) == 'ARGUS_MASTER':
+            q['$or'] = [
+                {'company_id': 'ARGUS_MASTER'},
+                {'company_id': {'$exists': False}},
+                {'company_id': None},
+                {'company_id': ''}
+            ]
+        else:
+            q['company_id'] = str(company_id)
 
     all_emps = [clean_doc(e) for e in db.employees.find(q, {'photo_data': 0, 'face_embedding': 0, 'documents': 0}).sort('employee_name', ASCENDING)]
     field_workers = []
