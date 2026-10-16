@@ -1234,11 +1234,15 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       fields.push(['EMPLOYEE DOCUMENTS', docsHtml]);
 
+      const htmlLabels = new Set(['PHOTO', 'STATUS', 'EMPLOYEE TYPE', 'EMPLOYEE DOCUMENTS']);
+
       fields.forEach(([label, val]) => {
         const tr = document.createElement('tr');
+        const isHtml = htmlLabels.has(label) || (typeof val === 'string' && val.trim().startsWith('<') && val.trim().endsWith('>'));
+        const displayVal = val ? (isHtml ? val : escapeHtml(String(val))) : '-';
         tr.innerHTML = `
           <td class="info-label">${label}</td>
-          <td>${val ? (label === 'PHOTO' || label === 'EMPLOYEE DOCUMENTS' ? val : escapeHtml(String(val))) : '-'}</td>
+          <td>${displayVal}</td>
         `;
         tbody.appendChild(tr);
       });
