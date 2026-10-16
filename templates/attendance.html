@@ -744,6 +744,36 @@
       font-weight: 500;
     }
 
+    .footer-right-container {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 5px;
+    }
+
+    .btn-sys-admin-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background-color: rgba(255, 255, 255, 0.92);
+      border: 1px solid #cbd5e1;
+      color: #475569;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    .btn-sys-admin-icon:hover {
+      background-color: #152e4d;
+      border-color: #0f172a;
+      color: #38bdf8;
+      transform: translateY(-2px) scale(1.08);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.22);
+    }
+
     .footer-right {
       display: flex;
       align-items: center;
@@ -841,9 +871,13 @@
       }
       .footer {
         flex-direction: column;
-        gap: 6px;
+        gap: 10px;
         text-align: center;
-        padding: 12px;
+        padding: 14px 12px;
+      }
+      .footer-right-container {
+        align-items: center;
+        gap: 6px;
       }
     }
 
@@ -959,15 +993,6 @@
         <span class="nav-label-desktop">Field Worker Login</span>
         <span class="nav-label-mobile">Field Worker</span>
       </a>
-
-      <a href="/login" class="nav-btn" id="btnNavAdminLogin" title="System Administration">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-        <span class="nav-label-desktop">System Administration</span>
-        <span class="nav-label-mobile">Admin</span>
-      </a>
     </nav>
   </header>
 
@@ -1062,9 +1087,16 @@
     <div class="footer-left">
       &copy; 2026 ARGUS Attendance &nbsp;|&nbsp; Version 5.1
     </div>
-    <div class="footer-right">
-      <span>Powered by</span>
-      <img src="{{ url_for('static', filename='images/argus_cnc_logo.png') }}" alt="ARGUS CNC" style="height: 26px; width: auto; object-fit: contain; vertical-align: middle;">
+    <div class="footer-right-container">
+      <a href="/login" class="btn-sys-admin-icon" id="btnNavAdminLogin" title="System Administration" aria-label="System Administration">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+          <path fill-rule="evenodd" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm-1 2h2v1.2a4.03 4.03 0 0 1 1.4.6l.8-.8 1.4 1.4-.8.8c.3.4.5.9.6 1.4H17v2h-1.2a4.03 4.03 0 0 1-.6 1.4l.8.8-1.4 1.4-.8-.8c-.4.3-.9.5-1.4.6V17h-2v-1.2a4.03 4.03 0 0 1-1.4-.6l-.8.8-1.4-1.4.8-.8a4.03 4.03 0 0 1-.6-1.4H7v-2h1.2c.1-.5.3-1 .6-1.4l-.8-.8 1.4-1.4.8.8c.4-.3.9-.5 1.4-.6V7zm1 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" clip-rule="evenodd"/>
+        </svg>
+      </a>
+      <div class="footer-right">
+        <span>Powered by</span>
+        <img src="{{ url_for('static', filename='images/argus_cnc_logo.png') }}" alt="ARGUS CNC" style="height: 26px; width: auto; object-fit: contain; vertical-align: middle;">
+      </div>
     </div>
   </footer>
 
