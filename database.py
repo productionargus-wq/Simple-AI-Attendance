@@ -8819,3 +8819,303 @@ def get_branch_attendance_summary(company_id=None):
         result.insert(0, unassigned_stat)
     return result
 
+
+# =========================================================================
+# FIELD WORKER ISOLATED MANUAL ENTRY & PAYMENT LEDGER FUNCTIONS
+# =========================================================================
+
+def get_field_worker_manual_entries(company_id=None, employee_name=None, from_date=None, to_date=None, status='All', search=None, page=1, limit=50):
+    """
+    Fetches manual attendance entries strictly isolated for registered Field Workers of the specified company.
+    Standard employee manual entries are NEVER included.
+    """
+    db = get_db()
+    cid = str(company_id) if company_id and str(company_id) != 'ALL' else 'ARGUS_MASTER'
+    fw_list = get_field_workers(company_id=cid, include_all_employees=False)
+    fw_names = [w['employee_name'] for w in fw_list if w.get('employee_name')]
+
+    if not fw_names:
+        return {'total': 0, 'page': page, 'limit': limit, 'data': []}
+
+    query = {
+        'company_id': cid,
+        'employee_name': {'$in': fw_names}
+    }
+
+    if employee_name and employee_name != 'All':
+        clean_name = str(employee_name).strip()
+        if clean_name in fw_names:
+            query['employee_name'] = clean_name
+        else:
+            return {'total': 0, 'page': page, 'limit': limit, 'data': []}
+
+    if from_date:
+        query['entry_date'] = {'$gte': str(from_date).strip()}
+    if to_date:
+        query.setdefault('entry_date', {})['$lte'] = str(to_date).strip()
+
+    if status and status != 'All':
+        query['status'] = status
+
+    if search:
+        reg = {'$regex': re.escape(search), '$options': 'i'}
+        query['$and'] = [
+            {'employee_name': {'$in': fw_names}},
+            {'$or': [
+                {'employee_name': reg},
+                {'entry_date': reg},
+                {'status': reg},
+                {'reason': reg},
+                {'submitted_at': reg}
+            ]}
+        ]
+
+    total = db.manual_entries.count_documents(query)
+    cursor = db.manual_entries.find(query).sort([("entry_date", DESCENDING), ("created_at", DESCENDING), ("_id", DESCENDING)])
+    if limit and limit > 0:
+        cursor = cursor.skip((page - 1) * limit).limit(limit)
+
+    data = [clean_doc(doc) for doc in cursor]
+    return {
+        'total': total,
+        'page': page,
+        'limit': limit,
+        'data': data
+    }
+
+
+def save_field_worker_manual_entry(data, company_id=None):
+    """
+    Saves a manual attendance entry strictly validating that the worker is a registered Field Worker.
+    Tags record with is_field_worker=True.
+    """
+    cid = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
+    fw_list = get_field_workers(company_id=cid, include_all_employees=False)
+    fw_names = [w['employee_name'] for w in fw_list if w.get('employee_name')]
+
+    emp_name = str(data.get('employee_name') or '').strip()
+    if not emp_name:
+        raise ValueError("Field worker name is required.")
+    if emp_name not in fw_names:
+        raise ValueError(f"'{emp_name}' is not a registered field worker of this company.")
+
+    data['company_id'] = cid
+    data['is_field_worker'] = True
+    data['worker_type'] = 'field_worker'
+    return create_manual_entry(data, company_id=cid)
+
+
+def delete_field_worker_manual_entry(entry_id, company_id=None):
+    """
+    Deletes a manual attendance entry ensuring it belongs to a registered Field Worker of the company.
+    """
+    db = get_db()
+    cid = str(company_id) if company_id and str(company_id) != 'ALL' else 'ARGUS_MASTER'
+    fw_list = get_field_workers(company_id=cid, include_all_employees=False)
+    fw_names = [w['employee_name'] for w in fw_list if w.get('employee_name')]
+
+    f = build_id_filter(entry_id)
+    f['company_id'] = cid
+    f['employee_name'] = {'$in': fw_names}
+    res = db.manual_entries.delete_one(f)
+    return res.deleted_count > 0
+
+
+def get_field_worker_payments(company_id=None, employee_name=None, start_date=None, end_date=None, bank=None, payment_type=None, status=None, search=None, page=1, limit=50):
+    """
+    Fetches payments and advances strictly isolated for registered Field Workers of the specified company.
+    Standard employee payments are NEVER included.
+    """
+    db = get_db()
+    cid = str(company_id) if company_id and str(company_id) != 'ALL' else 'ARGUS_MASTER'
+    fw_list = get_field_workers(company_id=cid, include_all_employees=False)
+    fw_names = [w['employee_name'] for w in fw_list if w.get('employee_name')]
+
+    if not fw_names:
+        return {'total': 0, 'page': page, 'limit': limit, 'data': []}
+
+    conditions = [
+        {'company_id': cid},
+        {'employee_name': {'$in': fw_names}}
+    ]
+
+    if employee_name and employee_name != 'All':
+        clean_name = str(employee_name).strip()
+        if clean_name in fw_names:
+            conditions.append({'employee_name': clean_name})
+        else:
+            return {'total': 0, 'page': page, 'limit': limit, 'data': []}
+
+    if start_date:
+        conditions.append({'payment_date': {'$gte': str(start_date).strip()}})
+    if end_date:
+        conditions.append({'payment_date': {'$lte': str(end_date).strip()}})
+    if bank and bank != 'All':
+        conditions.append({'bank': bank})
+    if payment_type and payment_type != 'All':
+        conditions.append({'payment_type': payment_type})
+
+    if status and status != 'All':
+        conditions.append({'$or': [{'status': status}, {'reason': status}]})
+
+    if search:
+        reg = {'$regex': re.escape(search), '$options': 'i'}
+        conditions.append({'$or': [
+            {'employee_name': reg},
+            {'bank': reg},
+            {'payment_type': reg},
+            {'status': reg},
+            {'reason': reg},
+            {'timestamp': reg},
+            {'payment_date': reg}
+        ]})
+
+    query = {'$and': conditions}
+    total = db.payments.count_documents(query)
+    cursor = db.payments.find(query).sort([("created_at", DESCENDING), ("_id", DESCENDING), ("payment_date", DESCENDING)])
+    if limit and limit > 0:
+        cursor = cursor.skip((page - 1) * limit).limit(limit)
+
+    data = []
+    for doc in cursor:
+        cdoc = clean_doc(doc)
+        raw_status = cdoc.get('status')
+        raw_reason = cdoc.get('reason')
+        if not raw_status and raw_reason:
+            cdoc['status'] = raw_reason
+            cdoc['reason'] = ''
+        elif not raw_status:
+            cdoc['status'] = 'Advance Repayment'
+            cdoc['reason'] = raw_reason or ''
+        data.append(cdoc)
+
+    return {
+        'total': total,
+        'page': page,
+        'limit': limit,
+        'data': data
+    }
+
+
+def get_field_worker_payment_stats(company_id=None, month_year=None):
+    """
+    Computes real-time payment and advance totals strictly for registered field workers of the company.
+    """
+    db = get_db()
+    cid = str(company_id) if company_id and str(company_id) != 'ALL' else 'ARGUS_MASTER'
+    now_ist = get_ist_now()
+    month = str(month_year or now_ist.strftime('%Y-%m')).strip()
+
+    fw_list = get_field_workers(company_id=cid, include_all_employees=False)
+    fw_names = [w['employee_name'] for w in fw_list if w.get('employee_name')]
+
+    if not fw_names:
+        return {
+            'total_disbursed_month': 0.0,
+            'total_advances_given': 0.0,
+            'total_advance_recovered': 0.0,
+            'outstanding_advances': 0.0
+        }
+
+    # 1. Total payments disbursed in target month
+    m_regex = f'^{re.escape(month)}'
+    disbursed_q = {
+        'company_id': cid,
+        'employee_name': {'$in': fw_names},
+        '$or': [
+            {'payment_date': {'$regex': m_regex}},
+            {'timestamp': {'$regex': m_regex}}
+        ]
+    }
+    month_payments = list(db.payments.find(disbursed_q))
+    total_disbursed_month = round(sum(safe_float(p.get('amount', 0.0)) for p in month_payments), 2)
+
+    # 2. Advances for field workers
+    adv_q = {
+        'company_id': cid,
+        'employee_name': {'$in': fw_names}
+    }
+    all_advances = list(db.advances.find(adv_q))
+    total_advances_given = round(sum(safe_float(a.get('amount', 0.0)) for a in all_advances), 2)
+    total_advance_recovered = round(sum(safe_float(a.get('recovered_amount', 0.0)) for a in all_advances), 2)
+    outstanding_advances = max(0.0, round(total_advances_given - total_advance_recovered, 2))
+
+    return {
+        'total_disbursed_month': total_disbursed_month,
+        'total_advances_given': total_advances_given,
+        'total_advance_recovered': total_advance_recovered,
+        'outstanding_advances': outstanding_advances
+    }
+
+
+def save_field_worker_payment(data, company_id=None):
+    """
+    Saves a payment entry strictly validating that the recipient is a registered Field Worker.
+    Tags record with is_field_worker=True.
+    """
+    cid = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
+    fw_list = get_field_workers(company_id=cid, include_all_employees=False)
+    fw_names = [w['employee_name'] for w in fw_list if w.get('employee_name')]
+
+    emp_name = str(data.get('employee_name') or '').strip()
+    if not emp_name:
+        raise ValueError("Field worker name is required.")
+    if emp_name not in fw_names:
+        raise ValueError(f"'{emp_name}' is not a registered field worker of this company.")
+
+    data['company_id'] = cid
+    data['is_field_worker'] = True
+    return create_payment(data, company_id=cid)
+
+
+def delete_field_worker_payment(payment_id, company_id=None):
+    """
+    Deletes a payment record ensuring it belongs to a registered field worker of this company.
+    """
+    db = get_db()
+    cid = str(company_id) if company_id and str(company_id) != 'ALL' else 'ARGUS_MASTER'
+    fw_list = get_field_workers(company_id=cid, include_all_employees=False)
+    fw_names = [w['employee_name'] for w in fw_list if w.get('employee_name')]
+
+    f = build_id_filter(payment_id)
+    f['company_id'] = cid
+    f['employee_name'] = {'$in': fw_names}
+    res = db.payments.delete_one(f)
+    return res.deleted_count > 0
+
+
+def save_field_worker_advance(data, company_id=None):
+    """
+    Saves a field worker salary advance record and initializes repayment schedule.
+    """
+    db = get_db()
+    cid = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
+    fw_list = get_field_workers(company_id=cid, include_all_employees=False)
+    fw_names = [w['employee_name'] for w in fw_list if w.get('employee_name')]
+
+    emp_name = str(data.get('employee_name') or '').strip()
+    if not emp_name:
+        raise ValueError("Field worker name is required.")
+    if emp_name not in fw_names:
+        raise ValueError(f"'{emp_name}' is not a registered field worker of this company.")
+
+    amount = safe_float(data.get('amount', 0.0))
+    repay_amt = safe_float(data.get('repayment_amount', 0.0))
+    now_ist = get_ist_now()
+
+    adv_doc = {
+        'id': 'ADV_' + str(int(time.time() * 1000)),
+        'company_id': cid,
+        'employee_name': emp_name,
+        'amount': amount,
+        'repayment_amount': repay_amt,
+        'recovered_amount': 0.0,
+        'balance_amount': amount,
+        'notes': str(data.get('notes') or 'Field Worker Salary Advance').strip(),
+        'created_at': now_ist.strftime('%Y-%m-%d %H:%M:%S'),
+        'is_field_worker': True
+    }
+    db.advances.insert_one(adv_doc)
+    return clean_doc(adv_doc)
+
+

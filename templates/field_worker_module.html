@@ -2119,6 +2119,21 @@
           <span>Payslip &amp; Salary Reports</span>
         </button>
 
+        <button type="button" class="nav-item-btn" data-pane="paneFieldManualEntry" data-tooltip="Manual Entry" onclick="switchFieldTab('paneFieldManualEntry', this)">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          <span>Manual Entry</span>
+        </button>
+
+        <button type="button" class="nav-item-btn" data-pane="paneFieldPaymentEntry" data-tooltip="Payment Entry" onclick="switchFieldTab('paneFieldPaymentEntry', this)">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+          <span>Payment Entry</span>
+        </button>
+
+        <button type="button" class="nav-item-btn" data-pane="paneFieldPayslipPreview" data-tooltip="Payslip Preview" onclick="switchFieldTab('paneFieldPayslipPreview', this)">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <span>Payslip Preview</span>
+        </button>
+
         {% else %}
         {# Field Worker (employee) #}
         <button type="button" class="nav-item-btn active" data-pane="paneFieldPunch" data-tooltip="My Attendance &amp; Punch" onclick="switchFieldTab('paneFieldPunch', this)">
@@ -2144,6 +2159,11 @@
         <button type="button" class="nav-item-btn" data-pane="paneFieldPayroll" data-tooltip="My Payslips" onclick="switchFieldTab('paneFieldPayroll', this)">
           <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
           <span>My Payslips</span>
+        </button>
+
+        <button type="button" class="nav-item-btn" data-pane="paneFieldPayslipPreview" data-tooltip="Payslip Preview" onclick="switchFieldTab('paneFieldPayslipPreview', this)">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <span>Payslip Preview</span>
         </button>
         {% endif %}
 
@@ -4621,6 +4641,482 @@
           </div>
         </div>
 
+        <!-- ========================================================================= -->
+        <!-- TAB 7: FIELD WORKER MANUAL ENTRY (STRICTLY ISOLATED)                      -->
+        <!-- ========================================================================= -->
+        <div id="paneFieldManualEntry" class="fw-section-pane" data-title="FIELD WORKER MANUAL ENTRY">
+          <div class="table-card">
+            <div class="table-toolbar" style="flex-wrap: wrap; gap: 10px; border-bottom: 1px solid #eef2f6; padding-bottom: 14px; margin-bottom: 14px; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                {% if user_role in ['super_admin', 'company_admin', 'admin'] %}
+                <button type="button" class="fw-btn fw-btn-primary" onclick="openFieldManualEntryModal()" style="display:inline-flex; align-items:center; gap:6px;">
+                  <i class="fa-solid fa-plus"></i> Add Manual Entry
+                </button>
+                {% endif %}
+                <div class="filter-group" style="display:flex; align-items:center; gap:6px;">
+                  <label style="font-size:12px; font-weight:600; color:#475569;">From:</label>
+                  <input type="date" id="filterFwManualFrom" class="filter-input" style="padding:4px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px;">
+                </div>
+                <div class="filter-group" style="display:flex; align-items:center; gap:6px;">
+                  <label style="font-size:12px; font-weight:600; color:#475569;">To:</label>
+                  <input type="date" id="filterFwManualTo" class="filter-input" style="padding:4px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px;">
+                </div>
+                <div class="filter-group" style="display:flex; align-items:center; gap:6px;">
+                  <label style="font-size:12px; font-weight:600; color:#475569;">Status:</label>
+                  <select id="filterFwManualStatus" class="filter-input" style="padding:4px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px;">
+                    <option value="All" selected>All</option>
+                    <option value="Proper">Proper</option>
+                    <option value="Permission">Permission</option>
+                    <option value="Improper">Improper</option>
+                    <option value="Others">Others</option>
+                  </select>
+                </div>
+                <button type="button" class="fw-btn fw-btn-neutral fw-btn-sm" onclick="loadFieldManualEntries()" title="Apply Filters">Filter</button>
+                <button type="button" class="fw-btn fw-btn-neutral fw-btn-sm" onclick="clearFieldManualFilters()" title="Reset Filters">Clear</button>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div class="search-box-wrapper">
+                  <label style="font-size:12px; font-weight:600; color:#475569;">Search:</label>
+                  <input type="text" id="filterFwManualSearch" class="search-input" placeholder="Search field worker..." oninput="debounceFwManualSearch()">
+                </div>
+              </div>
+            </div>
+
+            <div class="fw-table-wrapper">
+              <table class="fw-table" id="fieldManualEntryTable">
+                <thead>
+                  <tr>
+                    <th>FIELD WORKER</th>
+                    <th>DATE</th>
+                    <th>HOURS</th>
+                    <th>ENTRY TYPE</th>
+                    <th>STATUS</th>
+                    <th>WORKING SALARY</th>
+                    <th>REASON / NOTES</th>
+                    <th>SUBMITTED AT</th>
+                    {% if user_role in ['super_admin', 'company_admin', 'admin'] %}
+                    <th style="text-align:center;">ACTIONS</th>
+                    {% endif %}
+                  </tr>
+                </thead>
+                <tbody id="fieldManualEntryTableBody">
+                  <tr>
+                    <td colspan="9" style="text-align:center; color:#64748b; padding:24px;">Loading field worker manual entries...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="table-footer" style="display:flex; align-items:center; justify-content:space-between; padding-top:12px; border-top:1px solid #eef2f6; margin-top:10px;">
+              <div id="fwManualTableInfo" style="font-size:12px; color:#64748b;">Showing 0 to 0 of 0 entries</div>
+              <div class="pagination-controls" style="display:flex; gap:6px;">
+                <button type="button" class="fw-btn fw-btn-neutral fw-btn-sm disabled" id="fwManualPrevBtn" onclick="changeFwManualPage(-1)">Previous</button>
+                <span id="fwManualCurrentPage" style="font-size:12px; font-weight:700; align-self:center; padding:0 6px;">1</span>
+                <button type="button" class="fw-btn fw-btn-neutral fw-btn-sm disabled" id="fwManualNextBtn" onclick="changeFwManualPage(1)">Next</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: Add Field Worker Manual Entry -->
+          <div class="fw-modal-backdrop d-none" id="modalFieldManualEntry">
+            <div class="fw-modal-dialog" style="max-width: 540px; width: 92vw;">
+              <div class="fw-modal-header">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background:#eff6ff; color:#2563eb;">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title">FIELD WORKER MANUAL ENTRY</div>
+                    <div class="fw-card-subtitle">Record attendance correction for field worker</div>
+                  </div>
+                </div>
+                <button type="button" class="fw-modal-close-btn" onclick="closeFieldManualEntryModal()">&times;</button>
+              </div>
+              <form id="formFieldManualEntry" onsubmit="submitFieldManualEntry(event)">
+                <div class="fw-modal-body" style="padding: 16px 20px;">
+                  <div style="display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                      <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Field Worker *</label>
+                      <select id="inputFieldManualWorker" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                        <option value="" disabled selected>-- Select Field Worker --</option>
+                        {% for fw in field_workers %}
+                        <option value="{{ fw.employee_name }}">{{ fw.employee_name }} ({{ fw.designation or 'Field Executive' }})</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Entry Date *</label>
+                        <input type="date" id="inputFieldManualDate" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                      </div>
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Entry Type *</label>
+                        <select id="inputFieldManualEntryType" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                          <option value="Add" selected>Add (Add Hours / Pay)</option>
+                          <option value="Sub">Sub (Deduct Hours / Pay)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Calculation Mode</label>
+                        <select id="inputFieldManualMode" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" onchange="handleFwManualModeChange()">
+                          <option value="Hours" selected>Hours (HH:MM)</option>
+                          <option value="Full Day">Full Day</option>
+                          <option value="Half Day">Half Day</option>
+                          <option value="Amount">Direct Amount (₹)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Hours (HH:MM)</label>
+                        <input type="text" id="inputFieldManualHours" class="filter-input" placeholder="08:00" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" value="08:00">
+                      </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Status</label>
+                        <select id="inputFieldManualStatus" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;">
+                          <option value="Proper" selected>Proper</option>
+                          <option value="Permission">Permission</option>
+                          <option value="Improper">Improper</option>
+                          <option value="Others">Others</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Working Salary (₹ Optional)</label>
+                        <input type="number" step="0.01" id="inputFieldManualSalary" class="filter-input" placeholder="Auto-calculated if blank" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;">
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Reason / Notes</label>
+                      <input type="text" id="inputFieldManualReason" class="filter-input" placeholder="e.g. Field client visit overtime correction" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;">
+                    </div>
+                  </div>
+                </div>
+                <div class="fw-modal-footer">
+                  <button type="button" class="fw-btn fw-btn-neutral" onclick="closeFieldManualEntryModal()">Cancel</button>
+                  <button type="submit" class="fw-btn fw-btn-primary" id="btnSubmitFwManual">Save Entry</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 8: FIELD WORKER PAYMENT ENTRY (STRICTLY ISOLATED)                     -->
+        <!-- ========================================================================= -->
+        <div id="paneFieldPaymentEntry" class="fw-section-pane" data-title="FIELD WORKER PAYMENT ENTRY">
+          <!-- 4 KPI Summary Cards -->
+          <div class="fw-kpi-grid" style="grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px;">
+            <div class="fw-kpi-card" style="border-left: 4px solid #2563eb; background:#ffffff; padding:14px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+              <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#64748b; letter-spacing:0.5px;">TOTAL DISBURSED</div>
+              <div style="font-size:20px; font-weight:800; color:#1e293b; margin-top:4px;" id="fwStatDisbursed">₹0.00</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">Disbursed Payments</div>
+            </div>
+            <div class="fw-kpi-card" style="border-left: 4px solid #d97706; background:#ffffff; padding:14px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+              <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#64748b; letter-spacing:0.5px;">TOTAL ADVANCES</div>
+              <div style="font-size:20px; font-weight:800; color:#d97706; margin-top:4px;" id="fwStatAdvances">₹0.00</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">Granted Salary Advances</div>
+            </div>
+            <div class="fw-kpi-card" style="border-left: 4px solid #16a34a; background:#ffffff; padding:14px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+              <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#64748b; letter-spacing:0.5px;">TOTAL RECOVERED</div>
+              <div style="font-size:20px; font-weight:800; color:#16a34a; margin-top:4px;" id="fwStatRecovered">₹0.00</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">Repayments / Deductions</div>
+            </div>
+            <div class="fw-kpi-card" style="border-left: 4px solid #dc2626; background:#ffffff; padding:14px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+              <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#64748b; letter-spacing:0.5px;">OUTSTANDING BALANCE</div>
+              <div style="font-size:20px; font-weight:800; color:#dc2626; margin-top:4px;" id="fwStatOutstanding">₹0.00</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">Pending Advance Balance</div>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-toolbar" style="flex-wrap: wrap; gap: 10px; border-bottom: 1px solid #eef2f6; padding-bottom: 14px; margin-bottom: 14px; align-items: center; justify-content: space-between;">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                {% if user_role in ['super_admin', 'company_admin', 'admin'] %}
+                <button type="button" class="fw-btn fw-btn-primary" onclick="openFieldPaymentModal()" style="display:inline-flex; align-items:center; gap:6px;">
+                  <i class="fa-solid fa-credit-card"></i> Add Payment
+                </button>
+                <button type="button" class="fw-btn fw-btn-neutral" onclick="openFieldAdvanceModal()" style="display:inline-flex; align-items:center; gap:6px;">
+                  <i class="fa-solid fa-hand-holding-dollar"></i> Add Advance
+                </button>
+                {% endif %}
+
+                <div class="filter-group" style="display:flex; align-items:center; gap:6px;">
+                  <label style="font-size:12px; font-weight:600; color:#475569;">Worker:</label>
+                  <select id="filterFieldPaymentWorker" class="filter-input" style="padding:4px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px;" onchange="loadFieldPayments()">
+                    <option value="All" selected>All Field Workers</option>
+                    {% for fw in field_workers %}
+                    <option value="{{ fw.employee_name }}">{{ fw.employee_name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="filter-group" style="display:flex; align-items:center; gap:6px;">
+                  <label style="font-size:12px; font-weight:600; color:#475569;">Status:</label>
+                  <select id="filterFieldPaymentStatus" class="filter-input" style="padding:4px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px;" onchange="loadFieldPayments()">
+                    <option value="All" selected>All Statuses</option>
+                    <option value="Salary">Salary</option>
+                    <option value="Advance Payment">Advance Payment</option>
+                    <option value="Advance Repayment">Advance Repayment</option>
+                    <option value="Incentive">Incentive</option>
+                    <option value="Allowance">Allowance</option>
+                    <option value="Other Earnings">Other Earnings</option>
+                    <option value="Other Deductions">Other Deductions</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div class="search-box-wrapper">
+                  <label style="font-size:12px; font-weight:600; color:#475569;">Search:</label>
+                  <input type="text" id="filterFieldPaymentSearch" class="search-input" placeholder="Search payment..." oninput="debounceFwPaymentSearch()">
+                </div>
+              </div>
+            </div>
+
+            <div class="fw-table-wrapper">
+              <table class="fw-table" id="fieldPaymentTable">
+                <thead>
+                  <tr>
+                    <th>TIMESTAMP</th>
+                    <th>FIELD WORKER</th>
+                    <th>PAYMENT DATE</th>
+                    <th>AMOUNT</th>
+                    <th>BANK</th>
+                    <th>PAYMENT TYPE</th>
+                    <th>STATUS / REASON</th>
+                    <th>RECEIPT</th>
+                    {% if user_role in ['super_admin', 'company_admin', 'admin'] %}
+                    <th style="text-align:center;">ACTION</th>
+                    {% endif %}
+                  </tr>
+                </thead>
+                <tbody id="fieldPaymentTableBody">
+                  <tr>
+                    <td colspan="9" style="text-align:center; color:#64748b; padding:24px;">Loading field worker payment records...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="table-footer" style="display:flex; align-items:center; justify-content:space-between; padding-top:12px; border-top:1px solid #eef2f6; margin-top:10px;">
+              <div id="fwPaymentTableInfo" style="font-size:12px; color:#64748b;">Showing 0 to 0 of 0 entries</div>
+              <div class="pagination-controls" style="display:flex; gap:6px;">
+                <button type="button" class="fw-btn fw-btn-neutral fw-btn-sm disabled" id="fwPaymentPrevBtn" onclick="changeFwPaymentPage(-1)">Previous</button>
+                <span id="fwPaymentCurrentPage" style="font-size:12px; font-weight:700; align-self:center; padding:0 6px;">1</span>
+                <button type="button" class="fw-btn fw-btn-neutral fw-btn-sm disabled" id="fwPaymentNextBtn" onclick="changeFwPaymentPage(1)">Next</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: Add Field Worker Payment Entry -->
+          <div class="fw-modal-backdrop d-none" id="modalFieldPaymentEntry">
+            <div class="fw-modal-dialog" style="max-width: 540px; width: 92vw;">
+              <div class="fw-modal-header">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background:#eff6ff; color:#2563eb;">
+                    <i class="fa-solid fa-credit-card"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title">RECORD FIELD WORKER PAYMENT</div>
+                    <div class="fw-card-subtitle">Log disbursement, incentive, or advance repayment</div>
+                  </div>
+                </div>
+                <button type="button" class="fw-modal-close-btn" onclick="closeFieldPaymentModal()">&times;</button>
+              </div>
+              <form id="formFieldPaymentEntry" onsubmit="submitFieldPayment(event)">
+                <div class="fw-modal-body" style="padding: 16px 20px;">
+                  <div style="display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                      <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Field Worker *</label>
+                      <select id="inputFieldPaymentWorker" name="employee_name" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                        <option value="" disabled selected>-- Select Field Worker --</option>
+                        {% for fw in field_workers %}
+                        <option value="{{ fw.employee_name }}">{{ fw.employee_name }} ({{ fw.designation or 'Field Executive' }})</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Payment Date *</label>
+                        <input type="date" id="inputFieldPaymentDate" name="payment_date" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                      </div>
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Amount (₹) *</label>
+                        <input type="number" step="0.01" min="0" id="inputFieldPaymentAmount" name="amount" class="filter-input" placeholder="0.00" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                      </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Bank / Channel</label>
+                        <select id="inputFieldPaymentBank" name="bank" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;">
+                          <option value="HDFC">HDFC Bank</option>
+                          <option value="SBI">SBI</option>
+                          <option value="ICICI">ICICI Bank</option>
+                          <option value="Axis">Axis Bank</option>
+                          <option value="Cash" selected>Cash</option>
+                          <option value="Others">Others</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Payment Type</label>
+                        <select id="inputFieldPaymentType" name="payment_type" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;">
+                          <option value="UPI" selected>UPI</option>
+                          <option value="Cash">Cash</option>
+                          <option value="Net Banking">Net Banking</option>
+                          <option value="Mobile Banking">Mobile Banking</option>
+                          <option value="Repayment">Repayment</option>
+                          <option value="Others">Others</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Status / Reason Category *</label>
+                      <select id="inputFieldPaymentCategory" name="status" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                        <option value="Salary" selected>Salary Disbursement</option>
+                        <option value="Advance Payment">Advance Payment</option>
+                        <option value="Advance Repayment">Advance Repayment</option>
+                        <option value="Incentive">Incentive</option>
+                        <option value="Allowance">Allowance</option>
+                        <option value="Other Earnings">Other Earnings</option>
+                        <option value="Other Deductions">Other Deductions</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Receipt / Voucher (Optional)</label>
+                      <input type="file" id="inputFieldPaymentReceipt" name="receipt" class="filter-input" style="width:100%; padding:6px; border:1px solid #cbd5e1; border-radius:6px;">
+                    </div>
+
+                    <div>
+                      <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Notes / Remarks</label>
+                      <input type="text" id="inputFieldPaymentNotes" name="notes" class="filter-input" placeholder="e.g. Travel petrol allowance reimbursement" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;">
+                    </div>
+                  </div>
+                </div>
+                <div class="fw-modal-footer">
+                  <button type="button" class="fw-btn fw-btn-neutral" onclick="closeFieldPaymentModal()">Cancel</button>
+                  <button type="submit" class="fw-btn fw-btn-primary" id="btnSubmitFwPayment">Save Payment</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Modal: Add Field Worker Advance Entry -->
+          <div class="fw-modal-backdrop d-none" id="modalFieldAdvanceEntry">
+            <div class="fw-modal-dialog" style="max-width: 480px; width: 92vw;">
+              <div class="fw-modal-header">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background:#fffbeb; color:#d97706;">
+                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title">GRANT FIELD WORKER ADVANCE</div>
+                    <div class="fw-card-subtitle">Record salary advance with monthly repayment deduction</div>
+                  </div>
+                </div>
+                <button type="button" class="fw-modal-close-btn" onclick="closeFieldAdvanceModal()">&times;</button>
+              </div>
+              <form id="formFieldAdvanceEntry" onsubmit="submitFieldAdvance(event)">
+                <div class="fw-modal-body" style="padding: 16px 20px;">
+                  <div style="display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                      <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Field Worker *</label>
+                      <select id="inputFieldAdvanceWorker" name="employee_name" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                        <option value="" disabled selected>-- Select Field Worker --</option>
+                        {% for fw in field_workers %}
+                        <option value="{{ fw.employee_name }}">{{ fw.employee_name }} ({{ fw.designation or 'Field Executive' }})</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Advance Amount (₹) *</label>
+                        <input type="number" step="0.01" min="1" id="inputFieldAdvanceAmount" name="amount" class="filter-input" placeholder="0.00" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                      </div>
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Monthly Repayment (₹) *</label>
+                        <input type="number" step="0.01" min="0" id="inputFieldAdvanceRepayment" name="repayment_amount" class="filter-input" placeholder="0.00" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Notes / Justification</label>
+                      <input type="text" id="inputFieldAdvanceNotes" name="notes" class="filter-input" placeholder="e.g. Festival advance / emergency vehicle repair" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;">
+                    </div>
+                  </div>
+                </div>
+                <div class="fw-modal-footer">
+                  <button type="button" class="fw-btn fw-btn-neutral" onclick="closeFieldAdvanceModal()">Cancel</button>
+                  <button type="submit" class="fw-btn fw-btn-primary" id="btnSubmitFwAdvance">Grant Advance</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 9: FIELD WORKER PAYSLIP PREVIEW (STRICTLY ISOLATED)                   -->
+        <!-- ========================================================================= -->
+        <div id="paneFieldPayslipPreview" class="fw-section-pane" data-title="FIELD WORKER PAYSLIP PREVIEW">
+          <!-- Selection & Action Controls Bar -->
+          <div class="table-card" style="margin-bottom: 16px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:6px 0;">
+              <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div class="filter-group" style="display:flex; align-items:center; gap:6px;">
+                  <label style="font-size:12px; font-weight:700; color:#334155; white-space:nowrap;">Field Worker:</label>
+                  <select id="fwPayslipEmpSelect" class="filter-input" style="padding:6px 10px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px; min-width:180px;">
+                    {% for fw in field_workers %}
+                    <option value="{{ fw.employee_name }}">{{ fw.employee_name }} ({{ fw.designation or 'Field Executive' }})</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="filter-group" style="display:flex; align-items:center; gap:6px;">
+                  <label style="font-size:12px; font-weight:700; color:#334155; white-space:nowrap;">Month:</label>
+                  <input type="month" id="fwPayslipMonthSelect" class="filter-input" value="{{ month_year }}" style="padding:5px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px;">
+                </div>
+
+                <button type="button" class="fw-btn fw-btn-primary" id="btnFwGeneratePayslip" onclick="loadFieldPayslipPreview()" style="display:inline-flex; align-items:center; gap:6px;">
+                  <i class="fa-solid fa-arrows-rotate"></i> Generate Payslip
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" class="fw-btn fw-btn-neutral" id="btnFwPrintPayslip" onclick="printFieldPayslipPreview()" style="display:inline-flex; align-items:center; gap:6px;">
+                  <i class="fa-solid fa-print"></i> Print Payslip
+                </button>
+                <button type="button" class="fw-btn fw-btn-dark" id="btnFwDownloadPayslipPdf" onclick="downloadFieldPayslipPdf()" style="display:inline-flex; align-items:center; gap:6px;">
+                  <i class="fa-solid fa-file-pdf" style="color:#f87171;"></i> Download PDF
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Live Payslip Document Container -->
+          <div id="fwPayslipDocWrapper" style="display:flex; justify-content:center;">
+            <div id="fwInteractivePayslipDoc" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; max-width:860px; width:100%; padding:24px; box-shadow:0 4px 16px rgba(0,0,0,0.06);">
+              <div id="fwPayslipLoadingIndicator" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:50px 20px; color:#64748b;">
+                <div style="width:32px; height:32px; border:3px solid #e2e8f0; border-top-color:#2563eb; border-radius:50%; animation:spinPdf 0.8s linear infinite;"></div>
+                <span style="margin-top:12px; font-size:13px; font-weight:600;">Generating Field Worker Payslip Preview...</span>
+              </div>
+              <div id="fwPayslipRenderContent" class="d-none">
+                <!-- Dynamically populated by JS renderFieldPayslipDoc() -->
+              </div>
+            </div>
+          </div>
+        </div>
+
       </main>
     </div>
   </div>
@@ -4907,6 +5403,19 @@
 
       if (paneId === 'paneScheduledVisits') {
         renderScheduledVisitsTable(ASSIGNMENTS_DATA);
+      }
+
+      if (paneId === 'paneFieldManualEntry') {
+        loadFieldManualEntries();
+      }
+
+      if (paneId === 'paneFieldPaymentEntry') {
+        loadFieldPayments();
+        loadFieldPaymentStats();
+      }
+
+      if (paneId === 'paneFieldPayslipPreview') {
+        initFieldPayslipPreview();
       }
 
       if (paneId !== 'paneFieldPunch' && typeof stopTerminalCamera === 'function') {
@@ -5692,6 +6201,48 @@
         sel.innerHTML = opts;
         if (curVal) sel.value = curVal;
       });
+
+      // Populate Manual Entry, Payment Entry, Advance, and Payslip dropdowns strictly with field workers of active company
+      const manualSel = document.getElementById('inputFieldManualWorker');
+      if (manualSel && workers) {
+        const cur = manualSel.value;
+        manualSel.innerHTML = '<option value="" disabled selected>-- Select Field Worker --</option>' +
+          workers.map(w => `<option value="${escapeHtml(w.employee_name)}" ${w.employee_name === cur ? 'selected' : ''}>${escapeHtml(w.employee_name)} (${escapeHtml(w.designation || 'Field Executive')})</option>`).join('');
+      }
+
+      const payWorkerSel = document.getElementById('filterFieldPaymentWorker');
+      if (payWorkerSel && workers) {
+        const cur = payWorkerSel.value;
+        payWorkerSel.innerHTML = '<option value="All" selected>All Field Workers</option>' +
+          workers.map(w => `<option value="${escapeHtml(w.employee_name)}" ${w.employee_name === cur ? 'selected' : ''}>${escapeHtml(w.employee_name)}</option>`).join('');
+        if (cur) payWorkerSel.value = cur;
+      }
+
+      const payAddSel = document.getElementById('inputFieldPaymentWorker');
+      if (payAddSel && workers) {
+        const cur = payAddSel.value;
+        payAddSel.innerHTML = '<option value="" disabled selected>-- Select Field Worker --</option>' +
+          workers.map(w => `<option value="${escapeHtml(w.employee_name)}" ${w.employee_name === cur ? 'selected' : ''}>${escapeHtml(w.employee_name)} (${escapeHtml(w.designation || 'Field Executive')})</option>`).join('');
+      }
+
+      const advSel = document.getElementById('inputFieldAdvanceWorker');
+      if (advSel && workers) {
+        const cur = advSel.value;
+        advSel.innerHTML = '<option value="" disabled selected>-- Select Field Worker --</option>' +
+          workers.map(w => `<option value="${escapeHtml(w.employee_name)}" ${w.employee_name === cur ? 'selected' : ''}>${escapeHtml(w.employee_name)} (${escapeHtml(w.designation || 'Field Executive')})</option>`).join('');
+      }
+
+      const payslipSel = document.getElementById('fwPayslipEmpSelect');
+      if (payslipSel && workers) {
+        const cur = payslipSel.value;
+        if (CURRENT_USER_ROLE === 'employee' && LOGGED_IN_EMPLOYEE_NAME) {
+          payslipSel.innerHTML = `<option value="${escapeHtml(LOGGED_IN_EMPLOYEE_NAME)}" selected>${escapeHtml(LOGGED_IN_EMPLOYEE_NAME)}</option>`;
+          payslipSel.disabled = true;
+        } else {
+          payslipSel.disabled = false;
+          payslipSel.innerHTML = workers.map((w, idx) => `<option value="${escapeHtml(w.employee_name)}" ${(cur ? w.employee_name === cur : idx === 0) ? 'selected' : ''}>${escapeHtml(w.employee_name)} (${escapeHtml(w.designation || 'Field Executive')})</option>`).join('');
+        }
+      }
 
       // Also dynamically update Register Modal's Registration Mode dropdown (fwExistingEmpSelect) with only Field Workers of active company
       const regSel = document.getElementById('fwExistingEmpSelect');
@@ -7926,6 +8477,832 @@
       }
     }
 
+    // =========================================================================
+    // FIELD WORKER MODULE: MANUAL ENTRY CONTROLLER (ISOLATED)
+    // =========================================================================
+    let FW_MANUAL_PAGE = 1;
+    let FW_MANUAL_LIMIT = 10;
+    let FW_MANUAL_TOTAL = 0;
+    let fwManualSearchTimeout = null;
+
+    function debounceFwManualSearch() {
+      clearTimeout(fwManualSearchTimeout);
+      fwManualSearchTimeout = setTimeout(() => {
+        FW_MANUAL_PAGE = 1;
+        loadFieldManualEntries();
+      }, 300);
+    }
+
+    function clearFieldManualFilters() {
+      const fFrom = document.getElementById('filterFwManualFrom');
+      const fTo = document.getElementById('filterFwManualTo');
+      const fStat = document.getElementById('filterFwManualStatus');
+      const fSrch = document.getElementById('filterFwManualSearch');
+      if (fFrom) fFrom.value = '';
+      if (fTo) fTo.value = '';
+      if (fStat) fStat.value = 'All';
+      if (fSrch) fSrch.value = '';
+      FW_MANUAL_PAGE = 1;
+      loadFieldManualEntries();
+    }
+
+    function changeFwManualPage(delta) {
+      const newPage = FW_MANUAL_PAGE + delta;
+      const maxPages = Math.ceil(FW_MANUAL_TOTAL / FW_MANUAL_LIMIT) || 1;
+      if (newPage >= 1 && newPage <= maxPages) {
+        FW_MANUAL_PAGE = newPage;
+        loadFieldManualEntries();
+      }
+    }
+
+    async function loadFieldManualEntries() {
+      const tbody = document.getElementById('fieldManualEntryTableBody');
+      if (!tbody) return;
+
+      const cid = getActiveCompanyId();
+      const fromDate = document.getElementById('filterFwManualFrom')?.value || '';
+      const toDate = document.getElementById('filterFwManualTo')?.value || '';
+      const status = document.getElementById('filterFwManualStatus')?.value || 'All';
+      const search = document.getElementById('filterFwManualSearch')?.value || '';
+
+      const params = new URLSearchParams({
+        company_id: cid,
+        from_date: fromDate,
+        to_date: toDate,
+        status: status,
+        search: search,
+        page: FW_MANUAL_PAGE,
+        limit: FW_MANUAL_LIMIT
+      });
+
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#64748b; padding:24px;">
+        <i class="fa-solid fa-spinner fa-spin" style="margin-right:6px; color:#2563eb;"></i> Loading field worker entries...
+      </td></tr>`;
+
+      try {
+        const res = await fetch(`/api/field-worker/manual-entries?${params.toString()}`);
+        const data = await res.json();
+        if (!data.success) {
+          tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#ef4444; padding:20px;">${escapeHtml(data.error || 'Failed to load entries')}</td></tr>`;
+          return;
+        }
+
+        FW_MANUAL_TOTAL = data.total || 0;
+        renderFieldManualEntriesTable(data.data || []);
+
+        const info = document.getElementById('fwManualTableInfo');
+        if (info) {
+          const start = FW_MANUAL_TOTAL === 0 ? 0 : ((FW_MANUAL_PAGE - 1) * FW_MANUAL_LIMIT + 1);
+          const end = Math.min(FW_MANUAL_PAGE * FW_MANUAL_LIMIT, FW_MANUAL_TOTAL);
+          info.textContent = `Showing ${start} to ${end} of ${FW_MANUAL_TOTAL} entries`;
+        }
+
+        const curBtn = document.getElementById('fwManualCurrentPage');
+        if (curBtn) curBtn.textContent = FW_MANUAL_PAGE;
+
+        const maxPages = Math.ceil(FW_MANUAL_TOTAL / FW_MANUAL_LIMIT) || 1;
+        const prevBtn = document.getElementById('fwManualPrevBtn');
+        const nextBtn = document.getElementById('fwManualNextBtn');
+        if (prevBtn) prevBtn.classList.toggle('disabled', FW_MANUAL_PAGE <= 1);
+        if (nextBtn) nextBtn.classList.toggle('disabled', FW_MANUAL_PAGE >= maxPages);
+
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#ef4444; padding:20px;">Network error: ${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    function renderFieldManualEntriesTable(rows) {
+      const tbody = document.getElementById('fieldManualEntryTableBody');
+      if (!tbody) return;
+
+      if (!rows || rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#64748b; padding:28px;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+            <i class="fa-solid fa-clipboard-list" style="font-size:24px; color:#94a3b8;"></i>
+            <span>No field worker manual entries found.</span>
+          </div>
+        </td></tr>`;
+        return;
+      }
+
+      const isAdmin = (CURRENT_USER_ROLE === 'super_admin' || CURRENT_USER_ROLE === 'company_admin' || CURRENT_USER_ROLE === 'admin');
+
+      tbody.innerHTML = rows.map(r => {
+        const entryId = r.id || r._id || '';
+        const entryType = (r.entry_type || 'Add').toUpperCase();
+        const typeBadge = entryType === 'SUB'
+          ? `<span class="badge-neutral" style="background:#fee2e2; color:#dc2626; font-weight:700;"><i class="fa-solid fa-minus"></i> SUB</span>`
+          : `<span class="badge-neutral" style="background:#dcfce7; color:#16a34a; font-weight:700;"><i class="fa-solid fa-plus"></i> ADD</span>`;
+
+        let statusBadge = `<span class="badge-neutral">${escapeHtml(r.status || 'Proper')}</span>`;
+        if (r.status === 'Proper') {
+          statusBadge = `<span class="badge-neutral" style="background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0;">Proper</span>`;
+        } else if (r.status === 'Permission') {
+          statusBadge = `<span class="badge-neutral" style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Permission</span>`;
+        } else if (r.status === 'Improper') {
+          statusBadge = `<span class="badge-neutral" style="background:#fef2f2; color:#b91c1c; border:1px solid #fecaca;">Improper</span>`;
+        }
+
+        const sal = parseFloat(r.working_salary || 0.0);
+        const salColor = sal < 0 ? '#dc2626' : (sal > 0 ? '#16a34a' : '#475569');
+        const salPrefix = sal > 0 ? '+' : '';
+
+        return `<tr>
+          <td>
+            <div class="fw-cell-title">${escapeHtml(r.employee_name || '')}</div>
+            <div class="fw-cell-sub">Field Force</div>
+          </td>
+          <td style="font-weight:600; white-space:nowrap;">${escapeHtml(r.entry_date || '')}</td>
+          <td style="font-weight:700; font-family:monospace; font-size:13px;">${escapeHtml(r.hours || '00:00')}</td>
+          <td>${typeBadge}</td>
+          <td>${statusBadge}</td>
+          <td style="font-weight:700; color:${salColor}; white-space:nowrap;">
+            ${salPrefix}₹${Math.abs(sal).toFixed(2)}
+          </td>
+          <td style="max-width:220px; font-size:12px; color:#475569;">${escapeHtml(r.reason || '-')}</td>
+          <td style="font-size:11px; color:#64748b; white-space:nowrap;">${escapeHtml(r.submitted_at || '-')}</td>
+          ${isAdmin ? `
+          <td style="text-align:center;">
+            <button type="button" class="btn-action-icon btn-action-delete" onclick="deleteFieldManualEntry('${escapeHtml(entryId)}')" title="Delete Entry">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>` : ''}
+        </tr>`;
+      }).join('');
+    }
+
+    function openFieldManualEntryModal() {
+      const modal = document.getElementById('modalFieldManualEntry');
+      const form = document.getElementById('formFieldManualEntry');
+      if (form) form.reset();
+
+      const dInput = document.getElementById('inputFieldManualDate');
+      if (dInput) {
+        const today = new Date().toISOString().split('T')[0];
+        dInput.value = today;
+      }
+      const hrsInput = document.getElementById('inputFieldManualHours');
+      if (hrsInput) hrsInput.value = '08:00';
+
+      if (modal) modal.classList.remove('d-none');
+    }
+
+    function closeFieldManualEntryModal() {
+      const modal = document.getElementById('modalFieldManualEntry');
+      if (modal) modal.classList.add('d-none');
+    }
+
+    function handleFwManualModeChange() {
+      const mode = document.getElementById('inputFieldManualMode')?.value;
+      const hrsInput = document.getElementById('inputFieldManualHours');
+      if (!hrsInput) return;
+      if (mode === 'Full Day') {
+        hrsInput.value = '08:00';
+      } else if (mode === 'Half Day') {
+        hrsInput.value = '04:00';
+      } else if (mode === 'Amount') {
+        hrsInput.value = '00:00';
+      }
+    }
+
+    async function submitFieldManualEntry(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmitFwManual');
+      if (btn) btn.disabled = true;
+
+      const payload = {
+        company_id: getActiveCompanyId(),
+        employee_name: document.getElementById('inputFieldManualWorker')?.value,
+        entry_date: document.getElementById('inputFieldManualDate')?.value,
+        entry_type: document.getElementById('inputFieldManualEntryType')?.value || 'Add',
+        mode: document.getElementById('inputFieldManualMode')?.value || 'Hours',
+        hours: document.getElementById('inputFieldManualHours')?.value || '08:00',
+        status: document.getElementById('inputFieldManualStatus')?.value || 'Proper',
+        working_salary: document.getElementById('inputFieldManualSalary')?.value || '',
+        reason: document.getElementById('inputFieldManualReason')?.value || ''
+      };
+
+      try {
+        const res = await fetch('/api/field-worker/manual-entries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Manual entry recorded successfully!');
+          closeFieldManualEntryModal();
+          await loadFieldManualEntries();
+        } else {
+          showToast(data.error || 'Failed to save entry', true);
+        }
+      } catch (err) {
+        showToast('Network error: ' + err.message, true);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function deleteFieldManualEntry(entryId) {
+      if (!confirm('Are you sure you want to delete this field worker manual entry? This will adjust payroll calculations.')) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/field-worker/manual-entries/${encodeURIComponent(entryId)}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Entry deleted successfully');
+          await loadFieldManualEntries();
+        } else {
+          showToast(data.error || 'Failed to delete entry', true);
+        }
+      } catch (err) {
+        showToast('Error deleting entry: ' + err.message, true);
+      }
+    }
+
+    // =========================================================================
+    // FIELD WORKER MODULE: PAYMENT ENTRY & ADVANCE CONTROLLER (ISOLATED)
+    // =========================================================================
+    let FW_PAYMENT_PAGE = 1;
+    let FW_PAYMENT_LIMIT = 10;
+    let FW_PAYMENT_TOTAL = 0;
+    let fwPaymentSearchTimeout = null;
+
+    function debounceFwPaymentSearch() {
+      clearTimeout(fwPaymentSearchTimeout);
+      fwPaymentSearchTimeout = setTimeout(() => {
+        FW_PAYMENT_PAGE = 1;
+        loadFieldPayments();
+      }, 300);
+    }
+
+    function changeFwPaymentPage(delta) {
+      const newPage = FW_PAYMENT_PAGE + delta;
+      const maxPages = Math.ceil(FW_PAYMENT_TOTAL / FW_PAYMENT_LIMIT) || 1;
+      if (newPage >= 1 && newPage <= maxPages) {
+        FW_PAYMENT_PAGE = newPage;
+        loadFieldPayments();
+      }
+    }
+
+    async function loadFieldPaymentStats() {
+      const cid = getActiveCompanyId();
+      try {
+        const res = await fetch(`/api/field-worker/payment-stats?company_id=${encodeURIComponent(cid)}`);
+        const data = await res.json();
+        if (data.success && data.stats) {
+          const s = data.stats;
+          const dis = document.getElementById('fwStatDisbursed');
+          const adv = document.getElementById('fwStatAdvances');
+          const rec = document.getElementById('fwStatRecovered');
+          const out = document.getElementById('fwStatOutstanding');
+
+          if (dis) dis.textContent = `₹${parseFloat(s.total_disbursed || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          if (adv) adv.textContent = `₹${parseFloat(s.total_advances || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          if (rec) rec.textContent = `₹${parseFloat(s.total_recovered || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          if (out) out.textContent = `₹${parseFloat(s.outstanding_balance || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        }
+      } catch (err) {
+        console.warn('Failed to load payment stats:', err);
+      }
+    }
+
+    async function loadFieldPayments() {
+      const tbody = document.getElementById('fieldPaymentTableBody');
+      if (!tbody) return;
+
+      const cid = getActiveCompanyId();
+      const worker = document.getElementById('filterFieldPaymentWorker')?.value || 'All';
+      const status = document.getElementById('filterFieldPaymentStatus')?.value || 'All';
+      const search = document.getElementById('filterFieldPaymentSearch')?.value || '';
+
+      const params = new URLSearchParams({
+        company_id: cid,
+        employee: worker,
+        status: status,
+        search: search,
+        page: FW_PAYMENT_PAGE,
+        limit: FW_PAYMENT_LIMIT
+      });
+
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#64748b; padding:24px;">
+        <i class="fa-solid fa-spinner fa-spin" style="margin-right:6px; color:#2563eb;"></i> Loading payment records...
+      </td></tr>`;
+
+      try {
+        const res = await fetch(`/api/field-worker/payments?${params.toString()}`);
+        const data = await res.json();
+        if (!data.success) {
+          tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#ef4444; padding:20px;">${escapeHtml(data.error || 'Failed to load payments')}</td></tr>`;
+          return;
+        }
+
+        FW_PAYMENT_TOTAL = data.total || 0;
+        renderFieldPaymentsTable(data.data || []);
+
+        const info = document.getElementById('fwPaymentTableInfo');
+        if (info) {
+          const start = FW_PAYMENT_TOTAL === 0 ? 0 : ((FW_PAYMENT_PAGE - 1) * FW_PAYMENT_LIMIT + 1);
+          const end = Math.min(FW_PAYMENT_PAGE * FW_PAYMENT_LIMIT, FW_PAYMENT_TOTAL);
+          info.textContent = `Showing ${start} to ${end} of ${FW_PAYMENT_TOTAL} entries`;
+        }
+
+        const curBtn = document.getElementById('fwPaymentCurrentPage');
+        if (curBtn) curBtn.textContent = FW_PAYMENT_PAGE;
+
+        const maxPages = Math.ceil(FW_PAYMENT_TOTAL / FW_PAYMENT_LIMIT) || 1;
+        const prevBtn = document.getElementById('fwPaymentPrevBtn');
+        const nextBtn = document.getElementById('fwPaymentNextBtn');
+        if (prevBtn) prevBtn.classList.toggle('disabled', FW_PAYMENT_PAGE <= 1);
+        if (nextBtn) nextBtn.classList.toggle('disabled', FW_PAYMENT_PAGE >= maxPages);
+
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#ef4444; padding:20px;">Network error: ${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    function renderFieldPaymentsTable(rows) {
+      const tbody = document.getElementById('fieldPaymentTableBody');
+      if (!tbody) return;
+
+      if (!rows || rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#64748b; padding:28px;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+            <i class="fa-solid fa-receipt" style="font-size:24px; color:#94a3b8;"></i>
+            <span>No field worker payment transactions found.</span>
+          </div>
+        </td></tr>`;
+        return;
+      }
+
+      const isAdmin = (CURRENT_USER_ROLE === 'super_admin' || CURRENT_USER_ROLE === 'company_admin' || CURRENT_USER_ROLE === 'admin');
+
+      tbody.innerHTML = rows.map(r => {
+        const payId = r.id || r._id || '';
+        const amt = parseFloat(r.amount || 0.0);
+        const reason = r.status || r.reason || 'Payment';
+        let reasonBadge = `<span class="badge-neutral">${escapeHtml(reason)}</span>`;
+        const rLow = reason.toLowerCase();
+
+        if (rLow.includes('salary')) {
+          reasonBadge = `<span class="badge-neutral" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700;">Salary</span>`;
+        } else if (rLow.includes('advance')) {
+          reasonBadge = `<span class="badge-neutral" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a; font-weight:700;">Advance</span>`;
+        } else if (rLow.includes('incentive')) {
+          reasonBadge = `<span class="badge-neutral" style="background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; font-weight:700;">Incentive</span>`;
+        } else if (rLow.includes('allowance')) {
+          reasonBadge = `<span class="badge-neutral" style="background:#f5f3ff; color:#6d28d9; border:1px solid #ddd6fe; font-weight:700;">Allowance</span>`;
+        }
+
+        const receiptHtml = r.receipt_filename
+          ? `<a href="/static/uploads/receipts/${encodeURIComponent(r.receipt_filename)}" target="_blank" class="fw-btn fw-btn-neutral fw-btn-sm" style="padding:2px 8px; font-size:11px;" title="View Receipt"><i class="fa-solid fa-paperclip"></i> Receipt</a>`
+          : `<span style="color:#94a3b8; font-size:12px;">-</span>`;
+
+        return `<tr>
+          <td style="font-size:11px; color:#64748b; white-space:nowrap;">${escapeHtml(r.timestamp || '-')}</td>
+          <td>
+            <div class="fw-cell-title">${escapeHtml(r.employee_name || '')}</div>
+            <div class="fw-cell-sub">Field Force</div>
+          </td>
+          <td style="font-weight:600; white-space:nowrap;">${escapeHtml(r.payment_date || '')}</td>
+          <td style="font-weight:800; color:#0f172a; white-space:nowrap;">₹${amt.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+          <td><span class="badge-neutral">${escapeHtml(r.bank || 'Cash')}</span></td>
+          <td><span class="badge-neutral" style="background:#f8fafc; font-weight:600;">${escapeHtml(r.payment_type || 'UPI')}</span></td>
+          <td>${reasonBadge}</td>
+          <td>${receiptHtml}</td>
+          ${isAdmin ? `
+          <td style="text-align:center;">
+            <button type="button" class="btn-action-icon btn-action-delete" onclick="deleteFieldPayment('${escapeHtml(payId)}')" title="Delete Payment Record">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>` : ''}
+        </tr>`;
+      }).join('');
+    }
+
+    function openFieldPaymentModal() {
+      const modal = document.getElementById('modalFieldPaymentEntry');
+      const form = document.getElementById('formFieldPaymentEntry');
+      if (form) form.reset();
+
+      const dInput = document.getElementById('inputFieldPaymentDate');
+      if (dInput) {
+        dInput.value = new Date().toISOString().split('T')[0];
+      }
+      if (modal) modal.classList.remove('d-none');
+    }
+
+    function closeFieldPaymentModal() {
+      const modal = document.getElementById('modalFieldPaymentEntry');
+      if (modal) modal.classList.add('d-none');
+    }
+
+    async function submitFieldPayment(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmitFwPayment');
+      if (btn) btn.disabled = true;
+
+      const form = document.getElementById('formFieldPaymentEntry');
+      const formData = new FormData(form);
+      formData.append('company_id', getActiveCompanyId());
+
+      try {
+        const res = await fetch('/api/field-worker/payments', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Payment recorded successfully!');
+          closeFieldPaymentModal();
+          await Promise.all([loadFieldPayments(), loadFieldPaymentStats()]);
+        } else {
+          showToast(data.error || 'Failed to record payment', true);
+        }
+      } catch (err) {
+        showToast('Network error: ' + err.message, true);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function openFieldAdvanceModal() {
+      const modal = document.getElementById('modalFieldAdvanceEntry');
+      const form = document.getElementById('formFieldAdvanceEntry');
+      if (form) form.reset();
+      if (modal) modal.classList.remove('d-none');
+    }
+
+    function closeFieldAdvanceModal() {
+      const modal = document.getElementById('modalFieldAdvanceEntry');
+      if (modal) modal.classList.add('d-none');
+    }
+
+    async function submitFieldAdvance(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmitFwAdvance');
+      if (btn) btn.disabled = true;
+
+      const payload = {
+        company_id: getActiveCompanyId(),
+        employee_name: document.getElementById('inputFieldAdvanceWorker')?.value,
+        amount: document.getElementById('inputFieldAdvanceAmount')?.value,
+        repayment_amount: document.getElementById('inputFieldAdvanceRepayment')?.value,
+        notes: document.getElementById('inputFieldAdvanceNotes')?.value
+      };
+
+      try {
+        const res = await fetch('/api/field-worker/advances', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Salary advance recorded successfully!');
+          closeFieldAdvanceModal();
+          await Promise.all([loadFieldPayments(), loadFieldPaymentStats()]);
+        } else {
+          showToast(data.error || 'Failed to record advance', true);
+        }
+      } catch (err) {
+        showToast('Network error: ' + err.message, true);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function deleteFieldPayment(paymentId) {
+      if (!confirm('Are you sure you want to delete this field worker payment record?')) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/field-worker/payments/${encodeURIComponent(paymentId)}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Payment deleted successfully');
+          await Promise.all([loadFieldPayments(), loadFieldPaymentStats()]);
+        } else {
+          showToast(data.error || 'Failed to delete payment', true);
+        }
+      } catch (err) {
+        showToast('Error deleting payment: ' + err.message, true);
+      }
+    }
+
+    // =========================================================================
+    // FIELD WORKER MODULE: PAYSLIP PREVIEW CONTROLLER (ISOLATED)
+    // =========================================================================
+    let CURRENT_PREVIEW_PAYSLIP = null;
+
+    function initFieldPayslipPreview() {
+      const sel = document.getElementById('fwPayslipEmpSelect');
+      const mInput = document.getElementById('fwPayslipMonthSelect');
+      if (mInput && !mInput.value) {
+        mInput.value = new Date().toISOString().slice(0, 7);
+      }
+      if (sel && sel.value) {
+        loadFieldPayslipPreview();
+      }
+    }
+
+    async function loadFieldPayslipPreview() {
+      const sel = document.getElementById('fwPayslipEmpSelect');
+      const mInput = document.getElementById('fwPayslipMonthSelect');
+      const worker = sel?.value || '';
+      const month = mInput?.value || new Date().toISOString().slice(0, 7);
+      const cid = getActiveCompanyId();
+
+      const loading = document.getElementById('fwPayslipLoadingIndicator');
+      const content = document.getElementById('fwPayslipRenderContent');
+      if (loading) loading.classList.remove('d-none');
+      if (content) content.classList.add('d-none');
+
+      if (!worker) {
+        if (loading) loading.innerHTML = '<span style="color:#d97706;">Please select a registered field worker.</span>';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/field-worker/payslip-preview-data?company_id=${encodeURIComponent(cid)}&employee_name=${encodeURIComponent(worker)}&month=${encodeURIComponent(month)}`);
+        const data = await res.json();
+        if (!data.success) {
+          if (loading) loading.innerHTML = `<span style="color:#dc2626;">${escapeHtml(data.error || 'Could not generate payslip')}</span>`;
+          return;
+        }
+
+        CURRENT_PREVIEW_PAYSLIP = data.payslip;
+        renderFieldPayslipDoc(data.payslip, data.field_extras || {});
+
+        if (loading) loading.classList.add('d-none');
+        if (content) content.classList.remove('d-none');
+
+      } catch (err) {
+        if (loading) loading.innerHTML = `<span style="color:#dc2626;">Network error: ${escapeHtml(err.message)}</span>`;
+      }
+    }
+
+    function renderFieldPayslipDoc(p, x) {
+      const container = document.getElementById('fwPayslipRenderContent');
+      if (!container) return;
+
+      const compName = escapeHtml(p.company_name || 'ARGUS TECHNOLOGIES');
+      const compAddr = escapeHtml(p.company_address || 'Coimbatore, Tamil Nadu');
+      const empName = escapeHtml(p.employee_name || 'Field Worker');
+      const empId = escapeHtml(p.employee_id || '-');
+      const desig = escapeHtml(p.designation || 'Field Executive');
+      const dept = escapeHtml(p.department || 'Field Force');
+      const branchZone = escapeHtml(x.branch_name || x.territory_zone || 'General Field Zone');
+      const payPeriod = escapeHtml(p.pay_period || p.month_year || '-');
+      const salType = escapeHtml((p.salary_type || 'daily').toUpperCase());
+
+      const basePay = parseFloat(p.base_attendance_pay || p.basic_salary || 0.0);
+      const visitInc = parseFloat(p.visit_incentive_pay || 0.0);
+      const travelAllow = parseFloat(p.travel_allowance_pay || 0.0);
+      const regAllow = parseFloat(p.allowance || 0.0) + parseFloat(p.incentive || 0.0) + parseFloat(p.other_earnings || 0.0);
+      const grossSal = parseFloat(p.gross_field_salary || p.total_earnings || 0.0);
+      const totalDed = parseFloat(p.total_deduction || 0.0);
+      const netPay = parseFloat(p.net_field_payable || p.net_pay || 0.0);
+      const inWords = escapeHtml(p.net_pay_in_words || '');
+
+      const visitsCount = p.verified_visits || 0;
+      const kmTraveled = parseFloat(p.total_km_traveled || 0.0).toFixed(1);
+      const ordersVal = parseFloat(p.orders_value || 0.0).toFixed(0);
+
+      container.innerHTML = `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:#1e293b;">
+          <!-- Dual-Branded Header -->
+          <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #0284c7; padding-bottom:16px; margin-bottom:18px; flex-wrap:wrap; gap:12px;">
+            <div style="display:flex; align-items:center; gap:14px;">
+              <div style="width:52px; height:52px; border-radius:10px; background:linear-gradient(135deg,#0284c7,#0369a1); display:flex; align-items:center; justify-content:center; color:#fff; font-size:22px; font-weight:800; box-shadow:0 3px 8px rgba(2,132,199,0.25);">
+                ${compName.charAt(0)}
+              </div>
+              <div>
+                <div style="font-size:18px; font-weight:800; color:#0f172a; letter-spacing:0.3px;">${compName}</div>
+                <div style="font-size:11px; color:#64748b; margin-top:2px; max-width:420px;">${compAddr}</div>
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-top:4px;">
+                  <span class="badge-neutral" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:10px;">FIELD FORCE ENTERPRISE PAYSLIP</span>
+                </div>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div style="background:#0f172a; color:#fff; border-radius:8px; padding:8px 16px; display:inline-block; text-align:center;">
+                <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.8px; color:#94a3b8;">PAY PERIOD</div>
+                <div style="font-size:14px; font-weight:800; letter-spacing:0.5px;">${payPeriod}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Employee Details Matrix -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; margin-bottom:18px;">
+            <div>
+              <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">FIELD WORKER</div>
+              <div style="font-size:13px; font-weight:800; color:#0f172a;">${empName}</div>
+              <div style="font-size:11px; color:#64748b;">ID: ${empId}</div>
+            </div>
+            <div>
+              <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">DESIGNATION & DEPT</div>
+              <div style="font-size:13px; font-weight:700; color:#0f172a;">${desig}</div>
+              <div style="font-size:11px; color:#64748b;">${dept}</div>
+            </div>
+            <div>
+              <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">ZONE / BRANCH</div>
+              <div style="font-size:13px; font-weight:700; color:#0f172a;">${branchZone}</div>
+              <div style="font-size:11px; color:#64748b;">Structure: ${salType}</div>
+            </div>
+            <div>
+              <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">ATTENDANCE METRICS</div>
+              <div style="font-size:13px; font-weight:700; color:#0f172a;">${p.working_days || 0} Working Days</div>
+              <div style="font-size:11px; color:#64748b;">${p.working_hours || p.total_hours || '00:00'} Total Hours</div>
+            </div>
+          </div>
+
+          <!-- 6 Financial Highlights Cards -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:18px;">
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-top:3px solid #2563eb; border-radius:8px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">BASE ATTENDANCE</div>
+              <div style="font-size:15px; font-weight:800; color:#1e293b; margin-top:2px;">₹${basePay.toFixed(2)}</div>
+            </div>
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-top:3px solid #16a34a; border-radius:8px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:700; color:#15803d; text-transform:uppercase;">VISIT INCENTIVE</div>
+              <div style="font-size:15px; font-weight:800; color:#15803d; margin-top:2px;">+ ₹${visitInc.toFixed(2)}</div>
+              <div style="font-size:10px; color:#16a34a;">${visitsCount} Verified Visits</div>
+            </div>
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-top:3px solid #0284c7; border-radius:8px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:700; color:#0369a1; text-transform:uppercase;">GPS TRAVEL ALLOW.</div>
+              <div style="font-size:15px; font-weight:800; color:#0369a1; margin-top:2px;">+ ₹${travelAllow.toFixed(2)}</div>
+              <div style="font-size:10px; color:#0284c7;">${kmTraveled} KM Distance</div>
+            </div>
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-top:3px solid #8b5cf6; border-radius:8px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">GROSS FIELD PAY</div>
+              <div style="font-size:15px; font-weight:800; color:#1e293b; margin-top:2px;">₹${grossSal.toFixed(2)}</div>
+            </div>
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-top:3px solid #dc2626; border-radius:8px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:700; color:#b91c1c; text-transform:uppercase;">TOTAL DEDUCTIONS</div>
+              <div style="font-size:15px; font-weight:800; color:#dc2626; margin-top:2px;">- ₹${totalDed.toFixed(2)}</div>
+            </div>
+            <div style="background:#0f172a; color:#ffffff; border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; justify-content:center;">
+              <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase;">NET FIELD PAYABLE</div>
+              <div style="font-size:17px; font-weight:800; color:#34d399; margin-top:2px;">₹${netPay.toFixed(2)}</div>
+            </div>
+          </div>
+
+          <!-- Dual Column Earnings & Deductions Table -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px;">
+            <!-- Earnings Column -->
+            <div style="border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+              <div style="background:#f1f5f9; padding:8px 12px; font-size:11px; font-weight:800; color:#334155; text-transform:uppercase; border-bottom:1px solid #e2e8f0;">
+                EARNINGS & FIELD INCENTIVES
+              </div>
+              <div style="padding:10px 14px; display:flex; flex-direction:column; gap:8px; font-size:12px;">
+                <div style="display:flex; justify-content:space-between;">
+                  <span style="color:#475569;">Base Attendance Pay</span>
+                  <span style="font-weight:700;">₹${basePay.toFixed(2)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                  <span style="color:#15803d; font-weight:600;">Verified Customer Visits Incentive</span>
+                  <span style="font-weight:700; color:#15803d;">+ ₹${visitInc.toFixed(2)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                  <span style="color:#0369a1; font-weight:600;">GPS Travel Distance Allowance</span>
+                  <span style="font-weight:700; color:#0369a1;">+ ₹${travelAllow.toFixed(2)}</span>
+                </div>
+                ${regAllow > 0 ? `
+                <div style="display:flex; justify-content:space-between;">
+                  <span style="color:#475569;">Other Allowances & Perks</span>
+                  <span style="font-weight:700;">+ ₹${regAllow.toFixed(2)}</span>
+                </div>` : ''}
+                <div style="border-top:1px dashed #cbd5e1; padding-top:6px; margin-top:4px; display:flex; justify-content:space-between; font-weight:800; color:#0f172a;">
+                  <span>GROSS FIELD EARNINGS</span>
+                  <span>₹${grossSal.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Deductions Column -->
+            <div style="border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+              <div style="background:#f1f5f9; padding:8px 12px; font-size:11px; font-weight:800; color:#334155; text-transform:uppercase; border-bottom:1px solid #e2e8f0;">
+                DEDUCTIONS & RECOVERIES
+              </div>
+              <div style="padding:10px 14px; display:flex; flex-direction:column; gap:8px; font-size:12px;">
+                <div style="display:flex; justify-content:space-between;">
+                  <span style="color:#475569;">Salary Advance Repayment</span>
+                  <span style="font-weight:700; color:#dc2626;">₹${parseFloat(p.advance_repayment || 0.0).toFixed(2)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                  <span style="color:#475569;">Paid Salary / Interim Advances</span>
+                  <span style="font-weight:700; color:#dc2626;">₹${parseFloat(p.paid_salary || 0.0).toFixed(2)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                  <span style="color:#475569;">Other Deductions</span>
+                  <span style="font-weight:700; color:#dc2626;">₹${parseFloat(p.other_deductions || 0.0).toFixed(2)}</span>
+                </div>
+                <div style="border-top:1px dashed #cbd5e1; padding-top:6px; margin-top:4px; display:flex; justify-content:space-between; font-weight:800; color:#dc2626;">
+                  <span>TOTAL DEDUCTIONS</span>
+                  <span>₹${totalDed.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Field Operations Metrics Highlight -->
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px; margin-bottom:16px;">
+            <div style="font-size:11px; font-weight:800; color:#334155; text-transform:uppercase; margin-bottom:8px;">
+              <i class="fa-solid fa-chart-line" style="color:#0284c7; margin-right:6px;"></i> FIELD FORCE MONTHLY PERFORMANCE HIGHLIGHTS
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; font-size:12px;">
+              <div>
+                <span style="color:#64748b;">Completed Sites:</span>
+                <strong style="margin-left:4px;">${p.completed_assignments || 0} / ${p.total_assigned_locations || 0}</strong>
+              </div>
+              <div>
+                <span style="color:#64748b;">Verified Customer Visits:</span>
+                <strong style="margin-left:4px; color:#15803d;">${visitsCount} Sites</strong>
+              </div>
+              <div>
+                <span style="color:#64748b;">Orders / Leads Booked:</span>
+                <strong style="margin-left:4px;">${p.orders_booked || 0} (₹${ordersVal})</strong>
+              </div>
+              <div>
+                <span style="color:#64748b;">GPS Distance & Detours:</span>
+                <strong style="margin-left:4px; color:#0284c7;">${kmTraveled} KM (${p.detour_alerts || 0} alerts)</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Net Pay in Words & Signatory -->
+          <div style="display:flex; justify-content:space-between; align-items:flex-end; border-top:1px solid #e2e8f0; padding-top:14px; margin-top:10px; flex-wrap:wrap; gap:16px;">
+            <div style="flex:1; min-width:260px;">
+              <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">NET AMOUNT IN WORDS</div>
+              <div style="font-size:13px; font-weight:800; color:#0f172a; text-transform:capitalize; margin-top:2px;">
+                ${inWords ? inWords + ' Rupees Only' : '₹' + netPay.toFixed(2)}
+              </div>
+              <div style="font-size:10px; color:#94a3b8; margin-top:4px;">Computer-generated isolated payslip summary document.</div>
+            </div>
+
+            <div style="text-align:center; min-width:180px;">
+              <div style="border-bottom:1px solid #94a3b8; width:160px; margin:0 auto 6px auto;"></div>
+              <div style="font-size:11px; font-weight:700; color:#334155;">Authorized Signatory</div>
+              <div style="font-size:10px; color:#64748b;">${compName}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function downloadFieldPayslipPdf() {
+      const sel = document.getElementById('fwPayslipEmpSelect');
+      const mInput = document.getElementById('fwPayslipMonthSelect');
+      const worker = sel?.value;
+      const month = mInput?.value;
+      const cid = getActiveCompanyId();
+
+      if (!worker) {
+        showToast('Please select a field worker first.', true);
+        return;
+      }
+      window.location.href = `/api/field-worker/payslip-pdf?company_id=${encodeURIComponent(cid)}&month=${encodeURIComponent(month)}&employee_name=${encodeURIComponent(worker)}`;
+    }
+
+    function printFieldPayslipPreview() {
+      const content = document.getElementById('fwInteractivePayslipDoc');
+      if (!content) return;
+
+      const printWin = window.open('', '_blank', 'width=900,height=700');
+      printWin.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Payslip Preview - ARGUS Field Worker</title>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; color: #1e293b; }
+            .badge-neutral { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; background: #f1f5f9; }
+            @media print {
+              body { padding: 0; }
+              @page { size: auto; margin: 10mm; }
+            }
+          </style>
+        </head>
+        <body>
+          ${content.innerHTML}
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => window.close(), 1000);
+            };
+          <\/script>
+        </body>
+        </html>
+      `);
+      printWin.document.close();
+    }
+
     // Dismiss modals on Escape key or backdrop click
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
@@ -7936,6 +9313,9 @@
         closeApplyFwLeaveModal();
         closeApplyFwPermissionModal();
         closeFieldPayslipModal();
+        closeFieldManualEntryModal();
+        closeFieldPaymentModal();
+        closeFieldAdvanceModal();
       }
     });
 
@@ -7964,6 +9344,15 @@
       if (e.target && e.target.id === 'fwPayslipModalBackdrop') {
         closeFieldPayslipModal();
       }
+      if (e.target && e.target.id === 'modalFieldManualEntry') {
+        closeFieldManualEntryModal();
+      }
+      if (e.target && e.target.id === 'modalFieldPaymentEntry') {
+        closeFieldPaymentModal();
+      }
+      if (e.target && e.target.id === 'modalFieldAdvanceEntry') {
+        closeFieldAdvanceModal();
+      }
     });
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -7977,7 +9366,7 @@
       const defaultTab = (CURRENT_USER_ROLE === 'employee') ? 'paneFieldPunch' : 'paneFieldDashboard';
       let savedTab = hashTab || sessionStorage.getItem('activeFieldTab') || defaultTab;
       if (CURRENT_USER_ROLE === 'employee') {
-        if (savedTab === 'paneLiveTracking' || savedTab === 'paneRegisterWorkers' || savedTab === 'paneFieldDashboard' || savedTab === 'paneFieldLeaves') {
+        if (savedTab === 'paneLiveTracking' || savedTab === 'paneRegisterWorkers' || savedTab === 'paneFieldDashboard' || savedTab === 'paneFieldLeaves' || savedTab === 'paneFieldManualEntry' || savedTab === 'paneFieldPaymentEntry') {
           savedTab = 'paneFieldPunch';
         }
       } else {

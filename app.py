@@ -5826,6 +5826,271 @@ def api_field_worker_leave_balances():
     return jsonify({'success': True, 'balances': bals})
 
 
+# ------------------------------------------------------------------------------
+# FIELD WORKER MODULE: ISOLATED MANUAL ENTRY, PAYMENT ENTRY & PAYSLIP PREVIEW
+# ------------------------------------------------------------------------------
+
+@app.route('/api/field-worker/manual-entries', methods=['GET'])
+def api_field_worker_get_manual_entries():
+    """Returns manual entries filtered strictly to field workers of the active company."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    from_date = request.args.get('from_date', '').strip()
+    to_date = request.args.get('to_date', '').strip()
+    status = request.args.get('status', 'All').strip()
+    search = request.args.get('search', '').strip()
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 10))
+
+    user_role = session.get('role')
+    if user_role == 'employee':
+        emp_name = session.get('employee_name', '')
+        search = emp_name
+
+    res = database.get_field_worker_manual_entries(
+        company_id=cid,
+        from_date=from_date,
+        to_date=to_date,
+        status=status,
+        search=search,
+        page=page,
+        limit=limit
+    )
+    res['success'] = True
+    return jsonify(res)
+
+
+@app.route('/api/field-worker/manual-entries', methods=['POST'])
+def api_field_worker_create_manual_entry():
+    """Creates a manual entry strictly for a registered field worker."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    if session.get('role') not in ['super_admin', 'company_admin', 'admin']:
+        return jsonify({'success': False, 'error': 'Admin privileges required'}), 403
+
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    cid = _resolve_field_company_id(data.get('company_id'))
+
+    try:
+        inserted_id = database.save_field_worker_manual_entry(data, company_id=cid)
+        return jsonify({
+            'success': True,
+            'id': inserted_id,
+            'message': 'Field worker manual entry saved successfully'
+        })
+    except ValueError as ve:
+        return jsonify({'success': False, 'error': str(ve)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Failed to save manual entry: {str(e)}'}), 500
+
+
+@app.route('/api/field-worker/manual-entries/<entry_id>', methods=['DELETE'])
+def api_field_worker_delete_manual_entry(entry_id):
+    """Deletes a field worker manual entry with strict company and identity verification."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    if session.get('role') not in ['super_admin', 'company_admin', 'admin']:
+        return jsonify({'success': False, 'error': 'Admin privileges required'}), 403
+
+    cid = _resolve_field_company_id()
+    try:
+        ok = database.delete_field_worker_manual_entry(entry_id, company_id=cid)
+        if ok:
+            return jsonify({'success': True, 'message': 'Field worker manual entry deleted successfully'})
+        return jsonify({'success': False, 'error': 'Entry not found or unauthorized'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/field-worker/payments', methods=['GET'])
+def api_field_worker_get_payments():
+    """Returns payment records filtered strictly to field workers of the active company."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    employee = request.args.get('employee', 'All').strip()
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+    bank = request.args.get('bank', 'All').strip()
+    payment_type = request.args.get('payment_type', 'All').strip()
+    status = (request.args.get('status') or 'All').strip()
+    search = request.args.get('search', '').strip()
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 10))
+
+    user_role = session.get('role')
+    if user_role == 'employee':
+        employee = session.get('employee_name', '')
+
+    res = database.get_field_worker_payments(
+        company_id=cid,
+        employee=employee,
+        start_date=start_date,
+        end_date=end_date,
+        bank=bank,
+        payment_type=payment_type,
+        status=status,
+        search=search,
+        page=page,
+        limit=limit
+    )
+    res['success'] = True
+    return jsonify(res)
+
+
+@app.route('/api/field-worker/payment-stats', methods=['GET'])
+def api_field_worker_get_payment_stats():
+    """Returns aggregated payment and advance statistics strictly for field workers."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    month_year = request.args.get('month', '').strip() or None
+    stats = database.get_field_worker_payment_stats(company_id=cid, month_year=month_year)
+    return jsonify({'success': True, 'stats': stats})
+
+
+@app.route('/api/field-worker/payments', methods=['POST'])
+def api_field_worker_create_payment():
+    """Creates a payment entry strictly for a field worker."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    if session.get('role') not in ['super_admin', 'company_admin', 'admin']:
+        return jsonify({'success': False, 'error': 'Admin privileges required'}), 403
+
+    data = {}
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+    else:
+        data = request.form.to_dict()
+
+    if 'receipt' in request.files:
+        file = request.files['receipt']
+        if file and file.filename:
+            fname = werkzeug.utils.secure_filename(file.filename)
+            uniq = f"{int(database.time.time())}_{fname}"
+            file.save(os.path.join(RECEIPTS_FOLDER, uniq))
+            data['receipt_filename'] = uniq
+
+    cid = _resolve_field_company_id(data.get('company_id'))
+    try:
+        inserted_id = database.save_field_worker_payment(data, company_id=cid)
+        return jsonify({
+            'success': True,
+            'id': inserted_id,
+            'message': 'Field worker payment recorded successfully'
+        })
+    except ValueError as ve:
+        return jsonify({'success': False, 'error': str(ve)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Failed to record payment: {str(e)}'}), 500
+
+
+@app.route('/api/field-worker/advances', methods=['POST'])
+def api_field_worker_create_advance():
+    """Creates a salary advance record strictly for a field worker."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    if session.get('role') not in ['super_admin', 'company_admin', 'admin']:
+        return jsonify({'success': False, 'error': 'Admin privileges required'}), 403
+
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    cid = _resolve_field_company_id(data.get('company_id'))
+    try:
+        adv = database.save_field_worker_advance(data, company_id=cid)
+        return jsonify({
+            'success': True,
+            'advance': adv,
+            'message': 'Field worker advance recorded successfully'
+        })
+    except ValueError as ve:
+        return jsonify({'success': False, 'error': str(ve)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Failed to record advance: {str(e)}'}), 500
+
+
+@app.route('/api/field-worker/payments/<payment_id>', methods=['DELETE'])
+def api_field_worker_delete_payment(payment_id):
+    """Deletes a field worker payment entry with tenant and worker isolation."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    if session.get('role') not in ['super_admin', 'company_admin', 'admin']:
+        return jsonify({'success': False, 'error': 'Admin privileges required'}), 403
+
+    cid = _resolve_field_company_id()
+    try:
+        ok = database.delete_field_worker_payment(payment_id, company_id=cid)
+        if ok:
+            return jsonify({'success': True, 'message': 'Payment record deleted successfully'})
+        return jsonify({'success': False, 'error': 'Payment not found or unauthorized'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/field-worker/payslip-preview-data', methods=['GET'])
+def api_field_worker_get_payslip_preview_data():
+    """
+    Returns complete, isolated payslip preview data for a Field Worker.
+    Guarantees standard employees are rejected with 403/404.
+    """
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    employee = (request.args.get('employee_name') or request.args.get('employee') or '').strip()
+    month = request.args.get('month', '').strip()
+    if not month:
+        month = database.get_ist_now().strftime("%Y-%m")
+
+    # Strict isolation: ensure the worker is in get_field_workers of cid
+    fw_list = database.get_field_workers(company_id=cid, include_all_employees=False)
+    fw_names = [w.get('employee_name') for w in fw_list if w.get('employee_name')]
+
+    user_role = session.get('role')
+    if user_role == 'employee':
+        employee = session.get('employee_name', '')
+
+    if not employee:
+        if fw_names:
+            employee = fw_names[0]
+        else:
+            return jsonify({'success': False, 'error': 'No registered field workers found for this company'}), 404
+
+    if employee not in fw_names:
+        return jsonify({'success': False, 'error': f"Access Denied: '{employee}' is not a registered field worker of this company"}), 403
+
+    # Generate standard payslip data + field worker salary extras
+    payslip = database.get_payslip_data(employee, month, company_id=cid)
+    salary_rep = database.get_field_worker_salary_report(company_id=cid, month_year=month, employee_name=employee)
+    fw_extras = salary_rep[0] if salary_rep else {}
+
+    # Merge field worker specific fields into preview data
+    payslip['is_field_worker'] = True
+    payslip['total_assigned_locations'] = fw_extras.get('total_assigned_locations', 0)
+    payslip['completed_assignments'] = fw_extras.get('completed_assignments', 0)
+    payslip['total_visits'] = fw_extras.get('total_visits', 0)
+    payslip['verified_visits'] = fw_extras.get('verified_visits', 0)
+    payslip['unverified_visits'] = fw_extras.get('unverified_visits', 0)
+    payslip['orders_booked'] = fw_extras.get('orders_booked', 0)
+    payslip['orders_value'] = fw_extras.get('orders_value', 0.0)
+    payslip['total_km_traveled'] = fw_extras.get('total_km_traveled', 0.0)
+    payslip['detour_alerts'] = fw_extras.get('detour_alerts', 0)
+    payslip['per_visit_incentive_rate'] = fw_extras.get('per_visit_incentive_rate', 0.0)
+    payslip['km_allowance_rate'] = fw_extras.get('km_allowance_rate', 5.0)
+    payslip['visit_incentive_pay'] = fw_extras.get('visit_incentive_pay', 0.0)
+    payslip['travel_allowance_pay'] = fw_extras.get('travel_allowance_pay', 0.0)
+    payslip['base_attendance_pay'] = fw_extras.get('base_attendance_pay', payslip.get('basic_salary', 0.0))
+    payslip['gross_field_salary'] = fw_extras.get('gross_field_salary', payslip.get('total_earnings', 0.0))
+    payslip['net_field_payable'] = fw_extras.get('net_field_payable', payslip.get('net_pay', 0.0))
+    payslip['net_pay_in_words'] = fw_extras.get('net_pay_in_words', payslip.get('net_pay_in_words', ''))
+
+    return jsonify({'success': True, 'payslip': payslip, 'field_extras': fw_extras})
+
+
+
 # ==============================================================================
 # MULTI-BRANCH ENTERPRISE MODULE (DISTRICT HUBS & EMPLOYEE ALLOCATION)
 # ==============================================================================
