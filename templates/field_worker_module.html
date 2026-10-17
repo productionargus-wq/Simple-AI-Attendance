@@ -3142,15 +3142,8 @@
             <input type="hidden" id="globalCompanySelect" value="{{ active_company_id }}">
             {% endif %}
 
-            <div class="fw-filter-pill" id="fwBannerDatePill" style="white-space: nowrap;">
-              <label for="globalDateInput">Date</label>
-              <input type="date" id="globalDateInput" value="{{ today_str }}" onchange="refreshOverviewState()">
-            </div>
-
-            <div class="fw-filter-pill" id="fwBannerMonthPill" style="white-space: nowrap;">
-              <label for="globalMonthInput">Payroll Month</label>
-              <input type="month" id="globalMonthInput" value="{{ month_year }}" onchange="handleMonthFilterChange()">
-            </div>
+            <input type="hidden" id="globalDateInput" value="{{ today_str }}">
+            <input type="hidden" id="globalMonthInput" value="{{ month_year }}">
           </div>
         </div>
 
@@ -8252,18 +8245,12 @@
       }
       if (btnEl) btnEl.classList.add('active');
 
-      // Hide top banner on Dashboard tab; show single-row banner on all other tabs
+      // Hide top banner on Dashboard, Payslip Preview, and Payment Entry tabs (which have their own dedicated banners)
+      const hideMainBanner = (paneId === 'paneFieldDashboard' || paneId === 'paneFieldPayslipPreview' || paneId === 'paneFieldPaymentEntry');
       const banner = document.getElementById('fwMainBannerCard');
       if (banner) {
-        banner.style.display = (paneId === 'paneFieldDashboard') ? 'none' : 'flex';
+        banner.style.display = hideMainBanner ? 'none' : 'flex';
       }
-
-      // Hide Date and Payroll Month filter pills on Payslip Preview and Manual Entry tabs (per requirement)
-      const hidePills = (paneId === 'paneFieldPayslipPreview' || paneId === 'paneFieldManualEntry');
-      const dPill = document.getElementById('fwBannerDatePill');
-      const mPill = document.getElementById('fwBannerMonthPill');
-      if (dPill) dPill.style.display = hidePills ? 'none' : '';
-      if (mPill) mPill.style.display = hidePills ? 'none' : '';
 
       // Persist active tab across reloads
       sessionStorage.setItem('activeFieldTab', paneId);
