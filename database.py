@@ -8921,11 +8921,13 @@ def delete_field_worker_manual_entry(entry_id, company_id=None):
     return res.deleted_count > 0
 
 
-def get_field_worker_payments(company_id=None, employee_name=None, start_date=None, end_date=None, bank=None, payment_type=None, status=None, search=None, page=1, limit=50):
+def get_field_worker_payments(company_id=None, employee_name=None, start_date=None, end_date=None, bank=None, payment_type=None, status=None, search=None, page=1, limit=50, employee=None, **kwargs):
     """
     Fetches payments and advances strictly isolated for registered Field Workers of the specified company.
     Standard employee payments are NEVER included.
     """
+    if employee and not employee_name:
+        employee_name = employee
     db = get_db()
     cid = str(company_id) if company_id and str(company_id) != 'ALL' else 'ARGUS_MASTER'
     fw_list = get_field_workers(company_id=cid, include_all_employees=False)
@@ -9117,5 +9119,119 @@ def save_field_worker_advance(data, company_id=None):
     }
     db.advances.insert_one(adv_doc)
     return clean_doc(adv_doc)
+
+
+def get_field_worker_balance_report(company_id=None, employee_name=None, search=None, page=1, limit=10):
+    """
+    Chronological advance and repayment ledger strictly isolated for registered Field Workers.
+    Guarantees standard employees are excluded.
+    """
+    db = get_db()
+    cid = str(company_id) if company_id and str(company_id) != 'ALL' else 'ARGUS_MASTER'
+    fw_list = get_field_workers(company_id=cid, include_all_employees=False)
+    fw_names = [w['employee_name'] for w in fw_list if w.get('employee_name')]
+
+    if not fw_names:
+        return {'total': 0, 'page': page, 'limit': limit, 'data': [], 'total_advance': 0.0, 'total_repayment': 0.0, 'balance_amount': 0.0}
+
+    # Query field worker advances
+    adv_query = {
+        'company_id': cid,
+        'employee_name': {'$in': fw_names}
+    }
+    if employee_name and employee_name != 'All':
+        clean_name = str(employee_name).strip()
+        if clean_name in fw_names:
+            adv_query['employee_name'] = clean_name
+        else:
+            return {'total': 0, 'page': page, 'limit': limit, 'data': [], 'total_advance': 0.0, 'total_repayment': 0.0, 'balance_amount': 0.0}
+
+    if search:
+        reg = {'$regex': re.escape(search), '$options': 'i'}
+        adv_query['$or'] = [{'employee_name': reg}, {'timestamp': reg}, {'advance_date': reg}]
+
+    adv_cursor = list(db.advances.find(adv_query))
+
+    # Query field worker advance repayments
+    rep_conditions = [
+        {'company_id': cid},
+        {'employee_name': {'$in': fw_names}},
+        {'$or': [{'status': 'Advance Repayment'}, {'reason': 'Advance Repayment'}]}
+    ]
+    if employee_name and employee_name != 'All':
+        rep_conditions.append({'employee_name': str(employee_name).strip()})
+
+    if search:
+        reg = {'$regex': re.escape(search), '$options': 'i'}
+        rep_conditions.append({'$or': [{'employee_name': reg}, {'timestamp': reg}, {'payment_date': reg}]})
+
+    rep_cursor = list(db.payments.find({'$and': rep_conditions}))
+
+    raw_items = []
+    total_advance = 0.0
+    total_repayment = 0.0
+
+    for a in adv_cursor:
+        amt = float(a.get('amount', 0.0))
+        total_advance += amt
+        raw_items.append({
+            'type': 'advance',
+            'timestamp': a.get('timestamp') or a.get('created_at', ''),
+            'name': a.get('employee_name', ''),
+            'date': a.get('advance_date') or str(a.get('created_at', ''))[:10],
+            'advance_amount': amt,
+            'payment_amount': 0.0,
+            'advance_repayment_amount': 0.0,
+            'created_at': str(a.get('created_at') or a.get('advance_date') or a.get('timestamp') or '')
+        })
+
+    for p in rep_cursor:
+        amt = float(p.get('amount', 0.0))
+        total_repayment += amt
+        raw_items.append({
+            'type': 'repayment',
+            'timestamp': p.get('timestamp') or p.get('created_at', ''),
+            'name': p.get('employee_name', ''),
+            'date': p.get('payment_date', ''),
+            'advance_amount': 0.0,
+            'payment_amount': amt,
+            'advance_repayment_amount': amt,
+            'created_at': str(p.get('created_at') or p.get('payment_date') or p.get('timestamp') or '')
+        })
+
+    from collections import defaultdict
+    by_emp = defaultdict(list)
+    for it in raw_items:
+        by_emp[it['name']].append(it)
+
+    combined = []
+    for emp_name, entries in by_emp.items():
+        entries.sort(key=lambda x: (x.get('date', '') or '', x.get('timestamp', '') or '', x.get('created_at', '')))
+        running_bal = 0.0
+        for e in entries:
+            running_bal += e['advance_amount'] - e['payment_amount']
+            e['balance_amount'] = round(running_bal, 2)
+        combined.extend(entries)
+
+    combined.sort(key=lambda x: (x.get('date', '') or '', x.get('timestamp', '') or '', x.get('created_at', '')))
+    total = len(combined)
+    balance_amount = round(total_advance - total_repayment, 2)
+
+    if limit and limit > 0:
+        offset = (page - 1) * limit
+        paginated_data = combined[offset:offset + limit]
+    else:
+        paginated_data = combined
+
+    return {
+        'total': total,
+        'page': page,
+        'limit': limit,
+        'data': paginated_data,
+        'total_advance': round(total_advance, 2),
+        'total_repayment': round(total_repayment, 2),
+        'total_payment': round(total_repayment, 2),
+        'balance_amount': balance_amount
+    }
 
 

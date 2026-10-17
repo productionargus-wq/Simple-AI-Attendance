@@ -5474,7 +5474,7 @@ def api_field_worker_salary_report():
 
 @app.route('/api/field-worker/payslip-pdf', methods=['GET'])
 def api_field_worker_payslip_pdf():
-    """Generates and downloads an individual Field Worker's branded monthly Payslip PDF."""
+    """Generates and downloads an individual Field Worker's branded monthly Payslip PDF supporting 8 templates and color themes."""
     if not _is_field_authenticated():
         return redirect(url_for('field_worker_login'))
 
@@ -5484,13 +5484,42 @@ def api_field_worker_payslip_pdf():
     if not emp_name:
         return jsonify({'error': 'employee_name is required'}), 400
 
-    reports = database.get_field_worker_salary_report(company_id=cid, month_year=month_year, employee_name=emp_name)
-    if not reports:
-        return jsonify({'error': 'No salary record found for this field worker'}), 404
+    template_param = request.args.get('template') or request.args.get('template_id') or 'template_1'
+    theme_param = request.args.get('theme') or 'navy'
 
-    rep = reports[0]
-    comp_info = database.get_company_by_id(rep.get('company_id') or cid)
-    pdf_buf = pdf_generator.generate_field_worker_payslip_pdf(rep, company_info=comp_info)
+    # Strict isolation: ensure the worker is in get_field_workers of cid
+    fw_list = database.get_field_workers(company_id=cid, include_all_employees=False)
+    fw_names = [w.get('employee_name') for w in fw_list if w.get('employee_name')]
+    if emp_name not in fw_names:
+        return jsonify({'error': f"Access Denied: '{emp_name}' is not a registered field worker of this company"}), 403
+
+    # Generate standard payslip data + field worker salary extras
+    payslip = database.get_payslip_data(emp_name, month_year, company_id=cid)
+    salary_rep = database.get_field_worker_salary_report(company_id=cid, month_year=month_year, employee_name=emp_name)
+    fw_extras = salary_rep[0] if salary_rep else {}
+
+    # Merge field worker specific fields
+    payslip['is_field_worker'] = True
+    payslip['total_assigned_locations'] = fw_extras.get('total_assigned_locations', 0)
+    payslip['completed_assignments'] = fw_extras.get('completed_assignments', 0)
+    payslip['total_visits'] = fw_extras.get('total_visits', 0)
+    payslip['verified_visits'] = fw_extras.get('verified_visits', 0)
+    payslip['unverified_visits'] = fw_extras.get('unverified_visits', 0)
+    payslip['orders_booked'] = fw_extras.get('orders_booked', 0)
+    payslip['orders_value'] = fw_extras.get('orders_value', 0.0)
+    payslip['total_km_traveled'] = fw_extras.get('total_km_traveled', 0.0)
+    payslip['detour_alerts'] = fw_extras.get('detour_alerts', 0)
+    payslip['per_visit_incentive_rate'] = fw_extras.get('per_visit_incentive_rate', 0.0)
+    payslip['km_allowance_rate'] = fw_extras.get('km_allowance_rate', 5.0)
+    payslip['visit_incentive_pay'] = fw_extras.get('visit_incentive_pay', 0.0)
+    payslip['travel_allowance_pay'] = fw_extras.get('travel_allowance_pay', 0.0)
+    payslip['base_attendance_pay'] = fw_extras.get('base_attendance_pay', payslip.get('basic_salary', 0.0))
+    payslip['gross_field_salary'] = fw_extras.get('gross_field_salary', payslip.get('total_earnings', 0.0))
+    payslip['net_field_payable'] = fw_extras.get('net_field_payable', payslip.get('net_pay', 0.0))
+    payslip['net_pay_in_words'] = fw_extras.get('net_pay_in_words', payslip.get('net_pay_in_words', ''))
+
+    # Generate PDF with requested template and theme
+    pdf_buf = pdf_generator.generate_payslip_pdf(payslip, template_id=template_param, theme=theme_param)
     safe_name = re.sub(r'[^A-Za-z0-9_-]', '_', emp_name)
     view_inline = (request.args.get('view') == '1' or request.args.get('inline') == '1')
     return send_file(
@@ -6028,6 +6057,33 @@ def api_field_worker_delete_payment(payment_id):
         return jsonify({'success': False, 'error': 'Payment not found or unauthorized'}), 404
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/field-worker/balance-report', methods=['GET'])
+def api_field_worker_get_balance_report():
+    """Returns advance and repayment running ledger strictly isolated for field workers."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    employee = request.args.get('employee', 'All').strip()
+    search = request.args.get('search', '').strip()
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 10))
+
+    user_role = session.get('role')
+    if user_role == 'employee':
+        employee = session.get('employee_name', '')
+
+    res = database.get_field_worker_balance_report(
+        company_id=cid,
+        employee_name=employee,
+        search=search,
+        page=page,
+        limit=limit
+    )
+    res['success'] = True
+    return jsonify(res)
 
 
 @app.route('/api/field-worker/payslip-preview-data', methods=['GET'])
