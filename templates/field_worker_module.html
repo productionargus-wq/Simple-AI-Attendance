@@ -12299,8 +12299,8 @@
       setAllText('.ps-working-hours', p.total_working_hours || '00:00');
       setAllText('.ps-total-days', `${p.total_days || 30} Days (${p.leave_days || 0} Leave)`);
 
-      const allowAmt = (p.travel_allowance_pay !== undefined && p.travel_allowance_pay > 0) ? p.travel_allowance_pay : (p.allowance || 0);
-      const incAmt = (p.visit_incentive_pay !== undefined && p.visit_incentive_pay > 0) ? p.visit_incentive_pay : (p.incentive || 0);
+      const allowAmt = Number(p.travel_allowance_pay || 0) + Number(p.allowance || 0);
+      const incAmt = Number(p.visit_incentive_pay || 0) + Number(p.incentive || 0);
 
       setAllText('.ps-basic-sal', formatCurrency(p.base_attendance_pay || p.basic_salary || 0));
       setAllText('.ps-allowance', formatCurrency(allowAmt));
@@ -12311,9 +12311,9 @@
       setAllText('.ps-paid-sal', formatCurrency(p.paid_salary || 0));
       setAllText('.ps-adv-repay', formatCurrency(p.advance_repayment || 0));
       setAllText('.ps-other-ded', formatCurrency(p.other_deductions || 0));
-      setAllText('.ps-tot-ded', formatCurrency(p.total_deductions || 0));
+      setAllText('.ps-tot-ded', formatCurrency(p.total_deduction !== undefined ? p.total_deduction : (p.total_deductions || 0)));
 
-      setAllText('.ps-net-pay', Number(p.net_field_payable !== undefined ? p.net_field_payable : (p.net_pay || 0)).toLocaleString('en-IN'));
+      setAllText('.ps-net-pay', formatCurrency(p.net_field_payable !== undefined ? p.net_field_payable : (p.net_pay || 0)));
       setAllText('.ps-net-words', p.net_pay_in_words || 'Zero Rupees Only');
 
       if (p.company_name) setAllText('.ps-comp-name', p.company_name.toUpperCase());

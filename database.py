@@ -4041,8 +4041,12 @@ def create_manual_entry(data, company_id=None):
     half_shift_target = max(1, shift_target_minutes // 2)
 
     working_salary = 0.0
-    if mode == 'Salary':
-        working_salary = float(data.get('working_salary') or 0.0)
+    raw_salary = data.get('working_salary')
+    if mode in ['Salary', 'Amount'] or (raw_salary is not None and str(raw_salary).strip() != ''):
+        try:
+            working_salary = float(raw_salary or 0.0)
+        except (ValueError, TypeError):
+            working_salary = 0.0
     elif (mode == 'Full Day' or status == 'Full Day') and shift_target_minutes > 0:
         working_salary = day_rate if day_rate > 0 else (hourly_rate * (shift_target_minutes / 60.0))
     elif (mode == 'Half Day' or status == 'Half Day') and shift_target_minutes > 0:
@@ -4141,8 +4145,12 @@ def update_manual_entry(entry_id, data):
     status = data.get('status', 'Proper')
     
     working_salary = 0.0
-    if mode == 'Salary':
-        working_salary = float(data.get('working_salary') or 0.0)
+    raw_salary = data.get('working_salary')
+    if mode in ['Salary', 'Amount'] or (raw_salary is not None and str(raw_salary).strip() != ''):
+        try:
+            working_salary = float(raw_salary or 0.0)
+        except (ValueError, TypeError):
+            working_salary = 0.0
     elif (mode == 'Full Day' or status == 'Full Day') and shift_target_minutes > 0:
         working_salary = day_rate if day_rate > 0 else (hourly_rate * (shift_target_minutes / 60.0))
     elif (mode == 'Half Day' or status == 'Half Day') and shift_target_minutes > 0:
@@ -8148,7 +8156,8 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
             'salary_type': w.get('salary_type', 'daily'),
             'shift_hours': w.get('shift_hours', '08:00'),
             'working_days': payslip.get('working_days', 0),
-            'total_hours': payslip.get('total_hours', '00:00'),
+            'total_hours': payslip.get('total_working_hours') or payslip.get('working_hours') or payslip.get('total_hours', '00:00'),
+            'total_working_hours': payslip.get('total_working_hours') or payslip.get('working_hours') or '00:00',
             'total_assigned_locations': total_assigned,
             'completed_assignments': completed_assigned,
             'total_visits': total_visits,
