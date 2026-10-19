@@ -1580,6 +1580,7 @@ def create_employee(data, company_id=None):
         'territory_zone': str(data.get('territory_zone') or '').strip(),
         'per_visit_incentive': round(safe_float(data.get('per_visit_incentive')), 2),
         'km_allowance_rate': round(safe_float(data.get('km_allowance_rate')), 2),
+        'allowed_tabs': list(data.get('allowed_tabs')) if isinstance(data.get('allowed_tabs'), list) else None,
         'branch_id': None,
         'branch_name': None,
         'created_at': get_ist_now(),
@@ -1684,6 +1685,8 @@ def update_employee(emp_id, data, company_id=None):
         upd['face_embedding'] = data['face_embedding']
     if 'permissions' in data and isinstance(data['permissions'], dict):
         upd['permissions'] = data['permissions']
+    if 'allowed_tabs' in data:
+        upd['allowed_tabs'] = list(data['allowed_tabs']) if isinstance(data['allowed_tabs'], list) else []
     if 'documents' in data and isinstance(data['documents'], list):
         upd['documents'] = data['documents']
     if 'company_id' in data and data['company_id']:
@@ -7231,6 +7234,7 @@ def get_field_workers(company_id=None, include_all_employees=False):
         emp['territory_zone'] = str(emp.get('territory_zone') or emp.get('branch_name') or emp.get('branch') or 'Home Branch')
         emp['per_visit_incentive'] = round(safe_float(emp.get('per_visit_incentive', 0.0)), 2)
         emp['km_allowance_rate'] = round(safe_float(emp.get('km_allowance_rate', 0.0)), 2)
+        emp['allowed_tabs'] = emp.get('allowed_tabs') if isinstance(emp.get('allowed_tabs'), list) else None
         if include_all_employees or is_fw:
             field_workers.append(emp)
 
@@ -8288,7 +8292,24 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
             km_rate = 5.0
 
         visit_incentive_pay = round(verified_visits * per_visit_rate, 2)
-        travel_allowance_pay = round(total_km * km_rate, 2)
+
+        # Query manual Petrol/Diesel allowance payments made in this month
+        petrol_pay_q = {
+            'employee_name': ename,
+            'payment_date': {'$regex': f'^{re.escape(target_month)}'},
+            'status': {'$regex': r'petrol.*diesel.*allowance', '$options': 'i'}
+        }
+        if emp_cid and str(emp_cid) not in ['ALL', 'ARGUS_MASTER']:
+            petrol_pay_q['company_id'] = str(emp_cid)
+        petrol_payments = list(db.payments.find(petrol_pay_q))
+        manual_petrol_paid = round(sum(safe_float(p.get('amount', 0.0)) for p in petrol_payments), 2)
+
+        # Auto-calculated petrol/travel allowance
+        auto_petrol_allowance = round(total_km * km_rate, 2)
+
+        # Remaining payable petrol allowance after deducting manual advance/disbursement
+        remaining_petrol_payable = max(0.0, round(auto_petrol_allowance - manual_petrol_paid, 2))
+        petrol_status = 'PAID' if (manual_petrol_paid >= auto_petrol_allowance and auto_petrol_allowance > 0) else ('PARTIALLY PAID' if manual_petrol_paid > 0 else 'UNPAID')
 
         base_attendance_pay = round(safe_float(payslip.get('basic_salary', 0.0)), 2)
         regular_allowance = round(safe_float(payslip.get('allowance', 0.0)), 2)
@@ -8296,8 +8317,9 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
         other_earnings = round(safe_float(payslip.get('other_earnings', 0.0)), 2)
         total_deduction = round(safe_float(payslip.get('total_deduction', 0.0)), 2)
 
+        # Manually paid petrol allowance is reduced from the monthly total so it is not added to net pay
         gross_field_salary = round(
-            base_attendance_pay + visit_incentive_pay + travel_allowance_pay + regular_allowance + regular_incentive + other_earnings,
+            base_attendance_pay + visit_incentive_pay + remaining_petrol_payable + regular_allowance + regular_incentive + other_earnings,
             2
         )
         net_field_payable = max(0.0, round(gross_field_salary - total_deduction, 2))
@@ -8332,9 +8354,16 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
             'km_allowance_rate': km_rate,
             'base_attendance_pay': base_attendance_pay,
             'visit_incentive_pay': visit_incentive_pay,
-            'travel_allowance_pay': travel_allowance_pay,
-            'petrol_allowance': travel_allowance_pay,
-            'fuel_allowance': travel_allowance_pay,
+            'travel_allowance_calculated': auto_petrol_allowance,
+            'travel_allowance_paid': manual_petrol_paid,
+            'travel_allowance_remaining': remaining_petrol_payable,
+            'travel_allowance_pay': remaining_petrol_payable,
+            'petrol_allowance': auto_petrol_allowance,
+            'petrol_allowance_calculated': auto_petrol_allowance,
+            'petrol_allowance_paid': manual_petrol_paid,
+            'petrol_allowance_remaining': remaining_petrol_payable,
+            'petrol_allowance_status': petrol_status,
+            'fuel_allowance': auto_petrol_allowance,
             'regular_allowance': regular_allowance + regular_incentive + other_earnings,
             'total_deduction': total_deduction,
             'gross_field_salary': gross_field_salary,

@@ -3568,8 +3568,20 @@ def generate_field_worker_payslip_pdf(data, company_info=None):
         ],
         [
             Paragraph("3. Petrol / Diesel Allowance", lbl_style),
-            Paragraph(f"Distance Travelled: {float(data.get('total_km_traveled', 0)):.2f} KM", val_style),
-            Paragraph(f"{float(data.get('travel_allowance_pay', data.get('petrol_allowance', 0))):,.2f}", amt_style)
+            Paragraph(
+                (
+                    f"Distance: {float(data.get('total_km_traveled', 0)):.2f} KM (Rs. {float(data.get('travel_allowance_calculated', data.get('petrol_allowance', 0))):,.2f})"
+                    f"<br/><font color='#15803d'><b>Paid Manually: Rs. {float(data.get('petrol_allowance_paid', data.get('travel_allowance_paid', 0))):,.2f} [PAID]</b></font>"
+                ) if float(data.get('petrol_allowance_paid', data.get('travel_allowance_paid', 0))) > 0
+                else f"Distance Travelled: {float(data.get('total_km_traveled', 0)):.2f} KM",
+                val_style
+            ),
+            Paragraph(
+                f"{float(data.get('travel_allowance_remaining', data.get('travel_allowance_pay', data.get('petrol_allowance', 0)))):,.2f}"
+                if float(data.get('petrol_allowance_paid', data.get('travel_allowance_paid', 0))) > 0
+                else f"{float(data.get('travel_allowance_pay', data.get('petrol_allowance', 0))):,.2f}",
+                amt_style
+            )
         ],
         [
             Paragraph("4. Regular Allowance / Other Earnings", lbl_style),

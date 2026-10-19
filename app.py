@@ -5133,6 +5133,14 @@ def field_worker_module_page():
     if user_role == 'employee' and fw_emp_id:
         fw_leave_balances = [database.get_employee_leave_balance(fw_emp_id, company_id=active_cid)]
 
+    allowed_tabs = None
+    if user_role == 'employee':
+        emp_match = next((w for w in field_workers if w.get('employee_name') == logged_in_emp_name), None)
+        if not emp_match and logged_in_emp_name:
+            emp_match = database.get_employee_by_name(logged_in_emp_name, company_id=active_cid)
+        if emp_match:
+            allowed_tabs = emp_match.get('allowed_tabs')
+
     return render_template(
         'field_worker_module.html',
         companies=companies,
@@ -5155,6 +5163,7 @@ def field_worker_module_page():
         fw_pending_leaves=fw_pending_leaves,
         today_str=today_str,
         month_year=month_year,
+        allowed_tabs=allowed_tabs,
         company_support_enabled=bool(active_comp.get('support_enabled', True))
     )
 
@@ -5245,6 +5254,8 @@ def api_field_worker_register():
             data['branch_name'] = 'Home Branch (Head Office)'
         data['branch'] = data['branch_name']
         data['territory_zone'] = data['branch_name']
+        if 'allowed_tabs' in data and isinstance(data['allowed_tabs'], list):
+            data['allowed_tabs'] = [str(t).strip() for t in data['allowed_tabs'] if str(t).strip()]
 
         # Handle optional face photo for biometric enrollment
         photo_b64 = data.get('photo_data') or ''
@@ -5534,6 +5545,14 @@ def api_field_worker_payslip_pdf():
     payslip['km_allowance_rate'] = fw_extras.get('km_allowance_rate', 5.0)
     payslip['visit_incentive_pay'] = fw_extras.get('visit_incentive_pay', 0.0)
     payslip['travel_allowance_pay'] = fw_extras.get('travel_allowance_pay', 0.0)
+    payslip['travel_allowance_calculated'] = fw_extras.get('travel_allowance_calculated', fw_extras.get('petrol_allowance', 0.0))
+    payslip['travel_allowance_paid'] = fw_extras.get('travel_allowance_paid', 0.0)
+    payslip['travel_allowance_remaining'] = fw_extras.get('travel_allowance_remaining', fw_extras.get('travel_allowance_pay', 0.0))
+    payslip['petrol_allowance'] = fw_extras.get('petrol_allowance', 0.0)
+    payslip['petrol_allowance_calculated'] = fw_extras.get('petrol_allowance_calculated', fw_extras.get('petrol_allowance', 0.0))
+    payslip['petrol_allowance_paid'] = fw_extras.get('petrol_allowance_paid', 0.0)
+    payslip['petrol_allowance_remaining'] = fw_extras.get('petrol_allowance_remaining', 0.0)
+    payslip['petrol_allowance_status'] = fw_extras.get('petrol_allowance_status', 'UNPAID')
     payslip['base_attendance_pay'] = fw_extras.get('base_attendance_pay', payslip.get('basic_salary', 0.0))
     payslip['gross_field_salary'] = fw_extras.get('gross_field_salary', payslip.get('total_earnings', 0.0))
     payslip['net_field_payable'] = fw_extras.get('net_field_payable', payslip.get('net_pay', 0.0))
@@ -6159,6 +6178,14 @@ def api_field_worker_get_payslip_preview_data():
     payslip['km_allowance_rate'] = fw_extras.get('km_allowance_rate', 5.0)
     payslip['visit_incentive_pay'] = fw_extras.get('visit_incentive_pay', 0.0)
     payslip['travel_allowance_pay'] = fw_extras.get('travel_allowance_pay', 0.0)
+    payslip['travel_allowance_calculated'] = fw_extras.get('travel_allowance_calculated', fw_extras.get('petrol_allowance', 0.0))
+    payslip['travel_allowance_paid'] = fw_extras.get('travel_allowance_paid', 0.0)
+    payslip['travel_allowance_remaining'] = fw_extras.get('travel_allowance_remaining', fw_extras.get('travel_allowance_pay', 0.0))
+    payslip['petrol_allowance'] = fw_extras.get('petrol_allowance', 0.0)
+    payslip['petrol_allowance_calculated'] = fw_extras.get('petrol_allowance_calculated', fw_extras.get('petrol_allowance', 0.0))
+    payslip['petrol_allowance_paid'] = fw_extras.get('petrol_allowance_paid', 0.0)
+    payslip['petrol_allowance_remaining'] = fw_extras.get('petrol_allowance_remaining', 0.0)
+    payslip['petrol_allowance_status'] = fw_extras.get('petrol_allowance_status', 'UNPAID')
     payslip['base_attendance_pay'] = fw_extras.get('base_attendance_pay', payslip.get('basic_salary', 0.0))
     payslip['gross_field_salary'] = fw_extras.get('gross_field_salary', payslip.get('total_earnings', 0.0))
     payslip['net_field_payable'] = fw_extras.get('net_field_payable', payslip.get('net_pay', 0.0))
