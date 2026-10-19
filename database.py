@@ -6,6 +6,7 @@ import re
 import calendar
 import secrets
 from datetime import datetime, date, time as dt_time, timedelta, timezone
+import requests
 from dotenv import load_dotenv
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from bson import ObjectId
@@ -7331,6 +7332,166 @@ def delete_field_assignment(assignment_id, company_id=None):
         q = {'$and': [q, {'company_id': str(company_id)}]}
     res = db.field_assignments.delete_one(q)
     return res.deleted_count > 0
+
+
+_GEOCODE_CACHE = {}
+
+def search_field_destinations(query, company_id=None):
+    """
+    Searches for company/place/customer names for field worker visit scheduling.
+    First checks local customer visits, assignments, and branches for the company,
+    then queries OpenStreetMap Nominatim with company location biasing.
+    """
+    if not query or len(query.strip()) < 2:
+        return []
+
+    clean_q = query.strip()
+    cache_key = f"{company_id or 'ALL'}:{clean_q.lower()}"
+    now_ts = time.time()
+
+    if cache_key in _GEOCODE_CACHE:
+        cached_time, cached_res = _GEOCODE_CACHE[cache_key]
+        if now_ts - cached_time < 300:  # 5 min cache
+            return cached_res
+
+    db = get_db()
+    results = []
+    seen = set()
+
+    # 1. Local Search: Customer Visits & Sales Leads
+    try:
+        visit_q = {
+            'customer_name': {'$regex': clean_q, '$options': 'i'},
+            'latitude': {'$exists': True, '$ne': None},
+            'longitude': {'$exists': True, '$ne': None}
+        }
+        if company_id and company_id != 'ALL':
+            visit_q['company_id'] = str(company_id)
+
+        for v in db.field_customer_visits.find(visit_q).limit(5):
+            name = (v.get('customer_name') or '').strip()
+            lat = v.get('latitude')
+            lng = v.get('longitude')
+            if not name or lat is None or lng is None:
+                continue
+            key = (name.lower(), round(float(lat), 4), round(float(lng), 4))
+            if key not in seen:
+                seen.add(key)
+                results.append({
+                    'name': name,
+                    'address': v.get('location_address') or v.get('notes') or f"Coordinates: {lat}, {lng}",
+                    'lat': float(lat),
+                    'lng': float(lng),
+                    'source': 'Saved Customer',
+                    'contact_person': v.get('contact_person', ''),
+                    'contact_phone': v.get('contact_phone', '')
+                })
+    except Exception as e:
+        logger.warning(f"Error searching customer visits: {e}")
+
+    # 2. Local Search: Previous Field Assignments
+    try:
+        asgn_q = {
+            'target_name': {'$regex': clean_q, '$options': 'i'},
+            'target_lat': {'$exists': True, '$ne': None},
+            'target_lng': {'$exists': True, '$ne': None}
+        }
+        if company_id and company_id != 'ALL':
+            asgn_q['company_id'] = str(company_id)
+
+        for a in db.field_assignments.find(asgn_q).limit(5):
+            name = (a.get('target_name') or '').strip()
+            lat = a.get('target_lat')
+            lng = a.get('target_lng')
+            if not name or lat is None or lng is None:
+                continue
+            key = (name.lower(), round(float(lat), 4), round(float(lng), 4))
+            if key not in seen:
+                seen.add(key)
+                results.append({
+                    'name': name,
+                    'address': a.get('target_address') or f"Coordinates: {lat}, {lng}",
+                    'lat': float(lat),
+                    'lng': float(lng),
+                    'source': 'Previous Assignment',
+                    'contact_person': a.get('contact_person', ''),
+                    'contact_phone': a.get('contact_phone', '')
+                })
+    except Exception as e:
+        logger.warning(f"Error searching field assignments: {e}")
+
+    # 3. Local Search: Company Branches
+    try:
+        branch_q = {'branch_name': {'$regex': clean_q, '$options': 'i'}}
+        if company_id and company_id != 'ALL':
+            branch_q['company_id'] = str(company_id)
+        for b in db.company_branches.find(branch_q).limit(3):
+            name = (b.get('branch_name') or '').strip()
+            lat = b.get('latitude')
+            lng = b.get('longitude')
+            if not name or lat is None or lng is None:
+                continue
+            key = (name.lower(), round(float(lat), 4), round(float(lng), 4))
+            if key not in seen:
+                seen.add(key)
+                results.append({
+                    'name': f"Branch: {name}",
+                    'address': b.get('address') or b.get('city') or '',
+                    'lat': float(lat),
+                    'lng': float(lng),
+                    'source': 'Company Branch',
+                    'contact_person': b.get('contact_person', ''),
+                    'contact_phone': b.get('contact_phone', '')
+                })
+    except Exception as e:
+        logger.warning(f"Error searching company branches: {e}")
+
+    # 4. Public OpenStreetMap Geocoding (Nominatim)
+    if len(results) < 8:
+        try:
+            comp_rec = get_company_by_id(company_id) if company_id and company_id != 'ALL' else None
+            nom_params = {
+                'q': clean_q,
+                'format': 'json',
+                'addressdetails': 1,
+                'limit': 6
+            }
+            if comp_rec and comp_rec.get('latitude') and comp_rec.get('longitude'):
+                c_lat = float(comp_rec['latitude'])
+                c_lng = float(comp_rec['longitude'])
+                nom_params['viewbox'] = f"{c_lng - 0.6},{c_lat + 0.6},{c_lng + 0.6},{c_lat - 0.6}"
+                nom_params['bounded'] = 0
+
+            headers = {'User-Agent': 'ArgusAttendanceApp/5.1 (argustechnologies)'}
+            resp = requests.get('https://nominatim.openstreetmap.org/search', params=nom_params, headers=headers, timeout=3.5)
+            if resp.status_code == 200:
+                for item in resp.json():
+                    disp_name = item.get('display_name', '')
+                    parts = [p.strip() for p in disp_name.split(',')]
+                    place_title = parts[0] if parts else clean_q
+                    lat = float(item.get('lat', 0))
+                    lng = float(item.get('lon', 0))
+                    key = (place_title.lower(), round(lat, 4), round(lng, 4))
+                    if key not in seen:
+                        seen.add(key)
+                        results.append({
+                            'name': place_title,
+                            'address': disp_name,
+                            'lat': lat,
+                            'lng': lng,
+                            'source': 'Map Location',
+                            'contact_person': '',
+                            'contact_phone': ''
+                        })
+        except Exception as e:
+            logger.warning(f"Nominatim geocoding error: {e}")
+
+    # Cache results (limit cache size to 250 entries)
+    if len(_GEOCODE_CACHE) > 250:
+        _GEOCODE_CACHE.clear()
+    _GEOCODE_CACHE[cache_key] = (now_ts, results[:10])
+
+    return results[:10]
 
 
 

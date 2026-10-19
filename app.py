@@ -5347,6 +5347,18 @@ def api_field_worker_assignment_detail(assignment_id):
     return jsonify({'success': ok, 'message': 'Assignment updated.' if ok else 'Assignment not found.'})
 
 
+@app.route('/api/field-worker/search-destination', methods=['GET'])
+def api_search_field_destination():
+    """Searches for company, client, and place names with coordinates for destination pinning."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    query = request.args.get('query', '').strip()
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    results = database.search_field_destinations(query, company_id=cid)
+    return jsonify({'success': True, 'results': results})
+
+
 @app.route('/api/field-worker/location-ping', methods=['POST'])
 def api_field_worker_location_ping():
     """Records a live GPS ping from a field worker and detects Company Site vs Personal Detour."""
