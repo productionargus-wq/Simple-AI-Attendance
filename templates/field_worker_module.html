@@ -3139,40 +3139,62 @@
       font-size: 11px !important;
     }
 
-    /* Live Radar Map Pane: Map fills the ~80% area */
+    /* Live Radar Map Pane: Map expands to bottom, container allows smooth scroll to table */
+    .fw-section-pane.active#paneLiveTracking {
+      overflow-y: auto !important;
+      max-height: 100% !important;
+      height: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 12px !important;
+      padding-bottom: 16px !important;
+    }
+
     #paneLiveTracking .fw-split-65-35 {
-      flex: 1 1 auto !important;
+      flex-shrink: 0 !important;
       display: grid !important;
       grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) !important;
       gap: 12px !important;
-      min-height: 0 !important;
+      min-height: 520px !important;
+      height: calc(100vh - 215px) !important;
       overflow: hidden !important;
     }
 
-    #paneLiveTracking .fw-card {
+    #paneLiveTracking .fw-card.fw-live-map-card,
+    #paneLiveTracking .fw-split-65-35 .fw-card {
       display: flex !important;
       flex-direction: column !important;
-      min-height: 0 !important;
-      height: 100% !important;
+      flex-shrink: 0 !important;
+      min-height: 520px !important;
+      height: calc(100vh - 215px) !important;
       overflow: hidden !important;
       margin-bottom: 0 !important;
+      border-radius: 8px !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
     }
 
-    #paneLiveTracking .fw-card-body {
+    #paneLiveTracking .fw-live-map-card .fw-card-body,
+    #paneLiveTracking .fw-split-65-35 .fw-card-body {
       flex: 1 1 auto !important;
       min-height: 0 !important;
       display: flex !important;
       flex-direction: column !important;
       overflow: hidden !important;
-      padding: 6px !important;
+      padding: 8px !important;
     }
 
     #paneLiveTracking #fieldLiveMap {
       flex: 1 1 auto !important;
       width: 100% !important;
       height: 100% !important;
-      min-height: 380px !important;
+      min-height: 460px !important;
       border-radius: 6px !important;
+    }
+
+    #paneLiveTracking .table-card {
+      flex-shrink: 0 !important;
+      min-height: 400px !important;
+      margin-top: 4px !important;
     }
 
     /* Scheduled Visits Assignment Pane: Split form and map fill 80% */
@@ -3881,7 +3903,7 @@
           </div>
           {% else %}
           <!-- Company Admin / Super Admin Full-Width Live Radar Map (Executive Monitoring View) -->
-          <div class="fw-card" style="margin-bottom: 20px;">
+          <div class="fw-card fw-live-map-card" style="margin-bottom: 0;">
             <div class="fw-card-header">
               <div class="fw-card-header-left">
                 <span class="fw-card-icon" style="background:#ccfbf1; color:#0f766e;">
@@ -3901,41 +3923,11 @@
                 </button>
               </div>
             </div>
-            <div class="fw-card-body" style="padding: 14px;">
-              <div id="fieldLiveMap" style="height: 520px; width: 100%; border-radius: 8px;"></div>
+            <div class="fw-card-body" style="padding: 8px; flex: 1 1 auto; display: flex; flex-direction: column;">
+              <div id="fieldLiveMap" style="height: 100%; min-height: 480px; width: 100%; border-radius: 8px;"></div>
             </div>
           </div>
           {% endif %}
-
-          <!-- Middle Section: AI Field Detour & Anomaly Monitoring Log -->
-          <div class="fw-card" id="aiIncidentsSection" style="margin-bottom: 20px;">
-            <div class="fw-card-header" style="background: linear-gradient(135deg, #fff1f2 0%, #fef2f2 100%); border-bottom: 1.5px solid #fecdd3;">
-              <div class="fw-card-header-left">
-                <span class="fw-card-icon" style="background:#fee2e2; color:#dc2626;">
-                  <i class="fa-solid fa-wand-magic-sparkles"></i>
-                </span>
-                <div>
-                  <div class="fw-card-title" style="color:#991b1b; display:flex; align-items:center; gap:8px;">
-                    AI FIELD WORKER DETOUR &amp; ANOMALY AUDITOR
-                    <span id="aiActiveIncidentsBadge" class="ai-badge-severity ai-badge-high" style="display:none;">0 ACTIVE</span>
-                  </div>
-                  <div class="fw-card-subtitle" style="color:#b91c1c;">Autonomous stationary dwell &amp; unauthorized detour detection powered by Gemini AI</div>
-                </div>
-              </div>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <button type="button" class="fw-btn fw-btn-outline" style="font-size:12px; padding:6px 12px;" onclick="refreshOverviewState()" title="Refresh telemetry">
-                  <i class="fa-solid fa-rotate"></i> Refresh
-                </button>
-              </div>
-            </div>
-            <div class="fw-card-body" style="padding:16px;">
-              <div id="aiIncidentsContainer">
-                <div style="text-align:center; padding:20px; color:#16a34a; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; font-size:13px; font-weight:700;">
-                  <i class="fa-solid fa-circle-check" style="margin-right:6px;"></i> All field routes verified compliant. No unauthorized detours or stationary anomalies detected today.
-                </div>
-              </div>
-            </div>
-          </div>
 
           <!-- Bottom Card: Live GPS Trail & Route Compliance Table -->
           <div class="table-card">
@@ -8993,6 +8985,10 @@
         }).addTo(liveMap);
         liveMapLayerGroup = L.layerGroup().addTo(liveMap);
         renderLiveMapLayers();
+
+        window.addEventListener('resize', () => {
+          if (liveMap) liveMap.invalidateSize();
+        });
       }
     }
 
