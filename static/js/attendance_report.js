@@ -136,15 +136,29 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     if (canonicalView === 'compact') {
-      if (standardTableContainer) standardTableContainer.style.display = 'none';
-      if (simpleTableContainer) simpleTableContainer.style.display = 'block';
+      if (standardTableContainer) {
+        standardTableContainer.classList.add('is-hidden');
+        standardTableContainer.style.setProperty('display', 'none', 'important');
+      }
+      if (simpleTableContainer) {
+        simpleTableContainer.classList.remove('is-hidden');
+        simpleTableContainer.style.removeProperty('display');
+        simpleTableContainer.style.setProperty('display', 'flex', 'important');
+      }
       if (simpleEmployeeSelect && employeeFilterInput && employeeFilterInput.value && employeeFilterInput.value !== 'All') {
         simpleEmployeeSelect.value = employeeFilterInput.value;
       }
       loadSimpleTable();
     } else {
-      if (simpleTableContainer) simpleTableContainer.style.display = 'none';
-      if (standardTableContainer) standardTableContainer.style.display = 'block';
+      if (simpleTableContainer) {
+        simpleTableContainer.classList.add('is-hidden');
+        simpleTableContainer.style.setProperty('display', 'none', 'important');
+      }
+      if (standardTableContainer) {
+        standardTableContainer.classList.remove('is-hidden');
+        standardTableContainer.style.removeProperty('display');
+        standardTableContainer.style.setProperty('display', 'flex', 'important');
+      }
       loadStandardTable();
     }
   }

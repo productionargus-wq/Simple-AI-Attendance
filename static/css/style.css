@@ -6367,6 +6367,13 @@ body {
     overflow: hidden !important;
   }
 
+  body:not(.page-dashboard) .table-card[style*="display: none"],
+  body:not(.page-dashboard) .table-card[style*="display:none"],
+  body:not(.page-dashboard) .table-card.d-none,
+  body:not(.page-dashboard) .table-card.is-hidden {
+    display: none !important;
+  }
+
   body:not(.page-dashboard) .table-responsive {
     flex: 1 1 auto !important;
     overflow-y: auto !important;
