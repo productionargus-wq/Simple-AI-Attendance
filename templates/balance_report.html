@@ -21,21 +21,22 @@
   </a>
 </div>
 
-<!-- Employee Selector Matching Image 2 -->
-<div class="filter-group" style="margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
-  <label for="filterBalanceEmployee" style="font-size: 13px; font-weight: 600; color: #212529; white-space: nowrap;">Employee:</label>
-  <select id="filterBalanceEmployee" class="table-filter-select" style="min-width: 150px; padding: 4px 8px;">
-    <option value="All" selected>All</option>
-    {% for emp in employees %}
-    <option value="{{ emp }}">{{ emp }}</option>
-    {% endfor %}
-  </select>
-</div>
-
-<!-- Balance Table Card Matching Image 2 -->
+<!-- Balance Table Card with Single-Row Unified Toolbar -->
 <div class="table-card">
   <div class="table-toolbar">
     <div class="table-toolbar-left">
+      <div class="filter-group">
+        <label for="filterBalanceEmployee">Employee:</label>
+        <select id="filterBalanceEmployee" class="filter-input" style="min-width: 150px;">
+          <option value="All" selected>All</option>
+          {% for emp in employees %}
+          <option value="{{ emp }}">{{ emp }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="table-toolbar-right">
       <div class="entries-select-wrapper">
         <span>Show</span>
         <select id="balanceEntriesLimit" class="entries-select">
@@ -52,11 +53,11 @@
         <button class="btn-export btn-pdf" id="btnBalancePdf" title="PDF">PDF</button>
         <button class="btn-export" id="btnBalancePrint" title="Print">Print</button>
       </div>
-    </div>
 
-    <div class="search-box-wrapper">
-      <label for="balanceSearch">Search:</label>
-      <input type="text" id="balanceSearch" class="search-input">
+      <div class="search-box-wrapper">
+        <label for="balanceSearch">Search:</label>
+        <input type="text" id="balanceSearch" class="search-input">
+      </div>
     </div>
   </div>
 

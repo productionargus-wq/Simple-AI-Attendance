@@ -27,33 +27,32 @@
   </div>
 </div>
 
-<!-- Date and Employee Filter Bar -->
-<div class="filter-bar">
-  <div class="filter-group">
-    <label for="startDate">Start Date</label>
-    <input type="date" id="startDate" class="filter-input">
-  </div>
-  <div class="filter-group">
-    <label for="endDate">End Date</label>
-    <input type="date" id="endDate" class="filter-input">
-  </div>
-  <div class="filter-group">
-    <label for="employeeFilter">Employee</label>
-    <select id="employeeFilter" class="filter-input" style="min-width: 140px; padding: 5px 10px;">
-      <option value="All">All</option>
-      {% for emp in employees %}
-      <option value="{{ emp }}">{{ emp }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <button class="btn-filter" id="btnFilter">Filter</button>
-  <button class="btn-clear" id="btnClear">Clear</button>
-</div>
-
 <!-- ================= VIEW 1: Standard Table View (All / Proper / Improper / Manual) ================= -->
 <div class="table-card" id="standardTableContainer">
   <div class="table-toolbar">
     <div class="table-toolbar-left">
+      <div class="filter-group">
+        <label for="startDate">Start Date</label>
+        <input type="date" id="startDate" class="filter-input">
+      </div>
+      <div class="filter-group">
+        <label for="endDate">End Date</label>
+        <input type="date" id="endDate" class="filter-input">
+      </div>
+      <div class="filter-group">
+        <label for="employeeFilter">Employee</label>
+        <select id="employeeFilter" class="filter-input" style="min-width: 130px; padding: 3px 8px;">
+          <option value="All">All</option>
+          {% for emp in employees %}
+          <option value="{{ emp }}">{{ emp }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn-filter" id="btnFilter">Filter</button>
+      <button class="btn-clear" id="btnClear">Clear</button>
+    </div>
+
+    <div class="table-toolbar-right">
       <div class="entries-select-wrapper">
         <span>Show</span>
         <select id="entriesLimit" class="entries-select">
@@ -98,11 +97,11 @@
           Print
         </button>
       </div>
-    </div>
 
-    <div class="search-box-wrapper">
-      <label for="tableSearch">Search:</label>
-      <input type="text" id="tableSearch" class="search-input">
+      <div class="search-box-wrapper">
+        <label for="tableSearch">Search:</label>
+        <input type="text" id="tableSearch" class="search-input">
+      </div>
     </div>
   </div>
 

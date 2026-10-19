@@ -20,32 +20,23 @@
   </button>
 </div>
 
-<!-- Month Range Filter Bar Matching Single Row Layout -->
-<div class="filter-bar" style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; flex-wrap: nowrap; overflow-x: auto;">
-  <div class="filter-group" style="display: flex; align-items: center; gap: 8px;">
-    <label for="salaryStartMonth" style="font-size: 12px; font-weight: 700; color: #334155; white-space: nowrap;">Start Month</label>
-    <input type="month" id="salaryStartMonth" class="table-filter-date" style="padding: 5px 8px; font-size: 12px; width: 140px; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px;">
-  </div>
-
-  <div class="filter-group" style="display: flex; align-items: center; gap: 8px;">
-    <label for="salaryEndMonth" style="font-size: 12px; font-weight: 700; color: #334155; white-space: nowrap;">End Month</label>
-    <input type="month" id="salaryEndMonth" class="table-filter-date" style="padding: 5px 8px; font-size: 12px; width: 140px; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px;">
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px;">
-    <button type="button" id="btnFilterSalary" class="btn-filter" style="padding: 5px 14px; font-size: 12px; border-radius: 4px; font-weight: 600; cursor: pointer;">
-      Filter
-    </button>
-    <button type="button" id="btnClearSalary" class="btn-clear" style="padding: 5px 14px; font-size: 12px; border-radius: 4px; font-weight: 600; cursor: pointer;">
-      Clear
-    </button>
-  </div>
-</div>
-
-<!-- Salary Report Table Card Matching Image 5 -->
+<!-- Salary Report Table Card with Single-Row Unified Toolbar -->
 <div class="table-card">
   <div class="table-toolbar">
     <div class="table-toolbar-left">
+      <div class="filter-group">
+        <label for="salaryStartMonth">Start Month</label>
+        <input type="month" id="salaryStartMonth" class="filter-input" style="width: 130px;">
+      </div>
+      <div class="filter-group">
+        <label for="salaryEndMonth">End Month</label>
+        <input type="month" id="salaryEndMonth" class="filter-input" style="width: 130px;">
+      </div>
+      <button type="button" id="btnFilterSalary" class="btn-filter">Filter</button>
+      <button type="button" id="btnClearSalary" class="btn-clear">Clear</button>
+    </div>
+
+    <div class="table-toolbar-right">
       <div class="entries-select-wrapper">
         <span>Show</span>
         <select id="salaryEntriesLimit" class="entries-select">
@@ -70,11 +61,11 @@
           <i class="fa fa-print"></i> Print
         </button>
       </div>
-    </div>
 
-    <div class="search-box-wrapper">
-      <label for="salarySearch">Search:</label>
-      <input type="text" id="salarySearch" class="search-input">
+      <div class="search-box-wrapper">
+        <label for="salarySearch">Search:</label>
+        <input type="text" id="salarySearch" class="search-input">
+      </div>
     </div>
   </div>
 

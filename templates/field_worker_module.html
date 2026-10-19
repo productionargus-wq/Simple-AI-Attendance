@@ -4246,23 +4246,23 @@
         <!-- ========================================================================= -->
         <div id="paneScheduledVisits" class="fw-section-pane" data-title="SCHEDULED VISITS">
           <div class="table-card">
-            <div class="table-toolbar" style="gap: 10px; justify-content: space-between; flex-wrap: wrap;">
-              <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            <div class="table-toolbar" style="gap: 10px; justify-content: space-between; flex-wrap: nowrap; overflow-x: auto;">
+              <div class="table-toolbar-left" style="display:flex; align-items:center; gap:8px; flex-shrink:0; white-space:nowrap;">
                 <div class="fw-card-title" style="font-size:13px;">
                   <i class="fa-solid fa-calendar-check" style="color:#0284c7; margin-right:6px;"></i>
                   FIELD WORKER SCHEDULED VISITS (<span id="scheduledVisitsCountBadge">{{ assignments|length }}</span>)
                 </div>
               </div>
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap: wrap; flex: 1; justify-content: flex-end; min-width: 0;">
-                <input type="text" id="filterScheduledVisitsSearch" class="fw-input" placeholder="Search worker, client or site..." oninput="filterScheduledVisitsTable()" style="max-width:230px; width:100%; height:32px; font-size:12px;">
-                <select id="filterScheduledVisitsStatus" class="fw-select" onchange="filterScheduledVisitsTable()" style="max-width:140px; width:auto; height:32px; font-size:12px;">
+              <div class="table-toolbar-right" style="display:flex; align-items:center; gap:8px; flex-shrink:0; margin-left:auto; white-space:nowrap;">
+                <input type="text" id="filterScheduledVisitsSearch" class="fw-input" placeholder="Search worker, client or site..." oninput="filterScheduledVisitsTable()" style="max-width:210px; width:auto; height:28px; font-size:11.5px; padding:2px 8px;">
+                <select id="filterScheduledVisitsStatus" class="fw-select" onchange="filterScheduledVisitsTable()" style="width:auto; height:28px; font-size:11.5px; padding:2px 8px;">
                   <option value="">All Statuses</option>
                   <option value="Scheduled">Scheduled</option>
                   <option value="In Progress">In Progress</option>
                   <option value="Completed">Completed</option>
                   <option value="Cancelled">Cancelled</option>
                 </select>
-                <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="refreshOverviewState()" style="padding:4px 10px; font-size:11.5px; height:32px; white-space:nowrap;">
+                <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="refreshOverviewState()" style="padding:2px 8px; font-size:11.5px; height:28px; white-space:nowrap;">
                   <i class="fa-solid fa-rotate"></i> Refresh
                 </button>
               </div>
@@ -4378,21 +4378,21 @@
                 </div>
               </div>
 
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <div class="search-box-wrapper" style="max-width: 280px;">
-                  <input type="text" id="fwSearchRequestsInput" class="search-input" placeholder="Search requests..." oninput="filterFwLeaveRequestsLocal()">
+              <div class="table-toolbar-right" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; white-space: nowrap;">
+                <div class="search-box-wrapper" style="max-width: 240px;">
+                  <input type="text" id="fwSearchRequestsInput" class="search-input" placeholder="Search requests..." oninput="filterFwLeaveRequestsLocal()" style="height: 28px; font-size: 11.5px;">
                 </div>
 
-                <button type="button" class="btn-primary-action" id="btnOpenFwLeaveBalancesModal" onclick="openFwLeaveBalancesModal()" title="Set Leaves &amp; Quotas for Field Workers" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; white-space: nowrap;">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <button type="button" class="btn-primary-action" id="btnOpenFwLeaveBalancesModal" onclick="openFwLeaveBalancesModal()" title="Set Leaves &amp; Quotas for Field Workers" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 11.5px; height: 28px; cursor: pointer; white-space: nowrap;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"></circle>
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                   </svg>
                   Set Leaves
                 </button>
 
-                <button type="button" class="btn-secondary-action" id="btnRefreshFwLeaveData" onclick="loadFwRequests()" title="Refresh Data" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; white-space: nowrap;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <button type="button" class="btn-secondary-action" id="btnRefreshFwLeaveData" onclick="loadFwRequests()" title="Refresh Data" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 11.5px; height: 28px; cursor: pointer; white-space: nowrap;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="23 4 23 10 17 10"></polyline>
                     <polyline points="1 20 1 14 7 14"></polyline>
                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
@@ -5016,19 +5016,19 @@
 
           <!-- Applications Table with Action Buttons -->
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap: wrap; gap: 10px; justify-content: space-between;">
-              <div style="display:flex; align-items:center; gap:8px;">
+            <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; justify-content: space-between; overflow-x: auto;">
+              <div class="table-toolbar-left" style="display:flex; align-items:center; gap:8px; flex-shrink:0; white-space:nowrap;">
                 <span class="fw-card-title" style="font-size:13px; white-space:nowrap;">
                   <i class="fa-solid fa-clipboard-list" style="color:#2563eb; margin-right:6px;"></i>
                   MY SUBMITTED LEAVE &amp; PERMISSION APPLICATIONS
                 </span>
               </div>
 
-              <div style="display:flex; align-items:center; gap:8px; margin-left:auto;">
-                <button type="button" class="fw-btn fw-btn-primary fw-btn-sm" onclick="openApplyFwLeaveModal()">
+              <div class="table-toolbar-right" style="display:flex; align-items:center; gap:8px; flex-shrink:0; margin-left:auto; white-space:nowrap;">
+                <button type="button" class="fw-btn fw-btn-primary fw-btn-sm" onclick="openApplyFwLeaveModal()" style="height:28px; padding:3px 10px; font-size:11.5px;">
                   <i class="fa-solid fa-plus"></i> Apply for Leave
                 </button>
-                <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="openApplyFwPermissionModal()">
+                <button type="button" class="fw-btn fw-btn-outline fw-btn-sm" onclick="openApplyFwPermissionModal()" style="height:28px; padding:3px 10px; font-size:11.5px;">
                   <i class="fa-solid fa-clock"></i> Apply for Permission
                 </button>
               </div>
@@ -5579,21 +5579,26 @@
         <!-- ========================================================================= -->
         <div id="paneFieldPayroll" class="fw-section-pane" data-title="PAYSLIP &amp; SALARY REPORTS">
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; border-bottom: 1px solid #eef2f6; padding-bottom: 14px; margin-bottom: 14px; justify-content: flex-end; overflow-x: auto;">
-              <span id="payrollMonthTitle" class="d-none">{{ month_year }}</span>
+            <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; padding-bottom: 6px; margin-bottom: 6px; align-items: center; justify-content: space-between; overflow-x: auto;">
+              <div class="table-toolbar-left" style="display:flex; align-items:center; gap:8px; flex-shrink: 0; white-space: nowrap;">
+                <span class="fw-card-title" style="font-size:13px;">
+                  <i class="fa-solid fa-file-invoice-dollar" style="color:#2563eb; margin-right:6px;"></i>
+                  FIELD WORKER SALARY &amp; PAYROLL (<span id="payrollMonthTitle">{{ month_year }}</span>)
+                </span>
+              </div>
 
-              <div style="display:flex; align-items:center; gap: 8px; flex-shrink: 0; white-space: nowrap; margin-left: auto;">
+              <div class="table-toolbar-right" style="display:flex; align-items:center; gap: 8px; flex-shrink: 0; white-space: nowrap; margin-left: auto;">
                 <div class="export-btn-group" style="flex-shrink: 0; white-space: nowrap;">
-                  <a href="/api/field-worker/export?type=salary&format=pdf&company_id={{ active_company_id }}&month={{ month_year }}" id="btnExportPayrollPdf" class="btn-export btn-pdf" style="text-decoration:none; padding: 4px 8px; font-size: 11px;">
+                  <a href="/api/field-worker/export?type=salary&format=pdf&company_id={{ active_company_id }}&month={{ month_year }}" id="btnExportPayrollPdf" class="btn-export btn-pdf" style="text-decoration:none; padding: 3px 8px; font-size: 11px; height: 28px; display: inline-flex; align-items: center; gap: 4px;">
                     <i class="fa-solid fa-file-pdf"></i> Export Payroll PDF
                   </a>
-                  <a href="/api/field-worker/export?type=salary&format=excel&company_id={{ active_company_id }}&month={{ month_year }}" id="btnExportPayrollExcel" class="btn-export btn-excel" style="text-decoration:none; padding: 4px 8px; font-size: 11px;">
+                  <a href="/api/field-worker/export?type=salary&format=excel&company_id={{ active_company_id }}&month={{ month_year }}" id="btnExportPayrollExcel" class="btn-export btn-excel" style="text-decoration:none; padding: 3px 8px; font-size: 11px; height: 28px; display: inline-flex; align-items: center; gap: 4px;">
                     <i class="fa-solid fa-file-excel"></i> Export Payroll Excel
                   </a>
                 </div>
                 <div class="search-box-wrapper" style="flex-shrink: 0;">
-                  <label>Search:</label>
-                  <input type="text" class="search-input" placeholder="Filter worker or zone..." oninput="filterFieldTable(this, 'fieldPayrollTable')">
+                  <label style="font-size:11.5px; font-weight:600; color:#475569;">Search:</label>
+                  <input type="text" class="search-input" placeholder="Filter worker or zone..." oninput="filterFieldTable(this, 'fieldPayrollTable')" style="height: 28px; font-size: 11.5px;">
                 </div>
               </div>
             </div>
@@ -5724,24 +5729,24 @@
         <!-- ========================================================================= -->
         <div id="paneFieldManualEntry" class="fw-section-pane" data-title="FIELD WORKER MANUAL ENTRY">
           <div class="table-card">
-            <div class="table-toolbar" style="flex-wrap: wrap; gap: 10px; border-bottom: 1px solid #eef2f6; padding-bottom: 14px; margin-bottom: 14px; align-items: center; justify-content: space-between;">
-              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div class="table-toolbar" style="flex-wrap: nowrap; gap: 10px; padding-bottom: 6px; margin-bottom: 6px; align-items: center; justify-content: space-between; overflow-x: auto;">
+              <div class="table-toolbar-left" style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; flex-shrink: 0;">
                 {% if user_role in ['super_admin', 'company_admin', 'admin'] %}
-                <button type="button" class="fw-btn fw-btn-primary" onclick="openFieldManualEntryModal()" style="display:inline-flex; align-items:center; gap:6px;">
+                <button type="button" class="fw-btn fw-btn-primary" onclick="openFieldManualEntryModal()" style="display:inline-flex; align-items:center; gap:6px; height: 30px; font-size: 11.5px; padding: 4px 10px;">
                   <i class="fa-solid fa-plus"></i> Add Manual Entry
                 </button>
                 {% endif %}
-                <div class="filter-group" style="display:flex; align-items:center; gap:6px;">
-                  <label style="font-size:12px; font-weight:600; color:#475569;">From:</label>
-                  <input type="date" id="filterFwManualFrom" class="filter-input" style="padding:4px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px;">
+                <div class="filter-group" style="display:flex; align-items:center; gap:4px;">
+                  <label style="font-size:11.5px; font-weight:600; color:#475569;">From:</label>
+                  <input type="date" id="filterFwManualFrom" class="filter-input" style="padding:2px 6px; font-size:11.5px; border:1px solid #cbd5e1; border-radius:5px; height:28px;">
                 </div>
-                <div class="filter-group" style="display:flex; align-items:center; gap:6px;">
-                  <label style="font-size:12px; font-weight:600; color:#475569;">To:</label>
-                  <input type="date" id="filterFwManualTo" class="filter-input" style="padding:4px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px;">
+                <div class="filter-group" style="display:flex; align-items:center; gap:4px;">
+                  <label style="font-size:11.5px; font-weight:600; color:#475569;">To:</label>
+                  <input type="date" id="filterFwManualTo" class="filter-input" style="padding:2px 6px; font-size:11.5px; border:1px solid #cbd5e1; border-radius:5px; height:28px;">
                 </div>
-                <div class="filter-group" style="display:flex; align-items:center; gap:6px;">
-                  <label style="font-size:12px; font-weight:600; color:#475569;">Status:</label>
-                  <select id="filterFwManualStatus" class="filter-input" style="padding:4px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px;">
+                <div class="filter-group" style="display:flex; align-items:center; gap:4px;">
+                  <label style="font-size:11.5px; font-weight:600; color:#475569;">Status:</label>
+                  <select id="filterFwManualStatus" class="filter-input" style="padding:2px 6px; font-size:11.5px; border:1px solid #cbd5e1; border-radius:5px; height:28px;">
                     <option value="All" selected>All</option>
                     <option value="Proper">Proper</option>
                     <option value="Permission">Permission</option>
@@ -5749,14 +5754,14 @@
                     <option value="Others">Others</option>
                   </select>
                 </div>
-                <button type="button" class="fw-btn fw-btn-neutral fw-btn-sm" onclick="loadFieldManualEntries()" title="Apply Filters">Filter</button>
-                <button type="button" class="fw-btn fw-btn-neutral fw-btn-sm" onclick="clearFieldManualFilters()" title="Reset Filters">Clear</button>
+                <button type="button" class="fw-btn fw-btn-neutral fw-btn-sm" onclick="loadFieldManualEntries()" title="Apply Filters" style="height:28px; padding:3px 10px; font-size:11.5px;">Filter</button>
+                <button type="button" class="fw-btn fw-btn-neutral fw-btn-sm" onclick="clearFieldManualFilters()" title="Reset Filters" style="height:28px; padding:3px 10px; font-size:11.5px;">Clear</button>
               </div>
 
-              <div style="display: flex; align-items: center; gap: 8px;">
+              <div class="table-toolbar-right" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto;">
                 <div class="search-box-wrapper">
-                  <label style="font-size:12px; font-weight:600; color:#475569;">Search:</label>
-                  <input type="text" id="filterFwManualSearch" class="search-input" placeholder="Search field worker..." oninput="debounceFwManualSearch()">
+                  <label style="font-size:11.5px; font-weight:600; color:#475569;">Search:</label>
+                  <input type="text" id="filterFwManualSearch" class="search-input" placeholder="Search field worker..." oninput="debounceFwManualSearch()" style="height:28px; font-size:11.5px;">
                 </div>
               </div>
             </div>

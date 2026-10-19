@@ -20,24 +20,23 @@
   </div>
 </div>
 
-<!-- Date Filter Bar -->
-<div class="filter-bar">
-  <div class="filter-group">
-    <label for="startDate">Start Date</label>
-    <input type="date" id="startDate" class="filter-input">
-  </div>
-  <div class="filter-group">
-    <label for="endDate">End Date</label>
-    <input type="date" id="endDate" class="filter-input">
-  </div>
-  <button class="btn-filter" id="btnFilter">Filter</button>
-  <button class="btn-clear" id="btnClear">Clear</button>
-</div>
-
-<!-- Table Card -->
+<!-- Table Card with Single-Row Unified Toolbar -->
 <div class="table-card">
   <div class="table-toolbar">
     <div class="table-toolbar-left">
+      <div class="filter-group">
+        <label for="startDate">Start Date</label>
+        <input type="date" id="startDate" class="filter-input">
+      </div>
+      <div class="filter-group">
+        <label for="endDate">End Date</label>
+        <input type="date" id="endDate" class="filter-input">
+      </div>
+      <button class="btn-filter" id="btnFilter">Filter</button>
+      <button class="btn-clear" id="btnClear">Clear</button>
+    </div>
+
+    <div class="table-toolbar-right">
       <div class="entries-select-wrapper">
         <span>Show</span>
         <select id="entriesLimit" class="entries-select">
@@ -82,11 +81,11 @@
           Print
         </button>
       </div>
-    </div>
 
-    <div class="search-box-wrapper">
-      <label for="tableSearch">Search:</label>
-      <input type="text" id="tableSearch" class="search-input">
+      <div class="search-box-wrapper">
+        <label for="tableSearch">Search:</label>
+        <input type="text" id="tableSearch" class="search-input">
+      </div>
     </div>
   </div>
 

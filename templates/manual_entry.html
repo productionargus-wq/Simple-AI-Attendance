@@ -24,34 +24,33 @@
   </button>
 </div>
 
-<!-- Date and Status Filter Bar -->
-<div class="filter-bar">
-  <div class="filter-group">
-    <label for="fromDateFilter">From Date</label>
-    <input type="date" id="fromDateFilter" class="filter-input" placeholder="mm/dd/yyyy">
-  </div>
-  <div class="filter-group">
-    <label for="toDateFilter">To Date</label>
-    <input type="date" id="toDateFilter" class="filter-input" placeholder="mm/dd/yyyy">
-  </div>
-  <div class="filter-group">
-    <label for="statusFilter">Status</label>
-    <select id="statusFilter" class="filter-input" style="width: 140px;">
-      <option value="All" selected>All</option>
-      <option value="Proper">Proper</option>
-      <option value="Permission">Permission</option>
-      <option value="Improper">Improper</option>
-      <option value="Others">Others</option>
-    </select>
-  </div>
-  <button class="btn-filter" id="btnFilterManual">Filter</button>
-  <button class="btn-clear" id="btnClearManual">Clear</button>
-</div>
-
-<!-- Table Card -->
+<!-- Table Card with Single-Row Unified Toolbar -->
 <div class="table-card">
   <div class="table-toolbar">
     <div class="table-toolbar-left">
+      <div class="filter-group">
+        <label for="fromDateFilter">From Date</label>
+        <input type="date" id="fromDateFilter" class="filter-input" placeholder="mm/dd/yyyy">
+      </div>
+      <div class="filter-group">
+        <label for="toDateFilter">To Date</label>
+        <input type="date" id="toDateFilter" class="filter-input" placeholder="mm/dd/yyyy">
+      </div>
+      <div class="filter-group">
+        <label for="statusFilter">Status</label>
+        <select id="statusFilter" class="filter-input" style="width: 130px;">
+          <option value="All" selected>All</option>
+          <option value="Proper">Proper</option>
+          <option value="Permission">Permission</option>
+          <option value="Improper">Improper</option>
+          <option value="Others">Others</option>
+        </select>
+      </div>
+      <button class="btn-filter" id="btnFilterManual">Filter</button>
+      <button class="btn-clear" id="btnClearManual">Clear</button>
+    </div>
+
+    <div class="table-toolbar-right">
       <div class="entries-select-wrapper">
         <span>Show</span>
         <select id="entriesLimit" class="entries-select">
@@ -70,11 +69,11 @@
         <button class="btn-export btn-pdf" id="btnPdfTable" title="PDF">PDF</button>
         <button class="btn-export" id="btnPrintTable" title="Print">Print</button>
       </div>
-    </div>
 
-    <div class="search-box-wrapper">
-      <label for="tableSearch">Search:</label>
-      <input type="text" id="tableSearch" class="search-input">
+      <div class="search-box-wrapper">
+        <label for="tableSearch">Search:</label>
+        <input type="text" id="tableSearch" class="search-input">
+      </div>
     </div>
   </div>
 
