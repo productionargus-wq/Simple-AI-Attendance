@@ -5123,11 +5123,15 @@ def field_worker_module_page():
 
     # Field Worker Dashboard & Leave stats
     dashboard_stats = database.get_field_worker_dashboard_stats(company_id=active_cid, date_str=today_str)
-    fw_emp_id = session.get('employee_id') if user_role == 'employee' else None
-    fw_leave_stats = database.get_admin_leave_stats(company_id=active_cid, for_field_workers=True)
-    fw_leave_requests = database.get_leave_requests(company_id=active_cid, employee_id=fw_emp_id, for_field_workers=True, limit=50)
-    fw_leave_balances = database.get_all_employees_leave_balances(company_id=active_cid, for_field_workers=True)
     fw_pending_leaves = database.get_pending_field_worker_leave_requests_count(active_cid)
+    fw_emp_id = session.get('employee_id') if user_role == 'employee' else None
+
+    # Fast initial load: leave requests and balances are loaded asynchronously when Tab 6 is activated
+    fw_leave_stats = {'pending_count': fw_pending_leaves, 'approved_today': 0, 'rejected_count': 0, 'low_balance_count': 0}
+    fw_leave_requests = {'requests': [], 'status_counts': {'pending': fw_pending_leaves}}
+    fw_leave_balances = []
+    if user_role == 'employee' and fw_emp_id:
+        fw_leave_balances = [database.get_employee_leave_balance(fw_emp_id, company_id=active_cid)]
 
     return render_template(
         'field_worker_module.html',
@@ -5187,8 +5191,13 @@ def api_field_worker_overview():
 
     dashboard_stats = database.get_field_worker_dashboard_stats(company_id=cid, date_str=date_str)
     fw_emp_id = session.get('employee_id') if user_role == 'employee' else None
-    fw_leave_stats = database.get_admin_leave_stats(company_id=cid, for_field_workers=True)
-    fw_leave_res = database.get_leave_requests(company_id=cid, employee_id=fw_emp_id, for_field_workers=True, limit=50)
+    include_leaves = request.args.get('include_leaves') in ['1', 'true', 'True'] or request.args.get('tab') == 'paneFieldLeaves'
+    if include_leaves:
+        fw_leave_stats = database.get_admin_leave_stats(company_id=cid, for_field_workers=True)
+        fw_leave_res = database.get_leave_requests(company_id=cid, employee_id=fw_emp_id, for_field_workers=True, limit=50)
+    else:
+        fw_leave_stats = None
+        fw_leave_res = {'requests': [], 'status_counts': {}}
 
     return jsonify({
         'success': True,
@@ -5202,9 +5211,9 @@ def api_field_worker_overview():
         'assignments': assignments,
         'tracking': tracking,
         'dashboard_stats': dashboard_stats,
-        'fw_leave_stats': fw_leave_stats,
-        'fw_leave_requests': fw_leave_res.get('requests', []),
-        'fw_leave_counts': fw_leave_res.get('status_counts', {}),
+        'fw_leave_stats': fw_leave_stats if include_leaves else None,
+        'fw_leave_requests': fw_leave_res.get('requests', []) if include_leaves else None,
+        'fw_leave_counts': fw_leave_res.get('status_counts', {}) if include_leaves else None,
         'ai_incidents': tracking.get('ai_incidents', []) if isinstance(tracking, dict) else [],
         'active_ai_incidents': tracking.get('active_ai_incidents', []) if isinstance(tracking, dict) else [],
         'ai_summary': tracking.get('ai_summary', {}) if isinstance(tracking, dict) else {},

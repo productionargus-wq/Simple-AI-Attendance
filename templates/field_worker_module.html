@@ -5,12 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ active_company.company_name or 'ARGUS TECHNOLOGIES' }} - Field Worker Module</title>
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-  <link rel="preconnect" href="https://unpkg.com" crossorigin>
-  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-  <link rel="dns-prefetch" href="https://unpkg.com">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/all.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261013_fw_dyn">
   <script src="{{ url_for('static', filename='vendor/mediapipe/face_mesh.js') }}"></script>
   <style>
@@ -8005,8 +8001,11 @@
     </div>
   </footer>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
   <script>
+    if (typeof L !== 'undefined' && L.Icon && L.Icon.Default) {
+      L.Icon.Default.imagePath = '/static/vendor/leaflet/images/';
+    }
     const INITIAL_COMPANY_LAT = Number("{{ active_company.latitude or 11.02980 }}");
     const INITIAL_COMPANY_LNG = Number("{{ active_company.longitude or 76.97400 }}");
     const INITIAL_COMPANY_NAME = {{ (active_company.company_name or 'ARGUS TECHNOLOGIES')|tojson }};
@@ -8295,6 +8294,14 @@
         stopTerminalCamera();
       }
 
+      if (paneId === 'paneLiveTracking') {
+        initLiveTrackingMapIfNeeded();
+      }
+
+      if (paneId === 'paneAssignLocations') {
+        initAssignPickerMapIfNeeded();
+      }
+
       setTimeout(() => {
         if (paneId === 'paneLiveTracking' && liveMap) liveMap.invalidateSize();
         if (paneId === 'paneAssignLocations' && assignMap) assignMap.invalidateSize();
@@ -8460,9 +8467,13 @@
       return el ? (el.value || 'ARGUS_MASTER') : 'ARGUS_MASTER';
     }
 
-    function initFieldMaps() {
+    function initLiveTrackingMapIfNeeded() {
+      if (liveMap) {
+        liveMap.invalidateSize();
+        return;
+      }
       const liveEl = document.getElementById('fieldLiveMap');
-      if (liveEl) {
+      if (liveEl && typeof L !== 'undefined') {
         liveMap = L.map('fieldLiveMap').setView([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
@@ -8471,9 +8482,15 @@
         liveMapLayerGroup = L.layerGroup().addTo(liveMap);
         renderLiveMapLayers();
       }
+    }
 
+    function initAssignPickerMapIfNeeded() {
+      if (assignMap) {
+        assignMap.invalidateSize();
+        return;
+      }
       const assignEl = document.getElementById('assignPickerMap');
-      if (assignEl) {
+      if (assignEl && typeof L !== 'undefined') {
         assignMap = L.map('assignPickerMap').setView([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(assignMap);
 
@@ -8504,6 +8521,10 @@
           assignCircle.setLatLng(pos);
         });
       }
+    }
+
+    function initFieldMaps() {
+      // Lazy-load: maps initialize on demand when their respective tabs are activated
     }
 
     function renderLiveMapLayers() {
