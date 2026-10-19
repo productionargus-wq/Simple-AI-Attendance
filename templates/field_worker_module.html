@@ -3027,6 +3027,13 @@
       display: block !important;
     }
 
+    /* Strictly hide top redundant banner on tabs with dedicated headers */
+    #fwMainBannerCard.banner-hidden,
+    #fwMainBannerCard[style*="display: none"],
+    .banner-hidden#fwMainBannerCard {
+      display: none !important;
+    }
+
     /* All other active panes expand to 100% height and flex column */
     .fw-section-pane.active:not(#paneFieldDashboard) {
       height: 100% !important;
@@ -3422,7 +3429,7 @@
       <main class="fw-main-content">
 
         <!-- Top Page Banner (Single-row layout; hidden on Field Dashboard, visible on other tabs) -->
-        <div class="content-banner-card" id="fwMainBannerCard" style="display: none; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 16px; margin-bottom: 18px;">
+        <div class="content-banner-card banner-hidden" id="fwMainBannerCard" style="display: none !important; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 16px; margin-bottom: 18px;">
           <div class="banner-left" style="display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1 1 auto;">
             <div class="banner-icon-badge" style="flex-shrink: 0;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -6123,29 +6130,12 @@
                 <div class="banner-subtitle">Record employee salaries, advances, and payment disbursement ledger</div>
               </div>
             </div>
-            <div class="banner-actions">
-              {% if user_role in ['super_admin', 'company_admin', 'admin'] %}
-              <button type="button" class="btn-primary-action" id="btnOpenAddPaymentModal" onclick="openFieldPaymentModal()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                Add Payment
-              </button>
-              <button type="button" class="btn-secondary-action" onclick="openFieldAdvanceModal()">
-                + Add Advance
-              </button>
-              <button type="button" class="btn-secondary-action" onclick="openFieldAdvanceSummaryModal()">
-                📊 Advance Summary
-              </button>
-              {% endif %}
-            </div>
           </div>
 
           <!-- Payment Table Card Matching Reference UI -->
           <div class="table-card">
-            <div class="table-toolbar">
-              <div class="table-toolbar-left">
+            <div class="table-toolbar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <div class="table-toolbar-left" style="display:flex; align-items:center; gap:12px;">
                 <div class="entries-select-wrapper">
                   <span>Show</span>
                   <select id="paymentEntriesLimit" class="entries-select" onchange="changePaymentLimit(this.value)">
@@ -6164,9 +6154,27 @@
                 </div>
               </div>
 
-              <div class="search-box-wrapper">
-                <label for="paymentSearch">Search:</label>
-                <input type="text" id="paymentSearch" class="search-input" oninput="debouncePaymentSearch()">
+              <div class="table-toolbar-right" style="display:flex; align-items:center; gap:8px; margin-left:auto; flex-wrap:wrap;">
+                {% if user_role in ['super_admin', 'company_admin', 'admin'] %}
+                <button type="button" class="btn-primary-action" id="btnOpenAddPaymentModal" onclick="openFieldPaymentModal()" style="height:30px; font-size:12px; padding:0 12px; display:inline-flex; align-items:center; gap:6px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  Add Payment
+                </button>
+                <button type="button" class="btn-secondary-action" onclick="openFieldAdvanceModal()" style="height:30px; font-size:12px; padding:0 10px;">
+                  + Add Advance
+                </button>
+                <button type="button" class="btn-secondary-action" onclick="openFieldAdvanceSummaryModal()" style="height:30px; font-size:12px; padding:0 10px;">
+                  📊 Advance Summary
+                </button>
+                {% endif %}
+
+                <div class="search-box-wrapper" style="margin-left: 4px;">
+                  <label for="paymentSearch">Search:</label>
+                  <input type="text" id="paymentSearch" class="search-input" oninput="debouncePaymentSearch()">
+                </div>
               </div>
             </div>
 
@@ -8979,7 +8987,13 @@
       const hideMainBanner = (paneId === 'paneFieldDashboard' || paneId === 'paneFieldPayslipPreview' || paneId === 'paneFieldPaymentEntry');
       const banner = document.getElementById('fwMainBannerCard');
       if (banner) {
-        banner.style.display = hideMainBanner ? 'none' : 'flex';
+        if (hideMainBanner) {
+          banner.classList.add('banner-hidden');
+          banner.style.setProperty('display', 'none', 'important');
+        } else {
+          banner.classList.remove('banner-hidden');
+          banner.style.setProperty('display', 'flex', 'important');
+        }
       }
 
       // Persist active tab across reloads
