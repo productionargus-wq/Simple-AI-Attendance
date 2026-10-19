@@ -6135,3 +6135,262 @@ body {
     flex: 1 1 100% !important;
   }
 }
+
+/* =========================================================================
+   UNIVERSAL 20% / 80% UI LAYOUT RULE
+   Top Controls Zone: ~20% of screen height
+   Records Zone: ~80% of screen height
+   DASHBOARD TAB STRICTLY EXCLUDED (:not(.page-dashboard))
+   ========================================================================= */
+
+@media (min-width: 993px) {
+  /* 1. Viewport Container Lock for Non-Dashboard Pages */
+  body:not(.page-dashboard) .main-wrapper {
+    height: calc(100vh - 60px - 38px) !important;
+    overflow-y: hidden !important;
+  }
+
+  body:not(.page-dashboard) .main-content {
+    height: 100% !important;
+    max-height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 8px 18px 8px 18px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  /* 2. Top Controls Zone (~20% screen height) */
+  body:not(.page-dashboard) .content-banner-card {
+    padding: 6px 14px !important;
+    margin-bottom: 6px !important;
+    min-height: 42px !important;
+    max-height: 48px !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-shrink: 0 !important;
+    gap: 10px !important;
+  }
+
+  body:not(.page-dashboard) .banner-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+
+  body:not(.page-dashboard) .banner-icon-badge {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  body:not(.page-dashboard) .banner-icon-badge svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  body:not(.page-dashboard) .banner-title {
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    margin-bottom: 1px !important;
+    letter-spacing: 0.3px !important;
+  }
+
+  body:not(.page-dashboard) .banner-subtitle {
+    font-size: 10.5px !important;
+    line-height: 1.15 !important;
+    color: #64748b !important;
+    margin: 0 !important;
+  }
+
+  body:not(.page-dashboard) .banner-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+
+  body:not(.page-dashboard) .btn-primary-action,
+  body:not(.page-dashboard) .btn-secondary-action {
+    height: 30px !important;
+    padding: 3px 12px !important;
+    font-size: 11.5px !important;
+    border-radius: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+  }
+
+  body:not(.page-dashboard) .filter-bar {
+    margin-bottom: 6px !important;
+    gap: 8px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  body:not(.page-dashboard) .filter-group {
+    gap: 4px !important;
+    font-size: 11px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    margin: 0 !important;
+  }
+
+  body:not(.page-dashboard) .filter-group label {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: #475569 !important;
+    margin-bottom: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  body:not(.page-dashboard) .filter-input,
+  body:not(.page-dashboard) select.filter-input {
+    height: 28px !important;
+    padding: 2px 8px !important;
+    font-size: 11.5px !important;
+    border-radius: 5px !important;
+  }
+
+  body:not(.page-dashboard) .btn-filter,
+  body:not(.page-dashboard) .btn-clear {
+    height: 28px !important;
+    padding: 3px 10px !important;
+    font-size: 11.5px !important;
+    border-radius: 5px !important;
+  }
+
+  body:not(.page-dashboard) .tab-toggle-container {
+    gap: 4px !important;
+  }
+
+  body:not(.page-dashboard) .btn-toggle-tab {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+    border-radius: 5px !important;
+  }
+
+  body:not(.page-dashboard) .table-toolbar {
+    margin-bottom: 6px !important;
+    padding-bottom: 4px !important;
+    font-size: 11.5px !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  body:not(.page-dashboard) .entries-select-wrapper,
+  body:not(.page-dashboard) .search-box-wrapper {
+    font-size: 11px !important;
+  }
+
+  body:not(.page-dashboard) .entries-select,
+  body:not(.page-dashboard) .search-input {
+    height: 26px !important;
+    padding: 2px 6px !important;
+    font-size: 11px !important;
+    border-radius: 5px !important;
+  }
+
+  body:not(.page-dashboard) .export-btn-group {
+    gap: 4px !important;
+  }
+
+  body:not(.page-dashboard) .btn-export {
+    height: 26px !important;
+    padding: 2px 7px !important;
+    font-size: 10.5px !important;
+    border-radius: 5px !important;
+  }
+
+  /* 3. Records Zone (~80% screen height) */
+  body:not(.page-dashboard) .table-card {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    padding: 10px 14px 6px 14px !important;
+    margin-bottom: 0 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    overflow: hidden !important;
+  }
+
+  body:not(.page-dashboard) .table-responsive {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    overflow-x: auto !important;
+    min-height: 0 !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 6px !important;
+    margin-bottom: 4px !important;
+  }
+
+  /* Sticky Header on all Data Tables */
+  body:not(.page-dashboard) .employee-table thead th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 5 !important;
+    background: #f8fafc !important;
+    box-shadow: 0 1px 0 #cbd5e1 !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  body:not(.page-dashboard) .employee-table tbody td {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  /* Docked Table Footer at bottom of records card */
+  body:not(.page-dashboard) .table-footer {
+    flex-shrink: 0 !important;
+    margin-top: auto !important;
+    padding: 4px 0 0 0 !important;
+    font-size: 11px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  body:not(.page-dashboard) .pagination-btn {
+    height: 24px !important;
+    min-width: 24px !important;
+    padding: 0 6px !important;
+    font-size: 11px !important;
+    line-height: 24px !important;
+  }
+
+  /* Payslip Preview Document Canvas in Monthly Payslip */
+  body.page-payslip-preview .payslip-document-wrapper,
+  body.page-monthly-payslip .payslip-document-wrapper {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    min-height: 0 !important;
+    max-height: calc(80vh - 60px) !important;
+  }
+
+  /* Support form scrolling when inside table-card or non-table pages */
+  body:not(.page-dashboard) .table-card:not(:has(.table-responsive)) {
+    overflow-y: auto !important;
+  }
+  body:not(.page-dashboard) .table-card form {
+    overflow-y: auto !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+  }
+  body:not(.page-dashboard) .branch-directory-grid,
+  body:not(.page-dashboard) .support-page-container {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    min-height: 0 !important;
+  }
+}
+

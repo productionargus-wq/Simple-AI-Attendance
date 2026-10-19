@@ -2903,6 +2903,197 @@
     }
   }
 
+  /* =========================================================================
+     FIELD WORKER MODULE: 20% / 80% UI LAYOUT RULE
+     Top Controls: ~20% screen height
+     Records Zone: ~80% screen height
+     DASHBOARD TAB STRICTLY EXCLUDED (#paneFieldDashboard)
+     ========================================================================= */
+
+  @media (min-width: 993px) {
+    .fw-main-wrapper {
+      height: calc(100vh - 58px) !important;
+      overflow-y: hidden !important;
+    }
+
+    .fw-main-content {
+      height: 100% !important;
+      max-height: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      padding: 8px 18px 8px 18px !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+    }
+
+    /* Dashboard pane retains its full scrolling and multi-card layout */
+    .fw-section-pane#paneFieldDashboard {
+      height: 100% !important;
+      overflow-y: auto !important;
+      display: none;
+    }
+    .fw-section-pane.active#paneFieldDashboard {
+      display: block !important;
+    }
+
+    /* All other active panes expand to 100% height and flex column */
+    .fw-section-pane.active:not(#paneFieldDashboard) {
+      height: 100% !important;
+      max-height: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+    }
+
+    /* Top Controls Zone (~20%) */
+    .fw-section-pane:not(#paneFieldDashboard) .content-banner-card {
+      padding: 6px 14px !important;
+      margin-bottom: 6px !important;
+      min-height: 42px !important;
+      max-height: 48px !important;
+      border-radius: 8px !important;
+      flex-shrink: 0 !important;
+      gap: 10px !important;
+    }
+
+    .fw-section-pane:not(#paneFieldDashboard) .banner-icon-badge {
+      width: 30px !important;
+      height: 30px !important;
+      border-radius: 6px !important;
+      flex-shrink: 0 !important;
+    }
+
+    .fw-section-pane:not(#paneFieldDashboard) .banner-icon-badge svg {
+      width: 16px !important;
+      height: 16px !important;
+    }
+
+    .fw-section-pane:not(#paneFieldDashboard) .banner-title {
+      font-size: 14px !important;
+      font-weight: 800 !important;
+      line-height: 1.15 !important;
+      margin-bottom: 1px !important;
+    }
+
+    .fw-section-pane:not(#paneFieldDashboard) .banner-subtitle {
+      font-size: 10.5px !important;
+      line-height: 1.15 !important;
+      color: #64748b !important;
+    }
+
+    .fw-section-pane:not(#paneFieldDashboard) .filter-bar {
+      margin-bottom: 6px !important;
+      gap: 8px !important;
+      padding: 0 !important;
+      flex-shrink: 0 !important;
+    }
+
+    .fw-section-pane:not(#paneFieldDashboard) .filter-input,
+    .fw-section-pane:not(#paneFieldDashboard) select.filter-input {
+      height: 28px !important;
+      padding: 2px 8px !important;
+      font-size: 11.5px !important;
+    }
+
+    .fw-section-pane:not(#paneFieldDashboard) .table-toolbar {
+      margin-bottom: 6px !important;
+      padding-bottom: 4px !important;
+      flex-shrink: 0 !important;
+    }
+
+    /* Records Zone (~80%) */
+    .fw-section-pane:not(#paneFieldDashboard) .table-card {
+      flex: 1 1 auto !important;
+      display: flex !important;
+      flex-direction: column !important;
+      min-height: 0 !important;
+      padding: 10px 14px 6px 14px !important;
+      margin-bottom: 0 !important;
+      border-radius: 8px !important;
+      background: #ffffff !important;
+      overflow: hidden !important;
+    }
+
+    .fw-section-pane:not(#paneFieldDashboard) .table-responsive,
+    .fw-section-pane:not(#paneFieldDashboard) .fw-table-responsive {
+      flex: 1 1 auto !important;
+      overflow-y: auto !important;
+      overflow-x: auto !important;
+      min-height: 0 !important;
+      border: 1px solid #e2e8f0 !important;
+      border-radius: 6px !important;
+      margin-bottom: 4px !important;
+    }
+
+    .fw-section-pane:not(#paneFieldDashboard) .fw-table thead th {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 5 !important;
+      background: #f8fafc !important;
+      box-shadow: 0 1px 0 #cbd5e1 !important;
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+    }
+
+    .fw-section-pane:not(#paneFieldDashboard) .fw-table tbody td {
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+    }
+
+    .fw-section-pane:not(#paneFieldDashboard) .table-footer,
+    .fw-section-pane:not(#paneFieldDashboard) .fw-table-footer {
+      flex-shrink: 0 !important;
+      margin-top: auto !important;
+      padding: 4px 0 0 0 !important;
+      font-size: 11px !important;
+    }
+
+    /* Live Radar Map Pane: Map fills the ~80% area */
+    #paneLiveTracking .fw-split-65-35 {
+      flex: 1 1 auto !important;
+      display: grid !important;
+      grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) !important;
+      gap: 12px !important;
+      min-height: 0 !important;
+      overflow: hidden !important;
+    }
+
+    #paneLiveTracking .fw-card {
+      display: flex !important;
+      flex-direction: column !important;
+      min-height: 0 !important;
+      height: 100% !important;
+      overflow: hidden !important;
+      margin-bottom: 0 !important;
+    }
+
+    #paneLiveTracking .fw-card-body {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      padding: 6px !important;
+    }
+
+    #paneLiveTracking #fieldLiveMap {
+      flex: 1 1 auto !important;
+      width: 100% !important;
+      height: 100% !important;
+      min-height: 380px !important;
+      border-radius: 6px !important;
+    }
+
+    /* Scheduled Visits Assignment Pane: Split form and map fill 80% */
+    #paneAssignLocations .fw-split-50-50 {
+      flex: 1 1 auto !important;
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 12px !important;
+      min-height: 0 !important;
+      overflow: hidden !important;
+    }
+  }
 
   </style>
 </head>
