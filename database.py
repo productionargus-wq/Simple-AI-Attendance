@@ -7342,9 +7342,10 @@ _GEOCODE_CACHE = {}
 
 def search_field_destinations(query, company_id=None):
     """
-    Searches for company/place/customer names for field worker visit scheduling.
-    First checks local customer visits, assignments, and branches for the company,
-    then queries OpenStreetMap Nominatim with company location biasing.
+    Searches for company/place/customer names and street addresses for field worker visit scheduling.
+    First checks local customer visits, assignments, and branches for the company.
+    Then performs robust progressive geocoding using OpenStreetMap Nominatim and Komoot Photon fallback.
+    Automatically normalizes Indian street addresses with door numbers and unit prefixes.
     """
     if not query or len(query.strip()) < 2:
         return []
@@ -7378,7 +7379,7 @@ def search_field_destinations(query, company_id=None):
             lng = v.get('longitude')
             if not name or lat is None or lng is None:
                 continue
-            key = (name.lower(), round(float(lat), 4), round(float(lng), 4))
+            key = (round(float(lat), 3), round(float(lng), 3))
             if key not in seen:
                 seen.add(key)
                 results.append({
@@ -7409,7 +7410,7 @@ def search_field_destinations(query, company_id=None):
             lng = a.get('target_lng')
             if not name or lat is None or lng is None:
                 continue
-            key = (name.lower(), round(float(lat), 4), round(float(lng), 4))
+            key = (round(float(lat), 3), round(float(lng), 3))
             if key not in seen:
                 seen.add(key)
                 results.append({
@@ -7435,7 +7436,7 @@ def search_field_destinations(query, company_id=None):
             lng = b.get('longitude')
             if not name or lat is None or lng is None:
                 continue
-            key = (name.lower(), round(float(lat), 4), round(float(lng), 4))
+            key = (round(float(lat), 3), round(float(lng), 3))
             if key not in seen:
                 seen.add(key)
                 results.append({
@@ -7450,48 +7451,114 @@ def search_field_destinations(query, company_id=None):
     except Exception as e:
         logger.warning(f"Error searching company branches: {e}")
 
-    # 4. Public OpenStreetMap Geocoding (Nominatim)
+    # 4. Multi-Engine Cascading Geocoder (Nominatim + Photon)
     if len(results) < 8:
-        try:
-            comp_rec = get_company_by_id(company_id) if company_id and company_id != 'ALL' else None
-            nom_params = {
-                'q': clean_q,
-                'format': 'json',
-                'addressdetails': 1,
-                'limit': 6
-            }
-            if comp_rec and comp_rec.get('latitude') and comp_rec.get('longitude'):
-                c_lat = float(comp_rec['latitude'])
-                c_lng = float(comp_rec['longitude'])
-                nom_params['viewbox'] = f"{c_lng - 0.6},{c_lat + 0.6},{c_lng + 0.6},{c_lat - 0.6}"
-                nom_params['bounded'] = 0
+        # Generate progressive address candidates
+        candidates = [clean_q]
 
-            headers = {'User-Agent': 'ArgusAttendanceApp/5.1 (argustechnologies)'}
-            resp = requests.get('https://nominatim.openstreetmap.org/search', params=nom_params, headers=headers, timeout=3.5)
-            if resp.status_code == 200:
-                for item in resp.json():
-                    disp_name = item.get('display_name', '')
-                    parts = [p.strip() for p in disp_name.split(',')]
-                    place_title = parts[0] if parts else clean_q
-                    lat = float(item.get('lat', 0))
-                    lng = float(item.get('lon', 0))
-                    key = (place_title.lower(), round(lat, 4), round(lng, 4))
-                    if key not in seen:
-                        seen.add(key)
-                        results.append({
-                            'name': place_title,
-                            'address': disp_name,
-                            'lat': lat,
-                            'lng': lng,
-                            'source': 'Map Location',
-                            'contact_person': '',
-                            'contact_phone': ''
-                        })
-        except Exception as e:
-            logger.warning(f"Nominatim geocoding error: {e}")
+        # Candidate 2: Strip door/flat/shop/plot numbers and unit prefixes
+        no_num = re.sub(r'^(no\.?|flat|shop|door|plot|#|building|unit)?\s*\d+[\w\-\/]*\s*,?\s*', '', clean_q, flags=re.I).strip()
+        if no_num and no_num.lower() != clean_q.lower():
+            candidates.append(no_num)
 
-    # Cache results (limit cache size to 250 entries)
-    if len(_GEOCODE_CACHE) > 250:
+        # Candidate 3: Sub-parts if comma-separated
+        parts = [p.strip() for p in clean_q.split(',') if p.strip()]
+        if len(parts) > 1:
+            candidates.append(', '.join(parts[1:]))
+            if len(parts) > 2:
+                candidates.append(', '.join(parts[-2:]))
+            candidates.append(parts[-1])
+
+        # Candidate 4: Strip common landmark prefixes like "Near ...", "Opp ..."
+        no_landmark = re.sub(r'^(near|opp\.?|opposite|behind|beside)\s+[^,]+,?\s*', '', clean_q, flags=re.I).strip()
+        if no_landmark and no_landmark.lower() not in [c.lower() for c in candidates]:
+            candidates.append(no_landmark)
+
+        # Deduplicate candidates preserving order
+        unique_cands = []
+        for c in candidates:
+            if c and len(c) >= 2 and c.lower() not in [uc.lower() for uc in unique_cands]:
+                unique_cands.append(c)
+
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ArgusAttendanceApp/5.2'}
+
+        for cand in unique_cands[:4]:
+            if len(results) >= 8:
+                break
+
+            # Try OpenStreetMap Nominatim
+            nom_success = False
+            try:
+                nom_params = {
+                    'q': cand,
+                    'format': 'json',
+                    'addressdetails': 1,
+                    'limit': 5
+                }
+                resp = requests.get('https://nominatim.openstreetmap.org/search', params=nom_params, headers=headers, timeout=5.0)
+                if resp.status_code == 200:
+                    items = resp.json()
+                    if isinstance(items, list) and len(items) > 0:
+                        nom_success = True
+                        for item in items:
+                            disp_name = item.get('display_name', '')
+                            p_parts = [p.strip() for p in disp_name.split(',')]
+                            place_title = p_parts[0] if p_parts else cand
+                            lat = float(item.get('lat', 0))
+                            lng = float(item.get('lon', 0))
+                            if not lat or not lng:
+                                continue
+                            key = (round(lat, 3), round(lng, 3))
+                            if key not in seen:
+                                seen.add(key)
+                                results.append({
+                                    'name': place_title,
+                                    'address': disp_name,
+                                    'lat': lat,
+                                    'lng': lng,
+                                    'source': 'Map Location',
+                                    'contact_person': '',
+                                    'contact_phone': ''
+                                })
+            except Exception as e:
+                logger.debug(f"Nominatim lookup '{cand}' exception: {e}")
+
+            # If Nominatim returned 0 or failed, fallback to Photon API for this candidate
+            if not nom_success and len(results) < 8:
+                try:
+                    p_resp = requests.get('https://photon.komoot.io/api/', params={'q': cand, 'limit': 5}, headers=headers, timeout=4.5)
+                    if p_resp.status_code == 200:
+                        p_data = p_resp.json()
+                        features = p_data.get('features', [])
+                        for feat in features:
+                            props = feat.get('properties', {})
+                            coords = feat.get('geometry', {}).get('coordinates', [])
+                            if not coords or len(coords) < 2:
+                                continue
+                            p_lng = float(coords[0])
+                            p_lat = float(coords[1])
+                            key = (round(p_lat, 3), round(p_lng, 3))
+                            if key not in seen:
+                                seen.add(key)
+                                p_name = props.get('name') or props.get('street') or props.get('city') or cand
+                                # Build readable address from photon properties
+                                addr_components = [props.get('street'), props.get('district'), props.get('city'), props.get('state'), props.get('country')]
+                                clean_components = [c for c in addr_components if c]
+                                p_address = ', '.join(clean_components) if clean_components else (props.get('name') or cand)
+                                results.append({
+                                    'name': p_name,
+                                    'address': p_address,
+                                    'lat': p_lat,
+                                    'lng': p_lng,
+                                    'source': 'Map Location',
+                                    'contact_person': '',
+                                    'contact_phone': ''
+                                })
+                except Exception as e:
+                    logger.debug(f"Photon lookup '{cand}' exception: {e}")
+
+    # Cache results (limit cache size to 300 entries)
+    if len(_GEOCODE_CACHE) > 300:
         _GEOCODE_CACHE.clear()
     _GEOCODE_CACHE[cache_key] = (now_ts, results[:10])
 
