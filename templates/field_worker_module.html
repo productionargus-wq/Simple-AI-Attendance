@@ -8313,6 +8313,7 @@
     const INITIAL_COMPANY_LAT = Number("{{ active_company.latitude or 11.02980 }}");
     const INITIAL_COMPANY_LNG = Number("{{ active_company.longitude or 76.97400 }}");
     const INITIAL_COMPANY_NAME = {{ (active_company.company_name or 'ARGUS TECHNOLOGIES')|tojson }};
+    const ACTIVE_COMPANY_ID = {{ (active_company_id or '')|tojson }};
     const CURRENT_USER_ROLE = {{ (user_role or 'super_admin')|tojson }};
     const LOGGED_IN_EMPLOYEE_NAME = {{ (logged_in_employee_name or '')|tojson }};
 
@@ -8563,7 +8564,8 @@
       if (!dropdown) return;
 
       try {
-        const companyId = ACTIVE_COMPANY_ID || '';
+        const companyId = (typeof ACTIVE_COMPANY_ID !== 'undefined' && ACTIVE_COMPANY_ID) || 
+                          (document.getElementById('globalCompanySelect') ? document.getElementById('globalCompanySelect').value : '') || '';
         const res = await fetch(`/api/field-worker/search-destination?query=${encodeURIComponent(query)}&company_id=${encodeURIComponent(companyId)}`);
         const data = await res.json();
         if (loader) loader.style.display = 'none';
