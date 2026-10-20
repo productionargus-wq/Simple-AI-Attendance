@@ -10511,22 +10511,41 @@
         })
         .catch(() => {});
 
-      // Set initial text from existing visit object
+      // Set loading placeholder while fetching fresh transcript
       const docTamil = document.getElementById('docTamilText');
       const docEng = document.getElementById('docEnglishText');
-      if (docTamil) docTamil.textContent = (v && (v.conversation_transcript_tamil || v.conversation_transcript)) || 'தமிழ் உரை ஏற்றப்படுகிறது...';
-      if (docEng) docEng.textContent = (v && v.conversation_transcript_english) || 'Loading English translation...';
+      
+      const prevTa = (v && (v.conversation_transcript_tamil || v.conversation_transcript)) || '';
+      const prevEn = (v && v.conversation_transcript_english) || '';
+      const isErrPlaceholder = !prevEn || prevEn.includes('error') || prevEn.includes('No module') || prevEn.includes('Fallback');
 
-      // Fetch dynamic detailed transcript
-      fetch(`/api/field-worker/visits/${encodeURIComponent(visitId)}/transcript`)
+      if (docTamil) {
+        docTamil.innerHTML = isErrPlaceholder 
+          ? '<i class="fa-solid fa-spinner fa-spin"></i> தமிழ் நேரடி உரையாடல் AI செயலாக்கப்பட்டு வருகிறது...'
+          : prevTa;
+      }
+      if (docEng) {
+        docEng.innerHTML = isErrPlaceholder
+          ? '<i class="fa-solid fa-spinner fa-spin"></i> AI speech-to-text transcription in progress...'
+          : prevEn;
+      }
+
+      // Fetch dynamic detailed transcript with cache-buster
+      fetch(`/api/field-worker/visits/${encodeURIComponent(visitId)}/transcript?_t=${Date.now()}`)
         .then(r => r.json())
         .then(data => {
           if (!data || !data.success) return;
-          const tTamil = data.transcript_tamil || (v && v.conversation_transcript_tamil) || 'தமிழ் உரை கிடைக்கவில்லை.';
-          const tEng = data.transcript_english || (v && v.conversation_transcript_english) || 'English translation not available.';
+          const tTamil = data.transcript_tamil || 'தமிழ் உரை கிடைக்கவில்லை.';
+          const tEng = data.transcript_english || 'English translation not available.';
 
           if (docTamil) docTamil.textContent = tTamil;
           if (docEng) docEng.textContent = tEng;
+
+          // Update local visit cache
+          if (v) {
+            v.conversation_transcript_tamil = tTamil;
+            v.conversation_transcript_english = tEng;
+          }
         })
         .catch(() => {});
     }

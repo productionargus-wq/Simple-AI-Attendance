@@ -5627,10 +5627,69 @@ def api_field_worker_visit_transcript(visit_id):
 
     cid = _resolve_field_company_id(request.args.get('company_id'))
     visit = database.get_field_customer_visit_by_id(visit_id, company_id=cid)
+    if not visit and (session.get('role') == 'super_admin' or cid in ['ALL', 'ARGUS_MASTER', None]):
+        visit = database.get_field_customer_visit_by_id(visit_id, company_id=None)
+
     if not visit:
         return jsonify({'success': False, 'error': 'Customer visit not found.'}), 404
 
-    return jsonify({
+    # Auto-reprocess on the fly if audio recording exists but transcript is missing or contains an error string
+    t_en = str(visit.get('conversation_transcript_english') or '').strip()
+    is_err_placeholder = (
+        not t_en or
+        any(k in t_en.lower() for k in ['error', 'no module', 'fail', 'fallback', 'required'])
+    )
+
+    if visit.get('has_audio_recording') and is_err_placeholder:
+        audio_path = str(visit.get('audio_file_path') or '').strip()
+        grid_id = visit.get('audio_gridfs_id')
+        temp_gridfs_file = None
+        try:
+            if audio_path:
+                norm = audio_path.replace('\\', '/')
+                if 'static/uploads/visit_recordings/' in norm:
+                    sub = norm.split('static/uploads/visit_recordings/', 1)[1]
+                    cand = os.path.join(app.root_path, 'static', 'uploads', 'visit_recordings', sub)
+                    if os.path.exists(cand):
+                        audio_path = cand
+                elif not os.path.isabs(audio_path):
+                    audio_path = os.path.join(app.root_path, audio_path)
+
+            if (not audio_path or not os.path.exists(audio_path)) and grid_id:
+                import gridfs, tempfile
+                from bson import ObjectId
+                fs = gridfs.GridFS(database.get_db())
+                if fs.exists(ObjectId(grid_id)):
+                    g_file = fs.get(ObjectId(grid_id))
+                    temp_fd, temp_gridfs_file = tempfile.mkstemp(suffix='.webm')
+                    with os.fdopen(temp_fd, 'wb') as t_out:
+                        t_out.write(g_file.read())
+                    audio_path = temp_gridfs_file
+
+            if audio_path and os.path.exists(audio_path):
+                mime = visit.get('audio_mime_type') or 'audio/webm'
+                dur = float(visit.get('audio_duration_seconds') or 0)
+                re_visit = database.attach_audio_and_process_visit(
+                    visit_id=visit_id,
+                    audio_file_path=audio_path,
+                    audio_url=visit.get('audio_url'),
+                    duration_seconds=dur,
+                    mime_type=mime,
+                    company_id=cid,
+                    gridfs_id=grid_id
+                )
+                if re_visit:
+                    visit = re_visit
+        except Exception as auto_re_err:
+            print("Auto-reprocess transcript notice:", auto_re_err)
+        finally:
+            if temp_gridfs_file and os.path.exists(temp_gridfs_file):
+                try:
+                    os.remove(temp_gridfs_file)
+                except Exception:
+                    pass
+
+    resp = jsonify({
         'success': True,
         'visit_id': visit.get('id'),
         'customer_name': visit.get('customer_name'),
@@ -5650,6 +5709,8 @@ def api_field_worker_visit_transcript(visit_id):
         'order_amount': visit.get('order_amount', 0.0),
         'ai_suggested_order_amount': visit.get('ai_suggested_order_amount')
     })
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return resp
 
 
 @app.route('/api/field-worker/visits/<visit_id>/reprocess-ai', methods=['POST'])

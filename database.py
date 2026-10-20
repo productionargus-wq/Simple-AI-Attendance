@@ -10377,7 +10377,8 @@ def generate_visit_transcript_docx(visit_id, company_id=None):
     buf.seek(0)
 
     clean_cust = re.sub(r'[^a-zA-Z0-9_-]', '_', cust_name).strip('_')
-    clean_date = dt_str.split(' ')[0] if ' ' in dt_str else 'Visit'
+    raw_date = dt_str.split(' ')[0] if ' ' in dt_str else 'Visit'
+    clean_date = re.sub(r'[^a-zA-Z0-9_-]', '_', raw_date).strip('_')
     filename = f"Visit_Transcript_{clean_cust}_{clean_date}.docx"
 
     return {
