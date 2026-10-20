@@ -5983,7 +5983,7 @@ def api_field_worker_payslip_pdf():
     payslip['travel_allowance_calculated'] = fw_extras.get('travel_allowance_calculated', fw_extras.get('petrol_allowance', 0.0))
     payslip['travel_allowance_paid'] = fw_extras.get('travel_allowance_paid', 0.0)
     payslip['travel_allowance_remaining'] = fw_extras.get('travel_allowance_remaining', fw_extras.get('travel_allowance_pay', 0.0))
-    payslip['petrol_allowance'] = fw_extras.get('petrol_allowance', 0.0)
+    payslip['petrol_allowance'] = fw_extras.get('petrol_allowance', payslip.get('petrol_allowance', 0.0))
     payslip['petrol_allowance_calculated'] = fw_extras.get('petrol_allowance_calculated', fw_extras.get('petrol_allowance', 0.0))
     payslip['petrol_allowance_paid'] = fw_extras.get('petrol_allowance_paid', 0.0)
     payslip['petrol_allowance_remaining'] = fw_extras.get('petrol_allowance_remaining', 0.0)
@@ -6616,7 +6616,7 @@ def api_field_worker_get_payslip_preview_data():
     payslip['travel_allowance_calculated'] = fw_extras.get('travel_allowance_calculated', fw_extras.get('petrol_allowance', 0.0))
     payslip['travel_allowance_paid'] = fw_extras.get('travel_allowance_paid', 0.0)
     payslip['travel_allowance_remaining'] = fw_extras.get('travel_allowance_remaining', fw_extras.get('travel_allowance_pay', 0.0))
-    payslip['petrol_allowance'] = fw_extras.get('petrol_allowance', 0.0)
+    payslip['petrol_allowance'] = fw_extras.get('petrol_allowance', payslip.get('petrol_allowance', 0.0))
     payslip['petrol_allowance_calculated'] = fw_extras.get('petrol_allowance_calculated', fw_extras.get('petrol_allowance', 0.0))
     payslip['petrol_allowance_paid'] = fw_extras.get('petrol_allowance_paid', 0.0)
     payslip['petrol_allowance_remaining'] = fw_extras.get('petrol_allowance_remaining', 0.0)
@@ -6627,6 +6627,51 @@ def api_field_worker_get_payslip_preview_data():
     payslip['net_pay_in_words'] = fw_extras.get('net_pay_in_words', payslip.get('net_pay_in_words', ''))
 
     return jsonify({'success': True, 'payslip': payslip, 'field_extras': fw_extras})
+
+
+@app.route('/api/field-worker/petrol-rate-config', methods=['GET', 'POST'])
+def api_field_worker_petrol_rate_config():
+    """
+    GET: Retrieves current petrol/diesel allowance rate configuration for the company.
+    POST: Updates petrol/diesel allowance rate configuration and syncs across all field workers.
+    """
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    user_role = session.get('role', '')
+    req_cid = request.args.get('company_id') if request.method == 'GET' else (request.get_json(silent=True) or {}).get('company_id')
+    cid = _resolve_field_company_id(req_cid)
+
+    if request.method == 'GET':
+        config = database.get_company_petrol_allowance_config(cid)
+        return jsonify({'success': True, **config, 'company_id': str(cid)})
+
+    # POST - Requires admin
+    if user_role not in ['super_admin', 'company_admin', 'admin']:
+        return jsonify({'success': False, 'error': 'Unauthorized: Admin privileges required to edit petrol configuration'}), 403
+
+    payload = request.get_json(silent=True) or {}
+    unit_km = payload.get('unit_km')
+    rate_inr = payload.get('rate_inr')
+
+    if unit_km is None or rate_inr is None:
+        return jsonify({'success': False, 'error': 'Both distance unit (KM) and rate (Rupees) are required'}), 400
+
+    try:
+        unit_km = float(unit_km)
+        rate_inr = float(rate_inr)
+        if unit_km <= 0 or rate_inr < 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Invalid numeric values for distance unit or rate'}), 400
+
+    result = database.set_company_petrol_allowance_config(cid, unit_km, rate_inr)
+    return jsonify({
+        'success': True,
+        'message': f"Petrol/Diesel allowance rate updated to Rs. {result['per_km_rate']:.2f} per {result['unit_km']} KM successfully!",
+        **result,
+        'company_id': str(cid)
+    })
 
 
 

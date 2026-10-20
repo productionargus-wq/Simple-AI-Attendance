@@ -1047,7 +1047,7 @@
               <td class="val-cell ps-other-ded" id="dispOtherDeductions">₹0</td>
             </tr>
             <tr>
-              <td>Other Earnings</td>
+              <td>Petrol/Diesel Allowance</td>
               <td class="val-cell ps-other-earn" id="dispOtherEarnings">₹0</td>
               <td style="border-left: 1px solid #e2e8f0;"></td>
               <td class="val-cell"></td>
@@ -1204,7 +1204,7 @@
               <td class="val-cell ps-other-ded">₹0</td>
             </tr>
             <tr>
-              <td>Other Earnings</td>
+              <td>Petrol/Diesel Allowance</td>
               <td class="val-cell ps-other-earn">₹0</td>
               <td style="border-left: 1px solid #e2e8f0;"></td>
               <td class="val-cell"></td>
@@ -1339,7 +1339,7 @@
             <td style="text-align: right; font-weight: 700;" class="ps-other-ded">₹0</td>
           </tr>
           <tr>
-            <td>Other Earnings</td>
+            <td>Petrol/Diesel Allowance</td>
             <td style="text-align: right; font-weight: 700;" class="ps-other-earn">₹0</td>
             <td></td>
             <td style="text-align: right; font-weight: 700;"></td>
@@ -3147,7 +3147,7 @@ document.addEventListener('DOMContentLoaded', function () {
     setAllText('.ps-basic-sal', formatCurrency(p.basic_salary));
     setAllText('.ps-allowance', formatCurrency(p.allowance));
     setAllText('.ps-incentive', formatCurrency(p.incentive));
-    setAllText('.ps-other-earn', formatCurrency(p.other_earnings));
+    setAllText('.ps-other-earn', formatCurrency(p.petrol_allowance || p.petrol_allowance_calculated || p.other_earnings || 0));
     setAllText('.ps-tot-earn', formatCurrency(p.total_earnings));
 
     setAllText('.ps-paid-sal', formatCurrency(p.paid_salary));

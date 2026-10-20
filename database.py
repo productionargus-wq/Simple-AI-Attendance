@@ -5197,6 +5197,7 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
     allowance = 0.0
     incentive = 0.0
     other_earnings = 0.0
+    petrol_allowance = 0.0
     advance_repayment = 0.0
     paid_salary = 0.0
     other_deductions = 0.0
@@ -5215,6 +5216,8 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
             paid_salary += p_amt
         elif 'deduction' in r_low:
             other_deductions += p_amt
+        elif 'petrol' in r_low or 'diesel' in r_low or 'fuel' in r_low:
+            petrol_allowance += p_amt
         elif 'earning' in r_low:
             other_earnings += p_amt
         else:
@@ -5226,7 +5229,7 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
         if adv_doc:
             advance_repayment = float(adv_doc.get('repayment_amount', 0.0))
 
-    total_earnings = round(basic_salary + allowance + incentive + other_earnings, 2)
+    total_earnings = round(basic_salary + allowance + incentive + petrol_allowance + other_earnings, 2)
     # Paid salary is added to total deduction per user Requirement 7
     total_deduction = round(paid_salary + advance_repayment + other_deductions, 2)
     net_pay = max(0.0, round(total_earnings - total_deduction, 2))
@@ -5329,7 +5332,7 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
                 paid_leave_salary = round((paid_leave_days * shift_target_minutes / 60.0) * hours_salary, 2)
         basic_salary = round(basic_salary + paid_leave_salary, 2)
 
-    total_earnings = round(basic_salary + allowance + incentive + other_earnings, 2)
+    total_earnings = round(basic_salary + allowance + incentive + petrol_allowance + other_earnings, 2)
     net_pay = max(0.0, round(total_earnings - total_deduction, 2))
     absent_days_lop = max(0, leave_days - paid_leave_days)
 
@@ -5389,6 +5392,7 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
         'basic_salary': round(basic_salary, 2) if salary_type == 'hourly' else int(round(basic_salary)),
         'allowance': int(round(allowance)),
         'incentive': int(round(incentive)),
+        'petrol_allowance': round(petrol_allowance, 2),
         'other_earnings': int(round(other_earnings)),
         'total_earnings': round(total_earnings, 2) if salary_type == 'hourly' else int(round(total_earnings)),
         'paid_salary': int(round(paid_salary)),
@@ -8602,6 +8606,115 @@ def attach_audio_and_process_visit(visit_id, audio_file_path, audio_url=None, du
     return clean_doc(updated_doc) if updated_doc else None
 
 
+def get_company_petrol_allowance_config(company_id):
+    """
+    Retrieves the company's configured petrol/diesel allowance rate.
+    Returns dict: {'unit_km': float, 'rate_inr': float, 'per_km_rate': float}
+    Default: unit_km=1.0, rate_inr=10.0, per_km_rate=10.0
+    """
+    cid = str(company_id).strip() if company_id else ''
+    unit_km = 1.0
+    rate_inr = 10.0
+    per_km_rate = 10.0
+
+    if cid and cid not in ['ALL', 'ARGUS_MASTER']:
+        db = get_db()
+        # 1. Try company_admin collection
+        comp = db.company_admin.find_one({'company_id': cid}) or {}
+        comp_unit = safe_float(comp.get('petrol_allowance_unit_km'))
+        comp_rate = safe_float(comp.get('petrol_allowance_rate_inr'))
+        comp_km_rate = safe_float(comp.get('km_allowance_rate') or comp.get('petrol_allowance_rate'))
+
+        # 2. Try system_settings collection
+        sys_doc = db.system_settings.find_one({'company_id': cid, 'type': 'petrol_allowance_config'}) or {}
+        sys_unit = safe_float(sys_doc.get('unit_km'))
+        sys_rate = safe_float(sys_doc.get('rate_inr'))
+        sys_km_rate = safe_float(sys_doc.get('per_km_rate') or sys_doc.get('km_allowance_rate'))
+
+        if comp_unit > 0:
+            unit_km = comp_unit
+        elif sys_unit > 0:
+            unit_km = sys_unit
+
+        if comp_rate > 0:
+            rate_inr = comp_rate
+        elif sys_rate > 0:
+            rate_inr = sys_rate
+
+        if comp_km_rate > 0:
+            per_km_rate = comp_km_rate
+        elif sys_km_rate > 0:
+            per_km_rate = sys_km_rate
+        elif unit_km > 0 and rate_inr > 0:
+            per_km_rate = round(rate_inr / unit_km, 2)
+
+    if unit_km <= 0:
+        unit_km = 1.0
+    if per_km_rate <= 0:
+        per_km_rate = 10.0
+    if rate_inr <= 0:
+        rate_inr = round(per_km_rate * unit_km, 2)
+
+    return {
+        'unit_km': unit_km,
+        'rate_inr': rate_inr,
+        'per_km_rate': per_km_rate
+    }
+
+
+def set_company_petrol_allowance_config(company_id, unit_km=1.0, rate_inr=10.0):
+    """
+    Saves company's configured petrol/diesel allowance rate and synchronizes across all field workers.
+    """
+    cid = str(company_id).strip() if company_id else ''
+    if not cid:
+        return {'unit_km': 1.0, 'rate_inr': 10.0, 'per_km_rate': 10.0}
+
+    db = get_db()
+    unit_km = max(0.01, safe_float(unit_km, 1.0))
+    rate_inr = max(0.0, safe_float(rate_inr, 10.0))
+    per_km_rate = round(rate_inr / unit_km, 2)
+
+    # 1. Update company_admin
+    db.company_admin.update_one(
+        {'company_id': cid},
+        {'$set': {
+            'petrol_allowance_unit_km': unit_km,
+            'petrol_allowance_rate_inr': rate_inr,
+            'km_allowance_rate': per_km_rate,
+            'petrol_allowance_rate': per_km_rate,
+            'updated_at': get_ist_now().isoformat()
+        }}
+    )
+
+    # 2. Update system_settings
+    db.system_settings.update_one(
+        {'company_id': cid, 'type': 'petrol_allowance_config'},
+        {'$set': {
+            'company_id': cid,
+            'type': 'petrol_allowance_config',
+            'unit_km': unit_km,
+            'rate_inr': rate_inr,
+            'per_km_rate': per_km_rate,
+            'km_allowance_rate': per_km_rate,
+            'updated_at': get_ist_now().isoformat()
+        }},
+        upsert=True
+    )
+
+    # 3. Synchronize all field workers in db.users for this company
+    db.users.update_many(
+        {'company_id': cid, 'is_field_worker': True},
+        {'$set': {'km_allowance_rate': per_km_rate}}
+    )
+
+    return {
+        'unit_km': unit_km,
+        'rate_inr': rate_inr,
+        'per_km_rate': per_km_rate
+    }
+
+
 def get_field_worker_salary_report(company_id=None, month_year=None, employee_name=None):
     """
     Calculates monthly Field Worker Salary & Payslip data combining:
@@ -8664,7 +8777,13 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
 
         # 4. Compensation Calculation
         per_visit_rate = round(safe_float(w.get('per_visit_incentive', 0.0)), 2)
-        km_rate = round(safe_float(w.get('km_allowance_rate', 5.0)), 2)
+        # Dynamic company-configured petrol/diesel rate
+        petrol_cfg = get_company_petrol_allowance_config(emp_cid)
+        km_rate = petrol_cfg.get('per_km_rate', 0.0)
+        if km_rate <= 0:
+            km_rate = round(safe_float(w.get('km_allowance_rate', 10.0)), 2)
+        if km_rate <= 0:
+            km_rate = 10.0
         if km_rate <= 0:
             km_rate = 5.0
 
@@ -8674,7 +8793,7 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
         petrol_pay_q = {
             'employee_name': ename,
             'payment_date': {'$regex': f'^{re.escape(target_month)}'},
-            'status': {'$regex': r'petrol.*diesel.*allowance', '$options': 'i'}
+            'status': {'$regex': r'petrol|diesel|fuel', '$options': 'i'}
         }
         if emp_cid and str(emp_cid) not in ['ALL', 'ARGUS_MASTER']:
             petrol_pay_q['company_id'] = str(emp_cid)
@@ -8683,6 +8802,7 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
 
         # Auto-calculated petrol/travel allowance
         auto_petrol_allowance = round(total_km * km_rate, 2)
+        effective_petrol_allowance = auto_petrol_allowance if auto_petrol_allowance > 0 else manual_petrol_paid
 
         # Remaining payable petrol allowance after deducting manual advance/disbursement
         remaining_petrol_payable = max(0.0, round(auto_petrol_allowance - manual_petrol_paid, 2))
@@ -8696,7 +8816,7 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
 
         # Manually paid petrol allowance is reduced from the monthly total so it is not added to net pay
         gross_field_salary = round(
-            base_attendance_pay + visit_incentive_pay + remaining_petrol_payable + regular_allowance + regular_incentive + other_earnings,
+            base_attendance_pay + visit_incentive_pay + effective_petrol_allowance + regular_allowance + regular_incentive + other_earnings,
             2
         )
         net_field_payable = max(0.0, round(gross_field_salary - total_deduction, 2))
@@ -8735,12 +8855,12 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
             'travel_allowance_paid': manual_petrol_paid,
             'travel_allowance_remaining': remaining_petrol_payable,
             'travel_allowance_pay': remaining_petrol_payable,
-            'petrol_allowance': auto_petrol_allowance,
+            'petrol_allowance': effective_petrol_allowance,
             'petrol_allowance_calculated': auto_petrol_allowance,
             'petrol_allowance_paid': manual_petrol_paid,
             'petrol_allowance_remaining': remaining_petrol_payable,
             'petrol_allowance_status': petrol_status,
-            'fuel_allowance': auto_petrol_allowance,
+            'fuel_allowance': effective_petrol_allowance,
             'regular_allowance': regular_allowance + regular_incentive + other_earnings,
             'total_deduction': total_deduction,
             'gross_field_salary': gross_field_salary,

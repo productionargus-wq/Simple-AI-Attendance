@@ -3042,7 +3042,32 @@
     }
 
     /* All other active panes expand to 100% height and flex column */
-    .fw-section-pane.active:not(#paneFieldDashboard) {
+    /* Payslip Preview pane: smooth full vertical scroll, unclipped form & action buttons */
+    .fw-section-pane#paneFieldPayslipPreview {
+      height: 100% !important;
+      max-height: 100% !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      display: none;
+      padding-bottom: 60px !important;
+      box-sizing: border-box !important;
+    }
+    .fw-section-pane.active#paneFieldPayslipPreview {
+      display: block !important;
+    }
+    #paneFieldPayslipPreview #payslipSelectionCard {
+      flex: none !important;
+      overflow: visible !important;
+      min-height: auto !important;
+      margin-bottom: 16px !important;
+      display: block !important;
+    }
+    #paneFieldPayslipPreview #payslipDocumentCard {
+      overflow: visible !important;
+      margin: 16px auto 40px auto !important;
+    }
+
+    .fw-section-pane.active:not(#paneFieldDashboard):not(#paneFieldPayslipPreview) {
       height: 100% !important;
       max-height: 100% !important;
       display: flex !important;
@@ -3051,7 +3076,7 @@
     }
 
     /* Top Controls Zone (~20%) */
-    .fw-section-pane:not(#paneFieldDashboard) .content-banner-card {
+    .fw-section-pane:not(#paneFieldDashboard):not(#paneFieldPayslipPreview) .content-banner-card {
       padding: 6px 14px !important;
       margin-bottom: 6px !important;
       min-height: 42px !important;
@@ -3107,7 +3132,7 @@
     }
 
     /* Records Zone (~80%) */
-    .fw-section-pane:not(#paneFieldDashboard) .table-card {
+    .fw-section-pane:not(#paneFieldDashboard):not(#paneFieldPayslipPreview) .table-card {
       flex: 1 1 auto !important;
       display: flex !important;
       flex-direction: column !important;
@@ -6253,6 +6278,12 @@
               </div>
 
               <div class="table-toolbar-right" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto;">
+                {% if user_role in ['super_admin', 'company_admin', 'admin'] %}
+                <button type="button" class="fw-btn" id="btnConfigurePetrol" onclick="openConfigurePetrolModal()" style="display:inline-flex; align-items:center; gap:6px; height: 30px; font-size: 11.5px; padding: 4px 12px; background: #0284c7; color: #ffffff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.08); transition: all 0.15s ease;">
+                  <i class="fa-solid fa-gas-pump"></i>
+                  <span>Configure Petrol/Diesel</span>
+                </button>
+                {% endif %}
                 <div class="search-box-wrapper">
                   <label style="font-size:11.5px; font-weight:600; color:#475569;">Search:</label>
                   <input type="text" id="filterFwManualSearch" class="search-input" placeholder="Search field worker..." oninput="debounceFwManualSearch()" style="height:28px; font-size:11.5px;">
@@ -6385,6 +6416,70 @@
         </div>
 
         <!-- ========================================================================= -->
+          <!-- Modal: Configure Petrol / Diesel Allowance Rate -->
+          <div class="fw-modal-backdrop d-none" id="modalConfigurePetrol" style="z-index: 1050;">
+            <div class="fw-modal-dialog" style="max-width: 480px; width: 92vw;">
+              <div class="fw-modal-header">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background:#e0f2fe; color:#0284c7;">
+                    <i class="fa-solid fa-gas-pump"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title">CONFIGURE PETROL / DIESEL ALLOWANCE</div>
+                    <div class="fw-card-subtitle">Set distance reimbursement rate for field workers</div>
+                  </div>
+                </div>
+                <button type="button" class="fw-modal-close-btn" onclick="closeConfigurePetrolModal()">&times;</button>
+              </div>
+              <form id="formConfigurePetrol" onsubmit="submitConfigurePetrol(event)">
+                <div class="fw-modal-body" style="padding: 18px 22px;">
+                  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: 12px; color: #475569; line-height: 1.5;">
+                    <div style="display:flex; align-items:center; gap:6px; font-weight:700; color:#0f172a; margin-bottom:4px;">
+                      <i class="fa-solid fa-circle-info" style="color:#0284c7;"></i>
+                      <span>Company-Wide Reimbursement Rate</span>
+                    </div>
+                    Specify the reimbursement rate per unit distance (e.g. 1 KM = ₹10). Changing this rate dynamically recalculates the petrol/diesel allowance across all field worker payslips and reports.
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: flex-end;">
+                    <div>
+                      <label for="cfgPetrolUnitKm" style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Distance Unit *</label>
+                      <div style="display:flex; align-items:center; border:1px solid #cbd5e1; border-radius:6px; background:#fff; overflow:hidden;">
+                        <input type="number" step="0.1" min="0.1" id="cfgPetrolUnitKm" class="filter-input" value="1" required style="border:none; padding:8px 10px; width:100%; font-size:13px; font-weight:700; color:#0f172a;" oninput="updatePetrolRatePreview()">
+                        <span style="padding:8px 12px; background:#f1f5f9; color:#64748b; font-size:12px; font-weight:700; border-left:1px solid #cbd5e1;">KM</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label for="cfgPetrolRateInr" style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Rate in Rupees *</label>
+                      <div style="display:flex; align-items:center; border:1px solid #cbd5e1; border-radius:6px; background:#fff; overflow:hidden;">
+                        <span style="padding:8px 12px; background:#f1f5f9; color:#64748b; font-size:13px; font-weight:700; border-right:1px solid #cbd5e1;">₹</span>
+                        <input type="number" step="0.25" min="0" id="cfgPetrolRateInr" class="filter-input" value="10" required style="border:none; padding:8px 10px; width:100%; font-size:13px; font-weight:700; color:#0f172a;" oninput="updatePetrolRatePreview()">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Dynamic Calculation Summary Box -->
+                  <div style="margin-top: 16px; padding: 12px 14px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                      <div style="font-size: 11px; font-weight: 700; color: #047857; text-transform: uppercase; letter-spacing: 0.5px;">Calculated Effective Rate</div>
+                      <div style="font-size: 12px; color: #065f46; margin-top: 2px;">Applied to GPS distance tracked for each field worker</div>
+                    </div>
+                    <div style="font-size: 16px; font-weight: 800; color: #047857;" id="cfgPetrolEffectivePreview">
+                      ₹10.00 / KM
+                    </div>
+                  </div>
+                </div>
+                <div class="fw-modal-footer" style="padding: 12px 20px; display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #e2e8f0;">
+                  <button type="button" class="fw-btn fw-btn-neutral" onclick="closeConfigurePetrolModal()" style="height:34px; padding:4px 14px;">Cancel</button>
+                  <button type="submit" class="fw-btn fw-btn-primary" id="btnSubmitPetrolConfig" style="height:34px; padding:4px 18px; background:#0284c7; border:none; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>Save Configuration</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         <!-- TAB 8: FIELD WORKER PAYMENT ENTRY (STRICTLY ISOLATED)                     -->
         <!-- ========================================================================= -->
         <div id="paneFieldPaymentEntry" class="fw-section-pane" data-title="FIELD WORKER PAYMENT ENTRY">
@@ -6924,7 +7019,7 @@
               <td class="val-cell ps-other-ded" id="dispOtherDeductions">₹0</td>
             </tr>
             <tr>
-              <td>Other Earnings</td>
+              <td>Petrol/Diesel Allowance</td>
               <td class="val-cell ps-other-earn" id="dispOtherEarnings">₹0</td>
               <td style="border-left: 1px solid #e2e8f0;"></td>
               <td class="val-cell"></td>
@@ -7081,7 +7176,7 @@
               <td class="val-cell ps-other-ded">₹0</td>
             </tr>
             <tr>
-              <td>Other Earnings</td>
+              <td>Petrol/Diesel Allowance</td>
               <td class="val-cell ps-other-earn">₹0</td>
               <td style="border-left: 1px solid #e2e8f0;"></td>
               <td class="val-cell"></td>
@@ -7216,7 +7311,7 @@
             <td style="text-align: right; font-weight: 700;" class="ps-other-ded">₹0</td>
           </tr>
           <tr>
-            <td>Other Earnings</td>
+            <td>Petrol/Diesel Allowance</td>
             <td style="text-align: right; font-weight: 700;" class="ps-other-earn">₹0</td>
             <td></td>
             <td style="text-align: right; font-weight: 700;"></td>
@@ -7330,7 +7425,7 @@
               <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Basic Salary</span><span style="font-weight: 700;" class="ps-basic-sal">₹0</span></div>
               <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Allowance</span><span style="font-weight: 700;" class="ps-allowance">₹0</span></div>
               <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Incentive</span><span style="font-weight: 700;" class="ps-incentive">₹0</span></div>
-              <div style="display: flex; justify-content: space-between; padding: 4px 12px;"><span>Others Earnings</span><span style="font-weight: 700;" class="ps-other-earn">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px;"><span>Petrol/Diesel Allowance</span><span style="font-weight: 700;" class="ps-other-earn">₹0</span></div>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 6px 12px; background: var(--ps-light-badge); font-size: 11.5px; font-weight: 800; color: var(--ps-primary); border-top: 1px solid var(--ps-border);">
               <span>TOTAL EARNINGS</span><span class="ps-tot-earn">₹0</span>
@@ -7459,7 +7554,7 @@
               <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Basic Salary</span><span style="font-weight: 700;" class="ps-basic-sal">₹0</span></div>
               <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Allowance</span><span style="font-weight: 700;" class="ps-allowance">₹0</span></div>
               <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Incentive</span><span style="font-weight: 700;" class="ps-incentive">₹0</span></div>
-              <div style="display: flex; justify-content: space-between; padding: 4px 12px;"><span>Others Earnings</span><span style="font-weight: 700;" class="ps-other-earn">₹0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px;"><span>Petrol/Diesel Allowance</span><span style="font-weight: 700;" class="ps-other-earn">₹0</span></div>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 6px 12px; background: var(--ps-light-badge); font-size: 11.5px; font-weight: 800; color: var(--ps-primary); border-top: 1px solid var(--ps-border);">
               <span>TOTAL EARNINGS</span><span class="ps-tot-earn">₹0</span>
@@ -7596,7 +7691,7 @@
               <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #fffbeb;"><span>Basic Salary</span><span style="font-weight: 700;" class="ps-basic-sal">Rs. 0</span></div>
               <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #fffbeb;"><span>Allowance</span><span style="font-weight: 700;" class="ps-allowance">Rs. 0</span></div>
               <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #fffbeb;"><span>Incentive</span><span style="font-weight: 700;" class="ps-incentive">Rs. 0</span></div>
-              <div style="display: flex; justify-content: space-between; padding: 4px 12px;"><span>Others Earnings</span><span style="font-weight: 700;" class="ps-other-earn">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px;"><span>Petrol/Diesel Allowance</span><span style="font-weight: 700;" class="ps-other-earn">Rs. 0</span></div>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 6px 12px; background: #fef3c7; font-size: 11.5px; font-weight: 800; color: #d97706; border-top: 1px solid #fcd34d;">
               <span>TOTAL EARNINGS</span><span class="ps-tot-earn">Rs. 0</span>
@@ -7740,7 +7835,7 @@
               <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Basic Salary</span><span style="font-weight: 700;" class="ps-basic-sal">Rs. 0</span></div>
               <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc; background: #f8fafc;"><span>Allowance</span><span style="font-weight: 700;" class="ps-allowance">Rs. 0</span></div>
               <div style="display: flex; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid #f8fafc;"><span>Incentive</span><span style="font-weight: 700;" class="ps-incentive">Rs. 0</span></div>
-              <div style="display: flex; justify-content: space-between; padding: 4px 12px; background: #f8fafc;"><span>Others Earnings</span><span style="font-weight: 700;" class="ps-other-earn">Rs. 0</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 12px; background: #f8fafc;"><span>Petrol/Diesel Allowance</span><span style="font-weight: 700;" class="ps-other-earn">Rs. 0</span></div>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 6px 12px; background: #dbeafe; font-size: 11.5px; font-weight: 800; color: var(--ps-primary); border-top: 1px solid #bfdbfe;">
               <span>TOTAL EARNINGS</span><span class="ps-tot-earn">Rs. 0</span>
@@ -13305,6 +13400,86 @@
       if (modal) modal.classList.remove('d-none');
     }
 
+    function updatePetrolRatePreview() {
+      const unit = parseFloat(document.getElementById('cfgPetrolUnitKm')?.value) || 1;
+      const rate = parseFloat(document.getElementById('cfgPetrolRateInr')?.value) || 0;
+      const effective = unit > 0 ? (rate / unit).toFixed(2) : '0.00';
+      const el = document.getElementById('cfgPetrolEffectivePreview');
+      if (el) el.innerText = `₹${effective} / KM`;
+    }
+
+    async function openConfigurePetrolModal() {
+      const modal = document.getElementById('modalConfigurePetrol');
+      if (!modal) return;
+      const cid = getActiveCompanyId();
+      try {
+        const res = await fetch(`/api/field-worker/petrol-rate-config?company_id=${encodeURIComponent(cid)}`);
+        const data = await res.json();
+        if (data.success) {
+          const uInput = document.getElementById('cfgPetrolUnitKm');
+          const rInput = document.getElementById('cfgPetrolRateInr');
+          if (uInput) uInput.value = data.unit_km !== undefined ? data.unit_km : 1;
+          if (rInput) rInput.value = data.rate_inr !== undefined ? data.rate_inr : 10;
+          updatePetrolRatePreview();
+        }
+      } catch (err) {
+        console.error('Failed to load petrol config:', err);
+      }
+      modal.classList.remove('d-none');
+    }
+
+    function closeConfigurePetrolModal() {
+      const modal = document.getElementById('modalConfigurePetrol');
+      if (modal) modal.classList.add('d-none');
+    }
+
+    async function submitConfigurePetrol(e) {
+      if (e) e.preventDefault();
+      const unit = parseFloat(document.getElementById('cfgPetrolUnitKm')?.value) || 1;
+      const rate = parseFloat(document.getElementById('cfgPetrolRateInr')?.value) || 0;
+      if (unit <= 0) {
+        showToast('Distance unit must be greater than 0.', true);
+        return;
+      }
+      if (rate < 0) {
+        showToast('Rate cannot be negative.', true);
+        return;
+      }
+      const cid = getActiveCompanyId();
+      const btn = document.getElementById('btnSubmitPetrolConfig');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Saving...`;
+      }
+      try {
+        const res = await fetch('/api/field-worker/petrol-rate-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ company_id: cid, unit_km: unit, rate_inr: rate })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Petrol/Diesel allowance rate updated successfully!');
+          closeConfigurePetrolModal();
+          if (typeof loadFieldWorkers === 'function') loadFieldWorkers();
+          if (typeof loadFieldSalaryReports === 'function') loadFieldSalaryReports();
+          const activePane = sessionStorage.getItem('activeFieldTab');
+          if (activePane === 'paneFieldPayslipPreview' && typeof generateFieldPayslip === 'function') {
+            generateFieldPayslip();
+          }
+        } else {
+          showToast(data.error || 'Failed to update petrol rate configuration', true);
+        }
+      } catch (err) {
+        showToast('Error saving petrol rate: ' + err.message, true);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> <span>Save Configuration</span>`;
+        }
+      }
+    }
+
     function closeFieldManualEntryModal() {
       const modal = document.getElementById('modalFieldManualEntry');
       if (modal) modal.classList.add('d-none');
@@ -13610,6 +13785,7 @@
         if (data.success) {
           showToast(data.message || 'Advance recorded successfully!');
           closeFieldAdvanceModal();
+        closeConfigurePetrolModal();
           await loadFieldPayments();
         } else {
           showToast(data.error || 'Failed to record advance', true);
@@ -14084,13 +14260,15 @@
       setAllText('.ps-working-hours', p.total_working_hours || '00:00');
       setAllText('.ps-total-days', `${p.total_days || 30} Days (${p.leave_days || 0} Leave)`);
 
-      const allowAmt = Number(p.travel_allowance_pay || 0) + Number(p.allowance || 0);
+      const allowAmt = Number(p.allowance || 0);
+      const petrolDieselAmt = Number(p.petrol_allowance || p.petrol_allowance_calculated || p.travel_allowance_pay || p.other_earnings || 0);
       const incAmt = Number(p.visit_incentive_pay || 0) + Number(p.incentive || 0);
 
       setAllText('.ps-basic-sal', formatCurrency(p.base_attendance_pay || p.basic_salary || 0));
       setAllText('.ps-allowance', formatCurrency(allowAmt));
       setAllText('.ps-incentive', formatCurrency(incAmt));
-      setAllText('.ps-other-earn', formatCurrency(p.other_earnings || 0));
+      setAllText('.ps-other-earn', formatCurrency(petrolDieselAmt));
+      setAllText('.ps-petrol-allowance', formatCurrency(petrolDieselAmt));
       setAllText('.ps-tot-earn', formatCurrency(p.gross_field_salary || p.total_earnings || 0));
 
       setAllText('.ps-paid-sal', formatCurrency(p.paid_salary || 0));
@@ -14164,6 +14342,7 @@
         closeFieldManualEntryModal();
         closeFieldPaymentModal();
         closeFieldAdvanceModal();
+        closeConfigurePetrolModal();
       }
     });
 
@@ -14209,6 +14388,9 @@
       }
       if (e.target && e.target.id === 'modalFieldAdvanceEntry') {
         closeFieldAdvanceModal();
+      }
+      if (e.target && e.target.id === 'modalConfigurePetrol') {
+        closeConfigurePetrolModal();
       }
     });
 
