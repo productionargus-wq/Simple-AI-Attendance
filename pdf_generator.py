@@ -1182,6 +1182,9 @@ def _extract_payslip_fields(p):
     basic_sal = Number_format(p.get('basic_salary', 0))
     allowance = Number_format(p.get('allowance', 0))
     incentive = Number_format(p.get('incentive', 0))
+    verified_visits = int(p.get('verified_visits', 0) or 0)
+    verified_visits_inc_val = float(p.get('verified_visits_incentive') or p.get('visit_incentive_pay') or 0) if verified_visits > 0 else 0.0
+    verified_visits_inc = Number_format(verified_visits_inc_val)
     petrol_ded_val = float(p.get('petrol_allowance_deduction') or p.get('petrol_allowance_paid', 0))
     petrol_earn_val = float(p.get('petrol_allowance_earnings') or p.get('petrol_allowance', 0))
     petrol_ded = Number_format(petrol_ded_val)
@@ -1224,6 +1227,9 @@ def _extract_payslip_fields(p):
         'basic_sal': basic_sal,
         'allowance': allowance,
         'incentive': incentive,
+        'verified_visits': verified_visits,
+        'verified_visits_inc_val': verified_visits_inc_val,
+        'verified_visits_inc': verified_visits_inc,
         'other_earn': other_earn,
         'tot_earn': tot_earn,
         'paid_sal': paid_sal,
@@ -3572,40 +3578,54 @@ def generate_field_worker_payslip_pdf(data, company_info=None):
 
     # Earnings & Deductions Breakdown
     amt_style = ParagraphStyle('FWAmt', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, alignment=TA_RIGHT, textColor=colors.HexColor('#0f172a'))
+    comp_counter = 1
     pay_rows = [
         [Paragraph("EARNINGS COMPONENT", sec_hdr), Paragraph("CALCULATION BASIS", sec_hdr), Paragraph("AMOUNT (Rs.)", sec_hdr)],
         [
-            Paragraph("1. Base Attendance Salary", lbl_style),
+            Paragraph(f"{comp_counter}. Base Attendance Salary", lbl_style),
             Paragraph(f"{data.get('working_days', 0)} Working Days / {data.get('total_hours', '00:00')} Punched Hrs", val_style),
             Paragraph(f"{float(data.get('base_attendance_pay', 0)):,.2f}", amt_style)
-        ],
-        [
-            Paragraph("2. Verified Customer Visit Incentive", lbl_style),
-            Paragraph(f"{data.get('verified_visits', 0)} Verified Visits x Rs. {float(data.get('per_visit_incentive_rate', 0)):,.2f}/visit", val_style),
-            Paragraph(f"{float(data.get('visit_incentive_pay', 0)):,.2f}", amt_style)
-        ],
-        [
-            Paragraph("3. Petrol / Diesel Allowance", lbl_style),
-            Paragraph(
-                (
-                    f"Distance: {float(data.get('total_km_traveled', 0)):.2f} KM (Rs. {float(data.get('travel_allowance_calculated', data.get('petrol_allowance', 0))):,.2f})"
-                    f"<br/><font color='#15803d'><b>Paid Manually: Rs. {float(data.get('petrol_allowance_paid', data.get('travel_allowance_paid', 0))):,.2f} [PAID]</b></font>"
-                ) if float(data.get('petrol_allowance_paid', data.get('travel_allowance_paid', 0))) > 0
-                else f"Distance Travelled: {float(data.get('total_km_traveled', 0)):.2f} KM",
-                val_style
-            ),
-            Paragraph(
-                f"{float(data.get('travel_allowance_remaining', data.get('travel_allowance_pay', data.get('petrol_allowance', 0)))):,.2f}"
-                if float(data.get('petrol_allowance_paid', data.get('travel_allowance_paid', 0))) > 0
-                else f"{float(data.get('travel_allowance_pay', data.get('petrol_allowance', 0))):,.2f}",
-                amt_style
-            )
-        ],
-        [
-            Paragraph("4. Regular Allowance / Other Earnings", lbl_style),
-            Paragraph("Fixed / Additional Earnings", val_style),
-            Paragraph(f"{float(data.get('regular_allowance', 0)):,.2f}", amt_style)
-        ],
+        ]
+    ]
+    comp_counter += 1
+
+    # Requirement 3: Verified visits incentives added dynamically if completed verified visits (>0)
+    fw_ver_visits = int(data.get('verified_visits', 0) or 0)
+    fw_vis_inc = float(data.get('verified_visits_incentive') or data.get('visit_incentive_pay') or 0)
+    if fw_ver_visits > 0 and fw_vis_inc > 0:
+        pay_rows.append([
+            Paragraph(f"{comp_counter}. Verified Visits Incentives", lbl_style),
+            Paragraph(f"{fw_ver_visits} Verified Visits x Rs. {float(data.get('per_visit_incentive_rate', 0)):,.2f}/visit", val_style),
+            Paragraph(f"{fw_vis_inc:,.2f}", amt_style)
+        ])
+        comp_counter += 1
+
+    pay_rows.append([
+        Paragraph(f"{comp_counter}. Petrol / Diesel Allowance", lbl_style),
+        Paragraph(
+            (
+                f"Distance: {float(data.get('total_km_traveled', 0)):.2f} KM (Rs. {float(data.get('travel_allowance_calculated', data.get('petrol_allowance', 0))):,.2f})"
+                f"<br/><font color='#15803d'><b>Paid Manually: Rs. {float(data.get('petrol_allowance_paid', data.get('travel_allowance_paid', 0))):,.2f} [PAID]</b></font>"
+            ) if float(data.get('petrol_allowance_paid', data.get('travel_allowance_paid', 0))) > 0
+            else f"Distance Travelled: {float(data.get('total_km_traveled', 0)):.2f} KM",
+            val_style
+        ),
+        Paragraph(
+            f"{float(data.get('travel_allowance_remaining', data.get('travel_allowance_pay', data.get('petrol_allowance', 0)))):,.2f}"
+            if float(data.get('petrol_allowance_paid', data.get('travel_allowance_paid', 0))) > 0
+            else f"{float(data.get('travel_allowance_pay', data.get('petrol_allowance', 0))):,.2f}",
+            amt_style
+        )
+    ])
+    comp_counter += 1
+
+    pay_rows.append([
+        Paragraph(f"{comp_counter}. Regular Allowance / Other Earnings", lbl_style),
+        Paragraph("Fixed / Additional Earnings", val_style),
+        Paragraph(f"{float(data.get('regular_allowance', 0)):,.2f}", amt_style)
+    ])
+
+    pay_rows.extend([
         [
             Paragraph("GROSS FIELD EARNINGS", lbl_style),
             Paragraph("", val_style),
@@ -3621,7 +3641,7 @@ def generate_field_worker_payslip_pdf(data, company_info=None):
             Paragraph(str(data.get('net_pay_in_words', '')), ParagraphStyle('FWWords', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, textColor=colors.white)),
             Paragraph(f"Rs. {float(data.get('net_field_payable', 0)):,.2f}", ParagraphStyle('FWNet', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10.5, alignment=TA_RIGHT, textColor=colors.white))
         ]
-    ]
+    ])
     t_pay = Table(pay_rows, colWidths=[190, 220, 130])
     t_pay.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),

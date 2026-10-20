@@ -4357,16 +4357,35 @@
                       </div>
 
                       <div class="fw-field">
-                        <label class="fw-label">Per Verified Visit (₹)</label>
+                        <label class="fw-label">Per Verified Visit Incentive (₹)</label>
                         <input type="number" step="0.5" id="fwRegVisitIncentive" class="fw-input" value="75">
                       </div>
                     </div>
 
-                    <!-- Row 8: Travel & Petrol Allowance Note (No Rate Input) -->
-                    <input type="hidden" id="fwRegKmRate" value="5.0">
-                    <div style="margin-top:4px;">
-                      <div style="font-size:11.5px; color:#0f766e; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:10px 12px; line-height:1.4;">
-                        <i class="fa-solid fa-circle-check"></i> Automatically calculates daily travel distance, verified visits, and petrol/diesel allowance into monthly payslips.
+                    <!-- Row 8: Configure Petrol/Diesel Allowance Section -->
+                    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px 14px; margin-top:8px;">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                        <label class="fw-label" style="font-weight:700; color:#0f172a; margin-bottom:0; display:flex; align-items:center; gap:6px;">
+                          <i class="fa-solid fa-gas-pump" style="color:#d97706;"></i>
+                          Configure Petrol/Diesel Allowance
+                        </label>
+                        <span id="fwRegPetrolPreviewBadge" style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:12px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; transition:all 0.2s;">
+                          Using Company Default
+                        </span>
+                      </div>
+                      <div class="fw-form-grid-2" style="margin-bottom:6px;">
+                        <div class="fw-field">
+                          <label class="fw-label" style="font-size:11px;">Distance Unit (KM)</label>
+                          <input type="number" step="0.1" min="0.1" id="fwRegPetrolUnitKm" class="fw-input" placeholder="e.g. 1" value="1" oninput="updateWorkerPetrolRatePreview()">
+                        </div>
+                        <div class="fw-field">
+                          <label class="fw-label" style="font-size:11px;">Amount (₹)</label>
+                          <input type="number" step="0.01" min="0" id="fwRegPetrolRateInr" class="fw-input" placeholder="e.g. 100 (Leave empty for default)" oninput="updateWorkerPetrolRatePreview()">
+                        </div>
+                      </div>
+                      <input type="hidden" id="fwRegKmRate" value="10.0">
+                      <div style="font-size:11px; color:#64748b; line-height:1.4;">
+                        <i class="fa-solid fa-circle-info"></i> If amount is left blank or 0, the company default petrol/diesel allowance configured in Manual Entry tab will be used.
                       </div>
                     </div>
                   </div>
@@ -8935,9 +8954,40 @@
         if (photoPreview) photoPreview.innerHTML = '<i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>';
         const photoData = document.getElementById('fwRegPhotoData');
         if (photoData) photoData.value = '';
+        const unitKmInput = document.getElementById('fwRegPetrolUnitKm');
+        if (unitKmInput) unitKmInput.value = '1';
+        const rateInrInput = document.getElementById('fwRegPetrolRateInr');
+        if (rateInrInput) rateInrInput.value = '';
+        if (typeof updateWorkerPetrolRatePreview === 'function') updateWorkerPetrolRatePreview();
         setFieldWorkerPermissionCheckboxes(null);
       }
       modal.classList.remove('d-none');
+    }
+
+    function updateWorkerPetrolRatePreview() {
+      const unitKm = parseFloat(document.getElementById('fwRegPetrolUnitKm')?.value) || 0;
+      const rateInrVal = document.getElementById('fwRegPetrolRateInr')?.value;
+      const rateInr = (rateInrVal !== '' && rateInrVal !== null && !isNaN(parseFloat(rateInrVal))) ? parseFloat(rateInrVal) : 0;
+      const badge = document.getElementById('fwRegPetrolPreviewBadge');
+      const kmRateInput = document.getElementById('fwRegKmRate');
+      if (unitKm > 0 && rateInr > 0) {
+        const perKm = (rateInr / unitKm).toFixed(2);
+        if (badge) {
+          badge.textContent = `Worker Custom: ₹${perKm} / KM`;
+          badge.style.background = '#dcfce7';
+          badge.style.color = '#15803d';
+          badge.style.borderColor = '#86efac';
+        }
+        if (kmRateInput) kmRateInput.value = perKm;
+      } else {
+        if (badge) {
+          badge.textContent = 'Using Company Default';
+          badge.style.background = '#f1f5f9';
+          badge.style.color = '#475569';
+          badge.style.borderColor = '#cbd5e1';
+        }
+        if (kmRateInput) kmRateInput.value = '';
+      }
     }
 
     function closeRegisterWorkerModal() {
@@ -10283,6 +10333,8 @@
             const wHrSal = (w.hourly_salary !== undefined && w.hourly_salary !== null) ? w.hourly_salary : 100;
             const wVisitInc = (w.per_visit_incentive !== undefined && w.per_visit_incentive !== null) ? w.per_visit_incentive : 75;
             const wKmRate = (w.km_allowance_rate !== undefined && w.km_allowance_rate !== null) ? w.km_allowance_rate : 6;
+            const wPetrolUnitKm = (w.petrol_unit_km !== undefined && w.petrol_unit_km !== null) ? w.petrol_unit_km : '';
+            const wPetrolRateInr = (w.petrol_rate_inr !== undefined && w.petrol_rate_inr !== null) ? w.petrol_rate_inr : '';
             const wStatus = escapeHtml(w.status || 'Active');
             const isSelected = (curRegVal && String(curRegVal) === String(wId)) ? 'selected' : '';
             const wAllowedTabs = escapeHtml(JSON.stringify(w.allowed_tabs || []));
@@ -10302,6 +10354,8 @@
               data-hrsal="${wHrSal}"
               data-visitinc="${wVisitInc}"
               data-kmrate="${wKmRate}"
+              data-petrolunitkm="${wPetrolUnitKm}"
+              data-petrolrateinr="${wPetrolRateInr}"
               data-status="${wStatus}"
               data-allowedtabs="${wAllowedTabs}">Edit: ${wName} (${wDept})</option>`;
           });
@@ -11006,6 +11060,10 @@
         const branchSel = document.getElementById('fwRegBranchId');
         if (branchSel) branchSel.value = 'HOME';
         document.getElementById('fwPhotoPreviewContainer').innerHTML = '<i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>';
+        if (document.getElementById('fwRegPetrolUnitKm')) document.getElementById('fwRegPetrolUnitKm').value = 1;
+        if (document.getElementById('fwRegPetrolRateInr')) document.getElementById('fwRegPetrolRateInr').value = '';
+        if (document.getElementById('fwRegKmRate')) document.getElementById('fwRegKmRate').value = '';
+        if (typeof updateWorkerPetrolRatePreview === 'function') updateWorkerPetrolRatePreview();
         setFieldWorkerPermissionCheckboxes(null);
         return;
       }
@@ -11021,7 +11079,12 @@
       const salType = opt.dataset.saltype || 'daily';
       document.getElementById('fwRegBaseRate').value = salType === 'hourly' ? (opt.dataset.hrsal || 100) : (opt.dataset.daysal || 600);
       document.getElementById('fwRegVisitIncentive').value = opt.dataset.visitinc || 75;
-      document.getElementById('fwRegKmRate').value = opt.dataset.kmrate || 6;
+      const unitKmEl = document.getElementById('fwRegPetrolUnitKm');
+      if (unitKmEl) unitKmEl.value = opt.dataset.petrolunitkm || 1;
+      const rateInrEl = document.getElementById('fwRegPetrolRateInr');
+      if (rateInrEl) rateInrEl.value = opt.dataset.petrolrateinr || '';
+      document.getElementById('fwRegKmRate').value = opt.dataset.kmrate || '';
+      if (typeof updateWorkerPetrolRatePreview === 'function') updateWorkerPetrolRatePreview();
       document.getElementById('fwRegStatus').value = opt.dataset.status || 'Active';
 
       let allowed = null;
@@ -11067,7 +11130,10 @@
         hourly_salary: salType === 'hourly' ? baseRate : 0,
         half_day_salary: salType === 'half_day' ? baseRate : Math.round(baseRate / 2),
         per_visit_incentive: parseFloat(document.getElementById('fwRegVisitIncentive').value) || 0,
-        km_allowance_rate: parseFloat(document.getElementById('fwRegKmRate').value) || 0,
+        petrol_unit_km: parseFloat(document.getElementById('fwRegPetrolUnitKm')?.value) || 1.0,
+        petrol_rate_inr: (document.getElementById('fwRegPetrolRateInr')?.value !== '' && document.getElementById('fwRegPetrolRateInr')?.value !== null && !isNaN(parseFloat(document.getElementById('fwRegPetrolRateInr')?.value))) ? parseFloat(document.getElementById('fwRegPetrolRateInr')?.value) : null,
+        has_custom_petrol_rate: Boolean(document.getElementById('fwRegPetrolRateInr')?.value && parseFloat(document.getElementById('fwRegPetrolRateInr')?.value) > 0),
+        km_allowance_rate: (document.getElementById('fwRegPetrolRateInr')?.value && parseFloat(document.getElementById('fwRegPetrolRateInr')?.value) > 0) ? (Math.round((parseFloat(document.getElementById('fwRegPetrolRateInr').value) / (parseFloat(document.getElementById('fwRegPetrolUnitKm')?.value) || 1.0)) * 100) / 100) : null,
         photo_data: document.getElementById('fwRegPhotoData').value,
         is_field_worker: true,
         allowed_tabs: checkedTabs
@@ -14287,6 +14353,13 @@
       const petrolEarn = Number(p.petrol_allowance_earnings !== undefined ? p.petrol_allowance_earnings : (p.petrol_allowance || 0));
       if (petrolEarn > 0) {
         earnItems.push({ label: 'Petrol/Diesel Allowance', amount: petrolEarn });
+      }
+
+      // User Requirement 3: Verified visits incentives added dynamically if completed verified visits (>0)
+      const verifiedVisits = Number(p.verified_visits || 0);
+      const visitIncAmt = Number(p.verified_visits_incentive !== undefined ? p.verified_visits_incentive : (p.visit_incentive_pay || 0));
+      if (verifiedVisits > 0 && visitIncAmt > 0) {
+        earnItems.push({ label: 'Verified Visits Incentives', amount: visitIncAmt });
       }
 
       // User Requirement 2: Incentives and Allowances strictly come from actual payment entries

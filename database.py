@@ -1587,7 +1587,10 @@ def create_employee(data, company_id=None):
         ),
         'territory_zone': str(data.get('territory_zone') or '').strip(),
         'per_visit_incentive': round(safe_float(data.get('per_visit_incentive')), 2),
-        'km_allowance_rate': round(safe_float(data.get('km_allowance_rate')), 2),
+        'km_allowance_rate': round(safe_float(data.get('km_allowance_rate')), 2) if data.get('km_allowance_rate') not in [None, ''] else None,
+        'petrol_unit_km': safe_float(data.get('petrol_unit_km'), 1.0) if data.get('petrol_unit_km') is not None else 1.0,
+        'petrol_rate_inr': safe_float(data.get('petrol_rate_inr')) if data.get('petrol_rate_inr') not in [None, ''] else None,
+        'has_custom_petrol_rate': bool(data.get('has_custom_petrol_rate') or (safe_float(data.get('petrol_rate_inr', 0)) > 0)),
         'allowed_tabs': list(data.get('allowed_tabs')) if isinstance(data.get('allowed_tabs'), list) else None,
         'branch_id': None,
         'branch_name': None,
@@ -1643,8 +1646,19 @@ def update_employee(emp_id, data, company_id=None):
         upd['territory_zone'] = str(data['territory_zone']).strip() if data['territory_zone'] is not None else ''
     if 'per_visit_incentive' in data:
         upd['per_visit_incentive'] = round(safe_float(data['per_visit_incentive']), 2)
+    if 'petrol_unit_km' in data:
+        upd['petrol_unit_km'] = safe_float(data['petrol_unit_km'], 1.0)
+    if 'petrol_rate_inr' in data:
+        upd['petrol_rate_inr'] = safe_float(data['petrol_rate_inr']) if data['petrol_rate_inr'] not in [None, ''] else None
+    if 'has_custom_petrol_rate' in data:
+        upd['has_custom_petrol_rate'] = bool(data['has_custom_petrol_rate'])
+    elif 'petrol_rate_inr' in data:
+        upd['has_custom_petrol_rate'] = bool(data['petrol_rate_inr'] not in [None, ''] and safe_float(data['petrol_rate_inr'], 0) > 0)
     if 'km_allowance_rate' in data:
-        upd['km_allowance_rate'] = round(safe_float(data['km_allowance_rate']), 2)
+        if data['km_allowance_rate'] not in [None, '']:
+            upd['km_allowance_rate'] = round(safe_float(data['km_allowance_rate']), 2)
+        else:
+            upd['km_allowance_rate'] = None
 
     if 'salary_type' in data and data['salary_type']:
         st = str(data['salary_type']).strip().lower()
@@ -1749,6 +1763,15 @@ def update_employee(emp_id, data, company_id=None):
         upd['status'] = new_status
         
     db.employees.update_one(f, {'$set': upd})
+    emp_doc_syn = db.employees.find_one(f)
+    if emp_doc_syn:
+        u_filter = {'$or': [{'employee_id': emp_id}, {'username': emp_doc_syn.get('employee_name')}]}
+        u_upd = {}
+        for k in ['is_field_worker', 'department', 'designation', 'salary_type', 'shift_hours', 'day_salary', 'hourly_salary', 'half_day_salary', 'per_visit_incentive', 'km_allowance_rate', 'petrol_unit_km', 'petrol_rate_inr', 'has_custom_petrol_rate', 'branch_id', 'branch_name', 'territory_zone', 'allowed_tabs']:
+            if k in upd:
+                u_upd[k] = upd[k]
+        if u_upd:
+            db.users.update_many(u_filter, {'$set': u_upd})
     invalidate_dashboard_cache(company_id)
     invalidate_branch_emp_cache(company_id)
     return True
@@ -5246,8 +5269,15 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
         logs = list(db.field_location_logs.find(log_q))
         if logs:
             total_km = round(sum(safe_float(lg.get('step_km', 0.0)) for lg in logs), 2)
-            petrol_cfg = get_company_petrol_allowance_config(assigned_company_id)
-            km_rate = safe_float(petrol_cfg.get('per_km_rate', 10.0), 10.0)
+            # Worker-specific Petrol/Diesel rate takes precedence; fallback to company default
+            worker_unit = safe_float(emp.get('petrol_unit_km', 0.0)) if emp else 0.0
+            worker_amt = safe_float(emp.get('petrol_rate_inr', 0.0)) if emp else 0.0
+            worker_has_custom = bool(emp and (emp.get('has_custom_petrol_rate') or (worker_amt > 0)))
+            if worker_has_custom and worker_unit > 0 and worker_amt > 0:
+                km_rate = round(worker_amt / worker_unit, 2)
+            else:
+                petrol_cfg = get_company_petrol_allowance_config(assigned_company_id)
+                km_rate = safe_float(petrol_cfg.get('per_km_rate', 10.0), 10.0)
             auto_petrol_allowance = round(total_km * km_rate, 2)
     except Exception:
         auto_petrol_allowance = 0.0
@@ -5266,7 +5296,27 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
         petrol_allowance_earnings = auto_petrol_allowance
 
     petrol_allowance = petrol_allowance_earnings
-    total_earnings = round(basic_salary + allowance + incentive + petrol_allowance_earnings + other_earnings, 2)
+
+    # Dynamic Verified Visits Incentives (Requirement 3)
+    verified_visits = 0
+    verified_visits_incentive = 0.0
+    try:
+        visit_q = {
+            'employee_name': employee_name,
+            'visit_date': {'$regex': f'^{re.escape(month_year)}'}
+        }
+        if assigned_company_id and assigned_company_id not in ['ALL', 'ARGUS_MASTER']:
+            visit_q['company_id'] = str(assigned_company_id)
+        visits = list(db.field_customer_visits.find(visit_q))
+        verified_visits = sum(1 for v in visits if v.get('is_location_verified', True))
+        per_visit_rate = round(safe_float(emp.get('per_visit_incentive', 0.0)), 2) if emp else 0.0
+        if verified_visits > 0 and per_visit_rate > 0:
+            verified_visits_incentive = round(verified_visits * per_visit_rate, 2)
+    except Exception:
+        verified_visits = 0
+        verified_visits_incentive = 0.0
+
+    total_earnings = round(basic_salary + allowance + incentive + petrol_allowance_earnings + other_earnings + verified_visits_incentive, 2)
     total_deduction = round(paid_salary + advance_repayment + advance_payment_deduction + other_deductions + petrol_allowance_deduction, 2)
     net_pay = max(0.0, round(total_earnings - total_deduction, 2))
         
@@ -5368,7 +5418,7 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
                 paid_leave_salary = round((paid_leave_days * shift_target_minutes / 60.0) * hours_salary, 2)
         basic_salary = round(basic_salary + paid_leave_salary, 2)
 
-    total_earnings = round(basic_salary + allowance + incentive + petrol_allowance_earnings + other_earnings, 2)
+    total_earnings = round(basic_salary + allowance + incentive + petrol_allowance_earnings + other_earnings + verified_visits_incentive, 2)
     net_pay = max(0.0, round(total_earnings - total_deduction, 2))
     absent_days_lop = max(0, leave_days - paid_leave_days)
 
@@ -5428,6 +5478,9 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
         'basic_salary': round(basic_salary, 2) if salary_type == 'hourly' else int(round(basic_salary)),
         'allowance': int(round(allowance)),
         'incentive': int(round(incentive)),
+        'verified_visits': verified_visits,
+        'verified_visits_incentive': round(verified_visits_incentive, 2),
+        'visit_incentive_pay': round(verified_visits_incentive, 2),
         'petrol_allowance': round(petrol_allowance_earnings, 2),
         'petrol_allowance_earnings': round(petrol_allowance_earnings, 2),
         'petrol_allowance_paid': round(petrol_allowance_paid, 2),
@@ -7286,6 +7339,9 @@ def get_field_workers(company_id=None, include_all_employees=False):
         emp['territory_zone'] = str(emp.get('territory_zone') or emp.get('branch_name') or emp.get('branch') or 'Home Branch')
         emp['per_visit_incentive'] = round(safe_float(emp.get('per_visit_incentive', 0.0)), 2)
         emp['km_allowance_rate'] = round(safe_float(emp.get('km_allowance_rate', 0.0)), 2)
+        emp['petrol_unit_km'] = safe_float(emp.get('petrol_unit_km'), 1.0) if emp.get('petrol_unit_km') is not None else 1.0
+        emp['petrol_rate_inr'] = safe_float(emp.get('petrol_rate_inr')) if emp.get('petrol_rate_inr') not in [None, ''] else ''
+        emp['has_custom_petrol_rate'] = bool(emp.get('has_custom_petrol_rate') or (safe_float(emp.get('petrol_rate_inr', 0)) > 0))
         emp['allowed_tabs'] = emp.get('allowed_tabs') if isinstance(emp.get('allowed_tabs'), list) else None
         if include_all_employees or is_fw:
             field_workers.append(emp)
@@ -8742,9 +8798,21 @@ def set_company_petrol_allowance_config(company_id, unit_km=1.0, rate_inr=10.0):
         upsert=True
     )
 
-    # 3. Synchronize all field workers in db.users for this company
+    # 3. Synchronize field workers who don't have custom petrol allowance in db.users & db.employees
+    worker_filter = {
+        'company_id': cid,
+        'is_field_worker': True,
+        '$or': [
+            {'has_custom_petrol_rate': {'$ne': True}},
+            {'petrol_rate_inr': {'$in': [None, '', 0, 0.0]}}
+        ]
+    }
     db.users.update_many(
-        {'company_id': cid, 'is_field_worker': True},
+        worker_filter,
+        {'$set': {'km_allowance_rate': per_km_rate}}
+    )
+    db.employees.update_many(
+        worker_filter,
         {'$set': {'km_allowance_rate': per_km_rate}}
     )
 
@@ -8817,17 +8885,21 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
 
         # 4. Compensation Calculation
         per_visit_rate = round(safe_float(w.get('per_visit_incentive', 0.0)), 2)
-        # Dynamic company-configured petrol/diesel rate
-        petrol_cfg = get_company_petrol_allowance_config(emp_cid)
-        km_rate = petrol_cfg.get('per_km_rate', 0.0)
-        if km_rate <= 0:
-            km_rate = round(safe_float(w.get('km_allowance_rate', 10.0)), 2)
-        if km_rate <= 0:
-            km_rate = 10.0
-        if km_rate <= 0:
-            km_rate = 5.0
+        # Worker-specific Petrol/Diesel rate takes precedence; fallback to company default
+        worker_unit = safe_float(w.get('petrol_unit_km', 0.0))
+        worker_amt = safe_float(w.get('petrol_rate_inr', 0.0))
+        worker_has_custom = bool(w.get('has_custom_petrol_rate') or (worker_amt > 0))
+        if worker_has_custom and worker_unit > 0 and worker_amt > 0:
+            km_rate = round(worker_amt / worker_unit, 2)
+        else:
+            petrol_cfg = get_company_petrol_allowance_config(emp_cid)
+            km_rate = safe_float(petrol_cfg.get('per_km_rate', 10.0), 10.0)
+            if km_rate <= 0:
+                km_rate = 10.0
 
-        visit_incentive_pay = round(verified_visits * per_visit_rate, 2)
+        # Requirement 3: Verified customer visit incentives added dynamically if completed verified visits (>0)
+        verified_visits_incentive = round(verified_visits * per_visit_rate, 2) if verified_visits > 0 else 0.0
+        visit_incentive_pay = verified_visits_incentive
 
         # Query manual Petrol/Diesel allowance payments made in this month
         petrol_pay_q = {
@@ -8861,9 +8933,9 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
         other_earnings = round(safe_float(payslip.get('other_earnings', 0.0)), 2)
         total_deduction = round(safe_float(payslip.get('total_deduction', 0.0)), 2)
 
-        # User Requirement 2: Do NOT inject automated visit_incentive_pay into regular gross earnings
+        # Requirement 3: Add verified_visits_incentive dynamically into gross field salary if verified_visits > 0
         gross_field_salary = round(
-            base_attendance_pay + petrol_allowance_earnings + regular_allowance + regular_incentive + other_earnings,
+            base_attendance_pay + petrol_allowance_earnings + regular_allowance + regular_incentive + other_earnings + verified_visits_incentive,
             2
         )
         net_field_payable = max(0.0, round(gross_field_salary - total_deduction, 2))
@@ -8898,6 +8970,7 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
             'km_allowance_rate': km_rate,
             'base_attendance_pay': base_attendance_pay,
             'visit_incentive_pay': visit_incentive_pay,
+            'verified_visits_incentive': verified_visits_incentive,
             'travel_allowance_calculated': auto_petrol_allowance,
             'travel_allowance_paid': manual_petrol_paid,
             'travel_allowance_remaining': remaining_petrol_payable,

@@ -5303,6 +5303,28 @@ def api_field_worker_register():
             except Exception as img_err:
                 print(f"Field worker photo processing error: {img_err}")
 
+        # Resolve worker-specific petrol allowance
+        unit_km = database.safe_float(data.get('petrol_unit_km'), 1.0)
+        if unit_km <= 0:
+            unit_km = 1.0
+        data['petrol_unit_km'] = unit_km
+
+        p_rate = data.get('petrol_rate_inr')
+        if p_rate not in [None, '']:
+            p_rate_val = database.safe_float(p_rate, 0.0)
+            if p_rate_val > 0:
+                data['petrol_rate_inr'] = p_rate_val
+                data['has_custom_petrol_rate'] = True
+                data['km_allowance_rate'] = round(p_rate_val / unit_km, 2)
+            else:
+                data['petrol_rate_inr'] = None
+                data['has_custom_petrol_rate'] = False
+                data['km_allowance_rate'] = None
+        else:
+            data['petrol_rate_inr'] = None
+            data['has_custom_petrol_rate'] = False
+            data['km_allowance_rate'] = None
+
         existing_emp_id = str(data.get('existing_employee_id') or '').strip()
         if existing_emp_id:
             database.update_employee(existing_emp_id, data, company_id=cid)
@@ -6613,6 +6635,7 @@ def api_field_worker_get_payslip_preview_data():
     payslip['per_visit_incentive_rate'] = fw_extras.get('per_visit_incentive_rate', 0.0)
     payslip['km_allowance_rate'] = fw_extras.get('km_allowance_rate', 5.0)
     payslip['visit_incentive_pay'] = fw_extras.get('visit_incentive_pay', 0.0)
+    payslip['verified_visits_incentive'] = fw_extras.get('verified_visits_incentive', fw_extras.get('visit_incentive_pay', 0.0))
     payslip['travel_allowance_pay'] = fw_extras.get('travel_allowance_pay', 0.0)
     payslip['travel_allowance_calculated'] = fw_extras.get('travel_allowance_calculated', fw_extras.get('petrol_allowance', 0.0))
     payslip['travel_allowance_paid'] = fw_extras.get('travel_allowance_paid', 0.0)
