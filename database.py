@@ -5153,8 +5153,9 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
         unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
         basic_salary = max(0.0, round(basic_salary + unapplied_deductions + unapplied_additions, 2))
     elif salary_type == 'daily':
-        part_sal = (partial_minutes / 60.0) * effective_hour
-        basic_salary = round((full_days * day_salary) + (half_days * effective_half) + part_sal, 2)
+        # Day-Based workers: every worked day (except designated half-days) is credited at full day_salary
+        non_half_days = max(0, working_days - half_days)
+        basic_salary = round((non_half_days * day_salary) + (half_days * effective_half), 2)
         # Deduct unapplied manual deductions (e.g. deductions logged on days without biometric punches)
         unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
         unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
@@ -5197,11 +5198,13 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
     allowance = 0.0
     incentive = 0.0
     other_earnings = 0.0
-    petrol_allowance = 0.0
+    petrol_allowance_paid = 0.0
+    advance_payment_deduction = 0.0
     advance_repayment = 0.0
     paid_salary = 0.0
     other_deductions = 0.0
 
+    # Categorize strictly according to payment status
     for p in payments:
         p_amt = float(p.get('amount', 0.0))
         reason = (p.get('status') or p.get('reason') or '').strip()
@@ -5210,15 +5213,17 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
             incentive += p_amt
         elif r_low == 'allowance':
             allowance += p_amt
-        elif 'advance' in r_low:
+        elif 'advance repayment' in r_low or r_low == 'repayment':
             advance_repayment += p_amt
+        elif 'advance' in r_low:
+            advance_payment_deduction += p_amt
         elif r_low in ['salary', 'paid salary']:
             paid_salary += p_amt
         elif 'deduction' in r_low:
             other_deductions += p_amt
         elif 'petrol' in r_low or 'diesel' in r_low or 'fuel' in r_low:
-            petrol_allowance += p_amt
-        elif 'earning' in r_low:
+            petrol_allowance_paid += p_amt
+        elif 'earning' in r_low or 'bonus' in r_low:
             other_earnings += p_amt
         else:
             other_earnings += p_amt
@@ -5229,9 +5234,40 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
         if adv_doc:
             advance_repayment = float(adv_doc.get('repayment_amount', 0.0))
 
-    total_earnings = round(basic_salary + allowance + incentive + petrol_allowance + other_earnings, 2)
-    # Paid salary is added to total deduction per user Requirement 7
-    total_deduction = round(paid_salary + advance_repayment + other_deductions, 2)
+    # Auto petrol allowance from travel logs (if field worker)
+    auto_petrol_allowance = 0.0
+    try:
+        log_q = {
+            'employee_name': employee_name,
+            'date': {'$regex': f'^{re.escape(month_year)}'}
+        }
+        if assigned_company_id and assigned_company_id not in ['ALL', 'ARGUS_MASTER']:
+            log_q['company_id'] = str(assigned_company_id)
+        logs = list(db.field_location_logs.find(log_q))
+        if logs:
+            total_km = round(sum(safe_float(lg.get('step_km', 0.0)) for lg in logs), 2)
+            petrol_cfg = get_company_petrol_allowance_config(assigned_company_id)
+            km_rate = safe_float(petrol_cfg.get('per_km_rate', 10.0), 10.0)
+            auto_petrol_allowance = round(total_km * km_rate, 2)
+    except Exception:
+        auto_petrol_allowance = 0.0
+
+    # User Requirement 4 & 5:
+    # If admin entered a payment entry for petrol/diesel allowance:
+    #   Placed in DEDUCTIONS as 'petrol_allowance_deduction'
+    #   If travel distance earned auto_petrol_allowance > 0, it appears in EARNINGS.
+    # If admin did NOT enter a payment entry for petrol:
+    #   The calculated petrol allowance appears in EARNINGS.
+    if petrol_allowance_paid > 0:
+        petrol_allowance_deduction = petrol_allowance_paid
+        petrol_allowance_earnings = auto_petrol_allowance
+    else:
+        petrol_allowance_deduction = 0.0
+        petrol_allowance_earnings = auto_petrol_allowance
+
+    petrol_allowance = petrol_allowance_earnings
+    total_earnings = round(basic_salary + allowance + incentive + petrol_allowance_earnings + other_earnings, 2)
+    total_deduction = round(paid_salary + advance_repayment + advance_payment_deduction + other_deductions + petrol_allowance_deduction, 2)
     net_pay = max(0.0, round(total_earnings - total_deduction, 2))
         
     leave_days = max(0, total_days - working_days)
@@ -5332,7 +5368,7 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
                 paid_leave_salary = round((paid_leave_days * shift_target_minutes / 60.0) * hours_salary, 2)
         basic_salary = round(basic_salary + paid_leave_salary, 2)
 
-    total_earnings = round(basic_salary + allowance + incentive + petrol_allowance + other_earnings, 2)
+    total_earnings = round(basic_salary + allowance + incentive + petrol_allowance_earnings + other_earnings, 2)
     net_pay = max(0.0, round(total_earnings - total_deduction, 2))
     absent_days_lop = max(0, leave_days - paid_leave_days)
 
@@ -5392,7 +5428,11 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
         'basic_salary': round(basic_salary, 2) if salary_type == 'hourly' else int(round(basic_salary)),
         'allowance': int(round(allowance)),
         'incentive': int(round(incentive)),
-        'petrol_allowance': round(petrol_allowance, 2),
+        'petrol_allowance': round(petrol_allowance_earnings, 2),
+        'petrol_allowance_earnings': round(petrol_allowance_earnings, 2),
+        'petrol_allowance_paid': round(petrol_allowance_paid, 2),
+        'petrol_allowance_deduction': round(petrol_allowance_deduction, 2),
+        'advance_payment_deduction': round(advance_payment_deduction, 2),
         'other_earnings': int(round(other_earnings)),
         'total_earnings': round(total_earnings, 2) if salary_type == 'hourly' else int(round(total_earnings)),
         'paid_salary': int(round(paid_salary)),
@@ -8802,9 +8842,16 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
 
         # Auto-calculated petrol/travel allowance
         auto_petrol_allowance = round(total_km * km_rate, 2)
-        effective_petrol_allowance = auto_petrol_allowance if auto_petrol_allowance > 0 else manual_petrol_paid
+        # User Requirement 4 & 5: When manual petrol allowance is paid via payment entry, it is in deductions.
+        # If no manual payment made, auto_petrol_allowance is in earnings.
+        if manual_petrol_paid > 0:
+            petrol_allowance_deduction = manual_petrol_paid
+            petrol_allowance_earnings = auto_petrol_allowance
+        else:
+            petrol_allowance_deduction = 0.0
+            petrol_allowance_earnings = auto_petrol_allowance
 
-        # Remaining payable petrol allowance after deducting manual advance/disbursement
+        effective_petrol_allowance = auto_petrol_allowance if auto_petrol_allowance > 0 else manual_petrol_paid
         remaining_petrol_payable = max(0.0, round(auto_petrol_allowance - manual_petrol_paid, 2))
         petrol_status = 'PAID' if (manual_petrol_paid >= auto_petrol_allowance and auto_petrol_allowance > 0) else ('PARTIALLY PAID' if manual_petrol_paid > 0 else 'UNPAID')
 
@@ -8814,9 +8861,9 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
         other_earnings = round(safe_float(payslip.get('other_earnings', 0.0)), 2)
         total_deduction = round(safe_float(payslip.get('total_deduction', 0.0)), 2)
 
-        # Manually paid petrol allowance is reduced from the monthly total so it is not added to net pay
+        # User Requirement 2: Do NOT inject automated visit_incentive_pay into regular gross earnings
         gross_field_salary = round(
-            base_attendance_pay + visit_incentive_pay + effective_petrol_allowance + regular_allowance + regular_incentive + other_earnings,
+            base_attendance_pay + petrol_allowance_earnings + regular_allowance + regular_incentive + other_earnings,
             2
         )
         net_field_payable = max(0.0, round(gross_field_salary - total_deduction, 2))
@@ -8861,7 +8908,9 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
             'petrol_allowance_remaining': remaining_petrol_payable,
             'petrol_allowance_status': petrol_status,
             'fuel_allowance': effective_petrol_allowance,
-            'regular_allowance': regular_allowance + regular_incentive + other_earnings,
+            'regular_allowance': regular_allowance + other_earnings,
+            'regular_incentive': regular_incentive,
+            'incentive': regular_incentive,
             'total_deduction': total_deduction,
             'gross_field_salary': gross_field_salary,
             'net_field_payable': net_field_payable,

@@ -1182,7 +1182,11 @@ def _extract_payslip_fields(p):
     basic_sal = Number_format(p.get('basic_salary', 0))
     allowance = Number_format(p.get('allowance', 0))
     incentive = Number_format(p.get('incentive', 0))
-    other_earn = Number_format(p.get('petrol_allowance') or p.get('petrol_allowance_calculated') or p.get('travel_allowance_pay') or p.get('other_earnings', 0))
+    petrol_ded_val = float(p.get('petrol_allowance_deduction') or p.get('petrol_allowance_paid', 0))
+    petrol_earn_val = float(p.get('petrol_allowance_earnings') or p.get('petrol_allowance', 0))
+    petrol_ded = Number_format(petrol_ded_val)
+    petrol_earn = Number_format(petrol_earn_val)
+    other_earn = Number_format(p.get('other_earnings', 0))
     tot_earn = Number_format(p.get('total_earnings', 0))
 
     paid_sal = Number_format(p.get('paid_salary', 0))
@@ -1225,6 +1229,10 @@ def _extract_payslip_fields(p):
         'paid_sal': paid_sal,
         'adv_repay': adv_repay,
         'other_ded': other_ded,
+        'petrol_ded': petrol_ded,
+        'petrol_ded_val': petrol_ded_val,
+        'petrol_earn': petrol_earn,
+        'petrol_earn_val': petrol_earn_val,
         'tot_ded': tot_ded,
         'net_pay_val': net_pay_val,
         'net_words_val': net_words_val
@@ -1381,7 +1389,12 @@ def _build_payslip_modern_executive(p, template_id, palette):
         [Paragraph("Basic Salary", cell_lbl_style), Paragraph(f"Rs. {f['basic_sal']}", cell_val_style), Paragraph("Paid Salary", cell_lbl_style), Paragraph(f"Rs. {f['paid_sal']}", cell_val_style)],
         [Paragraph("Allowance", cell_lbl_style), Paragraph(f"Rs. {f['allowance']}", cell_val_style), Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {f['adv_repay']}", cell_val_style)],
         [Paragraph("Incentive", cell_lbl_style), Paragraph(f"Rs. {f['incentive']}", cell_val_style), Paragraph("Other Deductions", cell_lbl_style), Paragraph(f"Rs. {f['other_ded']}", cell_val_style)],
-        [Paragraph("Petrol/Diesel Allowance", cell_lbl_style), Paragraph(f"Rs. {f['other_earn']}", cell_val_style), Paragraph("", cell_lbl_style), Paragraph("", cell_val_style)],
+        [
+            Paragraph("Petrol/Diesel Allowance" if f['petrol_earn_val'] > 0 else ("Other Earnings" if float(f.get('other_earn', 0) or 0) > 0 else ""), cell_lbl_style),
+            Paragraph(f"Rs. {f['petrol_earn']}" if f['petrol_earn_val'] > 0 else (f"Rs. {f['other_earn']}" if float(f.get('other_earn', 0) or 0) > 0 else ""), cell_val_style),
+            Paragraph("Petrol/Diesel Allowance" if f['petrol_ded_val'] > 0 else "", cell_lbl_style),
+            Paragraph(f"Rs. {f['petrol_ded']}" if f['petrol_ded_val'] > 0 else "", cell_val_style)
+        ],
         [Paragraph("TOTAL EARNINGS", total_lbl_style), Paragraph(f"Rs. {f['tot_earn']}", total_val_style), Paragraph("TOTAL DEDUCTIONS", total_lbl_style), Paragraph(f"Rs. {f['tot_ded']}", total_val_style)]
     ]
     t_tables = Table(earn_ded_data, colWidths=[160, 105, 165, 110])
@@ -1607,7 +1620,12 @@ def _build_payslip_premium_executive(p, palette):
         [Paragraph("Basic Salary", cell_lbl_style), Paragraph(f"Rs. {f['basic_sal']}", cell_val_style), Paragraph("Paid Salary", cell_lbl_style), Paragraph(f"Rs. {f['paid_sal']}", cell_val_style)],
         [Paragraph("Allowance", cell_lbl_style), Paragraph(f"Rs. {f['allowance']}", cell_val_style), Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {f['adv_repay']}", cell_val_style)],
         [Paragraph("Incentive", cell_lbl_style), Paragraph(f"Rs. {f['incentive']}", cell_val_style), Paragraph("Other Deductions", cell_lbl_style), Paragraph(f"Rs. {f['other_ded']}", cell_val_style)],
-        [Paragraph("Petrol/Diesel Allowance", cell_lbl_style), Paragraph(f"Rs. {f['other_earn']}", cell_val_style), Paragraph("", cell_lbl_style), Paragraph("", cell_val_style)],
+        [
+            Paragraph("Petrol/Diesel Allowance" if f['petrol_earn_val'] > 0 else ("Other Earnings" if float(f.get('other_earn', 0) or 0) > 0 else ""), cell_lbl_style),
+            Paragraph(f"Rs. {f['petrol_earn']}" if f['petrol_earn_val'] > 0 else (f"Rs. {f['other_earn']}" if float(f.get('other_earn', 0) or 0) > 0 else ""), cell_val_style),
+            Paragraph("Petrol/Diesel Allowance" if f['petrol_ded_val'] > 0 else "", cell_lbl_style),
+            Paragraph(f"Rs. {f['petrol_ded']}" if f['petrol_ded_val'] > 0 else "", cell_val_style)
+        ],
         [Paragraph("TOTAL EARNINGS", ParagraphStyle('TotEarnLbl', fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=palette['primary'])),
          Paragraph(f"Rs. {f['tot_earn']}", ParagraphStyle('TotEarnVal', fontName='Helvetica-Bold', fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=palette['primary'])),
          Paragraph("TOTAL DEDUCTIONS", ParagraphStyle('TotDedLbl', fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.HexColor('#1a2936'))),
