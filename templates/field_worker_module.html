@@ -5661,14 +5661,19 @@
                       <input type="text" id="visitCustomerPhone" class="fw-input" placeholder="9876543210">
                     </div>
 
-                    <div class="fw-field">
+                    <div class="fw-field" style="position:relative;">
                       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
                         <label class="fw-label" style="margin-bottom:0;">Product / Service Pitched</label>
                         <a href="javascript:void(0)" onclick="openProductWarehouse()" style="font-size:10.5px; color:#059669; font-weight:700; text-decoration:none;" title="Open Google Sheets Product Warehouse">
                           <i class="fa-solid fa-file-excel"></i> Warehouse Products
                         </a>
                       </div>
-                      <input type="text" id="visitProduct" class="fw-input" list="warehouseProductList" placeholder="Select or type warehouse product..." oninput="handleProductSelected(this.value)" autocomplete="off">
+                      <div style="position:relative;">
+                        <input type="text" id="visitProduct" class="fw-input" list="warehouseProductList" placeholder="Select or type warehouse product..." oninput="handleProductSelected(this.value)" onclick="toggleProductDropdown('visitProduct')" autocomplete="off" style="padding-right:32px;">
+                        <button type="button" onclick="toggleProductDropdown('visitProduct')" title="Browse Warehouse Products" style="position:absolute; right:4px; top:50%; transform:translateY(-50%); background:none; border:none; color:#64748b; cursor:pointer; padding:4px 6px;">
+                          <i class="fa-solid fa-chevron-down" style="font-size:11px;"></i>
+                        </button>
+                      </div>
                       <datalist id="warehouseProductList"></datalist>
                       <div id="productPriceHint" style="font-size:11px; color:#059669; font-weight:600; margin-top:3px; display:none;"></div>
                     </div>
@@ -5852,9 +5857,20 @@
 
                   <!-- Row 4: Product & Follow-Up Date -->
                   <div class="fw-form-grid-2">
-                    <div class="fw-field">
-                      <label class="fw-label">Product / Service Pitched</label>
-                      <input type="text" id="editProductPitched" class="fw-input">
+                    <div class="fw-field" style="position:relative;">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                        <label class="fw-label" style="margin-bottom:0;">Product / Service Pitched</label>
+                        <a href="javascript:void(0)" onclick="openProductWarehouse()" style="font-size:10.5px; color:#059669; font-weight:700; text-decoration:none;" title="Open Google Sheets Product Warehouse">
+                          <i class="fa-solid fa-file-excel"></i> Warehouse Products
+                        </a>
+                      </div>
+                      <div style="position:relative;">
+                        <input type="text" id="editProductPitched" class="fw-input" list="warehouseProductList" placeholder="Select or type warehouse product..." oninput="handleEditProductSelected(this.value)" onclick="toggleProductDropdown('editProductPitched')" autocomplete="off" style="padding-right:32px;">
+                        <button type="button" onclick="toggleProductDropdown('editProductPitched')" title="Browse Warehouse Products" style="position:absolute; right:4px; top:50%; transform:translateY(-50%); background:none; border:none; color:#64748b; cursor:pointer; padding:4px 6px;">
+                          <i class="fa-solid fa-chevron-down" style="font-size:11px;"></i>
+                        </button>
+                      </div>
+                      <div id="editProductPriceHint" style="font-size:11px; color:#059669; font-weight:600; margin-top:3px; display:none;"></div>
                     </div>
                     <div class="fw-field">
                       <label class="fw-label">Follow-Up Date</label>
@@ -6008,18 +6024,12 @@
                     <div class="fw-card-title" style="color: #ffffff; font-size: 14px; font-weight: 800;">
                       GOOGLE SHEETS PRODUCT WAREHOUSE
                     </div>
-                    <div class="fw-card-subtitle" style="color: #a7f3d0; font-size: 11px;">
-                      தயாரிப்பு கிடங்கு மற்றும் நிகழ்நேர விலைப்பட்டியல்
-                    </div>
                   </div>
                 </div>
                 <button type="button" class="fw-modal-close-btn" onclick="closeWarehouseSettingsModal()" style="color: #ffffff; font-size: 20px;">&times;</button>
               </div>
 
               <div class="fw-modal-body" style="padding: 18px 20px; gap: 14px;">
-                <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px; font-size: 12px; color: #065f46; line-height: 1.5;">
-                  <strong>How it works:</strong> Type your product names and prices into your Google Sheet. Argus AI automatically fetches the rows and displays them inside the Lead Management modal and Mobile App with instant price auto-filling!
-                </div>
 
                 <div class="fw-field">
                   <label class="fw-label">Google Sheet URL (Public or Link-Shared) *</label>
@@ -11928,6 +11938,101 @@
       }
     }
 
+    function handleEditProductSelected(val) {
+      if (!val) return;
+      const cleanVal = val.trim().toLowerCase();
+      const matched = CURRENT_WAREHOUSE_PRODUCTS.find(p => p.name.trim().toLowerCase() === cleanVal);
+      const hint = document.getElementById('editProductPriceHint');
+      const orderInp = document.getElementById('editOrderAmount');
+      if (matched && matched.price > 0) {
+        if (orderInp) orderInp.value = matched.price.toFixed(2);
+        if (hint) {
+          hint.textContent = `✓ Warehouse price auto-filled: ₹${Number(matched.price).toLocaleString('en-IN')}`;
+          hint.style.display = 'block';
+        }
+      } else {
+        if (hint) hint.style.display = 'none';
+      }
+    }
+
+    function toggleProductDropdown(targetInputId) {
+      const existing = document.getElementById('floatingProductDropdownList');
+      if (existing) {
+        existing.remove();
+        if (existing.dataset.targetInput === targetInputId) return;
+      }
+
+      const input = document.getElementById(targetInputId);
+      if (!input) return;
+
+      if (!CURRENT_WAREHOUSE_PRODUCTS || CURRENT_WAREHOUSE_PRODUCTS.length === 0) {
+        showToast('No warehouse products found. Sync your Google Sheet first.');
+        return;
+      }
+
+      const rect = input.getBoundingClientRect();
+      const dropdown = document.createElement('div');
+      dropdown.id = 'floatingProductDropdownList';
+      dropdown.dataset.targetInput = targetInputId;
+      dropdown.style.cssText = `
+        position: fixed;
+        left: ${rect.left}px;
+        top: ${rect.bottom + 4}px;
+        width: ${Math.max(rect.width, 260)}px;
+        max-height: 220px;
+        overflow-y: auto;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2), 0 8px 10px -6px rgba(0,0,0,0.1);
+        z-index: 1080;
+        font-family: inherit;
+      `;
+
+      dropdown.innerHTML = `
+        <div style="padding: 6px 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 11px; font-weight: 700; color: #64748b; display: flex; justify-content: space-between; align-items: center;">
+          <span>WAREHOUSE CATALOG (${CURRENT_WAREHOUSE_PRODUCTS.length})</span>
+          <span style="cursor: pointer; font-size: 14px; color: #94a3b8;" onclick="this.closest('#floatingProductDropdownList').remove()">&times;</span>
+        </div>
+        ${CURRENT_WAREHOUSE_PRODUCTS.map(p => `
+          <div class="product-dropdown-item" onclick="selectDropdownProduct('${targetInputId}', '${p.name.replace(/'/g, "\'")}', ${p.price || 0})" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;">
+            <div>
+              <div style="font-size: 12.5px; font-weight: 700; color: #0f172a;">${p.name}</div>
+              <div style="font-size: 10.5px; color: #64748b;">${p.category || 'General'}</div>
+            </div>
+            <div style="font-size: 12px; font-weight: 800; color: #15803d; background: #ecfdf5; padding: 2px 8px; border-radius: 4px;">
+              ₹${Number(p.price || 0).toLocaleString('en-IN')}
+            </div>
+          </div>
+        `).join('')}
+      `;
+
+      document.body.appendChild(dropdown);
+
+      // Auto close when clicking outside
+      const outsideClickHandler = (e) => {
+        if (!dropdown.contains(e.target) && e.target !== input && !e.target.closest('button')) {
+          dropdown.remove();
+          document.removeEventListener('click', outsideClickHandler);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', outsideClickHandler), 10);
+    }
+
+    function selectDropdownProduct(targetInputId, name, price) {
+      const input = document.getElementById(targetInputId);
+      if (input) {
+        input.value = name;
+        if (targetInputId === 'editProductPitched') {
+          handleEditProductSelected(name);
+        } else {
+          handleProductSelected(name);
+        }
+      }
+      const dropdown = document.getElementById('floatingProductDropdownList');
+      if (dropdown) dropdown.remove();
+    }
+
     // -------------------------------------------------------------------------
     // WEB IN-BROWSER AUDIO RECORDER (MediaRecorder API for Tamil Gemini STT)
     // -------------------------------------------------------------------------
@@ -12169,6 +12274,12 @@
       document.getElementById('editLeadStatus').value = v.lead_status || 'Interested';
       document.getElementById('editOrderAmount').value = v.order_amount || 0;
       document.getElementById('editProductPitched').value = v.product_pitched || '';
+      if (v.product_pitched) {
+        handleEditProductSelected(v.product_pitched);
+      } else {
+        const hint = document.getElementById('editProductPriceHint');
+        if (hint) hint.style.display = 'none';
+      }
       document.getElementById('editFollowUpDate').value = v.follow_up_date || '';
       document.getElementById('editLeadRemarks').value = v.remarks || '';
 

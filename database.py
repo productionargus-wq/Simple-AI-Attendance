@@ -9729,6 +9729,12 @@ def get_warehouse_settings(company_id=None):
             'updated_at': get_ist_now()
         }
         db.field_product_warehouse.insert_one(doc)
+    else:
+        # Ensure product_count accurately reflects real products
+        prods = doc.get('products') or []
+        inactive_kw = ['inactive', 'disabled', 'archived', 'deleted', 'hidden', 'no', 'false', '0']
+        active_count = len([p for p in prods if str(p.get('status', 'Active')).strip().lower() not in inactive_kw])
+        doc['product_count'] = active_count
 
     return clean_doc(doc)
 
@@ -9934,14 +9940,27 @@ def sync_warehouse_products_from_sheet(sheet_url=None, company_id=None):
 def get_warehouse_products(company_id=None):
     """
     Returns the list of active warehouse products for dropdowns / autocomplete in Web & Mobile app.
-    Falls back to default seed catalog if no custom items are loaded.
+    Treats all items as active unless explicitly marked inactive/disabled.
+    Falls back to default seed catalog ONLY if no Google Sheet has ever been linked.
     """
     settings = get_warehouse_settings(company_id)
+    sheet_url = str(settings.get('sheet_url') or '').strip()
     prods = settings.get('products') or []
-    active_prods = [p for p in prods if str(p.get('status', 'Active')).lower() in ['active', 'enabled', 'true', '1']]
-    if not active_prods:
-        active_prods = DEFAULT_WAREHOUSE_SEED_PRODUCTS
-    return active_prods
+
+    inactive_keywords = ['inactive', 'disabled', 'archived', 'deleted', 'hidden', 'no', 'false', '0']
+
+    # Filter out explicitly inactive items
+    active_prods = [
+        p for p in prods
+        if str(p.get('status', 'Active')).strip().lower() not in inactive_keywords
+    ]
+
+    # If company has configured a Google Sheet or synced items, return their exact active products
+    if sheet_url or (settings.get('last_synced_at') and settings.get('sync_status') != 'Ready (Seed Catalog)'):
+        return active_prods
+
+    # Only fall back to seed catalog if no sheet has ever been linked
+    return active_prods if active_prods else list(DEFAULT_WAREHOUSE_SEED_PRODUCTS)
 
 
 def generate_visit_transcript_document(visit_id, company_id=None):
