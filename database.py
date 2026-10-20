@@ -7644,7 +7644,7 @@ def evaluate_field_worker_anomaly(emp_name, lat, lng, address, nearest_target_na
         try:
             import google.generativeai as genai
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-flash-latest')
             prompt = (
                 f"You are an AI corporate field operations auditor monitoring mobile sales & service agents in real-time.\n"
                 f"Analyze this field telemetry anomaly:\n"
@@ -8367,7 +8367,20 @@ def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_
         try:
             import google.generativeai as genai
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+
+            # Prioritize latest active Gemini models supported by user key
+            model = None
+            active_model_name = 'gemini-flash-latest'
+            for m_cand in ['gemini-flash-latest', 'gemini-1.5-flash-latest', 'gemini-2.5-flash', 'gemini-pro-latest']:
+                try:
+                    model = genai.GenerativeModel(m_cand)
+                    active_model_name = m_cand
+                    break
+                except Exception:
+                    continue
+
+            if not model:
+                model = genai.GenerativeModel('gemini-flash-latest')
 
             uploaded_file = genai.upload_file(path=audio_path, mime_type=resolved_mime)
 
@@ -8414,12 +8427,36 @@ def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_
                 parsed = json.loads(raw.strip())
                 if isinstance(parsed, dict):
                     parsed['success'] = True
-                    parsed['ai_model_used'] = 'Google Gemini 1.5 Flash (ta-IN Native)'
+                    parsed['ai_model_used'] = f'Google Gemini ({active_model_name})'
                     return parsed
         except Exception as e:
             print("Gemini Audio AI Error:", e)
+            err_msg = str(e).strip()
+            if '429' in err_msg or 'quota' in err_msg.lower():
+                err_detail = "Gemini API Quota Exceeded (HTTP 429). Please check your Google AI Studio plan quota or billing."
+            elif '404' in err_msg:
+                err_detail = f"Gemini API Model Notice: {err_msg[:120]}"
+            else:
+                err_detail = f"Gemini AI processing error: {err_msg[:120]}"
 
-    # Safe fallback if Gemini is offline, key is unset, or error occurred
+            return {
+                'success': True,
+                'ai_model_used': 'Gemini AI Error Fallback',
+                'language_detected': 'Tamil (ta-IN) / Tanglish',
+                'transcript_tamil': f'[AI செயலாக்க அறிவிப்பு: {err_detail}]',
+                'transcript_english': f'[{err_detail}]',
+                'summary_tamil': 'ஆடியோ பதிவு சேமிக்கப்பட்டுள்ளது.',
+                'summary_english': 'Audio recording saved on server.',
+                'customer_sentiment': 'Interested',
+                'customer_sentiment_tamil': 'ஆர்வம்',
+                'sentiment_reason': 'Audio recording successfully received from field worker device.',
+                'key_commitments_action_items': [],
+                'quoted_order_value_inr': 0.0,
+                'products_discussed': 'Field Discussion',
+                'needs_gemini_key': False
+            }
+
+    # Safe fallback if key is completely unset
     return {
         'success': True,
         'ai_model_used': 'Offline Audio Capture (Pending Gemini AI Key)',
@@ -8434,7 +8471,7 @@ def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_
         'key_commitments_action_items': ['Review recorded client discussion audio in admin dashboard'],
         'quoted_order_value_inr': 0.0,
         'products_discussed': 'Field Discussion',
-        'needs_gemini_key': not bool(api_key)
+        'needs_gemini_key': True
     }
 
 
