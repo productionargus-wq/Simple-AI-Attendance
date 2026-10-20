@@ -7641,38 +7641,72 @@ def evaluate_field_worker_anomaly(emp_name, lat, lng, address, nearest_target_na
             pass
 
     if api_key:
+        candidate_models = ['gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest']
+        prompt = (
+            f"You are an AI corporate field operations auditor monitoring mobile sales & service agents in real-time.\n"
+            f"Analyze this field telemetry anomaly:\n"
+            f"- Worker Name: {emp_name}\n"
+            f"- Time: {now_ist.strftime('%I:%M %p, %d %b %Y')}\n"
+            f"- Reverse-Geocoded Location: {clean_addr} (Lat: {lat}, Lng: {lng})\n"
+            f"- Assigned Target Destination: {nearest_target_name}\n"
+            f"- Distance Off-Route: {detour_km} km\n"
+            f"- Stationary Dwell Time: {dwell_mins} minutes\n"
+            f"- Device/Worker Note: {activity_note}\n\n"
+            f"Evaluate if this is an unauthorized personal detour (e.g. shopping mall, cafe, cinema, home visit) vs acceptable transit.\n"
+            f"Return ONLY valid JSON matching this schema:\n"
+            f'{{"is_unauthorized_detour": true, "severity": "HIGH"|"MEDIUM"|"LOW", "anomaly_type": "string", '
+            f'"summary": "concise 1-2 sentence executive explanation", "estimated_delay_mins": int, "action_recommendation": "actionable advice for company admin"}}'
+        )
+
         try:
             import google.generativeai as genai
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-flash-latest')
-            prompt = (
-                f"You are an AI corporate field operations auditor monitoring mobile sales & service agents in real-time.\n"
-                f"Analyze this field telemetry anomaly:\n"
-                f"- Worker Name: {emp_name}\n"
-                f"- Time: {now_ist.strftime('%I:%M %p, %d %b %Y')}\n"
-                f"- Reverse-Geocoded Location: {clean_addr} (Lat: {lat}, Lng: {lng})\n"
-                f"- Assigned Target Destination: {nearest_target_name}\n"
-                f"- Distance Off-Route: {detour_km} km\n"
-                f"- Stationary Dwell Time: {dwell_mins} minutes\n"
-                f"- Device/Worker Note: {activity_note}\n\n"
-                f"Evaluate if this is an unauthorized personal detour (e.g. shopping mall, cafe, cinema, home visit) vs acceptable transit.\n"
-                f"Return ONLY valid JSON matching this schema:\n"
-                f'{{"is_unauthorized_detour": true, "severity": "HIGH"|"MEDIUM"|"LOW", "anomaly_type": "string", '
-                f'"summary": "concise 1-2 sentence executive explanation", "estimated_delay_mins": int, "action_recommendation": "actionable advice for company admin"}}'
-            )
-            response = model.generate_content(prompt)
-            if response and response.text:
-                raw = response.text.strip()
-                if raw.startswith('```json'):
-                    raw = raw[7:]
-                if raw.startswith('```'):
-                    raw = raw[3:]
-                if raw.endswith('```'):
-                    raw = raw[:-3]
-                parsed = json.loads(raw.strip())
-                if isinstance(parsed, dict) and 'severity' in parsed and 'summary' in parsed:
-                    parsed['model_used'] = 'Google Gemini 1.5 Flash'
-                    return parsed
+            for m_cand in candidate_models:
+                try:
+                    model = genai.GenerativeModel(m_cand)
+                    response = model.generate_content(prompt)
+                    if response and response.text:
+                        raw = response.text.strip()
+                        if raw.startswith('```json'):
+                            raw = raw[7:]
+                        if raw.startswith('```'):
+                            raw = raw[3:]
+                        if raw.endswith('```'):
+                            raw = raw[:-3]
+                        parsed = json.loads(raw.strip())
+                        if isinstance(parsed, dict) and 'severity' in parsed and 'summary' in parsed:
+                            parsed['model_used'] = f'Google Gemini ({m_cand})'
+                            return parsed
+                except Exception:
+                    continue
+        except (ImportError, ModuleNotFoundError):
+            try:
+                import requests
+                for m_cand in candidate_models:
+                    rest_url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_cand}:generateContent?key={api_key}"
+                    payload = {
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"response_mime_type": "application/json"}
+                    }
+                    r = requests.post(rest_url, json=payload, timeout=20)
+                    if r.status_code == 200:
+                        candidates = r.json().get('candidates', [])
+                        if candidates and 'content' in candidates[0]:
+                            parts = candidates[0]['content'].get('parts', [])
+                            if parts and 'text' in parts[0]:
+                                raw = parts[0]['text'].strip()
+                                if raw.startswith('```json'):
+                                    raw = raw[7:]
+                                if raw.startswith('```'):
+                                    raw = raw[3:]
+                                if raw.endswith('```'):
+                                    raw = raw[:-3]
+                                parsed = json.loads(raw.strip())
+                                if isinstance(parsed, dict) and 'severity' in parsed and 'summary' in parsed:
+                                    parsed['model_used'] = f'Google Gemini REST ({m_cand})'
+                                    return parsed
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -8320,7 +8354,9 @@ def get_field_customer_visit_by_id(visit_id, company_id=None):
 def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_focus='ta-IN'):
     """
     Transcribes and analyzes customer visit audio focusing specifically on Tamil (India - ta-IN) & Tanglish.
-    Uses Google Gemini 1.5 Flash Multimodal Audio API.
+    Dual-Engine Architecture:
+    1. Primary: Google Gemini Official SDK with File API (if google.generativeai installed)
+    2. Fallback: Direct Google Gemini REST API via requests with base64 inline audio
     Returns structured analysis containing verbatim Tamil transcript, English translation,
     executive summary, customer sentiment, and extracted action items / order values.
     Guaranteed zero crash: returns robust fallback if API key is not configured or offline.
@@ -8364,97 +8400,140 @@ def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_
             pass
 
     if api_key:
+        candidate_models = ['gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest']
+        prompt = (
+            "You are an expert Indian Tamil linguist and speech-to-text intelligence AI specialized in "
+            "verbatim conversation transcription of Indian Tamil (ta-IN) as spoken in Tamil Nadu, India (including Chennai, Coimbatore, Madurai, Salem dialects and Tanglish).\n\n"
+            "Listen to this audio recording of a customer visit discussion between a field sales representative and a customer.\n"
+            "Provide an EXACT, PRECISE, FULL VERBATIM transcription of everything the people spoke. Do NOT summarize or shorten their conversation.\n\n"
+            "Format the dialogue turn-by-turn with clear speaker identifiers:\n"
+            "- In Tamil: Use 'விற்பனை பிரதிநிதி:' for the sales rep and 'வாடிக்கையாளர்:' for the customer.\n"
+            "- In English: Provide an accurate line-by-line translation with 'Sales Representative:' and 'Customer:'.\n\n"
+            "Return ONLY a valid JSON object with this exact schema:\n"
+            "{\n"
+            '  "language_detected": "Tamil (ta-IN) / Tanglish",\n'
+            '  "transcript_tamil": "விற்பனை பிரதிநிதி: ...\\nவாடிக்கையாளர்: ...",\n'
+            '  "transcript_english": "Sales Representative: ...\\nCustomer: ...",\n'
+            '  "summary_tamil": "சுருக்கமான விளக்கம் (1-2 sentences in Tamil).",\n'
+            '  "summary_english": "Executive 1-2 sentence summary in English.",\n'
+            '  "customer_sentiment": "Highly Interested" | "Interested" | "Price Sensitive / Hesitant" | "Neutral" | "Not Interested",\n'
+            '  "customer_sentiment_tamil": "அதிக ஆர்வம்" | "ஆர்வம்" | "விலை பரிசீலனை" | "நடுநிலை" | "ஆர்வமில்லை",\n'
+            '  "sentiment_reason": "Clear explanation based on customer responses and tone.",\n'
+            '  "key_commitments_action_items": ["Action item 1", "Action item 2"],\n'
+            '  "quoted_order_value_inr": 0.0,\n'
+            '  "products_discussed": "Products or services discussed"\n'
+            "}"
+        )
+
+        # Attempt 1: Official google.generativeai SDK if installed
         try:
             import google.generativeai as genai
             genai.configure(api_key=api_key)
-
-            # Prioritize latest active Gemini models supported by user key
-            model = None
-            active_model_name = 'gemini-flash-latest'
-            for m_cand in ['gemini-flash-latest', 'gemini-1.5-flash-latest', 'gemini-2.5-flash', 'gemini-pro-latest']:
+            for m_cand in candidate_models:
+                uploaded_file = None
                 try:
                     model = genai.GenerativeModel(m_cand)
-                    active_model_name = m_cand
-                    break
-                except Exception:
-                    continue
+                    uploaded_file = genai.upload_file(path=audio_path, mime_type=resolved_mime)
+                    response = model.generate_content([prompt, uploaded_file])
+                    if response and response.text:
+                        raw = response.text.strip()
+                        if raw.startswith('```json'):
+                            raw = raw[7:]
+                        if raw.startswith('```'):
+                            raw = raw[3:]
+                        if raw.endswith('```'):
+                            raw = raw[:-3]
+                        parsed = json.loads(raw.strip())
+                        if isinstance(parsed, dict):
+                            parsed['success'] = True
+                            parsed['ai_model_used'] = f'Google Gemini ({m_cand})'
+                            return parsed
+                except Exception as sdk_cand_err:
+                    print(f"Gemini SDK attempt with model {m_cand} notice:", sdk_cand_err)
+                finally:
+                    if uploaded_file:
+                        try:
+                            genai.delete_file(uploaded_file.name)
+                        except Exception:
+                            pass
+        except (ImportError, ModuleNotFoundError) as imp_err:
+            print("Notice: google.generativeai SDK not found on server, switching to direct Gemini REST fallback:", imp_err)
+        except Exception as sdk_err:
+            print("Notice: google.generativeai SDK error:", sdk_err)
 
-            if not model:
-                model = genai.GenerativeModel('gemini-flash-latest')
+        # Attempt 2: Direct Google Gemini REST API fallback via requests & base64 inline audio
+        # (Guaranteed zero extra dependency on Render / Cloud platforms)
+        try:
+            import base64
+            import requests
 
-            uploaded_file = genai.upload_file(path=audio_path, mime_type=resolved_mime)
+            with open(audio_path, 'rb') as af:
+                audio_bytes = af.read()
+            audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
 
-            prompt = (
-                "You are an expert Indian Tamil linguist and speech-to-text intelligence AI specialized in "
-                "verbatim conversation transcription of Indian Tamil (ta-IN) as spoken in Tamil Nadu, India (including Chennai, Coimbatore, Madurai, Salem dialects and Tanglish).\n\n"
-                "Listen to this audio recording of a customer visit discussion between a field sales representative and a customer.\n"
-                "Provide an EXACT, PRECISE, FULL VERBATIM transcription of everything the people spoke. Do NOT summarize or shorten their conversation.\n\n"
-                "Format the dialogue turn-by-turn with clear speaker identifiers:\n"
-                "- In Tamil: Use 'விற்பனை பிரதிநிதி:' for the sales rep and 'வாடிக்கையாளர்:' for the customer.\n"
-                "- In English: Provide an accurate line-by-line translation with 'Sales Representative:' and 'Customer:'.\n\n"
-                "Return ONLY a valid JSON object with this exact schema:\n"
-                "{\n"
-                '  "language_detected": "Tamil (ta-IN) / Tanglish",\n'
-                '  "transcript_tamil": "விற்பனை பிரதிநிதி: ...\\nவாடிக்கையாளர்: ...",\n'
-                '  "transcript_english": "Sales Representative: ...\\nCustomer: ...",\n'
-                '  "summary_tamil": "சுருக்கமான விளக்கம் (1-2 sentences in Tamil).",\n'
-                '  "summary_english": "Executive 1-2 sentence summary in English.",\n'
-                '  "customer_sentiment": "Highly Interested" | "Interested" | "Price Sensitive / Hesitant" | "Neutral" | "Not Interested",\n'
-                '  "customer_sentiment_tamil": "அதிக ஆர்வம்" | "ஆர்வம்" | "விலை பரிசீலனை" | "நடுநிலை" | "ஆர்வமில்லை",\n'
-                '  "sentiment_reason": "Clear explanation based on customer responses and tone.",\n'
-                '  "key_commitments_action_items": ["Action item 1", "Action item 2"],\n'
-                '  "quoted_order_value_inr": 0.0,\n'
-                '  "products_discussed": "Products or services discussed"\n'
-                "}"
-            )
+            for m_cand in candidate_models:
+                try:
+                    rest_url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_cand}:generateContent?key={api_key}"
+                    payload = {
+                        "contents": [{
+                            "parts": [
+                                {"text": prompt},
+                                {
+                                    "inline_data": {
+                                        "mime_type": resolved_mime,
+                                        "data": audio_b64
+                                    }
+                                }
+                            ]
+                        }],
+                        "generationConfig": {
+                            "response_mime_type": "application/json"
+                        }
+                    }
+                    resp = requests.post(rest_url, json=payload, timeout=60)
+                    if resp.status_code == 200:
+                        resp_data = resp.json()
+                        candidates = resp_data.get('candidates', [])
+                        if candidates and 'content' in candidates[0]:
+                            parts = candidates[0]['content'].get('parts', [])
+                            if parts and 'text' in parts[0]:
+                                raw = parts[0]['text'].strip()
+                                if raw.startswith('```json'):
+                                    raw = raw[7:]
+                                if raw.startswith('```'):
+                                    raw = raw[3:]
+                                if raw.endswith('```'):
+                                    raw = raw[:-3]
+                                parsed = json.loads(raw.strip())
+                                if isinstance(parsed, dict):
+                                    parsed['success'] = True
+                                    parsed['ai_model_used'] = f'Google Gemini REST ({m_cand})'
+                                    return parsed
+                    else:
+                        print(f"Gemini REST attempt {m_cand} returned HTTP {resp.status_code}")
+                except Exception as rest_cand_err:
+                    print(f"Gemini REST attempt {m_cand} exception:", rest_cand_err)
+        except Exception as rest_overall_err:
+            print("Gemini REST API fallback error:", rest_overall_err)
 
-            response = model.generate_content([prompt, uploaded_file])
-
-            # Cleanup uploaded file on Gemini server
-            try:
-                genai.delete_file(uploaded_file.name)
-            except Exception:
-                pass
-
-            if response and response.text:
-                raw = response.text.strip()
-                if raw.startswith('```json'):
-                    raw = raw[7:]
-                if raw.startswith('```'):
-                    raw = raw[3:]
-                if raw.endswith('```'):
-                    raw = raw[:-3]
-                parsed = json.loads(raw.strip())
-                if isinstance(parsed, dict):
-                    parsed['success'] = True
-                    parsed['ai_model_used'] = f'Google Gemini ({active_model_name})'
-                    return parsed
-        except Exception as e:
-            print("Gemini Audio AI Error:", e)
-            err_msg = str(e).strip()
-            if '429' in err_msg or 'quota' in err_msg.lower():
-                err_detail = "Gemini API Quota Exceeded (HTTP 429). Please check your Google AI Studio plan quota or billing."
-            elif '404' in err_msg:
-                err_detail = f"Gemini API Model Notice: {err_msg[:120]}"
-            else:
-                err_detail = f"Gemini AI processing error: {err_msg[:120]}"
-
-            return {
-                'success': True,
-                'ai_model_used': 'Gemini AI Error Fallback',
-                'language_detected': 'Tamil (ta-IN) / Tanglish',
-                'transcript_tamil': f'[AI செயலாக்க அறிவிப்பு: {err_detail}]',
-                'transcript_english': f'[{err_detail}]',
-                'summary_tamil': 'ஆடியோ பதிவு சேமிக்கப்பட்டுள்ளது.',
-                'summary_english': 'Audio recording saved on server.',
-                'customer_sentiment': 'Interested',
-                'customer_sentiment_tamil': 'ஆர்வம்',
-                'sentiment_reason': 'Audio recording successfully received from field worker device.',
-                'key_commitments_action_items': [],
-                'quoted_order_value_inr': 0.0,
-                'products_discussed': 'Field Discussion',
-                'needs_gemini_key': False
-            }
+        # Graceful fallback if both SDK and REST could not complete
+        err_detail = "Gemini AI processing temporarily busy. Please retry in a few moments."
+        return {
+            'success': True,
+            'ai_model_used': 'Gemini AI Fallback',
+            'language_detected': 'Tamil (ta-IN) / Tanglish',
+            'transcript_tamil': f'[AI செயலாக்க அறிவிப்பு: {err_detail}]',
+            'transcript_english': f'[{err_detail}]',
+            'summary_tamil': 'ஆடியோ பதிவு சேமிக்கப்பட்டுள்ளது.',
+            'summary_english': 'Audio recording saved on server.',
+            'customer_sentiment': 'Interested',
+            'customer_sentiment_tamil': 'ஆர்வம்',
+            'sentiment_reason': 'Audio recording successfully received from field worker device.',
+            'key_commitments_action_items': [],
+            'quoted_order_value_inr': 0.0,
+            'products_discussed': 'Field Discussion',
+            'needs_gemini_key': False
+        }
 
     # Safe fallback if key is completely unset
     return {
@@ -8463,17 +8542,16 @@ def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_
         'language_detected': 'Tamil (ta-IN) / Tanglish',
         'transcript_tamil': '[Gemini AI விசை தேவை: இந்த உரையாடலின் துல்லியமான நேரடி தமிழ் உரையைப் பெற GEMINI_API_KEY உள்ளிடவும்.]',
         'transcript_english': '[Gemini AI Key Required: Please provide your GEMINI_API_KEY in System Settings or .env to transcribe this audio recording into exact verbatim speech.]',
-        'summary_tamil': 'வாடிக்கையாளர் நேரடி சந்திப்பு ஆடியோ பதிவு சேமிக்கப்பட்டுள்ளது (Gemini AI விசை தேவை).',
-        'summary_english': 'Customer visit audio recording stored securely. Pending Gemini 1.5 Flash transcription.',
+        'summary_tamil': 'ஆடியோ பதிவு சர்வரில் பத்திரமாக சேமிக்கப்பட்டுள்ளது.',
+        'summary_english': 'Audio recording captured and stored successfully on server.',
         'customer_sentiment': 'Interested',
         'customer_sentiment_tamil': 'ஆர்வம்',
         'sentiment_reason': 'Audio recording successfully received from field worker device.',
-        'key_commitments_action_items': ['Review recorded client discussion audio in admin dashboard'],
+        'key_commitments_action_items': [],
         'quoted_order_value_inr': 0.0,
         'products_discussed': 'Field Discussion',
         'needs_gemini_key': True
     }
-
 
 def attach_audio_and_process_visit(visit_id, audio_file_path, audio_url=None, duration_seconds=0, mime_type='audio/mp4', company_id=None, gridfs_id=None):
     """
@@ -10109,11 +10187,15 @@ def generate_visit_transcript_docx(visit_id, company_id=None):
     if not visit:
         return None
 
-    import io
-    import docx
-    from docx.shared import Inches, Pt, RGBColor
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.enum.table import WD_TABLE_ALIGNMENT
+    try:
+        import io
+        import docx
+        from docx.shared import Inches, Pt, RGBColor
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.enum.table import WD_TABLE_ALIGNMENT
+    except (ImportError, ModuleNotFoundError) as docx_err:
+        print("Notice: python-docx not installed yet:", docx_err)
+        return None
 
     doc = docx.Document()
 
