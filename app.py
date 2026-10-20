@@ -5459,11 +5459,50 @@ def api_field_worker_visits():
         return jsonify({'success': True, 'visits': items})
 
     try:
-        data = request.get_json(silent=True) or request.form.to_dict()
+        # Support both multipart form data (with audio_file) and JSON data
+        data = request.form.to_dict() if request.form else (request.get_json(silent=True) or {})
         cid = _resolve_field_company_id(data.get('company_id'))
         if session.get('role') == 'employee' and session.get('employee_name'):
             data['employee_name'] = session.get('employee_name')
+
+        audio_file = request.files.get('audio_file') or request.files.get('audio') or request.files.get('recording')
+        temp_audio_path = None
+        if audio_file and getattr(audio_file, 'filename', None):
+            clean_fname = werkzeug.utils.secure_filename(audio_file.filename) or 'recording.m4a'
+            ext = os.path.splitext(clean_fname)[1].lower() or '.m4a'
+            upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'visit_recordings', cid or 'ARGUS_MASTER')
+            os.makedirs(upload_dir, exist_ok=True)
+            saved_name = f"visit_audio_{int(time.time() * 1000)}{ext}"
+            saved_path = os.path.join(upload_dir, saved_name)
+            audio_file.save(saved_path)
+            rel_path = f"static/uploads/visit_recordings/{cid or 'ARGUS_MASTER'}/{saved_name}"
+            data['audio_file_path'] = rel_path
+            data['has_audio_recording'] = True
+            data['audio_mime_type'] = audio_file.content_type or 'audio/mp4'
+            temp_audio_path = saved_path
+
         visit = database.create_field_customer_visit(data, company_id=cid)
+        visit_id = visit.get('id')
+
+        # If audio was uploaded, process with Tamil Gemini STT and attach analysis to the visit document
+        if temp_audio_path and visit_id:
+            try:
+                dur = float(data.get('duration_seconds') or data.get('audio_duration_seconds') or 0.0)
+                mime = data.get('audio_mime_type') or 'audio/mp4'
+                audio_url = f"/api/field-worker/visits/{visit_id}/audio"
+                updated_visit = database.attach_audio_and_process_visit(
+                    visit_id=visit_id,
+                    audio_file_path=temp_audio_path,
+                    audio_url=audio_url,
+                    duration_seconds=dur,
+                    mime_type=mime,
+                    company_id=cid
+                )
+                if updated_visit:
+                    visit = updated_visit
+            except Exception as stt_err:
+                print("Error in background Tamil audio processing:", stt_err)
+
         return jsonify({
             'success': True,
             'visit': visit,
@@ -5489,6 +5528,174 @@ def api_field_worker_visit_detail(visit_id):
     data = request.get_json(silent=True) or request.form.to_dict()
     ok = database.update_field_customer_visit(visit_id, data, company_id=cid)
     return jsonify({'success': ok, 'message': 'Lead updated successfully!' if ok else 'Lead not found.'})
+
+
+@app.route('/api/field-worker/visits/<visit_id>/audio', methods=['GET'])
+def api_field_worker_visit_audio(visit_id):
+    """Streams the recorded visit audio file with HTTP Range support for seamless playback & scrubbing."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    visit = database.get_field_customer_visit_by_id(visit_id, company_id=cid)
+    if not visit or not visit.get('audio_file_path'):
+        return jsonify({'success': False, 'error': 'Audio recording not found for this visit.'}), 404
+
+    audio_path = visit['audio_file_path']
+    # Resolve absolute path if relative
+    if not os.path.isabs(audio_path):
+        audio_path = os.path.join(app.root_path, audio_path)
+
+    if not os.path.exists(audio_path):
+        return jsonify({'success': False, 'error': 'Audio recording file missing from storage.'}), 404
+
+    mime = visit.get('audio_mime_type') or 'audio/mp4'
+    return send_file(audio_path, mimetype=mime, conditional=True)
+
+
+@app.route('/api/field-worker/visits/<visit_id>/transcript', methods=['GET'])
+def api_field_worker_visit_transcript(visit_id):
+    """Returns the Tamil verbatim transcript, English translation, and AI insights for a visit."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    visit = database.get_field_customer_visit_by_id(visit_id, company_id=cid)
+    if not visit:
+        return jsonify({'success': False, 'error': 'Customer visit not found.'}), 404
+
+    return jsonify({
+        'success': True,
+        'visit_id': visit.get('id'),
+        'customer_name': visit.get('customer_name'),
+        'employee_name': visit.get('employee_name'),
+        'has_audio_recording': visit.get('has_audio_recording', False),
+        'audio_url': visit.get('audio_url'),
+        'audio_duration_seconds': visit.get('audio_duration_seconds', 0),
+        'language_detected': visit.get('language_detected', 'Tamil (ta-IN) / Tanglish'),
+        'transcript_tamil': visit.get('conversation_transcript_tamil') or visit.get('conversation_transcript', ''),
+        'transcript_english': visit.get('conversation_transcript_english', ''),
+        'summary_tamil': visit.get('ai_summary_tamil', ''),
+        'summary_english': visit.get('ai_summary_english') or visit.get('ai_summary', ''),
+        'customer_sentiment': visit.get('ai_sentiment', 'Interested'),
+        'customer_sentiment_tamil': visit.get('ai_sentiment_tamil', 'ஆர்வம்'),
+        'sentiment_reason': visit.get('ai_sentiment_reason', ''),
+        'action_items': visit.get('ai_action_items', []),
+        'order_amount': visit.get('order_amount', 0.0),
+        'ai_suggested_order_amount': visit.get('ai_suggested_order_amount')
+    })
+
+
+@app.route('/api/field-worker/visits/<visit_id>/reprocess-ai', methods=['POST'])
+def api_field_worker_visit_reprocess_ai(visit_id):
+    """Re-runs Tamil Gemini 1.5 Flash STT on an existing visit audio."""
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    visit = database.get_field_customer_visit_by_id(visit_id, company_id=cid)
+    if not visit or not visit.get('audio_file_path'):
+        return jsonify({'success': False, 'error': 'No audio file recorded for this visit.'}), 404
+
+    audio_path = visit['audio_file_path']
+    if not os.path.isabs(audio_path):
+        audio_path = os.path.join(app.root_path, audio_path)
+
+    if not os.path.exists(audio_path):
+        return jsonify({'success': False, 'error': 'Audio file not found on disk.'}), 404
+
+    updated = database.attach_audio_and_process_visit(
+        visit_id=visit_id,
+        audio_file_path=audio_path,
+        audio_url=visit.get('audio_url'),
+        duration_seconds=visit.get('audio_duration_seconds', 0),
+        mime_type=visit.get('audio_mime_type', 'audio/mp4'),
+        company_id=cid
+    )
+
+    return jsonify({
+        'success': True,
+        'message': 'Tamil AI audio analysis completed successfully!',
+        'visit': updated
+    })
+
+
+# =========================================================================
+# FIELD WORKER PRODUCT WAREHOUSE & TRANSCRIPT EXPORT ROUTES
+# =========================================================================
+
+@app.route('/api/field-worker/products', methods=['GET'])
+def api_field_worker_products():
+    '''Returns dynamic Product Warehouse items and pricing for the active company.'''
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    settings = database.get_warehouse_settings(company_id=cid)
+    products = database.get_warehouse_products(company_id=cid)
+    return jsonify({
+        'success': True,
+        'company_id': cid,
+        'products': products,
+        'product_count': len(products),
+        'sheet_url': settings.get('sheet_url', ''),
+        'last_synced_at': settings.get('last_synced_at', ''),
+        'sync_status': settings.get('sync_status', 'Ready')
+    })
+
+
+@app.route('/api/field-worker/products/sync', methods=['POST'])
+def api_field_worker_products_sync():
+    '''Manually or automatically refreshes products from the configured Google Sheet.'''
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    sheet_url = data.get('sheet_url')
+    res = database.sync_warehouse_products_from_sheet(sheet_url=sheet_url, company_id=cid)
+    return jsonify(res)
+
+
+@app.route('/api/field-worker/products/sheet-url', methods=['POST'])
+def api_field_worker_products_save_url():
+    '''Saves or updates the Google Sheets URL for the Product Warehouse.'''
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    sheet_url = data.get('sheet_url', '').strip()
+    res = database.save_warehouse_sheet_url(sheet_url=sheet_url, company_id=cid)
+    return jsonify({
+        'success': True,
+        'message': 'Google Sheets Product Warehouse URL saved and synced successfully!',
+        'result': res
+    })
+
+
+@app.route('/api/field-worker/visits/<visit_id>/transcript/export', methods=['GET'])
+def api_field_worker_visit_transcript_export(visit_id):
+    '''Generates and downloads a clean Speech-to-Text audit document (.txt).'''
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    doc = database.generate_visit_transcript_document(visit_id, company_id=cid)
+    if not doc and (session.get('role') == 'super_admin' or cid in ['ALL', 'ARGUS_MASTER', None]):
+        doc = database.generate_visit_transcript_document(visit_id, company_id=None)
+    if not doc:
+        return jsonify({'success': False, 'error': 'Customer visit transcript not found.'}), 404
+
+    from flask import Response
+    return Response(
+        doc['content'],
+        mimetype='text/plain; charset=utf-8',
+        headers={
+            'Content-Disposition': f'attachment; filename="{doc["filename"]}"',
+            'Cache-Control': 'no-cache'
+        }
+    )
 
 
 @app.route('/api/field-worker/salary-report', methods=['GET'])

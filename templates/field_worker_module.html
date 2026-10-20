@@ -5469,6 +5469,20 @@
                   <label>Search:</label>
                   <input type="text" class="search-input" placeholder="Search customer, worker, status..." oninput="filterFieldTable(this, 'customerVisitsTable')">
                 </div>
+                <!-- Product Warehouse Google Sheets Integration Button & Sync -->
+                <div style="display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">
+                  <button type="button" class="fw-btn" onclick="openProductWarehouse()" 
+                          title="Open Google Sheets Product Warehouse to view/edit live products & pricing"
+                          style="background:linear-gradient(135deg, #065f46, #059669); color:#ffffff; border:none; padding:5px 11px; font-size:11.5px; font-weight:700; border-radius:6px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; box-shadow:0 1px 3px rgba(5,150,105,0.25);">
+                    <i class="fa-solid fa-file-excel"></i> Product Warehouse
+                  </button>
+                  <button type="button" class="btn-action-icon" onclick="openWarehouseSettingsModal()" title="Configure Google Sheets Warehouse Link" style="width:28px; height:28px; background:#f1f5f9; border-radius:4px;">
+                    <i class="fa-solid fa-gear"></i>
+                  </button>
+                  <button type="button" class="btn-action-icon" id="btnSyncWarehouse" onclick="syncWarehouseProducts()" title="Sync products from Google Sheets now" style="width:28px; height:28px; background:#ecfdf5; border-radius:4px; color:#059669;">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                  </button>
+                </div>
                 {% if user_role == 'employee' %}
                 <button type="button" class="fw-btn fw-btn-primary" onclick="openAddLeadModal()" style="white-space: nowrap; flex-shrink: 0; padding: 5px 10px; font-size: 11.5px;">
                   <i class="fa-solid fa-plus"></i> Record New Lead
@@ -5489,6 +5503,8 @@
                     <th>LEAD OUTCOME</th>
                     <th>ORDER VALUE</th>
                     <th>GPS SITE VERIFICATION</th>
+                    <th style="text-align:center;">RECORDED AUDIO FILE</th>
+                    <th style="text-align:center;">SPEECH-TO-TEXT DOCUMENT</th>
                     {% if user_role in ['super_admin', 'company_admin'] %}
                     <th style="text-align:center;">ACTION</th>
                     {% endif %}
@@ -5515,6 +5531,38 @@
                       <span class="badge-detour"><i class="fa-solid fa-circle-exclamation"></i> {{ v.verification_badge }}</span>
                       {% endif %}
                     </td>
+                    <!-- Column 1: RECORDED AUDIO FILE -->
+                    <td style="text-align:center; white-space:nowrap;">
+                      {% if v.has_audio_recording %}
+                      <div style="display:inline-flex; align-items:center; gap:5px;">
+                        <button type="button" class="btn-visit-audio" onclick="openVisitAudioModal('{{ v.id }}')" title="Play audio recording" style="background:linear-gradient(135deg, #1e3a8a, #2563eb); color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+                          <i class="fa-solid fa-play"></i> 🎙️ {{ "%.0f"|format(v.audio_duration_seconds or 0) }}s
+                        </button>
+                        <a href="/api/field-worker/visits/{{ v.id }}/audio" download class="btn-action-icon" title="Download audio recording" style="width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; background:#f1f5f9; border-radius:4px; color:#475569; text-decoration:none;">
+                          <i class="fa-solid fa-download"></i>
+                        </a>
+                      </div>
+                      {% else %}
+                      <span style="color:#94a3b8; font-size:11px; font-weight:500;">No Audio</span>
+                      {% endif %}
+                    </td>
+                    <!-- Column 2: SPEECH-TO-TEXT DOCUMENT -->
+                    <td style="text-align:center; white-space:nowrap;">
+                      {% if v.has_audio_recording and (v.conversation_transcript_tamil or v.conversation_transcript or v.conversation_transcript_english) %}
+                      <div style="display:inline-flex; align-items:center; gap:5px;">
+                        <button type="button" onclick="openVisitAudioModal('{{ v.id }}')" title="View Tamil & English Speech-to-Text transcript & sentiment" style="background:#f0fdf4; border:1px solid #86efac; color:#15803d; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+                          <i class="fa-solid fa-file-lines"></i> தமிழ் &bull; English Doc
+                        </button>
+                        <a href="/api/field-worker/visits/{{ v.id }}/transcript/export" download class="btn-action-icon" title="Download official transcript document (.txt)" style="width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:4px; color:#059669; text-decoration:none;">
+                          <i class="fa-solid fa-file-arrow-down"></i>
+                        </a>
+                      </div>
+                      {% elif v.has_audio_recording %}
+                      <span style="color:#f59e0b; font-size:10.5px; font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Processing STT</span>
+                      {% else %}
+                      <span style="color:#94a3b8; font-size:11px; font-weight:500;">-</span>
+                      {% endif %}
+                    </td>
                     {% if user_role in ['super_admin', 'company_admin'] %}
                     <td style="text-align:center;">
                       <div style="display:inline-flex; align-items:center; gap:6px;">
@@ -5531,7 +5579,7 @@
                   {% endfor %}
                   {% else %}
                   <tr>
-                    <td colspan="9" style="text-align:center; color:#64748b; padding:24px;">No customer visits logged yet.</td>
+                    <td colspan="10" style="text-align:center; color:#64748b; padding:24px;">No customer visits logged yet.</td>
                   </tr>
                   {% endif %}
                 </tbody>
@@ -5614,8 +5662,15 @@
                     </div>
 
                     <div class="fw-field">
-                      <label class="fw-label">Product / Service Pitched</label>
-                      <input type="text" id="visitProduct" class="fw-input" value="Company Products">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                        <label class="fw-label" style="margin-bottom:0;">Product / Service Pitched</label>
+                        <a href="javascript:void(0)" onclick="openProductWarehouse()" style="font-size:10.5px; color:#059669; font-weight:700; text-decoration:none;" title="Open Google Sheets Product Warehouse">
+                          <i class="fa-solid fa-file-excel"></i> Warehouse Products
+                        </a>
+                      </div>
+                      <input type="text" id="visitProduct" class="fw-input" list="warehouseProductList" placeholder="Select or type warehouse product..." oninput="handleProductSelected(this.value)" autocomplete="off">
+                      <datalist id="warehouseProductList"></datalist>
+                      <div id="productPriceHint" style="font-size:11px; color:#059669; font-weight:600; margin-top:3px; display:none;"></div>
                     </div>
                   </div>
 
@@ -5668,6 +5723,43 @@
                     <div id="visitLocationStatusNote" style="font-size:11px; color:#475569; margin-top:6px; display:flex; align-items:center; gap:5px;">
                       <i class="fa-solid fa-circle-info" style="color:#64748b;"></i>
                       <span id="visitLocationStatusText">Click "Get Current Location" to auto-detect device GPS at client site.</span>
+                    </div>
+                  </div>
+
+                  <!-- In-Browser Speech-to-Text Audio Recorder Box -->
+                  <div class="web-audio-recorder-box" style="margin-bottom:14px; background:#f8fafc; border:1.5px dashed #93c5fd; border-radius:8px; padding:12px; transition:border-color 0.2s;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                      <div style="font-size:12px; font-weight:800; color:#1e293b; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fa-solid fa-microphone-lines" style="color:#2563eb;"></i> AI Customer Discussion Recorder (Tamil &amp; English)
+                      </div>
+                      <span id="webRecordStatusBadge" style="font-size:10.5px; font-weight:700; color:#475569; background:#e2e8f0; padding:2px 8px; border-radius:10px;">
+                        Mic Ready
+                      </span>
+                    </div>
+                    <div style="font-size:11px; color:#64748b; margin-bottom:10px; line-height:1.4;">
+                      Record customer conversation directly from your browser. Argus Gemini AI will automatically transcribe verbatim Tamil, translate to English, detect sentiment, and extract order commitments.
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                      <button type="button" id="btnWebRecordStart" class="fw-btn" onclick="toggleWebAudioRecording()" style="background:#2563eb; color:#fff; font-size:11.5px; font-weight:700; padding:6px 12px; border-radius:6px; border:none; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+                        <i class="fa-solid fa-microphone"></i> <span id="btnWebRecordStartText">Start Recording</span>
+                      </button>
+                      <button type="button" id="btnWebRecordPause" class="fw-btn d-none" onclick="pauseResumeWebAudioRecording()" style="background:#f1f5f9; color:#334155; font-size:11.5px; font-weight:700; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                        <i class="fa-solid fa-pause"></i> <span id="btnWebRecordPauseText">Pause</span>
+                      </button>
+                      <button type="button" id="btnWebRecordDiscard" class="fw-btn d-none" onclick="discardWebAudioRecording()" style="background:#fee2e2; color:#b91c1c; font-size:11.5px; font-weight:700; padding:6px 10px; border-radius:6px; border:none; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                        <i class="fa-solid fa-trash"></i> <span>Discard</span>
+                      </button>
+                      <span id="webRecordTimer" style="font-size:13px; font-weight:800; color:#dc2626; font-family:monospace; margin-left:6px; display:none;">
+                        00:00
+                      </span>
+                    </div>
+                    <!-- Audio playback preview when stopped -->
+                    <div id="webAudioPreviewContainer" class="d-none" style="margin-top:10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 10px;">
+                      <div style="font-size:11px; font-weight:700; color:#1e40af; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+                        <span><i class="fa-solid fa-circle-check" style="color:#16a34a;"></i> Audio Recorded Ready for Tamil AI</span>
+                        <span id="webAudioRecordedDuration" style="color:#64748b; font-weight:600;"></span>
+                      </div>
+                      <audio id="webAudioPreview" controls style="width:100%; height:32px; outline:none; border-radius:4px;"></audio>
                     </div>
                   </div>
 
@@ -5786,6 +5878,180 @@
               </form>
             </div>
           </div>
+
+          <!-- Modal Dialog: Field Worker Customer Visit Audio & Tamil Speech-to-Text AI Audit -->
+          <div class="fw-modal-backdrop d-none" id="visitAudioModalBackdrop" style="z-index: 1050;">
+            <div class="fw-modal-dialog" style="max-width: 680px; width: 95%;">
+              <div class="fw-modal-header" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: #ffffff; border-bottom: 2px solid #3b82f6;">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background: #2563eb; color: #ffffff; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px;">
+                    <i class="fa-solid fa-microphone-lines"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title" style="color: #ffffff; font-size: 14px; font-weight: 800; letter-spacing: 0.3px;">
+                      CUSTOMER VISIT AUDIO &amp; TAMIL AI TRANSCRIPT
+                    </div>
+                    <div class="fw-card-subtitle" style="color: #94a3b8; font-size: 11px;">
+                      வாடிக்கையாளர் நேரடி சந்திப்பு ஆடியோ &amp; AI பகுப்பாய்வு
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="fw-modal-close-btn" onclick="closeVisitAudioModal()" style="color: #ffffff; font-size: 20px;">&times;</button>
+              </div>
+
+              <div class="fw-modal-body" style="padding: 16px 20px; gap: 14px; max-height: 75vh; overflow-y: auto;">
+                <!-- Visit Header Info Card -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;">
+                  <div>
+                    <div style="font-weight: 800; font-size: 14px; color: #0f172a;" id="audioModalCustomerName">-</div>
+                    <div style="font-size: 11.5px; color: #64748b;" id="audioModalWorkerInfo">-</div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span id="audioModalSentimentBadge" class="badge-blue" style="padding: 4px 10px; font-size: 11px; font-weight: 700;">-</span>
+                    <span id="audioModalGeoBadge" class="badge-onsite" style="padding: 4px 10px; font-size: 11px;">-</span>
+                  </div>
+                </div>
+
+                <!-- Modern Audio Player Box -->
+                <div style="background: #111827; border-radius: 10px; padding: 14px 16px; color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-size: 11.5px; font-weight: 700; color: #60a5fa; display: inline-flex; align-items: center; gap: 6px;">
+                      <i class="fa-solid fa-volume-high"></i> <span id="audioPlayerStatusText">Audio Player (Direct Stream)</span>
+                    </span>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span style="font-size: 10.5px; color: #94a3b8;">Speed:</span>
+                      <button type="button" class="btn-speed-tag" onclick="setAudioSpeed(0.75)" style="background:#1f2937; color:#cbd5e1; border:1px solid #374151; padding:2px 6px; border-radius:4px; font-size:10px; cursor:pointer;">0.75x</button>
+                      <button type="button" class="btn-speed-tag" onclick="setAudioSpeed(1.0)" style="background:#2563eb; color:#ffffff; border:1px solid #2563eb; padding:2px 6px; border-radius:4px; font-size:10px; cursor:pointer;">1.0x</button>
+                      <button type="button" class="btn-speed-tag" onclick="setAudioSpeed(1.25)" style="background:#1f2937; color:#cbd5e1; border:1px solid #374151; padding:2px 6px; border-radius:4px; font-size:10px; cursor:pointer;">1.25x</button>
+                      <button type="button" class="btn-speed-tag" onclick="setAudioSpeed(1.5)" style="background:#1f2937; color:#cbd5e1; border:1px solid #374151; padding:2px 6px; border-radius:4px; font-size:10px; cursor:pointer;">1.5x</button>
+                      <a id="audioDownloadLink" href="#" download class="btn-speed-tag" style="background:#059669; color:#ffffff; border:none; padding:2px 8px; border-radius:4px; font-size:10px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="Download original audio recording">
+                        <i class="fa-solid fa-download"></i> Download Audio
+                      </a>
+                      <a id="transcriptDocDownloadLink" href="#" download class="btn-speed-tag" style="background:#2563eb; color:#ffffff; border:none; padding:2px 8px; border-radius:4px; font-size:10px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="Download complete Tamil & English Speech-to-Text audit document">
+                        <i class="fa-solid fa-file-arrow-down"></i> Export Doc (.txt)
+                      </a>
+                    </div>
+                  </div>
+                  <audio id="visitAudioPlayer" controls style="width: 100%; height: 38px; outline: none; border-radius: 6px;"></audio>
+                </div>
+
+                <!-- AI Intelligence Highlights Bar -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                  <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 12px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #166534; text-transform: uppercase;">வாடிக்கையாளர் மனநிலை / Sentiment</div>
+                    <div id="audioModalSentimentDetail" style="font-size: 12.5px; font-weight: 700; color: #15803d; margin-top: 2px;">-</div>
+                  </div>
+                  <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 12px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #1e40af; text-transform: uppercase;">பேசப்பட்ட தயாரிப்பு / Pitched Product</div>
+                    <div id="audioModalProductPitched" style="font-size: 12.5px; font-weight: 700; color: #1d4ed8; margin-top: 2px;">-</div>
+                  </div>
+                </div>
+
+                <!-- Dual-Script Tabs: Tamil vs English vs Summary -->
+                <div style="border-bottom: 2px solid #e2e8f0; display: flex; gap: 4px; margin-top: 4px;">
+                  <button type="button" id="tabBtnTamilTranscript" onclick="switchAudioTranscriptTab('tamil')" style="padding: 8px 14px; font-size: 12px; font-weight: 700; border: none; background: #2563eb; color: #ffffff; border-radius: 6px 6px 0 0; cursor: pointer;">
+                    🇮🇳 தமிழ் உரை (Tamil Script)
+                  </button>
+                  <button type="button" id="tabBtnEnglishTranscript" onclick="switchAudioTranscriptTab('english')" style="padding: 8px 14px; font-size: 12px; font-weight: 600; border: none; background: #e2e8f0; color: #475569; border-radius: 6px 6px 0 0; cursor: pointer;">
+                    🇬🇧 English Translation
+                  </button>
+                  <button type="button" id="tabBtnSummaryTranscript" onclick="switchAudioTranscriptTab('summary')" style="padding: 8px 14px; font-size: 12px; font-weight: 600; border: none; background: #e2e8f0; color: #475569; border-radius: 6px 6px 0 0; cursor: pointer;">
+                    📝 முக்கிய குறிப்புகள் (Action Items)
+                  </button>
+                </div>
+
+                <!-- Pane 1: Tamil Script Transcript -->
+                <div id="paneAudioTamil" style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 0 0 8px 8px; padding: 14px; min-height: 140px; max-height: 240px; overflow-y: auto;">
+                  <div id="audioTamilTranscriptText" style="white-space: pre-wrap; font-size: 13px; line-height: 1.6; color: #3b0764; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    தமிழ் உரையாடல் ஏற்றப்படுகிறது...
+                  </div>
+                </div>
+
+                <!-- Pane 2: English Translation Transcript -->
+                <div id="paneAudioEnglish" class="d-none" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0 0 8px 8px; padding: 14px; min-height: 140px; max-height: 240px; overflow-y: auto;">
+                  <div id="audioEnglishTranscriptText" style="white-space: pre-wrap; font-size: 13px; line-height: 1.6; color: #1e293b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    Loading English translation...
+                  </div>
+                </div>
+
+                <!-- Pane 3: Summary & Action Items -->
+                <div id="paneAudioSummary" class="d-none" style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 0 0 8px 8px; padding: 14px; min-height: 140px; max-height: 240px; overflow-y: auto;">
+                  <div style="font-weight: 700; font-size: 12.5px; color: #92400e; margin-bottom: 6px;">சுருக்கம் &amp; Executive Summary:</div>
+                  <div id="audioSummaryText" style="font-size: 12.5px; line-height: 1.5; color: #78350f; margin-bottom: 10px;">-</div>
+                  <div style="font-weight: 700; font-size: 12.5px; color: #92400e; margin-bottom: 4px;">அடுத்த கட்ட நடவடிக்கைகள் (Action Items):</div>
+                  <ul id="audioActionItemsList" style="padding-left: 20px; font-size: 12px; color: #78350f; line-height: 1.6;">
+                    <li>No pending action items recorded.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="fw-modal-footer" style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 10px 20px;">
+                <button type="button" id="btnReprocessTamilAI" class="fw-btn" onclick="reprocessActiveVisitAudio()" style="background: #475569; color: #ffffff; font-size: 11.5px; padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                  <i class="fa-solid fa-rotate"></i> Re-run Tamil AI
+                </button>
+                <button type="button" class="fw-btn fw-btn-neutral" onclick="closeVisitAudioModal()" style="font-size: 12px; padding: 6px 16px;">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Dialog: Google Sheets Product Warehouse Configuration -->
+          <div class="fw-modal-backdrop d-none" id="warehouseSettingsModalBackdrop" style="z-index: 1060;">
+            <div class="fw-modal-dialog" style="max-width: 560px; width: 95%;">
+              <div class="fw-modal-header" style="background: linear-gradient(135deg, #065f46, #047857); color: #ffffff;">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background: #10b981; color: #ffffff; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px;">
+                    <i class="fa-solid fa-file-excel"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title" style="color: #ffffff; font-size: 14px; font-weight: 800;">
+                      GOOGLE SHEETS PRODUCT WAREHOUSE
+                    </div>
+                    <div class="fw-card-subtitle" style="color: #a7f3d0; font-size: 11px;">
+                      தயாரிப்பு கிடங்கு மற்றும் நிகழ்நேர விலைப்பட்டியல்
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="fw-modal-close-btn" onclick="closeWarehouseSettingsModal()" style="color: #ffffff; font-size: 20px;">&times;</button>
+              </div>
+
+              <div class="fw-modal-body" style="padding: 18px 20px; gap: 14px;">
+                <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px; font-size: 12px; color: #065f46; line-height: 1.5;">
+                  <strong>How it works:</strong> Type your product names and prices into your Google Sheet. Argus AI automatically fetches the rows and displays them inside the Lead Management modal and Mobile App with instant price auto-filling!
+                </div>
+
+                <div class="fw-field">
+                  <label class="fw-label">Google Sheet URL (Public or Link-Shared) *</label>
+                  <input type="url" id="warehouseSheetUrlInput" class="fw-input" placeholder="https://docs.google.com/spreadsheets/d/your-sheet-id/edit" style="font-size: 12.5px;">
+                  <div style="font-size: 10.5px; color: #64748b; margin-top: 4px;">
+                    Ensure your Google Sheet share setting is set to <strong>"Anyone with the link can view"</strong> or <strong>File &rarr; Share &rarr; Publish to web &rarr; CSV</strong>.
+                  </div>
+                </div>
+
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Sync Status</div>
+                    <div id="warehouseSyncStatusText" style="font-size: 13px; font-weight: 700; color: #059669; margin-top: 2px;">Ready (Active Catalog)</div>
+                    <div id="warehouseLastSyncedText" style="font-size: 10.5px; color: #94a3b8; margin-top: 2px;">Last synced: Just now</div>
+                  </div>
+                  <button type="button" class="fw-btn" onclick="syncWarehouseProducts()" style="background: #059669; color: #fff; padding: 6px 12px; font-size: 11.5px; font-weight: 700; border-radius: 6px; border: none; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
+                    <i class="fa-solid fa-arrows-rotate"></i> Sync Now
+                  </button>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: space-between; align-items: center; margin-top: 4px;">
+                  <a id="btnOpenSheetInTab" href="#" target="_blank" class="fw-btn fw-btn-secondary" style="text-decoration: none; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Open in Google Sheets
+                  </a>
+                  <button type="button" class="fw-btn fw-btn-primary" onclick="saveWarehouseSheetUrl()" style="font-size: 11.5px; font-weight: 700; padding: 7px 16px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Save &amp; Sync Sheet
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- ========================================================================= -->
@@ -10085,13 +10351,45 @@
       if (countEl) countEl.textContent = visits.length;
       if (!tbody) return;
       if (!visits || visits.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#64748b; padding:24px;">No customer visits logged yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#64748b; padding:24px;">No customer visits logged yet.</td></tr>';
         return;
       }
       tbody.innerHTML = visits.map(v => {
         const verPill = v.is_location_verified ?
           `<span class="badge-onsite"><i class="fa-solid fa-circle-check"></i> ${v.verification_badge || 'On-Site Verified'}</span>` :
           `<span class="badge-detour"><i class="fa-solid fa-circle-exclamation"></i> ${v.verification_badge || 'Unverified'}</span>`;
+
+        // Column 1: RECORDED AUDIO FILE
+        const audioCol = v.has_audio_recording ?
+          `<td style="text-align:center; white-space:nowrap;">
+            <div style="display:inline-flex; align-items:center; gap:5px;">
+              <button type="button" class="btn-visit-audio" onclick="openVisitAudioModal('${v.id}')" title="Play audio stream" style="background:linear-gradient(135deg, #1e3a8a, #2563eb); color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+                <i class="fa-solid fa-play"></i> 🎙️ ${Math.round(v.audio_duration_seconds || 0)}s
+              </button>
+              <a href="/api/field-worker/visits/${encodeURIComponent(v.id)}/audio" download class="btn-action-icon" title="Download audio recording" style="width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; background:#f1f5f9; border-radius:4px; color:#475569; text-decoration:none;">
+                <i class="fa-solid fa-download"></i>
+              </a>
+            </div>
+          </td>` :
+          `<td style="text-align:center; color:#94a3b8; font-size:11px;">No Audio</td>`;
+
+        // Column 2: SPEECH-TO-TEXT DOCUMENT
+        const hasStt = v.has_audio_recording && (v.conversation_transcript_tamil || v.conversation_transcript || v.conversation_transcript_english);
+        const sttDocCol = hasStt ?
+          `<td style="text-align:center; white-space:nowrap;">
+            <div style="display:inline-flex; align-items:center; gap:5px;">
+              <button type="button" onclick="openVisitAudioModal('${v.id}')" title="View Tamil & English Speech-to-Text transcript & sentiment" style="background:#f0fdf4; border:1px solid #86efac; color:#15803d; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+                <i class="fa-solid fa-file-lines"></i> தமிழ் &bull; English Doc
+              </button>
+              <a href="/api/field-worker/visits/${encodeURIComponent(v.id)}/transcript/export" download class="btn-action-icon" title="Download official transcript document (.txt)" style="width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:4px; color:#059669; text-decoration:none;">
+                <i class="fa-solid fa-file-arrow-down"></i>
+              </a>
+            </div>
+          </td>` :
+          (v.has_audio_recording ?
+            `<td style="text-align:center;"><span style="color:#f59e0b; font-size:10.5px; font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Processing STT</span></td>` :
+            `<td style="text-align:center; color:#94a3b8; font-size:11px;">-</td>`);
+
         const actionCol = (CURRENT_USER_ROLE === 'super_admin' || CURRENT_USER_ROLE === 'company_admin') ?
           `<td style="text-align:center;">
             <div style="display:inline-flex; align-items:center; gap:6px;">
@@ -10115,9 +10413,161 @@
           <td><span class="badge-blue">${v.lead_status}</span></td>
           <td style="font-weight:800; color:#15803d; white-space:nowrap;">₹${Number(v.order_amount || 0).toFixed(2)}</td>
           <td>${verPill}</td>
+          ${audioCol}
+          ${sttDocCol}
           ${actionCol}
         </tr>`;
       }).join('');
+    }
+
+    let CURRENT_ACTIVE_AUDIO_VISIT_ID = null;
+
+    function openVisitAudioModal(visitId) {
+      CURRENT_ACTIVE_AUDIO_VISIT_ID = visitId;
+      const v = (typeof VISITS_DATA !== 'undefined' && Array.isArray(VISITS_DATA)) ?
+        VISITS_DATA.find(x => String(x.id) === String(visitId)) : null;
+
+      const modal = document.getElementById('visitAudioModalBackdrop');
+      if (!modal) return;
+
+      const player = document.getElementById('visitAudioPlayer');
+      const downloadLink = document.getElementById('audioDownloadLink');
+      const audioUrl = `/api/field-worker/visits/${encodeURIComponent(visitId)}/audio`;
+
+      if (player) {
+        player.src = audioUrl;
+        player.playbackRate = 1.0;
+        player.load();
+      }
+      if (downloadLink) {
+        downloadLink.href = audioUrl;
+      }
+      const transcriptDocLink = document.getElementById('transcriptDocDownloadLink');
+      if (transcriptDocLink) {
+        transcriptDocLink.href = `/api/field-worker/visits/${encodeURIComponent(visitId)}/transcript/export`;
+      }
+
+      document.getElementById('audioModalCustomerName').textContent = v ? v.customer_name : `Visit ${visitId}`;
+      document.getElementById('audioModalWorkerInfo').textContent = v ?
+        `Recorded by: ${v.employee_name || '-'} • ${v.timestamp || ''}` : '';
+      
+      const sentBadge = document.getElementById('audioModalSentimentBadge');
+      if (sentBadge) {
+        sentBadge.textContent = (v && (v.ai_sentiment_tamil || v.ai_sentiment)) ?
+          `${v.ai_sentiment_tamil || ''} (${v.ai_sentiment || 'Interested'})` : 'Interested';
+      }
+
+      const geoBadge = document.getElementById('audioModalGeoBadge');
+      if (geoBadge) {
+        const isVer = v && v.is_location_verified;
+        geoBadge.className = isVer ? 'badge-onsite' : 'badge-detour';
+        geoBadge.innerHTML = isVer ?
+          '<i class="fa-solid fa-circle-check"></i> Site Verified' :
+          '<i class="fa-solid fa-circle-exclamation"></i> Off-Site / Unassigned';
+      }
+
+      const prodEl = document.getElementById('audioModalProductPitched');
+      if (prodEl) prodEl.textContent = (v && v.product_pitched) ? v.product_pitched : '-';
+
+      switchAudioTranscriptTab('tamil');
+      modal.classList.remove('d-none');
+
+      // Fetch dynamic detailed transcript if available
+      fetch(`/api/field-worker/visits/${encodeURIComponent(visitId)}/transcript`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data || !data.success) return;
+          const tTamil = data.transcript_tamil || (v && v.conversation_transcript_tamil) || 'தமிழ் உரை கிடைக்கவில்லை.';
+          const tEng = data.transcript_english || (v && v.conversation_transcript_english) || 'English translation not available.';
+          const sTamil = data.summary_tamil || '';
+          const sEng = data.summary_english || '';
+          const items = Array.isArray(data.action_items) && data.action_items.length > 0 ?
+            data.action_items : (v && v.ai_action_items) || [];
+
+          document.getElementById('audioTamilTranscriptText').textContent = tTamil;
+          document.getElementById('audioEnglishTranscriptText').textContent = tEng;
+          document.getElementById('audioSummaryText').textContent = `${sTamil ? sTamil + '\n\n' : ''}${sEng}`;
+          
+          const ul = document.getElementById('audioActionItemsList');
+          if (ul) {
+            ul.innerHTML = items.length > 0 ?
+              items.map(it => `<li>${it}</li>`).join('') :
+              '<li>No pending action items recorded.</li>';
+          }
+
+          if (data.customer_sentiment_tamil || data.customer_sentiment) {
+            document.getElementById('audioModalSentimentDetail').textContent =
+              `${data.customer_sentiment_tamil || ''} (${data.customer_sentiment || ''}) ${data.sentiment_reason ? '— ' + data.sentiment_reason : ''}`;
+          }
+        })
+        .catch(() => {});
+    }
+
+    function closeVisitAudioModal() {
+      const modal = document.getElementById('visitAudioModalBackdrop');
+      if (modal) modal.classList.add('d-none');
+      const player = document.getElementById('visitAudioPlayer');
+      if (player) {
+        player.pause();
+        player.src = '';
+      }
+    }
+
+    function setAudioSpeed(speed) {
+      const player = document.getElementById('visitAudioPlayer');
+      if (player) player.playbackRate = Number(speed);
+      showToast(`Playback speed set to ${speed}x`);
+    }
+
+    function switchAudioTranscriptTab(tab) {
+      const pTamil = document.getElementById('paneAudioTamil');
+      const pEng = document.getElementById('paneAudioEnglish');
+      const pSum = document.getElementById('paneAudioSummary');
+      const bTamil = document.getElementById('tabBtnTamilTranscript');
+      const bEng = document.getElementById('tabBtnEnglishTranscript');
+      const bSum = document.getElementById('tabBtnSummaryTranscript');
+
+      if (!pTamil || !pEng || !pSum) return;
+
+      pTamil.classList.add('d-none');
+      pEng.classList.add('d-none');
+      pSum.classList.add('d-none');
+      bTamil.style.background = '#e2e8f0'; bTamil.style.color = '#475569';
+      bEng.style.background = '#e2e8f0'; bEng.style.color = '#475569';
+      bSum.style.background = '#e2e8f0'; bSum.style.color = '#475569';
+
+      if (tab === 'tamil') {
+        pTamil.classList.remove('d-none');
+        bTamil.style.background = '#2563eb'; bTamil.style.color = '#ffffff';
+      } else if (tab === 'english') {
+        pEng.classList.remove('d-none');
+        bEng.style.background = '#2563eb'; bEng.style.color = '#ffffff';
+      } else if (tab === 'summary') {
+        pSum.classList.remove('d-none');
+        bSum.style.background = '#2563eb'; bSum.style.color = '#ffffff';
+      }
+    }
+
+    async function reprocessActiveVisitAudio() {
+      if (!CURRENT_ACTIVE_AUDIO_VISIT_ID) return;
+      const btn = document.getElementById('btnReprocessTamilAI');
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing Tamil AI...';
+      try {
+        const res = await fetch(`/api/field-worker/visits/${encodeURIComponent(CURRENT_ACTIVE_AUDIO_VISIT_ID)}/reprocess-ai`, {
+          method: 'POST'
+        });
+        const d = await res.json();
+        if (d && d.success) {
+          showToast('Tamil AI audio analysis completed successfully!');
+          openVisitAudioModal(CURRENT_ACTIVE_AUDIO_VISIT_ID);
+        } else {
+          showToast((d && d.error) || 'Failed to reprocess audio.', true);
+        }
+      } catch (err) {
+        showToast('Error connecting to AI service.', true);
+      } finally {
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Re-run Tamil AI';
+      }
     }
 
     function updateLinkedAssignmentDropdown(assignments) {
@@ -11296,28 +11746,39 @@
     // Dynamic Customer Visit Submission (AJAX, Zero Reload)
     async function submitCustomerVisit(e) {
       e.preventDefault();
-      const payload = {
-        company_id: getActiveCompanyId(),
-        visit_date: document.getElementById('globalDateInput').value,
-        employee_name: (CURRENT_USER_ROLE === 'employee' && LOGGED_IN_EMPLOYEE_NAME) ? LOGGED_IN_EMPLOYEE_NAME : ((document.getElementById('visitWorkerName') ? document.getElementById('visitWorkerName').value : '') || LOGGED_IN_EMPLOYEE_NAME),
-        assignment_id: document.getElementById('visitAssignmentId').value,
-        customer_name: document.getElementById('visitCustomerName').value,
-        contact_person: document.getElementById('visitContactPerson').value,
-        customer_phone: document.getElementById('visitCustomerPhone').value,
-        product_pitched: document.getElementById('visitProduct').value,
-        lead_status: document.getElementById('visitLeadStatus').value,
-        order_amount: parseFloat(document.getElementById('visitOrderAmount').value) || 0,
-        follow_up_date: document.getElementById('visitFollowUpDate').value,
-        latitude: (document.getElementById('visitLat') ? parseFloat(document.getElementById('visitLat').value) : null) || INITIAL_COMPANY_LAT,
-        longitude: (document.getElementById('visitLng') ? parseFloat(document.getElementById('visitLng').value) : null) || INITIAL_COMPANY_LNG,
-        remarks: document.getElementById('visitRemarks').value
-      };
+      if (WEB_IS_RECORDING) {
+        stopWebAudioRecording();
+      }
+
+      const formData = new FormData();
+      formData.append('company_id', getActiveCompanyId());
+      formData.append('visit_date', document.getElementById('globalDateInput').value);
+      formData.append('employee_name', (CURRENT_USER_ROLE === 'employee' && LOGGED_IN_EMPLOYEE_NAME) ? LOGGED_IN_EMPLOYEE_NAME : ((document.getElementById('visitWorkerName') ? document.getElementById('visitWorkerName').value : '') || LOGGED_IN_EMPLOYEE_NAME));
+      formData.append('assignment_id', document.getElementById('visitAssignmentId').value || '');
+      formData.append('customer_name', document.getElementById('visitCustomerName').value || '');
+      formData.append('contact_person', document.getElementById('visitContactPerson').value || '');
+      formData.append('customer_phone', document.getElementById('visitCustomerPhone').value || '');
+      formData.append('product_pitched', document.getElementById('visitProduct').value || '');
+      formData.append('lead_status', document.getElementById('visitLeadStatus').value || 'Interested');
+      formData.append('order_amount', parseFloat(document.getElementById('visitOrderAmount').value) || 0);
+      formData.append('follow_up_date', document.getElementById('visitFollowUpDate').value || '');
+      formData.append('latitude', (document.getElementById('visitLat') ? parseFloat(document.getElementById('visitLat').value) : null) || INITIAL_COMPANY_LAT);
+      formData.append('longitude', (document.getElementById('visitLng') ? parseFloat(document.getElementById('visitLng').value) : null) || INITIAL_COMPANY_LNG);
+      formData.append('remarks', document.getElementById('visitRemarks').value || '');
+
+      if (WEB_RECORDED_AUDIO_BLOB) {
+        const mime = WEB_RECORDED_AUDIO_BLOB.type || 'audio/webm';
+        const ext = mime.includes('mp4') ? 'm4a' : 'webm';
+        formData.append('audio_file', WEB_RECORDED_AUDIO_BLOB, `visit_web_audio_${Date.now()}.${ext}`);
+        formData.append('audio_duration_seconds', WEB_RECORDED_AUDIO_SECONDS || 0);
+        formData.append('audio_mime_type', mime);
+        showToast('Uploading visit & running Tamil Gemini AI speech-to-text...');
+      }
 
       try {
         const res = await fetch('/api/field-worker/visits', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: formData
         });
         const data = await res.json();
         if (!data.success) {
@@ -11325,6 +11786,7 @@
           return;
         }
         showToast(data.message);
+        discardWebAudioRecording();
         closeAddLeadModal();
         const visitForm = document.getElementById('customerVisitForm');
         if (visitForm) visitForm.reset();
@@ -11334,6 +11796,348 @@
         showToast('Visit submission network error: ' + err.message, true);
       }
     }
+
+    // =========================================================================
+    // PRODUCT WAREHOUSE (GOOGLE SHEETS) & WEB IN-BROWSER AUDIO RECORDER ENGINE
+    // =========================================================================
+
+    let CURRENT_WAREHOUSE_PRODUCTS = [];
+    let CURRENT_WAREHOUSE_SHEET_URL = '';
+
+    async function loadWarehouseProducts() {
+      try {
+        const res = await fetch(`/api/field-worker/products?company_id=${encodeURIComponent(getActiveCompanyId())}`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.products)) {
+          CURRENT_WAREHOUSE_PRODUCTS = data.products;
+          CURRENT_WAREHOUSE_SHEET_URL = data.sheet_url || '';
+          
+          const datalist = document.getElementById('warehouseProductList');
+          if (datalist) {
+            datalist.innerHTML = data.products.map(p => 
+              `<option value="${p.name}">${p.name} — ₹${Number(p.price || 0).toLocaleString('en-IN')}</option>`
+            ).join('');
+          }
+
+          const sheetInp = document.getElementById('warehouseSheetUrlInput');
+          if (sheetInp && data.sheet_url) sheetInp.value = data.sheet_url;
+          
+          const statusEl = document.getElementById('warehouseSyncStatusText');
+          if (statusEl) statusEl.textContent = `${data.products.length} Products Active (${data.sync_status || 'Ready'})`;
+          
+          const lastEl = document.getElementById('warehouseLastSyncedText');
+          if (lastEl) lastEl.textContent = `Last synced: ${data.last_synced_at || 'Recently'}`;
+
+          const openTabBtn = document.getElementById('btnOpenSheetInTab');
+          if (openTabBtn) {
+            openTabBtn.href = data.sheet_url || '#';
+            if (!data.sheet_url) openTabBtn.onclick = (e) => { e.preventDefault(); showToast('Please enter a Google Sheet URL first.'); };
+            else openTabBtn.onclick = null;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load warehouse products:', err);
+      }
+    }
+
+    function openProductWarehouse() {
+      if (CURRENT_WAREHOUSE_SHEET_URL && CURRENT_WAREHOUSE_SHEET_URL.trim().startsWith('http')) {
+        window.open(CURRENT_WAREHOUSE_SHEET_URL.trim(), '_blank');
+      } else {
+        openWarehouseSettingsModal();
+      }
+    }
+
+    function openWarehouseSettingsModal() {
+      const modal = document.getElementById('warehouseSettingsModalBackdrop');
+      if (modal) {
+        modal.classList.remove('d-none');
+        loadWarehouseProducts();
+      }
+    }
+
+    function closeWarehouseSettingsModal() {
+      const modal = document.getElementById('warehouseSettingsModalBackdrop');
+      if (modal) modal.classList.add('d-none');
+    }
+
+    async function saveWarehouseSheetUrl() {
+      const urlInput = document.getElementById('warehouseSheetUrlInput');
+      const sheetUrl = (urlInput ? urlInput.value : '').trim();
+      if (!sheetUrl) {
+        showToast('Please enter a valid Google Sheets URL.', true);
+        return;
+      }
+      try {
+        showToast('Saving Google Sheet URL & fetching products...');
+        const res = await fetch('/api/field-worker/products/sheet-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sheet_url: sheetUrl, company_id: getActiveCompanyId() })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Product Warehouse linked & synced successfully!');
+          closeWarehouseSettingsModal();
+          await loadWarehouseProducts();
+        } else {
+          showToast(data.error || 'Failed to sync Google Sheet.', true);
+        }
+      } catch (err) {
+        showToast('Error connecting to Google Sheets: ' + err.message, true);
+      }
+    }
+
+    async function syncWarehouseProducts() {
+      const btn = document.getElementById('btnSyncWarehouse');
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      try {
+        const res = await fetch('/api/field-worker/products/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ company_id: getActiveCompanyId() })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || `Synced ${data.product_count} products from Google Sheets!`);
+          await loadWarehouseProducts();
+        } else {
+          showToast(data.error || 'Sync warning: Using current catalog.', true);
+        }
+      } catch (err) {
+        showToast('Sync error: ' + err.message, true);
+      } finally {
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i>';
+      }
+    }
+
+    function handleProductSelected(val) {
+      if (!val) return;
+      const cleanVal = val.trim().toLowerCase();
+      const matched = CURRENT_WAREHOUSE_PRODUCTS.find(p => p.name.trim().toLowerCase() === cleanVal);
+      const hint = document.getElementById('productPriceHint');
+      const orderInp = document.getElementById('visitOrderAmount');
+      if (matched && matched.price > 0) {
+        if (orderInp) orderInp.value = matched.price.toFixed(2);
+        if (hint) {
+          hint.textContent = `✓ Warehouse price auto-filled: ₹${Number(matched.price).toLocaleString('en-IN')}`;
+          hint.style.display = 'block';
+        }
+      } else {
+        if (hint) hint.style.display = 'none';
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // WEB IN-BROWSER AUDIO RECORDER (MediaRecorder API for Tamil Gemini STT)
+    // -------------------------------------------------------------------------
+
+    let WEB_MEDIA_RECORDER = null;
+    let WEB_AUDIO_STREAM = null;
+    let WEB_RECORDED_AUDIO_CHUNKS = [];
+    let WEB_RECORDED_AUDIO_BLOB = null;
+    let WEB_RECORDED_AUDIO_SECONDS = 0;
+    let WEB_RECORD_TIMER_INTERVAL = null;
+    let WEB_IS_RECORDING = false;
+    let WEB_IS_PAUSED = false;
+
+    async function toggleWebAudioRecording() {
+      if (WEB_IS_RECORDING) {
+        stopWebAudioRecording();
+      } else {
+        await startWebAudioRecording();
+      }
+    }
+
+    async function startWebAudioRecording() {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          showToast('Audio recording is not supported in this browser.', true);
+          return;
+        }
+
+        WEB_AUDIO_STREAM = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        let options = { mimeType: 'audio/webm;codecs=opus' };
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
+          else if (MediaRecorder.isTypeSupported('audio/webm')) options = { mimeType: 'audio/webm' };
+          else options = {};
+        }
+
+        WEB_MEDIA_RECORDER = new MediaRecorder(WEB_AUDIO_STREAM, options);
+        WEB_RECORDED_AUDIO_CHUNKS = [];
+
+        WEB_MEDIA_RECORDER.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            WEB_RECORDED_AUDIO_CHUNKS.push(e.data);
+          }
+        };
+
+        WEB_MEDIA_RECORDER.onstop = () => {
+          const mime = (WEB_MEDIA_RECORDER && WEB_MEDIA_RECORDER.mimeType) ? WEB_MEDIA_RECORDER.mimeType : 'audio/webm';
+          WEB_RECORDED_AUDIO_BLOB = new Blob(WEB_RECORDED_AUDIO_CHUNKS, { type: mime });
+          
+          const preview = document.getElementById('webAudioPreview');
+          const previewCont = document.getElementById('webAudioPreviewContainer');
+          const durEl = document.getElementById('webAudioRecordedDuration');
+          
+          if (preview && WEB_RECORDED_AUDIO_BLOB) {
+            preview.src = URL.createObjectURL(WEB_RECORDED_AUDIO_BLOB);
+            if (previewCont) previewCont.classList.remove('d-none');
+            if (durEl) durEl.textContent = `Duration: ${WEB_RECORDED_AUDIO_SECONDS}s`;
+          }
+
+          if (WEB_AUDIO_STREAM) {
+            WEB_AUDIO_STREAM.getTracks().forEach(track => track.stop());
+            WEB_AUDIO_STREAM = null;
+          }
+        };
+
+        WEB_MEDIA_RECORDER.start(250);
+        WEB_IS_RECORDING = true;
+        WEB_IS_PAUSED = false;
+        WEB_RECORDED_AUDIO_SECONDS = 0;
+
+        const badge = document.getElementById('webRecordStatusBadge');
+        if (badge) {
+          badge.textContent = '● Recording Audio (Tamil AI)';
+          badge.style.background = '#fee2e2';
+          badge.style.color = '#dc2626';
+        }
+
+        const startBtn = document.getElementById('btnWebRecordStart');
+        const startText = document.getElementById('btnWebRecordStartText');
+        if (startBtn) {
+          startBtn.style.background = '#dc2626';
+          if (startText) startText.textContent = 'Stop Recording';
+        }
+
+        const pauseBtn = document.getElementById('btnWebRecordPause');
+        if (pauseBtn) pauseBtn.classList.remove('d-none');
+
+        const discardBtn = document.getElementById('btnWebRecordDiscard');
+        if (discardBtn) discardBtn.classList.remove('d-none');
+
+        const timerEl = document.getElementById('webRecordTimer');
+        if (timerEl) {
+          timerEl.textContent = '00:00';
+          timerEl.style.display = 'inline-block';
+        }
+
+        clearInterval(WEB_RECORD_TIMER_INTERVAL);
+        WEB_RECORD_TIMER_INTERVAL = setInterval(() => {
+          if (!WEB_IS_PAUSED) {
+            WEB_RECORDED_AUDIO_SECONDS++;
+            const mins = String(Math.floor(WEB_RECORDED_AUDIO_SECONDS / 60)).padStart(2, '0');
+            const secs = String(WEB_RECORDED_AUDIO_SECONDS % 60).padStart(2, '0');
+            if (timerEl) timerEl.textContent = `${mins}:${secs}`;
+          }
+        }, 1000);
+
+      } catch (err) {
+        showToast('Microphone access denied or error: ' + err.message, true);
+      }
+    }
+
+    function pauseResumeWebAudioRecording() {
+      if (!WEB_MEDIA_RECORDER || !WEB_IS_RECORDING) return;
+      const pauseText = document.getElementById('btnWebRecordPauseText');
+      const badge = document.getElementById('webRecordStatusBadge');
+      if (WEB_IS_PAUSED) {
+        WEB_MEDIA_RECORDER.resume();
+        WEB_IS_PAUSED = false;
+        if (pauseText) pauseText.textContent = 'Pause';
+        if (badge) {
+          badge.textContent = '● Recording Audio (Tamil AI)';
+          badge.style.background = '#fee2e2';
+          badge.style.color = '#dc2626';
+        }
+      } else {
+        WEB_MEDIA_RECORDER.pause();
+        WEB_IS_PAUSED = true;
+        if (pauseText) pauseText.textContent = 'Resume';
+        if (badge) {
+          badge.textContent = '❚❚ Recording Paused';
+          badge.style.background = '#fef3c7';
+          badge.style.color = '#b45309';
+        }
+      }
+    }
+
+    function stopWebAudioRecording() {
+      if (WEB_MEDIA_RECORDER && WEB_IS_RECORDING) {
+        WEB_MEDIA_RECORDER.stop();
+      }
+      WEB_IS_RECORDING = false;
+      WEB_IS_PAUSED = false;
+      clearInterval(WEB_RECORD_TIMER_INTERVAL);
+
+      const badge = document.getElementById('webRecordStatusBadge');
+      if (badge) {
+        badge.textContent = `✓ ${WEB_RECORDED_AUDIO_SECONDS}s Recorded`;
+        badge.style.background = '#ecfdf5';
+        badge.style.color = '#059669';
+      }
+
+      const startBtn = document.getElementById('btnWebRecordStart');
+      const startText = document.getElementById('btnWebRecordStartText');
+      if (startBtn) {
+        startBtn.style.background = '#2563eb';
+        if (startText) startText.textContent = 'Re-record Audio';
+      }
+
+      const pauseBtn = document.getElementById('btnWebRecordPause');
+      if (pauseBtn) pauseBtn.classList.add('d-none');
+    }
+
+    function discardWebAudioRecording() {
+      if (WEB_MEDIA_RECORDER && WEB_IS_RECORDING) {
+        WEB_MEDIA_RECORDER.stop();
+      }
+      if (WEB_AUDIO_STREAM) {
+        WEB_AUDIO_STREAM.getTracks().forEach(track => track.stop());
+        WEB_AUDIO_STREAM = null;
+      }
+      clearInterval(WEB_RECORD_TIMER_INTERVAL);
+      WEB_IS_RECORDING = false;
+      WEB_IS_PAUSED = false;
+      WEB_RECORDED_AUDIO_CHUNKS = [];
+      WEB_RECORDED_AUDIO_BLOB = null;
+      WEB_RECORDED_AUDIO_SECONDS = 0;
+
+      const badge = document.getElementById('webRecordStatusBadge');
+      if (badge) {
+        badge.textContent = 'Mic Ready';
+        badge.style.background = '#e2e8f0';
+        badge.style.color = '#475569';
+      }
+
+      const startBtn = document.getElementById('btnWebRecordStart');
+      const startText = document.getElementById('btnWebRecordStartText');
+      if (startBtn) {
+        startBtn.style.background = '#2563eb';
+        if (startText) startText.textContent = 'Start Recording';
+      }
+
+      const pauseBtn = document.getElementById('btnWebRecordPause');
+      if (pauseBtn) pauseBtn.classList.add('d-none');
+
+      const discardBtn = document.getElementById('btnWebRecordDiscard');
+      if (discardBtn) discardBtn.classList.add('d-none');
+
+      const timerEl = document.getElementById('webRecordTimer');
+      if (timerEl) {
+        timerEl.textContent = '00:00';
+        timerEl.style.display = 'none';
+      }
+
+      const previewCont = document.getElementById('webAudioPreviewContainer');
+      const preview = document.getElementById('webAudioPreview');
+      if (previewCont) previewCont.classList.add('d-none');
+      if (preview) preview.src = '';
+    }
+
 
     async function deleteCustomerVisit(id) {
       if (!confirm('Are you sure you want to delete this customer visit?')) return;
@@ -11403,6 +12207,7 @@
         if (data.success) {
           showToast(data.message || 'Lead updated successfully!');
           closeEditLeadModal();
+        closeWarehouseSettingsModal();
           const idx = VISITS_DATA.findIndex(x => String(x.id) === String(visitId));
           if (idx !== -1) {
             VISITS_DATA[idx] = { ...VISITS_DATA[idx], ...payload };
@@ -13184,6 +13989,9 @@
       if (e.target && e.target.id === 'addLeadModalBackdrop') {
         closeAddLeadModal();
       }
+      if (e.target && e.target.id === 'warehouseSettingsModalBackdrop') {
+        closeWarehouseSettingsModal();
+      }
       if (e.target && e.target.id === 'editLeadModalBackdrop') {
         closeEditLeadModal();
       }
@@ -13218,6 +14026,7 @@
       initFieldMaps();
       initAiDetourMonitoring();
       initTerminalListeners();
+      loadWarehouseProducts();
 
       // Restore active tab from hash or sessionStorage with role isolation
       const hashTab = (window.location.hash || '').replace('#', '');
