@@ -5467,6 +5467,7 @@ def api_field_worker_visits():
 
         audio_file = request.files.get('audio_file') or request.files.get('audio') or request.files.get('recording')
         temp_audio_path = None
+        uploaded_gridfs_id = None
         if audio_file and getattr(audio_file, 'filename', None):
             clean_fname = werkzeug.utils.secure_filename(audio_file.filename) or 'recording.m4a'
             ext = os.path.splitext(clean_fname)[1].lower() or '.m4a'
@@ -5474,11 +5475,30 @@ def api_field_worker_visits():
             os.makedirs(upload_dir, exist_ok=True)
             saved_name = f"visit_audio_{int(time.time() * 1000)}{ext}"
             saved_path = os.path.join(upload_dir, saved_name)
-            audio_file.save(saved_path)
+
+            # Read bytes for persistent GridFS cloud storage across all deploys
+            audio_bytes = audio_file.read()
+            mime_type = audio_file.content_type or ('audio/webm' if ext == '.webm' else 'audio/mp4')
+            try:
+                import gridfs
+                fs = gridfs.GridFS(database.get_db())
+                grid_file = fs.put(audio_bytes, filename=saved_name, content_type=mime_type)
+                uploaded_gridfs_id = str(grid_file)
+                data['audio_gridfs_id'] = uploaded_gridfs_id
+            except Exception as gfs_err:
+                print("Error saving audio to GridFS:", gfs_err)
+
+            # Also save to local disk for immediate processing
+            try:
+                with open(saved_path, 'wb') as f_out:
+                    f_out.write(audio_bytes)
+            except Exception:
+                pass
+
             rel_path = f"static/uploads/visit_recordings/{cid or 'ARGUS_MASTER'}/{saved_name}"
             data['audio_file_path'] = rel_path
             data['has_audio_recording'] = True
-            data['audio_mime_type'] = audio_file.content_type or 'audio/mp4'
+            data['audio_mime_type'] = mime_type
             temp_audio_path = saved_path
 
         visit = database.create_field_customer_visit(data, company_id=cid)
@@ -5496,7 +5516,8 @@ def api_field_worker_visits():
                     audio_url=audio_url,
                     duration_seconds=dur,
                     mime_type=mime,
-                    company_id=cid
+                    company_id=cid,
+                    gridfs_id=uploaded_gridfs_id
                 )
                 if updated_visit:
                     visit = updated_visit
@@ -5532,25 +5553,53 @@ def api_field_worker_visit_detail(visit_id):
 
 @app.route('/api/field-worker/visits/<visit_id>/audio', methods=['GET'])
 def api_field_worker_visit_audio(visit_id):
-    """Streams the recorded visit audio file with HTTP Range support for seamless playback & scrubbing."""
+    """Streams the recorded visit audio file from GridFS cloud database or local filesystem with HTTP Range support."""
     if not _is_field_authenticated():
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
 
     cid = _resolve_field_company_id(request.args.get('company_id'))
     visit = database.get_field_customer_visit_by_id(visit_id, company_id=cid)
-    if not visit or not visit.get('audio_file_path'):
+    if not visit and (session.get('role') == 'super_admin' or cid in ['ALL', 'ARGUS_MASTER', None]):
+        visit = database.get_field_customer_visit_by_id(visit_id, company_id=None)
+
+    if not visit or not visit.get('has_audio_recording'):
         return jsonify({'success': False, 'error': 'Audio recording not found for this visit.'}), 404
 
-    audio_path = visit['audio_file_path']
-    # Resolve absolute path if relative
-    if not os.path.isabs(audio_path):
-        audio_path = os.path.join(app.root_path, audio_path)
+    mime = visit.get('audio_mime_type') or 'audio/webm'
 
-    if not os.path.exists(audio_path):
-        return jsonify({'success': False, 'error': 'Audio recording file missing from storage.'}), 404
+    # 1. Stream from GridFS (persistent cloud database storage across all deploys)
+    grid_id = visit.get('audio_gridfs_id')
+    if grid_id:
+        try:
+            import gridfs, io
+            from bson import ObjectId
+            fs = gridfs.GridFS(database.get_db())
+            if fs.exists(ObjectId(grid_id)):
+                grid_out = fs.get(ObjectId(grid_id))
+                return send_file(io.BytesIO(grid_out.read()), mimetype=grid_out.content_type or mime, conditional=True)
+        except Exception as e:
+            print("GridFS Audio Stream Error:", e)
 
-    mime = visit.get('audio_mime_type') or 'audio/mp4'
-    return send_file(audio_path, mimetype=mime, conditional=True)
+    # 2. Local or dynamic filesystem path
+    audio_path = str(visit.get('audio_file_path') or '').strip()
+    if audio_path:
+        norm_path = audio_path.replace('\\', '/')
+        if 'static/uploads/visit_recordings/' in norm_path:
+            rel_sub = norm_path.split('static/uploads/visit_recordings/', 1)[1]
+            local_cand = os.path.join(app.root_path, 'static', 'uploads', 'visit_recordings', rel_sub)
+            if os.path.exists(local_cand):
+                audio_path = local_cand
+
+        if not os.path.isabs(audio_path):
+            audio_path = os.path.join(app.root_path, audio_path)
+
+        if os.path.exists(audio_path):
+            return send_file(audio_path, mimetype=mime, conditional=True)
+
+    return jsonify({
+        'success': False,
+        'error': 'Audio recording expired during server redeployment (recorded prior to cloud persistence). Please record a new visit.'
+    }), 404
 
 
 @app.route('/api/field-worker/visits/<visit_id>/transcript', methods=['GET'])
@@ -5588,30 +5637,71 @@ def api_field_worker_visit_transcript(visit_id):
 
 @app.route('/api/field-worker/visits/<visit_id>/reprocess-ai', methods=['POST'])
 def api_field_worker_visit_reprocess_ai(visit_id):
-    """Re-runs Tamil Gemini 1.5 Flash STT on an existing visit audio."""
+    """Re-runs Tamil Gemini 1.5 Flash STT on an existing visit audio from GridFS or disk."""
     if not _is_field_authenticated():
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
 
     cid = _resolve_field_company_id(request.args.get('company_id'))
     visit = database.get_field_customer_visit_by_id(visit_id, company_id=cid)
-    if not visit or not visit.get('audio_file_path'):
-        return jsonify({'success': False, 'error': 'No audio file recorded for this visit.'}), 404
+    if not visit and (session.get('role') == 'super_admin' or cid in ['ALL', 'ARGUS_MASTER', None]):
+        visit = database.get_field_customer_visit_by_id(visit_id, company_id=None)
 
-    audio_path = visit['audio_file_path']
-    if not os.path.isabs(audio_path):
-        audio_path = os.path.join(app.root_path, audio_path)
+    if not visit or not visit.get('has_audio_recording'):
+        return jsonify({'success': False, 'error': 'No audio recording found for this visit.'}), 404
 
-    if not os.path.exists(audio_path):
-        return jsonify({'success': False, 'error': 'Audio file not found on disk.'}), 404
+    mime = visit.get('audio_mime_type') or 'audio/webm'
+    audio_path = str(visit.get('audio_file_path') or '').strip()
 
-    updated = database.attach_audio_and_process_visit(
-        visit_id=visit_id,
-        audio_file_path=audio_path,
-        audio_url=visit.get('audio_url'),
-        duration_seconds=visit.get('audio_duration_seconds', 0),
-        mime_type=visit.get('audio_mime_type', 'audio/mp4'),
-        company_id=cid
-    )
+    # Dynamic path normalization
+    if audio_path:
+        norm_path = audio_path.replace('\\', '/')
+        if 'static/uploads/visit_recordings/' in norm_path:
+            rel_sub = norm_path.split('static/uploads/visit_recordings/', 1)[1]
+            local_cand = os.path.join(app.root_path, 'static', 'uploads', 'visit_recordings', rel_sub)
+            if os.path.exists(local_cand):
+                audio_path = local_cand
+        elif not os.path.isabs(audio_path):
+            audio_path = os.path.join(app.root_path, audio_path)
+
+    # Check GridFS if not on disk
+    grid_id = visit.get('audio_gridfs_id')
+    temp_gridfs_file = None
+    if (not audio_path or not os.path.exists(audio_path)) and grid_id:
+        try:
+            import gridfs, tempfile
+            from bson import ObjectId
+            fs = gridfs.GridFS(database.get_db())
+            if fs.exists(ObjectId(grid_id)):
+                g_file = fs.get(ObjectId(grid_id))
+                temp_fd, temp_gridfs_file = tempfile.mkstemp(suffix='.webm')
+                with os.fdopen(temp_fd, 'wb') as t_out:
+                    t_out.write(g_file.read())
+                audio_path = temp_gridfs_file
+        except Exception as e:
+            print("Error retrieving GridFS audio for reprocess:", e)
+
+    if not audio_path or not os.path.exists(audio_path):
+        return jsonify({
+            'success': False,
+            'error': 'Audio file was stored on ephemeral server storage and expired during server redeployment. Please record a new visit — all new audio files are permanently preserved in Cloud Database!'
+        }), 404
+
+    try:
+        updated = database.attach_audio_and_process_visit(
+            visit_id=visit_id,
+            audio_file_path=audio_path,
+            audio_url=visit.get('audio_url'),
+            duration_seconds=visit.get('audio_duration_seconds', 0),
+            mime_type=mime,
+            company_id=cid,
+            gridfs_id=grid_id
+        )
+    finally:
+        if temp_gridfs_file and os.path.exists(temp_gridfs_file):
+            try:
+                os.remove(temp_gridfs_file)
+            except Exception:
+                pass
 
     return jsonify({
         'success': True,

@@ -8438,7 +8438,7 @@ def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_
     }
 
 
-def attach_audio_and_process_visit(visit_id, audio_file_path, audio_url=None, duration_seconds=0, mime_type='audio/mp4', company_id=None):
+def attach_audio_and_process_visit(visit_id, audio_file_path, audio_url=None, duration_seconds=0, mime_type='audio/mp4', company_id=None, gridfs_id=None):
     """
     Attaches audio file to a customer visit, runs Tamil Gemini 1.5 Flash STT,
     and updates the MongoDB record with transcripts, summary, and sentiment.
@@ -8453,6 +8453,7 @@ def attach_audio_and_process_visit(visit_id, audio_file_path, audio_url=None, du
     upd = {
         'has_audio_recording': True,
         'audio_file_path': audio_file_path,
+        'audio_gridfs_id': str(gridfs_id) if gridfs_id else None,
         'audio_url': audio_url or f"/api/field-worker/visits/{visit_id}/audio",
         'audio_duration_seconds': round(safe_float(duration_seconds, 0.0), 1),
         'audio_mime_type': mime_type or 'audio/mp4',

@@ -5904,6 +5904,9 @@
               </div>
 
               <div class="fw-modal-body" style="padding: 24px; gap: 16px;">
+                <!-- Ephemeral Expiration Notice if file is missing -->
+                <div id="audioPlayerNotice" style="display:none; font-size:11.5px; line-height:1.5; color:#fca5a5; background:#450a0a; border:1px solid #7f1d1d; border-radius:8px; padding:10px 14px; margin-bottom:12px;"></div>
+
                 <!-- Modern Minimal Audio Player Box -->
                 <div style="background: #111827; border-radius: 12px; padding: 18px 20px; color: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.2);">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -10429,8 +10432,28 @@
       const player = document.getElementById('visitAudioPlayer');
       const downloadLink = document.getElementById('audioDownloadLink');
       const audioUrl = `/api/field-worker/visits/${encodeURIComponent(visitId)}/audio`;
+      const noticeEl = document.getElementById('audioPlayerNotice');
+      if (noticeEl) noticeEl.style.display = 'none';
 
       if (player) {
+        player.onerror = () => {
+          if (noticeEl) {
+            noticeEl.style.display = 'block';
+            noticeEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <strong>Audio Recording Expired:</strong> This recording was saved on temporary server storage prior to Cloud Database persistence and expired during server deployment. All new audio recordings are now permanently preserved.';
+          }
+          const statusEl = document.getElementById('audioPlayerStatusText');
+          if (statusEl) {
+            statusEl.innerHTML = '<span style="color:#f87171;"><i class="fa-solid fa-circle-exclamation"></i> File Expired</span>';
+          }
+        };
+        player.onloadeddata = () => {
+          if (noticeEl) noticeEl.style.display = 'none';
+          const statusEl = document.getElementById('audioPlayerStatusText');
+          if (statusEl) {
+            statusEl.innerHTML = '<span style="color:#60a5fa;"><i class="fa-solid fa-play"></i> Direct Stream</span>';
+          }
+        };
+
         player.src = audioUrl;
         player.playbackRate = 1.0;
         player.load();
