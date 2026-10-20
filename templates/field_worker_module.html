@@ -5555,17 +5555,12 @@
                     </td>
                     <!-- Column 2: SPEECH-TO-TEXT DOCUMENT -->
                     <td style="text-align:center; white-space:nowrap;">
-                      {% if v.has_audio_recording and (v.conversation_transcript_tamil or v.conversation_transcript or v.conversation_transcript_english) %}
+                      {% if v.has_audio_recording %}
                       <div style="display:inline-flex; align-items:center; gap:5px;">
-                        <button type="button" onclick="openVisitAudioModal('{{ v.id }}')" title="View Tamil & English Speech-to-Text transcript & sentiment" style="background:#f0fdf4; border:1px solid #86efac; color:#15803d; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
-                          <i class="fa-solid fa-file-lines"></i> தமிழ் &bull; English Doc
+                        <button type="button" onclick="openVisitTranscriptDocModal('{{ v.id }}')" title="View Tamil & English Speech-to-Text transcript and export Word .docx" style="background:#f0fdf4; border:1px solid #86efac; color:#15803d; padding:4px 9px; border-radius:6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                          <i class="fa-solid fa-file-word"></i> தமிழ் &bull; English Doc
                         </button>
-                        <a href="/api/field-worker/visits/{{ v.id }}/transcript/export" download class="btn-action-icon" title="Download official transcript document (.txt)" style="width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:4px; color:#059669; text-decoration:none;">
-                          <i class="fa-solid fa-file-arrow-down"></i>
-                        </a>
                       </div>
-                      {% elif v.has_audio_recording %}
-                      <span style="color:#f59e0b; font-size:10.5px; font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Processing STT</span>
                       {% else %}
                       <span style="color:#94a3b8; font-size:11px; font-weight:500;">-</span>
                       {% endif %}
@@ -5891,44 +5886,29 @@
             </div>
           </div>
 
-          <!-- Modal Dialog: Field Worker Customer Visit Audio & Tamil Speech-to-Text AI Audit -->
+          <!-- Modal Dialog 1: RECORDED AUDIO FILE (Clean Audio Player Only) -->
           <div class="fw-modal-backdrop d-none" id="visitAudioModalBackdrop" style="z-index: 1050;">
-            <div class="fw-modal-dialog" style="max-width: 680px; width: 95%;">
+            <div class="fw-modal-dialog" style="max-width: 540px; width: 95%;">
               <div class="fw-modal-header" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: #ffffff; border-bottom: 2px solid #3b82f6;">
                 <div class="fw-modal-header-left">
                   <span class="fw-card-icon" style="background: #2563eb; color: #ffffff; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px;">
-                    <i class="fa-solid fa-microphone-lines"></i>
+                    <i class="fa-solid fa-volume-high"></i>
                   </span>
                   <div>
                     <div class="fw-card-title" style="color: #ffffff; font-size: 14px; font-weight: 800; letter-spacing: 0.3px;">
-                      CUSTOMER VISIT AUDIO &amp; TAMIL AI TRANSCRIPT
-                    </div>
-                    <div class="fw-card-subtitle" style="color: #94a3b8; font-size: 11px;">
-                      வாடிக்கையாளர் நேரடி சந்திப்பு ஆடியோ &amp; AI பகுப்பாய்வு
+                      RECORDED AUDIO FILE
                     </div>
                   </div>
                 </div>
                 <button type="button" class="fw-modal-close-btn" onclick="closeVisitAudioModal()" style="color: #ffffff; font-size: 20px;">&times;</button>
               </div>
 
-              <div class="fw-modal-body" style="padding: 16px 20px; gap: 14px; max-height: 75vh; overflow-y: auto;">
-                <!-- Visit Header Info Card -->
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;">
-                  <div>
-                    <div style="font-weight: 800; font-size: 14px; color: #0f172a;" id="audioModalCustomerName">-</div>
-                    <div style="font-size: 11.5px; color: #64748b;" id="audioModalWorkerInfo">-</div>
-                  </div>
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <span id="audioModalSentimentBadge" class="badge-blue" style="padding: 4px 10px; font-size: 11px; font-weight: 700;">-</span>
-                    <span id="audioModalGeoBadge" class="badge-onsite" style="padding: 4px 10px; font-size: 11px;">-</span>
-                  </div>
-                </div>
-
-                <!-- Modern Audio Player Box -->
-                <div style="background: #111827; border-radius: 10px; padding: 14px 16px; color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <span style="font-size: 11.5px; font-weight: 700; color: #60a5fa; display: inline-flex; align-items: center; gap: 6px;">
-                      <i class="fa-solid fa-volume-high"></i> <span id="audioPlayerStatusText">Audio Player (Direct Stream)</span>
+              <div class="fw-modal-body" style="padding: 24px; gap: 16px;">
+                <!-- Modern Minimal Audio Player Box -->
+                <div style="background: #111827; border-radius: 12px; padding: 18px 20px; color: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.2);">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 12px; font-weight: 700; color: #60a5fa; display: inline-flex; align-items: center; gap: 6px;">
+                      <i class="fa-solid fa-play"></i> <span id="audioPlayerStatusText">Direct Stream</span>
                     </span>
                     <div style="display: flex; align-items: center; gap: 6px;">
                       <span style="font-size: 10.5px; color: #94a3b8;">Speed:</span>
@@ -5936,74 +5916,91 @@
                       <button type="button" class="btn-speed-tag" onclick="setAudioSpeed(1.0)" style="background:#2563eb; color:#ffffff; border:1px solid #2563eb; padding:2px 6px; border-radius:4px; font-size:10px; cursor:pointer;">1.0x</button>
                       <button type="button" class="btn-speed-tag" onclick="setAudioSpeed(1.25)" style="background:#1f2937; color:#cbd5e1; border:1px solid #374151; padding:2px 6px; border-radius:4px; font-size:10px; cursor:pointer;">1.25x</button>
                       <button type="button" class="btn-speed-tag" onclick="setAudioSpeed(1.5)" style="background:#1f2937; color:#cbd5e1; border:1px solid #374151; padding:2px 6px; border-radius:4px; font-size:10px; cursor:pointer;">1.5x</button>
-                      <a id="audioDownloadLink" href="#" download class="btn-speed-tag" style="background:#059669; color:#ffffff; border:none; padding:2px 8px; border-radius:4px; font-size:10px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="Download original audio recording">
+                      <a id="audioDownloadLink" href="#" download class="btn-speed-tag" style="background:#059669; color:#ffffff; border:none; padding:3px 9px; border-radius:4px; font-size:10.5px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="Download original audio recording">
                         <i class="fa-solid fa-download"></i> Download Audio
-                      </a>
-                      <a id="transcriptDocDownloadLink" href="#" download class="btn-speed-tag" style="background:#2563eb; color:#ffffff; border:none; padding:2px 8px; border-radius:4px; font-size:10px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="Download complete Tamil & English Speech-to-Text audit document">
-                        <i class="fa-solid fa-file-arrow-down"></i> Export Doc (.txt)
                       </a>
                     </div>
                   </div>
-                  <audio id="visitAudioPlayer" controls style="width: 100%; height: 38px; outline: none; border-radius: 6px;"></audio>
+                  <audio id="visitAudioPlayer" controls style="width: 100%; height: 42px; outline: none; border-radius: 6px;"></audio>
+                </div>
+              </div>
+
+              <div class="fw-modal-footer" style="display: flex; justify-content: flex-end; align-items: center; background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 12px 20px;">
+                <button type="button" class="fw-btn fw-btn-neutral" onclick="closeVisitAudioModal()" style="font-size: 12px; padding: 6px 20px;">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Dialog 2: SPEECH-TO-TEXT DOCUMENT (Exact Verbatim & Word .docx Export) -->
+          <div class="fw-modal-backdrop d-none" id="visitTranscriptDocModalBackdrop" style="z-index: 1050;">
+            <div class="fw-modal-dialog" style="max-width: 720px; width: 95%;">
+              <div class="fw-modal-header" style="background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #ffffff; border-bottom: 2px solid #60a5fa;">
+                <div class="fw-modal-header-left">
+                  <span class="fw-card-icon" style="background: #1e293b; color: #ffffff; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px;">
+                    <i class="fa-solid fa-file-word"></i>
+                  </span>
+                  <div>
+                    <div class="fw-card-title" style="color: #ffffff; font-size: 14px; font-weight: 800; letter-spacing: 0.3px;">
+                      SPEECH-TO-TEXT DOCUMENT
+                    </div>
+                    <div class="fw-card-subtitle" style="color: #bfdbfe; font-size: 11px;">
+                      Verbatim Field Discussion &amp; Translation
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="fw-modal-close-btn" onclick="closeVisitTranscriptDocModal()" style="color: #ffffff; font-size: 20px;">&times;</button>
+              </div>
+
+              <div class="fw-modal-body" style="padding: 16px 20px; gap: 12px; max-height: 75vh; overflow-y: auto;">
+                <!-- Gemini Key Configuration Alert Banner -->
+                <div id="geminiKeyNoticeBanner" style="display: none; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #92400e; justify-content: space-between; align-items: center; gap: 10px;">
+                  <div>
+                    <i class="fa-solid fa-triangle-exclamation"></i> <strong>Gemini 1.5 Flash Required:</strong> Please configure your API key for live Indian Tamil speech-to-text transcription.
+                  </div>
+                  <button type="button" onclick="promptConfigureGeminiKey()" class="fw-btn" style="background: #d97706; color: #fff; padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 5px; border: none; cursor: pointer; white-space: nowrap;">
+                    Configure Key
+                  </button>
                 </div>
 
-                <!-- AI Intelligence Highlights Bar -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                  <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 12px;">
-                    <div style="font-size: 11px; font-weight: 700; color: #166534; text-transform: uppercase;">வாடிக்கையாளர் மனநிலை / Sentiment</div>
-                    <div id="audioModalSentimentDetail" style="font-size: 12.5px; font-weight: 700; color: #15803d; margin-top: 2px;">-</div>
-                  </div>
-                  <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 12px;">
-                    <div style="font-size: 11px; font-weight: 700; color: #1e40af; text-transform: uppercase;">பேசப்பட்ட தயாரிப்பு / Pitched Product</div>
-                    <div id="audioModalProductPitched" style="font-size: 12.5px; font-weight: 700; color: #1d4ed8; margin-top: 2px;">-</div>
-                  </div>
-                </div>
-
-                <!-- Dual-Script Tabs: Tamil vs English vs Summary -->
-                <div style="border-bottom: 2px solid #e2e8f0; display: flex; gap: 4px; margin-top: 4px;">
-                  <button type="button" id="tabBtnTamilTranscript" onclick="switchAudioTranscriptTab('tamil')" style="padding: 8px 14px; font-size: 12px; font-weight: 700; border: none; background: #2563eb; color: #ffffff; border-radius: 6px 6px 0 0; cursor: pointer;">
-                    🇮🇳 தமிழ் உரை (Tamil Script)
+                <!-- Dual-Script Tabs: Tamil vs English -->
+                <div style="border-bottom: 2px solid #e2e8f0; display: flex; gap: 4px;">
+                  <button type="button" id="tabBtnDocTamil" onclick="switchTranscriptDocTab('tamil')" style="padding: 8px 14px; font-size: 12px; font-weight: 700; border: none; background: #2563eb; color: #ffffff; border-radius: 6px 6px 0 0; cursor: pointer;">
+                    🇮🇳 தமிழ் நேரடி உரையாடல் (Tamil Conversation)
                   </button>
-                  <button type="button" id="tabBtnEnglishTranscript" onclick="switchAudioTranscriptTab('english')" style="padding: 8px 14px; font-size: 12px; font-weight: 600; border: none; background: #e2e8f0; color: #475569; border-radius: 6px 6px 0 0; cursor: pointer;">
-                    🇬🇧 English Translation
-                  </button>
-                  <button type="button" id="tabBtnSummaryTranscript" onclick="switchAudioTranscriptTab('summary')" style="padding: 8px 14px; font-size: 12px; font-weight: 600; border: none; background: #e2e8f0; color: #475569; border-radius: 6px 6px 0 0; cursor: pointer;">
-                    📝 முக்கிய குறிப்புகள் (Action Items)
+                  <button type="button" id="tabBtnDocEnglish" onclick="switchTranscriptDocTab('english')" style="padding: 8px 14px; font-size: 12px; font-weight: 600; border: none; background: #e2e8f0; color: #475569; border-radius: 6px 6px 0 0; cursor: pointer;">
+                    🇬🇧 English Translation (ஆங்கில மொழிபெயர்ப்பு)
                   </button>
                 </div>
 
                 <!-- Pane 1: Tamil Script Transcript -->
-                <div id="paneAudioTamil" style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 0 0 8px 8px; padding: 14px; min-height: 140px; max-height: 240px; overflow-y: auto;">
-                  <div id="audioTamilTranscriptText" style="white-space: pre-wrap; font-size: 13px; line-height: 1.6; color: #3b0764; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                <div id="docPaneTamil" style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 0 0 8px 8px; padding: 16px; min-height: 200px; max-height: 380px; overflow-y: auto;">
+                  <div id="docTamilText" style="white-space: pre-wrap; font-size: 13px; line-height: 1.7; color: #3b0764; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                     தமிழ் உரையாடல் ஏற்றப்படுகிறது...
                   </div>
                 </div>
 
                 <!-- Pane 2: English Translation Transcript -->
-                <div id="paneAudioEnglish" class="d-none" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0 0 8px 8px; padding: 14px; min-height: 140px; max-height: 240px; overflow-y: auto;">
-                  <div id="audioEnglishTranscriptText" style="white-space: pre-wrap; font-size: 13px; line-height: 1.6; color: #1e293b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    Loading English translation...
+                <div id="docPaneEnglish" class="d-none" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0 0 8px 8px; padding: 16px; min-height: 200px; max-height: 380px; overflow-y: auto;">
+                  <div id="docEnglishText" style="white-space: pre-wrap; font-size: 13px; line-height: 1.7; color: #1e293b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    Loading English conversation translation...
                   </div>
-                </div>
-
-                <!-- Pane 3: Summary & Action Items -->
-                <div id="paneAudioSummary" class="d-none" style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 0 0 8px 8px; padding: 14px; min-height: 140px; max-height: 240px; overflow-y: auto;">
-                  <div style="font-weight: 700; font-size: 12.5px; color: #92400e; margin-bottom: 6px;">சுருக்கம் &amp; Executive Summary:</div>
-                  <div id="audioSummaryText" style="font-size: 12.5px; line-height: 1.5; color: #78350f; margin-bottom: 10px;">-</div>
-                  <div style="font-weight: 700; font-size: 12.5px; color: #92400e; margin-bottom: 4px;">அடுத்த கட்ட நடவடிக்கைகள் (Action Items):</div>
-                  <ul id="audioActionItemsList" style="padding-left: 20px; font-size: 12px; color: #78350f; line-height: 1.6;">
-                    <li>No pending action items recorded.</li>
-                  </ul>
                 </div>
               </div>
 
               <div class="fw-modal-footer" style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 10px 20px;">
-                <button type="button" id="btnReprocessTamilAI" class="fw-btn" onclick="reprocessActiveVisitAudio()" style="background: #475569; color: #ffffff; font-size: 11.5px; padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                <button type="button" class="fw-btn" onclick="reprocessTranscriptDocAI()" style="background: #475569; color: #ffffff; font-size: 11.5px; padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
                   <i class="fa-solid fa-rotate"></i> Re-run Tamil AI
                 </button>
-                <button type="button" class="fw-btn fw-btn-neutral" onclick="closeVisitAudioModal()" style="font-size: 12px; padding: 6px 16px;">
-                  Close
-                </button>
+                <div style="display: flex; gap: 8px;">
+                  <a id="transcriptDocxDownloadLink" href="#" download class="fw-btn" style="background: #2b579a; color: #ffffff; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(43,87,154,0.3);" title="Download official Speech-to-Text conversation report in .docx format only">
+                    <i class="fa-solid fa-file-word"></i> Download Document (.docx)
+                  </a>
+                  <button type="button" class="fw-btn fw-btn-neutral" onclick="closeVisitTranscriptDocModal()" style="font-size: 12px; padding: 6px 16px;">
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -10381,21 +10378,16 @@
           `<td style="text-align:center; color:#94a3b8; font-size:11px;">No Audio</td>`;
 
         // Column 2: SPEECH-TO-TEXT DOCUMENT
-        const hasStt = v.has_audio_recording && (v.conversation_transcript_tamil || v.conversation_transcript || v.conversation_transcript_english);
+        const hasStt = v.has_audio_recording;
         const sttDocCol = hasStt ?
           `<td style="text-align:center; white-space:nowrap;">
             <div style="display:inline-flex; align-items:center; gap:5px;">
-              <button type="button" onclick="openVisitAudioModal('${v.id}')" title="View Tamil & English Speech-to-Text transcript & sentiment" style="background:#f0fdf4; border:1px solid #86efac; color:#15803d; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
-                <i class="fa-solid fa-file-lines"></i> தமிழ் &bull; English Doc
+              <button type="button" onclick="openVisitTranscriptDocModal('${v.id}')" title="View Tamil & English Speech-to-Text verbatim conversation and export Word .docx" style="background:#f0fdf4; border:1px solid #86efac; color:#15803d; padding:4px 9px; border-radius:6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                <i class="fa-solid fa-file-word"></i> தமிழ் &bull; English Doc
               </button>
-              <a href="/api/field-worker/visits/${encodeURIComponent(v.id)}/transcript/export" download class="btn-action-icon" title="Download official transcript document (.txt)" style="width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:4px; color:#059669; text-decoration:none;">
-                <i class="fa-solid fa-file-arrow-down"></i>
-              </a>
             </div>
           </td>` :
-          (v.has_audio_recording ?
-            `<td style="text-align:center;"><span style="color:#f59e0b; font-size:10.5px; font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Processing STT</span></td>` :
-            `<td style="text-align:center; color:#94a3b8; font-size:11px;">-</td>`);
+          `<td style="text-align:center; color:#94a3b8; font-size:11px;">-</td>`;
 
         const actionCol = (CURRENT_USER_ROLE === 'super_admin' || CURRENT_USER_ROLE === 'company_admin') ?
           `<td style="text-align:center;">
@@ -10431,9 +10423,6 @@
 
     function openVisitAudioModal(visitId) {
       CURRENT_ACTIVE_AUDIO_VISIT_ID = visitId;
-      const v = (typeof VISITS_DATA !== 'undefined' && Array.isArray(VISITS_DATA)) ?
-        VISITS_DATA.find(x => String(x.id) === String(visitId)) : null;
-
       const modal = document.getElementById('visitAudioModalBackdrop');
       if (!modal) return;
 
@@ -10449,65 +10438,8 @@
       if (downloadLink) {
         downloadLink.href = audioUrl;
       }
-      const transcriptDocLink = document.getElementById('transcriptDocDownloadLink');
-      if (transcriptDocLink) {
-        transcriptDocLink.href = `/api/field-worker/visits/${encodeURIComponent(visitId)}/transcript/export`;
-      }
 
-      document.getElementById('audioModalCustomerName').textContent = v ? v.customer_name : `Visit ${visitId}`;
-      document.getElementById('audioModalWorkerInfo').textContent = v ?
-        `Recorded by: ${v.employee_name || '-'} • ${v.timestamp || ''}` : '';
-      
-      const sentBadge = document.getElementById('audioModalSentimentBadge');
-      if (sentBadge) {
-        sentBadge.textContent = (v && (v.ai_sentiment_tamil || v.ai_sentiment)) ?
-          `${v.ai_sentiment_tamil || ''} (${v.ai_sentiment || 'Interested'})` : 'Interested';
-      }
-
-      const geoBadge = document.getElementById('audioModalGeoBadge');
-      if (geoBadge) {
-        const isVer = v && v.is_location_verified;
-        geoBadge.className = isVer ? 'badge-onsite' : 'badge-detour';
-        geoBadge.innerHTML = isVer ?
-          '<i class="fa-solid fa-circle-check"></i> Site Verified' :
-          '<i class="fa-solid fa-circle-exclamation"></i> Off-Site / Unassigned';
-      }
-
-      const prodEl = document.getElementById('audioModalProductPitched');
-      if (prodEl) prodEl.textContent = (v && v.product_pitched) ? v.product_pitched : '-';
-
-      switchAudioTranscriptTab('tamil');
       modal.classList.remove('d-none');
-
-      // Fetch dynamic detailed transcript if available
-      fetch(`/api/field-worker/visits/${encodeURIComponent(visitId)}/transcript`)
-        .then(r => r.json())
-        .then(data => {
-          if (!data || !data.success) return;
-          const tTamil = data.transcript_tamil || (v && v.conversation_transcript_tamil) || 'தமிழ் உரை கிடைக்கவில்லை.';
-          const tEng = data.transcript_english || (v && v.conversation_transcript_english) || 'English translation not available.';
-          const sTamil = data.summary_tamil || '';
-          const sEng = data.summary_english || '';
-          const items = Array.isArray(data.action_items) && data.action_items.length > 0 ?
-            data.action_items : (v && v.ai_action_items) || [];
-
-          document.getElementById('audioTamilTranscriptText').textContent = tTamil;
-          document.getElementById('audioEnglishTranscriptText').textContent = tEng;
-          document.getElementById('audioSummaryText').textContent = `${sTamil ? sTamil + '\n\n' : ''}${sEng}`;
-          
-          const ul = document.getElementById('audioActionItemsList');
-          if (ul) {
-            ul.innerHTML = items.length > 0 ?
-              items.map(it => `<li>${it}</li>`).join('') :
-              '<li>No pending action items recorded.</li>';
-          }
-
-          if (data.customer_sentiment_tamil || data.customer_sentiment) {
-            document.getElementById('audioModalSentimentDetail').textContent =
-              `${data.customer_sentiment_tamil || ''} (${data.customer_sentiment || ''}) ${data.sentiment_reason ? '— ' + data.sentiment_reason : ''}`;
-          }
-        })
-        .catch(() => {});
     }
 
     function closeVisitAudioModal() {
@@ -10526,54 +10458,125 @@
       showToast(`Playback speed set to ${speed}x`);
     }
 
-    function switchAudioTranscriptTab(tab) {
-      const pTamil = document.getElementById('paneAudioTamil');
-      const pEng = document.getElementById('paneAudioEnglish');
-      const pSum = document.getElementById('paneAudioSummary');
-      const bTamil = document.getElementById('tabBtnTamilTranscript');
-      const bEng = document.getElementById('tabBtnEnglishTranscript');
-      const bSum = document.getElementById('tabBtnSummaryTranscript');
+    let CURRENT_ACTIVE_DOC_VISIT_ID = null;
 
-      if (!pTamil || !pEng || !pSum) return;
+    function openVisitTranscriptDocModal(visitId) {
+      CURRENT_ACTIVE_DOC_VISIT_ID = visitId;
+      const v = (typeof VISITS_DATA !== 'undefined' && Array.isArray(VISITS_DATA)) ?
+        VISITS_DATA.find(x => String(x.id) === String(visitId)) : null;
 
-      pTamil.classList.add('d-none');
-      pEng.classList.add('d-none');
-      pSum.classList.add('d-none');
-      bTamil.style.background = '#e2e8f0'; bTamil.style.color = '#475569';
-      bEng.style.background = '#e2e8f0'; bEng.style.color = '#475569';
-      bSum.style.background = '#e2e8f0'; bSum.style.color = '#475569';
+      const modal = document.getElementById('visitTranscriptDocModalBackdrop');
+      if (!modal) return;
+
+      // Set .docx download link
+      const docxLink = document.getElementById('transcriptDocxDownloadLink');
+      if (docxLink) {
+        docxLink.href = `/api/field-worker/visits/${encodeURIComponent(visitId)}/transcript/docx`;
+      }
+
+      switchTranscriptDocTab('tamil');
+      modal.classList.remove('d-none');
+
+      // Check Gemini API key status
+      fetch('/api/system/gemini-key')
+        .then(r => r.json())
+        .then(k => {
+          const banner = document.getElementById('geminiKeyNoticeBanner');
+          if (banner) {
+            banner.style.display = (!k || !k.has_key) ? 'flex' : 'none';
+          }
+        })
+        .catch(() => {});
+
+      // Set initial text from existing visit object
+      const docTamil = document.getElementById('docTamilText');
+      const docEng = document.getElementById('docEnglishText');
+      if (docTamil) docTamil.textContent = (v && (v.conversation_transcript_tamil || v.conversation_transcript)) || 'தமிழ் உரை ஏற்றப்படுகிறது...';
+      if (docEng) docEng.textContent = (v && v.conversation_transcript_english) || 'Loading English translation...';
+
+      // Fetch dynamic detailed transcript
+      fetch(`/api/field-worker/visits/${encodeURIComponent(visitId)}/transcript`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data || !data.success) return;
+          const tTamil = data.transcript_tamil || (v && v.conversation_transcript_tamil) || 'தமிழ் உரை கிடைக்கவில்லை.';
+          const tEng = data.transcript_english || (v && v.conversation_transcript_english) || 'English translation not available.';
+
+          if (docTamil) docTamil.textContent = tTamil;
+          if (docEng) docEng.textContent = tEng;
+        })
+        .catch(() => {});
+    }
+
+    function closeVisitTranscriptDocModal() {
+      const modal = document.getElementById('visitTranscriptDocModalBackdrop');
+      if (modal) modal.classList.add('d-none');
+    }
+
+    function switchTranscriptDocTab(tab) {
+      const pTamil = document.getElementById('docPaneTamil');
+      const pEng = document.getElementById('docPaneEnglish');
+      const bTamil = document.getElementById('tabBtnDocTamil');
+      const bEng = document.getElementById('tabBtnDocEnglish');
+
+      if (!pTamil || !pEng) return;
 
       if (tab === 'tamil') {
         pTamil.classList.remove('d-none');
-        bTamil.style.background = '#2563eb'; bTamil.style.color = '#ffffff';
-      } else if (tab === 'english') {
+        pEng.classList.add('d-none');
+        if (bTamil) { bTamil.style.background = '#2563eb'; bTamil.style.color = '#ffffff'; }
+        if (bEng) { bEng.style.background = '#e2e8f0'; bEng.style.color = '#475569'; }
+      } else {
+        pTamil.classList.add('d-none');
         pEng.classList.remove('d-none');
-        bEng.style.background = '#2563eb'; bEng.style.color = '#ffffff';
-      } else if (tab === 'summary') {
-        pSum.classList.remove('d-none');
-        bSum.style.background = '#2563eb'; bSum.style.color = '#ffffff';
+        if (bTamil) { bTamil.style.background = '#e2e8f0'; bTamil.style.color = '#475569'; }
+        if (bEng) { bEng.style.background = '#059669'; bEng.style.color = '#ffffff'; }
       }
     }
 
-    async function reprocessActiveVisitAudio() {
-      if (!CURRENT_ACTIVE_AUDIO_VISIT_ID) return;
-      const btn = document.getElementById('btnReprocessTamilAI');
-      if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing Tamil AI...';
+    async function reprocessTranscriptDocAI() {
+      if (!CURRENT_ACTIVE_DOC_VISIT_ID) return;
+      showToast('Running Google Gemini Tamil Audio Transcription... please wait');
       try {
-        const res = await fetch(`/api/field-worker/visits/${encodeURIComponent(CURRENT_ACTIVE_AUDIO_VISIT_ID)}/reprocess-ai`, {
-          method: 'POST'
+        const res = await fetch(`/api/field-worker/visits/${encodeURIComponent(CURRENT_ACTIVE_DOC_VISIT_ID)}/reprocess-ai`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
         });
-        const d = await res.json();
-        if (d && d.success) {
-          showToast('Tamil AI audio analysis completed successfully!');
-          openVisitAudioModal(CURRENT_ACTIVE_AUDIO_VISIT_ID);
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Tamil AI transcript updated!');
+          openVisitTranscriptDocModal(CURRENT_ACTIVE_DOC_VISIT_ID);
+          if (typeof loadFieldWorkerDashboard === 'function') loadFieldWorkerDashboard();
         } else {
-          showToast((d && d.error) || 'Failed to reprocess audio.', true);
+          showToast(data.error || 'Failed to reprocess audio AI');
         }
       } catch (err) {
-        showToast('Error connecting to AI service.', true);
-      } finally {
-        if (btn) btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Re-run Tamil AI';
+        showToast('Error connecting to Gemini AI');
+      }
+    }
+
+    async function promptConfigureGeminiKey() {
+      const key = prompt('Enter your Google Gemini API Key (starts with AIza...):');
+      if (!key || !key.trim()) return;
+      try {
+        const res = await fetch('/api/system/gemini-key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gemini_api_key: key.trim() })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message);
+          const banner = document.getElementById('geminiKeyNoticeBanner');
+          if (banner) banner.style.display = 'none';
+          if (CURRENT_ACTIVE_DOC_VISIT_ID) {
+            reprocessTranscriptDocAI();
+          }
+        } else {
+          showToast(data.error || 'Failed to save Gemini key');
+        }
+      } catch (e) {
+        showToast('Error saving Gemini key');
       }
     }
 
@@ -14107,6 +14110,8 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeProductDropdown();
+        closeVisitAudioModal();
+        closeVisitTranscriptDocModal();
         closeRegisterWorkerModal();
         closeAddLeadModal();
         closeEditLeadModal();
@@ -14132,6 +14137,12 @@
       }
       if (e.target && e.target.id === 'editLeadModalBackdrop') {
         closeEditLeadModal();
+      }
+      if (e.target && e.target.id === 'visitAudioModalBackdrop') {
+        closeVisitAudioModal();
+      }
+      if (e.target && e.target.id === 'visitTranscriptDocModalBackdrop') {
+        closeVisitTranscriptDocModal();
       }
       if (e.target && e.target.id === 'resolveIncidentModalBackdrop') {
         closeResolveIncidentModal();

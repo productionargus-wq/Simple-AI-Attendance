@@ -5698,6 +5698,66 @@ def api_field_worker_visit_transcript_export(visit_id):
     )
 
 
+@app.route('/api/field-worker/visits/<visit_id>/transcript/docx', methods=['GET'])
+def api_field_worker_visit_transcript_docx(visit_id):
+    '''Generates and downloads a clean, professional Speech-to-Text audit document in Microsoft Word (.docx) format only.'''
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    cid = _resolve_field_company_id(request.args.get('company_id'))
+    doc_res = database.generate_visit_transcript_docx(visit_id, company_id=cid)
+    if not doc_res and (session.get('role') == 'super_admin' or cid in ['ALL', 'ARGUS_MASTER', None]):
+        doc_res = database.generate_visit_transcript_docx(visit_id, company_id=None)
+    if not doc_res:
+        return jsonify({'success': False, 'error': 'Customer visit transcript not found.'}), 404
+
+    return send_file(
+        doc_res['buffer'],
+        mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        as_attachment=True,
+        download_name=doc_res['filename']
+    )
+
+
+@app.route('/api/system/gemini-key', methods=['GET', 'POST'])
+def api_system_gemini_key():
+    '''Allows admin to view/set the Google Gemini API Key for Indian Tamil audio transcription.'''
+    if not _is_field_authenticated():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    db = database.get_db()
+    if request.method == 'GET':
+        env_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+        db_key_doc = db.system_settings.find_one({'key': 'gemini_api_key'})
+        saved_key = db_key_doc.get('value') if db_key_doc else None
+        active_key = env_key or saved_key
+        has_key = bool(active_key)
+        masked_key = f"{active_key[:4]}...{active_key[-4:]}" if (active_key and len(active_key) > 8) else ("Configured" if has_key else "Not Set")
+        return jsonify({
+            'success': True,
+            'has_key': has_key,
+            'masked_key': masked_key,
+            'source': 'Environment' if env_key else ('Database' if saved_key else 'None')
+        })
+
+    data = request.get_json(silent=True) or {}
+    new_key = str(data.get('gemini_api_key') or '').strip()
+    if not new_key:
+        return jsonify({'success': False, 'error': 'Gemini API Key cannot be empty.'}), 400
+
+    db.system_settings.update_one(
+        {'key': 'gemini_api_key'},
+        {'$set': {'key': 'gemini_api_key', 'value': new_key, 'updated_at': database.get_ist_now()}},
+        upsert=True
+    )
+    os.environ['GEMINI_API_KEY'] = new_key
+
+    return jsonify({
+        'success': True,
+        'message': 'Google Gemini API Key saved successfully! AI speech-to-text is now fully active.'
+    })
+
+
 @app.route('/api/field-worker/salary-report', methods=['GET'])
 def api_field_worker_salary_report():
     """Returns monthly Field Worker Salary & Activity report."""

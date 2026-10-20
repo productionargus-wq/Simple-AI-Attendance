@@ -8372,15 +8372,18 @@ def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_
             uploaded_file = genai.upload_file(path=audio_path, mime_type=resolved_mime)
 
             prompt = (
-                "You are an expert Tamil language linguist, field sales conversation auditor, and speech-to-text intelligence AI "
-                "specialized in Indian Tamil (ta-IN) as spoken in Tamil Nadu, India (including Coimbatore, Chennai, Madurai, Salem regions).\n\n"
-                "Listen to this field sales representative customer visit audio recording. The conversation is primarily spoken in Tamil (தமிழ்) "
-                "and mixed with Tanglish (English commercial terms such as 'kiosk', 'attendance', 'quotation', 'order', 'advance', 'rate', 'price', 'delivery', 'discount', 'balance').\n\n"
-                "Perform deep verbatim transcription and business audit. Return ONLY valid JSON with this exact schema:\n"
+                "You are an expert Indian Tamil linguist and speech-to-text intelligence AI specialized in "
+                "verbatim conversation transcription of Indian Tamil (ta-IN) as spoken in Tamil Nadu, India (including Chennai, Coimbatore, Madurai, Salem dialects and Tanglish).\n\n"
+                "Listen to this audio recording of a customer visit discussion between a field sales representative and a customer.\n"
+                "Provide an EXACT, PRECISE, FULL VERBATIM transcription of everything the people spoke. Do NOT summarize or shorten their conversation.\n\n"
+                "Format the dialogue turn-by-turn with clear speaker identifiers:\n"
+                "- In Tamil: Use 'விற்பனை பிரதிநிதி:' for the sales rep and 'வாடிக்கையாளர்:' for the customer.\n"
+                "- In English: Provide an accurate line-by-line translation with 'Sales Representative:' and 'Customer:'.\n\n"
+                "Return ONLY a valid JSON object with this exact schema:\n"
                 "{\n"
                 '  "language_detected": "Tamil (ta-IN) / Tanglish",\n'
-                '  "transcript_tamil": "முழுமையான தமிழ் உரை. Identify speakers as \'விற்பனை பிரதிநிதி:\' (Sales Rep) and \'வாடிக்கையாளர்:\' (Customer).",\n'
-                '  "transcript_english": "Accurate English translation of the conversation with speaker turns (Sales Rep: ... / Customer: ...).",\n'
+                '  "transcript_tamil": "விற்பனை பிரதிநிதி: ...\\nவாடிக்கையாளர்: ...",\n'
+                '  "transcript_english": "Sales Representative: ...\\nCustomer: ...",\n'
                 '  "summary_tamil": "சுருக்கமான விளக்கம் (1-2 sentences in Tamil).",\n'
                 '  "summary_english": "Executive 1-2 sentence summary in English.",\n'
                 '  "customer_sentiment": "Highly Interested" | "Interested" | "Price Sensitive / Hesitant" | "Neutral" | "Not Interested",\n'
@@ -8419,18 +8422,19 @@ def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_
     # Safe fallback if Gemini is offline, key is unset, or error occurred
     return {
         'success': True,
-        'ai_model_used': 'Offline Audio Capture (Queued for Gemini AI)',
+        'ai_model_used': 'Offline Audio Capture (Pending Gemini AI Key)',
         'language_detected': 'Tamil (ta-IN) / Tanglish',
-        'transcript_tamil': 'ஆடியோ பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது. வாடிக்கையாளர் உரையாடல் பதிவு செய்யப்பட்டுள்ளது.',
-        'transcript_english': 'Audio recording captured and stored successfully on server.',
-        'summary_tamil': 'வாடிக்கையாளர் நேரடி சந்திப்பு ஆடியோ பதிவு.',
-        'summary_english': 'Customer field visit audio recorded on mobile phone and stored securely.',
+        'transcript_tamil': '[Gemini AI விசை தேவை: இந்த உரையாடலின் துல்லியமான நேரடி தமிழ் உரையைப் பெற GEMINI_API_KEY உள்ளிடவும்.]',
+        'transcript_english': '[Gemini AI Key Required: Please provide your GEMINI_API_KEY in System Settings or .env to transcribe this audio recording into exact verbatim speech.]',
+        'summary_tamil': 'வாடிக்கையாளர் நேரடி சந்திப்பு ஆடியோ பதிவு சேமிக்கப்பட்டுள்ளது (Gemini AI விசை தேவை).',
+        'summary_english': 'Customer visit audio recording stored securely. Pending Gemini 1.5 Flash transcription.',
         'customer_sentiment': 'Interested',
         'customer_sentiment_tamil': 'ஆர்வம்',
         'sentiment_reason': 'Audio recording successfully received from field worker device.',
         'key_commitments_action_items': ['Review recorded client discussion audio in admin dashboard'],
         'quoted_order_value_inr': 0.0,
-        'products_discussed': 'Field Discussion'
+        'products_discussed': 'Field Discussion',
+        'needs_gemini_key': not bool(api_key)
     }
 
 
@@ -10052,3 +10056,205 @@ def generate_visit_transcript_document(visit_id, company_id=None):
 
 
 
+
+
+
+def generate_visit_transcript_docx(visit_id, company_id=None):
+    """
+    Generates a professionally formatted Microsoft Word (.docx) document containing:
+    - Field visit & customer header metadata
+    - Exact verbatim Indian Tamil (ta-IN) conversation transcript
+    - Speaker-attributed English translation
+    - Commercial pitch, deal value, GPS verification, and AI audit summary
+    """
+    visit = get_field_customer_visit_by_id(visit_id, company_id=company_id)
+    if not visit:
+        return None
+
+    import io
+    import docx
+    from docx.shared import Inches, Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+
+    doc = docx.Document()
+
+    # Set 0.75 in margins
+    for section in doc.sections:
+        section.top_margin = Inches(0.75)
+        section.bottom_margin = Inches(0.75)
+        section.left_margin = Inches(0.75)
+        section.right_margin = Inches(0.75)
+
+    cust_name = visit.get('customer_name') or 'Customer'
+    c_person = visit.get('contact_person') or '-'
+    phone = visit.get('customer_phone') or '-'
+    addr = visit.get('address') or '-'
+    worker = visit.get('employee_name') or 'Field Worker'
+    dt_str = visit.get('timestamp') or '-'
+    prod = visit.get('product_pitched') or 'Company Products'
+    lead_st = visit.get('lead_status') or 'Interested'
+    amt = f"Rs. {float(visit.get('order_amount') or 0.0):,.2f}"
+    geo_ver = "VERIFIED ON-SITE" if visit.get('is_location_verified') else "OFF-SITE / UNASSIGNED"
+    dur = f"{round(float(visit.get('audio_duration_seconds') or 0.0))} seconds"
+    sentiment = visit.get('ai_sentiment') or 'Interested'
+    sent_ta = visit.get('ai_sentiment_tamil') or 'ஆர்வம்'
+    sum_ta = visit.get('ai_summary_tamil') or '-'
+    sum_en = visit.get('ai_summary_english') or visit.get('ai_summary') or '-'
+    trans_ta = (visit.get('conversation_transcript_tamil') or visit.get('conversation_transcript') or '').strip()
+    trans_en = (visit.get('conversation_transcript_english') or '').strip()
+    actions = visit.get('ai_action_items') or []
+
+    # Title
+    title_p = doc.add_paragraph()
+    title_run = title_p.add_run("ARGUS AI — FIELD CUSTOMER VISIT AUDIT REPORT")
+    title_run.bold = True
+    title_run.font.size = Pt(16)
+    title_run.font.color.rgb = RGBColor(0x0f, 0x17, 0x2a)
+
+    sub_p = doc.add_paragraph()
+    sub_run = sub_p.add_run("Speech-to-Text Conversation Analysis • Indian Tamil (ta-IN) & English Translation")
+    sub_run.font.size = Pt(10.5)
+    sub_run.font.color.rgb = RGBColor(0x64, 0x74, 0x8b)
+    sub_run.italic = True
+
+    # Metadata Table
+    table = doc.add_table(rows=5, cols=2)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.autofit = True
+
+    meta_items = [
+        ("Customer / Client:", f"{cust_name} (Contact: {c_person}, Phone: {phone})"),
+        ("Field Worker:", f"{worker}"),
+        ("Visit Date & Time:", f"{dt_str} (Duration: {dur})"),
+        ("Site Address & GPS:", f"{addr} [{geo_ver}]"),
+        ("Commercial Lead:", f"Product Pitched: {prod} | Order Value: {amt} | Status: {lead_st}")
+    ]
+
+    for i, (label, val) in enumerate(meta_items):
+        cell_lbl = table.cell(i, 0)
+        cell_lbl.width = Inches(2.0)
+        p_lbl = cell_lbl.paragraphs[0]
+        r_lbl = p_lbl.add_run(label)
+        r_lbl.bold = True
+        r_lbl.font.size = Pt(9.5)
+        r_lbl.font.color.rgb = RGBColor(0x1e, 0x29, 0x3b)
+
+        cell_val = table.cell(i, 1)
+        cell_val.width = Inches(5.0)
+        p_val = cell_val.paragraphs[0]
+        r_val = p_val.add_run(val)
+        r_val.font.size = Pt(9.5)
+        r_val.font.color.rgb = RGBColor(0x33, 0x41, 0x55)
+
+    doc.add_paragraph()
+
+    # Section 1: Exact Tamil Verbatim Conversation
+    h1 = doc.add_heading(level=1)
+    r_h1 = h1.add_run("1. EXACT TAMIL VERBATIM CONVERSATION (தமிழ் நேரடி உரையாடல்)")
+    r_h1.font.size = Pt(13)
+    r_h1.font.color.rgb = RGBColor(0x1e, 0x3a, 0x8a)
+
+    if trans_ta:
+        for line in trans_ta.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            p = doc.add_paragraph()
+            if ':' in line:
+                speaker, text = line.split(':', 1)
+                sp_run = p.add_run(speaker + ": ")
+                sp_run.bold = True
+                sp_run.font.color.rgb = RGBColor(0x1e, 0x3a, 0x8a)
+                sp_run.font.size = Pt(10.5)
+                tx_run = p.add_run(text.strip())
+                tx_run.font.size = Pt(10.5)
+            else:
+                p_run = p.add_run(line)
+                p_run.font.size = Pt(10.5)
+    else:
+        p = doc.add_paragraph()
+        r = p.add_run("No Tamil transcription available for this visit.")
+        r.italic = True
+        r.font.size = Pt(10)
+
+    doc.add_paragraph()
+
+    # Section 2: English Translation
+    h2 = doc.add_heading(level=1)
+    r_h2 = h2.add_run("2. ENGLISH TRANSLATION (ஆங்கில மொழிபெயர்ப்பு)")
+    r_h2.font.size = Pt(13)
+    r_h2.font.color.rgb = RGBColor(0x06, 0x5f, 0x46)
+
+    if trans_en:
+        for line in trans_en.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            p = doc.add_paragraph()
+            if ':' in line:
+                speaker, text = line.split(':', 1)
+                sp_run = p.add_run(speaker + ": ")
+                sp_run.bold = True
+                sp_run.font.color.rgb = RGBColor(0x06, 0x5f, 0x46)
+                sp_run.font.size = Pt(10.5)
+                tx_run = p.add_run(text.strip())
+                tx_run.font.size = Pt(10.5)
+            else:
+                p_run = p.add_run(line)
+                p_run.font.size = Pt(10.5)
+    else:
+        p = doc.add_paragraph()
+        r = p.add_run("No English translation available for this visit.")
+        r.italic = True
+        r.font.size = Pt(10)
+
+    doc.add_paragraph()
+
+    # Section 3: AI Intelligence Summary & Action Items
+    h3 = doc.add_heading(level=1)
+    r_h3 = h3.add_run("3. AI EXECUTIVE SUMMARY & KEY COMMITMENTS")
+    r_h3.font.size = Pt(13)
+    r_h3.font.color.rgb = RGBColor(0x33, 0x41, 0x55)
+
+    p_sum = doc.add_paragraph()
+    r_sum_title = p_sum.add_run("Summary: ")
+    r_sum_title.bold = True
+    r_sum_title.font.size = Pt(10)
+    p_sum.add_run(f"{sum_ta} / {sum_en}").font.size = Pt(10)
+
+    p_sent = doc.add_paragraph()
+    r_sent_title = p_sent.add_run("Customer Sentiment: ")
+    r_sent_title.bold = True
+    r_sent_title.font.size = Pt(10)
+    p_sent.add_run(f"{sentiment} ({sent_ta})").font.size = Pt(10)
+
+    if actions:
+        p_act_h = doc.add_paragraph()
+        p_act_h.add_run("Action Items & Follow-Ups:").bold = True
+        for act in actions:
+            p_act = doc.add_paragraph(style='List Bullet')
+            p_act.add_run(act).font.size = Pt(10)
+
+    # Footer note
+    doc.add_paragraph()
+    foot = doc.add_paragraph()
+    foot_run = foot.add_run(f"Report Generated: {get_ist_now().strftime('%d %B %Y, %I:%M %p')} IST • Argus Enterprise Field AI")
+    foot_run.font.size = Pt(8.5)
+    foot_run.font.color.rgb = RGBColor(0x94, 0xa3, 0xb8)
+    foot_run.italic = True
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    clean_cust = re.sub(r'[^a-zA-Z0-9_-]', '_', cust_name).strip('_')
+    clean_date = dt_str.split(' ')[0] if ' ' in dt_str else 'Visit'
+    filename = f"Visit_Transcript_{clean_cust}_{clean_date}.docx"
+
+    return {
+        'filename': filename,
+        'buffer': buf,
+        'customer_name': cust_name,
+        'visit_id': visit.get('id')
+    }
