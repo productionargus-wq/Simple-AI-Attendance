@@ -60,7 +60,11 @@ RECOGNITION_THRESHOLD = 0.40
 
 # Directory for deep learning models
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODELS_DIR = os.path.join(BASE_DIR, 'models')
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    _cand = os.path.join(sys._MEIPASS, 'models')
+    MODELS_DIR = _cand if os.path.exists(_cand) else os.path.join(os.path.dirname(sys.executable), 'models')
+else:
+    MODELS_DIR = os.path.join(BASE_DIR, 'models')
 YUNET_PATH = os.path.join(MODELS_DIR, 'face_detection_yunet_2023mar.onnx')
 SFACE_PATH = os.path.join(MODELS_DIR, 'face_recognition_sface_2021dec.onnx')
 

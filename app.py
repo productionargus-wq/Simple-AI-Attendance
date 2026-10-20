@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import re
 import io
@@ -18,7 +19,14 @@ from datetime import datetime, timedelta, date, timezone
 from dotenv import load_dotenv
 from PIL import Image, ImageOps
 
-load_dotenv()
+# Load environment variables (supports frozen PyInstaller bundle or local file)
+if getattr(sys, 'frozen', False):
+    exe_dir = os.path.dirname(sys.executable)
+    load_dotenv(os.path.join(exe_dir, '.env'))
+    if hasattr(sys, '_MEIPASS'):
+        load_dotenv(os.path.join(sys._MEIPASS, '.env'))
+else:
+    load_dotenv()
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file, send_from_directory, Response, session, make_response, flash
 from flask.sessions import SecureCookieSessionInterface
@@ -196,7 +204,16 @@ def finalize_login_session(resp, role, user_info=None):
         )
     return resp
 
-app = Flask(__name__)
+def _resolve_bundle_path(rel_path):
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, rel_path)
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), rel_path)
+
+app = Flask(
+    __name__,
+    template_folder=_resolve_bundle_path('templates'),
+    static_folder=_resolve_bundle_path('static')
+)
 CORS(app)
 app.secret_key = 'argus-tech-secret-key-2026'
 

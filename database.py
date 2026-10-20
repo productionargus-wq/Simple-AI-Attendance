@@ -5,6 +5,7 @@ import json
 import re
 import calendar
 import secrets
+import sys
 from datetime import datetime, date, time as dt_time, timedelta, timezone
 import requests
 from dotenv import load_dotenv
@@ -12,7 +13,14 @@ from pymongo import MongoClient, ASCENDING, DESCENDING
 from bson import ObjectId
 from werkzeug.security import generate_password_hash, check_password_hash
 
-load_dotenv()
+# Load environment variables (supports frozen PyInstaller bundle or local file)
+if getattr(sys, 'frozen', False):
+    exe_dir = os.path.dirname(sys.executable)
+    load_dotenv(os.path.join(exe_dir, '.env'))
+    if hasattr(sys, '_MEIPASS'):
+        load_dotenv(os.path.join(sys._MEIPASS, '.env'))
+else:
+    load_dotenv()
 
 def hash_user_password(plain_password):
     """Generates a secure PBKDF2/SHA256 password hash."""
