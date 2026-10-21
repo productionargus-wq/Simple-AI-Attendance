@@ -5819,9 +5819,24 @@ def api_field_worker_products():
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
 
     cid = _resolve_field_company_id(request.args.get('company_id'))
+    force_sync = request.args.get('sync') == '1' or request.args.get('refresh') == '1'
+    
     settings = database.get_warehouse_settings(company_id=cid)
+    sheet_url = str(settings.get('sheet_url') or '').strip()
+    
+    # Auto-sync from Google Sheets if explicitly requested or if products lack qty field
+    existing_prods = settings.get('products') or []
+    needs_qty_sync = bool(sheet_url and existing_prods and any('qty' not in p or p.get('qty') is None for p in existing_prods))
+    
+    if sheet_url and (force_sync or needs_qty_sync):
+        try:
+            database.sync_warehouse_products_from_sheet(sheet_url=sheet_url, company_id=cid)
+            settings = database.get_warehouse_settings(company_id=cid)
+        except Exception as sync_err:
+            print(f"Auto-sync Google Sheets products warning for {cid}: {sync_err}")
+
     products = database.get_warehouse_products(company_id=cid)
-    return jsonify({
+    resp = jsonify({
         'success': True,
         'company_id': cid,
         'products': products,
@@ -5830,6 +5845,10 @@ def api_field_worker_products():
         'last_synced_at': settings.get('last_synced_at', ''),
         'sync_status': settings.get('sync_status', 'Ready')
     })
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
 
 
 @app.route('/api/field-worker/products/sync', methods=['POST'])

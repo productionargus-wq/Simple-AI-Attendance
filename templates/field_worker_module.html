@@ -9004,6 +9004,10 @@
       modal.classList.remove('d-none');
       // Auto-acquire current location coordinates
       acquireVisitGPSLocation();
+      // Ensure warehouse products are fresh
+      if (!CURRENT_WAREHOUSE_PRODUCTS || CURRENT_WAREHOUSE_PRODUCTS.length === 0 || CURRENT_WAREHOUSE_PRODUCTS.some(p => p.qty === undefined || p.qty === null)) {
+        loadWarehouseProducts();
+      }
     }
 
     function closeAddLeadModal() {
@@ -12026,9 +12030,10 @@
     let CURRENT_WAREHOUSE_PRODUCTS = [];
     let CURRENT_WAREHOUSE_SHEET_URL = '';
 
-    async function loadWarehouseProducts() {
+    async function loadWarehouseProducts(forceSync = false) {
       try {
-        const res = await fetch(`/api/field-worker/products?company_id=${encodeURIComponent(getActiveCompanyId())}`);
+        const cid = getActiveCompanyId();
+        const res = await fetch(`/api/field-worker/products?company_id=${encodeURIComponent(cid)}&_t=${Date.now()}${forceSync ? '&sync=1' : ''}`);
         const data = await res.json();
         if (data.success && Array.isArray(data.products)) {
           CURRENT_WAREHOUSE_PRODUCTS = data.products;
@@ -12054,6 +12059,12 @@
             if (!data.sheet_url) openTabBtn.onclick = (e) => { e.preventDefault(); showToast('Please enter a Google Sheet URL first.'); };
             else openTabBtn.onclick = null;
           }
+
+          // Automatically refresh hint badge in active modals if product is selected
+          const editInp = document.getElementById('editProductPitched');
+          if (editInp && editInp.value) handleEditProductSelected(editInp.value);
+          const addInp = document.getElementById('visitProductPitched');
+          if (addInp && addInp.value) handleProductSelected(addInp.value);
         }
       } catch (err) {
         console.warn('Could not load warehouse products:', err);
@@ -12132,18 +12143,24 @@
     }
 
     function handleProductSelected(val) {
-      if (!val) return;
-      const cleanVal = val.trim().toLowerCase();
-      const matched = CURRENT_WAREHOUSE_PRODUCTS.find(p => p.name.trim().toLowerCase() === cleanVal);
       const hint = document.getElementById('productPriceHint');
+      if (!val) {
+        if (hint) hint.style.display = 'none';
+        return;
+      }
+      const cleanVal = val.trim().toLowerCase();
+      const matched = CURRENT_WAREHOUSE_PRODUCTS.find(p => (p.name || '').trim().toLowerCase() === cleanVal);
       const orderInp = document.getElementById('visitOrderAmount');
       if (matched) {
-        if (matched.price > 0 && orderInp) {
+        if (matched.price > 0 && orderInp && (!orderInp.value || parseFloat(orderInp.value) === 0)) {
           orderInp.value = matched.price.toFixed(2);
         }
         if (hint) {
-          const qtyText = (matched.qty !== undefined && matched.qty !== null && matched.qty !== '') 
-            ? `<span style="margin-left:8px; background:#dbeafe; color:#1e40af; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; border:1px solid #bfdbfe;"><i class="fa-solid fa-boxes-stacked"></i> Available Qty: ${matched.qty}</span>`
+          const rawQty = (matched.qty !== undefined && matched.qty !== null && String(matched.qty).trim() !== '') 
+            ? matched.qty 
+            : ((matched.quantity !== undefined && matched.quantity !== null && String(matched.quantity).trim() !== '') ? matched.quantity : null);
+          const qtyText = rawQty !== null 
+            ? `<span style="margin-left:8px; background:#dbeafe; color:#1e40af; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; border:1px solid #bfdbfe; white-space:nowrap;"><i class="fa-solid fa-boxes-stacked"></i> Available Qty: ${rawQty}</span>`
             : '';
           const priceText = matched.price > 0 
             ? `<span style="color:#059669; font-weight:600;"><i class="fa-solid fa-circle-check"></i> Price: ₹${Number(matched.price).toLocaleString('en-IN')}</span>`
@@ -12157,18 +12174,24 @@
     }
 
     function handleEditProductSelected(val) {
-      if (!val) return;
-      const cleanVal = val.trim().toLowerCase();
-      const matched = CURRENT_WAREHOUSE_PRODUCTS.find(p => p.name.trim().toLowerCase() === cleanVal);
       const hint = document.getElementById('editProductPriceHint');
+      if (!val) {
+        if (hint) hint.style.display = 'none';
+        return;
+      }
+      const cleanVal = val.trim().toLowerCase();
+      const matched = CURRENT_WAREHOUSE_PRODUCTS.find(p => (p.name || '').trim().toLowerCase() === cleanVal);
       const orderInp = document.getElementById('editOrderAmount');
       if (matched) {
-        if (matched.price > 0 && orderInp) {
+        if (matched.price > 0 && orderInp && (!orderInp.value || parseFloat(orderInp.value) === 0)) {
           orderInp.value = matched.price.toFixed(2);
         }
         if (hint) {
-          const qtyText = (matched.qty !== undefined && matched.qty !== null && matched.qty !== '') 
-            ? `<span style="margin-left:8px; background:#dbeafe; color:#1e40af; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; border:1px solid #bfdbfe;"><i class="fa-solid fa-boxes-stacked"></i> Available Qty: ${matched.qty}</span>`
+          const rawQty = (matched.qty !== undefined && matched.qty !== null && String(matched.qty).trim() !== '') 
+            ? matched.qty 
+            : ((matched.quantity !== undefined && matched.quantity !== null && String(matched.quantity).trim() !== '') ? matched.quantity : null);
+          const qtyText = rawQty !== null 
+            ? `<span style="margin-left:8px; background:#dbeafe; color:#1e40af; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; border:1px solid #bfdbfe; white-space:nowrap;"><i class="fa-solid fa-boxes-stacked"></i> Available Qty: ${rawQty}</span>`
             : '';
           const priceText = matched.price > 0 
             ? `<span style="color:#059669; font-weight:600;"><i class="fa-solid fa-circle-check"></i> Price: ₹${Number(matched.price).toLocaleString('en-IN')}</span>`
@@ -12205,7 +12228,13 @@
       if (!input) return;
 
       if (!CURRENT_WAREHOUSE_PRODUCTS || CURRENT_WAREHOUSE_PRODUCTS.length === 0) {
-        showToast('No warehouse products found. Sync your Google Sheet first.');
+        loadWarehouseProducts().then(() => {
+          if (CURRENT_WAREHOUSE_PRODUCTS && CURRENT_WAREHOUSE_PRODUCTS.length > 0) {
+            renderProductDropdown(targetInputId, query);
+          } else {
+            showToast('No warehouse products found. Sync your Google Sheet first.');
+          }
+        });
         return;
       }
 
@@ -12230,8 +12259,8 @@
         position: fixed;
         left: ${rect.left}px;
         top: ${rect.bottom + 4}px;
-        width: ${Math.max(rect.width, 260)}px;
-        max-height: 220px;
+        width: ${Math.max(rect.width, 340)}px;
+        max-height: 240px;
         overflow-y: auto;
         background: #ffffff;
         border: 1px solid #cbd5e1;
@@ -12248,20 +12277,24 @@
         </div>
         ${items.length === 0 ? `
           <div style="padding: 12px; font-size: 12px; color: #94a3b8; text-align: center;">No matching products found</div>
-        ` : items.map(p => `
+        ` : items.map(p => {
+          const rawQty = (p.qty !== undefined && p.qty !== null && String(p.qty).trim() !== '') 
+            ? p.qty 
+            : ((p.quantity !== undefined && p.quantity !== null && String(p.quantity).trim() !== '') ? p.quantity : null);
+          return `
           <div class="product-dropdown-item" 
                onclick="selectDropdownProduct('${targetInputId}', '${(p.name || '').replace(/'/g, "\\'")}', ${p.price || 0})" 
                onmouseenter="this.style.background='#f1f5f9'" 
                onmouseleave="this.style.background='transparent'" 
                style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;">
-            <div>
+            <div style="padding-right: 8px;">
               <div style="font-size: 12.5px; font-weight: 700; color: #0f172a;">${p.name}</div>
               <div style="font-size: 10.5px; color: #64748b;">${p.category || 'General'}</div>
             </div>
-            <div style="display:flex; align-items:center; gap:6px;">
-              ${(p.qty !== undefined && p.qty !== null && p.qty !== '') ? `
-                <span style="font-size: 11px; font-weight: 700; color: #1e40af; background: #dbeafe; padding: 2px 7px; border-radius: 4px; white-space: nowrap;">
-                  Qty: ${p.qty}
+            <div style="display:flex; align-items:center; gap:8px; flex-shrink: 0;">
+              ${rawQty !== null ? `
+                <span style="font-size: 11px; font-weight: 700; color: #1e40af; background: #dbeafe; padding: 2px 8px; border-radius: 12px; border: 1px solid #bfdbfe; white-space: nowrap;">
+                  <i class="fa-solid fa-boxes-stacked" style="font-size:10px; margin-right:3px;"></i> Qty: ${rawQty}
                 </span>
               ` : ''}
               <div style="font-size: 12px; font-weight: 800; color: #15803d; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; white-space: nowrap;">
@@ -12269,7 +12302,7 @@
               </div>
             </div>
           </div>
-        `).join('')}
+        `; }).join('')}
       `;
 
       // Auto close when clicking outside
@@ -12548,6 +12581,13 @@
 
       const modal = document.getElementById('editLeadModalBackdrop');
       if (modal) modal.classList.remove('d-none');
+
+      // Ensure warehouse products are fresh and update hint badge if needed
+      if (!CURRENT_WAREHOUSE_PRODUCTS || CURRENT_WAREHOUSE_PRODUCTS.length === 0 || CURRENT_WAREHOUSE_PRODUCTS.some(p => p.qty === undefined || p.qty === null)) {
+        loadWarehouseProducts().then(() => {
+          if (v.product_pitched) handleEditProductSelected(v.product_pitched);
+        });
+      }
     }
 
     function closeEditLeadModal() {
