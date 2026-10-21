@@ -5303,11 +5303,9 @@ def api_field_worker_register():
             except Exception as img_err:
                 print(f"Field worker photo processing error: {img_err}")
 
-        # Resolve worker-specific petrol allowance
-        unit_km = database.safe_float(data.get('petrol_unit_km'), 1.0)
-        if unit_km <= 0:
-            unit_km = 1.0
-        data['petrol_unit_km'] = unit_km
+        # Resolve worker-specific petrol allowance (Unit distance fixed to 1.0 KM)
+        unit_km = 1.0
+        data['petrol_unit_km'] = 1.0
 
         p_rate = data.get('petrol_rate_inr')
         if p_rate not in [None, '']:
@@ -5315,7 +5313,7 @@ def api_field_worker_register():
             if p_rate_val > 0:
                 data['petrol_rate_inr'] = p_rate_val
                 data['has_custom_petrol_rate'] = True
-                data['km_allowance_rate'] = round(p_rate_val / unit_km, 2)
+                data['km_allowance_rate'] = round(p_rate_val, 2)
             else:
                 data['petrol_rate_inr'] = None
                 data['has_custom_petrol_rate'] = False
@@ -6675,21 +6673,20 @@ def api_field_worker_petrol_rate_config():
         return jsonify({'success': False, 'error': 'Unauthorized: Admin privileges required to edit petrol configuration'}), 403
 
     payload = request.get_json(silent=True) or {}
-    unit_km = payload.get('unit_km')
     rate_inr = payload.get('rate_inr')
 
-    if unit_km is None or rate_inr is None:
-        return jsonify({'success': False, 'error': 'Both distance unit (KM) and rate (Rupees) are required'}), 400
+    if rate_inr is None:
+        return jsonify({'success': False, 'error': 'Rate in Rupees is required'}), 400
 
     try:
-        unit_km = float(unit_km)
+        unit_km = 1.0  # Fixed reference unit distance
         rate_inr = float(rate_inr)
-        if unit_km <= 0 or rate_inr < 0:
+        if rate_inr < 0:
             raise ValueError()
     except (ValueError, TypeError):
-        return jsonify({'success': False, 'error': 'Invalid numeric values for distance unit or rate'}), 400
+        return jsonify({'success': False, 'error': 'Invalid numeric value for rate in rupees'}), 400
 
-    result = database.set_company_petrol_allowance_config(cid, unit_km, rate_inr)
+    result = database.set_company_petrol_allowance_config(cid, 1.0, rate_inr)
     return jsonify({
         'success': True,
         'message': f"Petrol/Diesel allowance rate updated to Rs. {result['per_km_rate']:.2f} per {result['unit_km']} KM successfully!",

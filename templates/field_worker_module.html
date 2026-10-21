@@ -4376,7 +4376,7 @@
                       <div class="fw-form-grid-2" style="margin-bottom:6px;">
                         <div class="fw-field">
                           <label class="fw-label" style="font-size:11px;">Distance Unit (KM)</label>
-                          <input type="number" step="0.1" min="0.1" id="fwRegPetrolUnitKm" class="fw-input" placeholder="e.g. 1" value="1" oninput="updateWorkerPetrolRatePreview()">
+                          <input type="text" id="fwRegPetrolUnitKm" class="fw-input" value="1 KM" readonly tabindex="-1" style="background:#f1f5f9; color:#64748b; cursor:not-allowed; border-color:#e2e8f0; font-weight:700;" title="Unit distance is fixed to 1 KM">
                         </div>
                         <div class="fw-field">
                           <label class="fw-label" style="font-size:11px;">Amount (₹)</label>
@@ -5555,7 +5555,7 @@
                     <th>ORDER VALUE</th>
                     <th>GPS SITE VERIFICATION</th>
                     <th style="text-align:center;">RECORDED AUDIO FILE</th>
-                    <th style="text-align:center;">SPEECH-TO-TEXT DOCUMENT</th>
+                    <th style="text-align:center;">AI TRANSCRIPTION</th>
                     {% if user_role in ['super_admin', 'company_admin'] %}
                     <th style="text-align:center;">ACTION</th>
                     {% endif %}
@@ -5597,11 +5597,11 @@
                       <span style="color:#94a3b8; font-size:11px; font-weight:500;">No Audio</span>
                       {% endif %}
                     </td>
-                    <!-- Column 2: SPEECH-TO-TEXT DOCUMENT -->
+                    <!-- Column 2: AI TRANSCRIPTION -->
                     <td style="text-align:center; white-space:nowrap;">
                       {% if v.has_audio_recording %}
                       <div style="display:inline-flex; align-items:center; gap:5px;">
-                        <button type="button" onclick="openVisitTranscriptDocModal('{{ v.id }}')" title="View Tamil & English Speech-to-Text transcript and export Word .docx" style="background:#f0fdf4; border:1px solid #86efac; color:#15803d; padding:4px 9px; border-radius:6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                        <button type="button" onclick="openVisitTranscriptDocModal('{{ v.id }}')" title="View Tamil & English AI Transcription and export Word .docx" style="background:#f0fdf4; border:1px solid #86efac; color:#15803d; padding:4px 9px; border-radius:6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
                           <i class="fa-solid fa-file-word"></i> தமிழ் &bull; English Doc
                         </button>
                       </div>
@@ -5980,7 +5980,7 @@
             </div>
           </div>
 
-          <!-- Modal Dialog 2: SPEECH-TO-TEXT DOCUMENT (Exact Verbatim & Word .docx Export) -->
+          <!-- Modal Dialog 2: AI TRANSCRIPTION (Exact Verbatim & Word .docx Export) -->
           <div class="fw-modal-backdrop d-none" id="visitTranscriptDocModalBackdrop" style="z-index: 1050;">
             <div class="fw-modal-dialog" style="max-width: 720px; width: 95%;">
               <div class="fw-modal-header" style="background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #ffffff; border-bottom: 2px solid #60a5fa;">
@@ -5990,10 +5990,10 @@
                   </span>
                   <div>
                     <div class="fw-card-title" style="color: #ffffff; font-size: 14px; font-weight: 800; letter-spacing: 0.3px;">
-                      SPEECH-TO-TEXT DOCUMENT
+                      AI TRANSCRIPTION
                     </div>
                     <div class="fw-card-subtitle" style="color: #bfdbfe; font-size: 11px;">
-                      Verbatim Field Discussion &amp; Translation
+                      Verbatim Field Discussion &amp; AI Translation
                     </div>
                   </div>
                 </div>
@@ -6041,7 +6041,7 @@
                   <i class="fa-solid fa-rotate"></i> Re-run Tamil AI
                 </button>
                 <div style="display: flex; gap: 8px;">
-                  <a id="transcriptDocxDownloadLink" href="#" download class="fw-btn" style="background: #2b579a; color: #ffffff; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(43,87,154,0.3);" title="Download official Speech-to-Text conversation report in .docx format only">
+                  <a id="transcriptDocxDownloadLink" href="#" download class="fw-btn" style="background: #2b579a; color: #ffffff; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(43,87,154,0.3);" title="Download official AI Transcription report in .docx format only">
                     <i class="fa-solid fa-file-word"></i> Download Document (.docx)
                   </a>
                   <button type="button" class="fw-btn fw-btn-neutral" onclick="closeVisitTranscriptDocModal()" style="font-size: 12px; padding: 6px 16px;">
@@ -6076,6 +6076,9 @@
                   <input type="url" id="warehouseSheetUrlInput" class="fw-input" placeholder="https://docs.google.com/spreadsheets/d/your-sheet-id/edit" style="font-size: 12.5px;">
                   <div style="font-size: 10.5px; color: #64748b; margin-top: 4px;">
                     Ensure your Google Sheet share setting is set to <strong>"Anyone with the link can view"</strong> or <strong>File &rarr; Share &rarr; Publish to web &rarr; CSV</strong>.
+                  </div>
+                  <div style="font-size: 11px; color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 6px 10px; margin-top: 6px;">
+                    <i class="fa-solid fa-table-columns"></i> <strong>Supported Columns:</strong> <code>Product Name</code> | <code>Price (₹)</code> | <code>Category</code> | <code>Status</code> | <code>QTY</code>
                   </div>
                 </div>
 
@@ -6463,9 +6466,9 @@
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: flex-end;">
                     <div>
                       <label for="cfgPetrolUnitKm" style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Distance Unit *</label>
-                      <div style="display:flex; align-items:center; border:1px solid #cbd5e1; border-radius:6px; background:#fff; overflow:hidden;">
-                        <input type="number" step="0.1" min="0.1" id="cfgPetrolUnitKm" class="filter-input" value="1" required style="border:none; padding:8px 10px; width:100%; font-size:13px; font-weight:700; color:#0f172a;" oninput="updatePetrolRatePreview()">
-                        <span style="padding:8px 12px; background:#f1f5f9; color:#64748b; font-size:12px; font-weight:700; border-left:1px solid #cbd5e1;">KM</span>
+                      <div style="display:flex; align-items:center; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc; overflow:hidden;">
+                        <input type="text" id="cfgPetrolUnitKm" class="filter-input" value="1" readonly tabindex="-1" style="border:none; padding:8px 10px; width:100%; font-size:13px; font-weight:700; color:#64748b; background:#f8fafc; cursor:not-allowed;" title="Unit distance is fixed to 1 KM">
+                        <span style="padding:8px 12px; background:#e2e8f0; color:#64748b; font-size:12px; font-weight:700; border-left:1px solid #cbd5e1;">KM</span>
                       </div>
                     </div>
 
@@ -8955,7 +8958,7 @@
         const photoData = document.getElementById('fwRegPhotoData');
         if (photoData) photoData.value = '';
         const unitKmInput = document.getElementById('fwRegPetrolUnitKm');
-        if (unitKmInput) unitKmInput.value = '1';
+        if (unitKmInput) unitKmInput.value = '1 KM';
         const rateInrInput = document.getElementById('fwRegPetrolRateInr');
         if (rateInrInput) rateInrInput.value = '';
         if (typeof updateWorkerPetrolRatePreview === 'function') updateWorkerPetrolRatePreview();
@@ -8965,13 +8968,13 @@
     }
 
     function updateWorkerPetrolRatePreview() {
-      const unitKm = parseFloat(document.getElementById('fwRegPetrolUnitKm')?.value) || 0;
+      const unitKm = 1.0;
       const rateInrVal = document.getElementById('fwRegPetrolRateInr')?.value;
       const rateInr = (rateInrVal !== '' && rateInrVal !== null && !isNaN(parseFloat(rateInrVal))) ? parseFloat(rateInrVal) : 0;
       const badge = document.getElementById('fwRegPetrolPreviewBadge');
       const kmRateInput = document.getElementById('fwRegKmRate');
-      if (unitKm > 0 && rateInr > 0) {
-        const perKm = (rateInr / unitKm).toFixed(2);
+      if (rateInr > 0) {
+        const perKm = rateInr.toFixed(2);
         if (badge) {
           badge.textContent = `Worker Custom: ₹${perKm} / KM`;
           badge.style.background = '#dcfce7';
@@ -10535,12 +10538,12 @@
           </td>` :
           `<td style="text-align:center; color:#94a3b8; font-size:11px;">No Audio</td>`;
 
-        // Column 2: SPEECH-TO-TEXT DOCUMENT
+        // Column 2: AI TRANSCRIPTION
         const hasStt = v.has_audio_recording;
         const sttDocCol = hasStt ?
           `<td style="text-align:center; white-space:nowrap;">
             <div style="display:inline-flex; align-items:center; gap:5px;">
-              <button type="button" onclick="openVisitTranscriptDocModal('${v.id}')" title="View Tamil & English Speech-to-Text verbatim conversation and export Word .docx" style="background:#f0fdf4; border:1px solid #86efac; color:#15803d; padding:4px 9px; border-radius:6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+              <button type="button" onclick="openVisitTranscriptDocModal('${v.id}')" title="View Tamil & English AI Transcription verbatim conversation and export Word .docx" style="background:#f0fdf4; border:1px solid #86efac; color:#15803d; padding:4px 9px; border-radius:6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
                 <i class="fa-solid fa-file-word"></i> தமிழ் &bull; English Doc
               </button>
             </div>
@@ -11060,7 +11063,7 @@
         const branchSel = document.getElementById('fwRegBranchId');
         if (branchSel) branchSel.value = 'HOME';
         document.getElementById('fwPhotoPreviewContainer').innerHTML = '<i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>';
-        if (document.getElementById('fwRegPetrolUnitKm')) document.getElementById('fwRegPetrolUnitKm').value = 1;
+        if (document.getElementById('fwRegPetrolUnitKm')) document.getElementById('fwRegPetrolUnitKm').value = '1 KM';
         if (document.getElementById('fwRegPetrolRateInr')) document.getElementById('fwRegPetrolRateInr').value = '';
         if (document.getElementById('fwRegKmRate')) document.getElementById('fwRegKmRate').value = '';
         if (typeof updateWorkerPetrolRatePreview === 'function') updateWorkerPetrolRatePreview();
@@ -11080,7 +11083,7 @@
       document.getElementById('fwRegBaseRate').value = salType === 'hourly' ? (opt.dataset.hrsal || 100) : (opt.dataset.daysal || 600);
       document.getElementById('fwRegVisitIncentive').value = opt.dataset.visitinc || 75;
       const unitKmEl = document.getElementById('fwRegPetrolUnitKm');
-      if (unitKmEl) unitKmEl.value = opt.dataset.petrolunitkm || 1;
+      if (unitKmEl) unitKmEl.value = '1 KM';
       const rateInrEl = document.getElementById('fwRegPetrolRateInr');
       if (rateInrEl) rateInrEl.value = opt.dataset.petrolrateinr || '';
       document.getElementById('fwRegKmRate').value = opt.dataset.kmrate || '';
@@ -11130,10 +11133,10 @@
         hourly_salary: salType === 'hourly' ? baseRate : 0,
         half_day_salary: salType === 'half_day' ? baseRate : Math.round(baseRate / 2),
         per_visit_incentive: parseFloat(document.getElementById('fwRegVisitIncentive').value) || 0,
-        petrol_unit_km: parseFloat(document.getElementById('fwRegPetrolUnitKm')?.value) || 1.0,
+        petrol_unit_km: 1.0,
         petrol_rate_inr: (document.getElementById('fwRegPetrolRateInr')?.value !== '' && document.getElementById('fwRegPetrolRateInr')?.value !== null && !isNaN(parseFloat(document.getElementById('fwRegPetrolRateInr')?.value))) ? parseFloat(document.getElementById('fwRegPetrolRateInr')?.value) : null,
         has_custom_petrol_rate: Boolean(document.getElementById('fwRegPetrolRateInr')?.value && parseFloat(document.getElementById('fwRegPetrolRateInr')?.value) > 0),
-        km_allowance_rate: (document.getElementById('fwRegPetrolRateInr')?.value && parseFloat(document.getElementById('fwRegPetrolRateInr')?.value) > 0) ? (Math.round((parseFloat(document.getElementById('fwRegPetrolRateInr').value) / (parseFloat(document.getElementById('fwRegPetrolUnitKm')?.value) || 1.0)) * 100) / 100) : null,
+        km_allowance_rate: (document.getElementById('fwRegPetrolRateInr')?.value && parseFloat(document.getElementById('fwRegPetrolRateInr')?.value) > 0) ? (Math.round(parseFloat(document.getElementById('fwRegPetrolRateInr').value) * 100) / 100) : null,
         photo_data: document.getElementById('fwRegPhotoData').value,
         is_field_worker: true,
         allowed_tabs: checkedTabs
@@ -12134,11 +12137,19 @@
       const matched = CURRENT_WAREHOUSE_PRODUCTS.find(p => p.name.trim().toLowerCase() === cleanVal);
       const hint = document.getElementById('productPriceHint');
       const orderInp = document.getElementById('visitOrderAmount');
-      if (matched && matched.price > 0) {
-        if (orderInp) orderInp.value = matched.price.toFixed(2);
+      if (matched) {
+        if (matched.price > 0 && orderInp) {
+          orderInp.value = matched.price.toFixed(2);
+        }
         if (hint) {
-          hint.textContent = `✓ Warehouse price auto-filled: ₹${Number(matched.price).toLocaleString('en-IN')}`;
-          hint.style.display = 'block';
+          const qtyText = (matched.qty !== undefined && matched.qty !== null && matched.qty !== '') 
+            ? `<span style="margin-left:8px; background:#dbeafe; color:#1e40af; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; border:1px solid #bfdbfe;"><i class="fa-solid fa-boxes-stacked"></i> Available Qty: ${matched.qty}</span>`
+            : '';
+          const priceText = matched.price > 0 
+            ? `<span style="color:#059669; font-weight:600;"><i class="fa-solid fa-circle-check"></i> Price: ₹${Number(matched.price).toLocaleString('en-IN')}</span>`
+            : '';
+          hint.innerHTML = priceText + qtyText;
+          hint.style.display = (priceText || qtyText) ? 'block' : 'none';
         }
       } else {
         if (hint) hint.style.display = 'none';
@@ -12151,11 +12162,19 @@
       const matched = CURRENT_WAREHOUSE_PRODUCTS.find(p => p.name.trim().toLowerCase() === cleanVal);
       const hint = document.getElementById('editProductPriceHint');
       const orderInp = document.getElementById('editOrderAmount');
-      if (matched && matched.price > 0) {
-        if (orderInp) orderInp.value = matched.price.toFixed(2);
+      if (matched) {
+        if (matched.price > 0 && orderInp) {
+          orderInp.value = matched.price.toFixed(2);
+        }
         if (hint) {
-          hint.textContent = `✓ Warehouse price auto-filled: ₹${Number(matched.price).toLocaleString('en-IN')}`;
-          hint.style.display = 'block';
+          const qtyText = (matched.qty !== undefined && matched.qty !== null && matched.qty !== '') 
+            ? `<span style="margin-left:8px; background:#dbeafe; color:#1e40af; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; border:1px solid #bfdbfe;"><i class="fa-solid fa-boxes-stacked"></i> Available Qty: ${matched.qty}</span>`
+            : '';
+          const priceText = matched.price > 0 
+            ? `<span style="color:#059669; font-weight:600;"><i class="fa-solid fa-circle-check"></i> Price: ₹${Number(matched.price).toLocaleString('en-IN')}</span>`
+            : '';
+          hint.innerHTML = priceText + qtyText;
+          hint.style.display = (priceText || qtyText) ? 'block' : 'none';
         }
       } else {
         if (hint) hint.style.display = 'none';
@@ -12239,8 +12258,15 @@
               <div style="font-size: 12.5px; font-weight: 700; color: #0f172a;">${p.name}</div>
               <div style="font-size: 10.5px; color: #64748b;">${p.category || 'General'}</div>
             </div>
-            <div style="font-size: 12px; font-weight: 800; color: #15803d; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; white-space: nowrap; margin-left: 8px;">
-              ₹${Number(p.price || 0).toLocaleString('en-IN')}
+            <div style="display:flex; align-items:center; gap:6px;">
+              ${(p.qty !== undefined && p.qty !== null && p.qty !== '') ? `
+                <span style="font-size: 11px; font-weight: 700; color: #1e40af; background: #dbeafe; padding: 2px 7px; border-radius: 4px; white-space: nowrap;">
+                  Qty: ${p.qty}
+                </span>
+              ` : ''}
+              <div style="font-size: 12px; font-weight: 800; color: #15803d; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; white-space: nowrap;">
+                ₹${Number(p.price || 0).toLocaleString('en-IN')}
+              </div>
             </div>
           </div>
         `).join('')}
@@ -13473,9 +13499,8 @@
     }
 
     function updatePetrolRatePreview() {
-      const unit = parseFloat(document.getElementById('cfgPetrolUnitKm')?.value) || 1;
       const rate = parseFloat(document.getElementById('cfgPetrolRateInr')?.value) || 0;
-      const effective = unit > 0 ? (rate / unit).toFixed(2) : '0.00';
+      const effective = rate.toFixed(2);
       const el = document.getElementById('cfgPetrolEffectivePreview');
       if (el) el.innerText = `₹${effective} / KM`;
     }
@@ -13507,12 +13532,8 @@
 
     async function submitConfigurePetrol(e) {
       if (e) e.preventDefault();
-      const unit = parseFloat(document.getElementById('cfgPetrolUnitKm')?.value) || 1;
+      const unit = 1.0;
       const rate = parseFloat(document.getElementById('cfgPetrolRateInr')?.value) || 0;
-      if (unit <= 0) {
-        showToast('Distance unit must be greater than 0.', true);
-        return;
-      }
       if (rate < 0) {
         showToast('Rate cannot be negative.', true);
         return;

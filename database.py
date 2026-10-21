@@ -8761,13 +8761,14 @@ def get_company_petrol_allowance_config(company_id):
 def set_company_petrol_allowance_config(company_id, unit_km=1.0, rate_inr=10.0):
     """
     Saves company's configured petrol/diesel allowance rate and synchronizes across all field workers.
+    Unit distance is locked to 1.0 KM as fixed reference.
     """
     cid = str(company_id).strip() if company_id else ''
     if not cid:
         return {'unit_km': 1.0, 'rate_inr': 10.0, 'per_km_rate': 10.0}
 
     db = get_db()
-    unit_km = max(0.01, safe_float(unit_km, 1.0))
+    unit_km = 1.0  # Fixed reference unit distance
     rate_inr = max(0.0, safe_float(rate_inr, 10.0))
     per_km_rate = round(rate_inr / unit_km, 2)
 
@@ -10058,12 +10059,12 @@ def get_field_worker_balance_report(company_id=None, employee_name=None, search=
 # =========================================================================
 
 DEFAULT_WAREHOUSE_SEED_PRODUCTS = [
-    {'name': 'Argus AI Face Terminal Kiosk V1', 'price': 25000.0, 'category': 'Hardware', 'status': 'Active'},
-    {'name': 'Biometric Fingerprint Terminal', 'price': 12000.0, 'category': 'Hardware', 'status': 'Active'},
-    {'name': 'Cloud Attendance Annual Subscription (1 Year)', 'price': 6000.0, 'category': 'Software', 'status': 'Active'},
-    {'name': 'Field Worker Live GPS & Route Tracking Addon', 'price': 4500.0, 'category': 'Software', 'status': 'Active'},
-    {'name': 'RFID Smart Attendance Card Reader', 'price': 3500.0, 'category': 'Hardware', 'status': 'Active'},
-    {'name': 'Access Control Magnetic Door Lock System', 'price': 8500.0, 'category': 'Hardware', 'status': 'Active'}
+    {'name': 'Argus AI Face Terminal Kiosk V1', 'price': 25000.0, 'category': 'Hardware', 'status': 'Active', 'qty': 25},
+    {'name': 'Biometric Fingerprint Terminal', 'price': 12000.0, 'category': 'Hardware', 'status': 'Active', 'qty': 40},
+    {'name': 'Cloud Attendance Annual Subscription (1 Year)', 'price': 6000.0, 'category': 'Software', 'status': 'Active', 'qty': 100},
+    {'name': 'Field Worker Live GPS & Route Tracking Addon', 'price': 4500.0, 'category': 'Software', 'status': 'Active', 'qty': 100},
+    {'name': 'RFID Smart Attendance Card Reader', 'price': 3500.0, 'category': 'Hardware', 'status': 'Active', 'qty': 60},
+    {'name': 'Access Control Magnetic Door Lock System', 'price': 8500.0, 'category': 'Hardware', 'status': 'Active', 'qty': 30}
 ]
 
 
@@ -10203,6 +10204,7 @@ def sync_warehouse_products_from_sheet(sheet_url=None, company_id=None):
         price_idx = -1
         cat_idx = -1
         status_idx = -1
+        qty_idx = -1
 
         for idx, col in enumerate(header_row):
             if any(k in col for k in ['product', 'item', 'title', 'name', 'service', 'description']):
@@ -10214,6 +10216,8 @@ def sync_warehouse_products_from_sheet(sheet_url=None, company_id=None):
                 cat_idx = idx
             elif any(k in col for k in ['status', 'active', 'state']):
                 status_idx = idx
+            elif any(k in col for k in ['qty', 'quantity', 'stock', 'available', 'units', 'count', 'inventory']):
+                qty_idx = idx
 
         # Default fallbacks if header names are unconventional: assume col 0 is Name, col 1 is Price
         if name_idx == -1 and len(rows[0]) > 0:
@@ -10245,11 +10249,22 @@ def sync_warehouse_products_from_sheet(sheet_url=None, company_id=None):
             if status_idx != -1 and len(r) > status_idx and str(r[status_idx]).strip():
                 raw_status = str(r[status_idx]).strip()
 
+            raw_qty = None
+            if qty_idx != -1 and len(r) > qty_idx and str(r[qty_idx]).strip():
+                val_str = str(r[qty_idx]).strip()
+                try:
+                    num_val = float(re.sub(r'[^\d.]', '', val_str) or 0)
+                    raw_qty = int(num_val) if num_val.is_integer() else round(num_val, 2)
+                except Exception:
+                    raw_qty = val_str
+
             parsed_products.append({
                 'name': raw_name,
                 'price': round(raw_price, 2),
                 'category': raw_cat,
-                'status': raw_status
+                'status': raw_status,
+                'qty': raw_qty,
+                'quantity': raw_qty
             })
 
         if not parsed_products:
