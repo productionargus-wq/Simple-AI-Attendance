@@ -14,4 +14,5 @@ ARGUS_Attendance_*.docx
 ARGUS_Attendance_*.pdf
 dist/
 build/
+*.lnk
 *.spec.bak
