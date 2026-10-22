@@ -3382,10 +3382,31 @@ def api_face_extract_biometrics():
         # 1. Optimize photo (600x600 LANCZOS, EXIF transpose, RGB JPEG, persistent base64)
         unique_filename, photo_data_url, optimized_bytes = process_uploaded_photo(file_bytes, orig_filename)
 
-        # 2. Extract 128-d embedding via deep learning engine (YuNet + SFace)
+        # 2. Validate face quality & extract 128-d embedding via deep learning engine
         fe = get_face_engine()
         embedding = None
-        if fe and hasattr(fe, 'extract_face_embedding_from_image'):
+        quality_res = None
+
+        if fe and hasattr(fe, 'validate_registration_face_quality'):
+            try:
+                # Run quality validation on the original uploaded image to preserve natural aspect ratio & resolution
+                quality_res = fe.validate_registration_face_quality(file_bytes)
+                if not quality_res.get('valid'):
+                    return jsonify({
+                        'success': False,
+                        'error': quality_res.get('error') or 'Photo did not meet face registration requirements.',
+                        'spoken_error': quality_res.get('spoken_error') or 'This image is not accepted. Please upload a clear photo.',
+                        'advice': quality_res.get('advice') or '',
+                        'code': quality_res.get('code', 'REJECTED'),
+                        'metrics': quality_res.get('metrics', {}),
+                        'photo_filename': unique_filename,
+                        'photo_data': photo_data_url
+                    }), 400
+                embedding = quality_res.get('embedding')
+            except Exception as v_err:
+                print("Warning: face quality validation exception:", v_err)
+
+        if not embedding and fe and hasattr(fe, 'extract_face_embedding_from_image'):
             try:
                 embedding = fe.extract_face_embedding_from_image(optimized_bytes)
             except Exception as fe_err:
@@ -3394,7 +3415,9 @@ def api_face_extract_biometrics():
         if not embedding:
             return jsonify({
                 'success': False,
-                'error': 'No face detected in the photo. Please ensure your face is well-lit, clearly visible, and facing the camera directly, then try again.',
+                'error': 'No clear face detected in the photo. Please ensure your face is well-lit, clearly visible, and facing the camera directly, then try again.',
+                'spoken_error': 'This image is not accepted. No face detected. Please face the camera directly in good lighting.',
+                'code': 'NO_FACE',
                 'photo_filename': unique_filename,
                 'photo_data': photo_data_url
             }), 400
@@ -3405,7 +3428,8 @@ def api_face_extract_biometrics():
             'photo_filename': unique_filename,
             'photo_data': photo_data_url,
             'vector_length': len(embedding),
-            'message': 'AI Face Biometrics generated successfully! (128-d Vector Ready)'
+            'message': 'AI Face Biometrics verified and registered successfully!',
+            'spoken_message': 'Face photo accepted.'
         })
     except Exception as e:
         print("Error in api_face_extract_biometrics:", traceback.format_exc())

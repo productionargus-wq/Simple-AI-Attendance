@@ -1498,6 +1498,33 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+
+  // ===== REAL-TIME VOICE ANNOUNCER (TEXT-TO-SPEECH) =====
+  function speakVoiceAlert(text) {
+    if (!('speechSynthesis' in window) || !text) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.lang = 'en-US';
+
+      const voices = window.speechSynthesis.getVoices();
+      const naturalVoice = voices.find(v => 
+        v.lang && v.lang.startsWith('en') && (
+          v.name.includes('Natural') || v.name.includes('Google') || 
+          v.name.includes('Samantha') || v.name.includes('David') || 
+          v.name.includes('Zira') || v.name.includes('Jenny')
+        )
+      );
+      if (naturalVoice) utterance.voice = naturalVoice;
+
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn('Speech synthesis alert error:', err);
+    }
+  }
+
   if (btnTakeSnapshot) {
     btnTakeSnapshot.addEventListener('click', function () {
       if (!faceStream) return;
@@ -1510,10 +1537,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const origBtnText = btnTakeSnapshot.textContent;
       btnTakeSnapshot.disabled = true;
-      btnTakeSnapshot.textContent = 'Generating Biometrics...';
+      btnTakeSnapshot.textContent = 'Analyzing Biometrics...';
       if (cameraStatusMsg) {
-        cameraStatusMsg.textContent = '⏳ Analyzing face & generating AI Face Biometrics...';
-        cameraStatusMsg.style.color = '#0284c7';
+        cameraStatusMsg.innerHTML = '<span style="color:#0284c7;"><i class="fa-solid fa-spinner fa-spin"></i> Analyzing face position, lighting & clarity...</span>';
       }
 
       faceRegCanvas.toBlob(async function (blob) {
@@ -1541,34 +1567,52 @@ document.addEventListener('DOMContentLoaded', function () {
             const rawText = await res.text();
             resData = JSON.parse(rawText);
           } catch (jsonErr) {
-            console.error('Non-JSON response from server (Status ' + res.status + '):', jsonErr);
-            throw new Error(
-              res.status === 500 || res.status === 502 || res.status === 503
-                ? 'Server is temporarily busy or reloading AI models. Please click "Capture Snapshot" once again.'
-                : 'Server communication error (HTTP ' + res.status + '). Please try again.'
-            );
+            resData = null;
           }
 
           if (!res.ok || !resData || !resData.success) {
             btnTakeSnapshot.disabled = false;
             btnTakeSnapshot.textContent = origBtnText;
-            const errMsg = (resData && resData.error) ? resData.error : 'No clear face detected in snapshot. Please face the camera directly in good lighting and try again.';
+            const errMsg = (resData && resData.error) ? resData.error : 'No clear face detected in snapshot. Please face the camera directly in good lighting.';
+            const spoken = (resData && resData.spoken_error) ? resData.spoken_error : ('This image is not accepted. ' + errMsg);
+            const advice = (resData && resData.advice) ? resData.advice : '';
+
+            // Read the rejection message aloud!
+            speakVoiceAlert(spoken);
+
             if (cameraStatusMsg) {
-              cameraStatusMsg.textContent = '⚠️ ' + errMsg;
-              cameraStatusMsg.style.color = '#dc2626';
+              cameraStatusMsg.innerHTML = `
+                <div style="background:#fef2f2; border:1px solid #f87171; border-radius:6px; padding:8px 12px; margin-top:8px; text-align:left;">
+                  <div style="color:#b91c1c; font-weight:800; font-size:12px; display:flex; align-items:center; gap:6px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>SNAPSHOT NOT ACCEPTED</span>
+                  </div>
+                  <div style="color:#7f1d1d; font-size:11.5px; margin-top:4px; font-weight:600; line-height:1.4;">
+                    ${errMsg}
+                  </div>
+                  ${advice ? `<div style="color:#991b1b; font-size:11px; margin-top:3px; font-style:italic;">💡 Tip: ${advice}</div>` : ''}
+                </div>
+              `;
             }
             if (captureStatus) {
-              captureStatus.textContent = '⚠️ ' + errMsg;
-              captureStatus.style.color = '#dc2626';
+              captureStatus.innerHTML = `
+                <div style="background:#fef2f2; border:1px solid #f87171; border-radius:6px; padding:8px 12px; margin-top:8px;">
+                  <div style="color:#b91c1c; font-weight:800; font-size:11.5px;">⚠️ Snapshot Rejected</div>
+                  <div style="color:#7f1d1d; font-size:11px; margin-top:2px;">${errMsg}</div>
+                </div>
+              `;
             }
             return;
           }
 
-          // SUCCESS: AI Face Biometrics extracted!
+          // SUCCESS: Quality validated and biometrics extracted!
           currentCapturedBlob = blob;
           capturedFaceEmbedding = resData.embedding;
           capturedPhotoData = resData.photo_data || null;
           capturedPhotoFilename = resData.photo_filename || 'face_capture.jpg';
+
+          // Announce success
+          speakVoiceAlert(resData.spoken_message || 'Face photo accepted.');
 
           try {
             const file = new File([blob], 'face_capture.jpg', { type: 'image/jpeg' });
@@ -1579,12 +1623,34 @@ document.addEventListener('DOMContentLoaded', function () {
             console.warn('DataTransfer fallback used for photo upload:', err);
           }
 
-          if (captureStatus) {
-            captureStatus.textContent = '✓ AI Face Biometrics Generated & Registered (128-d Vector Ready)';
-            captureStatus.style.color = '#198754';
+          if (cameraStatusMsg) {
+            cameraStatusMsg.innerHTML = `
+              <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:8px 12px; margin-top:8px;">
+                <div style="color:#15803d; font-weight:800; font-size:12px; display:flex; align-items:center; gap:6px;">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span>FACE VERIFIED &amp; ACCEPTED!</span>
+                </div>
+                <div style="color:#166534; font-size:11px; margin-top:2px;">
+                  Quality approved. Saving biometrics...
+                </div>
+              </div>
+            `;
           }
 
-          // Update photo preview thumbnail in entry modal
+          if (captureStatus) {
+            captureStatus.innerHTML = `
+              <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:8px 12px; margin-top:8px;">
+                <div style="color:#15803d; font-weight:800; font-size:12px; display:flex; align-items:center; gap:6px;">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span>FACE VERIFIED &amp; APPROVED</span>
+                </div>
+                <div style="color:#166534; font-size:11px; margin-top:2px;">
+                  Face position, lighting, and clarity approved for AI attendance.
+                </div>
+              </div>
+            `;
+          }
+
           const photoPreviewBox = document.getElementById('currentPhotoPreview');
           const editThumb = document.getElementById('editPhotoThumb');
           const editNote = document.getElementById('editPhotoNote');
@@ -1596,7 +1662,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
           btnTakeSnapshot.disabled = false;
           btnTakeSnapshot.textContent = origBtnText;
-          stopFaceCamera();
+
+          // Smoothly close camera modal after short delay so user sees green verification
+          setTimeout(() => {
+            stopFaceCamera();
+          }, 900);
         } catch (netErr) {
           console.error('Error during biometric extraction:', netErr);
           btnTakeSnapshot.disabled = false;
@@ -1625,12 +1695,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const editNote = document.getElementById('editPhotoNote');
         if (photoPreviewBox && editThumb) {
           editThumb.src = URL.createObjectURL(file);
-          if (editNote) editNote.textContent = `⏳ Verifying face biometrics in ${file.name}...`;
+          if (editNote) editNote.textContent = `⏳ Verifying face position, lighting & clarity in ${file.name}...`;
           photoPreviewBox.style.display = 'flex';
         }
         if (captureStatus) {
-          captureStatus.textContent = `⏳ Analyzing face biometrics in ${file.name}...`;
-          captureStatus.style.color = '#0284c7';
+          captureStatus.innerHTML = `<span style="color:#0284c7;"><i class="fa-solid fa-spinner fa-spin"></i> Analyzing face position, lighting &amp; clarity in ${file.name}...</span>`;
         }
 
         try {
@@ -1647,27 +1716,64 @@ document.addEventListener('DOMContentLoaded', function () {
           } catch (jsonErr) {
             resData = null;
           }
+
           if (res.ok && resData && resData.success && resData.embedding) {
             capturedFaceEmbedding = resData.embedding;
             capturedPhotoData = resData.photo_data || null;
             capturedPhotoFilename = resData.photo_filename || file.name;
+
+            // Announce success aloud
+            speakVoiceAlert(resData.spoken_message || 'Face photo accepted.');
+
             if (captureStatus) {
-              captureStatus.textContent = '✓ AI Face Biometrics Generated & Registered (128-d Vector Ready)';
-              captureStatus.style.color = '#198754';
+              captureStatus.innerHTML = `
+                <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:8px 12px; margin-top:8px;">
+                  <div style="color:#15803d; font-weight:800; font-size:12px; display:flex; align-items:center; gap:6px;">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>FACE VERIFIED &amp; APPROVED</span>
+                  </div>
+                  <div style="color:#166534; font-size:11px; margin-top:2px;">
+                    Face position, lighting, and clarity approved for AI attendance.
+                  </div>
+                </div>
+              `;
             }
             if (editNote) editNote.textContent = `✓ AI Face Biometrics verified in ${file.name}.`;
           } else {
-            const warn = (resData && resData.error) ? resData.error : 'No face detected in photo.';
+            const warn = (resData && resData.error) ? resData.error : 'No clear face detected in photo.';
+            const spoken = (resData && resData.spoken_error) ? resData.spoken_error : ('This image is not accepted. ' + warn);
+            const advice = (resData && resData.advice) ? resData.advice : '';
+
+            // Read the rejection message aloud!
+            speakVoiceAlert(spoken);
+
+            // Clear input & state so unacceptable image cannot be saved
+            inputPhoto.value = '';
+            currentCapturedBlob = null;
+            capturedFaceEmbedding = null;
+            capturedPhotoData = null;
+            capturedPhotoFilename = null;
+
             if (captureStatus) {
-              captureStatus.textContent = `⚠️ ${warn}`;
-              captureStatus.style.color = '#d97706';
+              captureStatus.innerHTML = `
+                <div style="background:#fef2f2; border:1px solid #f87171; border-radius:6px; padding:10px 12px; margin-top:8px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                  <div style="display:flex; align-items:center; gap:8px; color:#b91c1c; font-weight:800; font-size:12px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size:14px;"></i>
+                    <span>IMAGE NOT ACCEPTED</span>
+                  </div>
+                  <div style="color:#7f1d1d; font-size:11.5px; margin-top:4px; font-weight:600; line-height:1.4;">
+                    ${warn}
+                  </div>
+                  ${advice ? `<div style="color:#991b1b; font-size:11px; margin-top:4px; font-style:italic;">💡 Tip: ${advice}</div>` : ''}
+                </div>
+              `;
             }
-            if (editNote) editNote.textContent = `⚠️ ${warn}`;
+            if (editNote) editNote.textContent = `⚠️ Image not accepted: ${warn}`;
           }
         } catch (e) {
           if (captureStatus) {
-            captureStatus.textContent = `✓ Selected photo: ${file.name}`;
-            captureStatus.style.color = '#198754';
+            captureStatus.textContent = `⚠️ Error analyzing photo: ${e.message}`;
+            captureStatus.style.color = '#dc2626';
           }
         }
       }

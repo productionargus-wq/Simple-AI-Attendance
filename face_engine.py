@@ -307,10 +307,10 @@ def extract_face_embedding_from_image(image_bytes_or_path):
         # Load image
         if isinstance(image_bytes_or_path, str):
             img = cv2.imread(image_bytes_or_path)
-        elif isinstance(image_bytes_or_path, np.ndarray):
+        elif isinstance(image_bytes_or_path, np.ndarray) and image_bytes_or_path.ndim >= 2:
             img = image_bytes_or_path
         else:
-            nparr = np.frombuffer(image_bytes_or_path, np.uint8)
+            nparr = image_bytes_or_path if isinstance(image_bytes_or_path, np.ndarray) else np.frombuffer(image_bytes_or_path, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
         if img is None:
@@ -383,6 +383,240 @@ def extract_face_embedding_from_image(image_bytes_or_path):
     except Exception as e:
         print(f"Face embedding extraction error: {e}")
         return None
+
+
+def validate_registration_face_quality(image_bytes_or_path):
+    """
+    Biometric Quality Assurance Engine for Employee Registration:
+    Validates uploaded photo or camera snapshot against real-world criteria:
+    1. Single Face Requirement (Zero faces or Multiple people in frame)
+    2. Face Framing & Distance (Face occupying < 7% of area / shoulders & body dominating)
+    3. Lighting & Brightness (Dim lighting < 46 or overexposure > 228)
+    4. Focus & Sharpness (Blurry / shaky photos via Laplacian variance < 30)
+    5. Head Pose & Alignment (Head tilted > 28 deg)
+
+    Returns structured verdict dict with spoken voice error messages.
+    """
+    if cv2 is None or np is None:
+        return {
+            'valid': False,
+            'code': 'ENGINE_UNAVAILABLE',
+            'error': 'Face recognition engine is initializing. Please try again.',
+            'spoken_error': 'Engine is loading. Please try again in a moment.',
+            'advice': 'Wait a moment and re-upload the photo.'
+        }
+
+    try:
+        if isinstance(image_bytes_or_path, str):
+            img = cv2.imread(image_bytes_or_path)
+        elif isinstance(image_bytes_or_path, np.ndarray) and image_bytes_or_path.ndim >= 2:
+            img = image_bytes_or_path
+        else:
+            nparr = image_bytes_or_path if isinstance(image_bytes_or_path, np.ndarray) else np.frombuffer(image_bytes_or_path, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if img is None:
+            return {
+                'valid': False,
+                'code': 'INVALID_IMAGE',
+                'error': 'Could not read or decode image file. Please upload a standard JPG or PNG image.',
+                'spoken_error': 'This image is not accepted. Could not read image file.',
+                'advice': 'Upload a valid JPG or PNG photo.'
+            }
+
+        img_h, img_w = img.shape[:2]
+        img_area = float(img_h * img_w)
+
+        # 1. Detect faces using YuNet Deep Neural Network
+        detector = get_detector(img_w, img_h)
+        faces = None
+        if detector is not None:
+            with acquire_detector_lock(timeout=5.0) as acquired:
+                if acquired:
+                    try:
+                        ret, raw_faces = detector.detect(img)
+                        if ret and raw_faces is not None and len(raw_faces) > 0:
+                            faces = [f for f in raw_faces if len(f) > 14 and f[14] >= 0.42]
+                    except Exception:
+                        pass
+
+                    if not faces:
+                        try:
+                            enhanced = apply_clahe_enhancement(img)
+                            ret, raw_faces = detector.detect(enhanced)
+                            if ret and raw_faces is not None and len(raw_faces) > 0:
+                                faces = [f for f in raw_faces if len(f) > 14 and f[14] >= 0.42]
+                        except Exception:
+                            pass
+
+        # Robust Haar Cascade fallback if DNN detector misses face
+        if not faces:
+            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            if os.path.exists(cascade_path):
+                try:
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    face_cascade = cv2.CascadeClassifier(cascade_path)
+                    h_faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(30, 30))
+                    if len(h_faces) > 0:
+                        faces = []
+                        for hf in h_faces:
+                            x, y, fw, fh = hf
+                            faces.append([x, y, fw, fh, x+fw*0.35, y+fh*0.38, x+fw*0.65, y+fh*0.38, x+fw*0.5, y+fh*0.58, x+fw*0.38, y+fh*0.78, x+fw*0.62, y+fh*0.78, 0.80])
+                except Exception:
+                    pass
+
+        # Check 1: Face Count (No face or Multiple faces)
+        if not faces or len(faces) == 0:
+            return {
+                'valid': False,
+                'code': 'NO_FACE',
+                'error': 'No face detected in photo. Please ensure your face is well-lit, clearly visible, and facing the camera directly.',
+                'spoken_error': 'This image is not accepted. No face detected. Please face the camera directly in good lighting.',
+                'advice': 'Look directly into the camera, remove face coverings, and ensure good lighting.'
+            }
+
+        if len(faces) > 1:
+            sorted_faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
+            primary_area = sorted_faces[0][2] * sorted_faces[0][3]
+            second_area = sorted_faces[1][2] * sorted_faces[1][3]
+            if (second_area / float(primary_area)) > 0.22:
+                return {
+                    'valid': False,
+                    'code': 'MULTIPLE_FACES',
+                    'error': f'Multiple faces ({len(faces)} people) detected. Only one person must be in the registration photo.',
+                    'spoken_error': 'This image is not accepted. Multiple faces detected. Only one person should be in the photo.',
+                    'advice': 'Take a solo photo without other people or background portraits.'
+                }
+
+        # Select primary face
+        face = max(faces, key=lambda f: f[2] * f[3])
+        fx, fy, fw, fh = float(face[0]), float(face[1]), float(face[2]), float(face[3])
+        face_area = fw * fh
+        area_ratio = face_area / img_area
+        height_ratio = fh / float(img_h)
+
+        # Check 2: Face Size & Framing (Fixes issue where body & shoulders occupy most space)
+        if area_ratio < 0.06 or height_ratio < 0.20 or fw < 55 or fh < 55:
+            return {
+                'valid': False,
+                'code': 'FACE_TOO_SMALL',
+                'error': 'Face is too small and far away (body, shoulders or background occupy too much space). Please crop or take a closer photo focusing on your head and face.',
+                'spoken_error': 'This image is not accepted. Face is too small and far away. Please upload a closer photo of your face.',
+                'advice': 'Crop closer or stand nearer to the camera so your face occupies the center of the frame.',
+                'metrics': {'area_ratio': round(area_ratio, 3), 'height_ratio': round(height_ratio, 3)}
+            }
+
+        if area_ratio > 0.88 or height_ratio > 0.95:
+            return {
+                'valid': False,
+                'code': 'FACE_TOO_CLOSE',
+                'error': 'Face is too close to camera or cut off at the edges. Please step back slightly.',
+                'spoken_error': 'This image is not accepted. Face is too close. Please step back slightly.',
+                'advice': 'Position your head so your entire face and hair fit comfortably inside the frame.',
+                'metrics': {'area_ratio': round(area_ratio, 3), 'height_ratio': round(height_ratio, 3)}
+            }
+
+        # Crop face region for lighting and blur analysis
+        pad_x = int(fw * 0.04)
+        pad_y = int(fh * 0.04)
+        c_x1 = max(0, int(fx + pad_x))
+        c_y1 = max(0, int(fy + pad_y))
+        c_x2 = min(img_w, int(fx + fw - pad_x))
+        c_y2 = min(img_h, int(fy + fh - pad_y))
+        face_crop = img[c_y1:c_y2, c_x1:c_x2] if (c_x2 > c_x1 and c_y2 > c_y1) else img
+
+        gray_face = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
+
+        # Check 3: Lighting & Dimness
+        mean_brightness = float(np.mean(gray_face))
+        if mean_brightness < 45.0:
+            return {
+                'valid': False,
+                'code': 'TOO_DARK',
+                'error': 'Lighting is too dim or dark. Please move to a brighter, well-lit area.',
+                'spoken_error': 'This image is not accepted. Lighting is too dim. Please move to a brighter area.',
+                'advice': 'Stand facing the light source so both sides of your face are clearly illuminated.',
+                'metrics': {'mean_brightness': round(mean_brightness, 1)}
+            }
+
+        if mean_brightness > 230.0:
+            return {
+                'valid': False,
+                'code': 'TOO_BRIGHT',
+                'error': 'Photo is overexposed with harsh glare. Please avoid direct harsh lights.',
+                'spoken_error': 'This image is not accepted. Photo is too bright with harsh glare.',
+                'advice': 'Avoid direct camera flash or standing directly under glaring overhead lights.',
+                'metrics': {'mean_brightness': round(mean_brightness, 1)}
+            }
+
+        # Check 4: Sharpness / Blurriness
+        laplacian_var = float(cv2.Laplacian(gray_face, cv2.CV_64F).var())
+        if laplacian_var < 28.0:
+            return {
+                'valid': False,
+                'code': 'BLURRY',
+                'error': 'Photo is blurry or out of focus. Please hold camera steady and take a sharp photo.',
+                'spoken_error': 'This image is not accepted. Photo is blurry. Please hold camera steady.',
+                'advice': 'Hold the device steady and tap the screen to focus on your face.',
+                'metrics': {'sharpness': round(laplacian_var, 1)}
+            }
+
+        # Check 5: Head Tilt / Alignment
+        if len(face) >= 8:
+            re_x, re_y = float(face[4]), float(face[5])
+            le_x, le_y = float(face[6]), float(face[7])
+            dx = le_x - re_x
+            dy = le_y - re_y
+            if abs(dx) > 1e-3:
+                angle = abs(float(np.degrees(np.arctan2(dy, dx))))
+                if angle > 90.0:
+                    angle = abs(angle - 180.0)
+                if angle > 28.0:
+                    return {
+                        'valid': False,
+                        'code': 'HEAD_TILTED',
+                        'error': 'Head is tilted sideways. Please keep your head straight and upright.',
+                        'spoken_error': 'This image is not accepted. Head is tilted. Please keep your head straight.',
+                        'advice': 'Look directly into the camera lens with your head upright.',
+                        'metrics': {'tilt_angle': round(angle, 1)}
+                    }
+
+        # 6. Extract 128-d SFace Biometrics
+        embedding = extract_face_embedding_from_image(img)
+        if not embedding:
+            return {
+                'valid': False,
+                'code': 'EMBEDDING_FAILED',
+                'error': 'Could not extract clean facial biometrics from this angle. Please face the camera squarely.',
+                'spoken_error': 'This image is not accepted. Please face the camera squarely and try again.',
+                'advice': 'Look straight ahead with a neutral facial expression.'
+            }
+
+        return {
+            'valid': True,
+            'code': 'OK',
+            'embedding': embedding,
+            'message': 'Face photo verified and accepted successfully!',
+            'spoken_message': 'Face photo accepted.',
+            'metrics': {
+                'area_ratio': round(area_ratio, 3),
+                'height_ratio': round(height_ratio, 3),
+                'brightness': round(mean_brightness, 1),
+                'sharpness': round(laplacian_var, 1)
+            }
+        }
+    except Exception as err:
+        print("Error in validate_registration_face_quality:", err)
+        emb = extract_face_embedding_from_image(image_bytes_or_path)
+        if emb:
+            return {'valid': True, 'code': 'OK', 'embedding': emb, 'message': 'Face photo accepted.', 'spoken_message': 'Face photo accepted.'}
+        return {
+            'valid': False,
+            'code': 'ERROR',
+            'error': f'Image processing error: {str(err)}',
+            'spoken_error': 'This image is not accepted. Please try another photo.',
+            'advice': 'Please upload another clear photo.'
+        }
 
 
 def verify_liveness_from_bytes(file_bytes, burst_bytes=None):

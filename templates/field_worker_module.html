@@ -4315,6 +4315,7 @@
                         </button>
                       </div>
                       <input type="hidden" id="fwRegPhotoData" value="">
+                      <div id="fwRegPhotoStatus" style="margin-top:6px;"></div>
                     </div>
                     <div style="display:flex; align-items:center; gap:10px;">
                       <div id="fwPhotoPreviewContainer" style="width:42px; height:42px; border-radius:50%; border:2px solid #cbd5e1; background:#e2e8f0; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
@@ -8887,35 +8888,201 @@
       });
     }
 
-    // Photo Upload & Preview for Biometric Enrollment
-    function handlePhotoUpload(input) {
-      if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          document.getElementById('fwRegPhotoData').value = e.target.result;
-          document.getElementById('fwPhotoPreviewContainer').innerHTML = `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover;">`;
-        };
-        reader.readAsDataURL(input.files[0]);
+    // Real-Time Voice Announcer (Text-to-Speech)
+    function speakVoiceAlert(text) {
+      if (!('speechSynthesis' in window) || !text) return;
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.lang = 'en-US';
+        const voices = window.speechSynthesis.getVoices();
+        const naturalVoice = voices.find(v => v.lang && v.lang.startsWith('en') && (
+          v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('David') || v.name.includes('Zira')
+        ));
+        if (naturalVoice) utterance.voice = naturalVoice;
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn('Speech synthesis alert notice:', err);
       }
     }
 
-    // Webcam Photo Snapshot for Quick Registration
+    // Photo Upload & Real-Time Biometric Quality Verification
+    async function handlePhotoUpload(input) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+      const statusEl = document.getElementById('fwRegPhotoStatus');
+      const previewBox = document.getElementById('fwPhotoPreviewContainer');
+      const dataInp = document.getElementById('fwRegPhotoData');
+
+      if (statusEl) {
+        statusEl.innerHTML = `<span style="color:#0284c7; font-size:11.5px; font-weight:600;"><i class="fa-solid fa-spinner fa-spin"></i> Analyzing face position, lighting & clarity in ${file.name}...</span>`;
+      }
+      if (previewBox) {
+        previewBox.innerHTML = `<img src="${URL.createObjectURL(file)}" style="width:100%; height:100%; object-fit:cover;">`;
+      }
+
+      try {
+        const fd = new FormData();
+        fd.append('photo', file);
+        const res = await fetch('/api/face/extract-biometrics', {
+          method: 'POST',
+          body: fd
+        });
+        let resData = null;
+        try {
+          const raw = await res.text();
+          resData = JSON.parse(raw);
+        } catch (e) {
+          resData = null;
+        }
+
+        if (res.ok && resData && resData.success && resData.embedding) {
+          if (dataInp) dataInp.value = resData.photo_data || '';
+          speakVoiceAlert(resData.spoken_message || 'Face photo accepted.');
+          if (statusEl) {
+            statusEl.innerHTML = `
+              <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:8px 10px; margin-top:4px;">
+                <div style="color:#15803d; font-weight:800; font-size:11.5px; display:flex; align-items:center; gap:6px;">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span>FACE VERIFIED &amp; APPROVED</span>
+                </div>
+                <div style="color:#166534; font-size:10.5px; margin-top:2px;">
+                  Face position, lighting, and clarity approved for AI attendance.
+                </div>
+              </div>
+            `;
+          }
+        } else {
+          const warn = (resData && resData.error) ? resData.error : 'No clear face detected in photo.';
+          const spoken = (resData && resData.spoken_error) ? resData.spoken_error : ('This image is not accepted. ' + warn);
+          const advice = (resData && resData.advice) ? resData.advice : '';
+
+          // Read rejection message aloud!
+          speakVoiceAlert(spoken);
+
+          // Clear inputs so bad image cannot be submitted
+          input.value = '';
+          if (dataInp) dataInp.value = '';
+          if (previewBox) {
+            previewBox.innerHTML = '<i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>';
+          }
+
+          if (statusEl) {
+            statusEl.innerHTML = `
+              <div style="background:#fef2f2; border:1px solid #f87171; border-radius:6px; padding:9px 11px; margin-top:4px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                <div style="display:flex; align-items:center; gap:6px; color:#b91c1c; font-weight:800; font-size:11.5px;">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span>IMAGE NOT ACCEPTED</span>
+                </div>
+                <div style="color:#7f1d1d; font-size:11px; margin-top:3px; font-weight:600; line-height:1.35;">
+                  ${warn}
+                </div>
+                ${advice ? `<div style="color:#991b1b; font-size:10.5px; margin-top:3px; font-style:italic;">💡 Tip: ${advice}</div>` : ''}
+              </div>
+            `;
+          }
+        }
+      } catch (err) {
+        if (statusEl) {
+          statusEl.innerHTML = `<span style="color:#dc2626; font-size:11px;">⚠️ Verification error: ${err.message}</span>`;
+        }
+      }
+    }
+
+    // Webcam Photo Snapshot for Quick Registration & Real-Time Biometric Quality Check
     async function triggerWebcamCapture() {
+      const statusEl = document.getElementById('fwRegPhotoStatus');
+      const previewBox = document.getElementById('fwPhotoPreviewContainer');
+      const dataInp = document.getElementById('fwRegPhotoData');
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
         const video = document.createElement('video');
         video.srcObject = stream;
         video.autoplay = true;
-        await new Promise(r => setTimeout(r, 600));
+        await new Promise(r => setTimeout(r, 650));
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth || 480;
+        canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
-        canvas.getContext('2d').drawImage(video, 0, 0);
+        const ctx = canvas.getContext('2d');
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         stream.getTracks().forEach(t => t.stop());
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        document.getElementById('fwRegPhotoData').value = dataUrl;
-        document.getElementById('fwPhotoPreviewContainer').innerHTML = `<img src="${dataUrl}" style="width:100%; height:100%; object-fit:cover;">`;
-        showToast('Webcam snapshot captured for biometric enrollment.');
+
+        if (statusEl) {
+          statusEl.innerHTML = `<span style="color:#0284c7; font-size:11.5px; font-weight:600;"><i class="fa-solid fa-spinner fa-spin"></i> Analyzing face position, lighting & clarity...</span>`;
+        }
+
+        canvas.toBlob(async function(blob) {
+          if (!blob) return;
+          try {
+            const fd = new FormData();
+            fd.append('photo', blob, 'webcam_snap.jpg');
+            const res = await fetch('/api/face/extract-biometrics', {
+              method: 'POST',
+              body: fd
+            });
+            let resData = null;
+            try {
+              const raw = await res.text();
+              resData = JSON.parse(raw);
+            } catch (e) {
+              resData = null;
+            }
+
+            if (res.ok && resData && resData.success && resData.embedding) {
+              if (dataInp) dataInp.value = resData.photo_data || '';
+              if (previewBox) {
+                previewBox.innerHTML = `<img src="${resData.photo_data || URL.createObjectURL(blob)}" style="width:100%; height:100%; object-fit:cover;">`;
+              }
+              speakVoiceAlert(resData.spoken_message || 'Face photo accepted.');
+              if (statusEl) {
+                statusEl.innerHTML = `
+                  <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:8px 10px; margin-top:4px;">
+                    <div style="color:#15803d; font-weight:800; font-size:11.5px; display:flex; align-items:center; gap:6px;">
+                      <i class="fa-solid fa-circle-check"></i>
+                      <span>FACE VERIFIED &amp; APPROVED</span>
+                    </div>
+                    <div style="color:#166534; font-size:10.5px; margin-top:2px;">
+                      Snapshot approved for AI attendance recognition.
+                    </div>
+                  </div>
+                `;
+              }
+            } else {
+              const warn = (resData && resData.error) ? resData.error : 'No clear face detected in snapshot.';
+              const spoken = (resData && resData.spoken_error) ? resData.spoken_error : ('This image is not accepted. ' + warn);
+              const advice = (resData && resData.advice) ? resData.advice : '';
+
+              speakVoiceAlert(spoken);
+
+              if (dataInp) dataInp.value = '';
+              if (previewBox) {
+                previewBox.innerHTML = '<i class="fa-solid fa-user" style="color:#94a3b8; font-size:18px;"></i>';
+              }
+
+              if (statusEl) {
+                statusEl.innerHTML = `
+                  <div style="background:#fef2f2; border:1px solid #f87171; border-radius:6px; padding:9px 11px; margin-top:4px;">
+                    <div style="display:flex; align-items:center; gap:6px; color:#b91c1c; font-weight:800; font-size:11.5px;">
+                      <i class="fa-solid fa-triangle-exclamation"></i>
+                      <span>SNAPSHOT NOT ACCEPTED</span>
+                    </div>
+                    <div style="color:#7f1d1d; font-size:11px; margin-top:3px; font-weight:600;">
+                      ${warn}
+                    </div>
+                    ${advice ? `<div style="color:#991b1b; font-size:10.5px; margin-top:3px; font-style:italic;">💡 Tip: ${advice}</div>` : ''}
+                  </div>
+                `;
+              }
+            }
+          } catch (netErr) {
+            if (statusEl) statusEl.innerHTML = `<span style="color:#dc2626; font-size:11px;">⚠️ Snapshot upload error: ${netErr.message}</span>`;
+          }
+        }, 'image/jpeg', 0.9);
       } catch (err) {
         showToast('Webcam capture error: ' + err.message, true);
       }
