@@ -1,0 +1,30 @@
+{
+  "appId": "com.argus.attendance",
+  "appName": "Argus Attendance",
+  "webDir": "www",
+  "server": {
+    "url": "https://attendance.argussoftwares.com/?app=1",
+    "cleartext": true,
+    "allowNavigation": [
+      "attendance.argussoftwares.com",
+      "*.argussoftwares.com",
+      "simple-ai-attendance.onrender.com",
+      "*.onrender.com"
+    ]
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1800,
+      "launchAutoHide": true,
+      "backgroundColor": "#152e4d",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false
+    }
+  }
+}

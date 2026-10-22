@@ -1,0 +1,21 @@
+{
+  "name": "argus-ai-attendance-mobile",
+  "version": "1.0.0",
+  "description": "Argus AI Attendance Mobile App - Hands-Free Biometric Attendance Terminal",
+  "private": true,
+  "scripts": {
+    "build": "echo \"Ready\"",
+    "cap:sync": "cap sync",
+    "cap:open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.1",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.1",
+    "@capacitor/geolocation": "^7.0.1",
+    "@capacitor/status-bar": "^7.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.1"
+  }
+}

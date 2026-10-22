@@ -16,3 +16,4 @@ dist/
 build/
 *.lnk
 *.spec.bak
+.vscode/

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Argus Attendance Terminal</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: radial-gradient(circle at 50% 30%, #1a3a60 0%, #152e4d 45%, #0d1e34 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .splash-container {
+      text-align: center;
+      padding: 24px;
+      max-width: 360px;
+    }
+    .logo-glow {
+      position: relative;
+      width: 110px;
+      height: 110px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo-glow::before {
+      content: '';
+      position: absolute;
+      width: 135px;
+      height: 135px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(56, 189, 248, 0) 70%);
+      animation: pulse 2s infinite ease-in-out;
+    }
+    .logo-img {
+      width: 95px;
+      height: 95px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 3px solid rgba(255, 255, 255, 0.95);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      object-fit: cover;
+      animation: float 3s infinite ease-in-out;
+    }
+    h1 {
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    p {
+      color: #94a3b8;
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+    .loader-bar {
+      width: 180px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      margin: 0 auto 14px;
+      overflow: hidden;
+      position: relative;
+    }
+    .loader-progress {
+      position: absolute;
+      top: 0; left: 0;
+      height: 100%; width: 50%;
+      background: linear-gradient(90deg, #38bdf8, #22c55e);
+      border-radius: 4px;
+      animation: indeterminate 1.6s infinite ease-in-out;
+    }
+    .status-text {
+      color: #cbd5e1;
+      font-size: 11.5px;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.5; }
+      50% { transform: scale(1.15); opacity: 0.95; }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    @keyframes indeterminate {
+      0% { left: -50%; width: 50%; }
+      50% { left: 25%; width: 65%; }
+      100% { left: 100%; width: 50%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-container">
+    <div class="logo-glow">
+      <img src="logo.png" alt="Argus Attendance" class="logo-img">
+    </div>
+    <h1>ARGUS ATTENDANCE</h1>
+    <p>AI Biometric Attendance Terminal</p>
+    <div class="loader-bar">
+      <div class="loader-progress"></div>
+    </div>
+    <div class="status-text" id="statusMsg">Connecting to Live Terminal...</div>
+  </div>
+
+  <script>
+    // Live Server Connection with Fallback
+    const LIVE_URL = "https://attendance.argussoftwares.com/?app=1";
+    const FALLBACK_URL = "https://simple-ai-attendance.onrender.com/?app=1";
+
+    async function connectToTerminal() {
+      const statusEl = document.getElementById('statusMsg');
+      try {
+        statusEl.textContent = 'Connecting to Argus Attendance Cloud...';
+        const res = await fetch(LIVE_URL, { method: 'HEAD', mode: 'no-cors' });
+        window.location.replace(LIVE_URL);
+      } catch (err) {
+        statusEl.textContent = 'Connecting to fallback cloud...';
+        try {
+          await fetch(FALLBACK_URL, { method: 'HEAD', mode: 'no-cors' });
+          window.location.replace(FALLBACK_URL);
+        } catch (e) {
+          window.location.replace(LIVE_URL);
+        }
+      }
+    }
+    setTimeout(connectToTerminal, 600);
+  </script>
+</body>
+</html>

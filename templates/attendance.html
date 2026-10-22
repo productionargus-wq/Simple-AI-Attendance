@@ -1097,9 +1097,187 @@
         padding: 4px 7px;
       }
     }
+
+    /* ===== ANIMATED MOBILE APP SPLASH SCREEN & APP MODE ===== */
+    .app-splash-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      background: radial-gradient(circle at 50% 30%, #1a3a60 0%, #152e4d 45%, #0d1e34 100%);
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1), transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .app-splash-screen.splash-hidden {
+      opacity: 0;
+      transform: scale(1.03);
+      pointer-events: none;
+    }
+
+    .splash-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 24px;
+      max-width: 340px;
+    }
+
+    .splash-logo-container {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 22px;
+    }
+
+    .splash-logo-glow {
+      position: absolute;
+      width: 145px;
+      height: 145px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(56, 189, 248, 0) 70%);
+      animation: splashGlowPulse 2s infinite ease-in-out;
+    }
+
+    .splash-logo-img {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+      animation: splashLogoEntrance 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards, splashLogoFloat 3s infinite 0.75s ease-in-out;
+      background-color: #ffffff;
+      border: 3px solid rgba(255, 255, 255, 0.95);
+    }
+
+    .splash-brand-title {
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      animation: splashFadeUp 0.75s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .splash-brand-sub {
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      margin-bottom: 24px;
+      animation: splashFadeUp 0.75s 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .splash-loader-bar {
+      width: 180px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+      margin-bottom: 12px;
+      animation: splashFadeUp 0.75s 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .splash-loader-progress {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 50%;
+      background: linear-gradient(90deg, #38bdf8, #22c55e);
+      border-radius: 4px;
+      animation: splashProgressIndeterminate 1.6s infinite ease-in-out;
+    }
+
+    .splash-status {
+      color: #cbd5e1;
+      font-size: 11.5px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+      animation: splashFadeUp 0.75s 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes splashLogoEntrance {
+      0% { transform: scale(0.65); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes splashLogoFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    @keyframes splashGlowPulse {
+      0%, 100% { transform: scale(1); opacity: 0.45; }
+      50% { transform: scale(1.18); opacity: 0.95; }
+    }
+
+    @keyframes splashFadeUp {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes splashProgressIndeterminate {
+      0% { left: -50%; width: 50%; }
+      50% { left: 25%; width: 65%; }
+      100% { left: 100%; width: 50%; }
+    }
+
+    /* Dedicated Mobile App Mode (Activated with ?app=1 or in APK WebView) */
+    body.app-mode .navbar {
+      display: none !important;
+    }
+
+    body.app-mode .footer {
+      display: none !important;
+    }
+
+    body.app-mode .main-content {
+      padding: 10px 8px 16px !important;
+      justify-content: center;
+      min-height: 100dvh;
+    }
+
+    body.app-mode .attendance-card {
+      max-width: 100% !important;
+      border-radius: 16px !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    body.app-mode .camera-screen {
+      height: clamp(260px, 68vw, 360px) !important;
+    }
   </style>
 </head>
 <body>
+
+  <!-- Animated Mobile App Splash Screen -->
+  <div id="appSplashScreen" class="app-splash-screen" style="display: none;">
+    <div class="splash-card">
+      <div class="splash-logo-container">
+        <div class="splash-logo-glow"></div>
+        <img src="{{ url_for('static', filename='images/app_icons/logo_round_512.png') }}" alt="Argus Attendance" class="splash-logo-img">
+      </div>
+      <h1 class="splash-brand-title">ARGUS ATTENDANCE</h1>
+      <p class="splash-brand-sub">AI Biometric Attendance Terminal</p>
+      <div class="splash-loader-bar">
+        <div class="splash-loader-progress"></div>
+      </div>
+      <div class="splash-status" id="splashStatusText">Starting AI Camera Terminal...</div>
+    </div>
+  </div>
 
   <!-- Background Layered SVG Waves -->
   <div class="bg-wave-container">
@@ -1294,6 +1472,35 @@
 
   <script>
   document.addEventListener('DOMContentLoaded', function () {
+    // 0. App Mode & Animated Splash Screen Controller
+    const urlParams = new URLSearchParams(window.location.search);
+    const isAppMode = urlParams.has('app') || urlParams.has('kiosk') || window.location.pathname === '/kiosk' || window.isCapacitorApp;
+    const splashScreen = document.getElementById('appSplashScreen');
+    const splashStatus = document.getElementById('splashStatusText');
+
+    if (isAppMode) {
+      document.body.classList.add('app-mode');
+      if (splashScreen) {
+        splashScreen.style.display = 'flex';
+      }
+      if ('wakeLock' in navigator) {
+        try { navigator.wakeLock.request('screen'); } catch (e) {}
+      }
+    }
+
+    function dismissSplashScreen() {
+      if (splashScreen && !splashScreen.classList.contains('splash-hidden')) {
+        splashScreen.classList.add('splash-hidden');
+        setTimeout(function () {
+          splashScreen.style.display = 'none';
+        }, 500);
+      }
+    }
+
+    // Safety timeout: automatically dismiss splash after 2.8s
+    if (isAppMode) {
+      setTimeout(dismissSplashScreen, 2800);
+    }
     // 1. Live Date & Time Engine
     const dateEl = document.getElementById('liveDate');
     const timeEl = document.getElementById('liveTime');
@@ -1804,6 +2011,7 @@
           }
         });
         video.srcObject = stream;
+        dismissSplashScreen();
         video.style.display = 'block';
         cameraOverlay.style.display = 'none';
         faceReticle.style.display = 'block';
@@ -2245,6 +2453,14 @@
         }, 7000);
       }
     });
+    // Auto-launch camera in App / Kiosk mode
+    if (isAppMode) {
+      setTimeout(function () {
+        if (!isCameraRunning) {
+          startCamera();
+        }
+      }, 400);
+    }
   });
   </script>
 
