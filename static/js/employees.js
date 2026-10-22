@@ -1499,25 +1499,71 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
 
-  // ===== REAL-TIME VOICE ANNOUNCER (TEXT-TO-SPEECH) =====
+  // ===== REAL-TIME VOICE ANNOUNCER (INDIAN ACCENT TEXT-TO-SPEECH) =====
+  let cachedIndianVoices = [];
+  function updateIndianVoicesCache() {
+    if (!('speechSynthesis' in window)) return;
+    try {
+      cachedIndianVoices = window.speechSynthesis.getVoices() || [];
+    } catch (e) {
+      cachedIndianVoices = [];
+    }
+  }
+  if ('speechSynthesis' in window) {
+    updateIndianVoicesCache();
+    window.speechSynthesis.onvoiceschanged = updateIndianVoicesCache;
+  }
+
+  function getIndianAccentVoice() {
+    if (!cachedIndianVoices || cachedIndianVoices.length === 0) {
+      updateIndianVoicesCache();
+    }
+    const voices = cachedIndianVoices;
+    if (!voices || voices.length === 0) return null;
+
+    const isEnIn = v => {
+      const l = (v.lang || '').replace('_', '-').toLowerCase();
+      return l === 'en-in' || l.startsWith('en-in');
+    };
+
+    // Tier 1: Natural / Online / Neural Indian English Voice (Microsoft Neerja, Prabhat, Google en-IN)
+    const tier1 = voices.find(v => isEnIn(v) && (
+      v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Neural') || v.name.includes('Google')
+    ));
+    if (tier1) return tier1;
+
+    // Tier 2: Any English (India) voice (Microsoft Heera, Ravi, Veena, Rishi)
+    const tier2 = voices.find(v => isEnIn(v));
+    if (tier2) return tier2;
+
+    // Tier 3: Voice name contains Indian identifiers
+    const tier3 = voices.find(v => {
+      const n = (v.name || '').toLowerCase();
+      return n.includes('india') || n.includes('heera') || n.includes('neerja') || 
+             n.includes('ravi') || n.includes('rishi') || n.includes('veena') || n.includes('prabhat');
+    });
+    if (tier3) return tier3;
+
+    // Tier 4: Fallback to any natural English voice if device lacks Indian voice packs
+    return voices.find(v => (v.lang || '').toLowerCase().startsWith('en') && (
+      v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Jenny')
+    )) || null;
+  }
+
   function speakVoiceAlert(text) {
     if (!('speechSynthesis' in window) || !text) return;
     try {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
+      utterance.rate = 0.95; // Slightly measured pace for crystal clear comprehension
       utterance.pitch = 1.0;
-      utterance.lang = 'en-US';
+      utterance.lang = 'en-IN'; // Explicitly set Indian English locale
 
-      const voices = window.speechSynthesis.getVoices();
-      const naturalVoice = voices.find(v => 
-        v.lang && v.lang.startsWith('en') && (
-          v.name.includes('Natural') || v.name.includes('Google') || 
-          v.name.includes('Samantha') || v.name.includes('David') || 
-          v.name.includes('Zira') || v.name.includes('Jenny')
-        )
-      );
-      if (naturalVoice) utterance.voice = naturalVoice;
+      const indianVoice = getIndianAccentVoice();
+      if (indianVoice) {
+        utterance.voice = indianVoice;
+        if (indianVoice.lang) utterance.lang = indianVoice.lang;
+      }
 
       window.speechSynthesis.speak(utterance);
     } catch (err) {
