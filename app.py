@@ -5376,6 +5376,29 @@ def api_field_worker_register():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/field-worker/workers/<worker_id>', methods=['DELETE'])
+def api_field_worker_delete(worker_id):
+    """Deletes a field worker record and clears associated caches (Admin only)."""
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized: Only Company Admin or System Admin can delete field workers.'}), 403
+    try:
+        cid = _resolve_field_company_id(request.args.get('company_id'))
+        worker = database.get_employee_by_id(worker_id, company_id=cid)
+        if not worker:
+            return jsonify({'success': False, 'error': 'Field worker not found.'}), 404
+
+        worker_name = worker.get('employee_name', 'Field Worker')
+        database.delete_employee(worker_id, company_id=cid)
+        database.invalidate_dashboard_cache(cid)
+        return jsonify({
+            'success': True,
+            'message': f"Field worker '{worker_name}' deleted successfully."
+        })
+    except Exception as e:
+        print("Error in api_field_worker_delete:", traceback.format_exc())
+        return jsonify({'success': False, 'error': f"Failed to delete worker: {str(e)}"}), 500
+
+
 @app.route('/api/field-worker/assignments', methods=['GET', 'POST'])
 def api_field_worker_assignments():
     """Lists or creates target customer location assignments for field workers."""

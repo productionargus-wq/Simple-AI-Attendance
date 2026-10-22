@@ -4183,9 +4183,12 @@
                       <span class="status-pill status-active">Active</span>
                       {% endif %}
                     </td>
-                    <td style="text-align:center;">
+                    <td style="text-align:center; white-space:nowrap;">
                       <button type="button" class="btn-action-icon btn-action-edit" title="Edit / Configure Worker" onclick="editFieldWorkerFromRow('{{ w.id }}')">
                         <i class="fa-solid fa-pen"></i>
+                      </button>
+                      <button type="button" class="btn-action-icon btn-action-delete" title="Delete Field Worker" onclick="deleteFieldWorkerFromRow('{{ w.id }}', '{{ (w.employee_name or \'\')|replace(\"\'\", \"\\\'\") }}')" style="margin-left:4px;">
+                        <i class="fa-solid fa-trash"></i>
                       </button>
                     </td>
                   </tr>
@@ -9251,6 +9254,31 @@
       openRegisterWorkerModal(false);
     }
 
+    // Delete Field Worker Record (Admin only)
+    async function deleteFieldWorkerFromRow(workerId, workerName) {
+      if (!workerName && Array.isArray(FIELD_WORKERS_DATA)) {
+        const found = FIELD_WORKERS_DATA.find(w => String(w.id) === String(workerId));
+        if (found) workerName = found.employee_name;
+      }
+      const promptName = workerName ? ` "${workerName}"` : '';
+      if (!confirm(`Are you sure you want to delete field worker${promptName}? This action cannot be undone.`)) return;
+
+      try {
+        const res = await fetch(`/api/field-worker/workers/${encodeURIComponent(workerId)}?company_id=${encodeURIComponent(getActiveCompanyId())}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Field worker deleted successfully.');
+          await refreshOverviewState();
+        } else {
+          showToast(data.error || 'Failed to delete field worker.', true);
+        }
+      } catch (err) {
+        showToast('Delete error: ' + err.message, true);
+      }
+    }
+
     // Sync Map Marker & Geofence Circle when Lat/Lng/Radius inputs change
     function syncAssignMapFromInputs() {
       if (!assignMap || !assignMarker || !assignCircle) return;
@@ -10413,9 +10441,12 @@
           <td style="font-weight:700; color:#0f172a;">${baseRateFormatted}</td>
           <td style="font-weight:700; color:#15803d;">₹${Number(w.per_visit_incentive || 0).toFixed(2)} / visit</td>
           <td>${stPill}</td>
-          <td style="text-align:center;">
+          <td style="text-align:center; white-space:nowrap;">
             <button type="button" class="btn-action-icon btn-action-edit" title="Edit / Configure Worker" onclick="editFieldWorkerFromRow('${w.id}')">
               <i class="fa-solid fa-pen"></i>
+            </button>
+            <button type="button" class="btn-action-icon btn-action-delete" title="Delete Field Worker" onclick="deleteFieldWorkerFromRow('${w.id}', '${escapeHtml(w.employee_name || \'\').replace(/\'/g, \"\\\'\")}')" style="margin-left:4px;">
+              <i class="fa-solid fa-trash"></i>
             </button>
           </td>
         </tr>`;
