@@ -99,6 +99,7 @@
           <th style="width: 55px; text-align: center; white-space: nowrap;">LOGO</th>
           <th data-col="company_name" style="min-width: 170px; white-space: nowrap;">COMPANY NAME <span class="sort-icon">⇅</span></th>
           <th data-col="registered_date" style="min-width: 145px; white-space: nowrap; text-align: center;">REGISTERED DATE <span class="sort-icon">⇅</span></th>
+          <th data-col="days_active" style="min-width: 125px; white-space: nowrap; text-align: center;">DAYS ACTIVE <span class="sort-icon">⇅</span></th>
           <th data-col="gstin" style="min-width: 140px; white-space: nowrap;">GSTIN NUMBER <span class="sort-icon">⇅</span></th>
           <th data-col="email" style="min-width: 170px; white-space: nowrap;">REGISTERED EMAIL <span class="sort-icon">⇅</span></th>
           <th data-col="phone" style="min-width: 120px; white-space: nowrap;">PHONE NUMBER <span class="sort-icon">⇅</span></th>
@@ -114,7 +115,7 @@
       </thead>
       <tbody id="companyTableBody">
         <tr>
-          <td colspan="15" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
+          <td colspan="16" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
         </tr>
       </tbody>
     </table>
@@ -465,9 +466,14 @@
           <div id="viewCompanyId" style="font-size: 13px; font-weight: 700; color: #2563eb; margin-top: 3px; font-family: monospace;">-</div>
         </div>
 
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; grid-column: span 2;">
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
           <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Registered Date in Application</div>
           <div id="viewCompanyRegisteredDate" style="font-size: 13px; font-weight: 800; color: #16a34a; margin-top: 3px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Application Usage Duration</div>
+          <div id="viewCompanyDaysActiveBadge" style="margin-top: 3px;">-</div>
         </div>
 
         <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
@@ -601,5 +607,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/manage_companies.js') }}?v=20261012_activecounts"></script>
+<script src="{{ url_for('static', filename='js/manage_companies.js') }}?v=20261022_daysactive"></script>
 {% endblock %}

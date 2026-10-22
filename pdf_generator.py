@@ -361,6 +361,7 @@ def generate_companies_pdf(companies, company_info=None):
         [
             Paragraph("SL NO", header_style),
             Paragraph("COMPANY NAME", header_style),
+            Paragraph("DAYS ACTIVE", header_style),
             Paragraph("GSTIN", header_style),
             Paragraph("EMAIL", header_style),
             Paragraph("PHONE", header_style),
@@ -375,13 +376,14 @@ def generate_companies_pdf(companies, company_info=None):
             Paragraph("No registered companies found", cell_style),
             Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style),
             Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style),
-            Paragraph("", cell_style)
+            Paragraph("", cell_style), Paragraph("", cell_style)
         ])
     else:
         for idx, c in enumerate(companies, 1):
             table_data.append([
                 Paragraph(str(idx), cell_style),
                 Paragraph(str(c.get('company_name', '')), cell_style),
+                Paragraph(str(c.get('days_active_label', f"{c.get('days_active', 0)} Days")), cell_style),
                 Paragraph(str(c.get('gstin', '')), cell_style),
                 Paragraph(str(c.get('email', '')), cell_style),
                 Paragraph(str(c.get('phone', '')), cell_style),
@@ -390,7 +392,7 @@ def generate_companies_pdf(companies, company_info=None):
                 Paragraph(str(c.get('status', 'Active')), cell_style)
             ])
             
-    col_widths = [45, 140, 100, 150, 95, 75, 75, 60]
+    col_widths = [35, 125, 70, 85, 130, 85, 65, 75, 55]
     t = Table(table_data, colWidths=col_widths)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EDF1F5')),

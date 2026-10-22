@@ -507,6 +507,76 @@ def format_company_reg_date(val):
                 pass
     return val_str
 
+def calculate_company_days_active(registered_date_val, created_at_val=None):
+    """
+    Calculates the number of days a company has been using the application.
+    Computed dynamically relative to current Indian Standard Time (IST) date.
+    Returns:
+        tuple: (days_active: int, days_active_label: str)
+    """
+    try:
+        now_date = get_ist_now().date()
+    except Exception:
+        now_date = datetime.now().date()
+
+    parsed_date = None
+
+    # 1. Parse registered_date_val
+    if registered_date_val:
+        if isinstance(registered_date_val, datetime):
+            parsed_date = registered_date_val.date()
+        elif isinstance(registered_date_val, date):
+            parsed_date = registered_date_val
+        else:
+            s = str(registered_date_val).strip()
+            if s and s != '-':
+                # Format: DD/MM/YYYY
+                m_slash = re.match(r'^(\d{1,2})/(\d{1,2})/(\d{4})$', s)
+                if m_slash:
+                    d, m, y = int(m_slash.group(1)), int(m_slash.group(2)), int(m_slash.group(3))
+                    try:
+                        parsed_date = date(y, m, d)
+                    except Exception:
+                        pass
+                else:
+                    clean_s = s.replace('Z', '').split('.')[0]
+                    for fmt in ('%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'):
+                        try:
+                            parsed_date = datetime.strptime(clean_s, fmt).date()
+                            break
+                        except Exception:
+                            pass
+
+    # 2. Fallback to created_at if registered_date is absent or couldn't be parsed
+    if not parsed_date and created_at_val:
+        if isinstance(created_at_val, datetime):
+            parsed_date = created_at_val.date()
+        elif isinstance(created_at_val, date):
+            parsed_date = created_at_val
+        else:
+            s = str(created_at_val).strip()
+            if s and s != '-':
+                clean_s = s.replace('Z', '').split('.')[0]
+                for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                    try:
+                        parsed_date = datetime.strptime(clean_s, fmt).date()
+                        break
+                    except Exception:
+                        pass
+
+    if not parsed_date:
+        return 0, "0 Days (Today)"
+
+    delta_days = max(0, (now_date - parsed_date).days)
+    if delta_days == 0:
+        label = "Joined Today (Day 1)"
+    elif delta_days == 1:
+        label = "1 Day"
+    else:
+        label = f"{delta_days} Days"
+
+    return delta_days, label
+
 def get_all_companies(search='', page=1, limit=10):
     """Retrieves paginated companies with employee count, limit, and registered date."""
     db = get_db()
@@ -581,7 +651,12 @@ def get_all_companies(search='', page=1, limit=10):
         c['radius_meters'] = c['geofence_radius']
         c['status'] = 'Deactive' if str(c.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active'
             
-        c['registered_date'] = format_company_reg_date(c.get('registered_date') or c.get('created_at'))
+        raw_reg = c.get('registered_date')
+        raw_created = c.get('created_at')
+        c['registered_date'] = format_company_reg_date(raw_reg or raw_created)
+        days_count, days_label = calculate_company_days_active(raw_reg, raw_created)
+        c['days_active'] = days_count
+        c['days_active_label'] = days_label
         companies.append(c)
         
     return {
@@ -633,7 +708,12 @@ def get_company_by_id(comp_id, include_counts=False):
         c['geofence_radius'] = float(c.get('geofence_radius') or c.get('radius_meters') or 200.0)
         c['radius_meters'] = c['geofence_radius']
         c['status'] = 'Deactive' if str(c.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active'
-        c['registered_date'] = format_company_reg_date(c.get('registered_date') or c.get('created_at'))
+        raw_reg = c.get('registered_date')
+        raw_created = c.get('created_at')
+        c['registered_date'] = format_company_reg_date(raw_reg or raw_created)
+        days_count, days_label = calculate_company_days_active(raw_reg, raw_created)
+        c['days_active'] = days_count
+        c['days_active_label'] = days_label
         c['employee_limit'] = int(c.get('employee_limit') or 50)
         c['branch_limit'] = int(c.get('branch_limit') or 5)
 

@@ -121,6 +121,23 @@ document.addEventListener('DOMContentLoaded', function () {
     return dateStr;
   }
 
+  function getDaysActiveBadgeHtml(days, label) {
+    const count = Number(days) || 0;
+    let badgeStyle = 'background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;'; // < 30 days (Emerald)
+    if (count >= 30 && count < 180) {
+      badgeStyle = 'background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;'; // 1-6 months (Blue)
+    } else if (count >= 180 && count < 365) {
+      badgeStyle = 'background-color: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff;'; // 6-12 months (Purple)
+    } else if (count >= 365) {
+      badgeStyle = 'background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a;'; // 1+ years (Gold)
+    }
+    const text = label || (count === 1 ? '1 Day' : `${count} Days`);
+    return `<span style="display: inline-flex; align-items: center; gap: 4px; ${badgeStyle} padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap;" title="Registered ${count} days ago">
+      <span style="font-size: 10px;">⚡</span>
+      <span>${escapeHtml(text)}</span>
+    </span>`;
+  }
+
   // View Toggle State (Default to 'grid')
   let currentView = localStorage.getItem('argus_company_view') || 'grid';
   const btnCompanyListView = document.getElementById('btnCompanyListView');
@@ -207,6 +224,11 @@ document.addEventListener('DOMContentLoaded', function () {
   function sortAndRenderCompanies() {
     if (currentSortCol && loadedCompanies && loadedCompanies.length > 0) {
       loadedCompanies.sort((a, b) => {
+        if (currentSortCol === 'days_active' || currentSortCol === 'sl_no') {
+          let numA = Number(a[currentSortCol]) || 0;
+          let numB = Number(b[currentSortCol]) || 0;
+          return currentSortDir === 'asc' ? numA - numB : numB - numA;
+        }
         let vA = a[currentSortCol] || '';
         let vB = b[currentSortCol] || '';
         if (typeof vA === 'string') vA = vA.toLowerCase();
@@ -231,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!companies || companies.length === 0) {
       companyTableBody.innerHTML = `
         <tr>
-          <td colspan="15" style="text-align: center; padding: 28px; color: #6c757d;">
+          <td colspan="16" style="text-align: center; padding: 28px; color: #6c757d;">
             No registered companies found. Click <strong>+ Add Company</strong> above to register a new tenant.
           </td>
         </tr>
@@ -315,6 +337,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <div style="font-size: 10.5px; color: #64748b; font-family: monospace; margin-top: 2px; white-space: nowrap;">ID: ${comp.id}</div>
         </td>
         <td style="white-space: nowrap; text-align: center;">${regDateDisplay}</td>
+        <td style="white-space: nowrap; text-align: center;">${getDaysActiveBadgeHtml(comp.days_active, comp.days_active_label)}</td>
         <td style="white-space: nowrap;"><code style="background-color: #f1f5f9; padding: 3px 6px; border-radius: 4px; font-size: 11px; color: #334155; font-weight: 600;">${escapeHtml(comp.gstin || '-')}</code></td>
         <td style="white-space: nowrap;">
           <a href="mailto:${escapeHtml(comp.email)}" style="color: #2563eb; text-decoration: none; font-weight: 700;">
@@ -452,6 +475,10 @@ document.addEventListener('DOMContentLoaded', function () {
           <div class="comp-grid-row">
             <span class="comp-grid-label">📅 Registered:</span>
             <span class="comp-grid-val" style="font-size: 11px;">${escapeHtml(formattedDate)}</span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">⏱️ Days Active:</span>
+            <span class="comp-grid-val">${getDaysActiveBadgeHtml(comp.days_active, comp.days_active_label)}</span>
           </div>
           <div class="comp-grid-row">
             <span class="comp-grid-label">🧾 GSTIN:</span>
@@ -601,6 +628,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (viewCompanyName) viewCompanyName.textContent = comp.company_name || '-';
         if (viewCompanyId) viewCompanyId.textContent = comp.id || '-';
         if (viewCompanyRegisteredDate) viewCompanyRegisteredDate.textContent = comp.registered_date && comp.registered_date !== '-' ? comp.registered_date : 'Not recorded';
+        const viewCompanyDaysActiveBadge = document.getElementById('viewCompanyDaysActiveBadge');
+        if (viewCompanyDaysActiveBadge) {
+          viewCompanyDaysActiveBadge.innerHTML = getDaysActiveBadgeHtml(comp.days_active, comp.days_active_label);
+        }
         if (viewCompanyGstin) viewCompanyGstin.textContent = comp.gstin || '-';
         if (viewCompanyPhone) viewCompanyPhone.textContent = comp.phone || '-';
         if (viewCompanyEmail) viewCompanyEmail.textContent = comp.email || '-';
@@ -821,6 +852,11 @@ document.addEventListener('DOMContentLoaded', function () {
       // Sort if sort column is active
       if (currentSortCol) {
         loadedCompanies.sort((a, b) => {
+          if (currentSortCol === 'days_active' || currentSortCol === 'sl_no') {
+            let numA = Number(a[currentSortCol]) || 0;
+            let numB = Number(b[currentSortCol]) || 0;
+            return currentSortDir === 'asc' ? numA - numB : numB - numA;
+          }
           let vA = a[currentSortCol] || '';
           let vB = b[currentSortCol] || '';
           if (typeof vA === 'string') vA = vA.toLowerCase();

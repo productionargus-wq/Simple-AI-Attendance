@@ -1789,12 +1789,14 @@ def api_companies_export_excel():
     search = request.args.get('search', '').strip()
     result = database.get_all_companies(search=search, limit=10000)
     
-    headers = ['SL NO', 'COMPANY NAME', 'GSTIN', 'EMAIL', 'PHONE', 'ADDRESS', 'LATITUDE', 'LONGITUDE', 'SHIFT HOURS', 'EMPLOYEES', 'EMPLOYEE LIMIT', 'STATUS', 'SUPPORT']
+    headers = ['SL NO', 'COMPANY NAME', 'REGISTERED DATE', 'DAYS ACTIVE', 'GSTIN', 'EMAIL', 'PHONE', 'ADDRESS', 'LATITUDE', 'LONGITUDE', 'SHIFT HOURS', 'EMPLOYEES', 'EMPLOYEE LIMIT', 'STATUS', 'SUPPORT']
     rows = []
     for idx, c in enumerate(result['data'], 1):
         rows.append([
             idx,
             c.get('company_name', ''),
+            c.get('registered_date', '-'),
+            c.get('days_active_label', f"{c.get('days_active', 0)} Days"),
             c.get('gstin', ''),
             c.get('email', ''),
             c.get('phone', ''),
