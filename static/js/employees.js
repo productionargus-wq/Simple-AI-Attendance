@@ -1467,7 +1467,13 @@ document.addEventListener('DOMContentLoaded', function () {
         cameraStatusMsg.style.color = '#3d6078';
       }
       try {
-        faceStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 320, height: 240 } });
+        faceStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          }
+        });
         faceRegVideo.srcObject = faceStream;
         if (cameraStatusMsg) {
           cameraStatusMsg.textContent = 'Position face within frame and click Capture Snapshot';
@@ -1555,7 +1561,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.95; // Slightly measured pace for crystal clear comprehension
+      utterance.rate = 0.82; // Calibrated slow & clear pace for Indian English accent
       utterance.pitch = 1.0;
       utterance.lang = 'en-IN'; // Explicitly set Indian English locale
 

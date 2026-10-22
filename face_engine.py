@@ -21,6 +21,7 @@ Key Features:
 """
 
 import os
+import math
 import sys
 import json
 import threading
@@ -480,6 +481,28 @@ def validate_registration_face_quality(image_bytes_or_path):
             primary_area = sorted_faces[0][2] * sorted_faces[0][3]
             second_area = sorted_faces[1][2] * sorted_faces[1][3]
             if (second_area / float(primary_area)) > 0.22:
+                primary = sorted_faces[0]
+                second = sorted_faces[1]
+                p_cx, p_cy = primary[0] + primary[2] / 2.0, primary[1] + primary[3] / 2.0
+                s_cx, s_cy = second[0] + second[2] / 2.0, second[1] + second[3] / 2.0
+                center_dist = math.sqrt((p_cx - s_cx)**2 + (p_cy - s_cy)**2)
+
+                inter_x1 = max(primary[0], second[0])
+                inter_y1 = max(primary[1], second[1])
+                inter_x2 = min(primary[0] + primary[2], second[0] + second[2])
+                inter_y2 = min(primary[1] + primary[3], second[1] + second[3])
+                inter_area = max(0, inter_x2 - inter_x1) * max(0, inter_y2 - inter_y1)
+                overlap_ratio = inter_area / float(min(primary_area, second_area)) if min(primary_area, second_area) > 0 else 0
+
+                if center_dist < (primary[2] * 0.9) or overlap_ratio > 0.15:
+                    return {
+                        'valid': False,
+                        'code': 'FACE_OCCLUDED',
+                        'error': 'Face is partially covered (hand or object detected across face). Please remove your hand and show your full face.',
+                        'spoken_error': 'This image is not accepted. Your face is partially covered. Please remove your hand and show your full face.',
+                        'advice': 'Lower your hands and ensure your entire face is unobstructed.'
+                    }
+
                 return {
                     'valid': False,
                     'code': 'MULTIPLE_FACES',
@@ -581,7 +604,77 @@ def validate_registration_face_quality(image_bytes_or_path):
                         'metrics': {'tilt_angle': round(angle, 1)}
                     }
 
-        # 6. Extract 128-d SFace Biometrics
+        # Check 6: Face Occlusion & Landmark Completeness (Hand, Mask, Object covering face)
+        if len(face) >= 14:
+            re_x, re_y = float(face[4]), float(face[5])
+            le_x, le_y = float(face[6]), float(face[7])
+            n_x, n_y = float(face[8]), float(face[9])
+            mr_x, mr_y = float(face[10]), float(face[11])
+            ml_x, ml_y = float(face[12]), float(face[13])
+
+            eye_dist = math.sqrt((le_x - re_x)**2 + (le_y - re_y)**2)
+            eye_ratio = eye_dist / fw if fw > 0 else 0
+
+            mouth_dist = math.sqrt((ml_x - mr_x)**2 + (ml_y - mr_y)**2)
+            mouth_ratio = mouth_dist / fw if fw > 0 else 0
+
+            dist_re_n = math.sqrt((re_x - n_x)**2 + (re_y - n_y)**2)
+            dist_le_n = math.sqrt((le_x - n_x)**2 + (le_y - n_y)**2)
+            symmetry_ratio = max(dist_re_n, dist_le_n) / (min(dist_re_n, dist_le_n) + 1e-4)
+
+            # Hemifacial intensity comparison across left vs right half of the face
+            is_hemi_asymmetric = False
+            try:
+                mid_x = int(fx + fw / 2.0)
+                y1 = max(0, int(fy))
+                y2 = min(img_h, int(fy + fh))
+                x1 = max(0, int(fx))
+                x2 = min(img_w, int(fx + fw))
+                if x2 > x1 and y2 > y1 and (mid_x - x1) > 10 and (x2 - mid_x) > 10:
+                    left_hemi = cv2.cvtColor(img[y1:y2, x1:mid_x], cv2.COLOR_BGR2GRAY)
+                    right_hemi = cv2.cvtColor(img[y1:y2, mid_x:x2], cv2.COLOR_BGR2GRAY)
+                    right_hemi_flipped = cv2.flip(right_hemi, 1)
+                    rw, rh = min(left_hemi.shape[1], right_hemi_flipped.shape[1]), min(left_hemi.shape[0], right_hemi_flipped.shape[0])
+                    if rw > 10 and rh > 10:
+                        l_crop = cv2.resize(left_hemi, (rw, rh))
+                        r_crop = cv2.resize(right_hemi_flipped, (rw, rh))
+                        mean_diff = abs(float(np.mean(l_crop)) - float(np.mean(r_crop)))
+                        if mean_diff > 48.0 and (eye_ratio < 0.32 or mouth_ratio < 0.22):
+                            is_hemi_asymmetric = True
+            except Exception:
+                pass
+
+            if eye_ratio < 0.28:
+                return {
+                    'valid': False,
+                    'code': 'FACE_OCCLUDED',
+                    'error': 'Face is partially covered (one or both eyes are blocked by a hand, cloth, or hair). Both eyes and your full face must be completely visible.',
+                    'spoken_error': 'This image is not accepted. Your face is partially covered. Please remove your hand and show your full face.',
+                    'advice': 'Remove your hand from your face and ensure both eyes are clearly visible.',
+                    'metrics': {'eye_ratio': round(eye_ratio, 3)}
+                }
+
+            if mouth_ratio < 0.18:
+                return {
+                    'valid': False,
+                    'code': 'FACE_OCCLUDED',
+                    'error': 'Lower face or mouth is covered (by hand, mask, or cloth). Your mouth and full face must be visible.',
+                    'spoken_error': 'This image is not accepted. Your mouth or face is covered. Please remove your hand and show your full face.',
+                    'advice': 'Lower your hand, remove any mask, and keep your entire face unobstructed.',
+                    'metrics': {'mouth_ratio': round(mouth_ratio, 3)}
+                }
+
+            if symmetry_ratio > 2.6 or is_hemi_asymmetric:
+                return {
+                    'valid': False,
+                    'code': 'FACE_OCCLUDED',
+                    'error': 'Face is partially hidden, covered with a hand, or severely turned away. Please face the camera squarely with your entire face visible.',
+                    'spoken_error': 'This image is not accepted. Your face is partially covered or turned away. Please face the camera squarely with your full face.',
+                    'advice': 'Face the camera directly and do not cover any side of your face with hands or cloth.',
+                    'metrics': {'symmetry_ratio': round(symmetry_ratio, 2)}
+                }
+
+        # 7. Extract 128-d SFace Biometrics
         embedding = extract_face_embedding_from_image(img)
         if not embedding:
             return {
