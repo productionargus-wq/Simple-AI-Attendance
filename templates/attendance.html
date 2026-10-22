@@ -545,6 +545,22 @@
       box-shadow: none;
     }
 
+    .btn-mark-attendance.btn-next-highlight {
+      background-color: #2563eb;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+      animation: nextPulse 1.8s infinite ease-in-out;
+    }
+
+    .btn-mark-attendance.btn-next-highlight:hover:not(:disabled) {
+      background-color: #1d4ed8;
+      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5);
+    }
+
+    @keyframes nextPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+    }
+
     /* Dynamic Punch Detail Card (Below Buttons) */
     .punch-detail-container {
       margin-top: 14px;
@@ -1102,12 +1118,13 @@
           <span id="btnToggleCameraText">Turn On Camera</span>
         </button>
 
-        <!-- Mark Attendance Button -->
-        <button type="button" class="btn-mark-attendance" id="btnMarkAttendance">
+        <!-- Proceed to Next Person Button -->
+        <button type="button" class="btn-mark-attendance" id="btnMarkAttendance" title="Proceed to next employee in queue">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
           </svg>
-          <span id="btnMarkAttendanceText">Mark Attendance</span>
+          <span id="btnMarkAttendanceText">Proceed to Next Person</span>
         </button>
       </div>
 
@@ -1832,6 +1849,27 @@
       });
     }
 
+    let autoDismissTimer = null;
+
+    // Reset Kiosk State for the next employee in queue
+    function resetKioskForNextPerson() {
+      if (autoDismissTimer) {
+        clearTimeout(autoDismissTimer);
+        autoDismissTimer = null;
+      }
+      cooldownUntil = 0;
+      if (punchContainer) {
+        punchContainer.style.display = 'none';
+        punchContainer.innerHTML = '';
+      }
+      resetBlinkState();
+      updateBlinkHUD(0, isHandsFreeActive ? '👁️ Blink 2 times to punch hands-free' : '🟢 Ready for Next Employee');
+      btnMark.disabled = false;
+      btnMarkText.textContent = 'Proceed to Next Person';
+      btnMark.classList.remove('btn-next-highlight');
+      reticlePulse();
+    }
+
     // 3. Unified Mark Attendance Handler (Manual Button + Hands-Free Blink)
     async function executeAttendancePunch(source = 'button') {
       if (isProcessingPunch) return;
@@ -2032,15 +2070,9 @@
             }
 
             // Auto-dismiss dynamic punch card after 10 seconds to keep UI clean
-            setTimeout(() => {
-              if (punchContainer.style.display === 'block') {
-                punchContainer.style.opacity = '0';
-                punchContainer.style.transition = 'opacity 0.5s ease';
-                setTimeout(() => {
-                  punchContainer.style.display = 'none';
-                  punchContainer.style.opacity = '1';
-                }, 500);
-              }
+            if (autoDismissTimer) clearTimeout(autoDismissTimer);
+            autoDismissTimer = setTimeout(() => {
+              resetKioskForNextPerson();
             }, 10000);
 
       } catch (err) {
@@ -2048,20 +2080,31 @@
       } finally {
         isProcessingPunch = false;
         btnMark.disabled = false;
-        btnMarkText.textContent = 'Mark Attendance';
+        btnMarkText.textContent = 'Proceed to Next Person →';
+        btnMark.classList.add('btn-next-highlight');
         // 15-second cooldown debounce to avoid repeated auto-punching
         cooldownUntil = Date.now() + 15000;
         resetBlinkState();
       }
     }
 
-    // Manual button listener - with active liveness verification
+    // Proceed to Next Person / Manual verification listener
     btnMark.addEventListener('click', function () {
       if (isProcessingPunch) return;
       if (!isCameraRunning || !stream) {
         startCamera();
         return;
       }
+
+      // Case 1: Punch card is visible or cooldown active -> Immediately ready kiosk for next employee!
+      const isCardShowing = punchContainer && punchContainer.style.display === 'block';
+      const isCooldown = Date.now() < cooldownUntil;
+      if (isCardShowing || isCooldown) {
+        resetKioskForNextPerson();
+        return;
+      }
+
+      // Case 2: Kiosk is in ready state -> Manual verification trigger for employees with glasses/lighting issues
       const now = Date.now();
       // If user recently had a verified natural blink within 4.5 seconds
       if (lastVerifiedBlinkTime && (now - lastVerifiedBlinkTime <= 4500)) {
@@ -2080,7 +2123,7 @@
           if (pendingLivenessPunch && !isProcessingPunch) {
             pendingLivenessPunch = false;
             btnMark.disabled = false;
-            btnMarkText.textContent = 'Mark Attendance';
+            btnMarkText.textContent = 'Proceed to Next Person';
             updateBlinkHUD(0, '⚠️ Liveness Check Timed Out. A live human blink is required.');
           }
         }, 7000);
