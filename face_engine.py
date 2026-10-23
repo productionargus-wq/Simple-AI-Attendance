@@ -718,12 +718,13 @@ def validate_registration_face_quality(image_bytes_or_path):
         print("Error in validate_registration_face_quality:", err)
         emb = extract_face_embedding_from_image(image_bytes_or_path)
         if emb:
-            return {'valid': True, 'code': 'OK', 'embedding': emb, 'message': 'Face photo accepted.', 'spoken_message': 'Face photo accepted.'}
+            return {'valid': True, 'code': 'OK', 'embedding': emb, 'message': 'Face photo accepted.', 'spoken_message': 'Face photo accepted.', 'spoken_tamil_message': 'முகம் வெற்றிகரமாக ஏற்றுக்கொள்ளப்பட்டது!'}
         return {
             'valid': False,
             'code': 'ERROR',
             'error': f'Image processing error: {str(err)}',
             'spoken_error': 'This image is not accepted. Please try another photo.',
+            'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. தயவுசெய்து வேறு புகைப்படத்தை முயற்சிக்கவும்.',
             'advice': 'Please upload another clear photo.'
         }
 

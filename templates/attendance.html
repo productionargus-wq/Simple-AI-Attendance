@@ -1490,7 +1490,7 @@
         </button>
         <button type="button" class="btn-voice-toggle active" id="btnToggleVoice" title="Toggle Tamil Voice Guidance and Announcements">
           <span id="voiceToggleIcon">🔊</span>
-          <span id="voiceToggleLabel">குரல் உதவி: ஆன்</span>
+          <span id="voiceToggleLabel">Audio: On/Off</span>
         </button>
       </div>
 
@@ -1766,6 +1766,7 @@
       constructor() {
         this.synth = window.speechSynthesis || null;
         this.tamilVoice = null;
+        this.activeServerAudio = null;
         this.isVoiceEnabled = localStorage.getItem('argus_voice_assist') !== 'false';
         this.lastGuidanceTime = 0;
         this.lastGuidanceText = '';
@@ -1833,17 +1834,34 @@
             this.synth.cancel();
           } catch (e) {}
         }
+        if (this.activeServerAudio) {
+          try {
+            this.activeServerAudio.pause();
+            this.activeServerAudio.currentTime = 0;
+          } catch (e) {}
+          this.activeServerAudio = null;
+        }
+      }
+
+      playServerAudio(text) {
+        if (!text) return;
+        this.cancel();
+        try {
+          const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(text) + '&lang=ta');
+          this.activeServerAudio = audio;
+          audio.play().catch(e => {});
+        } catch (e) {}
       }
 
       speak(text, options = {}) {
-        if (!this.isVoiceEnabled || !this.synth || !text) return;
+        if (!this.isVoiceEnabled || !text) return;
 
         const interrupt = options.interrupt || false;
         const isGuidance = options.isGuidance || false;
 
         if (interrupt) {
           this.cancel();
-        } else if (this.synth.speaking && !isGuidance) {
+        } else if (this.synth && this.synth.speaking && !isGuidance) {
           return;
         }
 
@@ -1859,21 +1877,24 @@
           this.lastGuidanceText = text;
         }
 
-        try {
-          const utter = new SpeechSynthesisUtterance(text);
-          if (this.tamilVoice) {
+        // Engine 1: Native browser SpeechSynthesis (if Tamil voice exists on device)
+        if (this.tamilVoice && this.synth) {
+          try {
+            const utter = new SpeechSynthesisUtterance(text);
             utter.voice = this.tamilVoice;
             utter.lang = this.tamilVoice.lang || 'ta-IN';
-          } else {
-            utter.lang = 'ta-IN';
+            utter.rate = options.rate || 0.95;
+            utter.pitch = options.pitch || 1.0;
+            utter.volume = 1.0;
+            this.synth.speak(utter);
+            return;
+          } catch (err) {
+            console.warn('Speech synthesis error, falling back to server audio:', err);
           }
-          utter.rate = options.rate || 0.95;
-          utter.pitch = options.pitch || 1.0;
-          utter.volume = 1.0;
-          this.synth.speak(utter);
-        } catch (err) {
-          console.warn('Speech synthesis error:', err);
         }
+
+        // Engine 2: Server-side gTTS stream for Desktop devices without native Tamil OS voice
+        this.playServerAudio(text);
       }
 
       speakGuidance(text) {
@@ -1938,7 +1959,7 @@
       if (!tamilVoice.isVoiceEnabled) {
         btnToggleVoice.classList.remove('active');
         if (voiceToggleIcon) voiceToggleIcon.textContent = '🔇';
-        if (voiceToggleLabel) voiceToggleLabel.textContent = 'குரல் உதவி: ஆஃப்';
+        if (voiceToggleLabel) voiceToggleLabel.textContent = 'Audio: Off';
       }
 
       btnToggleVoice.addEventListener('click', function () {
@@ -1947,13 +1968,13 @@
         if (newState) {
           btnToggleVoice.classList.add('active');
           if (voiceToggleIcon) voiceToggleIcon.textContent = '🔊';
-          if (voiceToggleLabel) voiceToggleLabel.textContent = 'குரல் உதவி: ஆன்';
+          if (voiceToggleLabel) voiceToggleLabel.textContent = 'Audio: On';
           tamilVoice.unlockAudio();
           tamilVoice.speak('குரல் உதவி இயக்கப்பட்டது.', { interrupt: true });
         } else {
           btnToggleVoice.classList.remove('active');
           if (voiceToggleIcon) voiceToggleIcon.textContent = '🔇';
-          if (voiceToggleLabel) voiceToggleLabel.textContent = 'குரல் உதவி: ஆஃப்';
+          if (voiceToggleLabel) voiceToggleLabel.textContent = 'Audio: Off';
         }
       });
     }

@@ -8946,27 +8946,52 @@
       SUCCESS: 'முகம் வெற்றிகரமாக ஏற்றுக்கொள்ளப்பட்டது!'
     };
 
+    let activeFwTamilAudio = null;
+
+    function stopFwSpeech() {
+      if ('speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
+      if (activeFwTamilAudio) {
+        try {
+          activeFwTamilAudio.pause();
+          activeFwTamilAudio.currentTime = 0;
+        } catch (e) {}
+        activeFwTamilAudio = null;
+      }
+    }
+
+    function playFwServerTamilAudio(text) {
+      if (!text) return;
+      stopFwSpeech();
+      try {
+        const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(text) + '&lang=ta');
+        activeFwTamilAudio = audio;
+        audio.play().catch(e => {});
+      } catch (err) {}
+    }
+
     function speakVoiceAlert(text) {
-      if (!('speechSynthesis' in window) || !text) return;
+      if (!text) return;
       if (localStorage.getItem('argus_voice_assist') === 'false') return;
 
-      try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.95; // Natural Tamil cadence
-        utterance.pitch = 1.0;
-        utterance.lang = 'ta-IN';
-
-        const tamilVoice = getFwTamilVoice();
-        if (tamilVoice) {
+      const tamilVoice = getFwTamilVoice();
+      if (tamilVoice && ('speechSynthesis' in window)) {
+        try {
+          stopFwSpeech();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 0.95; // Natural Tamil cadence
+          utterance.pitch = 1.0;
           utterance.voice = tamilVoice;
-          if (tamilVoice.lang) utterance.lang = tamilVoice.lang;
+          utterance.lang = tamilVoice.lang || 'ta-IN';
+          window.speechSynthesis.speak(utterance);
+          return;
+        } catch (err) {
+          console.warn('Tamil speech synthesis alert notice:', err);
         }
-
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        console.warn('Tamil speech synthesis alert notice:', err);
       }
+
+      playFwServerTamilAudio(text);
     }
 
     // Photo Upload & Real-Time Biometric Quality Verification

@@ -1447,6 +1447,7 @@ document.addEventListener('DOMContentLoaded', function () {
   let faceStream = null;
 
   function stopFaceCamera() {
+    stopAllSpeech();
     if (faceStream) {
       faceStream.getTracks().forEach(t => t.stop());
       faceStream = null;
@@ -1456,9 +1457,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     if (cameraStatusMsg) {
       cameraStatusMsg.textContent = '';
-    }
-    if ('speechSynthesis' in window) {
-      try { window.speechSynthesis.cancel(); } catch (e) {}
     }
   }
 
@@ -1482,7 +1480,7 @@ document.addEventListener('DOMContentLoaded', function () {
           cameraStatusMsg.textContent = 'Position face within frame and click Capture Snapshot';
           cameraStatusMsg.style.color = '#198754';
         }
-        speakTamilVoiceAlert('கேமராவை நேராகப் பார்த்து முகத்தை Reticle-ல் வைக்கவும்.');
+        speakTamilVoiceAlert('கேமராவை நேராகப் பார்த்து முகத்தை வட்டத்திற்குள் வைக்கவும்.');
       } catch (err) {
         if (cameraStatusMsg) {
           cameraStatusMsg.textContent = 'Camera access denied: ' + err.message;
@@ -1509,8 +1507,23 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
 
-  // ===== REAL-TIME VOICE ANNOUNCER (TAMIL AI VOICE ASSISTANT) =====
+  // ===== REAL-TIME VOICE ANNOUNCER (UNIVERSAL DUAL-ENGINE TAMIL VOICE) =====
   let cachedTamilVoices = [];
+  let activeTamilAudio = null;
+
+  function stopAllSpeech() {
+    if ('speechSynthesis' in window) {
+      try { window.speechSynthesis.cancel(); } catch (e) {}
+    }
+    if (activeTamilAudio) {
+      try {
+        activeTamilAudio.pause();
+        activeTamilAudio.currentTime = 0;
+      } catch (e) {}
+      activeTamilAudio = null;
+    }
+  }
+
   function updateTamilVoicesCache() {
     if (!('speechSynthesis' in window)) return;
     try {
@@ -1550,6 +1563,21 @@ document.addEventListener('DOMContentLoaded', function () {
     return found || null;
   }
 
+  function playServerTamilAudio(text) {
+    if (!text) return;
+    stopAllSpeech();
+    try {
+      const url = '/api/voice/tamil-tts?text=' + encodeURIComponent(text) + '&lang=ta';
+      const audio = new Audio(url);
+      activeTamilAudio = audio;
+      audio.play().catch(e => {
+        console.warn('Server Tamil Audio playback notice:', e);
+      });
+    } catch (err) {
+      console.warn('Server Tamil Audio error:', err);
+    }
+  }
+
   const TAMIL_REG_MESSAGES = {
     NO_FACE: 'படம் ஏற்கப்படவில்லை. முகம் தெளிவாகத் தெரியவில்லை. வெளிச்சமான இடத்தில் கேமராவை நேராகப் பார்க்கவும்.',
     MULTIPLE_FACES: 'படம் ஏற்கப்படவில்லை. ஒன்றுக்கு மேற்பட்ட முகங்கள் உள்ளன. ஒருவர் மட்டுமே இருக்க வேண்டும்.',
@@ -1565,26 +1593,28 @@ document.addEventListener('DOMContentLoaded', function () {
   };
 
   function speakTamilVoiceAlert(text) {
-    if (!('speechSynthesis' in window) || !text) return;
+    if (!text) return;
     if (localStorage.getItem('argus_voice_assist') === 'false') return;
 
-    try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.95; // Natural Tamil cadence
-      utterance.pitch = 1.0;
-      utterance.lang = 'ta-IN';
-
-      const tamilVoice = getTamilVoice();
-      if (tamilVoice) {
+    // Engine 1: Native browser SpeechSynthesis (mobile phones & Tamil-enabled devices)
+    const tamilVoice = getTamilVoice();
+    if (tamilVoice && ('speechSynthesis' in window)) {
+      try {
+        stopAllSpeech();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
         utterance.voice = tamilVoice;
-        if (tamilVoice.lang) utterance.lang = tamilVoice.lang;
+        utterance.lang = tamilVoice.lang || 'ta-IN';
+        window.speechSynthesis.speak(utterance);
+        return;
+      } catch (err) {
+        console.warn('Native speech synthesis error, using server fallback:', err);
       }
-
-      window.speechSynthesis.speak(utterance);
-    } catch (err) {
-      console.warn('Speech synthesis alert error:', err);
     }
+
+    // Engine 2: High-fidelity Server-side Tamil TTS stream (Desktop Windows PCs)
+    playServerTamilAudio(text);
   }
 
   // Alias for backward compatibility
@@ -1642,7 +1672,7 @@ document.addEventListener('DOMContentLoaded', function () {
             btnTakeSnapshot.textContent = origBtnText;
             const errMsg = (resData && resData.error) ? resData.error : 'No clear face detected in snapshot. Please face the camera directly in good lighting.';
             const spoken = (resData && (resData.spoken_tamil_error || (resData.code && TAMIL_REG_MESSAGES[resData.code]))) ||
-                           (resData && resData.spoken_error) || ('படம் ஏற்கப்படவில்லை. ' + errMsg);
+                           TAMIL_REG_MESSAGES.NO_FACE;
             const advice = (resData && resData.advice) ? resData.advice : '';
 
             // Read the rejection message aloud in Tamil!
@@ -1810,7 +1840,7 @@ document.addEventListener('DOMContentLoaded', function () {
           } else {
             const warn = (resData && resData.error) ? resData.error : 'No clear face detected in photo.';
             const spoken = (resData && (resData.spoken_tamil_error || (resData.code && TAMIL_REG_MESSAGES[resData.code]))) ||
-                           (resData && resData.spoken_error) || ('படம் ஏற்கப்படவில்லை. ' + warn);
+                           TAMIL_REG_MESSAGES.NO_FACE;
             const advice = (resData && resData.advice) ? resData.advice : '';
 
             // Read the rejection message aloud in Tamil!

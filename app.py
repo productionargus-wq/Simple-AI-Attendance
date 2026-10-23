@@ -9,6 +9,7 @@ import uuid
 import gzip
 import secrets
 import base64
+import hashlib
 import threading
 import urllib.parse
 import requests
@@ -3345,6 +3346,45 @@ def api_export_pdf():
         mimetype='application/pdf'
     )
 
+# ----------------- UNIVERSAL TAMIL TTS VOICE API ----------------- #
+
+TTS_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'cache', 'tts')
+os.makedirs(TTS_CACHE_DIR, exist_ok=True)
+
+@app.route('/api/voice/tamil-tts', methods=['GET'])
+def api_voice_tamil_tts():
+    """
+    Synthesizes and streams authentic Tamil voice audio (MP3) using gTTS.
+    Implements persistent disk caching so repeated voice messages return in < 10ms.
+    Used as an automatic fallback for desktop devices without native Tamil OS voices.
+    """
+    text = (request.args.get('text') or '').strip()
+    lang = request.args.get('lang', 'ta').strip()
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+
+    if len(text) > 300:
+        text = text[:300]
+
+    cache_hash = hashlib.md5(f"{text}_{lang}".encode('utf-8')).hexdigest()
+    cache_path = os.path.join(TTS_CACHE_DIR, f"{cache_hash}.mp3")
+
+    if not os.path.exists(cache_path):
+        try:
+            from gtts import gTTS
+            tts = gTTS(text=text, lang=lang, slow=False)
+            tts.save(cache_path)
+        except Exception as e:
+            print("gTTS generation error:", e)
+            return jsonify({'error': 'TTS synthesis failed', 'details': str(e)}), 500
+
+    return send_file(
+        cache_path,
+        mimetype='audio/mpeg',
+        as_attachment=False,
+        max_age=86400 * 7
+    )
+
 # ----------------- ZERO-IMAGE FACE RECOGNITION API ----------------- #
 
 @app.route('/api/face/extract-biometrics', methods=['POST'])
@@ -3378,7 +3418,9 @@ def api_face_extract_biometrics():
         if not file_bytes:
             return jsonify({
                 'success': False,
-                'error': 'No image data received. Please look directly at the camera and take a clear snapshot.'
+                'error': 'No image data received. Please look directly at the camera and take a clear snapshot.',
+                'spoken_error': 'No image data received. Please take a snapshot.',
+                'spoken_tamil_error': 'படம் பெறப்படவில்லை. கேமராவை நேராகப் பார்த்து மீண்டும் புகைப்படம் எடுக்கவும்.'
             }), 400
 
         # 1. Optimize photo (600x600 LANCZOS, EXIF transpose, RGB JPEG, persistent base64)
@@ -3440,7 +3482,8 @@ def api_face_extract_biometrics():
         print("Error in api_face_extract_biometrics:", traceback.format_exc())
         return jsonify({
             'success': False,
-            'error': f'Face biometrics generation failed: {str(e)}'
+            'error': f'Face biometrics generation failed: {str(e)}',
+            'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. தயவுசெய்து மீண்டும் முயற்சிக்கவும்.'
         }), 500
 
 @app.route('/api/face/enroll', methods=['POST'])
