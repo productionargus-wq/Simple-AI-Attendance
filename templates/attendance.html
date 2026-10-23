@@ -407,6 +407,24 @@
       background: rgba(30, 41, 59, 0.88);
     }
 
+    .blink-hud-pill.blink-warmup {
+      border-color: rgba(245, 158, 11, 0.7);
+      background: rgba(69, 26, 3, 0.92);
+      box-shadow: 0 4px 18px rgba(245, 158, 11, 0.3);
+      animation: pulseWarmup 1.5s ease-in-out infinite;
+    }
+
+    .blink-hud-pill.blink-steady {
+      border-color: #10b981;
+      background: rgba(6, 78, 59, 0.94);
+      box-shadow: 0 0 22px rgba(16, 185, 129, 0.55);
+    }
+
+    @keyframes pulseWarmup {
+      0%, 100% { opacity: 0.88; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.02); }
+    }
+
     .blink-eye-state {
       font-size: 11px;
       font-weight: 700;
@@ -1645,6 +1663,12 @@
     let animFrameId = null;
     let lastMeshSeenTime = 0;
 
+    // AI Camera Warm-up & Handshake State
+    let isAIModelReady = false;
+    let aiWarmupTimer = null;
+    let hasAnnouncedWarmup = false;
+    let calibratedFrames = 0;
+
     // Blink & Liveness State Machine
     let blinkCount = 0;
     let lastBlinkTime = 0;
@@ -1656,6 +1680,12 @@
     let baselineEAR = 0.28;
     let blinkResetTimer = null;
     let audioCtx = null;
+
+    // Face Positioning Guidance State Machine
+    let currentGuidanceCandidate = null;
+    let guidanceCandidateStartTime = 0;
+    let hasSpokenAlignedGuidance = false;
+    let hasSpokenSteadyHold = false;
 
     // High-Speed Canvas Optical Fallback Engine
     const opticalCanvas = document.createElement('canvas');
@@ -1928,7 +1958,7 @@
       });
     }
 
-    function updateBlinkHUD(count, text, isCooldown = false) {
+    function updateBlinkHUD(count, text, isCooldown = false, isWarmup = false, isSteady = false) {
       if (!blinkHudOverlay || !blinkHudPill) return;
 
       if (isCooldown) {
@@ -1940,13 +1970,31 @@
         return;
       }
 
+      if (isWarmup) {
+        blinkHudPill.className = 'blink-hud-pill blink-warmup';
+        if (blinkHudIcon) blinkHudIcon.textContent = '⚡';
+        if (blinkHudText) blinkHudText.textContent = text || 'AI கேமரா தயாராகிறது...';
+        if (blinkHudDots) blinkHudDots.style.display = 'none';
+        if (blinkEyeState) blinkEyeState.style.display = 'none';
+        return;
+      }
+
+      if (isSteady) {
+        blinkHudPill.className = 'blink-hud-pill blink-steady';
+        if (blinkHudIcon) blinkHudIcon.textContent = '✨';
+        if (blinkHudText) blinkHudText.textContent = text || 'முக அடையாளம் சரிபார்க்கப்படுகிறது...';
+        if (blinkHudDots) blinkHudDots.style.display = 'none';
+        if (blinkEyeState) blinkEyeState.style.display = 'inline-block';
+        return;
+      }
+
       if (blinkHudDots) blinkHudDots.style.display = 'inline-flex';
       if (blinkEyeState) blinkEyeState.style.display = 'inline-block';
 
       if (count === 0) {
         blinkHudPill.className = 'blink-hud-pill';
         if (blinkHudIcon) blinkHudIcon.textContent = '👁️';
-        if (blinkHudText) blinkHudText.textContent = text || 'Blink 2 times to punch hands-free';
+        if (blinkHudText) blinkHudText.textContent = text || (isHandsFreeActive ? 'Blink 2 times or hold steady to punch' : '🟢 Camera Active — Ready to Mark');
         if (blinkDot1) blinkDot1.classList.remove('active');
         if (blinkDot2) blinkDot2.classList.remove('active');
       } else if (count === 1) {
@@ -1971,6 +2019,7 @@
       opticalClosedFrames = 0;
       opticalEyeClosed = false;
       pendingLivenessPunch = false;
+      hasSpokenSteadyHold = false;
       if (pendingLivenessTimer) {
         clearTimeout(pendingLivenessTimer);
         pendingLivenessTimer = null;
@@ -2011,6 +2060,9 @@
       if (blinkCount === 1) {
         playChime('blink');
         updateBlinkHUD(1, '1st Blink Detected! Blink once more...');
+        if (typeof tamilVoice !== 'undefined' && tamilVoice) {
+          tamilVoice.speak('இன்னொரு முறை சிமிட்டவும்.', { rate: 1.05 });
+        }
         if (blinkEyeState) {
           blinkEyeState.textContent = 'Blink!';
           blinkEyeState.className = 'blink-eye-state eye-blink';
@@ -2078,10 +2130,6 @@
       return (v1Dist + v2Dist) / (2.0 * hDist);
     }
 
-    // Face Positioning Guidance State Machine
-    let currentGuidanceCandidate = null;
-    let guidanceCandidateStartTime = 0;
-
     function evaluateFaceGuidance(landmarks, numFaces) {
       if (numFaces > 1) {
         return 'multiple_faces';
@@ -2144,11 +2192,16 @@
         }
         if (faceReticle) {
           faceReticle.style.borderColor = 'rgba(56, 189, 248, 0.5)';
+          faceReticle.style.boxShadow = '0 0 15px rgba(56, 189, 248, 0.2)';
         }
+        currentGuidanceCandidate = null;
+        hasSpokenAlignedGuidance = false;
+        hasSpokenSteadyHold = false;
+
         if (blinkCount > 0 && (now - lastBlinkTime > 4500)) {
           resetBlinkState();
         }
-        if (now - lastMeshSeenTime > 6000 && !isProcessingPunch && now > cooldownUntil) {
+        if (isAIModelReady && now - lastMeshSeenTime > 6000 && !isProcessingPunch && now > cooldownUntil) {
           tamilVoice.speakGuidance('வணக்கம்! கேமராவின் முன் நிற்கவும்.');
         }
         return;
@@ -2158,11 +2211,42 @@
       const numFaces = results.multiFaceLandmarks.length;
       const landmarks = results.multiFaceLandmarks[0];
 
+      // AI Calibration & Warm-Up Handshake
+      if (!isAIModelReady) {
+        calibratedFrames++;
+        const initEAR_L = calculateEAR(landmarks, LEFT_EYE);
+        const initEAR_R = calculateEAR(landmarks, RIGHT_EYE);
+        if (initEAR_L !== null && initEAR_R !== null) {
+          const initAvg = (initEAR_L + initEAR_R) / 2.0;
+          if (initAvg > 0.16 && initAvg < 0.45) {
+            baselineEAR = (baselineEAR === 0.28 || baselineEAR === null) 
+              ? initAvg 
+              : (baselineEAR * 0.7 + initAvg * 0.3);
+          }
+        }
+
+        if (calibratedFrames >= 3) {
+          isAIModelReady = true;
+          if (aiWarmupTimer) {
+            clearTimeout(aiWarmupTimer);
+            aiWarmupTimer = null;
+          }
+          if (hasAnnouncedWarmup && typeof tamilVoice !== 'undefined' && tamilVoice) {
+            tamilVoice.speak('தயார், கேமராவை பார்க்கவும்.', { interrupt: true, rate: 1.0 });
+          }
+          updateBlinkHUD(0, isHandsFreeActive ? '👁️ Blink 2 times or hold steady' : '🟢 Camera Active — Ready to Mark');
+        } else {
+          return;
+        }
+      }
+
       // Real-time Face Positioning Guidance Analysis
       const guidanceCandidate = evaluateFaceGuidance(landmarks, numFaces);
       if (guidanceCandidate !== currentGuidanceCandidate) {
         currentGuidanceCandidate = guidanceCandidate;
         guidanceCandidateStartTime = now;
+        hasSpokenAlignedGuidance = false;
+        hasSpokenSteadyHold = false;
       } else if (now - guidanceCandidateStartTime > 750) {
         if (guidanceCandidate === 'multiple_faces') {
           tamilVoice.speakGuidance('தயவுசெய்து ஒருவர் மட்டுமே கேமராவின் முன் நிற்கவும்.');
@@ -2187,11 +2271,43 @@
           updateBlinkHUD(0, '👀 Look straight at the camera');
         } else if (guidanceCandidate === 'aligned') {
           if (faceReticle) faceReticle.style.borderColor = '#10b981';
-          if (blinkCount === 0 && (now - guidanceCandidateStartTime > 1600)) {
+
+          const alignedDuration = now - guidanceCandidateStartTime;
+
+          // 1. Voice Guidance: Speak ONCE when first aligned (no endless looping!)
+          if (blinkCount === 0 && !hasSpokenAlignedGuidance && alignedDuration > 900) {
+            hasSpokenAlignedGuidance = true;
             tamilVoice.speakGuidance('முகத்தை அசைக்காமல் நேராகப் பார்த்து, இருமுறை கண் சிமிட்டவும்.');
+          }
+
+          // 2. Airport e-Gate Fallback: Steady-Face Auto-Punch
+          if (blinkCount === 0 && isHandsFreeActive && !isProcessingPunch && alignedDuration >= 2600) {
+            const holdProgress = Math.min(100, Math.round(((alignedDuration - 2600) / 1200) * 100));
+
+            if (!hasSpokenSteadyHold) {
+              hasSpokenSteadyHold = true;
+              tamilVoice.speak('அசையாமல் நிற்கவும்.', { rate: 1.05 });
+            }
+
+            updateBlinkHUD(1, '✨ முகம் உறுதியானது! அசையாமல் நிற்கவும்...', false, false, true);
+
+            if (faceReticle) {
+              faceReticle.style.borderColor = '#10b981';
+              faceReticle.style.boxShadow = `0 0 ${16 + (holdProgress / 100) * 20}px rgba(16, 185, 129, ${0.5 + (holdProgress / 100) * 0.4})`;
+            }
+
+            if (alignedDuration >= 3800) {
+              // 3.8s reached! Face held steady & verified -> auto capture!
+              playChime('success');
+              updateBlinkHUD(2, '✨ முக அடையாளம் சரிபார்க்கப்பட்டது! Recording...');
+              reticlePulse();
+              executeAttendancePunch('steady_face');
+              return;
+            }
           }
         }
       }
+
       const leftEAR = calculateEAR(landmarks, LEFT_EYE);
       const rightEAR = calculateEAR(landmarks, RIGHT_EYE);
 
@@ -2199,17 +2315,20 @@
 
       const avgEAR = (leftEAR + rightEAR) / 2.0;
 
-      // Adapt open-eye baseline smoothly
-      if (avgEAR > 0.22 && !isEyesClosed) {
-        baselineEAR = Math.max(0.24, Math.min(0.38, baselineEAR * 0.95 + avgEAR * 0.05));
+      // Adapt open-eye baseline smoothly to individual eye anatomy
+      if (!isEyesClosed && avgEAR > 0.16) {
+        if (baselineEAR === null || baselineEAR === 0.28) {
+          baselineEAR = avgEAR;
+        } else {
+          baselineEAR = Math.max(0.18, Math.min(0.40, baselineEAR * 0.94 + avgEAR * 0.06));
+        }
       }
 
-      // Finetuned dynamic thresholds based on sensitivity
+      // Responsive relative thresholds
       const isHigh = (sensitivityMode === 'high');
-      const dropRatio = isHigh ? 0.84 : 0.78; // 16% or 22% drop from baseline
-      const closeFloor = isHigh ? 0.26 : 0.24;
-      const closeThreshold = Math.min(closeFloor, Math.max(0.16, baselineEAR * dropRatio));
-      const openThreshold = Math.max(0.22, baselineEAR * (isHigh ? 0.86 : 0.82));
+      const dropRatio = isHigh ? 0.88 : 0.85; // 12% drop in high mode, 15% drop in normal mode
+      const closeThreshold = baselineEAR * dropRatio;
+      const openThreshold = baselineEAR * (isHigh ? 0.93 : 0.90);
 
       // Check 4.5s window expiration for 2nd blink
       if (blinkCount > 0 && (now - lastBlinkTime > 4500)) {
@@ -2217,14 +2336,15 @@
         return;
       }
 
-      // Eyes closed condition (handles head tilt and single-eye asymmetry)
+      // Eyes closed condition:
+      // Accepts avgEAR drop, OR single-eye drop (for phone tilted at an angle)
       const eyeIsLow = (avgEAR < closeThreshold) ||
-                       (leftEAR < closeThreshold && rightEAR < closeThreshold + 0.05) ||
-                       (rightEAR < closeThreshold && leftEAR < closeThreshold + 0.05);
+                       (leftEAR < baselineEAR * 0.82) ||
+                       (rightEAR < baselineEAR * 0.82);
 
       if (eyeIsLow) {
         closedFrameCount++;
-        if (closedFrameCount >= 1 && closedFrameCount <= 24) {
+        if (closedFrameCount >= 1 && closedFrameCount <= 25) {
           isEyesClosed = true;
           if (blinkEyeState) {
             blinkEyeState.textContent = 'Blink!';
@@ -2233,12 +2353,12 @@
         }
       }
       // Eyes reopened
-      else if (avgEAR >= openThreshold) {
+      else if (avgEAR >= openThreshold || (leftEAR >= openThreshold && rightEAR >= openThreshold)) {
         if (blinkEyeState) {
           blinkEyeState.textContent = 'Eye Open';
           blinkEyeState.className = 'blink-eye-state eye-open';
         }
-        if (isEyesClosed && closedFrameCount >= 1 && closedFrameCount <= 24) {
+        if (isEyesClosed && closedFrameCount >= 1 && closedFrameCount <= 25) {
           isEyesClosed = false;
           closedFrameCount = 0;
           lastVerifiedBlinkTime = Date.now();
@@ -2356,7 +2476,23 @@
         if (blinkHudOverlay) {
           blinkHudOverlay.style.display = 'flex';
         }
-        updateBlinkHUD(0, isHandsFreeActive ? '👁️ Blink 2 times to punch hands-free' : '🟢 Camera Active — Ready to Mark');
+
+        // AI Model warm-up state initialization
+        isAIModelReady = false;
+        calibratedFrames = 0;
+        hasAnnouncedWarmup = false;
+        updateBlinkHUD(0, '⚡ AI கேமரா தயாராகிறது... (AI Starting...)', false, true);
+
+        if (aiWarmupTimer) clearTimeout(aiWarmupTimer);
+        aiWarmupTimer = setTimeout(() => {
+          if (!isAIModelReady && isCameraRunning) {
+            hasAnnouncedWarmup = true;
+            if (typeof tamilVoice !== 'undefined' && tamilVoice) {
+              tamilVoice.speak('கேமரா தயாராகிறது, ஒரு கணம் காத்திருக்கவும்.', { interrupt: true });
+            }
+          }
+        }, 1200);
+
         resetBlinkState();
         initFaceMesh();
         if (!isDetectionRunning) {
@@ -2384,6 +2520,17 @@
     }
 
     function stopCamera() {
+      if (aiWarmupTimer) {
+        clearTimeout(aiWarmupTimer);
+        aiWarmupTimer = null;
+      }
+      isAIModelReady = false;
+      hasAnnouncedWarmup = false;
+      calibratedFrames = 0;
+      currentGuidanceCandidate = null;
+      hasSpokenAlignedGuidance = false;
+      hasSpokenSteadyHold = false;
+
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
         stream = null;
@@ -2522,8 +2669,11 @@
         punchContainer.style.display = 'none';
         punchContainer.innerHTML = '';
       }
+      currentGuidanceCandidate = null;
+      hasSpokenAlignedGuidance = false;
+      hasSpokenSteadyHold = false;
       resetBlinkState();
-      updateBlinkHUD(0, isHandsFreeActive ? '👁️ Blink 2 times to punch hands-free' : '🟢 Ready for Next Employee');
+      updateBlinkHUD(0, isHandsFreeActive ? '👁️ Blink 2 times or hold steady' : '🟢 Ready for Next Employee');
       btnMark.disabled = false;
       btnMarkText.textContent = 'Proceed to Next Person';
       btnMark.classList.remove('btn-next-highlight');
@@ -2549,7 +2699,9 @@
       punchContainer.style.display = 'none';
 
       if (source === 'blink') {
-        updateBlinkHUD(2, '✨ Verifying Face...');
+        updateBlinkHUD(2, '✨ Verifying Face (2 Blinks)...');
+      } else if (source === 'steady_face') {
+        updateBlinkHUD(2, '✨ முக அடையாளம் சரிபார்க்கப்படுகிறது...', false, false, true);
       }
 
       try {

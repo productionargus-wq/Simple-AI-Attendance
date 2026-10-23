@@ -404,6 +404,7 @@ def validate_registration_face_quality(image_bytes_or_path):
             'code': 'ENGINE_UNAVAILABLE',
             'error': 'Face recognition engine is initializing. Please try again.',
             'spoken_error': 'Engine is loading. Please try again in a moment.',
+            'spoken_tamil_error': 'தொழில்நுட்ப இயந்திரம் தொடங்குகிறது. சற்று நேரத்தில் மீண்டும் முயற்சிக்கவும்.',
             'advice': 'Wait a moment and re-upload the photo.'
         }
 
@@ -422,6 +423,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                 'code': 'INVALID_IMAGE',
                 'error': 'Could not read or decode image file. Please upload a standard JPG or PNG image.',
                 'spoken_error': 'This image is not accepted. Could not read image file.',
+                'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. புகைப்படக் கோப்பை படிக்க முடியவில்லை.',
                 'advice': 'Upload a valid JPG or PNG photo.'
             }
 
@@ -473,6 +475,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                 'code': 'NO_FACE',
                 'error': 'No face detected in photo. Please ensure your face is well-lit, clearly visible, and facing the camera directly.',
                 'spoken_error': 'This image is not accepted. No face detected. Please face the camera directly in good lighting.',
+                'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. முகம் தெளிவாகத் தெரியவில்லை. வெளிச்சமான இடத்தில் கேமராவை நேராகப் பார்க்கவும்.',
                 'advice': 'Look directly into the camera, remove face coverings, and ensure good lighting.'
             }
 
@@ -500,6 +503,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                         'code': 'FACE_OCCLUDED',
                         'error': 'Face is partially covered (hand or object detected across face). Please remove your hand and show your full face.',
                         'spoken_error': 'This image is not accepted. Your face is partially covered. Please remove your hand and show your full face.',
+                        'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. கையை முகத்திலிருந்து எடுத்துவிட்டு முழு முகத்தையும் காட்டவும்.',
                         'advice': 'Lower your hands and ensure your entire face is unobstructed.'
                     }
 
@@ -508,6 +512,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                     'code': 'MULTIPLE_FACES',
                     'error': f'Multiple faces ({len(faces)} people) detected. Only one person must be in the registration photo.',
                     'spoken_error': 'This image is not accepted. Multiple faces detected. Only one person should be in the photo.',
+                    'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. ஒன்றுக்கு மேற்பட்ட முகங்கள் உள்ளன. ஒருவர் மட்டுமே இருக்க வேண்டும்.',
                     'advice': 'Take a solo photo without other people or background portraits.'
                 }
 
@@ -525,6 +530,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                 'code': 'FACE_TOO_SMALL',
                 'error': 'Face is too small and far away (body, shoulders or background occupy too much space). Please crop or take a closer photo focusing on your head and face.',
                 'spoken_error': 'This image is not accepted. Face is too small and far away. Please upload a closer photo of your face.',
+                'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. முகம் மிகத் தொலைவில் உள்ளது. சற்று அருகில் வரவும்.',
                 'advice': 'Crop closer or stand nearer to the camera so your face occupies the center of the frame.',
                 'metrics': {'area_ratio': round(area_ratio, 3), 'height_ratio': round(height_ratio, 3)}
             }
@@ -535,6 +541,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                 'code': 'FACE_TOO_CLOSE',
                 'error': 'Face is too close to camera or cut off at the edges. Please step back slightly.',
                 'spoken_error': 'This image is not accepted. Face is too close. Please step back slightly.',
+                'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. முகம் மிக அருகில் உள்ளது. சற்று பின்னால் நிற்கவும்.',
                 'advice': 'Position your head so your entire face and hair fit comfortably inside the frame.',
                 'metrics': {'area_ratio': round(area_ratio, 3), 'height_ratio': round(height_ratio, 3)}
             }
@@ -558,6 +565,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                 'code': 'TOO_DARK',
                 'error': 'Lighting is too dim or dark. Please move to a brighter, well-lit area.',
                 'spoken_error': 'This image is not accepted. Lighting is too dim. Please move to a brighter area.',
+                'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. வெளிச்சம் குறைவாக உள்ளது. வெளிச்சமான இடத்திற்கு செல்லவும்.',
                 'advice': 'Stand facing the light source so both sides of your face are clearly illuminated.',
                 'metrics': {'mean_brightness': round(mean_brightness, 1)}
             }
@@ -568,6 +576,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                 'code': 'TOO_BRIGHT',
                 'error': 'Photo is overexposed with harsh glare. Please avoid direct harsh lights.',
                 'spoken_error': 'This image is not accepted. Photo is too bright with harsh glare.',
+                'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. அதிக ஒளிக்கீற்று அல்லது பிரகாசம் உள்ளது.',
                 'advice': 'Avoid direct camera flash or standing directly under glaring overhead lights.',
                 'metrics': {'mean_brightness': round(mean_brightness, 1)}
             }
@@ -580,6 +589,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                 'code': 'BLURRY',
                 'error': 'Photo is blurry or out of focus. Please hold camera steady and take a sharp photo.',
                 'spoken_error': 'This image is not accepted. Photo is blurry. Please hold camera steady.',
+                'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. புகைப்படம் மங்கலாக உள்ளது. கேமராவை அசைக்காமல் பிடிக்கவும்.',
                 'advice': 'Hold the device steady and tap the screen to focus on your face.',
                 'metrics': {'sharpness': round(laplacian_var, 1)}
             }
@@ -600,6 +610,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                         'code': 'HEAD_TILTED',
                         'error': 'Head is tilted sideways. Please keep your head straight and upright.',
                         'spoken_error': 'This image is not accepted. Head is tilted. Please keep your head straight.',
+                        'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. தலையை சாய்க்காமல் நேராக வைக்கவும்.',
                         'advice': 'Look directly into the camera lens with your head upright.',
                         'metrics': {'tilt_angle': round(angle, 1)}
                     }
@@ -650,6 +661,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                     'code': 'FACE_OCCLUDED',
                     'error': 'Face is partially covered (one or both eyes are blocked by a hand, cloth, or hair). Both eyes and your full face must be completely visible.',
                     'spoken_error': 'This image is not accepted. Your face is partially covered. Please remove your hand and show your full face.',
+                    'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. கண்களை மறைக்காமல் முழு முகத்தையும் காட்டவும்.',
                     'advice': 'Remove your hand from your face and ensure both eyes are clearly visible.',
                     'metrics': {'eye_ratio': round(eye_ratio, 3)}
                 }
@@ -660,6 +672,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                     'code': 'FACE_OCCLUDED',
                     'error': 'Lower face or mouth is covered (by hand, mask, or cloth). Your mouth and full face must be visible.',
                     'spoken_error': 'This image is not accepted. Your mouth or face is covered. Please remove your hand and show your full face.',
+                    'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. வாயை அல்லது முகத்தை மறைக்காமல் காட்டவும்.',
                     'advice': 'Lower your hand, remove any mask, and keep your entire face unobstructed.',
                     'metrics': {'mouth_ratio': round(mouth_ratio, 3)}
                 }
@@ -670,6 +683,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                     'code': 'FACE_OCCLUDED',
                     'error': 'Face is partially hidden, covered with a hand, or severely turned away. Please face the camera squarely with your entire face visible.',
                     'spoken_error': 'This image is not accepted. Your face is partially covered or turned away. Please face the camera squarely with your full face.',
+                    'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. முகத்தை மறைக்காமல் கேமராவை நேராகப் பார்க்கவும்.',
                     'advice': 'Face the camera directly and do not cover any side of your face with hands or cloth.',
                     'metrics': {'symmetry_ratio': round(symmetry_ratio, 2)}
                 }
@@ -682,6 +696,7 @@ def validate_registration_face_quality(image_bytes_or_path):
                 'code': 'EMBEDDING_FAILED',
                 'error': 'Could not extract clean facial biometrics from this angle. Please face the camera squarely.',
                 'spoken_error': 'This image is not accepted. Please face the camera squarely and try again.',
+                'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. கேமராவை நேராகப் பார்த்து மீண்டும் முயற்சிக்கவும்.',
                 'advice': 'Look straight ahead with a neutral facial expression.'
             }
 
@@ -691,6 +706,7 @@ def validate_registration_face_quality(image_bytes_or_path):
             'embedding': embedding,
             'message': 'Face photo verified and accepted successfully!',
             'spoken_message': 'Face photo accepted.',
+            'spoken_tamil_message': 'முகம் வெற்றிகரமாக ஏற்றுக்கொள்ளப்பட்டது!',
             'metrics': {
                 'area_ratio': round(area_ratio, 3),
                 'height_ratio': round(height_ratio, 3),

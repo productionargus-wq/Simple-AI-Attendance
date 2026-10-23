@@ -3398,6 +3398,7 @@ def api_face_extract_biometrics():
                         'success': False,
                         'error': quality_res.get('error') or 'Photo did not meet face registration requirements.',
                         'spoken_error': quality_res.get('spoken_error') or 'This image is not accepted. Please upload a clear photo.',
+                        'spoken_tamil_error': quality_res.get('spoken_tamil_error') or 'படம் ஏற்கப்படவில்லை. தெளிவான புகைப்படத்தை பதிவேற்றவும்.',
                         'advice': quality_res.get('advice') or '',
                         'code': quality_res.get('code', 'REJECTED'),
                         'metrics': quality_res.get('metrics', {}),
@@ -3419,6 +3420,7 @@ def api_face_extract_biometrics():
                 'success': False,
                 'error': 'No clear face detected in the photo. Please ensure your face is well-lit, clearly visible, and facing the camera directly, then try again.',
                 'spoken_error': 'This image is not accepted. No face detected. Please face the camera directly in good lighting.',
+                'spoken_tamil_error': 'படம் ஏற்கப்படவில்லை. முகம் தெளிவாகத் தெரியவில்லை. வெளிச்சமான இடத்தில் கேமராவை நேராகப் பார்க்கவும்.',
                 'code': 'NO_FACE',
                 'photo_filename': unique_filename,
                 'photo_data': photo_data_url
@@ -3431,7 +3433,8 @@ def api_face_extract_biometrics():
             'photo_data': photo_data_url,
             'vector_length': len(embedding),
             'message': 'AI Face Biometrics verified and registered successfully!',
-            'spoken_message': 'Face photo accepted.'
+            'spoken_message': 'Face photo accepted.',
+            'spoken_tamil_message': (quality_res and quality_res.get('spoken_tamil_message')) or 'முகம் வெற்றிகரமாக ஏற்றுக்கொள்ளப்பட்டது!'
         })
     except Exception as e:
         print("Error in api_face_extract_biometrics:", traceback.format_exc())

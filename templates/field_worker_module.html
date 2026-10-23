@@ -8891,75 +8891,81 @@
       });
     }
 
-    // Real-Time Voice Announcer (Indian Accent Text-to-Speech)
-    let cachedFwIndianVoices = [];
-    function updateFwIndianVoicesCache() {
+    // Real-Time Voice Announcer (Tamil AI Voice Assistant)
+    let cachedFwTamilVoices = [];
+    function updateFwTamilVoicesCache() {
       if (!('speechSynthesis' in window)) return;
       try {
-        cachedFwIndianVoices = window.speechSynthesis.getVoices() || [];
+        cachedFwTamilVoices = window.speechSynthesis.getVoices() || [];
       } catch (e) {
-        cachedFwIndianVoices = [];
+        cachedFwTamilVoices = [];
       }
     }
     if ('speechSynthesis' in window) {
-      updateFwIndianVoicesCache();
-      window.speechSynthesis.onvoiceschanged = updateFwIndianVoicesCache;
+      updateFwTamilVoicesCache();
+      window.speechSynthesis.onvoiceschanged = updateFwTamilVoicesCache;
     }
 
-    function getFwIndianAccentVoice() {
-      if (!cachedFwIndianVoices || cachedFwIndianVoices.length === 0) {
-        updateFwIndianVoicesCache();
+    function getFwTamilVoice() {
+      if (!cachedFwTamilVoices || cachedFwTamilVoices.length === 0) {
+        updateFwTamilVoicesCache();
       }
-      const voices = cachedFwIndianVoices;
+      const voices = cachedFwTamilVoices;
       if (!voices || voices.length === 0) return null;
 
-      const isEnIn = v => {
-        const l = (v.lang || '').replace('_', '-').toLowerCase();
-        return l === 'en-in' || l.startsWith('en-in');
-      };
+      // Priority 1: Exact regional match for Indian Tamil (ta-IN or ta_IN)
+      let found = voices.find(v => v.lang === 'ta-IN' || v.lang === 'ta_IN');
 
-      // Tier 1: Natural / Online Indian English Voice (Microsoft Neerja, Prabhat, Google en-IN)
-      const tier1 = voices.find(v => isEnIn(v) && (
-        v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Neural') || v.name.includes('Google')
-      ));
-      if (tier1) return tier1;
+      // Priority 2: Generic Tamil (ta) or Sri Lanka (ta-LK)
+      if (!found) {
+        found = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ta'));
+      }
 
-      // Tier 2: Any en-IN voice (Microsoft Heera, Ravi, Veena, Rishi)
-      const tier2 = voices.find(v => isEnIn(v));
-      if (tier2) return tier2;
+      // Priority 3: Search by voice name containing tamil keywords
+      if (!found) {
+        found = voices.find(v => {
+          const n = (v.name || '').toLowerCase();
+          return n.includes('tamil') || n.includes('தமிழ்') || n.includes('valluvar') || n.includes('pallavi');
+        });
+      }
 
-      // Tier 3: Voice name contains Indian identifiers
-      const tier3 = voices.find(v => {
-        const n = (v.name || '').toLowerCase();
-        return n.includes('india') || n.includes('heera') || n.includes('neerja') || 
-               n.includes('ravi') || n.includes('rishi') || n.includes('veena') || n.includes('prabhat');
-      });
-      if (tier3) return tier3;
-
-      // Tier 4: Fallback to any natural English voice if device lacks Indian voice packs
-      return voices.find(v => (v.lang || '').toLowerCase().startsWith('en') && (
-        v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Jenny')
-      )) || null;
+      return found || null;
     }
+
+    const FW_TAMIL_REG_MESSAGES = {
+      NO_FACE: 'படம் ஏற்கப்படவில்லை. முகம் தெளிவாகத் தெரியவில்லை. வெளிச்சமான இடத்தில் கேமராவை நேராகப் பார்க்கவும்.',
+      MULTIPLE_FACES: 'படம் ஏற்கப்படவில்லை. ஒன்றுக்கு மேற்பட்ட முகங்கள் உள்ளன. ஒருவர் மட்டுமே இருக்க வேண்டும்.',
+      FACE_OCCLUDED: 'படம் ஏற்கப்படவில்லை. கையை முகத்திலிருந்து எடுத்துவிட்டு முழு முகத்தையும் காட்டவும்.',
+      FACE_TOO_SMALL: 'படம் ஏற்கப்படவில்லை. முகம் மிகத் தொலைவில் உள்ளது. சற்று அருகில் வரவும்.',
+      FACE_TOO_CLOSE: 'படம் ஏற்கப்படவில்லை. முகம் மிக அருகில் உள்ளது. சற்று பின்னால் நிற்கவும்.',
+      TOO_DARK: 'படம் ஏற்கப்படவில்லை. வெளிச்சம் குறைவாக உள்ளது. வெளிச்சமான இடத்திற்கு செல்லவும்.',
+      TOO_BRIGHT: 'படம் ஏற்கப்படவில்லை. அதிக ஒளிக்கீற்று அல்லது பிரகாசம் உள்ளது.',
+      BLURRY: 'படம் ஏற்கப்படவில்லை. புகைப்படம் மங்கலாக உள்ளது. கேமராவை அசைக்காமல் பிடிக்கவும்.',
+      HEAD_TILTED: 'படம் ஏற்கப்படவில்லை. தலையை சாய்க்காமல் நேராக வைக்கவும்.',
+      EMBEDDING_FAILED: 'படம் ஏற்கப்படவில்லை. கேமராவை நேராகப் பார்த்து மீண்டும் முயற்சிக்கவும்.',
+      SUCCESS: 'முகம் வெற்றிகரமாக ஏற்றுக்கொள்ளப்பட்டது!'
+    };
 
     function speakVoiceAlert(text) {
       if (!('speechSynthesis' in window) || !text) return;
+      if (localStorage.getItem('argus_voice_assist') === 'false') return;
+
       try {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.82; // Calibrated slow & clear pace for Indian English accent
+        utterance.rate = 0.95; // Natural Tamil cadence
         utterance.pitch = 1.0;
-        utterance.lang = 'en-IN'; // Explicitly set Indian English locale
+        utterance.lang = 'ta-IN';
 
-        const indianVoice = getFwIndianAccentVoice();
-        if (indianVoice) {
-          utterance.voice = indianVoice;
-          if (indianVoice.lang) utterance.lang = indianVoice.lang;
+        const tamilVoice = getFwTamilVoice();
+        if (tamilVoice) {
+          utterance.voice = tamilVoice;
+          if (tamilVoice.lang) utterance.lang = tamilVoice.lang;
         }
 
         window.speechSynthesis.speak(utterance);
       } catch (err) {
-        console.warn('Speech synthesis alert notice:', err);
+        console.warn('Tamil speech synthesis alert notice:', err);
       }
     }
 
@@ -8995,7 +9001,7 @@
 
         if (res.ok && resData && resData.success && resData.embedding) {
           if (dataInp) dataInp.value = resData.photo_data || '';
-          speakVoiceAlert(resData.spoken_message || 'Face photo accepted.');
+          speakVoiceAlert((resData && resData.spoken_tamil_message) || FW_TAMIL_REG_MESSAGES.SUCCESS);
           if (statusEl) {
             statusEl.innerHTML = `
               <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:8px 10px; margin-top:4px;">
@@ -9011,10 +9017,11 @@
           }
         } else {
           const warn = (resData && resData.error) ? resData.error : 'No clear face detected in photo.';
-          const spoken = (resData && resData.spoken_error) ? resData.spoken_error : ('This image is not accepted. ' + warn);
+          const spoken = (resData && (resData.spoken_tamil_error || (resData.code && FW_TAMIL_REG_MESSAGES[resData.code]))) ||
+                         (resData && resData.spoken_error) || ('படம் ஏற்கப்படவில்லை. ' + warn);
           const advice = (resData && resData.advice) ? resData.advice : '';
 
-          // Read rejection message aloud!
+          // Read rejection message aloud in Tamil!
           speakVoiceAlert(spoken);
 
           // Clear inputs so bad image cannot be submitted
@@ -9099,7 +9106,7 @@
               if (previewBox) {
                 previewBox.innerHTML = `<img src="${resData.photo_data || URL.createObjectURL(blob)}" style="width:100%; height:100%; object-fit:cover;">`;
               }
-              speakVoiceAlert(resData.spoken_message || 'Face photo accepted.');
+              speakVoiceAlert((resData && resData.spoken_tamil_message) || FW_TAMIL_REG_MESSAGES.SUCCESS);
               if (statusEl) {
                 statusEl.innerHTML = `
                   <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:8px 10px; margin-top:4px;">
@@ -9115,7 +9122,8 @@
               }
             } else {
               const warn = (resData && resData.error) ? resData.error : 'No clear face detected in snapshot.';
-              const spoken = (resData && resData.spoken_error) ? resData.spoken_error : ('This image is not accepted. ' + warn);
+              const spoken = (resData && (resData.spoken_tamil_error || (resData.code && FW_TAMIL_REG_MESSAGES[resData.code]))) ||
+                             (resData && resData.spoken_error) || ('படம் ஏற்கப்படவில்லை. ' + warn);
               const advice = (resData && resData.advice) ? resData.advice : '';
 
               speakVoiceAlert(spoken);
