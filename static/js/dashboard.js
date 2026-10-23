@@ -473,35 +473,69 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // 6. Voice Assistant: Toggle & Audio Briefing
-  if (window.ArgusVoice) {
-    window.ArgusVoice.bindToggle('btnDashboardToggleVoice');
+  window.triggerDashboardBriefing = function (e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!window.ArgusVoice) {
+      console.warn('ArgusVoice assistant not loaded yet.');
+      return;
+    }
+
+    window.ArgusVoice.unlockAudio();
+    if (!window.ArgusVoice.isVoiceEnabled) {
+      window.ArgusVoice.setEnabled(true);
+    }
+
+    const parseNum = (val, elId) => {
+      if (val !== undefined && val !== null && !isNaN(Number(val))) return Number(val);
+      const el = document.getElementById(elId);
+      if (el) {
+        const parsed = parseInt(el.textContent.replace(/[^0-9]/g, ''), 10);
+        if (!isNaN(parsed)) return parsed;
+      }
+      return 0;
+    };
+
+    const total = parseNum(stats.total, 'statTotal');
+    const present = parseNum(stats.present, 'statPresent');
+    const onLeave = parseNum(stats.on_leave, 'statOnLeave');
+    const absent = parseNum(stats.absent, 'statAbsent');
+    const timeout = parseNum(stats.timeout, 'statTimeout');
+
+    let enText = `Daily Attendance Briefing: Out of ${total} employees, ${present} are present today, ${onLeave} on leave, and ${absent} absent.`;
+    if (timeout > 0) {
+      enText += ` Additionally, ${timeout} employees are on timeout.`;
+    }
+
+    let taText = `இன்றைய வருகை அறிக்கை: மொத்தம் ${total} ஊழியர்களில், ${present} பேர் இன்று வருகை தந்துள்ளனர், ${onLeave} பேர் விடுப்பில் உள்ளனர், மற்றும் ${absent} பேர் வரவில்லை.`;
+    if (timeout > 0) {
+      taText += ` மேலும் ${timeout} பேர் நேர வரம்பை தாண்டியுள்ளனர்.`;
+    }
 
     const btnBriefing = document.getElementById('btnDashboardBriefing');
     if (btnBriefing) {
-      btnBriefing.addEventListener('click', function () {
-        const total = stats.total !== undefined ? stats.total : (parseInt(document.getElementById('statTotal')?.textContent || '0', 10));
-        const present = stats.present !== undefined ? stats.present : (parseInt(document.getElementById('statPresent')?.textContent || '0', 10));
-        const onLeave = stats.on_leave !== undefined ? stats.on_leave : (parseInt(document.getElementById('statOnLeave')?.textContent || '0', 10));
-        const absent = stats.absent !== undefined ? stats.absent : (parseInt(document.getElementById('statAbsent')?.textContent || '0', 10));
-        const timeout = stats.timeout !== undefined ? stats.timeout : (parseInt(document.getElementById('statTimeout')?.textContent || '0', 10));
+      btnBriefing.style.opacity = '0.6';
+      setTimeout(() => { btnBriefing.style.opacity = '1'; }, 1000);
+    }
 
-        let enText = `Daily Attendance Briefing: Out of ${total} employees, ${present} are present today, ${onLeave} on leave, and ${absent} absent.`;
-        if (timeout > 0) {
-          enText += ` Additionally, ${timeout} employees are on timeout.`;
-        }
+    window.ArgusVoice.speakDual({
+      en: enText,
+      ta: taText
+    }, { interrupt: true, force: true });
+  };
 
-        let taText = `இன்றைய வருகை அறிக்கை: மொத்தம் ${total} ஊழியர்களில், ${present} பேர் இன்று வருகை தந்துள்ளனர், ${onLeave} பேர் விடுப்பில் உள்ளனர், மற்றும் ${absent} பேர் வரவில்லை.`;
-        if (timeout > 0) {
-          taText += ` மேலும் ${timeout} பேர் நேர வரம்பை தாண்டியுள்ளனர்.`;
-        }
-
-        window.ArgusVoice.speakDual({
-          en: enText,
-          ta: taText
-        });
-      });
+  function initDashboardVoice() {
+    if (window.ArgusVoice) {
+      window.ArgusVoice.bindToggle('btnDashboardToggleVoice');
+    }
+    const btnBriefing = document.getElementById('btnDashboardBriefing');
+    if (btnBriefing && !btnBriefing._hasBriefingListener) {
+      btnBriefing._hasBriefingListener = true;
+      btnBriefing.addEventListener('click', window.triggerDashboardBriefing);
     }
   }
+
+  initDashboardVoice();
+  window.addEventListener('page:loaded', initDashboardVoice);
 
   // Live Auto Polling every 25 seconds
   if (window.dashboardPollTimer) {

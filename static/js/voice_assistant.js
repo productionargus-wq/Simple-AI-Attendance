@@ -129,14 +129,36 @@
       } catch (e) {}
     }
 
+    toggle() {
+      const newState = !this.isVoiceEnabled;
+      this.setEnabled(newState);
+      if (newState) {
+        this.unlockAudio();
+        this.speak({
+          tamil: 'குரல் உதவி இயக்கப்பட்டது.',
+          english: 'Audio voice assistant enabled.'
+        }, { interrupt: true, force: true });
+      }
+      return this.isVoiceEnabled;
+    }
+
+    speakDual(content, options = {}) {
+      if (!content) return;
+      const payload = {
+        english: content.english || content.en || '',
+        tamil: content.tamil || content.ta || ''
+      };
+      this.speak(payload, options);
+    }
+
     speak(content, options = {}) {
-      if (!this.isVoiceEnabled || !content) return;
+      if ((!this.isVoiceEnabled && !options.force) || !content) return;
 
       let targetText = '';
       if (typeof content === 'object') {
         targetText = this.isMobile
-          ? (content.tamil || content.english || '')
-          : (content.english || content.tamil || '');
+          ? (content.tamil || content.ta || content.english || content.en || '')
+          : (content.english || content.en || content.tamil || content.ta || '');
       } else {
         targetText = String(content);
       }
@@ -164,12 +186,20 @@
         if (this.synth) {
           try {
             this.cancel();
+            this.unlockAudio();
+            if (!this.englishVoice) {
+              this.refreshVoices();
+            }
             const utter = new SpeechSynthesisUtterance(targetText);
             if (this.englishVoice) utter.voice = this.englishVoice;
             utter.lang = (this.englishVoice && this.englishVoice.lang) || 'en-US';
             utter.rate = options.rate || 1.0;
             utter.pitch = options.pitch || 1.0;
             utter.volume = 1.0;
+            // Prevent Chrome utterance garbage collection
+            window._activeSpeechUtterance = utter;
+            utter.onend = () => { window._activeSpeechUtterance = null; };
+            utter.onerror = () => { window._activeSpeechUtterance = null; };
             this.synth.speak(utter);
             return;
           } catch (err) {
@@ -182,12 +212,17 @@
       // MOBILE: Authentic Tamil speech synthesis
       if (this.tamilVoice && this.synth) {
         try {
+          this.cancel();
+          this.unlockAudio();
           const utter = new SpeechSynthesisUtterance(targetText);
           utter.voice = this.tamilVoice;
           utter.lang = this.tamilVoice.lang || 'ta-IN';
           utter.rate = options.rate || 0.95;
           utter.pitch = options.pitch || 1.0;
           utter.volume = 1.0;
+          window._activeSpeechUtterance = utter;
+          utter.onend = () => { window._activeSpeechUtterance = null; };
+          utter.onerror = () => { window._activeSpeechUtterance = null; };
           this.synth.speak(utter);
           return;
         } catch (err) {
@@ -290,39 +325,58 @@
     }
 
     // Bind a standardized Audio On/Off toggle button
-    bindToggle(btnEl, iconEl, labelEl) {
-      if (!btnEl) return;
+    bindToggle(btn, icon, label) {
+      const btnEl = typeof btn === 'string' ? document.getElementById(btn) : btn;
+      if (!btnEl) {
+        return;
+      }
+
+      let iconEl = typeof icon === 'string' ? document.getElementById(icon) : icon;
+      let labelEl = typeof label === 'string' ? document.getElementById(label) : label;
+
+      if (!iconEl) {
+        iconEl = btnEl.querySelector('.voice-icon') || btnEl.querySelector('[id*="Icon"]') || btnEl.querySelector('[id*="icon"]');
+      }
+      if (!labelEl) {
+        labelEl = btnEl.querySelector('.voice-text') || btnEl.querySelector('.voice-label') || btnEl.querySelector('[id*="Label"]') || btnEl.querySelector('[id*="label"]');
+      }
+
       const toggleObj = { btn: btnEl, icon: iconEl, label: labelEl };
+      
+      // Remove any existing binding for this element to prevent duplicates
+      this.boundButtons = this.boundButtons.filter(t => t.btn !== btnEl);
       this.boundButtons.push(toggleObj);
       this.renderToggle(toggleObj);
 
-      btnEl.addEventListener('click', () => {
-        const newState = !this.isVoiceEnabled;
-        this.setEnabled(newState);
-        if (newState) {
-          this.unlockAudio();
-          this.speak({
-            tamil: 'குரல் உதவி இயக்கப்பட்டது.',
-            english: 'Audio voice assistant enabled.'
-          }, { interrupt: true });
-        }
-      });
+      if (!btnEl._hasVoiceClickListener) {
+        btnEl._hasVoiceClickListener = true;
+        btnEl.addEventListener('click', (e) => {
+          if (e && e.preventDefault) e.preventDefault();
+          this.toggle();
+        });
+      }
     }
 
     renderToggle(t) {
-      if (!t.btn) return;
+      if (!t || !t.btn || !t.btn.classList) return;
       if (this.isVoiceEnabled) {
         t.btn.classList.add('active');
+        t.btn.setAttribute('aria-pressed', 'true');
+        t.btn.setAttribute('title', 'Voice audio is ON (click to mute)');
         if (t.icon) t.icon.textContent = '🔊';
         if (t.label) t.label.textContent = 'Audio: On';
       } else {
         t.btn.classList.remove('active');
+        t.btn.setAttribute('aria-pressed', 'false');
+        t.btn.setAttribute('title', 'Voice audio is OFF (click to turn on)');
         if (t.icon) t.icon.textContent = '🔇';
         if (t.label) t.label.textContent = 'Audio: Off';
       }
     }
 
     updateBoundToggles() {
+      // Clean up disconnected buttons from memory
+      this.boundButtons = this.boundButtons.filter(t => t.btn && document.contains(t.btn));
       this.boundButtons.forEach(t => this.renderToggle(t));
     }
   }
