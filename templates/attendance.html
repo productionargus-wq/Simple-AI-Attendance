@@ -1488,9 +1488,9 @@
           <span>⚙️ Sensitivity:</span>
           <strong id="sensitivityLabel">Normal</strong>
         </button>
-        <button type="button" class="btn-voice-toggle active" id="btnToggleVoice" title="Toggle Tamil Voice Guidance and Announcements">
+        <button type="button" class="btn-voice-toggle active" id="btnToggleVoice" title="Toggle Voice Guidance and Announcements">
           <span id="voiceToggleIcon">🔊</span>
-          <span id="voiceToggleLabel">Audio: On/Off</span>
+          <span id="voiceToggleLabel">Audio: On</span>
         </button>
       </div>
 
@@ -1760,12 +1760,24 @@
     }
 
     // ----------------------------------------------------
-    // Tamil AI Voice Assistant Engine (SpeechSynthesis API)
+    // Device Detection: Mobile phone/tablet vs Desktop PC
+    // ----------------------------------------------------
+    function isMobileDevice() {
+      const ua = navigator.userAgent || '';
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i;
+      const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      return mobileRegex.test(ua) || (hasTouch && window.innerWidth <= 1024);
+    }
+
+    // ----------------------------------------------------
+    // AI Voice Assistant Engine (Desktop = English, Mobile = Tamil)
     // ----------------------------------------------------
     class TamilVoiceManager {
       constructor() {
         this.synth = window.speechSynthesis || null;
+        this.isMobile = isMobileDevice();
         this.tamilVoice = null;
+        this.englishVoice = null;
         this.activeServerAudio = null;
         this.isVoiceEnabled = localStorage.getItem('argus_voice_assist') !== 'false';
         this.lastGuidanceTime = 0;
@@ -1789,25 +1801,41 @@
         const voices = this.synth.getVoices();
         if (!voices || voices.length === 0) return;
 
-        // Priority 1: Exact regional match for Indian Tamil (ta-IN or ta_IN)
-        let found = voices.find(v => v.lang === 'ta-IN' || v.lang === 'ta_IN');
-
-        // Priority 2: Generic Tamil (ta) or Sri Lanka (ta-LK)
-        if (!found) {
-          found = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ta'));
+        // Mobile Tamil Voice resolution:
+        let foundTa = voices.find(v => v.lang === 'ta-IN' || v.lang === 'ta_IN');
+        if (!foundTa) {
+          foundTa = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ta'));
         }
-
-        // Priority 3: Search by voice name containing tamil keywords
-        if (!found) {
-          found = voices.find(v => {
+        if (!foundTa) {
+          foundTa = voices.find(v => {
             const n = (v.name || '').toLowerCase();
             return n.includes('tamil') || n.includes('தமிழ்') || n.includes('valluvar') || n.includes('pallavi');
           });
         }
+        this.tamilVoice = foundTa || null;
 
-        this.tamilVoice = found || null;
-        if (this.tamilVoice) {
-          console.log('✔ Tamil Voice locked:', this.tamilVoice.name, `(${this.tamilVoice.lang})`);
+        // Desktop English Voice resolution:
+        let foundEn = voices.find(v => {
+          const n = (v.name || '').toLowerCase();
+          return (v.lang === 'en-US' || v.lang === 'en-GB' || v.lang === 'en-IN') &&
+                 (n.includes('natural') || n.includes('david') || n.includes('zira') || n.includes('google') || n.includes('samantha'));
+        });
+        if (!foundEn) {
+          foundEn = voices.find(v => v.lang === 'en-US' || v.lang === 'en-GB' || v.lang === 'en-IN');
+        }
+        if (!foundEn) {
+          foundEn = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+        }
+        this.englishVoice = foundEn || voices[0] || null;
+
+        if (this.isMobile) {
+          if (this.tamilVoice) {
+            console.log('✔ Mobile Tamil Voice locked:', this.tamilVoice.name, `(${this.tamilVoice.lang})`);
+          }
+        } else {
+          if (this.englishVoice) {
+            console.log('✔ Desktop English Voice locked:', this.englishVoice.name, `(${this.englishVoice.lang})`);
+          }
         }
       }
 
@@ -1853,8 +1881,16 @@
         } catch (e) {}
       }
 
-      speak(text, options = {}) {
-        if (!this.isVoiceEnabled || !text) return;
+      speak(content, options = {}) {
+        if (!this.isVoiceEnabled || !content) return;
+
+        let targetText = '';
+        if (typeof content === 'object') {
+          targetText = this.isMobile ? (content.tamil || content.english || '') : (content.english || content.tamil || '');
+        } else {
+          targetText = String(content);
+        }
+        if (!targetText) return;
 
         const interrupt = options.interrupt || false;
         const isGuidance = options.isGuidance || false;
@@ -1870,17 +1906,37 @@
           if (now - this.lastGuidanceTime < 3500) {
             return;
           }
-          if (text === this.lastGuidanceText && now - this.lastGuidanceTime < 6000) {
+          if (targetText === this.lastGuidanceText && now - this.lastGuidanceTime < 6000) {
             return;
           }
           this.lastGuidanceTime = now;
-          this.lastGuidanceText = text;
+          this.lastGuidanceText = targetText;
         }
 
-        // Engine 1: Native browser SpeechSynthesis (if Tamil voice exists on device)
+        // DESKTOP: Always speak in English using native desktop SpeechSynthesis
+        if (!this.isMobile) {
+          if (this.synth) {
+            try {
+              this.cancel();
+              const utter = new SpeechSynthesisUtterance(targetText);
+              if (this.englishVoice) utter.voice = this.englishVoice;
+              utter.lang = (this.englishVoice && this.englishVoice.lang) || 'en-US';
+              utter.rate = options.rate || 1.0;
+              utter.pitch = options.pitch || 1.0;
+              utter.volume = 1.0;
+              this.synth.speak(utter);
+              return;
+            } catch (err) {
+              console.warn('Desktop English SpeechSynthesis error:', err);
+            }
+          }
+          return;
+        }
+
+        // MOBILE: Always speak in Tamil (preserving 100% existing mobile phone voice)
         if (this.tamilVoice && this.synth) {
           try {
-            const utter = new SpeechSynthesisUtterance(text);
+            const utter = new SpeechSynthesisUtterance(targetText);
             utter.voice = this.tamilVoice;
             utter.lang = this.tamilVoice.lang || 'ta-IN';
             utter.rate = options.rate || 0.95;
@@ -1889,20 +1945,20 @@
             this.synth.speak(utter);
             return;
           } catch (err) {
-            console.warn('Speech synthesis error, falling back to server audio:', err);
+            console.warn('Mobile Tamil SpeechSynthesis error, falling back to server audio:', err);
           }
         }
 
-        // Engine 2: Server-side gTTS stream for Desktop devices without native Tamil OS voice
-        this.playServerAudio(text);
+        // Mobile fallback if browser lacks local Tamil voice
+        this.playServerAudio(targetText);
       }
 
-      speakGuidance(text) {
+      speakGuidance(content) {
         if (isProcessingPunch) return;
         if (punchContainer && punchContainer.style.display === 'block') return;
         if (Date.now() < cooldownUntil) return;
 
-        this.speak(text, { isGuidance: true, rate: 0.98 });
+        this.speak(content, { isGuidance: true, rate: this.isMobile ? 0.98 : 1.0 });
       }
 
       // Format standard time e.g. "09:30:15 AM" or "06:15 PM" into natural spoken Tamil
@@ -1924,31 +1980,55 @@
         return `${period} ${h} மணி${minText}`;
       }
 
+      // Format standard time for natural spoken English
+      toEnglishTime(timeStr) {
+        if (!timeStr) return '';
+        const match = String(timeStr).match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+        if (!match) return timeStr;
+        let h = parseInt(match[1], 10);
+        const m = parseInt(match[2], 10);
+        const ampm = (match[3] || '').toUpperCase();
+        const minStr = m < 10 ? `0${m}` : `${m}`;
+        return `${h}:${minStr} ${ampm}`;
+      }
+
       announcePunchIn(empName, punchTime) {
         const timeTa = this.toTamilTime(punchTime);
-        const text = `நன்றி ${empName}! உங்கள் வருகை பதிவாகியது. நேரம் ${timeTa}.`;
-        this.speak(text, { interrupt: true, rate: 0.95 });
+        const timeEn = this.toEnglishTime(punchTime);
+        this.speak({
+          tamil: `நன்றி ${empName}! உங்கள் வருகை பதிவாகியது. நேரம் ${timeTa}.`,
+          english: `Thank you, ${empName}! Your punch in is recorded at ${timeEn}.`
+        }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
       }
 
       announcePunchOut(empName, punchTime) {
         const timeTa = this.toTamilTime(punchTime);
-        const text = `நன்றி ${empName}! பணி நிறைவு நேரம் பதிவானது. நேரம் ${timeTa}.`;
-        this.speak(text, { interrupt: true, rate: 0.95 });
+        const timeEn = this.toEnglishTime(punchTime);
+        this.speak({
+          tamil: `நன்றி ${empName}! பணி நிறைவு நேரம் பதிவானது. நேரம் ${timeTa}.`,
+          english: `Thank you, ${empName}! Your punch out is recorded at ${timeEn}.`
+        }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
       }
 
       announceAlreadyPunched(empName) {
-        const text = `${empName}, உங்கள் வருகை ஏற்கனவே பதிவாகியுள்ளது.`;
-        this.speak(text, { interrupt: true, rate: 0.95 });
+        this.speak({
+          tamil: `${empName}, உங்கள் வருகை ஏற்கனவே பதிவாகியுள்ளது.`,
+          english: `${empName}, your attendance is already marked.`
+        }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
       }
 
       announceUnrecognized() {
-        const text = 'முகம் அடையாளம் காணப்படவில்லை. மீண்டும் முயற்சிக்கவும்.';
-        this.speak(text, { interrupt: true, rate: 0.95 });
+        this.speak({
+          tamil: 'முகம் அடையாளம் காணப்படவில்லை. மீண்டும் முயற்சிக்கவும்.',
+          english: 'Face not recognized. Please face the camera directly and try again.'
+        }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
       }
 
       announceSpoofDetected() {
-        const text = 'நேரடி மனித முகம் மட்டுமே அனுமதிக்கப்படும்.';
-        this.speak(text, { interrupt: true, rate: 0.95 });
+        this.speak({
+          tamil: 'நேரடி மனித முகம் மட்டுமே அனுமதிக்கப்படும்.',
+          english: 'Live human presence required. Digital screens and photos are not permitted.'
+        }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
       }
     }
 
@@ -1970,7 +2050,10 @@
           if (voiceToggleIcon) voiceToggleIcon.textContent = '🔊';
           if (voiceToggleLabel) voiceToggleLabel.textContent = 'Audio: On';
           tamilVoice.unlockAudio();
-          tamilVoice.speak('குரல் உதவி இயக்கப்பட்டது.', { interrupt: true });
+          tamilVoice.speak({
+            tamil: 'குரல் உதவி இயக்கப்பட்டது.',
+            english: 'Audio voice assistant enabled.'
+          }, { interrupt: true });
         } else {
           btnToggleVoice.classList.remove('active');
           if (voiceToggleIcon) voiceToggleIcon.textContent = '🔇';
@@ -2082,7 +2165,10 @@
         playChime('blink');
         updateBlinkHUD(1, '1st Blink Detected! Blink once more...');
         if (typeof tamilVoice !== 'undefined' && tamilVoice) {
-          tamilVoice.speak('இன்னொரு முறை சிமிட்டவும்.', { rate: 1.05 });
+          tamilVoice.speak({
+            tamil: 'இன்னொரு முறை சிமிட்டவும்.',
+            english: 'Please blink once more.'
+          }, { rate: 1.05 });
         }
         if (blinkEyeState) {
           blinkEyeState.textContent = 'Blink!';
@@ -2223,7 +2309,10 @@
           resetBlinkState();
         }
         if (isAIModelReady && now - lastMeshSeenTime > 6000 && !isProcessingPunch && now > cooldownUntil) {
-          tamilVoice.speakGuidance('வணக்கம்! கேமராவின் முன் நிற்கவும்.');
+          tamilVoice.speakGuidance({
+            tamil: 'வணக்கம்! கேமராவின் முன் நிற்கவும்.',
+            english: 'Hello! Please stand in front of the camera.'
+          });
         }
         return;
       }
@@ -2253,7 +2342,10 @@
             aiWarmupTimer = null;
           }
           if (hasAnnouncedWarmup && typeof tamilVoice !== 'undefined' && tamilVoice) {
-            tamilVoice.speak('தயார், கேமராவை பார்க்கவும்.', { interrupt: true, rate: 1.0 });
+            tamilVoice.speak({
+              tamil: 'தயார், கேமராவை பார்க்கவும்.',
+              english: 'Ready. Please look at the camera.'
+            }, { interrupt: true, rate: 1.0 });
           }
           updateBlinkHUD(0, isHandsFreeActive ? '👁️ Blink 2 times or hold steady' : '🟢 Camera Active — Ready to Mark');
         } else {
@@ -2270,24 +2362,39 @@
         hasSpokenSteadyHold = false;
       } else if (now - guidanceCandidateStartTime > 750) {
         if (guidanceCandidate === 'multiple_faces') {
-          tamilVoice.speakGuidance('தயவுசெய்து ஒருவர் மட்டுமே கேமராவின் முன் நிற்கவும்.');
+          tamilVoice.speakGuidance({
+            tamil: 'தயவுசெய்து ஒருவர் மட்டுமே கேமராவின் முன் நிற்கவும்.',
+            english: 'Please ensure only one person stands in front of the camera.'
+          });
           if (faceReticle) faceReticle.style.borderColor = '#ef4444';
           updateBlinkHUD(0, '⚠️ Please stand one person at a time');
           return;
         } else if (guidanceCandidate === 'too_far') {
-          tamilVoice.speakGuidance('தயவுசெய்து சற்று அருகில் வரவும்.');
+          tamilVoice.speakGuidance({
+            tamil: 'தயவுசெய்து சற்று அருகில் வரவும்.',
+            english: 'Please move a little closer.'
+          });
           if (faceReticle) faceReticle.style.borderColor = '#f59e0b';
           updateBlinkHUD(0, '🔍 Please move a little closer');
         } else if (guidanceCandidate === 'too_close') {
-          tamilVoice.speakGuidance('தயவுசெய்து சற்று பின்னால் நிற்கவும்.');
+          tamilVoice.speakGuidance({
+            tamil: 'தயவுசெய்து சற்று பின்னால் நிற்கவும்.',
+            english: 'Please step back slightly.'
+          });
           if (faceReticle) faceReticle.style.borderColor = '#f59e0b';
           updateBlinkHUD(0, '↔️ Please step back slightly');
         } else if (guidanceCandidate === 'off_center') {
-          tamilVoice.speakGuidance('முகத்தை திரையின் மையத்திற்கு கொண்டு வரவும்.');
+          tamilVoice.speakGuidance({
+            tamil: 'முகத்தை திரையின் மையத்திற்கு கொண்டு வரவும்.',
+            english: 'Please align your face to the center of the frame.'
+          });
           if (faceReticle) faceReticle.style.borderColor = '#f59e0b';
           updateBlinkHUD(0, '🎯 Align face to center');
         } else if (guidanceCandidate === 'looking_away') {
-          tamilVoice.speakGuidance('கேமராவை நேராகப் பார்க்கவும்.');
+          tamilVoice.speakGuidance({
+            tamil: 'கேமராவை நேராகப் பார்க்கவும்.',
+            english: 'Please look straight at the camera.'
+          });
           if (faceReticle) faceReticle.style.borderColor = '#f59e0b';
           updateBlinkHUD(0, '👀 Look straight at the camera');
         } else if (guidanceCandidate === 'aligned') {
@@ -2298,7 +2405,10 @@
           // 1. Voice Guidance: Speak ONCE when first aligned (no endless looping!)
           if (blinkCount === 0 && !hasSpokenAlignedGuidance && alignedDuration > 900) {
             hasSpokenAlignedGuidance = true;
-            tamilVoice.speakGuidance('முகத்தை அசைக்காமல் நேராகப் பார்த்து, இருமுறை கண் சிமிட்டவும்.');
+            tamilVoice.speakGuidance({
+              tamil: 'முகத்தை அசைக்காமல் நேராகப் பார்த்து, இருமுறை கண் சிமிட்டவும்.',
+              english: 'Hold steady, look straight at the camera, and blink twice.'
+            });
           }
 
           // 2. Airport e-Gate Fallback: Steady-Face Auto-Punch
@@ -2307,7 +2417,10 @@
 
             if (!hasSpokenSteadyHold) {
               hasSpokenSteadyHold = true;
-              tamilVoice.speak('அசையாமல் நிற்கவும்.', { rate: 1.05 });
+              tamilVoice.speak({
+                tamil: 'அசையாமல் நிற்கவும்.',
+                english: 'Please hold steady.'
+              }, { rate: 1.05 });
             }
 
             updateBlinkHUD(1, '✨ முகம் உறுதியானது! அசையாமல் நிற்கவும்...', false, false, true);
@@ -2509,7 +2622,10 @@
           if (!isAIModelReady && isCameraRunning) {
             hasAnnouncedWarmup = true;
             if (typeof tamilVoice !== 'undefined' && tamilVoice) {
-              tamilVoice.speak('கேமரா தயாராகிறது, ஒரு கணம் காத்திருக்கவும்.', { interrupt: true });
+              tamilVoice.speak({
+                tamil: 'கேமரா தயாராகிறது, ஒரு கணம் காத்திருக்கவும்.',
+                english: 'Camera is starting up, please wait a moment.'
+              }, { interrupt: true });
             }
           }
         }, 1200);
@@ -2883,7 +2999,10 @@
                   if (isSpoof) {
                     tamilVoice.announceSpoofDetected();
                   } else if (isNoFace) {
-                    tamilVoice.speakGuidance('முகத்தை கேமராவின் முன் காட்டவும்.');
+                    tamilVoice.speakGuidance({
+                      tamil: 'முகத்தை கேமராவின் முன் காட்டவும்.',
+                      english: 'Please face the camera directly.'
+                    });
                   } else {
                     tamilVoice.announceUnrecognized();
                   }

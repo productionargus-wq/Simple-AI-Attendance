@@ -1480,7 +1480,10 @@ document.addEventListener('DOMContentLoaded', function () {
           cameraStatusMsg.textContent = 'Position face within frame and click Capture Snapshot';
           cameraStatusMsg.style.color = '#198754';
         }
-        speakTamilVoiceAlert('கேமராவை நேராகப் பார்த்து முகத்தை வட்டத்திற்குள் வைக்கவும்.');
+        speakVoiceAlert({
+          tamil: 'கேமராவை நேராகப் பார்த்து முகத்தை வட்டத்திற்குள் வைக்கவும்.',
+          english: 'Please look straight at the camera and align your face inside the circle.'
+        });
       } catch (err) {
         if (cameraStatusMsg) {
           cameraStatusMsg.textContent = 'Camera access denied: ' + err.message;
@@ -1563,6 +1566,31 @@ document.addEventListener('DOMContentLoaded', function () {
     return found || null;
   }
 
+  function isMobileDevice() {
+    const ua = navigator.userAgent || '';
+    const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i;
+    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    return mobileRegex.test(ua) || (hasTouch && window.innerWidth <= 1024);
+  }
+
+  function getEnglishVoice() {
+    if (!('speechSynthesis' in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+    let found = voices.find(v => {
+      const n = (v.name || '').toLowerCase();
+      return (v.lang === 'en-US' || v.lang === 'en-GB' || v.lang === 'en-IN') &&
+             (n.includes('natural') || n.includes('david') || n.includes('zira') || n.includes('google') || n.includes('samantha'));
+    });
+    if (!found) {
+      found = voices.find(v => v.lang === 'en-US' || v.lang === 'en-GB' || v.lang === 'en-IN');
+    }
+    if (!found) {
+      found = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+    }
+    return found || voices[0] || null;
+  }
+
   function playServerTamilAudio(text) {
     if (!text) return;
     stopAllSpeech();
@@ -1592,11 +1620,25 @@ document.addEventListener('DOMContentLoaded', function () {
     SUCCESS: 'முகம் வெற்றிகரமாக ஏற்றுக்கொள்ளப்பட்டது!'
   };
 
+  const ENGLISH_REG_MESSAGES = {
+    NO_FACE: 'Photo not accepted. No clear face detected. Please face the camera directly in good lighting.',
+    MULTIPLE_FACES: 'Photo not accepted. Multiple faces detected. Only one person should be present.',
+    FACE_OCCLUDED: 'Photo not accepted. Please remove hands from face and show your full face.',
+    FACE_TOO_SMALL: 'Photo not accepted. Face is too far away. Please move closer.',
+    FACE_TOO_CLOSE: 'Photo not accepted. Face is too close. Please step back slightly.',
+    TOO_DARK: 'Photo not accepted. Lighting is too dim. Please move to a well-lit area.',
+    TOO_BRIGHT: 'Photo not accepted. Too much glare or brightness.',
+    BLURRY: 'Photo not accepted. Image is blurry. Please hold steady.',
+    HEAD_TILTED: 'Photo not accepted. Please keep your head straight.',
+    EMBEDDING_FAILED: 'Photo not accepted. Please face the camera directly and try again.',
+    SUCCESS: 'Face photo verified and accepted successfully!'
+  };
+
   function speakTamilVoiceAlert(text) {
     if (!text) return;
     if (localStorage.getItem('argus_voice_assist') === 'false') return;
 
-    // Engine 1: Native browser SpeechSynthesis (mobile phones & Tamil-enabled devices)
+    // Mobile phones & Tamil-enabled devices: native SpeechSynthesis
     const tamilVoice = getTamilVoice();
     if (tamilVoice && ('speechSynthesis' in window)) {
       try {
@@ -1613,13 +1655,54 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    // Engine 2: High-fidelity Server-side Tamil TTS stream (Desktop Windows PCs)
+    // High-fidelity Server-side Tamil TTS stream fallback for mobile
     playServerTamilAudio(text);
   }
 
-  // Alias for backward compatibility
-  function speakVoiceAlert(text) {
-    speakTamilVoiceAlert(text);
+  function speakVoiceAlert(content) {
+    if (!content) return;
+    if (localStorage.getItem('argus_voice_assist') === 'false') return;
+
+    const isMobile = isMobileDevice();
+
+    if (!isMobile) {
+      // Desktop: speak English via native desktop speech synthesis
+      let englishText = '';
+      if (typeof content === 'object') {
+        englishText = content.english || content.tamil || '';
+      } else if (typeof content === 'string') {
+        englishText = ENGLISH_REG_MESSAGES[content] || content;
+      }
+      if (!englishText) return;
+
+      if ('speechSynthesis' in window) {
+        try {
+          stopAllSpeech();
+          const utterance = new SpeechSynthesisUtterance(englishText);
+          const enVoice = getEnglishVoice();
+          if (enVoice) utterance.voice = enVoice;
+          utterance.lang = (enVoice && enVoice.lang) || 'en-US';
+          utterance.rate = 1.0;
+          utterance.pitch = 1.0;
+          window.speechSynthesis.speak(utterance);
+          return;
+        } catch (err) {
+          console.warn('Desktop English SpeechSynthesis error:', err);
+        }
+      }
+      return;
+    }
+
+    // Mobile phones: preserve existing pure Tamil voice
+    let tamilText = '';
+    if (typeof content === 'object') {
+      tamilText = content.tamil || content.english || '';
+    } else if (typeof content === 'string') {
+      tamilText = TAMIL_REG_MESSAGES[content] || content;
+    }
+    if (!tamilText) return;
+
+    speakTamilVoiceAlert(tamilText);
   }
 
   if (btnTakeSnapshot) {
@@ -1671,12 +1754,14 @@ document.addEventListener('DOMContentLoaded', function () {
             btnTakeSnapshot.disabled = false;
             btnTakeSnapshot.textContent = origBtnText;
             const errMsg = (resData && resData.error) ? resData.error : 'No clear face detected in snapshot. Please face the camera directly in good lighting.';
-            const spoken = (resData && (resData.spoken_tamil_error || (resData.code && TAMIL_REG_MESSAGES[resData.code]))) ||
+            const spokenTamil = (resData && (resData.spoken_tamil_error || (resData.code && TAMIL_REG_MESSAGES[resData.code]))) ||
                            TAMIL_REG_MESSAGES.NO_FACE;
+            const spokenEnglish = (resData && (resData.spoken_error || resData.error || (resData.code && ENGLISH_REG_MESSAGES[resData.code]))) ||
+                           errMsg || ENGLISH_REG_MESSAGES.NO_FACE;
             const advice = (resData && resData.advice) ? resData.advice : '';
 
-            // Read the rejection message aloud in Tamil!
-            speakTamilVoiceAlert(spoken);
+            // Read the rejection message aloud (Tamil on Mobile, English on Desktop)
+            speakVoiceAlert({ tamil: spokenTamil, english: spokenEnglish });
 
             if (cameraStatusMsg) {
               cameraStatusMsg.innerHTML = `
@@ -1709,8 +1794,11 @@ document.addEventListener('DOMContentLoaded', function () {
           capturedPhotoData = resData.photo_data || null;
           capturedPhotoFilename = resData.photo_filename || 'face_capture.jpg';
 
-          // Announce success in Tamil
-          speakTamilVoiceAlert((resData && resData.spoken_tamil_message) || TAMIL_REG_MESSAGES.SUCCESS);
+          // Announce success (Tamil on Mobile, English on Desktop)
+          speakVoiceAlert({
+            tamil: (resData && resData.spoken_tamil_message) || TAMIL_REG_MESSAGES.SUCCESS,
+            english: (resData && resData.spoken_message) || ENGLISH_REG_MESSAGES.SUCCESS
+          });
 
           try {
             const file = new File([blob], 'face_capture.jpg', { type: 'image/jpeg' });
@@ -1820,8 +1908,11 @@ document.addEventListener('DOMContentLoaded', function () {
             capturedPhotoData = resData.photo_data || null;
             capturedPhotoFilename = resData.photo_filename || file.name;
 
-            // Announce success aloud in Tamil
-            speakTamilVoiceAlert((resData && resData.spoken_tamil_message) || TAMIL_REG_MESSAGES.SUCCESS);
+            // Announce success aloud (Tamil on Mobile, English on Desktop)
+            speakVoiceAlert({
+              tamil: (resData && resData.spoken_tamil_message) || TAMIL_REG_MESSAGES.SUCCESS,
+              english: (resData && resData.spoken_message) || ENGLISH_REG_MESSAGES.SUCCESS
+            });
 
             if (captureStatus) {
               captureStatus.innerHTML = `
@@ -1839,12 +1930,14 @@ document.addEventListener('DOMContentLoaded', function () {
             if (editNote) editNote.textContent = `✓ AI Face Biometrics verified in ${file.name}.`;
           } else {
             const warn = (resData && resData.error) ? resData.error : 'No clear face detected in photo.';
-            const spoken = (resData && (resData.spoken_tamil_error || (resData.code && TAMIL_REG_MESSAGES[resData.code]))) ||
+            const spokenTamil = (resData && (resData.spoken_tamil_error || (resData.code && TAMIL_REG_MESSAGES[resData.code]))) ||
                            TAMIL_REG_MESSAGES.NO_FACE;
+            const spokenEnglish = (resData && (resData.spoken_error || resData.error || (resData.code && ENGLISH_REG_MESSAGES[resData.code]))) ||
+                           warn || ENGLISH_REG_MESSAGES.NO_FACE;
             const advice = (resData && resData.advice) ? resData.advice : '';
 
-            // Read the rejection message aloud in Tamil!
-            speakTamilVoiceAlert(spoken);
+            // Read the rejection message aloud (Tamil on Mobile, English on Desktop)
+            speakVoiceAlert({ tamil: spokenTamil, english: spokenEnglish });
 
             // Clear input & state so unacceptable image cannot be saved
             inputPhoto.value = '';

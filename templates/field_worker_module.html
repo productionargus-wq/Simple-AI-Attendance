@@ -4187,7 +4187,7 @@
                       <button type="button" class="btn-action-icon btn-action-edit" title="Edit / Configure Worker" onclick="editFieldWorkerFromRow('{{ w.id }}')">
                         <i class="fa-solid fa-pen"></i>
                       </button>
-                      <button type="button" class="btn-action-icon btn-action-delete" title="Delete Field Worker" onclick="deleteFieldWorkerFromRow('{{ w.id }}', '{{ (w.employee_name or \'\')|replace(\"\'\", \"\\\'\") }}')" style="margin-left:4px;">
+                      <button type="button" class="btn-action-icon btn-action-delete" title="Delete Field Worker" onclick='deleteFieldWorkerFromRow("{{ w.id }}", {{ (w.employee_name or "")|tojson }})' style="margin-left:4px;">
                         <i class="fa-solid fa-trash"></i>
                       </button>
                     </td>
@@ -8971,16 +8971,90 @@
       } catch (err) {}
     }
 
-    function speakVoiceAlert(text) {
-      if (!text) return;
+    function isFwMobileDevice() {
+      const ua = navigator.userAgent || '';
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i;
+      const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      return mobileRegex.test(ua) || (hasTouch && window.innerWidth <= 1024);
+    }
+
+    function getFwEnglishVoice() {
+      if (!('speechSynthesis' in window)) return null;
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || voices.length === 0) return null;
+      let found = voices.find(v => {
+        const n = (v.name || '').toLowerCase();
+        return (v.lang === 'en-US' || v.lang === 'en-GB' || v.lang === 'en-IN') &&
+               (n.includes('natural') || n.includes('david') || n.includes('zira') || n.includes('google') || n.includes('samantha'));
+      });
+      if (!found) found = voices.find(v => v.lang === 'en-US' || v.lang === 'en-GB' || v.lang === 'en-IN');
+      if (!found) found = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+      return found || voices[0] || null;
+    }
+
+    const FW_ENGLISH_REG_MESSAGES = {
+      NO_FACE: 'Photo not accepted. No clear face detected. Please face the camera directly in good lighting.',
+      MULTIPLE_FACES: 'Photo not accepted. Multiple faces detected. Only one person should be present.',
+      FACE_OCCLUDED: 'Photo not accepted. Please remove hands from face and show your full face.',
+      FACE_TOO_SMALL: 'Photo not accepted. Face is too far away. Please move closer.',
+      FACE_TOO_CLOSE: 'Photo not accepted. Face is too close. Please step back slightly.',
+      TOO_DARK: 'Photo not accepted. Lighting is too dim. Please move to a well-lit area.',
+      TOO_BRIGHT: 'Photo not accepted. Too much glare or brightness.',
+      BLURRY: 'Photo not accepted. Image is blurry. Please hold steady.',
+      HEAD_TILTED: 'Photo not accepted. Please keep your head straight.',
+      EMBEDDING_FAILED: 'Photo not accepted. Please face the camera directly and try again.',
+      SUCCESS: 'Face photo verified and accepted successfully!'
+    };
+
+    function speakVoiceAlert(content) {
+      if (!content) return;
       if (localStorage.getItem('argus_voice_assist') === 'false') return;
+
+      const isMobile = isFwMobileDevice();
+
+      if (!isMobile) {
+        // Desktop: Speak in English using native desktop SpeechSynthesis
+        let englishText = '';
+        if (typeof content === 'object') {
+          englishText = content.english || content.tamil || '';
+        } else if (typeof content === 'string') {
+          englishText = FW_ENGLISH_REG_MESSAGES[content] || content;
+        }
+        if (!englishText) return;
+
+        if ('speechSynthesis' in window) {
+          try {
+            stopFwSpeech();
+            const utterance = new SpeechSynthesisUtterance(englishText);
+            const enVoice = getFwEnglishVoice();
+            if (enVoice) utterance.voice = enVoice;
+            utterance.lang = (enVoice && enVoice.lang) || 'en-US';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+            return;
+          } catch (err) {
+            console.warn('Desktop English SpeechSynthesis error:', err);
+          }
+        }
+        return;
+      }
+
+      // Mobile: Preserve pure Tamil speech
+      let tamilText = '';
+      if (typeof content === 'object') {
+        tamilText = content.tamil || content.english || '';
+      } else if (typeof content === 'string') {
+        tamilText = FW_TAMIL_REG_MESSAGES[content] || content;
+      }
+      if (!tamilText) return;
 
       const tamilVoice = getFwTamilVoice();
       if (tamilVoice && ('speechSynthesis' in window)) {
         try {
           stopFwSpeech();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.rate = 0.95; // Natural Tamil cadence
+          const utterance = new SpeechSynthesisUtterance(tamilText);
+          utterance.rate = 0.95;
           utterance.pitch = 1.0;
           utterance.voice = tamilVoice;
           utterance.lang = tamilVoice.lang || 'ta-IN';
@@ -8991,7 +9065,7 @@
         }
       }
 
-      playFwServerTamilAudio(text);
+      playFwServerTamilAudio(tamilText);
     }
 
     // Photo Upload & Real-Time Biometric Quality Verification
@@ -9026,7 +9100,10 @@
 
         if (res.ok && resData && resData.success && resData.embedding) {
           if (dataInp) dataInp.value = resData.photo_data || '';
-          speakVoiceAlert((resData && resData.spoken_tamil_message) || FW_TAMIL_REG_MESSAGES.SUCCESS);
+          speakVoiceAlert({
+            tamil: (resData && resData.spoken_tamil_message) || FW_TAMIL_REG_MESSAGES.SUCCESS,
+            english: (resData && resData.spoken_message) || FW_ENGLISH_REG_MESSAGES.SUCCESS
+          });
           if (statusEl) {
             statusEl.innerHTML = `
               <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:8px 10px; margin-top:4px;">
@@ -9042,12 +9119,14 @@
           }
         } else {
           const warn = (resData && resData.error) ? resData.error : 'No clear face detected in photo.';
-          const spoken = (resData && (resData.spoken_tamil_error || (resData.code && FW_TAMIL_REG_MESSAGES[resData.code]))) ||
-                         (resData && resData.spoken_error) || ('படம் ஏற்கப்படவில்லை. ' + warn);
+          const spokenTamil = (resData && (resData.spoken_tamil_error || (resData.code && FW_TAMIL_REG_MESSAGES[resData.code]))) ||
+                         ('படம் ஏற்கப்படவில்லை. ' + warn);
+          const spokenEnglish = (resData && (resData.spoken_error || resData.error || (resData.code && FW_ENGLISH_REG_MESSAGES[resData.code]))) ||
+                         ('Image not accepted. ' + warn);
           const advice = (resData && resData.advice) ? resData.advice : '';
 
-          // Read rejection message aloud in Tamil!
-          speakVoiceAlert(spoken);
+          // Read rejection message aloud (Tamil on Mobile, English on Desktop)
+          speakVoiceAlert({ tamil: spokenTamil, english: spokenEnglish });
 
           // Clear inputs so bad image cannot be submitted
           input.value = '';
@@ -9131,7 +9210,10 @@
               if (previewBox) {
                 previewBox.innerHTML = `<img src="${resData.photo_data || URL.createObjectURL(blob)}" style="width:100%; height:100%; object-fit:cover;">`;
               }
-              speakVoiceAlert((resData && resData.spoken_tamil_message) || FW_TAMIL_REG_MESSAGES.SUCCESS);
+              speakVoiceAlert({
+                tamil: (resData && resData.spoken_tamil_message) || FW_TAMIL_REG_MESSAGES.SUCCESS,
+                english: (resData && resData.spoken_message) || FW_ENGLISH_REG_MESSAGES.SUCCESS
+              });
               if (statusEl) {
                 statusEl.innerHTML = `
                   <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:8px 10px; margin-top:4px;">
@@ -9147,11 +9229,13 @@
               }
             } else {
               const warn = (resData && resData.error) ? resData.error : 'No clear face detected in snapshot.';
-              const spoken = (resData && (resData.spoken_tamil_error || (resData.code && FW_TAMIL_REG_MESSAGES[resData.code]))) ||
-                             (resData && resData.spoken_error) || ('படம் ஏற்கப்படவில்லை. ' + warn);
+              const spokenTamil = (resData && (resData.spoken_tamil_error || (resData.code && FW_TAMIL_REG_MESSAGES[resData.code]))) ||
+                             ('படம் ஏற்கப்படவில்லை. ' + warn);
+              const spokenEnglish = (resData && (resData.spoken_error || resData.error || (resData.code && FW_ENGLISH_REG_MESSAGES[resData.code]))) ||
+                             ('Image not accepted. ' + warn);
               const advice = (resData && resData.advice) ? resData.advice : '';
 
-              speakVoiceAlert(spoken);
+              speakVoiceAlert({ tamil: spokenTamil, english: spokenEnglish });
 
               if (dataInp) dataInp.value = '';
               if (previewBox) {
