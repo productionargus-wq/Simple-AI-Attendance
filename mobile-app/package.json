@@ -6,13 +6,17 @@
   "scripts": {
     "build": "echo \"Ready\"",
     "cap:sync": "cap sync",
-    "cap:open": "cap open android"
+    "cap:sync:android": "cap sync android",
+    "cap:sync:ios": "cap sync ios",
+    "cap:open:android": "cap open android",
+    "cap:open:ios": "cap open ios"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.1",
     "@capacitor/app": "^7.0.0",
     "@capacitor/core": "^7.0.1",
     "@capacitor/geolocation": "^7.0.1",
+    "@capacitor/ios": "^7.6.9",
     "@capacitor/status-bar": "^7.0.1"
   },
   "devDependencies": {

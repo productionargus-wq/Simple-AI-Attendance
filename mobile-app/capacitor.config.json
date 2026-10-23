@@ -17,6 +17,12 @@
     "captureInput": true,
     "webContentsDebuggingEnabled": true
   },
+  "ios": {
+    "contentInset": "always",
+    "allowsLinkPreview": false,
+    "scrollEnabled": true,
+    "preferredContentMode": "mobile"
+  },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 1800,

@@ -1,0 +1,126 @@
+name: Build Mobile Apps (Android AAB/APK & iOS IPA)
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platforms to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - android
+          - ios
+
+jobs:
+  build-android:
+    name: Build Android (APK & AAB)
+    if: inputs.platform == 'all' || inputs.platform == 'android' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'mobile-app/package-lock.json'
+
+      - name: Install Dependencies & Sync
+        working-directory: mobile-app
+        run: |
+          npm ci
+          npx cap sync android
+
+      - name: Build Android APK (Release & Debug)
+        working-directory: mobile-app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease assembleDebug --no-daemon
+
+      - name: Build Android Play Store AAB Bundle
+        working-directory: mobile-app/android
+        run: |
+          ./gradlew bundleRelease --no-daemon
+
+      - name: Upload Android APK Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Argus-Attendance-Android-APKs
+          path: |
+            mobile-app/android/app/build/outputs/apk/release/*.apk
+            mobile-app/android/app/build/outputs/apk/debug/*.apk
+
+      - name: Upload Google Play Store AAB Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Argus-Attendance-PlayStore-AAB
+          path: mobile-app/android/app/build/outputs/bundle/release/*.aab
+
+  build-ios:
+    name: Build iOS (IPA & Xcode Archive)
+    if: inputs.platform == 'all' || inputs.platform == 'ios'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'mobile-app/package-lock.json'
+
+      - name: Set up CocoaPods
+        run: |
+          sudo gem install cocoapods
+
+      - name: Install Node Modules & Sync iOS
+        working-directory: mobile-app
+        run: |
+          npm ci
+          npx cap sync ios
+
+      - name: Install Pods
+        working-directory: mobile-app/ios/App
+        run: |
+          pod install --repo-update
+
+      - name: Build iOS Archive (App.xcarchive)
+        working-directory: mobile-app/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/App.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+
+      - name: Package Payload into Unsigned IPA
+        working-directory: mobile-app/ios/App
+        run: |
+          mkdir -p build/Payload
+          cp -r build/App.xcarchive/Products/Applications/App.app build/Payload/
+          cd build
+          zip -r Argus-Attendance-iOS-unsigned.ipa Payload/
+          cd ../
+
+      - name: Upload iOS IPA & Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: Argus-Attendance-iOS-IPA
+          path: |
+            mobile-app/ios/App/build/Argus-Attendance-iOS-unsigned.ipa
+            mobile-app/ios/App/build/App.xcarchive

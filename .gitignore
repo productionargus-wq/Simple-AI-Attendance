@@ -19,6 +19,7 @@ build/
 .vscode/
 *.apk
 *.aab
+*.zip
 *.mp4
 static/cache/
 
