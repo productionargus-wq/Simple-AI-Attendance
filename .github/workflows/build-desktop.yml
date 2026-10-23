@@ -16,7 +16,7 @@ on:
 jobs:
   build-windows:
     name: Build Windows Desktop (EXE & Setup Installer)
-    if: inputs.platform == 'all' || inputs.platform == 'windows' || github.event_name == 'push'
+    if: inputs.platform == 'all' || inputs.platform == 'windows'
     runs-on: windows-latest
     steps:
       - name: Checkout Code
@@ -27,6 +27,10 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
+
+      - name: Create default environment file
+        run: |
+          New-Item -Path .env -ItemType File -Value "FLASK_ENV=production`nPORT=5000" -Force
 
       - name: Install Inno Setup Compiler
         run: |
@@ -44,7 +48,17 @@ jobs:
 
       - name: Compile Windows Setup Wizard Installer (.exe)
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+          $isccCmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+          if ($isccCmd) {
+            & $isccCmd.Source installer.iss
+          } elseif (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+            & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+          } elseif (Test-Path "C:\Program Files\Inno Setup 6\ISCC.exe") {
+            & "C:\Program Files\Inno Setup 6\ISCC.exe" installer.iss
+          } else {
+            Write-Warning "ISCC.exe not found at standard path, looking for iscc in PATH..."
+            iscc installer.iss
+          }
 
       - name: Upload Windows Executables
         uses: actions/upload-artifact@v4
@@ -68,11 +82,16 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
+      - name: Create default environment file
+        run: |
+          echo "FLASK_ENV=production" > .env
+          echo "PORT=5000" >> .env
+
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pywebview waitress pyinstaller pyobjc-framework-WebKit pyobjc-framework-Cocoa
+          pip install pywebview waitress pyinstaller
 
       - name: Compile macOS Application (.app)
         run: |

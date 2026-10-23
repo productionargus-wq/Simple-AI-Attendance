@@ -12,8 +12,11 @@ datas = [
     ('templates', 'templates'),
     ('static', 'static'),
     ('models', 'models'),
-    ('.env', '.'),
 ]
+
+# Only include .env if it exists on disk
+if os.path.exists('.env'):
+    datas.append(('.env', '.'))
 
 # Hidden imports required for dynamic dependencies
 hidden_imports = [
@@ -66,13 +69,14 @@ if is_windows:
 elif is_macos:
     hidden_imports.extend([
         'webview.platforms.cocoa',
-        'objc',
-        'WebKit',
     ])
 
-# Application Icon
-icon_file = os.path.join('static', 'favicon.ico')
-if not os.path.exists(icon_file):
+# Application Icon (use .ico on Windows only; macOS requires .icns or None)
+if is_windows:
+    icon_file = os.path.join('static', 'favicon.ico')
+    if not os.path.exists(icon_file):
+        icon_file = None
+else:
     icon_file = None
 
 a = Analysis(
@@ -122,7 +126,7 @@ if is_macos:
     app = BUNDLE(
         exe,
         name='ArgusAttendance.app',
-        icon=icon_file,
+        icon=None,
         bundle_identifier='com.argus.attendance',
         info_plist={
             'NSCameraUsageDescription': 'Argus Attendance requires camera access for biometric face attendance.',
