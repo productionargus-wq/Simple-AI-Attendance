@@ -294,7 +294,7 @@
         </svg>
         <span>Audio Briefing</span>
       </button>
-      <button type="button" id="btnDashboardToggleVoice" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 12px; font-weight: 600; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice announcements" onclick="window.ArgusVoice && window.ArgusVoice.toggle()">
+      <button type="button" id="btnDashboardToggleVoice" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 12px; font-weight: 600; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice announcements">
         <span class="voice-icon">🔊</span>
         <span class="voice-text">Audio: On</span>
       </button>
@@ -652,5 +652,5 @@
   {{ stats | tojson }}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-<script src="{{ url_for('static', filename='js/dashboard.js') }}?v=20261023_v2" defer></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}?v=20261023_v3" defer></script>
 {% endblock %}

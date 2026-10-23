@@ -130,6 +130,12 @@
     }
 
     toggle() {
+      const now = Date.now();
+      if (this._lastToggleTime && (now - this._lastToggleTime < 350)) {
+        return this.isVoiceEnabled;
+      }
+      this._lastToggleTime = now;
+
       const newState = !this.isVoiceEnabled;
       this.setEnabled(newState);
       if (newState) {
@@ -359,18 +365,29 @@
 
     renderToggle(t) {
       if (!t || !t.btn || !t.btn.classList) return;
+      const iconEl = t.icon || t.btn.querySelector('.voice-icon') || t.btn.querySelector('[id*="Icon"]') || t.btn.querySelector('[id*="icon"]');
+      const labelEl = t.label || t.btn.querySelector('.voice-text') || t.btn.querySelector('.voice-label') || t.btn.querySelector('[id*="Label"]') || t.btn.querySelector('[id*="label"]');
+
       if (this.isVoiceEnabled) {
         t.btn.classList.add('active');
         t.btn.setAttribute('aria-pressed', 'true');
         t.btn.setAttribute('title', 'Voice audio is ON (click to mute)');
-        if (t.icon) t.icon.textContent = '🔊';
-        if (t.label) t.label.textContent = 'Audio: On';
+        t.btn.style.borderColor = '#93c5fd';
+        t.btn.style.color = '#1d4ed8';
+        t.btn.style.background = '#eff6ff';
+        if (iconEl) iconEl.textContent = '🔊';
+        if (labelEl) labelEl.textContent = 'Audio: On';
+        if (!labelEl && !iconEl) t.btn.textContent = '🔊 Audio: On';
       } else {
         t.btn.classList.remove('active');
         t.btn.setAttribute('aria-pressed', 'false');
         t.btn.setAttribute('title', 'Voice audio is OFF (click to turn on)');
-        if (t.icon) t.icon.textContent = '🔇';
-        if (t.label) t.label.textContent = 'Audio: Off';
+        t.btn.style.borderColor = '#cbd5e1';
+        t.btn.style.color = '#64748b';
+        t.btn.style.background = '#f8fafc';
+        if (iconEl) iconEl.textContent = '🔇';
+        if (labelEl) labelEl.textContent = 'Audio: Off';
+        if (!labelEl && !iconEl) t.btn.textContent = '🔇 Audio: Off';
       }
     }
 
