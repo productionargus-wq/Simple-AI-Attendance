@@ -137,9 +137,15 @@
 <!-- ================= MODAL 1: Employee Detail Entry (Add/Edit) ================= -->
 <div class="modal-overlay" id="entryModal">
   <div class="modal-box modal-box-large">
-    <div class="modal-header">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
       <div class="modal-header-title" id="entryModalTitle">Employee Detail Entry</div>
-      <button class="modal-close-btn" id="closeEntryModal">&times;</button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" class="btn-modal-voice-toggle" id="btnEntryModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
+          <span class="voice-icon">🔊</span>
+          <span class="voice-text">Audio: On</span>
+        </button>
+        <button class="modal-close-btn" id="closeEntryModal">&times;</button>
+      </div>
     </div>
     
     <form id="employeeForm" enctype="multipart/form-data">

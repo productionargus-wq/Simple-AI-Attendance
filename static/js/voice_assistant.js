@@ -396,6 +396,98 @@
       this.boundButtons = this.boundButtons.filter(t => t.btn && document.contains(t.btn));
       this.boundButtons.forEach(t => this.renderToggle(t));
     }
+
+    /**
+     * Attach field-by-field voice guidance to form inputs/selects inside a modal or container.
+     * Guidance triggers on 'focus' (placing cursor in field).
+     * Strictly anti-looping:
+     * - Does NOT trigger on typing (input/keyup/keydown).
+     * - Speaks at most once per field per modal open session.
+     * - Debounced (minimum 2.2s between consecutive field prompts).
+     *
+     * @param {string|HTMLElement} container - Modal container or form element/selector
+     * @param {Object} guidanceRules - Map of CSS selector or element ID to { english: '...', tamil: '...' }
+     */
+    attachFormGuidance(container, guidanceRules = {}) {
+      const containerEl = typeof container === 'string' ? document.querySelector(container) : container;
+      if (!containerEl) return;
+
+      if (!containerEl._guidedFieldsSet) {
+        containerEl._guidedFieldsSet = new Set();
+      }
+
+      // Reset session cache when modal close buttons or cancel buttons are clicked
+      const closeButtons = containerEl.querySelectorAll('.modal-close-btn, .btn-reset, [data-modal-close], [id*="close"], [id*="Cancel"]');
+      closeButtons.forEach(btn => {
+        if (!btn._hasVoiceResetListener) {
+          btn._hasVoiceResetListener = true;
+          btn.addEventListener('click', () => {
+            containerEl._guidedFieldsSet.clear();
+          });
+        }
+      });
+
+      // Use focusin delegation for seamless dynamic element support and robust capture
+      containerEl._guidanceRules = containerEl._guidanceRules || {};
+      Object.assign(containerEl._guidanceRules, guidanceRules);
+
+      if (!containerEl._hasFormGuidanceFocusin) {
+        containerEl._hasFormGuidanceFocusin = true;
+
+        containerEl.addEventListener('focusin', (e) => {
+          if (!this.isVoiceEnabled) return;
+          const target = e.target;
+          if (!target || !target.matches) return;
+
+          const rules = containerEl._guidanceRules || {};
+          let matchedRule = null;
+          let fieldKey = null;
+
+          for (const selector of Object.keys(rules)) {
+            const cleanSelector = (selector.startsWith('#') || selector.startsWith('.'))
+              ? selector
+              : `#${selector}, [name="${selector}"]`;
+
+            if (target.matches(cleanSelector)) {
+              matchedRule = rules[selector];
+              fieldKey = target.id ? `#${target.id}` : (target.name ? `[name="${target.name}"]` : selector);
+              break;
+            }
+          }
+
+          if (!matchedRule || !fieldKey) return;
+
+          // Check if already guided in this modal session (Anti-looping)
+          if (containerEl._guidedFieldsSet.has(fieldKey)) {
+            return;
+          }
+
+          // Cooldown check (prevent rapid tab jumps from overlapping speech)
+          const now = Date.now();
+          if (this._lastFieldGuidanceTime && (now - this._lastFieldGuidanceTime < 2200)) {
+            return;
+          }
+
+          containerEl._guidedFieldsSet.add(fieldKey);
+          this._lastFieldGuidanceTime = now;
+
+          this.speakDual({
+            english: matchedRule.english || matchedRule.en || '',
+            tamil: matchedRule.tamil || matchedRule.ta || ''
+          }, { interrupt: true });
+        });
+      }
+    }
+
+    /**
+     * Manually clear guided fields session cache for a modal container.
+     */
+    resetFormGuidance(container) {
+      const containerEl = typeof container === 'string' ? document.querySelector(container) : container;
+      if (containerEl && containerEl._guidedFieldsSet) {
+        containerEl._guidedFieldsSet.clear();
+      }
+    }
   }
 
   // Expose singleton instance globally

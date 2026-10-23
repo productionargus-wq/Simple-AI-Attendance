@@ -747,6 +747,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (inModBranch) inModBranch.checked = !!m.branch_company;
         if (inModField) inModField.checked = !!m.field_worker;
 
+        if (window.ArgusVoice) {
+          window.ArgusVoice.resetFormGuidance('#companyModal');
+        }
+
         companyModal.classList.add('active');
       });
     });
@@ -975,11 +979,20 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inModSingle) inModSingle.checked = true;
       if (inModBranch) inModBranch.checked = false;
       if (inModField) inModField.checked = false;
+
+      if (window.ArgusVoice) {
+        window.ArgusVoice.resetFormGuidance('#companyModal');
+      }
+
       companyModal.classList.add('active');
     });
   }
 
   function closeCompanyModalFunc() {
+    if (window.ArgusVoice) {
+      window.ArgusVoice.stop();
+      window.ArgusVoice.resetFormGuidance('#companyModal');
+    }
     companyModal.classList.remove('active');
   }
 
@@ -1294,6 +1307,37 @@ document.addEventListener('DOMContentLoaded', function () {
         printWindow.print();
         printWindow.close();
       }, 250);
+    });
+  }
+
+  // Bind Company Modal Voice Assistant Guidance & Toggle
+  if (window.ArgusVoice) {
+    window.ArgusVoice.bindToggle('btnCompanyModalToggleVoice');
+    window.ArgusVoice.attachFormGuidance('#companyModal', {
+      '#inputCompanyName': {
+        english: 'Please enter the registered company name.',
+        tamil: 'பதிவு செய்யப்பட்ட நிறுவனத்தின் பெயரை உள்ளிடவும்.'
+      },
+      '#inputGstin': {
+        english: 'Enter the 15-digit GST identification number if available.',
+        tamil: 'கிடைக்கப்பெற்றால் 15 இலக்க ஜி.எஸ்.டி அடையாள எண்ணை உள்ளிடவும்.'
+      },
+      '#inputPhone': {
+        english: 'Enter a valid 10-digit primary contact phone number.',
+        tamil: 'பத்து இலக்க செல்லுபடியாகும் தொடர்பு தொலைபேசி எண்ணை உள்ளிடவும்.'
+      },
+      '#inputEmail': {
+        english: 'Enter the registered corporate email address containing an at symbol. This is used for admin login.',
+        tamil: 'அட் குறியீட்டுடன் அட்மின் உள்நுழைவுக்குப் பயன்படும் நிறுவன மின்னஞ்சல் முகவரியை உள்ளிடவும்.'
+      },
+      '#inputGeofenceRadius': {
+        english: 'Specify the geofence perimeter radius in meters for attendance punch validation.',
+        tamil: 'வருகைப் பதிவைச் சரிபார்க்க தேவையான ஜியோபென்ஸ் தூரத்தை மீட்டரில் குறிப்பிடவும்.'
+      },
+      '#inputEmployeeLimit': {
+        english: 'Enter the maximum number of employees permitted for this company.',
+        tamil: 'இந்த நிறுவனத்திற்கான அதிகபட்ச பணியாளர்களின் எண்ணிக்கையை உள்ளிடவும்.'
+      }
     });
   }
 

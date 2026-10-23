@@ -115,9 +115,15 @@
 <!-- ================= MODAL: Edit Advance Modal ================= -->
 <div class="modal-overlay" id="editAdvanceModal">
   <div class="modal-box" style="max-width: 480px;">
-    <div class="modal-header">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
       <div class="modal-header-title">Edit Advance Entry</div>
-      <button class="modal-close-btn" id="closeEditAdvanceModal">&times;</button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" class="btn-modal-voice-toggle" id="btnEditAdvanceModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
+          <span class="voice-icon">🔊</span>
+          <span class="voice-text">Audio: On</span>
+        </button>
+        <button class="modal-close-btn" id="closeEditAdvanceModal">&times;</button>
+      </div>
     </div>
     <form id="editAdvanceForm">
       <input type="hidden" id="editAdvanceId">
@@ -331,6 +337,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('editAdvEmployee').value = adv.employee_name;
         document.getElementById('editAdvDate').value = adv.advance_date;
         document.getElementById('editAdvAmount').value = adv.amount;
+        if (window.ArgusVoice) window.ArgusVoice.resetFormGuidance('#editAdvanceModal');
         editModal.classList.add('active');
       })
       .catch(err => {
@@ -477,6 +484,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (window.ArgusVoice) {
     window.ArgusVoice.bindToggle('btnAdvanceToggleVoice');
+    window.ArgusVoice.bindToggle('btnEditAdvanceModalToggleVoice');
+
+    window.ArgusVoice.attachFormGuidance('#editAdvanceModal', {
+      '#editAdvEmployee': {
+        english: 'Employee name for this advance loan.',
+        tamil: 'முன்பணத்திற்கான ஊழியர் பெயர்.'
+      },
+      '#editAdvDate': {
+        english: 'Select the advance disbursement date.',
+        tamil: 'முன்பணம் வழங்கப்பட்ட தேதி.'
+      },
+      '#editAdvAmount': {
+        english: 'Enter the modified advance amount in rupees.',
+        tamil: 'திருத்தப்பட்ட முன்பணத் தொகையை ரூபாயில் உள்ளிடவும்.'
+      }
+    });
   }
 
   loadAdvances();

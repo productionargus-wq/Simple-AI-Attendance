@@ -630,6 +630,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // Reset Employee Documents to 1 empty row
     renderEmployeeDocuments([]);
 
+    if (window.ArgusVoice) {
+      window.ArgusVoice.resetFormGuidance('#entryModal');
+    }
+
     entryModal.classList.add('active');
   }
 
@@ -717,6 +721,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
       // Render Employee Documents
       renderEmployeeDocuments(emp.documents || []);
+
+      if (window.ArgusVoice) {
+        window.ArgusVoice.resetFormGuidance('#entryModal');
+      }
 
       entryModal.classList.add('active');
     } catch (err) {
@@ -1990,5 +1998,65 @@ document.addEventListener('DOMContentLoaded', function () {
   const closeEntryModalBtn2 = document.getElementById('closeEntryModal');
   if (closeEntryModalBtn2) {
     closeEntryModalBtn2.addEventListener('click', stopFaceCamera);
+  }
+
+  // Voice AI Field Guidance for Employee Registration & Edit Modal
+  if (window.ArgusVoice) {
+    window.ArgusVoice.bindToggle('btnEntryModalToggleVoice');
+
+    window.ArgusVoice.attachFormGuidance('#entryModal', {
+      '#inputName': {
+        english: 'Please enter the full name of the employee.',
+        tamil: 'தயவுசெய்து ஊழியரின் முழுப் பெயரை உள்ளிடவும்.'
+      },
+      '#inputDepartment': {
+        english: 'Enter the department, such as Production, IT, or HR.',
+        tamil: 'தயவுசெய்து ஊழியரின் துறையை உள்ளிடவும்.'
+      },
+      '#inputDesignation': {
+        english: 'Specify the employee job designation or role.',
+        tamil: 'ஊழியரின் பதவி அல்லது பொறுப்பை உள்ளிடவும்.'
+      },
+      '#inputMobile': {
+        english: 'Please enter a valid 10-digit mobile number.',
+        tamil: 'பத்து இலக்க செல்லுபடியாகும் செல்போன் எண்ணை உள்ளிடவும்.'
+      },
+      '#inputEmail': {
+        english: 'Please enter a valid email address with an at symbol.',
+        tamil: 'அட் குறியீட்டுடன் செல்லுபடியாகும் மின்னஞ்சல் முகவரியை உள்ளிடவும்.'
+      },
+      '#inputDaySalary': {
+        english: 'Enter the daily salary amount in rupees.',
+        tamil: 'ஒரு நாளுக்கான சம்பளத் தொகையை ரூபாயில் உள்ளிடவும்.'
+      },
+      '#inputHalfDaySalary': {
+        english: 'Enter the half day salary amount in rupees.',
+        tamil: 'அரை நாளுக்கான சம்பளத் தொகையை உள்ளிடவும்.'
+      },
+      '#inputHourlySalary': {
+        english: 'Enter the hourly pay rate in rupees.',
+        tamil: 'ஒரு மணி நேரத்திற்கான ஊதியத்தை உள்ளிடவும்.'
+      },
+      '#inputBankName': {
+        english: 'Enter the bank name for salary disbursements.',
+        tamil: 'சம்பளப் பரிமாற்றத்திற்கான வங்கிப் பெயரை உள்ளிடவும்.'
+      },
+      '#inputAccountNo': {
+        english: 'Enter the bank account number carefully.',
+        tamil: 'வங்கி கணக்கு எண்ணை கவனமாக உள்ளிடவும்.'
+      },
+      '#inputIfscCode': {
+        english: 'Enter the eleven-character bank IFSC code.',
+        tamil: 'பதினொரு எழுத்துக்கள் கொண்ட ஐ.எஃப்.எஸ்.சி குறியீட்டை உள்ளிடவும்.'
+      },
+      '#inputShiftHours': {
+        english: 'Set daily shift working hours, for example 8 hours.',
+        tamil: 'ஒரு நாளுக்கான வேலை நேரத்தை உள்ளிடவும்.'
+      },
+      '#inputGracePeriod': {
+        english: 'Enter grace period minutes allowed for late punch in.',
+        tamil: 'தாமத வருகைக்கு அனுமதிக்கப்பட்ட சலுகை நிமிடங்களை உள்ளிடவும்.'
+      }
+    });
   }
 });

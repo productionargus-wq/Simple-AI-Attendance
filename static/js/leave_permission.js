@@ -307,10 +307,19 @@ document.addEventListener('DOMContentLoaded', function () {
       quotaAlertBox.style.display = 'none';
       quotaAlertBox.textContent = '';
     }
+
+    if (window.ArgusVoice) {
+      window.ArgusVoice.resetFormGuidance('#modalSetEmployeeLeaveQuota');
+    }
+
     modalSetQuota.style.display = 'flex';
   }
 
   function closeSetQuotaModal() {
+    if (window.ArgusVoice) {
+      window.ArgusVoice.stop();
+      window.ArgusVoice.resetFormGuidance('#modalSetEmployeeLeaveQuota');
+    }
     if (modalSetQuota) modalSetQuota.style.display = 'none';
   }
 
@@ -616,17 +625,28 @@ document.addEventListener('DOMContentLoaded', function () {
         const reqId = this.getAttribute('data-id');
         if (quickRejectReqId) quickRejectReqId.value = reqId;
         if (quickRejectRemark) quickRejectRemark.value = '';
+        if (window.ArgusVoice) {
+          window.ArgusVoice.resetFormGuidance('#modalQuickReject');
+        }
         if (modalQuickReject) modalQuickReject.style.display = 'flex';
       });
     });
   }
 
   // Quick Reject Modal Handlers
+  function closeQuickRejectModalFunc() {
+    if (window.ArgusVoice) {
+      window.ArgusVoice.stop();
+      window.ArgusVoice.resetFormGuidance('#modalQuickReject');
+    }
+    if (modalQuickReject) modalQuickReject.style.display = 'none';
+  }
+
   if (closeQuickRejectBtn && modalQuickReject) {
-    closeQuickRejectBtn.addEventListener('click', () => { modalQuickReject.style.display = 'none'; });
+    closeQuickRejectBtn.addEventListener('click', closeQuickRejectModalFunc);
   }
   if (cancelQuickRejectBtn && modalQuickReject) {
-    cancelQuickRejectBtn.addEventListener('click', () => { modalQuickReject.style.display = 'none'; });
+    cancelQuickRejectBtn.addEventListener('click', closeQuickRejectModalFunc);
   }
 
   if (confirmQuickRejectBtn) {
@@ -751,9 +771,29 @@ document.addEventListener('DOMContentLoaded', function () {
       .replace(/'/g, '&#039;');
   }
 
-  // Bind Voice Toggle
+  // Bind Voice Toggles and Form Guidance
   if (window.ArgusVoice) {
     window.ArgusVoice.bindToggle('btnLeaveToggleVoice');
+    window.ArgusVoice.bindToggle('btnQuotaModalToggleVoice');
+    window.ArgusVoice.bindToggle('btnQuickRejectModalToggleVoice');
+
+    window.ArgusVoice.attachFormGuidance('#modalSetEmployeeLeaveQuota', {
+      '.custom-leave-name': {
+        english: 'Enter the custom leave category name, such as Casual, Sick, or Annual leave.',
+        tamil: 'கேசுவல், சிக் அல்லது ஆண்டு விடுப்பு போன்ற தனிப்பயன் விடுப்பு வகையின் பெயரை உள்ளிடவும்.'
+      },
+      '.custom-leave-total': {
+        english: 'Enter the total allocated quota days for this leave category.',
+        tamil: 'இந்த விடுப்பு வகைக்கான மொத்த ஒதுக்கீட்டு நாட்களை உள்ளிடவும்.'
+      }
+    });
+
+    window.ArgusVoice.attachFormGuidance('#modalQuickReject', {
+      '#quickRejectRemark': {
+        english: 'Please provide a clear admin reason for rejecting this leave request.',
+        tamil: 'விடுப்பு கோரிக்கையை நிராகரிப்பதற்கான தெளிவான காரணத்தை உள்ளிடவும்.'
+      }
+    });
   }
 
   // Initial load

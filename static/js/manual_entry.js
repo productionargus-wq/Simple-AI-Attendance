@@ -247,6 +247,7 @@ document.addEventListener('DOMContentLoaded', function () {
       hoursInput.value = '04:00';
       statusSelect.value = 'Proper';
       if (reasonInput) reasonInput.value = '';
+      if (window.ArgusVoice) window.ArgusVoice.resetFormGuidance('#manualEntryModal');
       modal.classList.add('active');
     });
   }
@@ -324,6 +325,7 @@ document.addEventListener('DOMContentLoaded', function () {
       statusSelect.value = entry.status || 'Proper';
       if (reasonInput) reasonInput.value = entry.reason || '';
 
+      if (window.ArgusVoice) window.ArgusVoice.resetFormGuidance('#manualEntryModal');
       modal.classList.add('active');
     } catch (err) {
       alert('Error fetching manual entry: ' + err.message);
@@ -510,4 +512,32 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initial load
   loadEmployees();
   loadEntries();
+
+  // Voice AI Field Guidance for Manual Entry Modal
+  if (window.ArgusVoice) {
+    window.ArgusVoice.bindToggle('btnManualModalToggleVoice');
+
+    window.ArgusVoice.attachFormGuidance('#manualEntryModal', {
+      '#inputEmployeeName': {
+        english: 'Select the employee for this attendance record.',
+        tamil: 'வருகைப் பதிவிற்கான ஊழியரைத் தேர்ந்தெடுக்கவும்.'
+      },
+      '#inputEntryDate': {
+        english: 'Select the date of attendance.',
+        tamil: 'வருகைப் பதிவு தேதியைத் தேர்ந்தெடுக்கவும்.'
+      },
+      '#inputHours': {
+        english: 'Enter the working hours in hours and minutes format.',
+        tamil: 'வேலை செய்த நேரத்தை மணி மற்றும் நிமிடங்களில் உள்ளிடவும்.'
+      },
+      '#inputStatus': {
+        english: 'Select attendance status: Proper, Permission, or Improper.',
+        tamil: 'வருகை நிலையை தேர்ந்தெடுக்கவும்.'
+      },
+      '#inputReason': {
+        english: 'Provide a reason or remarks for manual entry.',
+        tamil: 'கைமுறை வருகைப் பதிவிற்கான காரணத்தை உள்ளிடவும்.'
+      }
+    });
+  }
 });

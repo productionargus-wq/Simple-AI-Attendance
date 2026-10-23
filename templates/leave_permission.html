@@ -117,7 +117,13 @@
   <div style="background: #ffffff; border-radius: 10px; width: 92%; max-width: 440px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden;">
     <div style="background-color: #dc2626; color: #ffffff; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;">
       <span style="font-weight: 700; font-size: 14px;">Reject Request</span>
-      <button type="button" id="closeQuickRejectBtn" style="background: none; border: none; color: #ffffff; font-size: 20px; cursor: pointer;">&times;</button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" class="btn-modal-voice-toggle" id="btnQuickRejectModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.15); color: #ffffff; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
+          <span class="voice-icon">🔊</span>
+          <span class="voice-text">Audio: On</span>
+        </button>
+        <button type="button" id="closeQuickRejectBtn" style="background: none; border: none; color: #ffffff; font-size: 20px; cursor: pointer;">&times;</button>
+      </div>
     </div>
     <div style="padding: 18px;">
       <p style="font-size: 12.5px; color: #475569; margin-bottom: 12px;">Please provide an admin remark/reason for rejecting this request:</p>
@@ -203,7 +209,13 @@
           <div id="quotaModalEmpSubtitle" style="font-size: 11.5px; opacity: 0.9; margin-top: 2px;">Configuring dynamic leaves</div>
         </div>
       </div>
-      <button type="button" id="closeSetQuotaModalBtn" style="background: none; border: none; color: #ffffff; font-size: 22px; cursor: pointer; line-height: 1; padding: 0 4px;">&times;</button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" class="btn-modal-voice-toggle" id="btnQuotaModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.15); color: #ffffff; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
+          <span class="voice-icon">🔊</span>
+          <span class="voice-text">Audio: On</span>
+        </button>
+        <button type="button" id="closeSetQuotaModalBtn" style="background: none; border: none; color: #ffffff; font-size: 22px; cursor: pointer; line-height: 1; padding: 0 4px;">&times;</button>
+      </div>
     </div>
 
     <form id="formSetEmployeeLeaveQuota" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;">

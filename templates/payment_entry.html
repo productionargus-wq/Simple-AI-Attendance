@@ -152,9 +152,15 @@
 <!-- ================= ADD PAYMENT MODAL ================= -->
 <div class="modal-overlay" id="paymentModalOverlay">
   <div class="modal-box modal-box-manual">
-    <div class="modal-header">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
       <div class="modal-header-title" id="paymentModalTitle">Payment Entry</div>
-      <button type="button" class="modal-close-btn" id="btnClosePaymentModal">&times;</button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" class="btn-modal-voice-toggle" id="btnPaymentModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
+          <span class="voice-icon">🔊</span>
+          <span class="voice-text">Audio: On</span>
+        </button>
+        <button type="button" class="modal-close-btn" id="btnClosePaymentModal">&times;</button>
+      </div>
     </div>
     
     <form id="paymentForm" enctype="multipart/form-data">
@@ -262,6 +268,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (paymentDateInput) paymentDateInput.value = todayStr;
       const rEl = document.getElementById('paymentReasonText');
       if (rEl) rEl.value = '';
+      if (window.ArgusVoice) window.ArgusVoice.resetFormGuidance('#paymentModalOverlay');
       paymentModalOverlay.classList.add('active');
     });
   }
@@ -470,6 +477,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const pReason = (p.status && p.reason) ? p.reason : '';
         document.getElementById('paymentStatus').value = pStatus;
         document.getElementById('paymentReasonText').value = pReason;
+        if (window.ArgusVoice) window.ArgusVoice.resetFormGuidance('#paymentModalOverlay');
         paymentModalOverlay.classList.add('active');
       })
       .catch(err => console.error(err));
@@ -575,6 +583,42 @@ document.addEventListener('DOMContentLoaded', function () {
       printWindow.close();
     }, 250);
   });
+
+  // Voice AI Field Guidance for Payment Entry Modal
+  if (window.ArgusVoice) {
+    window.ArgusVoice.bindToggle('btnPaymentModalToggleVoice');
+
+    window.ArgusVoice.attachFormGuidance('#paymentModalOverlay', {
+      '#paymentEmployee': {
+        english: 'Select the employee to record payment for.',
+        tamil: 'பணம் செலுத்த வேண்டிய ஊழியரைத் தேர்ந்தெடுக்கவும்.'
+      },
+      '#paymentDate': {
+        english: 'Select the payment transaction date.',
+        tamil: 'பரிவர்த்தனை தேதியைத் தேர்ந்தெடுக்கவும்.'
+      },
+      '#paymentAmount': {
+        english: 'Enter the payment amount in rupees.',
+        tamil: 'வழங்கப்பட்ட தொகையை ரூபாயில் உள்ளிடவும்.'
+      },
+      '#paymentBank': {
+        english: 'Enter the bank name, UPI ID, or payment mode.',
+        tamil: 'வங்கி பெயர் அல்லது யு.பி.ஐ ஐடியை உள்ளிடவும்.'
+      },
+      '#paymentType': {
+        english: 'Select the payment type: UPI, Cash, or Net Banking.',
+        tamil: 'பணம் செலுத்திய முறையைத் தேர்ந்தெடுக்கவும்.'
+      },
+      '#paymentStatus': {
+        english: 'Select status category: Salary, Advance Payment, or Repayment.',
+        tamil: 'சம்பளம் அல்லது முன்பணம் வகையைத் தேர்ந்தெடுக்கவும்.'
+      },
+      '#paymentReasonText': {
+        english: 'Provide reason or notes for this payment.',
+        tamil: 'பணப் பரிமாற்றத்திற்கான காரணத்தை உள்ளிடவும்.'
+      }
+    });
+  }
 
   // Initial load
   loadPayments();
