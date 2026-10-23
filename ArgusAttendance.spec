@@ -4,6 +4,9 @@ import sys
 
 block_cipher = None
 
+is_windows = sys.platform.startswith('win')
+is_macos = sys.platform == 'darwin'
+
 # Bundle required data files and assets
 datas = [
     ('templates', 'templates'),
@@ -29,11 +32,6 @@ hidden_imports = [
     'waitress.utilities',
     'waitress.wasyncore',
     'webview',
-    'webview.platforms.winforms',
-    'webview.platforms.edgechromium',
-    'clr',
-    'pythonnet',
-    'clr_loader',
     'google.generativeai',
     'docx',
     'docx.shared',
@@ -56,6 +54,21 @@ hidden_imports = [
     'pymongo.srv_resolver',
     'requests',
 ]
+
+if is_windows:
+    hidden_imports.extend([
+        'webview.platforms.winforms',
+        'webview.platforms.edgechromium',
+        'clr',
+        'pythonnet',
+        'clr_loader',
+    ])
+elif is_macos:
+    hidden_imports.extend([
+        'webview.platforms.cocoa',
+        'objc',
+        'WebKit',
+    ])
 
 # Application Icon
 icon_file = os.path.join('static', 'favicon.ico')
@@ -80,7 +93,7 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# Single-file standalone executable (no _internal directory needed)
+# Single-file standalone executable
 exe = EXE(
     pyz,
     a.scripts,
@@ -92,10 +105,10 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=is_windows,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # No black terminal window
+    console=False,  # No terminal window
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -103,3 +116,21 @@ exe = EXE(
     entitlements_file=None,
     icon=icon_file,
 )
+
+# On macOS, generate standard .app application bundle
+if is_macos:
+    app = BUNDLE(
+        exe,
+        name='ArgusAttendance.app',
+        icon=icon_file,
+        bundle_identifier='com.argus.attendance',
+        info_plist={
+            'NSCameraUsageDescription': 'Argus Attendance requires camera access for biometric face attendance.',
+            'NSMicrophoneUsageDescription': 'Argus Attendance uses microphone access for voice assistance.',
+            'CFBundleDisplayName': 'Argus Attendance',
+            'CFBundleName': 'Argus Attendance',
+            'CFBundleShortVersionString': '2.0.0',
+            'CFBundleVersion': '2.0.0',
+            'LSMinimumSystemVersion': '10.13.0',
+        }
+    )
