@@ -17,3 +17,5 @@ build/
 *.lnk
 *.spec.bak
 .vscode/
+*.apk
+*.aab

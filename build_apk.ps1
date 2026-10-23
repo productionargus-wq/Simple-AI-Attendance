@@ -37,19 +37,26 @@ if ($BuildType -eq "release") {
     $ApkSource = Join-Path $AndroidDir "app\build\outputs\apk\debug\app-debug.apk"
 }
 
-# 3. Copy to destination
+# 3. Copy to destinations
 Write-Host "`n[3/3] Exporting APK..." -ForegroundColor Yellow
 if (Test-Path $ApkSource) {
+    # Destination A: Directly inside mobile-app folder in current project
+    $MobileDestPath = Join-Path $MobileDir "Argus Attendance.apk"
+    Copy-Item -Path $ApkSource -Destination $MobileDestPath -Force
+    $MobileSizeMB = [math]::Round((Get-Item $MobileDestPath).Length / 1MB, 2)
+
+    # Destination B: External APK Builds folder
     if (-not (Test-Path $OutputDir)) {
         New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
     }
     $DestPath = Join-Path $OutputDir "Argus Attendance Kiosk.apk"
     Copy-Item -Path $ApkSource -Destination $DestPath -Force
-    $ApkSizeMB = [math]::Round((Get-Item $DestPath).Length / 1MB, 2)
+
     Write-Host "`n==========================================================" -ForegroundColor Green
     Write-Host " SUCCESS: APK Generated Successfully!" -ForegroundColor Green
-    Write-Host " File: $DestPath" -ForegroundColor Green
-    Write-Host " Size: $ApkSizeMB MB" -ForegroundColor Green
+    Write-Host " Project APK: $MobileDestPath" -ForegroundColor Green
+    Write-Host " Size:        $MobileSizeMB MB" -ForegroundColor Green
+    Write-Host " Backup APK:  $DestPath" -ForegroundColor Green
     Write-Host "==========================================================" -ForegroundColor Green
 } else {
     Write-Error "APK file not found at $ApkSource"
