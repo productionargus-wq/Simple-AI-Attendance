@@ -15,9 +15,15 @@
       <div class="banner-subtitle">Record and disburse employee salary advance payments</div>
     </div>
   </div>
-  <a href="/payment-entry" class="btn-secondary-action">
-    ← Back to Payment
-  </a>
+  <div style="display: flex; gap: 8px; align-items: center;">
+    <button type="button" id="btnAdvanceToggleVoice" class="btn-secondary-action" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; background: #ffffff; color: #475569; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;" title="Toggle voice announcements">
+      <span class="voice-icon">🔊</span>
+      <span class="voice-text">Audio: On</span>
+    </button>
+    <a href="/payment-entry" class="btn-secondary-action">
+      ← Back to Payment
+    </a>
+  </div>
 </div>
 
 <!-- Advance Inline Form Matching Image 1 -->
@@ -194,8 +200,21 @@ document.addEventListener('DOMContentLoaded', function () {
         if (data.success) {
           document.getElementById('advAmount').value = '';
           loadAdvances();
+          if (window.ArgusVoice) {
+            const amtNum = Math.round(parseFloat(amountVal) || 0);
+            window.ArgusVoice.speakDual({
+              en: `Advance payment of ${amtNum} rupees for ${emp} recorded successfully.`,
+              ta: `${emp}-க்கான முன் பணம் ${amtNum} ரூபாய் பதிவு செய்யப்பட்டது.`
+            });
+          }
         } else {
           alert(data.error || 'Failed to save advance.');
+          if (window.ArgusVoice) {
+            window.ArgusVoice.speakDual({
+              en: 'Failed to record salary advance.',
+              ta: 'முன் பணம் பதிவு செய்வதில் பிழை ஏற்பட்டது.'
+            });
+          }
         }
       })
       .catch(err => {
@@ -358,6 +377,12 @@ document.addEventListener('DOMContentLoaded', function () {
           if (data.success) {
             editModal.classList.remove('active');
             loadAdvances();
+            if (window.ArgusVoice) {
+              window.ArgusVoice.speakDual({
+                en: `Advance record for ${payload.employee_name} updated successfully.`,
+                ta: `${payload.employee_name}-ன் முன் பணப் பதிவு புதுப்பிக்கப்பட்டது.`
+              });
+            }
           } else {
             alert(data.error || 'Failed to update advance.');
           }
@@ -385,6 +410,12 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(data => {
         if (data.success) {
           loadAdvances();
+          if (window.ArgusVoice) {
+            window.ArgusVoice.speakDual({
+              en: 'Advance record deleted.',
+              ta: 'முன் பணப் பதிவு நீக்கப்பட்டது.'
+            });
+          }
         } else {
           alert('Failed to delete advance.');
         }
@@ -443,6 +474,10 @@ document.addEventListener('DOMContentLoaded', function () {
     printWindow.focus();
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
   });
+
+  if (window.ArgusVoice) {
+    window.ArgusVoice.bindToggle('btnAdvanceToggleVoice');
+  }
 
   loadAdvances();
 });

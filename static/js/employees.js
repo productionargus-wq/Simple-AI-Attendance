@@ -1114,11 +1114,21 @@ document.addEventListener('DOMContentLoaded', function () {
           capturedPhotoData = null;
           capturedPhotoFilename = null;
           const msg = data.message || (empId ? 'Employee updated successfully!' : 'Employee created successfully!');
+          const empName = formData.get('employee_name') || 'Employee';
+          if (window.ArgusVoice) {
+            ArgusVoice.announceSuccess(
+              `ஊழியர் ${empName} விவரங்கள் வெற்றிகரமாக சேமிக்கப்பட்டன.`,
+              `Employee profile for ${empName} saved successfully.`
+            );
+          }
           if (window.hideSavingPopup) window.hideSavingPopup();
           alert(msg);
           loadEmployees();
         } else {
           if (window.hideSavingPopup) window.hideSavingPopup();
+          if (window.ArgusVoice) {
+            ArgusVoice.announceError('ஊழியர் விவரங்களை சேமிப்பதில் பிழை ஏற்பட்டது.', data.error || 'Failed to save employee.');
+          }
           alert(data.error || 'Failed to save employee');
         }
       } catch (err) {
@@ -1323,6 +1333,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         const data = await res.json();
         if (res.ok && data.success) {
+          if (window.ArgusVoice) {
+            ArgusVoice.announceSuccess('ஊழியர் விவரம் நீக்கப்பட்டது.', 'Employee record deleted successfully.');
+          }
           loadEmployees();
         } else {
           alert(data.error || 'Failed to delete employee');

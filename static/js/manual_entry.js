@@ -337,6 +337,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const res = await fetch(`/api/manual-entries/${id}`, { method: 'DELETE' });
         const d = await res.json();
         if (d.success) {
+          if (window.ArgusVoice) {
+            ArgusVoice.announceSuccess('வருகை பதிவு நீக்கப்பட்டது.', 'Manual attendance entry deleted successfully.');
+          }
           loadEntries();
         } else {
           alert(d.error || 'Failed to delete record');
@@ -401,9 +404,22 @@ document.addEventListener('DOMContentLoaded', function () {
         const d = await res.json();
         if (window.hideSavingPopup) window.hideSavingPopup();
         if (res.ok && d.success) {
+          const empName = formData.employee_name || 'Employee';
+          if (window.ArgusVoice) {
+            ArgusVoice.announceSuccess(
+              `${empName}-க்கான வருகை திருத்தம் பதிவு செய்யப்பட்டது.`,
+              `Manual attendance entry for ${empName} saved successfully.`
+            );
+          }
           modal.classList.remove('active');
           loadEntries();
         } else {
+          if (window.ArgusVoice) {
+            ArgusVoice.announceError(
+              'வருகை திருத்தத்தை சேமிப்பதில் பிழை ஏற்பட்டது.',
+              d.error || 'Failed to save manual attendance entry.'
+            );
+          }
           alert(d.error || 'Failed to save entry');
         }
       } catch (err) {

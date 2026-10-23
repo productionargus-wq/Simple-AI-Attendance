@@ -932,6 +932,12 @@
         </svg>
         <span>Choose Template</span>
       </button>
+
+      <!-- Voice Toggle Button -->
+      <button type="button" id="btnPayslipToggleVoice" class="btn-secondary-action" style="background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1; padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" title="Toggle voice announcements">
+        <span class="voice-icon">🔊</span>
+        <span class="voice-text">Audio: On</span>
+      </button>
     </div>
   </div>
 </div>
@@ -3256,6 +3262,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (!employee) {
       alert('Please select an employee.');
+      if (window.ArgusVoice) {
+        window.ArgusVoice.speakDual({
+          en: 'Please select an employee first.',
+          ta: 'தயவுசெய்து முதலில் ஒரு ஊழியரைத் தேர்ந்தெடுக்கவும்.'
+        });
+      }
       return;
     }
 
@@ -3274,10 +3286,24 @@ document.addEventListener('DOMContentLoaded', function () {
         // Show document card
         payslipDocumentCard.classList.remove('d-none');
         payslipDocumentCard.scrollIntoView({ behavior: 'smooth' });
+
+        if (window.ArgusVoice) {
+          const net = Math.round(Number(p.net_pay || 0));
+          window.ArgusVoice.speakDual({
+            en: `Payslip generated for ${employee} for ${month}. Net pay is ${net} rupees.`,
+            ta: `${month} மாதத்திற்கான ${employee}-ன் சம்பள ரசீது உருவாக்கப்பட்டது. நிகர சம்பளம் ${net} ரூபாய்.`
+          });
+        }
       })
       .catch(err => {
         console.error('Error generating payslip:', err);
         alert('Failed to generate payslip.');
+        if (window.ArgusVoice) {
+          window.ArgusVoice.speakDual({
+            en: `Failed to generate payslip for ${employee}.`,
+            ta: `${employee}-ன் சம்பள ரசீதை உருவாக்குவதில் பிழை ஏற்பட்டது.`
+          });
+        }
       });
   }
 
@@ -3335,6 +3361,11 @@ document.addEventListener('DOMContentLoaded', function () {
       const activeBid = (new URL(window.location.href)).searchParams.get('branch_id') || '{{ active_branch_id or "" }}';
       window.location.href = `/api/payslip/export/pdf?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}&template=${encodeURIComponent(currentTemplate)}&theme=${encodeURIComponent(currentTheme)}&branch_id=${encodeURIComponent(activeBid)}`;
     });
+  }
+
+  // ----------------- VOICE TOGGLE BINDING -----------------
+  if (window.ArgusVoice) {
+    window.ArgusVoice.bindToggle('btnPayslipToggleVoice');
   }
 });
 </script>

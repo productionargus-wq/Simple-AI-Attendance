@@ -9,6 +9,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261007_white">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <script src="{{ url_for('static', filename='vendor/mediapipe/face_mesh.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/voice_assistant.js') }}?v=20261023_v1"></script>
   <style>
     /* Ensure page is fully scrollable and not locked by global style.css */
     html, body {
@@ -507,6 +508,10 @@
           <button type="button" class="btn-sensitivity-toggle" id="btnPortalToggleSensitivity" title="Switch blink sensitivity for spectacles/glasses or dim light">
             <span>⚙️ Sensitivity:</span>
             <strong id="portalSensitivityLabel">Normal</strong>
+          </button>
+          <button type="button" class="btn-voice-toggle active" id="btnPortalToggleVoice" title="Toggle AI Voice Guidance and Announcements" style="padding: 8px 14px; font-size: 12px; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; border: 1.5px solid #0284c7; background: #f0f9ff; color: #0369a1; font-weight: 700;">
+            <span id="portalVoiceToggleIcon">🔊</span>
+            <span id="portalVoiceToggleLabel">Audio: On</span>
           </button>
         </div>
 
@@ -1352,6 +1357,12 @@
       if (portalBlinkCount === 1) {
         playPortalChime('blink');
         updatePortalBlinkHUD(1, '1st Blink! Blink once more...');
+        if (window.ArgusVoice) {
+          ArgusVoice.speak({
+            tamil: 'இன்னொரு முறை சிமிட்டவும்.',
+            english: 'Please blink once more.'
+          }, { rate: 1.05 });
+        }
         if (portalBlinkEyeState) {
           portalBlinkEyeState.textContent = 'Blink!';
           portalBlinkEyeState.className = 'blink-eye-state eye-blink';
@@ -1584,6 +1595,12 @@
           }
           resetPortalBlinkState();
           initPortalFaceMesh();
+          if (window.ArgusVoice) {
+            ArgusVoice.speak({
+              tamil: 'கேமராவை நேராகப் பார்த்து முகத்தை காட்டவும்.',
+              english: 'Please look directly at the camera to mark your attendance.'
+            });
+          }
           if (!isPortalDetecting) {
             isPortalDetecting = true;
             requestAnimationFrame(runPortalDetectionLoop);
@@ -1605,6 +1622,9 @@
       }
 
       function stopCamera() {
+        if (window.ArgusVoice) {
+          ArgusVoice.cancel();
+        }
         if (stream) {
           stream.getTracks().forEach(t => t.stop());
           stream = null;
@@ -1641,6 +1661,13 @@
             startCamera();
           }
         });
+      }
+
+      const btnPortalToggleVoice = document.getElementById('btnPortalToggleVoice');
+      const portalVoiceToggleIcon = document.getElementById('portalVoiceToggleIcon');
+      const portalVoiceToggleLabel = document.getElementById('portalVoiceToggleLabel');
+      if (btnPortalToggleVoice && window.ArgusVoice) {
+        ArgusVoice.bindToggle(btnPortalToggleVoice, portalVoiceToggleIcon, portalVoiceToggleLabel);
       }
 
       startCamera();
@@ -1720,6 +1747,19 @@
 
           if (data.matched) {
             const isAlreadyPunched = Boolean(data.punch_status === 'already_punched_in' || data.already_punched_in);
+            const empName = data.employee_name || 'Verified Employee';
+            const punchTime = data.punch_time || clientTime12;
+
+            if (window.ArgusVoice) {
+              if (isAlreadyPunched) {
+                ArgusVoice.announceAlreadyPunched(empName);
+              } else if (data.punch_status === 'punch_out') {
+                ArgusVoice.announcePunchOut(empName, punchTime);
+              } else {
+                ArgusVoice.announcePunchIn(empName, punchTime);
+              }
+            }
+
             if (isAlreadyPunched) {
               const cooldownMsg = data.message || 'Punch In already recorded. Please wait before punching out.';
               if (punchResult) {
@@ -1753,8 +1793,21 @@
               }
             }
           } else {
+            const isSpoof = Boolean(data.spoof_detected);
+            if (window.ArgusVoice) {
+              if (isSpoof) {
+                ArgusVoice.speak({
+                  tamil: 'நேரடி மனித முகம் மட்டுமே அனுமதிக்கப்படும்.',
+                  english: 'Live human presence required. Digital screens and photos are strictly blocked.'
+                }, { interrupt: true });
+              } else {
+                ArgusVoice.speak({
+                  tamil: 'முகம் அடையாளம் காணப்படவில்லை. மீண்டும் முயற்சிக்கவும்.',
+                  english: 'Face not recognized. Please face the camera directly and try again.'
+                }, { interrupt: true });
+              }
+            }
             if (punchResult) {
-              const isSpoof = Boolean(data.spoof_detected);
               punchResult.innerHTML = `
                 <div style="background-color: ${isSpoof ? '#fff1f2' : '#f8d7da'}; color: #842029; border: 1px solid ${isSpoof ? '#fecdd3' : '#f5c2c7'}; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px; font-size: 13px; text-align: left;">
                   <div style="font-weight: 800; color: #991b1b; display: flex; align-items: center; gap: 6px;">
@@ -2886,6 +2939,9 @@
           if (window.hideSavingPopup) window.hideSavingPopup();
           if (data.success) {
             showModalAlert(leaveAlert, data.message || 'Leave request saved successfully!', 'success');
+            if (window.ArgusVoice) {
+              ArgusVoice.announceSuccess('உங்கள் விடுப்பு விண்ணப்பம் வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது.', 'Your leave request has been submitted successfully.');
+            }
             formApplyLeave.reset();
             const editIdEl = document.getElementById('editLeaveRequestId');
             if (editIdEl) editIdEl.value = '';
@@ -2898,6 +2954,9 @@
             }, 1400);
           } else {
             showModalAlert(leaveAlert, data.error || data.message || 'Failed to submit leave request.', 'error');
+            if (window.ArgusVoice) {
+              ArgusVoice.announceError('விடுப்பு விண்ணப்பிப்பதில் பிழை ஏற்பட்டது.', 'Failed to submit leave request.');
+            }
           }
         } catch (err) {
           if (window.hideSavingPopup) window.hideSavingPopup();
@@ -2923,6 +2982,9 @@
         const availText = document.getElementById('modalPermAvail') ? document.getElementById('modalPermAvail').textContent : '';
         if (availText && availText.startsWith('00:00')) {
           showModalAlert(permAlert, 'You have 0 permission hours available. Please contact your administrator to allocate permission quota.', 'error');
+          if (window.ArgusVoice) {
+            ArgusVoice.announceWarning('அனுமதி நேரம் இருப்பு இல்லை.', 'No permission hours available.');
+          }
           return;
         }
 
@@ -2952,6 +3014,9 @@
           if (window.hideSavingPopup) window.hideSavingPopup();
           if (data.success) {
             showModalAlert(permAlert, data.message || 'Permission request saved successfully!', 'success');
+            if (window.ArgusVoice) {
+              ArgusVoice.announceSuccess('அனுமதி விண்ணப்பம் வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது.', 'Your permission request has been submitted successfully.');
+            }
             formApplyPermission.reset();
             const editIdEl = document.getElementById('editPermRequestId');
             if (editIdEl) editIdEl.value = '';
@@ -2965,6 +3030,9 @@
             }, 1400);
           } else {
             showModalAlert(permAlert, data.error || data.message || 'Failed to submit permission request.', 'error');
+            if (window.ArgusVoice) {
+              ArgusVoice.announceError('அனுமதி விண்ணப்பிப்பதில் பிழை ஏற்பட்டது.', 'Failed to submit permission request.');
+            }
           }
         } catch (err) {
           if (window.hideSavingPopup) window.hideSavingPopup();

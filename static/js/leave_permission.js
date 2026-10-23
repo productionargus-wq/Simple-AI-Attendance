@@ -369,6 +369,12 @@ document.addEventListener('DOMContentLoaded', function () {
             quotaAlertBox.style.border = '1px solid #a7f3d0';
             quotaAlertBox.textContent = data.message || 'Custom leaves saved successfully!';
           }
+          if (window.ArgusVoice) {
+            window.ArgusVoice.speakDual({
+              en: 'Employee leave quota saved successfully.',
+              ta: 'ஊழியர் விடுப்பு ஒதுக்கீடு வெற்றிகரமாக சேமிக்கப்பட்டது.'
+            });
+          }
           await loadBalances();
           setTimeout(() => {
             closeSetQuotaModal();
@@ -586,6 +592,12 @@ document.addEventListener('DOMContentLoaded', function () {
           const data = await res.json();
           if (data.success) {
             refreshAllData();
+            if (window.ArgusVoice) {
+              window.ArgusVoice.speakDual({
+                en: `Request ${reqId} has been approved.`,
+                ta: `விண்ணப்பம் ${reqId} ஏற்கப்பட்டது.`
+              });
+            }
           } else {
             alert(data.error || 'Failed to approve request.');
           }
@@ -647,6 +659,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (data.success) {
           if (modalQuickReject) modalQuickReject.style.display = 'none';
           refreshAllData();
+          if (window.ArgusVoice) {
+            window.ArgusVoice.speakDual({
+              en: `Request ${reqId} has been rejected.`,
+              ta: `விண்ணப்பம் ${reqId} நிராகரிக்கப்பட்டது.`
+            });
+          }
         } else {
           alert(data.error || 'Failed to reject request.');
         }
@@ -731,6 +749,11 @@ document.addEventListener('DOMContentLoaded', function () {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  // Bind Voice Toggle
+  if (window.ArgusVoice) {
+    window.ArgusVoice.bindToggle('btnLeaveToggleVoice');
   }
 
   // Initial load

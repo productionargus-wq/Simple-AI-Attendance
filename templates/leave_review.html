@@ -371,6 +371,20 @@ document.addEventListener('DOMContentLoaded', function () {
       const data = await res.json();
       if (data.success) {
         showAlert(data.message || `Request ${action}d successfully!`, 'success');
+        if (window.ArgusVoice) {
+          const empName = document.getElementById('detailEmpName') ? document.getElementById('detailEmpName').textContent.trim() : 'Employee';
+          if (action === 'Approve') {
+            ArgusVoice.announceSuccess(
+              `${empName}-ன் விண்ணப்பம் ஏற்கப்பட்டது.`,
+              `Request for ${empName} has been approved.`
+            );
+          } else {
+            ArgusVoice.announceWarning(
+              `${empName}-ன் விண்ணப்பம் நிராகரிக்கப்பட்டது.`,
+              `Request for ${empName} has been rejected.`
+            );
+          }
+        }
         setTimeout(() => {
           window.location.reload();
         }, 1200);
