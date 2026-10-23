@@ -14,10 +14,6 @@ datas = [
     ('models', 'models'),
 ]
 
-# Only include .env if it exists on disk
-if os.path.exists('.env'):
-    datas.append(('.env', '.'))
-
 # Hidden imports required for dynamic dependencies
 hidden_imports = [
     'waitress',
