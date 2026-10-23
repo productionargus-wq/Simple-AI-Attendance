@@ -507,6 +507,42 @@
       font-weight: 700;
     }
 
+    .btn-voice-toggle {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 20px;
+      padding: 5px 13px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-voice-toggle:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    .btn-voice-toggle.active {
+      background: #f0fdf4;
+      border-color: #86efac;
+      color: #15803d;
+    }
+
+    .btn-voice-toggle.active #voiceToggleIcon {
+      display: inline-block;
+      animation: voiceIconPulse 1.6s infinite ease-in-out;
+    }
+
+    @keyframes voiceIconPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+
     /* Controls Action Row */
     .controls-row {
       display: grid;
@@ -1015,7 +1051,8 @@
         gap: 6px;
       }
       .btn-handsfree-toggle,
-      .btn-sensitivity-toggle {
+      .btn-sensitivity-toggle,
+      .btn-voice-toggle {
         font-size: 11px;
         padding: 4px 10px;
       }
@@ -1092,7 +1129,8 @@
         gap: 4px;
       }
       .btn-handsfree-toggle,
-      .btn-sensitivity-toggle {
+      .btn-sensitivity-toggle,
+      .btn-voice-toggle {
         font-size: 10px;
         padding: 4px 7px;
       }
@@ -1432,6 +1470,10 @@
           <span>⚙️ Sensitivity:</span>
           <strong id="sensitivityLabel">Normal</strong>
         </button>
+        <button type="button" class="btn-voice-toggle active" id="btnToggleVoice" title="Toggle Tamil Voice Guidance and Announcements">
+          <span id="voiceToggleIcon">🔊</span>
+          <span id="voiceToggleLabel">குரல் உதவி: ஆன்</span>
+        </button>
       </div>
 
       <!-- Dynamic Punch Detail Card (Below Buttons) -->
@@ -1565,6 +1607,9 @@
     const blinkDot1 = document.getElementById('blinkDot1');
     const blinkDot2 = document.getElementById('blinkDot2');
     const blinkEyeState = document.getElementById('blinkEyeState');
+    const btnToggleVoice = document.getElementById('btnToggleVoice');
+    const voiceToggleIcon = document.getElementById('voiceToggleIcon');
+    const voiceToggleLabel = document.getElementById('voiceToggleLabel');
 
     let stream = null;
     let isCameraRunning = false;
@@ -1682,6 +1727,205 @@
           osc.stop(audioCtx.currentTime + 0.38);
         }
       } catch (e) {}
+    }
+
+    // ----------------------------------------------------
+    // Tamil AI Voice Assistant Engine (SpeechSynthesis API)
+    // ----------------------------------------------------
+    class TamilVoiceManager {
+      constructor() {
+        this.synth = window.speechSynthesis || null;
+        this.tamilVoice = null;
+        this.isVoiceEnabled = localStorage.getItem('argus_voice_assist') !== 'false';
+        this.lastGuidanceTime = 0;
+        this.lastGuidanceText = '';
+        this.init();
+      }
+
+      init() {
+        if (!this.synth) {
+          console.warn('SpeechSynthesis API is not supported in this browser.');
+          return;
+        }
+        this.refreshVoices();
+        if (typeof this.synth.onvoiceschanged !== 'undefined') {
+          this.synth.onvoiceschanged = () => this.refreshVoices();
+        }
+      }
+
+      refreshVoices() {
+        if (!this.synth) return;
+        const voices = this.synth.getVoices();
+        if (!voices || voices.length === 0) return;
+
+        // Priority 1: Exact regional match for Indian Tamil (ta-IN or ta_IN)
+        let found = voices.find(v => v.lang === 'ta-IN' || v.lang === 'ta_IN');
+
+        // Priority 2: Generic Tamil (ta) or Sri Lanka (ta-LK)
+        if (!found) {
+          found = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ta'));
+        }
+
+        // Priority 3: Search by voice name containing tamil keywords
+        if (!found) {
+          found = voices.find(v => {
+            const n = (v.name || '').toLowerCase();
+            return n.includes('tamil') || n.includes('தமிழ்') || n.includes('valluvar') || n.includes('pallavi');
+          });
+        }
+
+        this.tamilVoice = found || null;
+        if (this.tamilVoice) {
+          console.log('✔ Tamil Voice locked:', this.tamilVoice.name, `(${this.tamilVoice.lang})`);
+        }
+      }
+
+      unlockAudio() {
+        if (!this.synth) return;
+        try {
+          if (this.synth.paused) {
+            this.synth.resume();
+          }
+        } catch (e) {}
+      }
+
+      setEnabled(enabled) {
+        this.isVoiceEnabled = Boolean(enabled);
+        localStorage.setItem('argus_voice_assist', this.isVoiceEnabled ? 'true' : 'false');
+        if (!this.isVoiceEnabled) {
+          this.cancel();
+        }
+      }
+
+      cancel() {
+        if (this.synth) {
+          try {
+            this.synth.cancel();
+          } catch (e) {}
+        }
+      }
+
+      speak(text, options = {}) {
+        if (!this.isVoiceEnabled || !this.synth || !text) return;
+
+        const interrupt = options.interrupt || false;
+        const isGuidance = options.isGuidance || false;
+
+        if (interrupt) {
+          this.cancel();
+        } else if (this.synth.speaking && !isGuidance) {
+          return;
+        }
+
+        if (isGuidance) {
+          const now = Date.now();
+          if (now - this.lastGuidanceTime < 3500) {
+            return;
+          }
+          if (text === this.lastGuidanceText && now - this.lastGuidanceTime < 6000) {
+            return;
+          }
+          this.lastGuidanceTime = now;
+          this.lastGuidanceText = text;
+        }
+
+        try {
+          const utter = new SpeechSynthesisUtterance(text);
+          if (this.tamilVoice) {
+            utter.voice = this.tamilVoice;
+            utter.lang = this.tamilVoice.lang || 'ta-IN';
+          } else {
+            utter.lang = 'ta-IN';
+          }
+          utter.rate = options.rate || 0.95;
+          utter.pitch = options.pitch || 1.0;
+          utter.volume = 1.0;
+          this.synth.speak(utter);
+        } catch (err) {
+          console.warn('Speech synthesis error:', err);
+        }
+      }
+
+      speakGuidance(text) {
+        if (isProcessingPunch) return;
+        if (punchContainer && punchContainer.style.display === 'block') return;
+        if (Date.now() < cooldownUntil) return;
+
+        this.speak(text, { isGuidance: true, rate: 0.98 });
+      }
+
+      // Format standard time e.g. "09:30:15 AM" or "06:15 PM" into natural spoken Tamil
+      toTamilTime(timeStr) {
+        if (!timeStr) return '';
+        const match = String(timeStr).match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+        if (!match) return timeStr;
+        let h = parseInt(match[1], 10);
+        const m = parseInt(match[2], 10);
+        const ampm = (match[3] || '').toUpperCase();
+
+        let period = 'காலை';
+        if (ampm === 'PM') {
+          period = (h === 12 || h < 4) ? 'மதியம்' : 'மாலை';
+        } else if (ampm === 'AM' && (h === 12 || h < 4)) {
+          period = 'அதிகாலை';
+        }
+        const minText = m > 0 ? ` ${m} நிமிடம்` : '';
+        return `${period} ${h} மணி${minText}`;
+      }
+
+      announcePunchIn(empName, punchTime) {
+        const timeTa = this.toTamilTime(punchTime);
+        const text = `நன்றி ${empName}! உங்கள் வருகை பதிவாகியது. நேரம் ${timeTa}.`;
+        this.speak(text, { interrupt: true, rate: 0.95 });
+      }
+
+      announcePunchOut(empName, punchTime) {
+        const timeTa = this.toTamilTime(punchTime);
+        const text = `நன்றி ${empName}! பணி நிறைவு நேரம் பதிவானது. நேரம் ${timeTa}.`;
+        this.speak(text, { interrupt: true, rate: 0.95 });
+      }
+
+      announceAlreadyPunched(empName) {
+        const text = `${empName}, உங்கள் வருகை ஏற்கனவே பதிவாகியுள்ளது.`;
+        this.speak(text, { interrupt: true, rate: 0.95 });
+      }
+
+      announceUnrecognized() {
+        const text = 'முகம் அடையாளம் காணப்படவில்லை. மீண்டும் முயற்சிக்கவும்.';
+        this.speak(text, { interrupt: true, rate: 0.95 });
+      }
+
+      announceSpoofDetected() {
+        const text = 'நேரடி மனித முகம் மட்டுமே அனுமதிக்கப்படும்.';
+        this.speak(text, { interrupt: true, rate: 0.95 });
+      }
+    }
+
+    const tamilVoice = new TamilVoiceManager();
+
+    // Voice Assistant Toggle Listener
+    if (btnToggleVoice) {
+      if (!tamilVoice.isVoiceEnabled) {
+        btnToggleVoice.classList.remove('active');
+        if (voiceToggleIcon) voiceToggleIcon.textContent = '🔇';
+        if (voiceToggleLabel) voiceToggleLabel.textContent = 'குரல் உதவி: ஆஃப்';
+      }
+
+      btnToggleVoice.addEventListener('click', function () {
+        const newState = !tamilVoice.isVoiceEnabled;
+        tamilVoice.setEnabled(newState);
+        if (newState) {
+          btnToggleVoice.classList.add('active');
+          if (voiceToggleIcon) voiceToggleIcon.textContent = '🔊';
+          if (voiceToggleLabel) voiceToggleLabel.textContent = 'குரல் உதவி: ஆன்';
+          tamilVoice.unlockAudio();
+          tamilVoice.speak('குரல் உதவி இயக்கப்பட்டது.', { interrupt: true });
+        } else {
+          btnToggleVoice.classList.remove('active');
+          if (voiceToggleIcon) voiceToggleIcon.textContent = '🔇';
+          if (voiceToggleLabel) voiceToggleLabel.textContent = 'குரல் உதவி: ஆஃப்';
+        }
+      });
     }
 
     function updateBlinkHUD(count, text, isCooldown = false) {
@@ -1834,6 +2078,49 @@
       return (v1Dist + v2Dist) / (2.0 * hDist);
     }
 
+    // Face Positioning Guidance State Machine
+    let currentGuidanceCandidate = null;
+    let guidanceCandidateStartTime = 0;
+
+    function evaluateFaceGuidance(landmarks, numFaces) {
+      if (numFaces > 1) {
+        return 'multiple_faces';
+      }
+      if (!landmarks || landmarks.length === 0) {
+        return 'no_face';
+      }
+
+      // Distance estimation: Face height between forehead (10) and chin (152)
+      const pTop = landmarks[10];
+      const pBot = landmarks[152];
+      if (pTop && pBot) {
+        const faceHeight = Math.abs(pBot.y - pTop.y);
+        if (faceHeight < 0.27) return 'too_far';
+        if (faceHeight > 0.78) return 'too_close';
+      }
+
+      // Centering: Nose tip (landmark 1)
+      const nose = landmarks[1];
+      if (nose) {
+        if (nose.x < 0.32 || nose.x > 0.68) return 'off_center';
+        if (nose.y < 0.24 || nose.y > 0.76) return 'off_center';
+      }
+
+      // Yaw / Looking away: Nose to left cheek (234) vs nose to right cheek (454)
+      const cheekL = landmarks[234];
+      const cheekR = landmarks[454];
+      if (nose && cheekL && cheekR) {
+        const distL = Math.abs(nose.x - cheekL.x);
+        const distR = Math.abs(cheekR.x - nose.x);
+        if (distL > 0.005 && distR > 0.005) {
+          const ratio = distL / distR;
+          if (ratio > 2.0 || ratio < 0.50) return 'looking_away';
+        }
+      }
+
+      return 'aligned';
+    }
+
     // MediaPipe Result Callback
     function onFaceMeshResults(results) {
       if (!isCameraRunning || isProcessingPunch) return;
@@ -1855,14 +2142,56 @@
           blinkEyeState.textContent = 'Detecting...';
           blinkEyeState.className = 'blink-eye-state';
         }
+        if (faceReticle) {
+          faceReticle.style.borderColor = 'rgba(56, 189, 248, 0.5)';
+        }
         if (blinkCount > 0 && (now - lastBlinkTime > 4500)) {
           resetBlinkState();
+        }
+        if (now - lastMeshSeenTime > 6000 && !isProcessingPunch && now > cooldownUntil) {
+          tamilVoice.speakGuidance('வணக்கம்! கேமராவின் முன் நிற்கவும்.');
         }
         return;
       }
 
       lastMeshSeenTime = now;
+      const numFaces = results.multiFaceLandmarks.length;
       const landmarks = results.multiFaceLandmarks[0];
+
+      // Real-time Face Positioning Guidance Analysis
+      const guidanceCandidate = evaluateFaceGuidance(landmarks, numFaces);
+      if (guidanceCandidate !== currentGuidanceCandidate) {
+        currentGuidanceCandidate = guidanceCandidate;
+        guidanceCandidateStartTime = now;
+      } else if (now - guidanceCandidateStartTime > 750) {
+        if (guidanceCandidate === 'multiple_faces') {
+          tamilVoice.speakGuidance('தயவுசெய்து ஒருவர் மட்டுமே கேமராவின் முன் நிற்கவும்.');
+          if (faceReticle) faceReticle.style.borderColor = '#ef4444';
+          updateBlinkHUD(0, '⚠️ Please stand one person at a time');
+          return;
+        } else if (guidanceCandidate === 'too_far') {
+          tamilVoice.speakGuidance('தயவுசெய்து சற்று அருகில் வரவும்.');
+          if (faceReticle) faceReticle.style.borderColor = '#f59e0b';
+          updateBlinkHUD(0, '🔍 Please move a little closer');
+        } else if (guidanceCandidate === 'too_close') {
+          tamilVoice.speakGuidance('தயவுசெய்து சற்று பின்னால் நிற்கவும்.');
+          if (faceReticle) faceReticle.style.borderColor = '#f59e0b';
+          updateBlinkHUD(0, '↔️ Please step back slightly');
+        } else if (guidanceCandidate === 'off_center') {
+          tamilVoice.speakGuidance('முகத்தை திரையின் மையத்திற்கு கொண்டு வரவும்.');
+          if (faceReticle) faceReticle.style.borderColor = '#f59e0b';
+          updateBlinkHUD(0, '🎯 Align face to center');
+        } else if (guidanceCandidate === 'looking_away') {
+          tamilVoice.speakGuidance('கேமராவை நேராகப் பார்க்கவும்.');
+          if (faceReticle) faceReticle.style.borderColor = '#f59e0b';
+          updateBlinkHUD(0, '👀 Look straight at the camera');
+        } else if (guidanceCandidate === 'aligned') {
+          if (faceReticle) faceReticle.style.borderColor = '#10b981';
+          if (blinkCount === 0 && (now - guidanceCandidateStartTime > 1600)) {
+            tamilVoice.speakGuidance('முகத்தை அசைக்காமல் நேராகப் பார்த்து, இருமுறை கண் சிமிட்டவும்.');
+          }
+        }
+      }
       const leftEAR = calculateEAR(landmarks, LEFT_EYE);
       const rightEAR = calculateEAR(landmarks, RIGHT_EYE);
 
@@ -2020,6 +2349,10 @@
         btnToggleCameraText.textContent = 'Turn Off Camera';
         btnToggleCamera.classList.add('active');
 
+        if (typeof tamilVoice !== 'undefined' && tamilVoice) {
+          tamilVoice.unlockAudio();
+        }
+
         if (blinkHudOverlay) {
           blinkHudOverlay.style.display = 'flex';
         }
@@ -2067,6 +2400,9 @@
         animFrameId = null;
       }
       resetBlinkState();
+      if (typeof tamilVoice !== 'undefined' && tamilVoice) {
+        tamilVoice.cancel();
+      }
 
       cameraOverlay.innerHTML = `
         <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -2192,6 +2528,9 @@
       btnMarkText.textContent = 'Proceed to Next Person';
       btnMark.classList.remove('btn-next-highlight');
       reticlePulse();
+      if (typeof tamilVoice !== 'undefined' && tamilVoice) {
+        tamilVoice.cancel();
+      }
     }
 
     // 3. Unified Mark Attendance Handler (Manual Button + Hands-Free Blink)
@@ -2289,6 +2628,18 @@
                 const dept = data.department || 'Operations';
                 const desig = data.designation || 'Staff';
                 const punchTime = data.punch_time || `${hoursStr}:${minutes}:${seconds} ${ampm}`;
+
+                // Tamil Voice Assistant Punch Announcement
+                if (typeof tamilVoice !== 'undefined' && tamilVoice) {
+                  if (isAlreadyPunched) {
+                    tamilVoice.announceAlreadyPunched(empName);
+                  } else if (isPunchOut) {
+                    tamilVoice.announcePunchOut(empName, punchTime);
+                  } else {
+                    tamilVoice.announcePunchIn(empName, punchTime);
+                  }
+                }
+
                 const conf = data.confidence ? `${data.confidence}% Match` : '98.5% Match';
                 const distInfo = data.formatted_distance ? `${data.formatted_distance}` : 'On-Site Office Geofence Verified';
                 const workingHoursHtml = (data.working_hours && !isAlreadyPunched) ? `
@@ -2353,6 +2704,17 @@
                 const errMsg = data.message || data.error || 'Face not recognized in database.';
                 const isSpoof = Boolean(data.spoof_detected);
                 const isNoFace = errMsg.toLowerCase().includes('no face');
+
+                // Tamil Voice Assistant Alert / Feedback
+                if (typeof tamilVoice !== 'undefined' && tamilVoice) {
+                  if (isSpoof) {
+                    tamilVoice.announceSpoofDetected();
+                  } else if (isNoFace) {
+                    tamilVoice.speakGuidance('முகத்தை கேமராவின் முன் காட்டவும்.');
+                  } else {
+                    tamilVoice.announceUnrecognized();
+                  }
+                }
                 const badgeText = isSpoof
                   ? '🛑 Anti-Spoofing Alert'
                   : (res.status === 403 ? 'Punch Disabled' : (isNoFace ? 'No Face Detected' : 'Biometric Verification'));
