@@ -84,8 +84,21 @@
       </div>
     </div>
 
-    <div class="search-box-wrapper" style="max-width: 280px;">
-      <input type="text" id="searchRequestsInput" class="search-input" placeholder="Search requests...">
+    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+      {% if is_system_admin and system_admin_companies %}
+      <div class="sysadmin-company-filter-wrap">
+        <label for="sysadminCompanyFilterLeave">SELECT COMPANY:</label>
+        <select class="sysadmin-company-select" id="sysadminCompanyFilterLeave" onchange="globalSwitchSystemAdminCompany(this.value)">
+          {% for c in system_admin_companies %}
+          <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <div class="search-box-wrapper" style="max-width: 280px;">
+        <input type="text" id="searchRequestsInput" class="search-input" placeholder="Search requests...">
+      </div>
     </div>
   </div>
 

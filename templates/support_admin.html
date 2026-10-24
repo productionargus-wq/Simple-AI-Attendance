@@ -79,9 +79,9 @@
         <div class="toolbar-right-group">
           <!-- Filter Company -->
           <select id="admFilterCompany" class="filter-dropdown" onchange="handleAdminFilterChange()">
-            <option value="">Filter Company</option>
+            <option value="" {% if not active_company_id or active_company_id == 'ARGUS_MASTER' %}selected{% endif %}>Filter Company</option>
             {% for c in companies %}
-            <option value="{{ c.id }}">{{ c.company_name }}</option>
+            <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
             {% endfor %}
           </select>
 

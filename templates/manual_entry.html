@@ -70,6 +70,17 @@
         <button class="btn-export" id="btnPrintTable" title="Print">Print</button>
       </div>
 
+      {% if is_system_admin and system_admin_companies %}
+      <div class="sysadmin-company-filter-wrap">
+        <label for="sysadminCompanyFilterManual">SELECT COMPANY:</label>
+        <select class="sysadmin-company-select" id="sysadminCompanyFilterManual" onchange="globalSwitchSystemAdminCompany(this.value)">
+          {% for c in system_admin_companies %}
+          <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
       <div class="search-box-wrapper">
         <label for="tableSearch">Search:</label>
         <input type="text" id="tableSearch" class="search-input">

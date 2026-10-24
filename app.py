@@ -410,6 +410,13 @@ def get_current_company_id():
     role = session.get('role')
     comp_id = session.get('company_id')
     if role == 'super_admin':
+        if request:
+            try:
+                arg_comp = request.args.get('company_id')
+                if arg_comp and str(arg_comp).strip() and str(arg_comp).strip() not in ['None', 'null']:
+                    return str(arg_comp).strip()
+            except Exception:
+                pass
         return comp_id or 'ARGUS_MASTER'
 
     if role == 'company_admin':
@@ -615,8 +622,34 @@ def inject_delete_permissions():
     if target_comp_id and company_modules.get('branch_company', True):
         branches_list = database.get_company_branches(target_comp_id, include_headcount=False)
 
+    # 6. Multi-tenant company list for System Admin tab filters
+    system_admin_companies = []
+    active_comp_id = target_comp_id or 'ARGUS_MASTER'
+    if is_super:
+        if request:
+            try:
+                req_comp = request.args.get('company_id')
+                if req_comp and str(req_comp).strip() and str(req_comp).strip() not in ['None', 'null']:
+                    active_comp_id = str(req_comp).strip()
+            except Exception:
+                pass
+        try:
+            comps_res = database.get_all_companies(limit=1000)
+            raw_comps = comps_res.get('data', []) if isinstance(comps_res, dict) else []
+            system_admin_companies = [{'id': 'ARGUS_MASTER', 'company_name': 'System Administration (ARGUS TECHNOLOGIES)'}]
+            for c in raw_comps:
+                if c.get('id') != 'ARGUS_MASTER':
+                    system_admin_companies.append({
+                        'id': c['id'],
+                        'company_name': c.get('company_name', c['id'])
+                    })
+        except Exception:
+            system_admin_companies = [{'id': 'ARGUS_MASTER', 'company_name': 'System Administration (ARGUS TECHNOLOGIES)'}]
+
     return {
         'is_system_admin': is_super,
+        'system_admin_companies': system_admin_companies,
+        'active_company_id': active_comp_id,
         'can_delete_entries': comp_can_del,
         'company_support_enabled': company_support_enabled,
         'pending_leave_count': pending_cnt,
@@ -1827,6 +1860,46 @@ def api_companies_export_pdf():
         download_name=filename,
         mimetype='application/pdf'
     )
+
+# ----------------- SYSTEM ADMIN MULTI-TENANT SWITCHER API ----------------- #
+
+@app.route('/api/system-admin/set-active-company', methods=['POST'])
+@login_required
+def api_system_admin_set_active_company():
+    role = session.get('role')
+    if role != 'super_admin':
+        return jsonify({'success': False, 'error': 'Unauthorized. System Admin only.'}), 403
+    
+    data = request.get_json(silent=True) or {}
+    company_id = str(data.get('company_id', '')).strip()
+    if not company_id or company_id == 'ARGUS_MASTER':
+        session['company_id'] = 'ARGUS_MASTER'
+        session['company_name'] = 'ARGUS TECHNOLOGIES'
+        session['active_branch_id'] = 'HOME'
+        session['active_branch_name'] = 'Home Branch'
+        session.modified = True
+        return jsonify({
+            'success': True,
+            'company_id': 'ARGUS_MASTER',
+            'company_name': 'System Administration (ARGUS TECHNOLOGIES)'
+        })
+    
+    comp = database.get_company_by_id(company_id)
+    if not comp:
+        return jsonify({'success': False, 'error': f'Company {company_id} not found'}), 404
+    
+    c_name = comp.get('company_name', company_id)
+    session['company_id'] = company_id
+    session['company_name'] = c_name
+    session['active_branch_id'] = 'HOME'
+    session['active_branch_name'] = 'Home Branch'
+    session.modified = True
+    
+    return jsonify({
+        'success': True,
+        'company_id': company_id,
+        'company_name': c_name
+    })
 
 # ----------------- COMPANY PROFILE API ROUTES ----------------- #
 

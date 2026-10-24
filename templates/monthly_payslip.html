@@ -906,6 +906,17 @@
 <!-- ================= 1. SELECTION FORM ================= -->
 <div class="table-card" id="payslipSelectionCard" style="padding: 22px 20px; border-radius: 12px;">
   <div style="display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;">
+    {% if is_system_admin and system_admin_companies %}
+    <div class="sysadmin-company-filter-wrap" style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; flex-shrink: 0;">
+      <label for="sysadminCompanyFilterPayslip" style="font-size: 13px; font-weight: 700; color: #0f172a; white-space: nowrap; flex-shrink: 0;">SELECT COMPANY:</label>
+      <select id="sysadminCompanyFilterPayslip" class="table-filter-select" onchange="globalSwitchSystemAdminCompany(this.value)" style="min-width: 170px; padding: 6px 12px; font-size: 13px; font-weight: 600;">
+        {% for c in system_admin_companies %}
+        <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; flex-shrink: 0;">
       <label for="selectPayslipEmployee" style="font-size: 13px; font-weight: 700; color: #0f172a; white-space: nowrap; flex-shrink: 0;">Select Employee Name:</label>
       <select id="selectPayslipEmployee" class="table-filter-select" style="min-width: 170px; padding: 6px 12px; font-size: 13px;">

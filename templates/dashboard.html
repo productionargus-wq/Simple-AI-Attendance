@@ -286,7 +286,17 @@
       </h2>
       <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b;">Real-time presence, branch statistics, and daily KPI summary</p>
     </div>
-    <div style="display: flex; align-items: center; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      {% if is_system_admin and system_admin_companies %}
+      <div class="sysadmin-company-filter-wrap">
+        <label for="sysadminCompanyFilterDashboard">SELECT COMPANY:</label>
+        <select class="sysadmin-company-select" id="sysadminCompanyFilterDashboard" onchange="globalSwitchSystemAdminCompany(this.value)">
+          {% for c in system_admin_companies %}
+          <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
       <button type="button" id="btnDashboardBriefing" class="btn-voice-briefing" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;" title="Listen to today's attendance briefing" onclick="window.triggerDashboardBriefing && window.triggerDashboardBriefing(event)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>

@@ -7,7 +7,7 @@
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261007_white">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261007_white">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261024_scroll">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261024_compfilter">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script>
     window.IS_SYSTEM_ADMIN = {{ 'true' if is_system_admin else 'false' }};
@@ -476,6 +476,41 @@
         }
       })
       .catch(function () {
+        window.location.reload();
+      });
+    }
+
+    function globalSwitchSystemAdminCompany(companyId) {
+      if (!companyId) return;
+      var pb = document.getElementById('appTopProgressBar');
+      if (pb) {
+        pb.style.opacity = '1';
+        pb.style.width = '65%';
+      }
+      fetch('/api/system-admin/set-active-company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company_id: companyId })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.success) {
+          if (window.spaClearCache) window.spaClearCache();
+          var u = new URL(window.location.href);
+          if (companyId && companyId !== 'ARGUS_MASTER') {
+            u.searchParams.set('company_id', companyId);
+          } else {
+            u.searchParams.delete('company_id');
+          }
+          u.searchParams.delete('branch_id');
+          window.location.href = u.toString();
+        } else {
+          alert(data.error || 'Failed to switch active company');
+          if (pb) { pb.style.opacity = '0'; pb.style.width = '0%'; }
+        }
+      })
+      .catch(function (err) {
+        console.error('Switch company error:', err);
         window.location.reload();
       });
     }

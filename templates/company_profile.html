@@ -631,6 +631,11 @@ document.addEventListener('DOMContentLoaded', function () {
   if (selectCompanyDropdown) {
     selectCompanyDropdown.addEventListener('change', function () {
       loadProfile(this.value);
+      fetch('/api/system-admin/set-active-company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company_id: this.value })
+      }).catch(function () {});
     });
   }
 
