@@ -100,11 +100,7 @@
     
     <div class="nav-center">
       <div class="nav-title">
-        {% if active_branch_name %}
-          {{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }} - {{ active_branch_name }}
-        {% else %}
-          {{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}
-        {% endif %}
+        <span class="nav-company-name">{{ session.get('company_name') or 'ARGUS TECHNOLOGIES' }}</span>{% if active_branch_name %}<span class="nav-branch-title-suffix"> - {{ active_branch_name }}</span>{% endif %}
       </div>
     </div>
     

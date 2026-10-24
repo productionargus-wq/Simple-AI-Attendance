@@ -278,15 +278,15 @@
 <div class="dash-container">
 
   <!-- Header Bar with Audio Briefing & Voice Toggle -->
-  <div class="dash-header-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-    <div>
+  <div class="dash-header-bar">
+    <div class="dash-header-title-group">
       <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
         <span>Live Attendance Overview</span>
         <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
       </h2>
       <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b;">Real-time presence, branch statistics, and daily KPI summary</p>
     </div>
-    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+    <div class="dash-header-actions">
       {% if is_system_admin and system_admin_companies %}
       <div class="sysadmin-company-filter-wrap">
         <label for="sysadminCompanyFilterDashboard">COMPANY:</label>
@@ -297,17 +297,19 @@
         </select>
       </div>
       {% endif %}
-      <button type="button" id="btnDashboardBriefing" class="btn-voice-briefing" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;" title="Listen to today's attendance briefing" onclick="window.triggerDashboardBriefing && window.triggerDashboardBriefing(event)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
-          <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
-        </svg>
-        <span>Audio Briefing</span>
-      </button>
-      <button type="button" id="btnDashboardToggleVoice" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 12px; font-weight: 600; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice announcements">
-        <span class="voice-icon">🔊</span>
-        <span class="voice-text">Audio: On</span>
-      </button>
+      <div class="dash-header-buttons-grid">
+        <button type="button" id="btnDashboardBriefing" class="btn-voice-briefing" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;" title="Listen to today's attendance briefing" onclick="window.triggerDashboardBriefing && window.triggerDashboardBriefing(event)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+          </svg>
+          <span>Audio Briefing</span>
+        </button>
+        <button type="button" id="btnDashboardToggleVoice" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 12px; font-weight: 600; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice announcements">
+          <span class="voice-icon">🔊</span>
+          <span class="voice-text">Audio: On</span>
+        </button>
+      </div>
     </div>
   </div>
 
