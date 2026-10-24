@@ -41,7 +41,7 @@
       </div>
       <div class="filter-group">
         <label for="employeeFilter">Employee</label>
-        <select id="employeeFilter" class="filter-input" style="min-width: 130px; padding: 3px 8px;">
+        <select id="employeeFilter" class="filter-input" style="max-width: 100px; min-width: 75px;">
           <option value="All">All</option>
           {% for emp in employees %}
           <option value="{{ emp }}">{{ emp }}</option>
@@ -100,7 +100,7 @@
 
       {% if is_system_admin and system_admin_companies %}
       <div class="sysadmin-company-filter-wrap">
-        <label for="sysadminCompanyFilterAttReport">SELECT COMPANY:</label>
+        <label for="sysadminCompanyFilterAttReport">COMPANY:</label>
         <select class="sysadmin-company-select" id="sysadminCompanyFilterAttReport" onchange="globalSwitchSystemAdminCompany(this.value)">
           {% for c in system_admin_companies %}
           <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>

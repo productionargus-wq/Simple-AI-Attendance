@@ -57,7 +57,7 @@
     <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
       {% if is_system_admin and system_admin_companies %}
       <div class="sysadmin-company-filter-wrap">
-        <label for="sysadminCompanyFilterPayment">SELECT COMPANY:</label>
+        <label for="sysadminCompanyFilterPayment">COMPANY:</label>
         <select class="sysadmin-company-select" id="sysadminCompanyFilterPayment" onchange="globalSwitchSystemAdminCompany(this.value)">
           {% for c in system_admin_companies %}
           <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>

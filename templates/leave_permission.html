@@ -20,7 +20,7 @@
   <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
     {% if is_system_admin and system_admin_companies %}
     <div class="sysadmin-company-filter-wrap">
-      <label for="sysadminCompanyFilterLeave">SELECT COMPANY:</label>
+      <label for="sysadminCompanyFilterLeave">COMPANY:</label>
       <select class="sysadmin-company-select" id="sysadminCompanyFilterLeave" onchange="globalSwitchSystemAdminCompany(this.value)">
         {% for c in system_admin_companies %}
         <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>

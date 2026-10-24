@@ -26,11 +26,11 @@
     <div class="table-toolbar-left">
       <div class="filter-group">
         <label for="salaryStartMonth">Start Month</label>
-        <input type="month" id="salaryStartMonth" class="filter-input" style="width: 130px;">
+        <input type="month" id="salaryStartMonth" class="filter-input">
       </div>
       <div class="filter-group">
         <label for="salaryEndMonth">End Month</label>
-        <input type="month" id="salaryEndMonth" class="filter-input" style="width: 130px;">
+        <input type="month" id="salaryEndMonth" class="filter-input">
       </div>
       <button type="button" id="btnFilterSalary" class="btn-filter">Filter</button>
       <button type="button" id="btnClearSalary" class="btn-clear">Clear</button>
@@ -64,7 +64,7 @@
 
       {% if is_system_admin and system_admin_companies %}
       <div class="sysadmin-company-filter-wrap">
-        <label for="sysadminCompanyFilterSalary">SELECT COMPANY:</label>
+        <label for="sysadminCompanyFilterSalary">COMPANY:</label>
         <select class="sysadmin-company-select" id="sysadminCompanyFilterSalary" onchange="globalSwitchSystemAdminCompany(this.value)">
           {% for c in system_admin_companies %}
           <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>

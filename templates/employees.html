@@ -89,7 +89,7 @@
 
       {% if is_system_admin and system_admin_companies %}
       <div class="sysadmin-company-filter-wrap">
-        <label for="sysadminCompanyFilterEmployees">SELECT COMPANY:</label>
+        <label for="sysadminCompanyFilterEmployees">COMPANY:</label>
         <select class="sysadmin-company-select" id="sysadminCompanyFilterEmployees" onchange="globalSwitchSystemAdminCompany(this.value)">
           {% for c in system_admin_companies %}
           <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
