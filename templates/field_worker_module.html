@@ -8966,7 +8966,7 @@
       stopFwSpeech();
       try {
         const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(text) + '&lang=ta');
-        audio.playbackRate = 1.45;
+        audio.playbackRate = 1.3;
         activeFwTamilAudio = audio;
         audio.play().catch(e => {});
       } catch (err) {}
@@ -9055,7 +9055,7 @@
         try {
           stopFwSpeech();
           const utterance = new SpeechSynthesisUtterance(tamilText);
-          utterance.rate = 1.45;
+          utterance.rate = 1.3;
           utterance.pitch = 1.0;
           utterance.voice = tamilVoice;
           utterance.lang = tamilVoice.lang || 'ta-IN';

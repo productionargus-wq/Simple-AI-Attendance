@@ -25,7 +25,7 @@
       this.tamilVoice = null;
       this.englishVoice = null;
       this.activeServerAudio = null;
-      this.tamilRate = 1.45;
+      this.tamilRate = 1.3;
       this.isVoiceEnabled = localStorage.getItem('argus_voice_assist') !== 'false';
       this.lastGuidanceTime = 0;
       this.lastGuidanceText = '';
@@ -123,7 +123,7 @@
       this.cancel();
       try {
         const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(text) + '&lang=ta');
-        audio.playbackRate = this.tamilRate || 1.45;
+        audio.playbackRate = this.tamilRate || 1.3;
         this.activeServerAudio = audio;
         audio.play().catch(e => {
           console.warn('Server TTS playback notice:', e);
@@ -225,7 +225,7 @@
           const utter = new SpeechSynthesisUtterance(targetText);
           utter.voice = this.tamilVoice;
           utter.lang = this.tamilVoice.lang || 'ta-IN';
-          utter.rate = options.rate || this.tamilRate || 1.45;
+          utter.rate = options.rate || this.tamilRate || 1.3;
           utter.pitch = options.pitch || 1.0;
           utter.volume = 1.0;
           window._activeSpeechUtterance = utter;
@@ -243,7 +243,7 @@
     }
 
     speakGuidance(content) {
-      this.speak(content, { isGuidance: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
+      this.speak(content, { isGuidance: true, rate: this.isMobile ? (this.tamilRate || 1.3) : 1.0 });
     }
 
     // Format standard time into natural spoken Tamil
@@ -283,7 +283,7 @@
       this.speak({
         tamil: `நன்றி ${empName}! உங்கள் வருகை பதிவாகியது. நேரம் ${timeTa}.`,
         english: `Thank you, ${empName}! Your punch in is recorded at ${timeEn}.`
-      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
+      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.3) : 1.0 });
     }
 
     announcePunchOut(empName, punchTime) {
@@ -292,14 +292,14 @@
       this.speak({
         tamil: `நன்றி ${empName}! பணி நிறைவு நேரம் பதிவானது. நேரம் ${timeTa}.`,
         english: `Thank you, ${empName}! Your punch out is recorded at ${timeEn}.`
-      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
+      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.3) : 1.0 });
     }
 
     announceAlreadyPunched(empName) {
       this.speak({
         tamil: `${empName}, உங்கள் வருகை ஏற்கனவே பதிவாகியுள்ளது.`,
         english: `${empName}, your attendance is already marked.`
-      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
+      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.3) : 1.0 });
     }
 
     announceGeofenceWarning(locationName) {
@@ -308,7 +308,7 @@
       this.speak({
         tamil: `எச்சரிக்கை! நீங்கள் அனுமதிக்கப்பட்ட எல்லைக்கு வெளியே உள்ளீர்கள்${locTa}.`,
         english: `Warning: You are outside your assigned work location${locEn}.`
-      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
+      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.3) : 1.0 });
     }
 
     announceSuccess(tamilText, englishText) {

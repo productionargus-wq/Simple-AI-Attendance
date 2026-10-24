@@ -1618,7 +1618,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       const url = '/api/voice/tamil-tts?text=' + encodeURIComponent(text) + '&lang=ta';
       const audio = new Audio(url);
-      audio.playbackRate = 1.45;
+      audio.playbackRate = 1.3;
       activeTamilAudio = audio;
       audio.play().catch(e => {
         console.warn('Server Tamil Audio playback notice:', e);
@@ -1666,7 +1666,7 @@ document.addEventListener('DOMContentLoaded', function () {
       try {
         stopAllSpeech();
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.45;
+        utterance.rate = 1.3;
         utterance.pitch = 1.0;
         utterance.voice = tamilVoice;
         utterance.lang = tamilVoice.lang || 'ta-IN';
