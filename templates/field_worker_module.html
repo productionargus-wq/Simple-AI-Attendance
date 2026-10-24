@@ -372,12 +372,93 @@
 
     /* ---------------- Field Operations Dashboard 5-Card Grid ---------------- */
     .dash-stats-grid {
-      display: grid !important;
-      grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-      gap: 14px !important;
-      margin-bottom: 18px !important;
-      width: 100% !important;
-      box-sizing: border-box !important;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* ---------------- Operational Summary Row (4 Highlights) ---------------- */
+    .fw-operational-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .fw-operational-summary-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02);
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    .fw-operational-summary-card .op-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .fw-operational-summary-card .op-text-box {
+      min-width: 0;
+      overflow: hidden;
+      flex: 1;
+    }
+
+    .fw-operational-summary-card .op-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+
+    .fw-operational-summary-card .op-value {
+      font-size: 17px;
+      font-weight: 800;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+
+    /* ---------------- Bottom Row (Attendance Table & Branch Operations) ---------------- */
+    .fw-attendance-branch-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      margin-bottom: 18px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* ---------------- Leave Balance 4-Card Grid ---------------- */
+    .fw-leave-balance-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .dash-stat-card {
@@ -1807,6 +1888,18 @@
 
     /* ---------------- Responsive Breakpoints ---------------- */
     @media (max-width: 1320px) {
+      .dash-stats-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+      }
+      .fw-operational-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+      }
+      .fw-leave-balance-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+      }
       .fw-kpi-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
@@ -1846,9 +1939,20 @@
       .app-footer {
         left: 0 !important;
       }
+      .app-container {
+        height: auto !important;
+        min-height: calc(100dvh - 52px - 36px) !important;
+      }
+      .main-wrapper {
+        overflow-y: visible !important;
+      }
+      .fw-attendance-branch-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+      }
       .fw-split-65-35,
       .fw-split-50-50 {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
       }
       .fw-main-content {
         padding: 16px 14px 80px 14px;
@@ -1891,12 +1995,88 @@
         justify-content: center;
         text-align: center;
       }
+
+      /* Dashboard stats 2x2 grid with 5th card full width */
+      .dash-stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+      }
+      .dash-stats-grid .dash-stat-card:last-child:nth-child(odd) {
+        grid-column: span 2 !important;
+      }
+      .dash-stat-card {
+        padding: 11px 12px !important;
+        gap: 10px !important;
+      }
+
+      /* Operational 4-Summary Cards 2x2 grid */
+      .fw-operational-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+      }
+      .fw-operational-summary-card {
+        padding: 10px 12px !important;
+        gap: 10px !important;
+      }
+
+      /* Leave balance 4-card grid */
+      .fw-leave-balance-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+      }
+
+      /* Card Headers & Tables responsive wrap */
+      .card-head {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+      }
+      .card-head .search-box-wrapper {
+        width: 100% !important;
+        margin: 0 !important;
+      }
+      .card-head .search-box-wrapper .search-input {
+        width: 100% !important;
+      }
+
+      /* Horizontal table touch scrolling */
+      .card-table-scroll,
+      .fw-table-wrapper {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .card-table-scroll::-webkit-scrollbar,
+      .fw-table-wrapper::-webkit-scrollbar {
+        height: 5px;
+      }
+      .card-table-scroll::-webkit-scrollbar-track,
+      .fw-table-wrapper::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+      }
+      .card-table-scroll::-webkit-scrollbar-thumb,
+      .fw-table-wrapper::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      .dash-table,
+      .fw-table {
+        min-width: 580px;
+      }
+      .dash-table th,
+      .dash-table td,
+      .fw-table th,
+      .fw-table td {
+        white-space: nowrap !important;
+      }
     }
 
     @media (max-width: 640px) {
       .fw-kpi-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
       }
       .fw-form-grid-4,
       .fw-form-grid-3,
@@ -1926,6 +2106,24 @@
       }
       .fw-card-body {
         padding: 12px 10px;
+      }
+      /* AI Detour Alert Banner */
+      .ai-detour-alert-banner {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        padding: 12px 14px !important;
+      }
+      .ai-alert-actions {
+        width: 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+      }
+      .ai-alert-actions button {
+        flex: 1 1 calc(50% - 4px) !important;
+        justify-content: center !important;
+        text-align: center !important;
       }
       /* Modal Mobile System */
       .fw-modal-backdrop {
@@ -1968,6 +2166,7 @@
       }
       .table-toolbar > div {
         width: 100% !important;
+        flex-wrap: wrap !important;
       }
       .table-toolbar .search-box-wrapper {
         width: 100% !important;
@@ -1980,33 +2179,143 @@
 
     @media (max-width: 480px) {
       .fw-main-content {
-        padding: 10px 6px 90px 6px;
+        padding: 10px 8px 90px 8px !important;
       }
       .top-navbar {
-        padding: 0 8px;
+        padding: 0 10px !important;
+        height: 50px !important;
+      }
+      .top-navbar .nav-center {
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
       }
       .top-navbar .nav-title {
-        font-size: 11.5px;
-        max-width: 120px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        font-size: 12px !important;
+        max-width: 130px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+      }
+      .top-navbar .nav-right {
+        gap: 6px !important;
+        flex-shrink: 0 !important;
       }
       .top-navbar .badge-neutral {
-        font-size: 10px;
-        padding: 2px 6px;
-        max-width: 115px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        font-size: 10px !important;
+        padding: 2px 6px !important;
+        max-width: 110px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
       }
+      .top-navbar .top-nav-logo-circle {
+        width: 32px !important;
+        height: 32px !important;
+      }
+
+      /* 5 Stats Cards on Phone screens */
+      .dash-stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+      }
+      .dash-stats-grid .dash-stat-card:last-child:nth-child(odd) {
+        grid-column: span 2 !important;
+      }
+      .dash-stat-card {
+        padding: 9px 10px !important;
+        gap: 8px !important;
+        border-radius: 10px !important;
+      }
+      .dash-stat-card .stat-icon-badge {
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+      }
+      .dash-stat-card .stat-icon-badge svg {
+        width: 17px !important;
+        height: 17px !important;
+      }
+      .dash-stat-card .stat-title {
+        font-size: 10px !important;
+        font-weight: 700 !important;
+        margin-bottom: 2px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+      }
+      .dash-stat-card .stat-num {
+        font-size: 16px !important;
+        font-weight: 800 !important;
+      }
+      .dash-stat-card .stat-trend {
+        font-size: 9.5px !important;
+      }
+
+      /* 4 Operational summary cards */
+      .fw-operational-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+      }
+      .fw-operational-summary-card {
+        padding: 8px 10px !important;
+        gap: 8px !important;
+        border-radius: 8px !important;
+      }
+      .fw-operational-summary-card .op-icon-box {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 12px !important;
+      }
+      .fw-operational-summary-card .op-label {
+        font-size: 8.5px !important;
+        font-weight: 700 !important;
+      }
+      .fw-operational-summary-card .op-value {
+        font-size: 13.5px !important;
+        font-weight: 800 !important;
+      }
+
+      /* Leave balance 4-grid */
+      .fw-leave-balance-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+      }
+
+      /* KPI grid on phone */
       .fw-kpi-grid {
-        grid-template-columns: 1fr;
-        gap: 8px;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
       }
       .fw-kpi-card {
-        padding: 10px 12px;
+        padding: 8px 10px !important;
       }
+      .fw-kpi-lbl {
+        font-size: 9px !important;
+      }
+      .fw-kpi-val {
+        font-size: 15px !important;
+      }
+      .fw-kpi-sub {
+        font-size: 8.5px !important;
+      }
+      .fw-kpi-icon {
+        width: 30px !important;
+        height: 30px !important;
+        font-size: 13px !important;
+      }
+
+      .dash-card,
+      .table-card,
+      .fw-card {
+        border-radius: 10px !important;
+        margin-bottom: 12px !important;
+      }
+      .card-title-text,
+      .fw-card-title {
+        font-size: 12px !important;
+      }
+
       .fw-filter-pill {
         flex: 1 1 100%;
         width: 100%;
@@ -2021,6 +2330,32 @@
       }
       .fw-modal-footer .fw-btn {
         flex: 1 1 100%;
+      }
+      .custom-leave-row {
+        grid-template-columns: 1fr 70px 75px 28px !important;
+        gap: 6px !important;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .dash-stats-grid {
+        grid-template-columns: 1fr !important;
+        gap: 6px !important;
+      }
+      .dash-stats-grid .dash-stat-card:last-child:nth-child(odd) {
+        grid-column: span 1 !important;
+      }
+      .fw-operational-summary-grid {
+        grid-template-columns: 1fr !important;
+        gap: 6px !important;
+      }
+      .fw-kpi-grid {
+        grid-template-columns: 1fr !important;
+        gap: 6px !important;
+      }
+      .custom-leave-row {
+        grid-template-columns: 1fr 60px 65px 24px !important;
+        gap: 4px !important;
       }
     }
 
@@ -3615,50 +3950,50 @@
           </div>
 
           <!-- Operational Summary Row (4 Highlights) -->
-          <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:14px; margin-bottom:18px;">
-            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 6px rgba(15,23,42,0.02);">
-              <span style="width:36px; height:36px; border-radius:8px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0;">
+          <div class="fw-operational-summary-grid">
+            <div class="fw-operational-summary-card">
+              <span class="op-icon-box" style="background:#eff6ff; color:#2563eb;">
                 <i class="fa-solid fa-route"></i>
               </span>
-              <div>
-                <div style="font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Total Travel Distance</div>
-                <div style="font-size:17px; font-weight:800; color:#0f172a;" id="fwDashTotalKm">{{ dashboard_stats.total_distance_km or 0 }} KM</div>
+              <div class="op-text-box">
+                <div class="op-label">Total Travel Distance</div>
+                <div class="op-value" id="fwDashTotalKm">{{ dashboard_stats.total_distance_km or 0 }} KM</div>
               </div>
             </div>
 
-            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 6px rgba(15,23,42,0.02);">
-              <span style="width:36px; height:36px; border-radius:8px; background:#ccfbf1; color:#0f766e; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0;">
+            <div class="fw-operational-summary-card">
+              <span class="op-icon-box" style="background:#ccfbf1; color:#0f766e;">
                 <i class="fa-solid fa-handshake"></i>
               </span>
-              <div>
-                <div style="font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Customer Leads Logged</div>
-                <div style="font-size:17px; font-weight:800; color:#0f172a;" id="fwDashTotalVisits">{{ dashboard_stats.total_visits or 0 }} Visits</div>
+              <div class="op-text-box">
+                <div class="op-label">Customer Leads Logged</div>
+                <div class="op-value" id="fwDashTotalVisits">{{ dashboard_stats.total_visits or 0 }} Visits</div>
               </div>
             </div>
 
-            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 6px rgba(15,23,42,0.02);">
-              <span style="width:36px; height:36px; border-radius:8px; background:#f0fdf4; color:#166534; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0;">
+            <div class="fw-operational-summary-card">
+              <span class="op-icon-box" style="background:#f0fdf4; color:#166534;">
                 <i class="fa-solid fa-indian-rupee-sign"></i>
               </span>
-              <div>
-                <div style="font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Total Deal Value</div>
-                <div style="font-size:17px; font-weight:800; color:#166534;" id="fwDashTotalOrders">₹{{ "%.2f"|format(dashboard_stats.total_order_amount or 0) }}</div>
+              <div class="op-text-box">
+                <div class="op-label">Total Deal Value</div>
+                <div class="op-value" style="color:#166534;" id="fwDashTotalOrders">₹{{ "%.2f"|format(dashboard_stats.total_order_amount or 0) }}</div>
               </div>
             </div>
 
-            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 6px rgba(15,23,42,0.02);">
-              <span style="width:36px; height:36px; border-radius:8px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0;">
+            <div class="fw-operational-summary-card">
+              <span class="op-icon-box" style="background:#fee2e2; color:#dc2626;">
                 <i class="fa-solid fa-triangle-exclamation"></i>
               </span>
-              <div>
-                <div style="font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Route Detour Alerts</div>
-                <div style="font-size:17px; font-weight:800; color:#dc2626;" id="fwDashDetours">{{ dashboard_stats.detour_alerts or 0 }} Alerts</div>
+              <div class="op-text-box">
+                <div class="op-label">Route Detour Alerts</div>
+                <div class="op-value" style="color:#dc2626;" id="fwDashDetours">{{ dashboard_stats.detour_alerts or 0 }} Alerts</div>
               </div>
             </div>
           </div>
 
           <!-- Bottom Row: Today's Field Attendance & Branch Breakdown (2 Columns) -->
-          <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px; margin-bottom:18px;">
+          <div class="fw-attendance-branch-grid">
             <!-- Left Card: Today's Field Worker Attendance & Real-Time Status Table -->
             <div class="dash-card">
               <div class="card-head" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -5237,7 +5572,7 @@
         <div id="paneFieldEmployeeLeaves" class="fw-section-pane" data-title="MY LEAVE &amp; PERMISSION">
           <!-- Live Leave Balance Cards (4 Grid) -->
           {% set my_bal = (fw_leave_balances[0] if fw_leave_balances else {}) %}
-          <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:14px; margin-bottom:18px;">
+          <div class="fw-leave-balance-grid">
             <div class="fw-kpi-card" style="border-left: 3px solid #2563eb;">
               <div>
                 <div class="fw-kpi-lbl" style="color:#1d4ed8;">Casual Leave (CL)</div>
@@ -6380,7 +6715,7 @@
                       </select>
                     </div>
 
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                    <div class="fw-form-grid-2">
                       <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Entry Date *</label>
                         <input type="date" id="inputFieldManualDate" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" required>
@@ -6394,7 +6729,7 @@
                       </div>
                     </div>
 
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                    <div class="fw-form-grid-2">
                       <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Calculation Mode</label>
                         <select id="inputFieldManualMode" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;" onchange="handleFwManualModeChange()">
@@ -6410,7 +6745,7 @@
                       </div>
                     </div>
 
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                    <div class="fw-form-grid-2">
                       <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Status</label>
                         <select id="inputFieldManualStatus" class="filter-input" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px;">
@@ -6467,7 +6802,7 @@
                     Specify the reimbursement rate per unit distance (e.g. 1 KM = ₹10). Changing this rate dynamically recalculates the petrol/diesel allowance across all field worker payslips and reports.
                   </div>
 
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: flex-end;">
+                  <div class="fw-form-grid-2" style="align-items: flex-end;">
                     <div>
                       <label for="cfgPetrolUnitKm" style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Distance Unit *</label>
                       <div style="display:flex; align-items:center; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc; overflow:hidden;">
