@@ -17,14 +17,16 @@
     </div>
   </div>
 
-  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px;">
-    {% if session.get('role') == 'super_admin' and companies %}
-    <select id="leaveCompanySelect" class="form-select" style="max-width: 220px; font-size: 12.5px; padding: 6px 12px; border-radius: 6px; border: 1.5px solid #cbd5e1; font-weight: 600;">
-      <option value="">All Companies</option>
-      {% for comp in companies %}
-      <option value="{{ comp.id }}">{{ comp.company_name }}</option>
-      {% endfor %}
-    </select>
+  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+    {% if is_system_admin and system_admin_companies %}
+    <div class="sysadmin-company-filter-wrap">
+      <label for="sysadminCompanyFilterLeave">SELECT COMPANY:</label>
+      <select class="sysadmin-company-select" id="sysadminCompanyFilterLeave" onchange="globalSwitchSystemAdminCompany(this.value)">
+        {% for c in system_admin_companies %}
+        <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
     {% endif %}
 
     <button type="button" class="btn-primary-action" id="btnOpenLeaveBalancesModal" title="Set Leaves &amp; Quotas for Employees" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer;">
@@ -84,21 +86,8 @@
       </div>
     </div>
 
-    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-      {% if is_system_admin and system_admin_companies %}
-      <div class="sysadmin-company-filter-wrap">
-        <label for="sysadminCompanyFilterLeave">SELECT COMPANY:</label>
-        <select class="sysadmin-company-select" id="sysadminCompanyFilterLeave" onchange="globalSwitchSystemAdminCompany(this.value)">
-          {% for c in system_admin_companies %}
-          <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      {% endif %}
-
-      <div class="search-box-wrapper" style="max-width: 280px;">
-        <input type="text" id="searchRequestsInput" class="search-input" placeholder="Search requests...">
-      </div>
+    <div class="search-box-wrapper" style="max-width: 280px;">
+      <input type="text" id="searchRequestsInput" class="search-input" placeholder="Search requests...">
     </div>
   </div>
 

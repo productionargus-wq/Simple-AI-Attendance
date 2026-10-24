@@ -216,36 +216,41 @@ document.addEventListener('DOMContentLoaded', function () {
         <div class="emp-grid-header">
           ${photoImgHtml}
           <div style="flex: 1; min-width: 0;">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
-              <div class="emp-grid-info-title">${escapeHtml(emp.employee_name)}</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+              <div class="emp-grid-info-title" title="${escapeHtml(emp.employee_name)}">${escapeHtml(emp.employee_name)}</div>
               ${statusBadgeHtml}
             </div>
-            <div class="emp-grid-info-sub">${escapeHtml(emp.designation || 'Staff')} &bull; ID: ${escapeHtml(emp.id)}</div>
-            ${emp.is_field_worker ? '<div style="margin-top: 3px;"><span style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">🏃 Field Worker</span></div>' : ''}
+            <div class="emp-grid-info-sub">
+              <span>${escapeHtml(emp.designation || 'Staff')}</span>
+              <span class="emp-grid-id-badge">ID: ${escapeHtml(emp.id)}</span>
+            </div>
+            ${emp.is_field_worker ? '<div style="margin-top: 4px;"><span style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">🏃 Field Worker</span></div>' : ''}
           </div>
         </div>
         <div class="emp-grid-body">
-          <div class="emp-grid-row">
-            <span class="emp-grid-label">Salary Basis:</span>
-            <span class="emp-grid-val">${salaryRateDisplay}</span>
-          </div>
-          <div class="emp-grid-row">
-            <span class="emp-grid-label">Mobile:</span>
-            <span class="emp-grid-val">${escapeHtml(emp.mobile_number || '-')}</span>
-          </div>
-          <div class="emp-grid-row">
-            <span class="emp-grid-label">Email:</span>
-            <span class="emp-grid-val" style="font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px;" title="${escapeHtml(emp.email_id || '-')}">${escapeHtml(emp.email_id || '-')}</span>
-          </div>
-          <div class="emp-grid-row">
-            <span class="emp-grid-label">Shift Hours:</span>
-            <span class="emp-grid-val">${escapeHtml(emp.shift_hours || '09:00')}</span>
+          <div class="emp-grid-stat-pills">
+            <div class="emp-grid-pill">
+              <span class="emp-grid-pill-label">Salary Rate</span>
+              <span class="emp-grid-pill-val" style="color: #0284c7;">${salaryRateDisplay}</span>
+            </div>
+            <div class="emp-grid-pill">
+              <span class="emp-grid-pill-label">Shift Hours</span>
+              <span class="emp-grid-pill-val">${escapeHtml(emp.shift_hours || '09:00')}</span>
+            </div>
           </div>
           ${emp.shift_start || emp.shift_end ? `
-          <div class="emp-grid-row">
-            <span class="emp-grid-label">Shift Timing:</span>
-            <span class="emp-grid-val">${escapeHtml(emp.shift_start || '09:00 AM')} - ${escapeHtml(emp.shift_end || '06:00 PM')}</span>
+          <div class="emp-grid-contact-row" style="margin-bottom: 2px;">
+            <svg class="emp-grid-contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span class="emp-grid-contact-text" style="font-size: 11px;">${escapeHtml(emp.shift_start || '09:00 AM')} - ${escapeHtml(emp.shift_end || '06:00 PM')}</span>
           </div>` : ''}
+          <div class="emp-grid-contact-row">
+            <svg class="emp-grid-contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            <span class="emp-grid-contact-text">${escapeHtml(emp.mobile_number || '-')}</span>
+          </div>
+          <div class="emp-grid-contact-row">
+            <svg class="emp-grid-contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            <span class="emp-grid-contact-text" title="${escapeHtml(emp.email_id || '-')}">${escapeHtml(emp.email_id || '-')}</span>
+          </div>
         </div>
         <div class="emp-grid-actions">
           <button class="btn-action btn-action-view" onclick="viewEmployee('${emp.id}')" title="View Details">

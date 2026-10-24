@@ -636,7 +636,7 @@ def inject_delete_permissions():
         try:
             comps_res = database.get_all_companies(limit=1000)
             raw_comps = comps_res.get('data', []) if isinstance(comps_res, dict) else []
-            system_admin_companies = [{'id': 'ARGUS_MASTER', 'company_name': 'System Administration (ARGUS TECHNOLOGIES)'}]
+            system_admin_companies = [{'id': 'ARGUS_MASTER', 'company_name': 'System Administration'}]
             for c in raw_comps:
                 if c.get('id') != 'ARGUS_MASTER':
                     system_admin_companies.append({
@@ -644,7 +644,7 @@ def inject_delete_permissions():
                         'company_name': c.get('company_name', c['id'])
                     })
         except Exception:
-            system_admin_companies = [{'id': 'ARGUS_MASTER', 'company_name': 'System Administration (ARGUS TECHNOLOGIES)'}]
+            system_admin_companies = [{'id': 'ARGUS_MASTER', 'company_name': 'System Administration'}]
 
     return {
         'is_system_admin': is_super,
@@ -1458,10 +1458,7 @@ def leave_permission():
     branch_id = get_current_branch_id()
     policy = database.get_company_leave_policy(comp_id)
     stats = database.get_admin_leave_stats(company_id=comp_id, branch_id=branch_id)
-    companies = []
-    if session.get('role') == 'super_admin':
-        companies = database.get_all_companies()
-    return render_template('leave_permission.html', active_tab='LEAVE & PERMISSION', policy=policy, stats=stats, companies=companies)
+    return render_template('leave_permission.html', active_tab='LEAVE & PERMISSION', policy=policy, stats=stats)
 
 @app.route('/leave-permission/review/<request_id>')
 @login_required
