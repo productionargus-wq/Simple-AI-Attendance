@@ -317,8 +317,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function closeSetQuotaModal() {
     if (window.ArgusVoice) {
-      window.ArgusVoice.stop();
-      window.ArgusVoice.resetFormGuidance('#modalSetEmployeeLeaveQuota');
+      if (typeof window.ArgusVoice.stop === 'function') {
+        window.ArgusVoice.stop();
+      } else if (typeof window.ArgusVoice.cancel === 'function') {
+        window.ArgusVoice.cancel();
+      }
+      if (typeof window.ArgusVoice.resetFormGuidance === 'function') {
+        window.ArgusVoice.resetFormGuidance('#modalSetEmployeeLeaveQuota');
+      }
     }
     if (modalSetQuota) modalSetQuota.style.display = 'none';
   }

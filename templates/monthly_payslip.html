@@ -904,21 +904,24 @@
       <div class="banner-subtitle">Select an employee, choose your template layout and theme, then generate payslip.</div>
     </div>
   </div>
-</div>
-
-<!-- ================= 1. SELECTION FORM ================= -->
-<div class="table-card" id="payslipSelectionCard" style="padding: 14px 16px; border-radius: 10px;">
-  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin;">
-    {% if is_system_admin and system_admin_companies %}
-    <div class="sysadmin-company-filter-wrap" style="display: inline-flex; align-items: center; gap: 4px; flex-wrap: nowrap; flex-shrink: 0;">
-      <label for="sysadminCompanyFilterPayslip" style="font-size: 10px; font-weight: 700; color: #475569; white-space: nowrap; flex-shrink: 0;">COMPANY:</label>
-      <select id="sysadminCompanyFilterPayslip" class="table-filter-select" onchange="globalSwitchSystemAdminCompany(this.value)" style="min-width: 125px; max-width: 145px; padding: 4px 6px; font-size: 11px; font-weight: 600; height: 26px;">
+  {% if is_system_admin and system_admin_companies %}
+  <div class="banner-actions" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: nowrap;">
+    <div class="sysadmin-company-filter-wrap" style="display: inline-flex; align-items: center; gap: 6px; margin: 0;">
+      <label for="sysadminCompanyFilterPayslip">COMPANY:</label>
+      <select id="sysadminCompanyFilterPayslip" class="sysadmin-company-select" onchange="globalSwitchSystemAdminCompany(this.value)">
         {% for c in system_admin_companies %}
         <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
         {% endfor %}
       </select>
     </div>
-    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- ================= 1. SELECTION FORM ================= -->
+<div class="table-card" id="payslipSelectionCard" style="padding: 14px 16px; border-radius: 10px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin;">
+
 
     <div style="display: inline-flex; align-items: center; gap: 4px; flex-wrap: nowrap; flex-shrink: 0;">
       <label for="selectPayslipEmployee" style="font-size: 11px; font-weight: 700; color: #0f172a; white-space: nowrap; flex-shrink: 0;">Employee:</label>

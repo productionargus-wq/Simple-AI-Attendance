@@ -118,6 +118,10 @@
       }
     }
 
+    stop() {
+      this.cancel();
+    }
+
     playServerAudio(text) {
       if (!text) return;
       this.cancel();

@@ -15,7 +15,17 @@
       <div class="banner-subtitle">Record and disburse employee salary advance payments</div>
     </div>
   </div>
-  <div style="display: flex; gap: 8px; align-items: center;">
+  <div class="banner-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; flex-shrink: 0;">
+    {% if is_system_admin and system_admin_companies %}
+    <div class="sysadmin-company-filter-wrap" style="display: inline-flex; align-items: center; gap: 6px; margin: 0;">
+      <label for="sysadminCompanyFilterAdvance">COMPANY:</label>
+      <select class="sysadmin-company-select" id="sysadminCompanyFilterAdvance" onchange="globalSwitchSystemAdminCompany(this.value)">
+        {% for c in system_admin_companies %}
+        <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
     <button type="button" id="btnAdvanceToggleVoice" class="btn-secondary-action" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; background: #ffffff; color: #475569; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;" title="Toggle voice announcements">
       <span class="voice-icon">🔊</span>
       <span class="voice-text">Audio: On</span>
@@ -79,16 +89,7 @@
     </div>
 
     <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-      {% if is_system_admin and system_admin_companies %}
-      <div class="sysadmin-company-filter-wrap">
-        <label for="sysadminCompanyFilterAdvance">COMPANY:</label>
-        <select class="sysadmin-company-select" id="sysadminCompanyFilterAdvance" onchange="globalSwitchSystemAdminCompany(this.value)">
-          {% for c in system_admin_companies %}
-          <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      {% endif %}
+
 
       <div class="search-box-wrapper">
         <label for="advanceSearch">Search:</label>

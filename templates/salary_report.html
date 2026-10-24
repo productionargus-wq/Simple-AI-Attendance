@@ -14,10 +14,21 @@
       <div class="banner-title">SALARY REPORT</div>
       <div class="banner-subtitle">Review all employee salary records in one comprehensive report.</div>
     </div>
+  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: nowrap;">
+    {% if is_system_admin and system_admin_companies %}
+    <div class="sysadmin-company-filter-wrap" style="display: inline-flex; align-items: center; gap: 6px; margin: 0;">
+      <label for="sysadminCompanyFilterSalary">COMPANY:</label>
+      <select class="sysadmin-company-select" id="sysadminCompanyFilterSalary" onchange="globalSwitchSystemAdminCompany(this.value)">
+        {% for c in system_admin_companies %}
+        <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <button class="btn-primary-action" style="cursor: default;">
+      Monthly Report
+    </button>
   </div>
-  <button class="btn-primary-action" style="cursor: default;">
-    Monthly Report
-  </button>
 </div>
 
 <!-- Salary Report Table Card with Single-Row Unified Toolbar -->
@@ -62,16 +73,6 @@
         </button>
       </div>
 
-      {% if is_system_admin and system_admin_companies %}
-      <div class="sysadmin-company-filter-wrap">
-        <label for="sysadminCompanyFilterSalary">COMPANY:</label>
-        <select class="sysadmin-company-select" id="sysadminCompanyFilterSalary" onchange="globalSwitchSystemAdminCompany(this.value)">
-          {% for c in system_admin_companies %}
-          <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      {% endif %}
 
       <div class="search-box-wrapper">
         <label for="salarySearch">Search:</label>
@@ -223,9 +224,11 @@ document.addEventListener('DOMContentLoaded', function () {
   let salaryTotal = 0;
 
   function loadSalaryReports() {
-    const startMonth = document.getElementById('salaryStartMonth').value;
-    const endMonth = document.getElementById('salaryEndMonth').value;
-    const search = document.getElementById('salarySearch').value.trim();
+    const tableBody = document.getElementById('salaryTableBody');
+    if (!tableBody) return; // Exit if not on salary report page
+    const startMonth = document.getElementById('salaryStartMonth')?.value || '';
+    const endMonth = document.getElementById('salaryEndMonth')?.value || '';
+    const search = (document.getElementById('salarySearch')?.value || '').trim();
     const urlParams = new URLSearchParams(window.location.search);
     const activeBranchId = urlParams.get('branch_id') || '{{ active_branch_id or "" }}';
 
@@ -322,62 +325,88 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // Filter & Clear buttons
-  document.getElementById('btnFilterSalary').addEventListener('click', function () {
-    salaryPage = 1;
-    loadSalaryReports();
-  });
+  const btnFilterSalary = document.getElementById('btnFilterSalary');
+  if (btnFilterSalary) {
+    btnFilterSalary.addEventListener('click', function () {
+      salaryPage = 1;
+      loadSalaryReports();
+    });
+  }
 
-  document.getElementById('btnClearSalary').addEventListener('click', function () {
-    document.getElementById('salaryStartMonth').value = '';
-    document.getElementById('salaryEndMonth').value = '';
-    document.getElementById('salarySearch').value = '';
-    salaryPage = 1;
-    loadSalaryReports();
-  });
+  const btnClearSalary = document.getElementById('btnClearSalary');
+  if (btnClearSalary) {
+    btnClearSalary.addEventListener('click', function () {
+      const sm = document.getElementById('salaryStartMonth');
+      const em = document.getElementById('salaryEndMonth');
+      const ss = document.getElementById('salarySearch');
+      if (sm) sm.value = '';
+      if (em) em.value = '';
+      if (ss) ss.value = '';
+      salaryPage = 1;
+      loadSalaryReports();
+    });
+  }
 
   // Search input
   const salarySearch = document.getElementById('salarySearch');
   let salarySearchTimer = null;
-  salarySearch.addEventListener('input', function () {
-    clearTimeout(salarySearchTimer);
-    salarySearchTimer = setTimeout(() => {
+  if (salarySearch) {
+    salarySearch.addEventListener('input', function () {
+      clearTimeout(salarySearchTimer);
+      salarySearchTimer = setTimeout(() => {
+        salaryPage = 1;
+        loadSalaryReports();
+      }, 300);
+    });
+  }
+
+  const salaryEntriesLimit = document.getElementById('salaryEntriesLimit');
+  if (salaryEntriesLimit) {
+    salaryEntriesLimit.addEventListener('change', function () {
+      salaryLimit = parseInt(this.value);
       salaryPage = 1;
       loadSalaryReports();
-    }, 300);
-  });
+    });
+  }
 
-  document.getElementById('salaryEntriesLimit').addEventListener('change', function () {
-    salaryLimit = parseInt(this.value);
-    salaryPage = 1;
-    loadSalaryReports();
-  });
+  const prevSalaryPageBtn = document.getElementById('prevSalaryPageBtn');
+  if (prevSalaryPageBtn) {
+    prevSalaryPageBtn.addEventListener('click', function () {
+      if (salaryPage > 1) {
+        salaryPage--;
+        loadSalaryReports();
+      }
+    });
+  }
 
-  document.getElementById('prevSalaryPageBtn').addEventListener('click', function () {
-    if (salaryPage > 1) {
-      salaryPage--;
-      loadSalaryReports();
-    }
-  });
-
-  document.getElementById('nextSalaryPageBtn').addEventListener('click', function () {
-    if (salaryPage * salaryLimit < salaryTotal) {
-      salaryPage++;
-      loadSalaryReports();
-    }
-  });
+  const nextSalaryPageBtn = document.getElementById('nextSalaryPageBtn');
+  if (nextSalaryPageBtn) {
+    nextSalaryPageBtn.addEventListener('click', function () {
+      if (salaryPage * salaryLimit < salaryTotal) {
+        salaryPage++;
+        loadSalaryReports();
+      }
+    });
+  }
 
   // Export buttons
-  document.getElementById('btnSalaryExcel').addEventListener('click', function () {
-    const startMonth = document.getElementById('salaryStartMonth').value;
-    const endMonth = document.getElementById('salaryEndMonth').value;
-    window.location.href = `/api/salary-reports/export/excel?start_month=${encodeURIComponent(startMonth)}&end_month=${encodeURIComponent(endMonth)}`;
-  });
+  const btnSalaryExcel = document.getElementById('btnSalaryExcel');
+  if (btnSalaryExcel) {
+    btnSalaryExcel.addEventListener('click', function () {
+      const startMonth = document.getElementById('salaryStartMonth')?.value || '';
+      const endMonth = document.getElementById('salaryEndMonth')?.value || '';
+      window.location.href = `/api/salary-reports/export/excel?start_month=${encodeURIComponent(startMonth)}&end_month=${encodeURIComponent(endMonth)}`;
+    });
+  }
 
-  document.getElementById('btnSalaryPdf').addEventListener('click', function () {
-    const startMonth = document.getElementById('salaryStartMonth').value;
-    const endMonth = document.getElementById('salaryEndMonth').value;
-    window.location.href = `/api/salary-reports/export/pdf?start_month=${encodeURIComponent(startMonth)}&end_month=${encodeURIComponent(endMonth)}`;
-  });
+  const btnSalaryPdf = document.getElementById('btnSalaryPdf');
+  if (btnSalaryPdf) {
+    btnSalaryPdf.addEventListener('click', function () {
+      const startMonth = document.getElementById('salaryStartMonth')?.value || '';
+      const endMonth = document.getElementById('salaryEndMonth')?.value || '';
+      window.location.href = `/api/salary-reports/export/pdf?start_month=${encodeURIComponent(startMonth)}&end_month=${encodeURIComponent(endMonth)}`;
+    });
+  }
 
   // Modal controls for Payslip PDF preview (Strictly Read-Only: No Download / Print / Delete)
   function escapeHtml(text) {
@@ -535,7 +564,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initial load
   loadSalaryReports();
   window.addEventListener('page:loaded', function () {
-    loadSalaryReports();
+    if (document.getElementById('salaryTableBody')) {
+      loadSalaryReports();
+    }
   });
 });
 </script>

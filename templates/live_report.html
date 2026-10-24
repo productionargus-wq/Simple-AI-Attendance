@@ -13,10 +13,21 @@
       <div class="banner-title" id="pageTitle">LIVE ENTRIES</div>
       <div class="banner-subtitle" id="reportSubtitle">Displays employees who are punched-in and currently working.</div>
     </div>
-  </div>
-  <div class="tab-toggle-container">
-    <button class="btn-toggle-tab active" id="btnLiveEntries">Live Entries</button>
-    <button class="btn-toggle-tab inactive" id="btnTimeoutEntries">Timeout Entries</button>
+  <div class="banner-actions" style="display: flex; align-items: center; gap: 12px; flex-shrink: 0; flex-wrap: nowrap;">
+    {% if is_system_admin and system_admin_companies %}
+    <div class="sysadmin-company-filter-wrap" style="display: inline-flex; align-items: center; gap: 6px; margin: 0;">
+      <label for="sysadminCompanyFilterLive">COMPANY:</label>
+      <select class="sysadmin-company-select" id="sysadminCompanyFilterLive" onchange="globalSwitchSystemAdminCompany(this.value)">
+        {% for c in system_admin_companies %}
+        <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="tab-toggle-container">
+      <button class="btn-toggle-tab active" id="btnLiveEntries">Live Entries</button>
+      <button class="btn-toggle-tab inactive" id="btnTimeoutEntries">Timeout Entries</button>
+    </div>
   </div>
 </div>
 
@@ -82,16 +93,6 @@
         </button>
       </div>
 
-      {% if is_system_admin and system_admin_companies %}
-      <div class="sysadmin-company-filter-wrap">
-        <label for="sysadminCompanyFilterLive">COMPANY:</label>
-        <select class="sysadmin-company-select" id="sysadminCompanyFilterLive" onchange="globalSwitchSystemAdminCompany(this.value)">
-          {% for c in system_admin_companies %}
-          <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      {% endif %}
 
       <div class="search-box-wrapper">
         <label for="tableSearch">Search:</label>

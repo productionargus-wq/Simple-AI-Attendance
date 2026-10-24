@@ -14,14 +14,25 @@
       <div class="banner-title">MANUAL ENTRY</div>
       <div class="banner-subtitle">Record and correct punch times, permissions, and manual work hours</div>
     </div>
+  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: nowrap;">
+    {% if is_system_admin and system_admin_companies %}
+    <div class="sysadmin-company-filter-wrap" style="display: inline-flex; align-items: center; gap: 6px; margin: 0;">
+      <label for="sysadminCompanyFilterManual">COMPANY:</label>
+      <select class="sysadmin-company-select" id="sysadminCompanyFilterManual" onchange="globalSwitchSystemAdminCompany(this.value)">
+        {% for c in system_admin_companies %}
+        <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <button class="btn-primary-action" id="btnOpenManualEntryModal">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      Add Entry
+    </button>
   </div>
-  <button class="btn-primary-action" id="btnOpenManualEntryModal">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="12" y1="5" x2="12" y2="19"></line>
-      <line x1="5" y1="12" x2="19" y2="12"></line>
-    </svg>
-    Add Entry
-  </button>
 </div>
 
 <!-- Table Card with Single-Row Unified Toolbar -->
@@ -70,16 +81,6 @@
         <button class="btn-export" id="btnPrintTable" title="Print">Print</button>
       </div>
 
-      {% if is_system_admin and system_admin_companies %}
-      <div class="sysadmin-company-filter-wrap">
-        <label for="sysadminCompanyFilterManual">COMPANY:</label>
-        <select class="sysadmin-company-select" id="sysadminCompanyFilterManual" onchange="globalSwitchSystemAdminCompany(this.value)">
-          {% for c in system_admin_companies %}
-          <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      {% endif %}
 
       <div class="search-box-wrapper">
         <label for="tableSearch">Search:</label>

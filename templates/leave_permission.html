@@ -19,7 +19,7 @@
 
   <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
     {% if is_system_admin and system_admin_companies %}
-    <div class="sysadmin-company-filter-wrap">
+    <div class="sysadmin-company-filter-wrap" style="display: inline-flex; align-items: center; gap: 6px; margin: 0;">
       <label for="sysadminCompanyFilterLeave">COMPANY:</label>
       <select class="sysadmin-company-select" id="sysadminCompanyFilterLeave" onchange="globalSwitchSystemAdminCompany(this.value)">
         {% for c in system_admin_companies %}
