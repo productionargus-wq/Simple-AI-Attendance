@@ -6406,7 +6406,8 @@ body {
     display: none !important;
   }
 
-  body:not(.page-dashboard) .table-responsive {
+  body:not(.page-dashboard) .table-responsive,
+  body:not(.page-dashboard) .table-responsive-wrapper {
     flex: 1 1 auto !important;
     overflow-y: auto !important;
     overflow-x: auto !important;
@@ -6414,6 +6415,20 @@ body {
     border: 1px solid #e2e8f0 !important;
     border-radius: 6px !important;
     margin-bottom: 4px !important;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  /* Grid & Card Containers inside Table-Card (Employee Details, Manage Companies) */
+  body:not(.page-dashboard) .employee-grid-container,
+  body:not(.page-dashboard) .company-grid-container {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    min-height: 0 !important;
+    padding: 12px 6px 24px 6px !important;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
   }
 
   /* Sticky Header on all Data Tables */
@@ -6436,7 +6451,7 @@ body {
   body:not(.page-dashboard) .table-footer {
     flex-shrink: 0 !important;
     margin-top: auto !important;
-    padding: 4px 0 0 0 !important;
+    padding: 6px 0 0 0 !important;
     font-size: 11px !important;
     display: flex !important;
     align-items: center !important;
@@ -6451,17 +6466,88 @@ body {
     line-height: 24px !important;
   }
 
-  /* Payslip Preview Document Canvas in Monthly Payslip */
-  body.page-payslip-preview .payslip-document-wrapper,
-  body.page-monthly-payslip .payslip-document-wrapper {
-    flex: 1 1 auto !important;
+  /* Universal Sleek Scrollbars */
+  body:not(.page-dashboard) .employee-grid-container::-webkit-scrollbar,
+  body:not(.page-dashboard) .company-grid-container::-webkit-scrollbar,
+  body:not(.page-dashboard) .table-responsive::-webkit-scrollbar,
+  body:not(.page-dashboard) .table-responsive-wrapper::-webkit-scrollbar,
+  body:not(.page-dashboard) .main-wrapper::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  body:not(.page-dashboard) .employee-grid-container::-webkit-scrollbar-track,
+  body:not(.page-dashboard) .company-grid-container::-webkit-scrollbar-track,
+  body:not(.page-dashboard) .table-responsive::-webkit-scrollbar-track,
+  body:not(.page-dashboard) .table-responsive-wrapper::-webkit-scrollbar-track,
+  body:not(.page-dashboard) .main-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  body:not(.page-dashboard) .employee-grid-container::-webkit-scrollbar-thumb,
+  body:not(.page-dashboard) .company-grid-container::-webkit-scrollbar-thumb,
+  body:not(.page-dashboard) .table-responsive::-webkit-scrollbar-thumb,
+  body:not(.page-dashboard) .table-responsive-wrapper::-webkit-scrollbar-thumb,
+  body:not(.page-dashboard) .main-wrapper::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+
+  body:not(.page-dashboard) .employee-grid-container::-webkit-scrollbar-thumb:hover,
+  body:not(.page-dashboard) .company-grid-container::-webkit-scrollbar-thumb:hover,
+  body:not(.page-dashboard) .table-responsive::-webkit-scrollbar-thumb:hover,
+  body:not(.page-dashboard) .table-responsive-wrapper::-webkit-scrollbar-thumb:hover,
+  body:not(.page-dashboard) .main-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  /* Full-page free-flowing scrollable documents and long form pages */
+  body.page-company-profile .main-wrapper,
+  body.page-payslip-preview .main-wrapper,
+  body.page-monthly-payslip .main-wrapper,
+  body.page-support-tickets .main-wrapper,
+  body.page-support-&-help .main-wrapper,
+  body.page-support .main-wrapper,
+  body.page-manage-branches .main-wrapper,
+  .main-wrapper:has(.review-emp-card) {
+    height: calc(100vh - 60px - 38px) !important;
     overflow-y: auto !important;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  body.page-company-profile .main-content,
+  body.page-payslip-preview .main-content,
+  body.page-monthly-payslip .main-content,
+  body.page-support-tickets .main-content,
+  body.page-support-&-help .main-content,
+  body.page-support .main-content,
+  body.page-manage-branches .main-content,
+  .main-content:has(.review-emp-card) {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+    padding-bottom: 28px !important;
+  }
+
+  body.page-company-profile .table-card {
+    overflow: visible !important;
+    height: auto !important;
+    flex: none !important;
+  }
+
+  body.page-support-tickets .admin-support-container {
+    flex: 1 1 auto !important;
     min-height: 0 !important;
-    max-height: calc(80vh - 60px) !important;
+  }
+
+  body.page-manage-branches .branch-directory-grid {
+    overflow: visible !important;
+    padding-bottom: 30px !important;
   }
 
   /* Support form scrolling when inside table-card or non-table pages */
-  body:not(.page-dashboard) .table-card:not(:has(.table-responsive)) {
+  body:not(.page-dashboard) .table-card:not(:has(.table-responsive)):not(:has(.employee-grid-container)):not(:has(.company-grid-container)) {
     overflow-y: auto !important;
   }
   body:not(.page-dashboard) .table-card form {
