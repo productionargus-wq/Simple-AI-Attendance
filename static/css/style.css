@@ -6775,6 +6775,7 @@ body {
   /* Universal Sleek Scrollbars */
   body:not(.page-dashboard) .employee-grid-container::-webkit-scrollbar,
   body:not(.page-dashboard) .company-grid-container::-webkit-scrollbar,
+  body:not(.page-dashboard) .branch-directory-scroll-wrapper::-webkit-scrollbar,
   body:not(.page-dashboard) .table-responsive::-webkit-scrollbar,
   body:not(.page-dashboard) .table-responsive-wrapper::-webkit-scrollbar,
   body:not(.page-dashboard) .main-wrapper::-webkit-scrollbar {
@@ -6784,6 +6785,7 @@ body {
 
   body:not(.page-dashboard) .employee-grid-container::-webkit-scrollbar-track,
   body:not(.page-dashboard) .company-grid-container::-webkit-scrollbar-track,
+  body:not(.page-dashboard) .branch-directory-scroll-wrapper::-webkit-scrollbar-track,
   body:not(.page-dashboard) .table-responsive::-webkit-scrollbar-track,
   body:not(.page-dashboard) .table-responsive-wrapper::-webkit-scrollbar-track,
   body:not(.page-dashboard) .main-wrapper::-webkit-scrollbar-track {
@@ -6792,6 +6794,7 @@ body {
 
   body:not(.page-dashboard) .employee-grid-container::-webkit-scrollbar-thumb,
   body:not(.page-dashboard) .company-grid-container::-webkit-scrollbar-thumb,
+  body:not(.page-dashboard) .branch-directory-scroll-wrapper::-webkit-scrollbar-thumb,
   body:not(.page-dashboard) .table-responsive::-webkit-scrollbar-thumb,
   body:not(.page-dashboard) .table-responsive-wrapper::-webkit-scrollbar-thumb,
   body:not(.page-dashboard) .main-wrapper::-webkit-scrollbar-thumb {
@@ -6801,6 +6804,7 @@ body {
 
   body:not(.page-dashboard) .employee-grid-container::-webkit-scrollbar-thumb:hover,
   body:not(.page-dashboard) .company-grid-container::-webkit-scrollbar-thumb:hover,
+  body:not(.page-dashboard) .branch-directory-scroll-wrapper::-webkit-scrollbar-thumb:hover,
   body:not(.page-dashboard) .table-responsive::-webkit-scrollbar-thumb:hover,
   body:not(.page-dashboard) .table-responsive-wrapper::-webkit-scrollbar-thumb:hover,
   body:not(.page-dashboard) .main-wrapper::-webkit-scrollbar-thumb:hover {
@@ -6814,7 +6818,6 @@ body {
   body.page-support-tickets .main-wrapper,
   body.page-support-&-help .main-wrapper,
   body.page-support .main-wrapper,
-  body.page-manage-branches .main-wrapper,
   .main-wrapper:has(.review-emp-card) {
     height: calc(100vh - 60px - 38px) !important;
     overflow-y: auto !important;
@@ -6828,12 +6831,45 @@ body {
   body.page-support-tickets .main-content,
   body.page-support-&-help .main-content,
   body.page-support .main-content,
-  body.page-manage-branches .main-content,
   .main-content:has(.review-emp-card) {
     height: auto !important;
     min-height: 100% !important;
     overflow: visible !important;
     padding-bottom: 28px !important;
+  }
+
+  /* Manage Branches: Docked top banner (~20%) + smooth scrolling branch directory cards (~80%) */
+  body.page-manage-branches .main-wrapper,
+  .main-wrapper:has(.branch-directory-scroll-wrapper) {
+    height: calc(100vh - 60px - 38px) !important;
+    overflow: hidden !important;
+  }
+
+  body.page-manage-branches .main-content,
+  .main-content:has(.branch-directory-scroll-wrapper) {
+    height: 100% !important;
+    max-height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding-bottom: 8px !important;
+  }
+
+  body.page-manage-branches .branch-directory-scroll-wrapper,
+  .branch-directory-scroll-wrapper {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    min-height: 0 !important;
+    padding-right: 6px !important;
+    padding-bottom: 35px !important;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  body.page-manage-branches .branch-directory-grid {
+    overflow: visible !important;
+    margin-bottom: 24px !important;
   }
 
   body.page-company-profile .table-card {
@@ -6847,11 +6883,6 @@ body {
     min-height: 0 !important;
   }
 
-  body.page-manage-branches .branch-directory-grid {
-    overflow: visible !important;
-    padding-bottom: 30px !important;
-  }
-
   /* Support form scrolling when inside table-card or non-table pages */
   body:not(.page-dashboard) .table-card:not(:has(.table-responsive)):not(:has(.employee-grid-container)):not(:has(.company-grid-container)) {
     overflow-y: auto !important;
@@ -6861,7 +6892,6 @@ body {
     flex: 1 1 auto !important;
     min-height: 0 !important;
   }
-  body:not(.page-dashboard) .branch-directory-grid,
   body:not(.page-dashboard) .support-page-container {
     flex: 1 1 auto !important;
     overflow-y: auto !important;
@@ -6932,6 +6962,12 @@ body {
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
+  }
+
+  .branch-directory-scroll-wrapper {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
   }
 }
 

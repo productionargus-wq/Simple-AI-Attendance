@@ -26,6 +26,33 @@
     border-color: #94a3b8 !important;
   }
 
+  /* Branch Directory Scroll Container (Docked Banner + Smooth Card Scroll) */
+  .branch-directory-scroll-wrapper {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    padding-right: 4px;
+    padding-bottom: 35px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .branch-directory-scroll-wrapper::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .branch-directory-scroll-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .branch-directory-scroll-wrapper::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  .branch-directory-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
   /* Branch Directory Cards Grid */
   .branch-directory-grid {
     display: grid;
@@ -117,7 +144,8 @@
   </div>
 </div>
 
-  <!-- BRANCH DIRECTORY -->
+  <!-- BRANCH DIRECTORY SCROLL WRAPPER (Docked Banner + Smooth Card Scroll) -->
+  <div class="branch-directory-scroll-wrapper">
   {% if user_role == 'super_admin' and (not active_company_id or active_company_id in ['ALL', 'all']) %}
     {% for group in branches | groupby('company_name') %}
     <div class="company-branches-section" style="margin-bottom: 30px;">
@@ -243,6 +271,7 @@
       {% endfor %}
     </div>
   {% endif %}
+  </div> <!-- /.branch-directory-scroll-wrapper -->
 
 <!-- MODAL: ADD / EDIT BRANCH -->
 <div id="branchModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
