@@ -1779,6 +1779,7 @@
         this.tamilVoice = null;
         this.englishVoice = null;
         this.activeServerAudio = null;
+        this.tamilRate = 1.45;
         this.isVoiceEnabled = localStorage.getItem('argus_voice_assist') !== 'false';
         this.lastGuidanceTime = 0;
         this.lastGuidanceText = '';
@@ -1876,6 +1877,7 @@
         this.cancel();
         try {
           const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(text) + '&lang=ta');
+          audio.playbackRate = this.tamilRate || 1.45;
           this.activeServerAudio = audio;
           audio.play().catch(e => {});
         } catch (e) {}
@@ -1939,7 +1941,7 @@
             const utter = new SpeechSynthesisUtterance(targetText);
             utter.voice = this.tamilVoice;
             utter.lang = this.tamilVoice.lang || 'ta-IN';
-            utter.rate = options.rate || 0.95;
+            utter.rate = options.rate || this.tamilRate || 1.45;
             utter.pitch = options.pitch || 1.0;
             utter.volume = 1.0;
             this.synth.speak(utter);
@@ -1958,7 +1960,7 @@
         if (punchContainer && punchContainer.style.display === 'block') return;
         if (Date.now() < cooldownUntil) return;
 
-        this.speak(content, { isGuidance: true, rate: this.isMobile ? 0.98 : 1.0 });
+        this.speak(content, { isGuidance: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
       }
 
       // Format standard time e.g. "09:30:15 AM" or "06:15 PM" into natural spoken Tamil
@@ -1998,7 +2000,7 @@
         this.speak({
           tamil: `நன்றி ${empName}! உங்கள் வருகை பதிவாகியது. நேரம் ${timeTa}.`,
           english: `Thank you, ${empName}! Your punch in is recorded at ${timeEn}.`
-        }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
+        }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
       }
 
       announcePunchOut(empName, punchTime) {
@@ -2007,32 +2009,34 @@
         this.speak({
           tamil: `நன்றி ${empName}! பணி நிறைவு நேரம் பதிவானது. நேரம் ${timeTa}.`,
           english: `Thank you, ${empName}! Your punch out is recorded at ${timeEn}.`
-        }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
+        }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
       }
 
       announceAlreadyPunched(empName) {
         this.speak({
           tamil: `${empName}, உங்கள் வருகை ஏற்கனவே பதிவாகியுள்ளது.`,
           english: `${empName}, your attendance is already marked.`
-        }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
+        }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
       }
 
       announceUnrecognized() {
         this.speak({
           tamil: 'முகம் அடையாளம் காணப்படவில்லை. மீண்டும் முயற்சிக்கவும்.',
           english: 'Face not recognized. Please face the camera directly and try again.'
-        }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
+        }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
       }
 
       announceSpoofDetected() {
         this.speak({
           tamil: 'நேரடி மனித முகம் மட்டுமே அனுமதிக்கப்படும்.',
           english: 'Live human presence required. Digital screens and photos are not permitted.'
-        }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
+        }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
       }
     }
 
     const tamilVoice = new TamilVoiceManager();
+    window.ArgusVoice = tamilVoice;
+    window.tamilVoice = tamilVoice;
 
     // Voice Assistant Toggle Listener
     if (btnToggleVoice) {

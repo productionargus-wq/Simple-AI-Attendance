@@ -25,6 +25,7 @@
       this.tamilVoice = null;
       this.englishVoice = null;
       this.activeServerAudio = null;
+      this.tamilRate = 1.45;
       this.isVoiceEnabled = localStorage.getItem('argus_voice_assist') !== 'false';
       this.lastGuidanceTime = 0;
       this.lastGuidanceText = '';
@@ -73,7 +74,7 @@
       let foundEn = voices.find(v => {
         const n = (v.name || '').toLowerCase();
         return (v.lang === 'en-US' || v.lang === 'en-GB' || v.lang === 'en-IN') &&
-               (n.includes('natural') || n.includes('david') || n.includes('zira') || n.includes('google') || n.includes('samantha'));
+          (n.includes('natural') || n.includes('david') || n.includes('zira') || n.includes('google') || n.includes('samantha'));
       });
       if (!foundEn) {
         foundEn = voices.find(v => v.lang === 'en-US' || v.lang === 'en-GB' || v.lang === 'en-IN');
@@ -90,7 +91,7 @@
         if (this.synth.paused) {
           this.synth.resume();
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     setEnabled(enabled) {
@@ -106,13 +107,13 @@
       if (this.synth) {
         try {
           this.synth.cancel();
-        } catch (e) {}
+        } catch (e) { }
       }
       if (this.activeServerAudio) {
         try {
           this.activeServerAudio.pause();
           this.activeServerAudio.currentTime = 0;
-        } catch (e) {}
+        } catch (e) { }
         this.activeServerAudio = null;
       }
     }
@@ -122,11 +123,12 @@
       this.cancel();
       try {
         const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(text) + '&lang=ta');
+        audio.playbackRate = this.tamilRate || 1.45;
         this.activeServerAudio = audio;
         audio.play().catch(e => {
           console.warn('Server TTS playback notice:', e);
         });
-      } catch (e) {}
+      } catch (e) { }
     }
 
     toggle() {
@@ -223,7 +225,7 @@
           const utter = new SpeechSynthesisUtterance(targetText);
           utter.voice = this.tamilVoice;
           utter.lang = this.tamilVoice.lang || 'ta-IN';
-          utter.rate = options.rate || 0.95;
+          utter.rate = options.rate || this.tamilRate || 1.45;
           utter.pitch = options.pitch || 1.0;
           utter.volume = 1.0;
           window._activeSpeechUtterance = utter;
@@ -241,7 +243,7 @@
     }
 
     speakGuidance(content) {
-      this.speak(content, { isGuidance: true, rate: this.isMobile ? 0.98 : 1.0 });
+      this.speak(content, { isGuidance: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
     }
 
     // Format standard time into natural spoken Tamil
@@ -281,7 +283,7 @@
       this.speak({
         tamil: `நன்றி ${empName}! உங்கள் வருகை பதிவாகியது. நேரம் ${timeTa}.`,
         english: `Thank you, ${empName}! Your punch in is recorded at ${timeEn}.`
-      }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
+      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
     }
 
     announcePunchOut(empName, punchTime) {
@@ -290,14 +292,14 @@
       this.speak({
         tamil: `நன்றி ${empName}! பணி நிறைவு நேரம் பதிவானது. நேரம் ${timeTa}.`,
         english: `Thank you, ${empName}! Your punch out is recorded at ${timeEn}.`
-      }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
+      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
     }
 
     announceAlreadyPunched(empName) {
       this.speak({
         tamil: `${empName}, உங்கள் வருகை ஏற்கனவே பதிவாகியுள்ளது.`,
         english: `${empName}, your attendance is already marked.`
-      }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
+      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
     }
 
     announceGeofenceWarning(locationName) {
@@ -306,7 +308,7 @@
       this.speak({
         tamil: `எச்சரிக்கை! நீங்கள் அனுமதிக்கப்பட்ட எல்லைக்கு வெளியே உள்ளீர்கள்${locTa}.`,
         english: `Warning: You are outside your assigned work location${locEn}.`
-      }, { interrupt: true, rate: this.isMobile ? 0.95 : 1.0 });
+      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.45) : 1.0 });
     }
 
     announceSuccess(tamilText, englishText) {
@@ -348,7 +350,7 @@
       }
 
       const toggleObj = { btn: btnEl, icon: iconEl, label: labelEl };
-      
+
       // Remove any existing binding for this element to prevent duplicates
       this.boundButtons = this.boundButtons.filter(t => t.btn !== btnEl);
       this.boundButtons.push(toggleObj);
@@ -492,5 +494,6 @@
 
   // Expose singleton instance globally
   window.ArgusVoice = new ArgusVoiceAssistant();
+  window.tamilVoice = window.ArgusVoice;
 
 })(window);

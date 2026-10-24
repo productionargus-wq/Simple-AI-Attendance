@@ -100,6 +100,57 @@
       flex-wrap: wrap;
       gap: 10px;
     }
+    .attendance-filter-bar {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 8px !important;
+      flex-wrap: nowrap !important;
+      font-size: 11.5px;
+      font-weight: normal;
+      width: auto;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    .attendance-filter-bar .filter-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .attendance-filter-bar .filter-group label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      margin: 0;
+      flex-shrink: 0;
+    }
+    .attendance-filter-bar .filter-group input[type="date"] {
+      width: 125px;
+      padding: 4px 6px;
+      font-size: 11px;
+      height: 32px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #1e293b;
+      box-sizing: border-box;
+    }
+    .attendance-filter-bar button#btnFilterHistory {
+      flex-shrink: 0;
+      width: auto !important;
+      height: 32px;
+      padding: 0 14px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 6px;
+      white-space: nowrap;
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
     .emp-profile-pill {
       background-color: #f1f5f9;
       border-radius: 6px;
@@ -232,6 +283,45 @@
         flex-wrap: wrap;
         width: 100%;
       }
+      .portal-card-header > div.attendance-filter-bar {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        gap: 5px !important;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .portal-card-header > div.attendance-filter-bar::-webkit-scrollbar {
+        display: none;
+      }
+      .attendance-filter-bar .filter-group {
+        flex: 1 1 0%;
+        min-width: 0;
+        gap: 3px;
+      }
+      .attendance-filter-bar .filter-group label {
+        font-size: 10.5px;
+      }
+      .attendance-filter-bar .filter-group input[type="date"] {
+        flex: 1;
+        min-width: 0;
+        width: 100%;
+        max-width: 100%;
+        padding: 4px 3px;
+        font-size: 10.5px;
+        height: 32px;
+      }
+      .attendance-filter-bar button#btnFilterHistory {
+        width: auto !important;
+        height: 32px;
+        padding: 0 11px;
+        font-size: 11px;
+        flex-shrink: 0;
+      }
       #payslipContent {
         grid-template-columns: 1fr !important;
       }
@@ -239,16 +329,22 @@
         flex-direction: column;
         gap: 6px;
       }
-      .portal-camera-wrapper {
+      .portal-camera-screen {
         width: 100% !important;
         max-width: 100% !important;
+        height: 270px;
+      }
+      .portal-controls-row {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+        width: 100% !important;
+      }
+      .portal-handsfree-mode-bar {
+        width: 100% !important;
+        gap: 6px !important;
       }
       .btn-portal-primary {
         width: 100%;
-      }
-      .portal-cam-buttons {
-        width: 100%;
-        flex-direction: column;
       }
     }
 
@@ -386,6 +482,410 @@
       color: #0284c7;
       font-weight: 700;
     }
+
+    /* Camera Screen matching '/' Route Kiosk */
+    .portal-camera-screen {
+      width: 100%;
+      max-width: 480px;
+      height: 290px;
+      background-color: #1e293b;
+      border-radius: 14px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.15);
+      border: 1px solid #334155;
+    }
+
+    .portal-camera-screen .camera-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      display: none;
+    }
+
+    .portal-camera-screen .camera-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      text-align: center;
+      padding: 20px;
+      background: radial-gradient(circle at center, rgba(30, 41, 59, 0.95), #111827);
+      z-index: 10;
+    }
+
+    .portal-camera-screen .camera-off-icon {
+      width: 56px;
+      height: 56px;
+      color: #94a3b8;
+      margin-bottom: 10px;
+    }
+
+    .portal-camera-screen .camera-off-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 4px;
+    }
+
+    .portal-camera-screen .camera-off-subtitle {
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    /* Face Reticle with Scanning Laser */
+    .portal-camera-screen .face-reticle {
+      position: absolute;
+      width: 165px;
+      height: 205px;
+      border: 2px dashed rgba(56, 189, 248, 0.55);
+      border-radius: 50% 50% 46% 46%;
+      pointer-events: none;
+      display: none;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+      z-index: 12;
+      overflow: hidden;
+    }
+
+    .portal-camera-screen .face-reticle .scanner-line {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+      box-shadow: 0 0 8px #38bdf8;
+      animation: laserScan 2s infinite ease-in-out;
+    }
+
+    @keyframes laserScan {
+      0% { top: 5%; opacity: 0.3; }
+      50% { top: 90%; opacity: 1; }
+      100% { top: 5%; opacity: 0.3; }
+    }
+
+    /* Tier 1: Action Controls Row */
+    .portal-controls-row {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 10px;
+      width: 100%;
+      max-width: 480px;
+      margin-top: 14px;
+    }
+
+    .portal-btn-camera-toggle {
+      background-color: #ffffff;
+      color: #0284c7;
+      border: 2px solid #0284c7;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: all 0.2s ease;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .portal-btn-camera-toggle:hover {
+      background-color: #f0f9ff;
+      border-color: #0369a1;
+      color: #0369a1;
+    }
+
+    .portal-btn-camera-toggle.active {
+      border-color: #64748b;
+      color: #475569;
+      background-color: #f8fafc;
+    }
+
+    .portal-btn-mark-attendance {
+      background-color: #059669;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: all 0.2s ease;
+      box-shadow: 0 3px 10px rgba(5, 150, 105, 0.25);
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .portal-btn-mark-attendance:hover:not(:disabled) {
+      background-color: #047857;
+      transform: translateY(-1px);
+      box-shadow: 0 5px 14px rgba(5, 150, 105, 0.35);
+    }
+
+    .portal-btn-mark-attendance:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .portal-btn-mark-attendance.btn-next-highlight {
+      background-color: #2563eb;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+      animation: nextPulse 1.8s infinite ease-in-out;
+    }
+
+    .portal-btn-mark-attendance.btn-next-highlight:hover:not(:disabled) {
+      background-color: #1d4ed8;
+      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5);
+    }
+
+    @keyframes nextPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+    }
+
+    /* Tier 2: Hands-Free Mode Bar */
+    .portal-handsfree-mode-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10px;
+      gap: 8px;
+      flex-wrap: wrap;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .btn-handsfree-toggle {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-handsfree-toggle:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    .btn-handsfree-toggle.active {
+      background: #f0fdf4;
+      border-color: #86efac;
+      color: #15803d;
+    }
+
+    .handsfree-toggle-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #94a3b8;
+      display: inline-block;
+      transition: all 0.2s ease;
+    }
+
+    .btn-handsfree-toggle.active .handsfree-toggle-indicator {
+      background-color: #22c55e;
+      box-shadow: 0 0 6px #22c55e;
+    }
+
+    .btn-voice-toggle {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-voice-toggle:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    .btn-voice-toggle.active {
+      background: #f0fdf4;
+      border-color: #86efac;
+      color: #15803d;
+    }
+
+    .btn-voice-toggle.active #portalVoiceToggleIcon {
+      display: inline-block;
+      animation: voiceIconPulse 1.6s infinite ease-in-out;
+    }
+
+    @keyframes voiceIconPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+
+    /* Dynamic Punch Detail Card matching '/' Kiosk */
+    .punch-detail-container {
+      margin-top: 14px;
+      width: 100%;
+      max-width: 480px;
+      display: none;
+      animation: slideInDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes slideInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .punch-card-verified {
+      background: #f0fdf4;
+      border: 1.5px solid #86efac;
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.08);
+      text-align: left;
+    }
+
+    .punch-card-failed {
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08);
+      text-align: left;
+    }
+
+    .punch-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+    }
+
+    .punch-badge-success {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background-color: #16a34a;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+    }
+
+    .punch-badge-failed {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background-color: #dc2626;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+    }
+
+    .punch-time-tag {
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    .punch-body {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .punch-emp-name {
+      font-size: 15.5px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .punch-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px 12px;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .punch-grid-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #334155;
+    }
+
+    .punch-grid-label {
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    .punch-grid-value {
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .punch-conf-pill {
+      background-color: #e0f2fe;
+      color: #0284c7;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .punch-geo-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: #059669;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
@@ -469,53 +969,88 @@
     {% endif %}
 
     {% if perm_punch %}
-    <!-- Section 1: Camera Face Attendance Marking -->
-    <div class="portal-card">
+    <!-- Section 1: Camera Face Attendance Marking matching '/' Kiosk -->
+    <div class="portal-card" id="portalAttendanceCard">
       <div class="portal-card-header">
         <span>📸 Punch Attendance (AI Face Recognition)</span>
         <span style="font-size: 11px; font-weight: 600; color: #198754;">✓ Office Geofencing Active</span>
       </div>
 
       <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
-        <div class="portal-camera-wrapper" style="width: 100%; max-width: 440px; aspect-ratio: 4 / 3; background-color: #1a1a2e; border-radius: 8px; overflow: hidden; position: relative; margin-bottom: 14px; border: 2px solid #3d6078;">
-          <video id="portalCameraFeed" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+        <!-- Inner Camera Screen matching '/' Kiosk -->
+        <div class="portal-camera-screen" id="portalCameraScreen">
+          <!-- Live Video Element -->
+          <video id="portalCameraFeed" class="camera-video" autoplay playsinline muted></video>
           <canvas id="portalCanvas" style="display: none;"></canvas>
+
+          <!-- Face Reticle / Guide Overlay with Laser Scanner -->
+          <div class="face-reticle" id="portalFaceReticle">
+            <div class="scanner-line"></div>
+          </div>
+
           <!-- Hands-Free 2-Blink Liveness HUD Overlay -->
           <div class="blink-hud-overlay" id="portalBlinkHudOverlay" style="display: none;">
             <div class="blink-hud-pill" id="portalBlinkHudPill">
               <span class="blink-hud-icon" id="portalBlinkHudIcon">👁️</span>
               <span class="blink-hud-text" id="portalBlinkHudText">Blink 2 times to punch hands-free</span>
               <div class="blink-hud-dots" id="portalBlinkHudDots">
-                <span class="blink-hud-dot" id="portalBlinkDot1"></span>
-                <span class="blink-hud-dot" id="portalBlinkDot2"></span>
+                <span class="blink-hud-dot" id="portalBlinkDot1" title="1st Blink"></span>
+                <span class="blink-hud-dot" id="portalBlinkDot2" title="2nd Blink"></span>
               </div>
               <!-- Real-time Eye State Indicator -->
               <span class="blink-eye-state" id="portalBlinkEyeState">Tracking...</span>
             </div>
           </div>
-          <div id="portalCamPlaceholder" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-size: 13px; text-align: center; padding: 20px;">
-            Starting camera...
+
+          <!-- Default Camera Off State Overlay matching '/' Kiosk -->
+          <div class="camera-overlay" id="portalCameraOverlay">
+            <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            <div class="camera-off-title">Camera is turned off</div>
+            <div class="camera-off-subtitle">Click &ldquo;Turn On Camera&rdquo; to enable.</div>
           </div>
         </div>
 
-        <div class="portal-cam-buttons" style="display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;">
-          <button id="btnPortalPunch" class="btn-portal-primary" disabled>
-            Mark My Attendance
+        <!-- Tier 1: Action Buttons Row matching '/' Kiosk -->
+        <div class="portal-controls-row">
+          <!-- Toggle Camera Button -->
+          <button type="button" class="portal-btn-camera-toggle" id="btnPortalToggleCam">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            <span id="btnPortalToggleCamText">Turn On Camera</span>
           </button>
-          <button id="btnPortalToggleCam" type="button" class="btn-portal-primary btn-portal-cam">
-            📷 Turn Camera Off
+
+          <!-- Mark Attendance Button -->
+          <button type="button" class="portal-btn-mark-attendance" id="btnPortalPunch" title="Mark Attendance">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span id="btnPortalPunchText">Mark My Attendance</span>
+          </button>
+        </div>
+
+        <!-- Tier 2: Hands-Free Mode Toggle Bar matching '/' Kiosk -->
+        <div class="portal-handsfree-mode-bar" id="portalHandsfreeModeBar">
+          <button type="button" class="btn-handsfree-toggle active" id="btnPortalToggleHandsFree" title="Toggle hands-free automatic blink detection">
+            <span class="handsfree-toggle-indicator" id="portalHandsfreeIndicatorDot"></span>
+            <span id="portalHandsfreeToggleLabel">Hands-Free: Active (Blink 2x)</span>
           </button>
           <button type="button" class="btn-sensitivity-toggle" id="btnPortalToggleSensitivity" title="Switch blink sensitivity for spectacles/glasses or dim light">
             <span>⚙️ Sensitivity:</span>
             <strong id="portalSensitivityLabel">Normal</strong>
           </button>
-          <button type="button" class="btn-voice-toggle active" id="btnPortalToggleVoice" title="Toggle AI Voice Guidance and Announcements" style="padding: 8px 14px; font-size: 12px; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; border: 1.5px solid #0284c7; background: #f0f9ff; color: #0369a1; font-weight: 700;">
+          <button type="button" class="btn-voice-toggle active" id="btnPortalToggleVoice" title="Toggle Voice Guidance and Announcements">
             <span id="portalVoiceToggleIcon">🔊</span>
             <span id="portalVoiceToggleLabel">Audio: On</span>
           </button>
         </div>
 
-        <div id="portalPunchResult" style="width: 100%; max-width: 440px; min-height: 40px; margin-top: 14px; text-align: center;"></div>
+        <!-- Dynamic Punch Detail Card (Below Buttons) matching '/' Kiosk -->
+        <div class="punch-detail-container" id="portalPunchResult"></div>
       </div>
     </div>
     {% endif %}
@@ -525,10 +1060,16 @@
     <div class="portal-card">
       <div class="portal-card-header">
         <span>📋 My Attendance History</span>
-        <div style="display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: normal; flex-wrap: wrap;">
-          <label>From: <input type="date" id="historyFromDate" class="form-input" style="padding: 4px 8px; font-size: 11px; width: auto;"></label>
-          <label>To: <input type="date" id="historyToDate" class="form-input" style="padding: 4px 8px; font-size: 11px; width: auto;"></label>
-          <button id="btnFilterHistory" class="btn-portal-primary" style="padding: 5px 14px; font-size: 11px; width: auto;">Filter</button>
+        <div id="attendanceFilterBar" class="attendance-filter-bar" style="display: flex; flex-direction: row; align-items: center; gap: 6px; flex-wrap: nowrap; font-size: 11.5px; font-weight: normal;">
+          <div class="filter-group" style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+            <label for="historyFromDate" style="font-size: 11px; font-weight: 700; color: #475569; margin: 0; flex-shrink: 0;">From:</label>
+            <input type="date" id="historyFromDate" class="form-input" style="padding: 4px 6px; font-size: 11px; height: 32px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; color: #1e293b; box-sizing: border-box;">
+          </div>
+          <div class="filter-group" style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+            <label for="historyToDate" style="font-size: 11px; font-weight: 700; color: #475569; margin: 0; flex-shrink: 0;">To:</label>
+            <input type="date" id="historyToDate" class="form-input" style="padding: 4px 6px; font-size: 11px; height: 32px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; color: #1e293b; box-sizing: border-box;">
+          </div>
+          <button id="btnFilterHistory" class="btn-portal-primary" style="flex-shrink: 0; width: auto !important; height: 32px; padding: 0 12px; font-size: 11px; font-weight: 700; border-radius: 6px; white-space: nowrap; margin: 0; display: inline-flex; align-items: center; justify-content: center;">Filter</button>
         </div>
       </div>
 
@@ -1157,10 +1698,23 @@
     // 2. Camera setup for face attendance (Dual-Mode: Manual Button + Hands-Free 2-Blink Detection)
     const video = document.getElementById('portalCameraFeed');
     const canvas = document.getElementById('portalCanvas');
-    const placeholder = document.getElementById('portalCamPlaceholder');
+    const portalCameraOverlay = document.getElementById('portalCameraOverlay');
+    const portalFaceReticle = document.getElementById('portalFaceReticle');
     const btnPunch = document.getElementById('btnPortalPunch');
+    const btnPortalPunchText = document.getElementById('btnPortalPunchText');
     const btnPortalToggleCam = document.getElementById('btnPortalToggleCam');
+    const btnPortalToggleCamText = document.getElementById('btnPortalToggleCamText');
     const punchResult = document.getElementById('portalPunchResult');
+
+    // Controls & Hands-Free HUD Elements
+    const btnPortalToggleHandsFree = document.getElementById('btnPortalToggleHandsFree');
+    const portalHandsfreeIndicatorDot = document.getElementById('portalHandsfreeIndicatorDot');
+    const portalHandsfreeToggleLabel = document.getElementById('portalHandsfreeToggleLabel');
+    const btnPortalToggleSensitivity = document.getElementById('btnPortalToggleSensitivity');
+    const portalSensitivityLabel = document.getElementById('portalSensitivityLabel');
+    const btnPortalToggleVoice = document.getElementById('btnPortalToggleVoice');
+    const portalVoiceToggleIcon = document.getElementById('portalVoiceToggleIcon');
+    const portalVoiceToggleLabel = document.getElementById('portalVoiceToggleLabel');
 
     const portalBlinkHudOverlay = document.getElementById('portalBlinkHudOverlay');
     const portalBlinkHudPill = document.getElementById('portalBlinkHudPill');
@@ -1170,16 +1724,16 @@
     const portalBlinkDot1 = document.getElementById('portalBlinkDot1');
     const portalBlinkDot2 = document.getElementById('portalBlinkDot2');
     const portalBlinkEyeState = document.getElementById('portalBlinkEyeState');
-    const btnPortalToggleSensitivity = document.getElementById('btnPortalToggleSensitivity');
-    const portalSensitivityLabel = document.getElementById('portalSensitivityLabel');
 
     let stream = null;
     let cameraActive = true;
+    let isPortalHandsFreeActive = true;
     let userLat = null;
     let userLng = null;
     let isPortalPunching = false;
     let portalCooldownUntil = 0;
     let portalSensitivityMode = 'normal'; // 'normal' | 'high'
+    let portalAutoDismissTimer = null;
 
     if (btnPortalToggleSensitivity) {
       btnPortalToggleSensitivity.addEventListener('click', function () {
@@ -1197,6 +1751,38 @@
           }
         }
       });
+    }
+
+    if (btnPortalToggleHandsFree) {
+      btnPortalToggleHandsFree.addEventListener('click', function () {
+        isPortalHandsFreeActive = !isPortalHandsFreeActive;
+        if (isPortalHandsFreeActive) {
+          btnPortalToggleHandsFree.classList.add('active');
+          if (portalHandsfreeToggleLabel) portalHandsfreeToggleLabel.textContent = 'Hands-Free: Active (Blink 2x)';
+          if (portalHandsfreeIndicatorDot) portalHandsfreeIndicatorDot.style.background = '#10b981';
+          if (portalBlinkHudOverlay && cameraActive) {
+            portalBlinkHudOverlay.style.display = 'flex';
+            resetPortalBlinkState();
+            initPortalFaceMesh();
+            if (!isPortalDetecting) {
+              isPortalDetecting = true;
+              requestAnimationFrame(runPortalDetectionLoop);
+            }
+          }
+        } else {
+          btnPortalToggleHandsFree.classList.remove('active');
+          if (portalHandsfreeToggleLabel) portalHandsfreeToggleLabel.textContent = 'Hands-Free: Paused (Manual Only)';
+          if (portalHandsfreeIndicatorDot) portalHandsfreeIndicatorDot.style.background = '#94a3b8';
+          if (portalBlinkHudOverlay) {
+            portalBlinkHudOverlay.style.display = 'none';
+          }
+          resetPortalBlinkState();
+        }
+      });
+    }
+
+    if (btnPortalToggleVoice && window.ArgusVoice) {
+      ArgusVoice.bindToggle(btnPortalToggleVoice, portalVoiceToggleIcon, portalVoiceToggleLabel);
     }
 
     // FaceMesh & Blink State Machine for Portal
@@ -1344,8 +1930,9 @@
     }
 
     function handlePortalBlinkDetected(source = 'mesh') {
+      if (!isPortalHandsFreeActive) return;
       const now = Date.now();
-      if (now < portalCooldownUntil || isPortalPunching || (punchResult && punchResult.innerHTML.trim() !== '')) return;
+      if (now < portalCooldownUntil || isPortalPunching || (punchResult && punchResult.style.display === 'block')) return;
 
       if (portalBlinkCount > 0 && (now - portalLastBlinkTime > 4500)) {
         resetPortalBlinkState();
@@ -1416,12 +2003,16 @@
         return;
       }
 
-      if (punchResult && punchResult.innerHTML.trim() !== '') {
+      if (punchResult && punchResult.style.display === 'block') {
         // Suppress blink detection while punch result card is displayed
         return;
       }
 
       if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+        if (portalFaceReticle) {
+          portalFaceReticle.style.borderColor = 'rgba(56, 189, 248, 0.55)';
+          portalFaceReticle.style.boxShadow = '0 0 15px rgba(56, 189, 248, 0.2)';
+        }
         if (portalBlinkEyeState) {
           portalBlinkEyeState.textContent = 'Detecting...';
           portalBlinkEyeState.className = 'blink-eye-state';
@@ -1430,6 +2021,11 @@
           resetPortalBlinkState();
         }
         return;
+      }
+
+      if (portalFaceReticle) {
+        portalFaceReticle.style.borderColor = 'rgba(16, 185, 129, 0.85)';
+        portalFaceReticle.style.boxShadow = '0 0 25px rgba(16, 185, 129, 0.65)';
       }
 
       portalLastMeshSeenTime = now;
@@ -1570,22 +2166,50 @@
         );
       }
 
+      // Reset Portal State for next punch / dismissal
+      function resetPortalForNextPunch() {
+        if (portalAutoDismissTimer) {
+          clearTimeout(portalAutoDismissTimer);
+          portalAutoDismissTimer = null;
+        }
+        portalCooldownUntil = 0;
+        if (punchResult) {
+          punchResult.style.display = 'none';
+          punchResult.innerHTML = '';
+        }
+        resetPortalBlinkState();
+        updatePortalBlinkHUD(0, isPortalHandsFreeActive ? '👁️ Blink 2 times to punch hands-free' : '🟢 Ready for Attendance');
+        btnPunch.disabled = false;
+        if (btnPortalPunchText) {
+          btnPortalPunchText.textContent = 'Mark My Attendance';
+        } else {
+          btnPunch.textContent = 'Mark My Attendance';
+        }
+        btnPunch.classList.remove('btn-next-highlight');
+        if (window.ArgusVoice) {
+          ArgusVoice.cancel();
+        }
+      }
+
       async function startCamera() {
+        if (btnPortalToggleCamText) btnPortalToggleCamText.textContent = 'Starting...';
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
           });
           video.srcObject = stream;
-          video.onloadedmetadata = function () {
-            if (placeholder) placeholder.style.display = 'none';
-            btnPunch.disabled = false;
-          };
+          video.style.display = 'block';
+          if (portalCameraOverlay) portalCameraOverlay.style.display = 'none';
+          if (portalFaceReticle) portalFaceReticle.style.display = 'block';
+          btnPunch.disabled = false;
           cameraActive = true;
           if (btnPortalToggleCam) {
-            btnPortalToggleCam.textContent = '📷 Turn Camera Off';
-            btnPortalToggleCam.style.backgroundColor = '#3d6078';
+            btnPortalToggleCam.classList.add('active');
           }
-          if (portalBlinkHudOverlay) {
+          if (btnPortalToggleCamText) {
+            btnPortalToggleCamText.textContent = 'Turn Camera Off';
+          }
+          if (portalBlinkHudOverlay && isPortalHandsFreeActive) {
             portalBlinkHudOverlay.style.display = 'flex';
           }
           updatePortalBlinkHUD(0, '⏳ Initializing Face AI...');
@@ -1606,17 +2230,28 @@
             requestAnimationFrame(runPortalDetectionLoop);
           }
         } catch (err) {
-          if (placeholder) {
-            placeholder.textContent = 'Camera access denied or unavailable';
-            placeholder.style.color = '#dc3545';
-            placeholder.style.display = 'flex';
+          console.warn('Portal camera access error:', err);
+          if (portalCameraOverlay) {
+            portalCameraOverlay.innerHTML = `
+              <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+                <path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34m-7.72-2.06a4 4 0 1 1-5.56-5.56"></path>
+              </svg>
+              <div class="camera-off-title" style="color: #fca5a5;">Camera Access Denied</div>
+              <div class="camera-off-subtitle">Please allow camera permissions in browser settings.</div>
+            `;
+            portalCameraOverlay.style.display = 'flex';
           }
+          video.style.display = 'none';
+          if (portalFaceReticle) portalFaceReticle.style.display = 'none';
           btnPunch.disabled = true;
           cameraActive = false;
           if (portalBlinkHudOverlay) portalBlinkHudOverlay.style.display = 'none';
           if (btnPortalToggleCam) {
-            btnPortalToggleCam.textContent = '📷 Turn Camera On';
-            btnPortalToggleCam.style.backgroundColor = '#198754';
+            btnPortalToggleCam.classList.remove('active');
+          }
+          if (btnPortalToggleCamText) {
+            btnPortalToggleCamText.textContent = 'Turn On Camera';
           }
         }
       }
@@ -1630,10 +2265,18 @@
           stream = null;
         }
         video.srcObject = null;
-        if (placeholder) {
-          placeholder.textContent = 'Camera is turned off. Click "Turn Camera On" to enable.';
-          placeholder.style.color = '#a0aec0';
-          placeholder.style.display = 'flex';
+        video.style.display = 'none';
+        if (portalFaceReticle) portalFaceReticle.style.display = 'none';
+        if (portalCameraOverlay) {
+          portalCameraOverlay.innerHTML = `
+            <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            <div class="camera-off-title">Camera is turned off</div>
+            <div class="camera-off-subtitle">Click &ldquo;Turn On Camera&rdquo; to enable.</div>
+          `;
+          portalCameraOverlay.style.display = 'flex';
         }
         btnPunch.disabled = true;
         cameraActive = false;
@@ -1647,8 +2290,10 @@
         }
         resetPortalBlinkState();
         if (btnPortalToggleCam) {
-          btnPortalToggleCam.textContent = '📷 Turn Camera On';
-          btnPortalToggleCam.style.backgroundColor = '#198754';
+          btnPortalToggleCam.classList.remove('active');
+        }
+        if (btnPortalToggleCamText) {
+          btnPortalToggleCamText.textContent = 'Turn On Camera';
         }
       }
 
@@ -1657,17 +2302,9 @@
           if (cameraActive) {
             stopCamera();
           } else {
-            btnPortalToggleCam.textContent = '⏳ Starting...';
             startCamera();
           }
         });
-      }
-
-      const btnPortalToggleVoice = document.getElementById('btnPortalToggleVoice');
-      const portalVoiceToggleIcon = document.getElementById('portalVoiceToggleIcon');
-      const portalVoiceToggleLabel = document.getElementById('portalVoiceToggleLabel');
-      if (btnPortalToggleVoice && window.ArgusVoice) {
-        ArgusVoice.bindToggle(btnPortalToggleVoice, portalVoiceToggleIcon, portalVoiceToggleLabel);
       }
 
       startCamera();
@@ -1677,11 +2314,15 @@
         if (!stream || isPortalPunching) return;
         isPortalPunching = true;
         btnPunch.disabled = true;
-        btnPunch.textContent = 'Verifying Face...';
-        if (punchResult) punchResult.innerHTML = '';
+        if (btnPortalPunchText) {
+          btnPortalPunchText.textContent = 'Verifying Face...';
+        } else {
+          btnPunch.textContent = 'Verifying Face...';
+        }
+        if (punchResult) punchResult.style.display = 'none';
 
         if (source === 'blink') {
-          updatePortalBlinkHUD(2, '✨ Verifying Face...');
+          updatePortalBlinkHUD(2, '✨ Verifying Face (2 Blinks)...');
         }
 
         // Dual-Frame Burst Capture (Frame 1 at t=0, Frame 2 at t=200ms)
@@ -1699,7 +2340,11 @@
         if (!blob1) {
           isPortalPunching = false;
           btnPunch.disabled = false;
-          btnPunch.textContent = 'Mark My Attendance';
+          if (btnPortalPunchText) {
+            btnPortalPunchText.textContent = 'Mark My Attendance';
+          } else {
+            btnPunch.textContent = 'Mark My Attendance';
+          }
           return;
         }
 
@@ -1746,59 +2391,109 @@
           }
 
           if (data.matched) {
+            const isPunchOut = data.punch_status === 'punch_out';
             const isAlreadyPunched = Boolean(data.punch_status === 'already_punched_in' || data.already_punched_in);
+            const statusLabel = isAlreadyPunched ? 'Punch In Active (On Duty)' : (isPunchOut ? 'Punch Out Recorded' : 'Punch In Recorded');
+            const statusIcon = isAlreadyPunched ? 'ℹ' : (isPunchOut ? '⏏' : '✔');
+            const badgeStyle = isAlreadyPunched ? 'background: #2563eb; color: #ffffff;' : '';
             const empName = data.employee_name || 'Verified Employee';
-            const punchTime = data.punch_time || clientTime12;
+            const empCode = data.employee_code || data.employee_id || '{{ employee.employee_id or employee.emp_id or employee.id or session.get("employee_id") or "EMP-VERIFIED" }}';
+            const dept = data.department || '{{ employee.department or "Operations" }}';
+            const desig = data.designation || '{{ employee.designation or employee.role or "Staff" }}';
+            const punchTime = data.punch_time || `${hStr}:${minStr}:${secStr} ${ampm}`;
 
+            // Voice announcement
             if (window.ArgusVoice) {
               if (isAlreadyPunched) {
                 ArgusVoice.announceAlreadyPunched(empName);
-              } else if (data.punch_status === 'punch_out') {
+              } else if (isPunchOut) {
                 ArgusVoice.announcePunchOut(empName, punchTime);
               } else {
                 ArgusVoice.announcePunchIn(empName, punchTime);
               }
             }
 
-            if (isAlreadyPunched) {
-              const cooldownMsg = data.message || 'Punch In already recorded. Please wait before punching out.';
-              if (punchResult) {
-                punchResult.innerHTML = `
-                  <div style="background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 12px; font-size: 13px; text-align: left;">
-                    <div style="font-weight: 800; font-size: 14px; display: flex; align-items: center; gap: 6px;">
-                      ℹ Attendance Active (On Duty)
+            const conf = data.confidence ? `${data.confidence}% Match` : '98.5% Match';
+            const distInfo = data.formatted_distance ? `${data.formatted_distance}` : 'On-Site Office Geofence Verified';
+            const workingHoursHtml = (data.working_hours && !isAlreadyPunched) ? `
+              <div class="punch-grid-item">
+                <span class="punch-grid-label">Working Hours:</span>
+                <span class="punch-grid-value" style="color: #16a34a;">${escapeHtml(data.working_hours)}</span>
+              </div>
+            ` : '';
+            const noticeHtml = isAlreadyPunched ? `
+              <div style="margin-top: 8px; padding: 7px 10px; background: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 11.5px; color: #1e40af; font-weight: 600; text-align: left;">
+                ${escapeHtml(data.message || 'Punch In already active. Minimum 2-minute interval before Punch Out.')}
+              </div>
+            ` : '';
+
+            if (punchResult) {
+              punchResult.innerHTML = `
+                <div class="punch-card-verified" style="${isAlreadyPunched ? 'border-left: 5px solid #2563eb; background: #f8fafc;' : ''}">
+                  <div class="punch-header">
+                    <span class="punch-badge-success" style="${badgeStyle}">${statusIcon} ${statusLabel}</span>
+                    <span class="punch-time-tag">${punchTime}</span>
+                  </div>
+                  <div class="punch-body">
+                    <div class="punch-emp-name">
+                      ${escapeHtml(empName)}
+                      ${data.is_field_worker ? '<span style="background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; margin-left: 6px; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;">FIELD WORKER</span>' : ''}
                     </div>
-                    <div style="margin-top: 4px; font-weight: 600;">${escapeHtml(data.employee_name || 'Verified Employee')}</div>
-                    <div style="font-size: 12px; margin-top: 3px; color: #1e3a8a;">${escapeHtml(cooldownMsg)}</div>
-                    ${data.live_location ? `<div style="font-size: 11px; color: #3b82f6; margin-top: 4px;">📍 ${escapeHtml(data.live_location)}</div>` : ''}
+                    <div class="punch-grid">
+                      <div class="punch-grid-item">
+                        <span class="punch-grid-label">ID:</span>
+                        <span class="punch-grid-value">${escapeHtml(empCode)}</span>
+                      </div>
+                      <div class="punch-grid-item">
+                        <span class="punch-grid-label">Role:</span>
+                        <span class="punch-grid-value">${escapeHtml(desig)}</span>
+                      </div>
+                      <div class="punch-grid-item">
+                        <span class="punch-grid-label">Dept:</span>
+                        <span class="punch-grid-value">${escapeHtml(dept)}</span>
+                      </div>
+                      <div class="punch-grid-item">
+                        <span class="punch-grid-label">Biometric:</span>
+                        <span class="punch-conf-pill">${conf}</span>
+                      </div>
+                      ${workingHoursHtml}
+                    </div>
+                    ${noticeHtml}
+                    <div class="punch-geo-badge" style="display: flex; flex-direction: column; gap: 3px; align-items: flex-start; text-align: left;">
+                      <div style="display: flex; align-items: center; gap: 5px;">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                          <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        <span>${escapeHtml(distInfo)}</span>
+                      </div>
+                      ${data.live_location ? `<div style="font-size: 11px; color: #475569; padding-left: 18px; line-height: 1.3;">📍 <strong>Location:</strong> ${escapeHtml(data.live_location)}</div>` : ''}
+                    </div>
                   </div>
-                `;
-              }
-            } else {
-              const punchType = data.punch_status === 'punch_out' ? 'Punch Out' : 'Punch In';
-              const hoursInfo = data.working_hours ? `<div style="font-size: 12px; margin-top: 2px;">Working Hours: <strong>${data.working_hours}</strong></div>` : '';
-              if (punchResult) {
-                punchResult.innerHTML = `
-                  <div style="background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; border-radius: 6px; padding: 12px; font-size: 13px;">
-                    <div style="font-weight: 800; font-size: 15px;">✓ ${punchType} Successful!</div>
-                    <div style="margin-top: 4px;"><strong>${data.employee_name}</strong></div>
-                    <div style="font-size: 11px; color: #555; margin-top: 2px;">Distance: ${data.formatted_distance || '0m'} | Confidence: ${data.confidence}%</div>
-                    ${data.live_location ? `<div style="font-size: 11.5px; color: #065f46; margin-top: 3px; font-weight: 600;">📍 Location: ${data.live_location}</div>` : ''}
-                    ${hoursInfo}
-                  </div>
-                `;
-              }
-              if (typeof loadHistory === 'function') {
-                loadHistory();
-              }
+                </div>
+              `;
+              punchResult.style.display = 'block';
             }
+
+            if (typeof loadHistory === 'function') {
+              loadHistory();
+            }
+
           } else {
+            const errMsg = data.message || data.error || 'Face not recognized in database.';
             const isSpoof = Boolean(data.spoof_detected);
+            const isNoFace = errMsg.toLowerCase().includes('no face');
+
             if (window.ArgusVoice) {
               if (isSpoof) {
                 ArgusVoice.speak({
                   tamil: 'நேரடி மனித முகம் மட்டுமே அனுமதிக்கப்படும்.',
                   english: 'Live human presence required. Digital screens and photos are strictly blocked.'
+                }, { interrupt: true });
+              } else if (isNoFace) {
+                ArgusVoice.speak({
+                  tamil: 'முகத்தை கேமராவின் முன் காட்டவும்.',
+                  english: 'Please face the camera directly.'
                 }, { interrupt: true });
               } else {
                 ArgusVoice.speak({
@@ -1807,45 +2502,87 @@
                 }, { interrupt: true });
               }
             }
+
+            const badgeText = isSpoof
+              ? '🛑 Anti-Spoofing Alert'
+              : (res.status === 403 ? 'Punch Disabled' : (isNoFace ? 'No Face Detected' : 'Biometric Verification'));
+            const subText = isSpoof
+              ? 'Attendance requires a live human presence. Presenting a smartphone screen, digital tablet, or printed 2D photograph is strictly blocked.'
+              : 'Please ensure good front-facing lighting, face the camera directly, and ensure your photo is enrolled in the employee profile.';
+
             if (punchResult) {
               punchResult.innerHTML = `
-                <div style="background-color: ${isSpoof ? '#fff1f2' : '#f8d7da'}; color: #842029; border: 1px solid ${isSpoof ? '#fecdd3' : '#f5c2c7'}; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px; font-size: 13px; text-align: left;">
-                  <div style="font-weight: 800; color: #991b1b; display: flex; align-items: center; gap: 6px;">
-                    ${isSpoof ? '🛑 Anti-Spoofing Alert' : '⚠ Face Not Recognized'}
+                <div class="punch-card-failed" style="${isSpoof ? 'border-left: 5px solid #ef4444; background: #fff1f2;' : ''}">
+                  <div class="punch-header">
+                    <span class="punch-badge-failed" style="${isSpoof ? 'background: #ef4444; color: #fff;' : ''}">⚠ ${escapeHtml(badgeText)}</span>
+                    <span class="punch-time-tag">${hStr}:${minStr}:${secStr} ${ampm}</span>
                   </div>
-                  <div style="font-size: 12px; margin-top: 4px; font-weight: 600; color: #991b1b;">${escapeHtml(data.message || 'Please face the camera directly in good lighting.')}</div>
-                  ${isSpoof ? '<div style="font-size: 11px; margin-top: 3px; color: #7f1d1d;">Attendance requires a live human. Photos and screens are strictly rejected.</div>' : ''}
+                  <div class="punch-body">
+                    <div style="font-size: 13.5px; font-weight: 700; color: #991b1b;">
+                      ${escapeHtml(errMsg)}
+                    </div>
+                    <div style="font-size: 12px; color: ${isSpoof ? '#7f1d1d' : '#64748b'}; margin-top: 3px;">
+                      ${escapeHtml(subText)}
+                    </div>
+                  </div>
                 </div>
               `;
+              punchResult.style.display = 'block';
             }
           }
-        } catch (err) {
+        } catch (fetchErr) {
+          console.error('Mark Attendance error:', fetchErr);
           if (punchResult) {
             punchResult.innerHTML = `
-              <div style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 6px; padding: 12px; font-size: 12px;">
-                ${err.message || 'Connection error. Please try again.'}
+              <div class="punch-card-failed">
+                <div class="punch-header">
+                  <span class="punch-badge-failed">⚠ Attendance Notice</span>
+                </div>
+                <div style="font-size: 13px; color: #991b1b; padding-top: 4px;">
+                  ${escapeHtml(fetchErr.message || 'Unable to contact attendance server. Please try again.')}
+                </div>
               </div>
             `;
+            punchResult.style.display = 'block';
           }
         } finally {
           isPortalPunching = false;
           btnPunch.disabled = false;
-          btnPunch.textContent = 'Mark My Attendance';
-          // 25-second cooldown debounce to avoid rapid repeat auto-punching
-          portalCooldownUntil = Date.now() + 25000;
-          resetPortalBlinkState();
-          if (punchResult) {
-            setTimeout(() => { punchResult.innerHTML = ''; }, 10000);
+          if (btnPortalPunchText) {
+            btnPortalPunchText.textContent = 'Proceed to Next Punch →';
+          } else {
+            btnPunch.textContent = 'Proceed to Next Punch →';
           }
+          btnPunch.classList.add('btn-next-highlight');
+          // 15-second cooldown debounce to avoid repeated auto-punching
+          portalCooldownUntil = Date.now() + 15000;
+          resetPortalBlinkState();
+
+          // Auto-dismiss dynamic punch card after 12 seconds
+          if (portalAutoDismissTimer) clearTimeout(portalAutoDismissTimer);
+          portalAutoDismissTimer = setTimeout(() => {
+            resetPortalForNextPunch();
+          }, 12000);
         }
       }
 
+      // Proceed to Next Punch / Manual verification listener
       btnPunch.addEventListener('click', function () {
         if (isPortalPunching) return;
         if (!cameraActive || !stream) {
           startCamera();
           return;
         }
+
+        // Case 1: Punch card is visible or cooldown active / Next highlight -> Immediately reset for next punch!
+        const isCardShowing = punchResult && punchResult.style.display === 'block';
+        const isCooldown = Date.now() < portalCooldownUntil;
+        if (isCardShowing || isCooldown || btnPunch.classList.contains('btn-next-highlight')) {
+          resetPortalForNextPunch();
+          return;
+        }
+
+        // Case 2: In ready state -> Manual verification trigger
         const now = Date.now();
         if (portalLastVerifiedBlinkTime && (now - portalLastVerifiedBlinkTime <= 4500)) {
           executePortalPunch('button');
@@ -1856,13 +2593,21 @@
           }
           updatePortalBlinkHUD(1, '👁️ Liveness Check: Please blink once to confirm live face!');
           btnPunch.disabled = true;
-          btnPunch.textContent = '👁️ Blink to Verify...';
+          if (btnPortalPunchText) {
+            btnPortalPunchText.textContent = '👁️ Blink to Verify...';
+          } else {
+            btnPunch.textContent = '👁️ Blink to Verify...';
+          }
           if (portalPendingLivenessTimer) clearTimeout(portalPendingLivenessTimer);
           portalPendingLivenessTimer = setTimeout(() => {
             if (portalPendingLivenessPunch && !isPortalPunching) {
               portalPendingLivenessPunch = false;
               btnPunch.disabled = false;
-              btnPunch.textContent = 'Mark My Attendance';
+              if (btnPortalPunchText) {
+                btnPortalPunchText.textContent = 'Mark My Attendance';
+              } else {
+                btnPunch.textContent = 'Mark My Attendance';
+              }
               updatePortalBlinkHUD(0, '⚠️ Liveness Check Timed Out. A live human blink is required.');
             }
           }, 7000);
