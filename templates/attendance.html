@@ -1291,18 +1291,30 @@
       100% { left: 100%; width: 50%; }
     }
 
-    /* Dedicated Mobile App Mode (Activated with ?app=1 or in APK WebView) */
-    body.app-mode .navbar {
+    /* Dedicated Mobile App Mode / Standalone Mobile APK (Activated with window.isCapacitorApp or ?hide_nav=1) */
+    body.hide-chrome .navbar {
       display: none !important;
     }
 
-    body.app-mode .footer {
+    body.hide-chrome .footer {
       display: none !important;
     }
 
-    body.app-mode .main-content {
+    body.hide-chrome .main-content {
       padding: 10px 8px 16px !important;
       justify-content: center;
+      min-height: 100dvh;
+    }
+
+    /* Web Kiosk & App Mode styling (Navbar & Footer remain visible on desktop) */
+    body.app-mode .main-content {
+      padding: 16px 12px 24px;
+      justify-content: center;
+      flex: 1;
+    }
+
+    body.app-mode.hide-chrome .main-content {
+      padding: 10px 8px 16px !important;
       min-height: 100dvh;
     }
 
@@ -1317,7 +1329,7 @@
     body.app-mode .camera-screen {
       width: 100% !important;
       height: 330px !important;
-      max-height: 65vh !important;
+      max-height: 60vh !important;
     }
   </style>
 </head>
@@ -1539,13 +1551,17 @@
     // 0. App Mode & Animated Splash Screen Controller
     const urlParams = new URLSearchParams(window.location.search);
     const isAppMode = urlParams.has('app') || urlParams.has('kiosk') || window.location.pathname === '/kiosk' || window.isCapacitorApp;
+    const isDedicatedApp = window.isCapacitorApp || (urlParams.has('app') && window.innerWidth <= 640) || urlParams.has('hide_nav') || urlParams.has('fullscreen');
     const splashScreen = document.getElementById('appSplashScreen');
     const splashStatus = document.getElementById('splashStatusText');
 
     if (isAppMode) {
       document.body.classList.add('app-mode');
-      if (splashScreen) {
-        splashScreen.style.display = 'flex';
+      if (isDedicatedApp) {
+        document.body.classList.add('hide-chrome');
+        if (splashScreen) {
+          splashScreen.style.display = 'flex';
+        }
       }
       if ('wakeLock' in navigator) {
         try { navigator.wakeLock.request('screen'); } catch (e) {}
@@ -1561,8 +1577,8 @@
       }
     }
 
-    // Safety timeout: automatically dismiss splash after 2.8s
-    if (isAppMode) {
+    // Safety timeout: automatically dismiss splash after 2.8s on dedicated app
+    if (isAppMode && isDedicatedApp) {
       setTimeout(dismissSplashScreen, 2800);
     }
     // 1. Live Date & Time Engine
