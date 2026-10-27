@@ -687,6 +687,14 @@ document.addEventListener('DOMContentLoaded', function () {
             : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Disabled</span>`;
         }
 
+        const viewCompanyProperEntriesBadge = document.getElementById('viewCompanyProperEntriesBadge');
+        if (viewCompanyProperEntriesBadge) {
+          const isProperActive = (comp.calculate_proper_entries !== false);
+          viewCompanyProperEntriesBadge.innerHTML = isProperActive
+            ? `<span class="status-pill status-active" style="background-color: #e8f5e9; color: #166534; border: 1px solid #86efac;">✓ Enabled (Geofence Enforced)</span>`
+            : `<span class="status-pill" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;">✕ Disabled (All Punches Marked Proper)</span>`;
+        }
+
         const viewCompanyModulesBadges = document.getElementById('viewCompanyModulesBadges');
         if (viewCompanyModulesBadges) {
           const m = comp.modules || {};
@@ -738,6 +746,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (inputMonthlyReportDay) inputMonthlyReportDay.value = String(comp.monthly_report_day || 1);
         if (inputCanDeleteEntries) inputCanDeleteEntries.value = (comp.can_delete_entries === true) ? 'true' : 'false';
         if (inputGeofenceRadius) inputGeofenceRadius.value = comp.geofence_radius || comp.radius_meters || 200;
+        const inCalcProperComp = document.getElementById('inputCalculateProperEntriesCompany');
+        if (inCalcProperComp) inCalcProperComp.value = (comp.calculate_proper_entries !== false) ? 'true' : 'false';
 
         const inModSingle = document.getElementById('inputModSingleCompany');
         const inModBranch = document.getElementById('inputModBranchCompany');
@@ -973,6 +983,8 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inputCanDeleteEntries) inputCanDeleteEntries.value = 'false';
       if (inputSupportEnabled) inputSupportEnabled.value = 'false';
       if (inputGeofenceRadius) inputGeofenceRadius.value = 200;
+      const inCalcProperCompReset = document.getElementById('inputCalculateProperEntriesCompany');
+      if (inCalcProperCompReset) inCalcProperCompReset.value = 'true';
       const inModSingle = document.getElementById('inputModSingleCompany');
       const inModBranch = document.getElementById('inputModBranchCompany');
       const inModField = document.getElementById('inputModFieldWorker');
@@ -1081,6 +1093,7 @@ document.addEventListener('DOMContentLoaded', function () {
         can_delete_entries: formData.get('can_delete_entries') === 'true',
         support_enabled: formData.get('support_enabled') === 'true',
         geofence_radius: parseFloat(formData.get('geofence_radius')) || 200,
+        calculate_proper_entries: document.getElementById('inputCalculateProperEntriesCompany') ? (document.getElementById('inputCalculateProperEntriesCompany').value !== 'false') : true,
         modules: {
           single_company: document.getElementById('inputModSingleCompany') ? document.getElementById('inputModSingleCompany').checked : true,
           branch_company: document.getElementById('inputModBranchCompany') ? document.getElementById('inputModBranchCompany').checked : false,

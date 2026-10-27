@@ -349,6 +349,27 @@
             </div>
           </div>
 
+          <!-- Row: Attendance & Geofencing Calculation -->
+          <div class="form-group" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <label class="form-label" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Attendance &amp; Geofencing Criteria</label>
+              <span style="font-size: 11px; color: #64748b; font-weight: 500;">Geofence distance validation policy</span>
+            </div>
+            <div style="background: #f8fafc; padding: 12px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
+              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; user-select: none; margin: 0;">
+                <input type="checkbox" id="inputCalculateProperEntries" name="calculate_proper_entries" value="true" checked style="accent-color: #3d6078; width: 17px; height: 17px; margin-top: 2px; cursor: pointer;">
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; color: #1e293b;">
+                    Calculate Proper Entries (Geofence Radius Check)
+                  </div>
+                  <div style="font-size: 11px; color: #64748b; margin-top: 2px; line-height: 1.4;">
+                    When checked (default), punches outside the company geofence radius are flagged as Improper. Uncheck this to exempt this employee from distance checks (all attendance punches will be recorded as Proper).
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <!-- Row 9: Employee Permissions -->
           <div class="form-group" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">

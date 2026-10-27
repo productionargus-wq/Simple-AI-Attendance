@@ -620,6 +620,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const photoPreviewBox = document.getElementById('currentPhotoPreview');
     if (photoPreviewBox) photoPreviewBox.style.display = 'none';
 
+    // Reset Calculate Proper Entries to checked
+    const inCalcProper = document.getElementById('inputCalculateProperEntries');
+    if (inCalcProper) inCalcProper.checked = true;
+
     // Reset Employee Permissions to all checked
     const pPunch = document.getElementById('permPunchAttendance');
     if (pPunch) pPunch.checked = true;
@@ -696,6 +700,10 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inEnd) inEnd.value = emp.shift_end || '06:00 PM';
       const captureStatusEl = document.getElementById('captureStatus');
       if (captureStatusEl) captureStatusEl.textContent = '';
+
+      // Populate Calculate Proper Entries (defaults to true for backward compatibility)
+      const inEditCalcProper = document.getElementById('inputCalculateProperEntries');
+      if (inEditCalcProper) inEditCalcProper.checked = (emp.calculate_proper_entries !== false);
 
       // Populate Employee Permissions (defaulting to true for backward compatibility)
       const perms = emp.permissions || {};
@@ -1033,6 +1041,10 @@ document.addEventListener('DOMContentLoaded', function () {
         formData.set('km_allowance_rate', '0');
       }
 
+      // Explicitly serialize calculate proper entries
+      const inCalcProperSubmit = document.getElementById('inputCalculateProperEntries');
+      formData.set('calculate_proper_entries', inCalcProperSubmit ? (inCalcProperSubmit.checked ? 'true' : 'false') : 'true');
+
       // Explicitly serialize employee portal permissions
       const permPunch = document.getElementById('permPunchAttendance');
       const permHist = document.getElementById('permAttendanceHistory');
@@ -1208,6 +1220,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ['DEPARTMENT', emp.department || emp.designation || '-'],
         ['DESIGNATION', emp.designation],
         ['STATUS', (emp.status === 'Inactive') ? '<span class="status-pill status-inactive">Inactive</span>' : '<span class="status-pill status-active">Active</span>'],
+        ['PROPER ENTRY CALCULATION', (emp.calculate_proper_entries !== false) ? '<span class="status-pill status-active" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;">✓ Active (Geofence Enforced)</span>' : '<span class="status-pill" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;">✕ Exempt (Always Proper)</span>'],
         ['EMPLOYEE TYPE', emp.is_field_worker ? '<span class="status-pill" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;font-weight:700;">🏃 Field Worker (GPS Tracked)</span>' : '<span class="status-pill status-blue">🏢 Standard Employee (Office / In-House)</span>'],
         ...(emp.is_field_worker ? [
           ['TERRITORY / ZONE', emp.territory_zone ? `📍 ${escapeHtml(emp.territory_zone)}` : 'General Zone'],

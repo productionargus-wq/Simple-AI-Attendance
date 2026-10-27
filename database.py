@@ -471,6 +471,7 @@ def create_company(data):
         'monthly_report_day': int(data.get('monthly_report_day') or 1),
         'geofence_radius': float(data.get('geofence_radius') or data.get('radius_meters') or 200.0),
         'radius_meters': float(data.get('geofence_radius') or data.get('radius_meters') or 200.0),
+        'calculate_proper_entries': bool(data.get('calculate_proper_entries', True) if isinstance(data.get('calculate_proper_entries'), bool) else str(data.get('calculate_proper_entries', 'true')).strip().lower() in ['true', '1', 'yes', 'on']),
         'can_delete_entries': str(data.get('can_delete_entries', False)).lower() in ['true', '1', 'yes'],
         'support_enabled': str(data.get('support_enabled', False)).lower() in ['true', '1', 'yes'],
         'modules': {
@@ -855,6 +856,9 @@ def update_company(comp_id, data):
                 upd['radius_meters'] = r_num
         except Exception:
             pass
+    if 'calculate_proper_entries' in data:
+        _cpe = data['calculate_proper_entries']
+        upd['calculate_proper_entries'] = bool(_cpe if isinstance(_cpe, bool) else str(_cpe).strip().lower() in ['true', '1', 'yes', 'on'])
     if 'modules' in data and isinstance(data['modules'], dict):
         raw_m = data['modules']
         upd['modules'] = {
@@ -1671,6 +1675,7 @@ def create_employee(data, company_id=None):
         'petrol_unit_km': safe_float(data.get('petrol_unit_km'), 1.0) if data.get('petrol_unit_km') is not None else 1.0,
         'petrol_rate_inr': safe_float(data.get('petrol_rate_inr')) if data.get('petrol_rate_inr') not in [None, ''] else None,
         'has_custom_petrol_rate': bool(data.get('has_custom_petrol_rate') or (safe_float(data.get('petrol_rate_inr', 0)) > 0)),
+        'calculate_proper_entries': bool(data.get('calculate_proper_entries', True) if isinstance(data.get('calculate_proper_entries'), bool) else str(data.get('calculate_proper_entries', 'true')).strip().lower() in ['true', '1', 'yes', 'on']),
         'allowed_tabs': list(data.get('allowed_tabs')) if isinstance(data.get('allowed_tabs'), list) else None,
         'branch_id': None,
         'branch_name': None,
@@ -1787,6 +1792,9 @@ def update_employee(emp_id, data, company_id=None):
         upd['face_embedding'] = data['face_embedding']
     if 'permissions' in data and isinstance(data['permissions'], dict):
         upd['permissions'] = data['permissions']
+    if 'calculate_proper_entries' in data:
+        _ecpe = data['calculate_proper_entries']
+        upd['calculate_proper_entries'] = bool(_ecpe if isinstance(_ecpe, bool) else str(_ecpe).strip().lower() in ['true', '1', 'yes', 'on'])
     if 'allowed_tabs' in data:
         upd['allowed_tabs'] = list(data['allowed_tabs']) if isinstance(data['allowed_tabs'], list) else []
     if 'documents' in data and isinstance(data['documents'], list):
@@ -2749,10 +2757,18 @@ def sync_geofence_entry_types():
     try:
         db = get_db()
         comp_radii = {}
-        for c in db.company_admin.find({}, {'id': 1, 'geofence_radius': 1, 'radius_meters': 1}):
+        comp_proper_flags = {}
+        for c in db.company_admin.find({}, {'id': 1, 'geofence_radius': 1, 'radius_meters': 1, 'calculate_proper_entries': 1}):
             cid = c.get('id')
             if cid:
                 comp_radii[cid] = float(c.get('geofence_radius') or c.get('radius_meters') or GEOFENCE_RADIUS_METERS)
+                comp_proper_flags[cid] = c.get('calculate_proper_entries', True)
+
+        emp_proper_flags = {}
+        for emp in db.employees.find({}, {'id': 1, 'calculate_proper_entries': 1}):
+            eid = emp.get('id')
+            if eid:
+                emp_proper_flags[str(eid)] = emp.get('calculate_proper_entries', True)
 
         for doc in db.attendance_reports.find({}):
             e_dist = parse_distance_meters_val(doc.get('entry_distance'))
@@ -2765,13 +2781,19 @@ def sync_geofence_entry_types():
             c_id = doc.get('company_id', 'ARGUS_MASTER')
             threshold = comp_radii.get(c_id, GEOFENCE_RADIUS_METERS)
 
-            is_outside = False
-            if e_dist is not None and e_dist > threshold:
-                is_outside = True
-            if x_dist is not None and x_dist > threshold:
-                is_outside = True
-
-            target_type = 'improper' if is_outside else 'proper'
+            e_id = str(doc.get('employee_id') or '')
+            c_enabled = comp_proper_flags.get(c_id, True)
+            e_enabled = emp_proper_flags.get(e_id, True)
+            should_calc_proper = bool(c_enabled and e_enabled)
+            if not should_calc_proper:
+                target_type = 'proper'
+            else:
+                is_outside = False
+                if e_dist is not None and e_dist > threshold:
+                    is_outside = True
+                if x_dist is not None and x_dist > threshold:
+                    is_outside = True
+                target_type = 'improper' if is_outside else 'proper'
             if doc.get('entry_type') != target_type:
                 db.attendance_reports.update_one({'_id': doc['_id']}, {'$set': {'entry_type': target_type}})
     except Exception as e:
@@ -3149,7 +3171,13 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         )
 
         # Geofencing threshold: Dynamic per company (defaults to 200m)
-        punch_in_entry_type = 'proper' if dist_meters <= company_geofence_radius else 'improper'
+        comp_proper_enabled = comp.get('calculate_proper_entries', True) if comp else True
+        emp_proper_enabled = emp.get('calculate_proper_entries', True) if emp else True
+        should_calculate_proper = bool(comp_proper_enabled and emp_proper_enabled)
+        if not should_calculate_proper:
+            punch_in_entry_type = 'proper'
+        else:
+            punch_in_entry_type = 'proper' if dist_meters <= company_geofence_radius else 'improper'
         rep_doc = {
             'company_id': comp_id,
             'branch_id': active_branch_id,
@@ -3309,9 +3337,15 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             computed_salary = round((working_minutes / 60.0) * hourly_rate, 2)
             
         # Determine final entry_type: Proper only if BOTH punch-in and punch-out are within company_geofence_radius
-        in_entry_type = existing_rep.get('entry_type', 'proper')
-        out_is_proper = (dist_meters <= company_geofence_radius)
-        final_entry_type = 'proper' if (in_entry_type == 'proper' and out_is_proper) else 'improper'
+        comp_proper_enabled = comp.get('calculate_proper_entries', True) if comp else True
+        emp_proper_enabled = emp.get('calculate_proper_entries', True) if emp else True
+        should_calculate_proper = bool(comp_proper_enabled and emp_proper_enabled)
+        if not should_calculate_proper:
+            final_entry_type = 'proper'
+        else:
+            in_entry_type = existing_rep.get('entry_type', 'proper')
+            out_is_proper = (dist_meters <= company_geofence_radius)
+            final_entry_type = 'proper' if (in_entry_type == 'proper' and out_is_proper) else 'improper'
 
         upd_data = {
             'exit_time': now_time_12,
