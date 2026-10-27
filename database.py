@@ -1947,6 +1947,105 @@ def get_employee_names_cached(company_id=None, branch_id=None):
     _employee_names_cache[cache_key] = (now_ts, names)
     return names
 
+def get_today_attendance_summary(company_id=None, branch_id=None):
+    """
+    Computes accurate, mathematically consistent today attendance metrics across all entry sources:
+    (biometric attendance, reports, live sessions, manual entries, timeouts, and approved leaves).
+    Guarantees that present + on_leave + absent == total_staff and isolates strictly by tenant.
+    """
+    db = get_db()
+    b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    cid = str(company_id) if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', 'DEFAULT'] else None
+
+    # Load active registered staff for this company/branch (including all employee types)
+    t_filter = get_branch_employee_query(b_id, cid, exclude_field_workers=False)
+    active_emp_docs = list(db.employees.find({**t_filter, 'status': {'$ne': 'Inactive'}}, {'employee_name': 1, 'branch_id': 1, 'department': 1}))
+    registered_names = set(e['employee_name'] for e in active_emp_docs if e.get('employee_name'))
+    total_staff = len(registered_names)
+
+    now_ist = get_ist_now()
+    today_str = now_ist.strftime('%Y-%m-%d')
+    today_slash = now_ist.strftime('%d/%m/%Y')
+
+    comp_base = {'company_id': cid} if cid else {}
+    if b_id:
+        branch_cond = get_branch_record_condition(b_id, registered_names)
+        def _merge(*parts):
+            p = [x for x in parts if x]
+            return {'$and': p} if len(p) > 1 else (p[0] if p else {})
+        p_filter = _merge(comp_base, branch_cond, {'date': today_str})
+        ar_filter = _merge(comp_base, branch_cond, {'date': today_str})
+        l_filter = _merge(comp_base, branch_cond, {'entry_time': {'$regex': today_slash}})
+        m_filter = _merge(comp_base, branch_cond, {'$or': [
+            {'entry_date': today_str},
+            {'date': today_str},
+            {'submitted_at': {'$regex': today_str}},
+            {'submitted_at': {'$regex': today_slash}}
+        ]})
+        timeout_filter = _merge(comp_base, branch_cond, {'$or': [
+            {'entry_time': {'$regex': today_slash}},
+            {'exit_time': {'$regex': today_slash}}
+        ]})
+    else:
+        p_filter = {**comp_base, 'date': today_str}
+        ar_filter = {**comp_base, 'date': today_str}
+        l_filter = {**comp_base, 'entry_time': {'$regex': today_slash}}
+        m_filter = {**comp_base, '$or': [
+            {'entry_date': today_str},
+            {'date': today_str},
+            {'submitted_at': {'$regex': today_str}},
+            {'submitted_at': {'$regex': today_slash}}
+        ]}
+        timeout_filter = {**comp_base, '$or': [
+            {'entry_time': {'$regex': today_slash}},
+            {'exit_time': {'$regex': today_slash}}
+        ]}
+
+    att_docs = {a['employee_name']: a for a in db.attendance.find(p_filter) if a.get('employee_name')}
+    ar_docs = {a['employee_name']: a for a in db.attendance_reports.find(ar_filter) if a.get('employee_name')}
+    live_docs = {l['employee_name']: l for l in db.live_entries.find(l_filter) if l.get('employee_name')}
+    manual_docs = {m['employee_name']: m for m in db.manual_entries.find(m_filter) if m.get('employee_name')}
+    timeout_today = {t['employee_name']: t for t in db.timeout_entries.find(timeout_filter) if t.get('employee_name')}
+
+    all_present_set = set(att_docs.keys()).union(set(ar_docs.keys())).union(set(live_docs.keys())).union(set(manual_docs.keys())).union(set(timeout_today.keys()))
+    combined_present = all_present_set.intersection(registered_names)
+    present_count = len(combined_present)
+
+    approved_leaves_today = get_approved_leaves_for_date(today_str, company_id=cid)
+    on_leave_set = set(approved_leaves_today.keys()).intersection(registered_names).difference(combined_present)
+    on_leave_count = len(on_leave_set)
+
+    absent_set = registered_names.difference(combined_present).difference(on_leave_set)
+    absent_count = len(absent_set)
+
+    tout_live_filter = {**timeout_filter, 'is_timeout': 1}
+    timeout_count = db.timeout_entries.count_documents(timeout_filter) + db.live_entries.count_documents(tout_live_filter)
+
+    present_pct = round((present_count / total_staff * 100), 1) if total_staff > 0 else 0.0
+    absent_pct = round((absent_count / total_staff * 100), 1) if total_staff > 0 else 0.0
+    on_leave_pct = round((on_leave_count / total_staff * 100), 1) if total_staff > 0 else 0.0
+    timeout_pct = round((timeout_count / total_staff * 100), 1) if total_staff > 0 else 0.0
+
+    return {
+        'total_staff': total_staff,
+        'present_count': present_count,
+        'present_names': sorted(list(combined_present)),
+        'absent_count': absent_count,
+        'absent_names': sorted(list(absent_set)),
+        'on_leave_count': on_leave_count,
+        'on_leave_names': sorted(list(on_leave_set)),
+        'timeout_count': timeout_count,
+        'present_percent': f"{present_pct}%",
+        'present_percentage': present_pct,
+        'absent_percent': f"{absent_pct}%",
+        'absent_percentage': absent_pct,
+        'on_leave_percent': f"{on_leave_pct}%",
+        'on_leave_percentage': on_leave_pct,
+        'timeout_percent': f"{timeout_pct}%",
+        'timeout_percentage': timeout_pct,
+        'details_map': {**timeout_today, **manual_docs, **live_docs, **ar_docs, **att_docs}
+    }
+
 def get_dashboard_stats(company_id=None, branch_id=None):
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', ''] else None
     cache_key = f"{company_id or 'ALL'}:{b_id or 'ALL'}"
@@ -1957,7 +2056,7 @@ def get_dashboard_stats(company_id=None, branch_id=None):
             return cached_val
 
     db = get_db()
-    t_filter = get_branch_employee_query(b_id, company_id)
+    t_filter = get_branch_employee_query(b_id, company_id, exclude_field_workers=False)
         
     branch_emp_names = set()
     if b_id:
@@ -2023,6 +2122,8 @@ def get_dashboard_stats(company_id=None, branch_id=None):
     manual_docs = {m['employee_name']: m for m in db.manual_entries.find(m_filter)}
     timeout_today = {t['employee_name']: t for t in db.timeout_entries.find(timeout_filter)}
     combined_present = set(att_docs.keys()).union(set(ar_docs.keys())).union(set(live_docs.keys())).union(set(manual_docs.keys())).union(set(timeout_today.keys()))
+    all_active_reg_names = set(e.get('employee_name') for e in db.employees.find({**t_filter, 'status': {'$ne': 'Inactive'}}, {'employee_name': 1}) if e.get('employee_name'))
+    combined_present = combined_present.intersection(all_active_reg_names)
     present_count = len(combined_present)
 
     # Approved leaves today integration
@@ -2037,9 +2138,9 @@ def get_dashboard_stats(company_id=None, branch_id=None):
     on_leave_percentage = round((on_leave_count / total_employees * 100), 1) if total_employees > 0 else 0.0
     absent_percentage = round((absent_count / total_employees * 100), 1) if total_employees > 0 else 0.0
     
-    tout_filter = dict(record_base)
+    tout_filter = dict(timeout_filter)
     tout_filter['is_timeout'] = 1
-    timeout_count = db.timeout_entries.count_documents(dict(record_base)) + db.live_entries.count_documents(tout_filter)
+    timeout_count = db.timeout_entries.count_documents(timeout_filter) + db.live_entries.count_documents(tout_filter)
     timeout_percentage = round((timeout_count / total_employees * 100), 1) if total_employees > 0 else 0.0
     
     # Last 7 days dynamic calculation in BATCH queries (replaces 35 individual network calls)

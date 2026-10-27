@@ -6294,6 +6294,7 @@ def api_coworker_ai_chat():
 
         db = database.get_db()
         cid = str(get_current_company_id() or 'ARGUS_MASTER')
+        bid = get_current_branch_id()
 
         # Load active registered employees for entity matching (strictly tenant-isolated)
         emp_filter = {'status': {'$ne': 'Terminated'}}
@@ -7253,6 +7254,7 @@ def api_coworker_ai_chat():
         # 5. CHECK ATTENDANCE & LIVE STATUS
         elif action_name == 'check_attendance':
             today_str = datetime.now().strftime('%Y-%m-%d')
+            summary = database.get_today_attendance_summary(company_id=cid, branch_id=bid)
             raw_name = params.get('employee_name')
             if raw_name:
                 emp_doc, candidates = resolve_employee(raw_name)
@@ -7264,47 +7266,99 @@ def api_coworker_ai_chat():
                         'pending_task': None
                     })
                 emp_name = emp_doc.get('employee_name')
-                rec = db.attendance.find_one({'employee_name': emp_name, 'date': today_str})
+                rec = summary.get('details_map', {}).get(emp_name)
                 if rec:
-                    in_t = rec.get('in_time', 'N/A')
-                    out_t = rec.get('out_time', 'Active')
-                    st = rec.get('status', 'Present')
+                    in_t = rec.get('in_time') or rec.get('entry_time') or '-'
+                    out_t = rec.get('out_time') or rec.get('exit_time') or '-'
+                    st = rec.get('status') or 'Present'
+                    hrs = rec.get('working_hours') or rec.get('hours') or '08:00'
                     return jsonify({
                         'success': True,
-                        'reply': f"**{emp_name}** is marked **{st}** today ({today_str}). In-time: *{in_t}*, Out-time: *{out_t}*.",
+                        'reply': f"**{emp_name}** is marked **{st}** today ({today_str}) ({hrs} hrs). In-time: *{in_t}*, Out-time: *{out_t}*.",
                         'task_executed': True,
                         'task_data': {
                             'type': 'attendance',
-                            'details': {'Employee': emp_name, 'Date': today_str, 'Status': st, 'In Time': in_t, 'Out Time': out_t}
+                            'details': {'Employee': emp_name, 'Date': today_str, 'Status': st, 'In Time': str(in_t), 'Out Time': str(out_t), 'Hours': str(hrs)}
+                        },
+                        'pending_task': None
+                    })
+                elif emp_name in summary.get('on_leave_names', []):
+                    return jsonify({
+                        'success': True,
+                        'reply': f"**{emp_name}** is on **approved leave** today ({today_str}).",
+                        'task_executed': True,
+                        'task_data': {
+                            'type': 'attendance',
+                            'details': {'Employee': emp_name, 'Date': today_str, 'Status': 'On Leave'}
                         },
                         'pending_task': None
                     })
                 else:
                     return jsonify({
                         'success': True,
-                        'reply': f"**{emp_name}** has not punched in today yet ({today_str}). Would you like me to log a manual entry for them?",
+                        'reply': f"**{emp_name}** is **absent** today ({today_str}) (has not punched in yet). Would you like me to log a manual entry for them?",
                         'task_executed': False,
                         'pending_task': {'action': 'create_manual_attendance', 'parameters': {'employee_name': emp_name}}
                     })
             else:
-                total_emps = len(employees)
-                present_count = db.attendance.count_documents({'date': today_str})
-                absent_count = max(0, total_emps - present_count)
+                total_emps = summary['total_staff']
+                present_count = summary['present_count']
+                absent_count = summary['absent_count']
+                on_leave_count = summary['on_leave_count']
+                
+                # Check user query intent
+                is_absent_query = any(w in msg_lower for w in ['absent', 'missing', 'not present', 'not punched', 'who is absent'])
+                is_present_query = any(w in msg_lower for w in ['who is present', 'who are present', 'present staff', 'present list'])
+
+                if is_absent_query:
+                    if absent_count == 0:
+                        detail_text = "🎉 **All registered employees are present today!** (0 absent)"
+                    else:
+                        names_fmt = ", ".join([f"**{n}**" for n in summary['absent_names']])
+                        detail_text = f"📌 **Absent Staff ({absent_count})**: {names_fmt}"
+                elif is_present_query:
+                    if present_count == 0:
+                        detail_text = "⚠️ **No employees have punched in today yet.**"
+                    else:
+                        names_fmt = ", ".join([f"**{n}**" for n in summary['present_names']])
+                        detail_text = f"📌 **Present Staff ({present_count})**: {names_fmt}"
+                else:
+                    names_p = ", ".join([f"**{n}**" for n in summary['present_names']]) if summary['present_names'] else "None"
+                    names_a = ", ".join([f"**{n}**" for n in summary['absent_names']]) if summary['absent_names'] else "None"
+                    detail_text = f"• **Present**: {names_p}\n• **Absent**: {names_a}"
+
+                leave_line = f"\n• On Approved Leave: **{on_leave_count}** ({', '.join(summary['on_leave_names'])})" if on_leave_count > 0 else ""
+
+                reply_msg = (
+                    f"Attendance Summary for today (**{today_str}**):\n"
+                    f"• Present Today: **{present_count}** ({summary['present_percent']})\n"
+                    f"• Absent Today: **{absent_count}** ({summary['absent_percent']})"
+                    f"{leave_line}\n"
+                    f"• Total Registered Staff: **{total_emps}**\n\n"
+                    f"{detail_text}"
+                )
+
+                absent_str = ", ".join(summary['absent_names']) if summary['absent_names'] else "None (All Present)"
+
                 return jsonify({
                     'success': True,
-                    'reply': f"Attendance Summary for today (**{today_str}**):\n"
-                             f"• Present Today: **{present_count}**\n"
-                             f"• Absent Today: **{absent_count}**\n"
-                             f"• Total Registered Staff: **{total_emps}**",
+                    'reply': reply_msg,
                     'task_executed': True,
                     'task_data': {
                         'type': 'attendance',
-                        'details': {'Date': today_str, 'Present': str(present_count), 'Absent': str(absent_count), 'Total Staff': str(total_emps)}
+                        'details': {
+                            'Date': today_str,
+                            'Present': f"{present_count} ({summary['present_percent']})",
+                            'Absent': f"{absent_count} ({summary['absent_percent']})",
+                            'Total Staff': str(total_emps),
+                            'Absent Staff': absent_str
+                        }
                     },
                     'action_label': 'View Live Report',
                     'action_url': '/live-report',
                     'pending_task': None
                 })
+
 
         # 6. APPLY LEAVE
         elif action_name == 'apply_leave':
@@ -7449,7 +7503,7 @@ def api_coworker_ai_chat():
 
         # 9. FIELD WORKER MODULE
         elif action_name == 'check_field_worker':
-            fw_count = db.employees.count_documents({'is_field_worker': True, 'status': {'$ne': 'Terminated'}})
+            fw_count = len([e for e in employees if e.get('is_field_worker')])
             return jsonify({
                 'success': True,
                 'reply': f"There are **{fw_count}** active field workers registered. You can review location logs, visits, and field disbursements below.",
@@ -7527,12 +7581,11 @@ def api_advisor_ai_briefing():
         today_str = datetime.now().strftime('%Y-%m-%d')
         
         # 1. Today's Attendance & Punctuality
-        att_filter = {'date': today_str}
-        if cid and cid != 'ARGUS_MASTER':
-            att_filter['company_id'] = cid
-        today_records = list(db.attendance.find(att_filter))
-        present_count = len(today_records)
-        absent_count = max(0, total_staff - present_count)
+        att_summary = database.get_today_attendance_summary(company_id=cid)
+        total_staff = att_summary['total_staff']
+        present_count = att_summary['present_count']
+        absent_count = att_summary['absent_count']
+        today_records = list(att_summary.get('details_map', {}).values())
         
         # Late punches
         late_count = 0
