@@ -75,18 +75,26 @@
        2. UI INJECTION & DOM CREATION
        ------------------------------------------------------------------------- */
     injectUI() {
-      // 1. Floating Launcher Pill
-      const pill = document.createElement('div');
-      pill.className = 'coworker-ai-trigger-pill';
-      pill.id = 'coworkerAiTriggerPill';
-      pill.setAttribute('title', 'Open Co-Worker AI (Ctrl + Alt)');
-      pill.innerHTML = `
-        <span>🤖</span>
-        <span>Co-Worker AI</span>
-        <span class="pill-badge">Ctrl+Alt</span>
+      // 1. Shared Floating Action Dock & Co-Worker Circular Button
+      let dock = document.getElementById('argusAiDock');
+      if (!dock) {
+        dock = document.createElement('div');
+        dock.id = 'argusAiDock';
+        dock.className = 'argus-ai-dock';
+        document.body.appendChild(dock);
+      }
+
+      const circleBtn = document.createElement('button');
+      circleBtn.className = 'argus-ai-circle-btn coworker-ai-btn';
+      circleBtn.id = 'coworkerAiCircleBtn';
+      circleBtn.setAttribute('data-tooltip', 'Co-Worker AI (Ctrl + Alt)');
+      circleBtn.setAttribute('aria-label', 'Open Co-Worker AI');
+      circleBtn.innerHTML = `
+        <span class="argus-ai-icon">🤖</span>
+        <span class="argus-ai-status-dot"></span>
       `;
-      document.body.appendChild(pill);
-      this.triggerPill = pill;
+      dock.appendChild(circleBtn);
+      this.triggerPill = circleBtn;
 
       // 2. Backdrop
       const backdrop = document.createElement('div');
@@ -294,28 +302,25 @@
 
         this.recognition.onstart = () => {
           this.isRecognizing = true;
+          this.baseText = this.textarea.value.trim();
           this.showRecordingState(true);
         };
 
         this.recognition.onresult = (event) => {
-          let interimTranscript = '';
-          let finalTranscript = '';
+          let accumulatedFinal = '';
+          let currentInterim = '';
 
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
+          for (let i = 0; i < event.results.length; ++i) {
             const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-              finalTranscript += transcript + ' ';
+              accumulatedFinal += transcript + ' ';
             } else {
-              interimTranscript += transcript;
+              currentInterim += transcript;
             }
           }
 
-          if (finalTranscript) {
-            this.textarea.value += finalTranscript;
-          } else if (interimTranscript) {
-            // Show interim speech live in the textarea placeholder/value
-            this.textarea.value = interimTranscript;
-          }
+          const prefix = this.baseText ? this.baseText + ' ' : '';
+          this.textarea.value = (prefix + accumulatedFinal + currentInterim).trimStart();
           this.autoGrowTextarea();
           this.updateInputButtons();
         };
@@ -327,6 +332,7 @@
 
         this.recognition.onend = () => {
           this.isRecognizing = false;
+          this.textarea.value = this.textarea.value.trim();
           this.showRecordingState(false);
         };
       }
@@ -478,7 +484,10 @@
 
           this.appendMessage('ai', aiReply, this.formatTime(new Date()), taskData);
 
-          // Voice feedback if enabled
+          // Update dynamic chips for interactive next steps
+          this.renderDynamicChips(taskData);
+
+          // Voice feedback if enabled (interactively speaks back)
           if (this.voiceEnabled) {
             this.speakReply(aiReply);
           }
@@ -495,6 +504,49 @@
         this.showTyping(false);
         this.appendMessage('ai', 'Connection error. Please check your network or try again.', this.formatTime(new Date()));
       }
+    }
+
+    renderDynamicChips(taskData) {
+      if (!this.chatWindow) return;
+      const chipsContainer = this.chatWindow.querySelector('#coworkerChips');
+      if (!chipsContainer) return;
+
+      let chipPrompts = [];
+      if (taskData && taskData.type === 'payment') {
+        const emp = (taskData.details && taskData.details.Employee) ? taskData.details.Employee : '';
+        chipPrompts = [
+          { label: '💰 Check Balance', prompt: `Check payment balance for ${emp}` },
+          { label: '➕ New Payment', prompt: `Create a payment entry for ` },
+          { label: '📋 View Ledger', prompt: `Take me to payment entry` }
+        ];
+      } else if (taskData && taskData.type === 'attendance') {
+        chipPrompts = [
+          { label: '👥 Who is absent today?', prompt: `Who is absent today?` },
+          { label: '📋 View Manual Entries', prompt: `Take me to manual entries` },
+          { label: '💰 Check Payments', prompt: `Check total payments this month` }
+        ];
+      } else {
+        chipPrompts = [
+          { label: '💰 Create Payment', prompt: 'Create a payment entry for ' },
+          { label: '📋 Today\'s Attendance', prompt: 'How many employees are present today?' },
+          { label: '🏖️ Apply Leave', prompt: 'Apply leave for ' },
+          { label: '🔍 Search Staff', prompt: 'Search employee details for ' }
+        ];
+      }
+
+      chipsContainer.innerHTML = '';
+      chipPrompts.forEach(item => {
+        const chip = document.createElement('div');
+        chip.className = 'coworker-chip';
+        chip.setAttribute('data-prompt', item.prompt);
+        chip.innerText = item.label;
+        chip.addEventListener('click', () => {
+          this.textarea.value = item.prompt;
+          this.textarea.focus();
+          this.updateInputButtons();
+        });
+        chipsContainer.appendChild(chip);
+      });
     }
 
     speakReply(text) {

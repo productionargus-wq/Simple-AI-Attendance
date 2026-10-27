@@ -394,15 +394,25 @@
       `;
       document.body.appendChild(this.bubbleEl);
 
-      // 3. Bottom-Right Trigger Pill
-      this.triggerPillEl = document.createElement('div');
-      this.triggerPillEl.className = 'teacher-ai-trigger-pill';
-      this.triggerPillEl.title = 'Toggle Teacher AI (Keyboard Shortcut: CTRL + SHIFT)';
-      this.triggerPillEl.innerHTML = `
-        <span>🎓 Teacher AI</span>
-        <span class="shortcut-kbd">Ctrl+Shift</span>
+      // 3. Shared Floating Action Dock & Circular Trigger Button
+      let dock = document.getElementById('argusAiDock');
+      if (!dock) {
+        dock = document.createElement('div');
+        dock.id = 'argusAiDock';
+        dock.className = 'argus-ai-dock';
+        document.body.appendChild(dock);
+      }
+
+      this.circleBtn = document.createElement('button');
+      this.circleBtn.className = 'argus-ai-circle-btn teacher-ai-btn';
+      this.circleBtn.id = 'teacherAiCircleBtn';
+      this.circleBtn.setAttribute('data-tooltip', 'Teacher AI (Ctrl + Shift)');
+      this.circleBtn.setAttribute('aria-label', 'Toggle Teacher AI');
+      this.circleBtn.innerHTML = `
+        <span class="argus-ai-icon">🎓</span>
       `;
-      document.body.appendChild(this.triggerPillEl);
+      dock.appendChild(this.circleBtn);
+      this.triggerPillEl = this.circleBtn;
 
       // Bind HUD Buttons
       const voiceBtn = this.hudEl.querySelector('#teacherAiToggleVoiceBtn');

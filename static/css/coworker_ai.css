@@ -2,47 +2,109 @@
  * ARGUS Co-Worker AI (Agent 2) - WhatsApp-Style Executive Assistant
  * -----------------------------------------------------------------
  * Authentic WhatsApp UI styling, chat bubbles, task execution cards,
- * microphone waveform animations, and responsive modal layout.
+ * microphone waveform animations, and circular floating dock layout.
  */
 
 /* ==========================================================================
-   1. FLOATING LAUNCHER PILL
+   1. UNIFIED FLOATING ACTION BUTTON (FAB) DOCK & CIRCLE BUTTONS
    ========================================================================== */
-.coworker-ai-trigger-pill {
+.argus-ai-dock {
   position: fixed;
-  bottom: 20px;
-  right: 170px;
-  z-index: 9998;
-  display: inline-flex;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #128c7e 0%, #25d366 100%);
-  color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 24px;
-  box-shadow: 0 4px 16px rgba(18, 140, 126, 0.35);
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  gap: 12px;
+  z-index: 99998;
+}
+
+.argus-ai-circle-btn {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.2);
+  outline: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  padding: 0;
 }
 
-.coworker-ai-trigger-pill:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(18, 140, 126, 0.5);
-  background: linear-gradient(135deg, #075e54 0%, #128c7e 100%);
+.argus-ai-circle-btn:hover {
+  transform: translateY(-3px) scale(1.08);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
 }
 
-.coworker-ai-trigger-pill .pill-badge {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 2px 7px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+.argus-ai-circle-btn:active {
+  transform: translateY(0) scale(0.96);
+}
+
+/* Floating Tooltip */
+.argus-ai-circle-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 50%;
+  transform: translateX(50%) translateY(4px);
+  background: #0f172a;
+  color: #f8fafc;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 5px 11px;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  z-index: 999999;
+}
+
+.argus-ai-circle-btn:hover::after {
+  opacity: 1;
+  transform: translateX(50%) translateY(0);
+}
+
+/* Co-Worker AI Circle Button */
+.argus-ai-circle-btn.coworker-ai-btn {
+  background: linear-gradient(135deg, #075e54 0%, #25d366 100%);
+  color: #ffffff;
+}
+
+.argus-ai-circle-btn.coworker-ai-btn:hover {
+  background: linear-gradient(135deg, #128c7e 0%, #25d366 100%);
+}
+
+.argus-ai-status-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  background: #25d366;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  animation: coworker-pulse-dot 2s infinite;
+}
+
+.argus-ai-icon {
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Backward compatibility for any old class */
+.coworker-ai-trigger-pill {
+  display: none !important;
 }
 
 /* ==========================================================================
@@ -589,11 +651,17 @@
    9. MOBILE RESPONSIVENESS
    ========================================================================== */
 @media (max-width: 640px) {
-  .coworker-ai-trigger-pill {
-    bottom: 75px;
+  .argus-ai-dock {
+    bottom: 80px;
     right: 16px;
-    font-size: 12px;
-    padding: 6px 12px;
+    gap: 8px;
+  }
+  .argus-ai-circle-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .argus-ai-icon {
+    font-size: 20px;
   }
   .coworker-chat-window {
     top: 0;
@@ -607,4 +675,3 @@
     border-radius: 0;
   }
 }
-

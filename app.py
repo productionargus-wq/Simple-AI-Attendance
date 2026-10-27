@@ -6430,28 +6430,75 @@ def api_coworker_ai_chat():
 
         def resolve_employee(name):
             if not name:
-                return None
-            target = str(name).strip().lower()
+                return None, []
+            raw = str(name).strip()
+            # Clean common trailing prepositions or punctuation
+            cleaned = re.sub(r'^(for|to|of)\s+', '', raw, flags=re.IGNORECASE).strip()
+            cleaned = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', cleaned, flags=re.IGNORECASE).strip()
+            if not cleaned:
+                return None, []
+
+            target = cleaned.lower()
+
+            # 1. Exact match (case-insensitive)
             for e in employees:
-                if e.get('employee_name', '').lower() == target:
-                    return e
+                e_name = str(e.get('employee_name') or '').strip()
+                if e_name.lower() == target:
+                    return e, []
+
+            # 2. Token match / Substring match
+            target_tokens = set(target.split())
+            candidates = []
             for e in employees:
-                if target in e.get('employee_name', '').lower() or e.get('employee_name', '').lower() in target:
-                    return e
-            return {'employee_name': str(name).strip(), 'id': f"EMP_{int(database.time.time())}"}
+                e_name = str(e.get('employee_name') or '').strip()
+                e_lower = e_name.lower()
+                e_tokens = set(e_lower.split())
+                if target_tokens and target_tokens.issubset(e_tokens):
+                    candidates.append(e)
+                elif len(target) >= 3 and (target in e_lower or e_lower in target):
+                    candidates.append(e)
+
+            if len(candidates) == 1:
+                return candidates[0], []
+            elif len(candidates) > 1:
+                return None, candidates
+
+            # 3. No match found - strictly return None!
+            return None, []
 
         # 1. CREATE PAYMENT
         if action_name == 'create_payment':
             raw_name = params.get('employee_name')
             raw_amt = params.get('amount')
-            if not raw_name or not raw_amt:
+
+            if raw_name:
+                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
+
+            if not raw_name or raw_amt is None:
                 return jsonify({
                     'success': True,
-                    'reply': "To create a payment entry, please tell me the **employee name** and the **amount (₹)** (e.g., *'Create a payment for Ramesh for ₹5,000 as Advance Repayment'*).",
+                    'reply': f"I'd be glad to record a payment for {raw_name or 'the employee'}. Could you please specify the **amount (₹)** and payment status (e.g. *Advance Repayment*, *Salary*)?",
                     'task_executed': False
                 })
 
-            emp_doc = resolve_employee(raw_name)
+            emp_doc, candidates = resolve_employee(raw_name)
+            if not emp_doc:
+                if candidates:
+                    cand_names = ", ".join([f"**{c.get('employee_name')}**" for c in candidates[:4]])
+                    return jsonify({
+                        'success': True,
+                        'reply': f"I found multiple employees matching '**{raw_name}**': {cand_names}. Which one would you like to record the payment for?",
+                        'task_executed': False
+                    })
+                else:
+                    sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:5] if e.get('employee_name')])
+                    staff_hint = f" Here are some registered employees in your company: {sample_staff}." if sample_staff else ""
+                    return jsonify({
+                        'success': True,
+                        'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company.{staff_hint} Please check the name and try again.",
+                        'task_executed': False
+                    })
+
             emp_name = emp_doc.get('employee_name')
             amt = float(raw_amt)
             status = params.get('status') or 'Advance Repayment'
@@ -6472,7 +6519,7 @@ def api_coworker_ai_chat():
 
             return jsonify({
                 'success': True,
-                'reply': reply_text or f"Payment entry of **₹{amt:,.2f}** for **{emp_name}** has been successfully recorded with status *{status}*.",
+                'reply': f"I've recorded the payment entry of **₹{amt:,.2f}** for **{emp_name}** ({status}). The entry ID is **#{inserted_id}**. You can review the details on the card below or click to open the ledger. Is there anything else you'd like me to handle?",
                 'task_executed': True,
                 'task_data': {
                     'type': 'payment',
@@ -6492,14 +6539,34 @@ def api_coworker_ai_chat():
         # 2. CREATE MANUAL ATTENDANCE
         elif action_name == 'create_manual_attendance':
             raw_name = params.get('employee_name')
+            if raw_name:
+                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
+
             if not raw_name:
                 return jsonify({
                     'success': True,
-                    'reply': "Please specify the employee name to record manual attendance for (e.g., *'Add manual attendance for Priya today from 9:00 AM to 6:00 PM'*).",
+                    'reply': "Please specify which employee you want to record manual attendance for (e.g., *'Add manual attendance for Priya today from 9:00 AM to 6:00 PM'*).",
                     'task_executed': False
                 })
 
-            emp_doc = resolve_employee(raw_name)
+            emp_doc, candidates = resolve_employee(raw_name)
+            if not emp_doc:
+                if candidates:
+                    cand_names = ", ".join([f"**{c.get('employee_name')}**" for c in candidates[:4]])
+                    return jsonify({
+                        'success': True,
+                        'reply': f"I found multiple employees matching '**{raw_name}**': {cand_names}. Which one did you mean?",
+                        'task_executed': False
+                    })
+                else:
+                    sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:5] if e.get('employee_name')])
+                    staff_hint = f" Active staff: {sample_staff}." if sample_staff else ""
+                    return jsonify({
+                        'success': True,
+                        'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company.{staff_hint} Please check the spelling.",
+                        'task_executed': False
+                    })
+
             emp_name = emp_doc.get('employee_name')
             date_str = params.get('date') or datetime.now().strftime('%Y-%m-%d')
             hours_str = params.get('hours') or '08:00'
@@ -6518,7 +6585,7 @@ def api_coworker_ai_chat():
 
             return jsonify({
                 'success': True,
-                'reply': reply_text or f"Manual attendance for **{emp_name}** on **{date_str}** has been successfully logged.",
+                'reply': f"Manual attendance for **{emp_name}** on **{date_str}** has been successfully logged with status *{status}* ({hours_str} hrs). What else can I do for you?",
                 'task_executed': True,
                 'task_data': {
                     'type': 'attendance',
@@ -6537,6 +6604,9 @@ def api_coworker_ai_chat():
         # 3. APPLY LEAVE
         elif action_name == 'apply_leave':
             raw_name = params.get('employee_name')
+            if raw_name:
+                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
+
             if not raw_name:
                 return jsonify({
                     'success': True,
@@ -6544,7 +6614,22 @@ def api_coworker_ai_chat():
                     'task_executed': False
                 })
 
-            emp_doc = resolve_employee(raw_name)
+            emp_doc, candidates = resolve_employee(raw_name)
+            if not emp_doc:
+                if candidates:
+                    cand_names = ", ".join([f"**{c.get('employee_name')}**" for c in candidates[:4]])
+                    return jsonify({
+                        'success': True,
+                        'reply': f"I found multiple employees matching '**{raw_name}**': {cand_names}. Which one did you mean?",
+                        'task_executed': False
+                    })
+                else:
+                    return jsonify({
+                        'success': True,
+                        'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company. Please check the name.",
+                        'task_executed': False
+                    })
+
             emp_name = emp_doc.get('employee_name')
             leave_type = params.get('leave_type') or 'Casual Leave'
             from_d = params.get('from_date') or datetime.now().strftime('%Y-%m-%d')
@@ -6565,7 +6650,7 @@ def api_coworker_ai_chat():
 
             return jsonify({
                 'success': True,
-                'reply': reply_text or f"Leave application for **{emp_name}** ({leave_type}) from **{from_d}** to **{to_d}** has been submitted.",
+                'reply': f"Leave application for **{emp_name}** ({leave_type}) from **{from_d}** to **{to_d}** has been submitted for approval.",
                 'task_executed': True,
                 'task_data': {
                     'type': 'leave',
@@ -6586,7 +6671,13 @@ def api_coworker_ai_chat():
             today_str = datetime.now().strftime('%Y-%m-%d')
             raw_name = params.get('employee_name')
             if raw_name:
-                emp_doc = resolve_employee(raw_name)
+                emp_doc, candidates = resolve_employee(raw_name)
+                if not emp_doc:
+                    return jsonify({
+                        'success': True,
+                        'reply': f"I couldn't find an employee named '**{raw_name}**' in your registered company staff.",
+                        'task_executed': False
+                    })
                 emp_name = emp_doc.get('employee_name')
                 rec = db.attendance.find_one({'employee_name': emp_name, 'date': today_str})
                 if rec:
@@ -6595,7 +6686,7 @@ def api_coworker_ai_chat():
                     st = rec.get('status', 'Present')
                     return jsonify({
                         'success': True,
-                        'reply': f"**{emp_name}** is marked **{st}** today. In-time: *{in_t}*, Out-time: *{out_t}*.",
+                        'reply': f"**{emp_name}** is marked **{st}** today ({today_str}). In-time: *{in_t}*, Out-time: *{out_t}*. Can I help you with anything else?",
                         'task_executed': True,
                         'task_data': {
                             'type': 'attendance',
@@ -6605,7 +6696,7 @@ def api_coworker_ai_chat():
                 else:
                     return jsonify({
                         'success': True,
-                        'reply': f"**{emp_name}** has not punched in today yet ({today_str}).",
+                        'reply': f"**{emp_name}** has not punched in today yet ({today_str}). Would you like me to log a manual entry for them?",
                         'task_executed': False
                     })
             else:
@@ -6613,7 +6704,7 @@ def api_coworker_ai_chat():
                 present_count = db.attendance.count_documents({'date': today_str})
                 return jsonify({
                     'success': True,
-                    'reply': f"Today (**{today_str}**), **{present_count}** out of **{total_emps}** registered employees have punched in.",
+                    'reply': f"Today (**{today_str}**), **{present_count}** out of **{total_emps}** registered employees have punched in. What would you like to do next?",
                     'task_executed': True,
                     'task_data': {
                         'type': 'attendance',
