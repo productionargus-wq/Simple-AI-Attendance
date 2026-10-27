@@ -211,6 +211,13 @@
 }
 
 /* 4. Unified Bottom-Right Circle Floating Dock */
+.argus-ai-dock.dock-hidden,
+body.coworker-modal-open .argus-ai-dock {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(14px) scale(0.9) !important;
+}
+
 .argus-ai-dock {
   position: fixed;
   bottom: 24px;
@@ -218,7 +225,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  z-index: 99998;
+  z-index: 9998;
 }
 
 .argus-ai-circle-btn {

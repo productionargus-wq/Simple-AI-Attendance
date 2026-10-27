@@ -467,7 +467,8 @@
       this.isActive = true;
       this.hudEl.classList.add('active');
       this.triggerPillEl.classList.add('active');
-      this.triggerPillEl.innerHTML = `<span>🎓 Teacher AI Active</span> <span class="shortcut-kbd">Esc / Ctrl+Shift</span>`;
+      this.triggerPillEl.setAttribute('data-tooltip', 'Teacher AI Active (Esc / Ctrl+Shift)');
+      this.triggerPillEl.innerHTML = '<span class="argus-ai-icon">🎓</span>';
 
       // Attach mouse tracking
       document.addEventListener('mouseover', this._onMouseMove, true);
@@ -482,7 +483,8 @@
       this.isActive = false;
       this.hudEl.classList.remove('active');
       this.triggerPillEl.classList.remove('active');
-      this.triggerPillEl.innerHTML = `<span>🎓 Teacher AI</span> <span class="shortcut-kbd">Ctrl+Shift</span>`;
+      this.triggerPillEl.setAttribute('data-tooltip', 'Teacher AI (Ctrl + Shift)');
+      this.triggerPillEl.innerHTML = '<span class="argus-ai-icon">🎓</span>';
 
       // Detach mouse tracking
       document.removeEventListener('mouseover', this._onMouseMove, true);

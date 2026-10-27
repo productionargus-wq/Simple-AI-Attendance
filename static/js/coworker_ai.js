@@ -708,6 +708,9 @@
       this.isOpen = true;
       this.backdrop.classList.add('active');
       this.chatWindow.classList.add('active');
+      document.body.classList.add('coworker-modal-open');
+      const dock = document.getElementById('argusAiDock');
+      if (dock) dock.classList.add('dock-hidden');
       this.scrollToBottom();
       setTimeout(() => this.textarea.focus(), 150);
     }
@@ -716,6 +719,9 @@
       this.isOpen = false;
       this.backdrop.classList.remove('active');
       this.chatWindow.classList.remove('active');
+      document.body.classList.remove('coworker-modal-open');
+      const dock = document.getElementById('argusAiDock');
+      if (dock) dock.classList.remove('dock-hidden');
       this.stopSpeech();
     }
 
