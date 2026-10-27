@@ -6202,6 +6202,455 @@ def api_teacher_ai_explain():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+
+# =========================================================================
+# ARGUS CO-WORKER AI (AGENT 2) - AUTONOMOUS EXECUTIVE ASSISTANT
+# =========================================================================
+@app.route('/api/ai/coworker/transcribe', methods=['POST'])
+def api_coworker_ai_transcribe():
+    """Transcribes natural human voice notes using Google Gemini Multimodal Audio."""
+    try:
+        audio_file = request.files.get('audio_file') or request.files.get('audio')
+        if not audio_file:
+            return jsonify({'success': False, 'error': 'No audio file provided'}), 400
+
+        audio_bytes = audio_file.read()
+        if not audio_bytes:
+            return jsonify({'success': False, 'error': 'Empty audio recording'}), 400
+
+        import base64
+        import requests
+        audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+        mime_type = audio_file.content_type or 'audio/webm'
+
+        gemini_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+        if not gemini_key:
+            db = database.get_db()
+            setting = db.system_settings.find_one({'key': 'gemini_api_key'})
+            if setting and setting.get('value'):
+                gemini_key = str(setting['value']).strip()
+
+        if not gemini_key:
+            return jsonify({'success': False, 'error': 'Gemini API Key is not configured for voice transcription'}), 400
+
+        prompt = (
+            "You are an expert AI speech transcriptionist for the Argus Web App. "
+            "Listen to this natural voice message carefully. The speaker may speak English, Indian English, Tamil, Hindi, or Tanglish at variable speeds. "
+            "Transcribe verbatim what the user said into clear text. Do NOT add preamble or meta-commentary. Return ONLY the transcribed text."
+        )
+
+        candidate_models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-flash-latest']
+        for model in candidate_models:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
+                payload = {
+                    "contents": [{
+                        "parts": [
+                            {"text": prompt},
+                            {"inline_data": {"mime_type": mime_type, "data": audio_b64}}
+                        ]
+                    }],
+                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 250}
+                }
+                resp = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload, timeout=25)
+                if resp.status_code == 200:
+                    res_json = resp.json()
+                    candidates = res_json.get('candidates', [])
+                    if candidates:
+                        transcript = candidates[0].get('content', {}).get('parts', [{}])[0].get('text', '').strip()
+                        if transcript:
+                            return jsonify({'success': True, 'transcript': transcript})
+            except Exception as e:
+                print(f"Notice: Gemini transcribe candidate {model} error: {e}")
+
+        return jsonify({'success': False, 'error': 'Could not transcribe audio. Please try again or type directly.'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ai/coworker/chat', methods=['POST'])
+def api_coworker_ai_chat():
+    """Autonomous executive assistant endpoint for executing tasks and answering operations questions."""
+    try:
+        data = request.get_json(silent=True) or {}
+        user_message = str(data.get('message') or '').strip()
+        history = data.get('history') or []
+        context = data.get('context') or {}
+
+        if not user_message:
+            return jsonify({'success': False, 'error': 'Message cannot be empty'}), 400
+
+        db = database.get_db()
+        cid = str(get_current_company_id() or 'ARGUS_MASTER')
+
+        # Load active registered employees for entity matching
+        emp_cursor = db.employees.find({'status': {'$ne': 'Terminated'}}, {'employee_name': 1, 'id': 1, 'department': 1, 'phone': 1, 'mobile': 1})
+        employees = list(emp_cursor)
+        emp_names = [e.get('employee_name') for e in employees if e.get('employee_name')]
+
+        gemini_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+        if not gemini_key:
+            setting = db.system_settings.find_one({'key': 'gemini_api_key'})
+            if setting and setting.get('value'):
+                gemini_key = str(setting['value']).strip()
+
+        parsed_action = None
+
+        if gemini_key:
+            try:
+                import requests
+                emp_list_str = ", ".join(emp_names[:60])
+                today_str = datetime.now().strftime('%Y-%m-%d')
+                clean_msg = user_message.replace('"', '\"').replace('\n', ' ')
+                prompt = (
+                    "You are Co-Worker AI, an autonomous operations executive assistant for the Argus Attendance Web App.\n"
+                    f"Current Date: {today_str}\n"
+                    f"Known Employees: [{emp_list_str}]\n\n"
+                    f'User Request: "{clean_msg}"\n\n'
+                    "Your job is to determine the user's intent and return a JSON object with the action, extracted parameters, and conversational reply.\n\n"
+                    "Actions available:\n"
+                    "1. 'create_payment': When user wants to create/record/pay/give money/advance to an employee.\n"
+                    "   Parameters: { 'employee_name': string, 'amount': number, 'status': 'Advance Repayment'|'Salary'|'Advance'|'Bonus'|'Other', 'payment_type': 'UPI'|'Cash'|'Bank Transfer', 'date': 'YYYY-MM-DD', 'reason': string }\n"
+                    "   NOTE: If employee_name or amount is missing, use action 'ask_clarification'.\n"
+                    "2. 'create_manual_attendance': When user wants to log/mark manual attendance or punch.\n"
+                    "   Parameters: { 'employee_name': string, 'date': 'YYYY-MM-DD', 'hours': '08:00', 'status': 'Proper'|'Present'|'Half Day'|'Absent', 'reason': string }\n"
+                    "   NOTE: If employee_name is missing, use action 'ask_clarification'.\n"
+                    "3. 'apply_leave': When user wants to apply for a leave.\n"
+                    "   Parameters: { 'employee_name': string, 'leave_type': 'Casual Leave'|'Sick Leave'|'Earned Leave', 'from_date': 'YYYY-MM-DD', 'to_date': 'YYYY-MM-DD', 'reason': string }\n"
+                    "4. 'check_attendance': Inquiries about today's attendance, who is present, employee attendance status.\n"
+                    "   Parameters: { 'employee_name': string or null, 'date': 'YYYY-MM-DD' }\n"
+                    "5. 'check_payments': Inquiries about advance balances, payments, or ledger.\n"
+                    "   Parameters: { 'employee_name': string or null }\n"
+                    "6. 'get_employee_info': Inquiries about employee details, phone number, department.\n"
+                    "   Parameters: { 'employee_name': string }\n"
+                    "7. 'navigate': When user asks to open or navigate to a page/tab (e.g. manual entries, payments, salary report, employees).\n"
+                    "   Parameters: { 'target': 'manual_entry'|'payment_entry'|'salary_report'|'field_worker'|'employees' }\n"
+                    "8. 'ask_clarification': When required parameters for an action are missing.\n"
+                    "   Parameters: { 'question': string }\n"
+                    "9. 'general_chat': For general questions or explanations.\n"
+                    "   Parameters: {}\n\n"
+                    "Respond ONLY with a valid JSON object matching this schema:\n"
+                    "{\n"
+                    '  "action": "create_payment" | "create_manual_attendance" | "apply_leave" | "check_attendance" | "check_payments" | "get_employee_info" | "navigate" | "ask_clarification" | "general_chat",\n'
+                    '  "parameters": { ... },\n'
+                    '  "reply_text": "Conversational response acknowledging the action or asking for clarification."\n'
+                    "}"
+                )
+
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 400}
+                }
+                resp = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload, timeout=6)
+                if resp.status_code == 200:
+                    cand = resp.json().get('candidates', [])
+                    if cand:
+                        t = cand[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+                        m = re.search(r'\{.*\}', t, re.DOTALL)
+                        if m:
+                            parsed_action = json.loads(m.group(0))
+            except Exception as e:
+                print(f"Notice: Co-Worker AI Gemini NLU fallback triggered: {e}")
+
+        # Deterministic Rule-Based Fallback if Gemini did not parse
+        if not parsed_action:
+            msg_lower = user_message.lower()
+            is_nav = any(w in msg_lower for w in ['open', 'go to', 'take me', 'navigate', 'show', 'view'])
+
+            pay_match = re.search(r'(?:create|add|make|give|record)?\s*payment(?:\s+entry)?\s+(?:for\s+)?([A-Za-z\s]+?)\s+(?:for\s+|of\s+|rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)(?:\s+(?:as|set|with|status)?\s*(.*))?', user_message, re.IGNORECASE)
+            alt_pay = re.search(r'(?:give|advance\s+of|pay)\s+([A-Za-z\s]+?)\s+(?:for\s+|of\s+|rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
+            partial_pay = re.search(r'(?:create|add|make|record)?\s*payment(?:\s+entry)?\s+(?:for\s+)([A-Za-z\s]+)', user_message, re.IGNORECASE)
+
+            if pay_match:
+                emp = pay_match.group(1).strip()
+                amt = float(pay_match.group(2))
+                st = (pay_match.group(3) or 'Advance Repayment').strip()
+                parsed_action = {
+                    'action': 'create_payment',
+                    'parameters': {'employee_name': emp, 'amount': amt, 'status': st},
+                    'reply_text': f"Recording a payment of ₹{amt:,.2f} for {emp}."
+                }
+            elif alt_pay:
+                emp = alt_pay.group(1).strip()
+                amt = float(alt_pay.group(2))
+                parsed_action = {
+                    'action': 'create_payment',
+                    'parameters': {'employee_name': emp, 'amount': amt, 'status': 'Advance Repayment'},
+                    'reply_text': f"Recording an advance payment of ₹{amt:,.2f} for {emp}."
+                }
+            elif partial_pay and not is_nav:
+                emp = partial_pay.group(1).strip()
+                parsed_action = {
+                    'action': 'create_payment',
+                    'parameters': {'employee_name': emp, 'amount': None},
+                    'reply_text': f"I can create a payment entry for **{emp}**. Please specify the amount (₹) and status (e.g., Advance Repayment, Salary)."
+                }
+            elif is_nav and ('manual' in msg_lower):
+                parsed_action = {
+                    'action': 'navigate',
+                    'parameters': {'target': 'manual_entry'},
+                    'reply_text': "Taking you to Manual Entries."
+                }
+            elif is_nav and ('payment' in msg_lower):
+                parsed_action = {
+                    'action': 'navigate',
+                    'parameters': {'target': 'payment_entry'},
+                    'reply_text': "Taking you to Payment Entries."
+                }
+            elif 'present today' in msg_lower or 'who is present' in msg_lower or 'attendance today' in msg_lower:
+                parsed_action = {
+                    'action': 'check_attendance',
+                    'parameters': {'employee_name': None},
+                    'reply_text': "Checking today's attendance status."
+                }
+            elif is_nav and ('salary' in msg_lower):
+                parsed_action = {
+                    'action': 'navigate',
+                    'parameters': {'target': 'salary_report'},
+                    'reply_text': "Taking you to Salary Report."
+                }
+            elif is_nav and ('field' in msg_lower):
+                parsed_action = {
+                    'action': 'navigate',
+                    'parameters': {'target': 'field_worker'},
+                    'reply_text': "Taking you to Field Worker Module."
+                }
+            else:
+                parsed_action = {
+                    'action': 'general_chat',
+                    'parameters': {},
+                    'reply_text': f"I understand you said: '{user_message}'. You can ask me to create a payment entry (e.g. *Create a payment for Ramesh of ₹5,000 as Advance Repayment*), record attendance, or look up records."
+                }
+
+        # Task Execution Dispatcher
+        action_name = parsed_action.get('action') or 'general_chat'
+        params = parsed_action.get('parameters') or {}
+        reply_text = parsed_action.get('reply_text') or ''
+
+        def resolve_employee(name):
+            if not name:
+                return None
+            target = str(name).strip().lower()
+            for e in employees:
+                if e.get('employee_name', '').lower() == target:
+                    return e
+            for e in employees:
+                if target in e.get('employee_name', '').lower() or e.get('employee_name', '').lower() in target:
+                    return e
+            return {'employee_name': str(name).strip(), 'id': f"EMP_{int(database.time.time())}"}
+
+        # 1. CREATE PAYMENT
+        if action_name == 'create_payment':
+            raw_name = params.get('employee_name')
+            raw_amt = params.get('amount')
+            if not raw_name or not raw_amt:
+                return jsonify({
+                    'success': True,
+                    'reply': "To create a payment entry, please tell me the **employee name** and the **amount (₹)** (e.g., *'Create a payment for Ramesh for ₹5,000 as Advance Repayment'*).",
+                    'task_executed': False
+                })
+
+            emp_doc = resolve_employee(raw_name)
+            emp_name = emp_doc.get('employee_name')
+            amt = float(raw_amt)
+            status = params.get('status') or 'Advance Repayment'
+            pay_type = params.get('payment_type') or 'UPI'
+            pay_date = params.get('date') or datetime.now().strftime('%Y-%m-%d')
+            reason = params.get('reason') or ''
+
+            payment_payload = {
+                'employee_name': emp_name,
+                'amount': amt,
+                'status': status,
+                'payment_type': pay_type,
+                'payment_date': pay_date,
+                'reason': reason,
+                'bank': ''
+            }
+            inserted_id = database.create_payment(payment_payload, company_id=cid)
+
+            return jsonify({
+                'success': True,
+                'reply': reply_text or f"Payment entry of **₹{amt:,.2f}** for **{emp_name}** has been successfully recorded with status *{status}*.",
+                'task_executed': True,
+                'task_data': {
+                    'type': 'payment',
+                    'details': {
+                        'Employee': emp_name,
+                        'Amount': f"₹{amt:,.2f}",
+                        'Status': status,
+                        'Date': pay_date,
+                        'Mode': pay_type,
+                        'Entry ID': str(inserted_id)
+                    },
+                    'action_label': 'View Payment Ledger',
+                    'action_url': '/payment-entry'
+                }
+            })
+
+        # 2. CREATE MANUAL ATTENDANCE
+        elif action_name == 'create_manual_attendance':
+            raw_name = params.get('employee_name')
+            if not raw_name:
+                return jsonify({
+                    'success': True,
+                    'reply': "Please specify the employee name to record manual attendance for (e.g., *'Add manual attendance for Priya today from 9:00 AM to 6:00 PM'*).",
+                    'task_executed': False
+                })
+
+            emp_doc = resolve_employee(raw_name)
+            emp_name = emp_doc.get('employee_name')
+            date_str = params.get('date') or datetime.now().strftime('%Y-%m-%d')
+            hours_str = params.get('hours') or '08:00'
+            status = params.get('status') or 'Proper'
+            reason = params.get('reason') or 'Recorded by Co-Worker AI'
+
+            entry_payload = {
+                'employee_name': emp_name,
+                'date': date_str,
+                'hours': hours_str,
+                'mode': 'Hours',
+                'status': status,
+                'reason': reason
+            }
+            inserted_id = database.create_manual_entry(entry_payload, company_id=cid)
+
+            return jsonify({
+                'success': True,
+                'reply': reply_text or f"Manual attendance for **{emp_name}** on **{date_str}** has been successfully logged.",
+                'task_executed': True,
+                'task_data': {
+                    'type': 'attendance',
+                    'details': {
+                        'Employee': emp_name,
+                        'Date': date_str,
+                        'Hours': hours_str,
+                        'Status': status,
+                        'Entry ID': str(inserted_id)
+                    },
+                    'action_label': 'View Manual Entries',
+                    'action_url': '/manual-entry'
+                }
+            })
+
+        # 3. APPLY LEAVE
+        elif action_name == 'apply_leave':
+            raw_name = params.get('employee_name')
+            if not raw_name:
+                return jsonify({
+                    'success': True,
+                    'reply': "Please specify the employee name and leave dates (e.g. *'Apply casual leave for Suresh tomorrow'*).",
+                    'task_executed': False
+                })
+
+            emp_doc = resolve_employee(raw_name)
+            emp_name = emp_doc.get('employee_name')
+            leave_type = params.get('leave_type') or 'Casual Leave'
+            from_d = params.get('from_date') or datetime.now().strftime('%Y-%m-%d')
+            to_d = params.get('to_date') or from_d
+            reason = params.get('reason') or 'Personal leave'
+
+            leave_payload = {
+                'employee_name': emp_name,
+                'employee_id': emp_doc.get('id'),
+                'leave_type': leave_type,
+                'from_date': from_d,
+                'to_date': to_d,
+                'reason': reason,
+                'session': 'Full Day',
+                'company_id': cid
+            }
+            database.submit_leave_request(leave_payload)
+
+            return jsonify({
+                'success': True,
+                'reply': reply_text or f"Leave application for **{emp_name}** ({leave_type}) from **{from_d}** to **{to_d}** has been submitted.",
+                'task_executed': True,
+                'task_data': {
+                    'type': 'leave',
+                    'details': {
+                        'Employee': emp_name,
+                        'Leave Type': leave_type,
+                        'From': from_d,
+                        'To': to_d,
+                        'Reason': reason
+                    },
+                    'action_label': 'View Leave Portal',
+                    'action_url': '/employee-portal#leave'
+                }
+            })
+
+        # 4. CHECK ATTENDANCE
+        elif action_name == 'check_attendance':
+            today_str = datetime.now().strftime('%Y-%m-%d')
+            raw_name = params.get('employee_name')
+            if raw_name:
+                emp_doc = resolve_employee(raw_name)
+                emp_name = emp_doc.get('employee_name')
+                rec = db.attendance.find_one({'employee_name': emp_name, 'date': today_str})
+                if rec:
+                    in_t = rec.get('in_time', 'N/A')
+                    out_t = rec.get('out_time', 'Active')
+                    st = rec.get('status', 'Present')
+                    return jsonify({
+                        'success': True,
+                        'reply': f"**{emp_name}** is marked **{st}** today. In-time: *{in_t}*, Out-time: *{out_t}*.",
+                        'task_executed': True,
+                        'task_data': {
+                            'type': 'attendance',
+                            'details': {'Employee': emp_name, 'Date': today_str, 'Status': st, 'In Time': in_t, 'Out Time': out_t}
+                        }
+                    })
+                else:
+                    return jsonify({
+                        'success': True,
+                        'reply': f"**{emp_name}** has not punched in today yet ({today_str}).",
+                        'task_executed': False
+                    })
+            else:
+                total_emps = len(employees)
+                present_count = db.attendance.count_documents({'date': today_str})
+                return jsonify({
+                    'success': True,
+                    'reply': f"Today (**{today_str}**), **{present_count}** out of **{total_emps}** registered employees have punched in.",
+                    'task_executed': True,
+                    'task_data': {
+                        'type': 'attendance',
+                        'details': {'Date': today_str, 'Total Staff': str(total_emps), 'Present Today': str(present_count)}
+                    }
+                })
+
+        # 5. NAVIGATION
+        elif action_name == 'navigate':
+            target = params.get('target', '').lower()
+            url_map = {
+                'manual_entry': '/manual-entry',
+                'payment_entry': '/payment-entry',
+                'salary_report': '/salary-report',
+                'field_worker': '/field-worker-module',
+                'employees': '/employees'
+            }
+            dest_url = url_map.get(target, '/manual-entry')
+            return jsonify({
+                'success': True,
+                'reply': reply_text or f"Navigating to {target.replace('_', ' ').title()}...",
+                'action': 'navigate',
+                'task_data': {'url': dest_url}
+            })
+
+        # 6. GENERAL CHAT
+        else:
+            return jsonify({
+                'success': True,
+                'reply': reply_text or "How can I assist you with attendance, payments, or employee tasks today?",
+                'task_executed': False
+            })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Co-Worker AI error: {str(e)}"}), 500
+
+
 @app.route('/api/field-worker/salary-report', methods=['GET'])
 def api_field_worker_salary_report():
     """Returns monthly Field Worker Salary & Activity report."""
