@@ -6129,6 +6129,78 @@ def api_system_gemini_key():
         'message': 'Google Gemini API Key saved successfully! AI speech-to-text is now fully active.'
     })
 
+@app.route('/api/ai/teacher/explain', methods=['POST'])
+def api_teacher_ai_explain():
+    """Contextual explanation endpoint for Teacher AI powered by Google Gemini (with instant offline fallback)."""
+    try:
+        data = request.get_json(silent=True) or {}
+        element_title = str(data.get('title') or data.get('label') or '').strip()
+        element_tag = str(data.get('tag') or '').strip()
+        category = str(data.get('category') or 'Feature').strip()
+        page_context = str(data.get('context') or data.get('page') or '').strip()
+
+        if not element_title:
+            return jsonify({'success': False, 'error': 'Element title or label required'}), 400
+
+        # Check in-memory cache to avoid duplicate API calls
+        cache_key = f"{page_context}::{element_tag}::{element_title}".lower()
+        if hasattr(app, '_teacher_ai_cache') and cache_key in app._teacher_ai_cache:
+            return jsonify({'success': True, 'cached': True, **app._teacher_ai_cache[cache_key]})
+
+        # If Gemini API key is configured, query Gemini for a crisp, concise 1-2 sentence explanation
+        gemini_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+        if not gemini_key:
+            db = database.get_db()
+            setting = db.system_settings.find_one({'key': 'gemini_api_key'})
+            if setting and setting.get('value'):
+                gemini_key = str(setting['value']).strip()
+
+        if gemini_key:
+            try:
+                import requests
+                headers = {'Content-Type': 'application/json'}
+                prompt = (
+                    "You are Teacher AI for the Argus Technologies AI Attendance & Operations Management Web Application. "
+                    "Explain clearly and concisely in exactly 1 or 2 sentences what this UI control does and how it affects attendance or operations.\n"
+                    f"Element Name: {element_title}\n"
+                    f"Element Type: {element_tag}\n"
+                    f"Screen/Context: {page_context}\n"
+                    f'Respond ONLY with a valid JSON object in this format: {{"title": "{element_title}", "category": "{category}", "text": "...", "tip": "..."}}'
+                )
+                model_name = 'gemini-2.0-flash'
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.2, "maxOutputTokens": 200}
+                }
+                resp = requests.post(url, headers=headers, json=payload, timeout=4)
+                if resp.status_code == 200:
+                    res_json = resp.json()
+                    candidates = res_json.get('candidates', [])
+                    if candidates:
+                        text_resp = candidates[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+                        import re
+                        m = re.search(r'\{.*\}', text_resp, re.DOTALL)
+                        if m:
+                            parsed = json.loads(m.group(0))
+                            if not hasattr(app, '_teacher_ai_cache'):
+                                app._teacher_ai_cache = {}
+                            app._teacher_ai_cache[cache_key] = parsed
+                            return jsonify({'success': True, 'ai_generated': True, **parsed})
+            except Exception as gemini_err:
+                print(f"Warning: Teacher AI Gemini generation notice: {gemini_err}")
+
+        # Fallback explanation
+        fallback_res = {
+            'title': element_title,
+            'category': category,
+            'text': f"{element_title} is an interactive control in the Argus Attendance system.",
+            'tip': None
+        }
+        return jsonify({'success': True, 'ai_generated': False, **fallback_res})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/api/field-worker/salary-report', methods=['GET'])
 def api_field_worker_salary_report():
