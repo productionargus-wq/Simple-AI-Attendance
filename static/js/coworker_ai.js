@@ -25,6 +25,7 @@
       this.recordingTimer = null;
       this.recordingSeconds = 0;
       this.isAudioRecording = false;
+      this.pendingTask = null;
 
       this.init();
     }
@@ -54,8 +55,11 @@
             }
           ];
         }
+        const savedPending = sessionStorage.getItem('argus_coworker_pending');
+        this.pendingTask = savedPending ? JSON.parse(savedPending) : null;
       } catch (e) {
         this.history = [];
+        this.pendingTask = null;
       }
     }
 
@@ -64,6 +68,11 @@
         // Keep last 40 messages to avoid sessionStorage overflow
         const trimmed = this.history.slice(-40);
         sessionStorage.setItem('argus_coworker_history', JSON.stringify(trimmed));
+        if (this.pendingTask) {
+          sessionStorage.setItem('argus_coworker_pending', JSON.stringify(this.pendingTask));
+        } else {
+          sessionStorage.removeItem('argus_coworker_pending');
+        }
       } catch (e) {}
     }
 
@@ -463,6 +472,7 @@
         const payload = {
           message: text,
           history: this.history.slice(-8), // Send recent context
+          pending_task: this.pendingTask,
           context: {
             url: window.location.pathname,
             title: document.title
@@ -482,10 +492,14 @@
           const aiReply = data.reply || 'Task completed.';
           const taskData = data.task_data || null;
 
+          // Track multi-turn pending task state
+          this.pendingTask = (data.pending_task !== undefined) ? data.pending_task : null;
+          this.saveHistory();
+
           this.appendMessage('ai', aiReply, this.formatTime(new Date()), taskData);
 
           // Update dynamic chips for interactive next steps
-          this.renderDynamicChips(taskData);
+          this.renderDynamicChips(taskData, this.pendingTask);
 
           // Voice feedback if enabled (interactively speaks back)
           if (this.voiceEnabled) {
@@ -506,13 +520,20 @@
       }
     }
 
-    renderDynamicChips(taskData) {
+    renderDynamicChips(taskData, pendingTask = null) {
       if (!this.chatWindow) return;
       const chipsContainer = this.chatWindow.querySelector('#coworkerChips');
       if (!chipsContainer) return;
 
       let chipPrompts = [];
-      if (taskData && taskData.type === 'payment') {
+      if (pendingTask && pendingTask.action === 'create_payment') {
+        chipPrompts = [
+          { label: '💰 ₹5,000 Advance', prompt: 'rupees 5000 as Advance Repayment' },
+          { label: '🎁 ₹5,000 Incentive', prompt: 'rupees 5000 and the status will be incentive' },
+          { label: '💼 ₹10,000 Salary', prompt: 'rupees 10000 and the status will be salary' },
+          { label: '❌ Cancel', prompt: 'Cancel' }
+        ];
+      } else if (taskData && taskData.type === 'payment') {
         const emp = (taskData.details && taskData.details.Employee) ? taskData.details.Employee : '';
         chipPrompts = [
           { label: '💰 Check Balance', prompt: `Check payment balance for ${emp}` },
@@ -696,7 +717,9 @@
     clearChat() {
       if (confirm('Clear Co-Worker AI chat conversation?')) {
         this.history = [];
+        this.pendingTask = null;
         sessionStorage.removeItem('argus_coworker_history');
+        sessionStorage.removeItem('argus_coworker_pending');
         this.renderAllMessages();
       }
     }

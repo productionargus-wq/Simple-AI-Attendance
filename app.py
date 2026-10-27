@@ -6270,21 +6270,36 @@ def api_coworker_ai_transcribe():
 
 @app.route('/api/ai/coworker/chat', methods=['POST'])
 def api_coworker_ai_chat():
-    """Autonomous executive assistant endpoint for executing tasks and answering operations questions."""
+    """Autonomous executive assistant endpoint with multi-turn conversational memory & task execution."""
     try:
         data = request.get_json(silent=True) or {}
         user_message = str(data.get('message') or '').strip()
         history = data.get('history') or []
         context = data.get('context') or {}
+        pending_task = data.get('pending_task') or session.get('coworker_pending_task') or None
 
         if not user_message:
             return jsonify({'success': False, 'error': 'Message cannot be empty'}), 400
 
+        # Check for explicit cancellation
+        msg_lower = user_message.lower().strip()
+        if msg_lower in ['cancel', 'cancel task', 'never mind', 'stop', 'abort', 'leave it', 'dont do it', "don't do it"]:
+            session['coworker_pending_task'] = None
+            return jsonify({
+                'success': True,
+                'reply': "Understood, I've cancelled that pending request. How else can I assist you?",
+                'task_executed': False,
+                'pending_task': None
+            })
+
         db = database.get_db()
         cid = str(get_current_company_id() or 'ARGUS_MASTER')
 
-        # Load active registered employees for entity matching
-        emp_cursor = db.employees.find({'status': {'$ne': 'Terminated'}}, {'employee_name': 1, 'id': 1, 'department': 1, 'phone': 1, 'mobile': 1})
+        # Load active registered employees for entity matching (strictly tenant-isolated)
+        emp_filter = {'status': {'$ne': 'Terminated'}}
+        if cid and cid != 'ARGUS_MASTER':
+            emp_filter['$or'] = [{'company_id': cid}, {'company_id': {'$in': [None, '', 'ARGUS_MASTER']}}]
+        emp_cursor = db.employees.find(emp_filter, {'employee_name': 1, 'id': 1, 'department': 1, 'phone': 1, 'mobile': 1, 'company_id': 1})
         employees = list(emp_cursor)
         emp_names = [e.get('employee_name') for e in employees if e.get('employee_name')]
 
@@ -6302,33 +6317,38 @@ def api_coworker_ai_chat():
                 emp_list_str = ", ".join(emp_names[:60])
                 today_str = datetime.now().strftime('%Y-%m-%d')
                 clean_msg = user_message.replace('"', '\"').replace('\n', ' ')
+
+                # Format conversation history
+                history_lines = []
+                if isinstance(history, list):
+                    for h in history[-6:]:
+                        sender = 'User' if h.get('sender') == 'user' else 'Assistant'
+                        txt = str(h.get('text') or '').replace('\n', ' ')
+                        history_lines.append(f"{sender}: {txt}")
+                transcript_str = "\n".join(history_lines) if history_lines else "None"
+                pending_str = json.dumps(pending_task) if pending_task else "None"
+
                 prompt = (
                     "You are Co-Worker AI, an autonomous operations executive assistant for the Argus Attendance Web App.\n"
                     f"Current Date: {today_str}\n"
-                    f"Known Employees: [{emp_list_str}]\n\n"
-                    f'User Request: "{clean_msg}"\n\n'
-                    "Your job is to determine the user's intent and return a JSON object with the action, extracted parameters, and conversational reply.\n\n"
+                    f"Known Employees in this Company: [{emp_list_str}]\n\n"
+                    f"Recent Conversation Transcript:\n{transcript_str}\n\n"
+                    f"Active In-Progress Pending Task:\n{pending_str}\n\n"
+                    f'Latest User Message: "{clean_msg}"\n\n'
+                    "CRITICAL MULTI-TURN INSTRUCTIONS:\n"
+                    "1. If an Active Pending Task exists (e.g. creating payment for an employee) and the latest user message provides missing information (like amount, status 'incentive', 'salary', 'advance', or date), YOU MUST MERGE the new parameters into the pending task and set the action to execute it!\n"
+                    "2. If user mentions an amount or status following an assistant inquiry, associate it with the pending employee.\n"
+                    "3. If an employee name is not in Known Employees, set action to 'ask_clarification'.\n\n"
                     "Actions available:\n"
-                    "1. 'create_payment': When user wants to create/record/pay/give money/advance to an employee.\n"
-                    "   Parameters: { 'employee_name': string, 'amount': number, 'status': 'Advance Repayment'|'Salary'|'Advance'|'Bonus'|'Other', 'payment_type': 'UPI'|'Cash'|'Bank Transfer', 'date': 'YYYY-MM-DD', 'reason': string }\n"
-                    "   NOTE: If employee_name or amount is missing, use action 'ask_clarification'.\n"
-                    "2. 'create_manual_attendance': When user wants to log/mark manual attendance or punch.\n"
-                    "   Parameters: { 'employee_name': string, 'date': 'YYYY-MM-DD', 'hours': '08:00', 'status': 'Proper'|'Present'|'Half Day'|'Absent', 'reason': string }\n"
-                    "   NOTE: If employee_name is missing, use action 'ask_clarification'.\n"
-                    "3. 'apply_leave': When user wants to apply for a leave.\n"
-                    "   Parameters: { 'employee_name': string, 'leave_type': 'Casual Leave'|'Sick Leave'|'Earned Leave', 'from_date': 'YYYY-MM-DD', 'to_date': 'YYYY-MM-DD', 'reason': string }\n"
+                    "1. 'create_payment': Parameters: { 'employee_name': string, 'amount': number, 'status': string, 'payment_type': string, 'date': string, 'reason': string }\n"
+                    "2. 'create_manual_attendance': Parameters: { 'employee_name': string, 'date': string, 'hours': string, 'status': string, 'reason': string }\n"
+                    "3. 'apply_leave': Parameters: { 'employee_name': string, 'leave_type': string, 'from_date': string, 'to_date': string, 'reason': string }\n"
                     "4. 'check_attendance': Inquiries about today's attendance, who is present, employee attendance status.\n"
-                    "   Parameters: { 'employee_name': string or null, 'date': 'YYYY-MM-DD' }\n"
                     "5. 'check_payments': Inquiries about advance balances, payments, or ledger.\n"
-                    "   Parameters: { 'employee_name': string or null }\n"
                     "6. 'get_employee_info': Inquiries about employee details, phone number, department.\n"
-                    "   Parameters: { 'employee_name': string }\n"
-                    "7. 'navigate': When user asks to open or navigate to a page/tab (e.g. manual entries, payments, salary report, employees).\n"
-                    "   Parameters: { 'target': 'manual_entry'|'payment_entry'|'salary_report'|'field_worker'|'employees' }\n"
-                    "8. 'ask_clarification': When required parameters for an action are missing.\n"
-                    "   Parameters: { 'question': string }\n"
-                    "9. 'general_chat': For general questions or explanations.\n"
-                    "   Parameters: {}\n\n"
+                    "7. 'navigate': Parameters: { 'target': 'manual_entry'|'payment_entry'|'salary_report'|'field_worker'|'employees' }\n"
+                    "8. 'ask_clarification': Parameters: { 'question': string }\n"
+                    "9. 'general_chat': Conversational response.\n\n"
                     "Respond ONLY with a valid JSON object matching this schema:\n"
                     "{\n"
                     '  "action": "create_payment" | "create_manual_attendance" | "apply_leave" | "check_attendance" | "check_payments" | "get_employee_info" | "navigate" | "ask_clarification" | "general_chat",\n'
@@ -6353,75 +6373,150 @@ def api_coworker_ai_chat():
             except Exception as e:
                 print(f"Notice: Co-Worker AI Gemini NLU fallback triggered: {e}")
 
-        # Deterministic Rule-Based Fallback if Gemini did not parse
+        # Deterministic Multi-Turn Fallback if Gemini did not parse
         if not parsed_action:
             msg_lower = user_message.lower()
-            is_nav = any(w in msg_lower for w in ['open', 'go to', 'take me', 'navigate', 'show', 'view'])
 
-            pay_match = re.search(r'(?:create|add|make|give|record)?\s*payment(?:\s+entry)?\s+(?:for\s+)?([A-Za-z\s]+?)\s+(?:for\s+|of\s+|rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)(?:\s+(?:as|set|with|status)?\s*(.*))?', user_message, re.IGNORECASE)
-            alt_pay = re.search(r'(?:give|advance\s+of|pay)\s+([A-Za-z\s]+?)\s+(?:for\s+|of\s+|rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
-            partial_pay = re.search(r'(?:create|add|make|record)?\s*payment(?:\s+entry)?\s+(?:for\s+)([A-Za-z\s]+)', user_message, re.IGNORECASE)
+            # A. Check if we can continue a PENDING TASK
+            if pending_task and isinstance(pending_task, dict):
+                p_action = pending_task.get('action')
+                p_params = pending_task.get('parameters') or {}
 
-            if pay_match:
-                emp = pay_match.group(1).strip()
-                amt = float(pay_match.group(2))
-                st = (pay_match.group(3) or 'Advance Repayment').strip()
-                parsed_action = {
-                    'action': 'create_payment',
-                    'parameters': {'employee_name': emp, 'amount': amt, 'status': st},
-                    'reply_text': f"Recording a payment of ₹{amt:,.2f} for {emp}."
-                }
-            elif alt_pay:
-                emp = alt_pay.group(1).strip()
-                amt = float(alt_pay.group(2))
-                parsed_action = {
-                    'action': 'create_payment',
-                    'parameters': {'employee_name': emp, 'amount': amt, 'status': 'Advance Repayment'},
-                    'reply_text': f"Recording an advance payment of ₹{amt:,.2f} for {emp}."
-                }
-            elif partial_pay and not is_nav:
-                emp = partial_pay.group(1).strip()
-                parsed_action = {
-                    'action': 'create_payment',
-                    'parameters': {'employee_name': emp, 'amount': None},
-                    'reply_text': f"I can create a payment entry for **{emp}**. Please specify the amount (₹) and status (e.g., Advance Repayment, Salary)."
-                }
-            elif is_nav and ('manual' in msg_lower):
-                parsed_action = {
-                    'action': 'navigate',
-                    'parameters': {'target': 'manual_entry'},
-                    'reply_text': "Taking you to Manual Entries."
-                }
-            elif is_nav and ('payment' in msg_lower):
-                parsed_action = {
-                    'action': 'navigate',
-                    'parameters': {'target': 'payment_entry'},
-                    'reply_text': "Taking you to Payment Entries."
-                }
-            elif 'present today' in msg_lower or 'who is present' in msg_lower or 'attendance today' in msg_lower:
-                parsed_action = {
-                    'action': 'check_attendance',
-                    'parameters': {'employee_name': None},
-                    'reply_text': "Checking today's attendance status."
-                }
-            elif is_nav and ('salary' in msg_lower):
-                parsed_action = {
-                    'action': 'navigate',
-                    'parameters': {'target': 'salary_report'},
-                    'reply_text': "Taking you to Salary Report."
-                }
-            elif is_nav and ('field' in msg_lower):
-                parsed_action = {
-                    'action': 'navigate',
-                    'parameters': {'target': 'field_worker'},
-                    'reply_text': "Taking you to Field Worker Module."
-                }
-            else:
-                parsed_action = {
-                    'action': 'general_chat',
-                    'parameters': {},
-                    'reply_text': f"I understand you said: '{user_message}'. You can ask me to create a payment entry (e.g. *Create a payment for Ramesh of ₹5,000 as Advance Repayment*), record attendance, or look up records."
-                }
+                # 1. Pending payment continuation
+                if p_action == 'create_payment':
+                    amt_match = re.search(r'(?:rs\.?|inr|rupees|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
+                    st_val = None
+                    for cand_st in ['advance repayment', 'advance', 'salary', 'incentive', 'bonus', 'allowance', 'petrol', 'other']:
+                        if cand_st in msg_lower:
+                            st_val = cand_st.title()
+                            break
+
+                    amt_val = float(amt_match.group(1)) if amt_match else p_params.get('amount')
+                    if amt_val is not None:
+                        parsed_action = {
+                            'action': 'create_payment',
+                            'parameters': {
+                                'employee_name': p_params.get('employee_name'),
+                                'amount': amt_val,
+                                'status': st_val or p_params.get('status') or 'Advance Repayment',
+                                'payment_type': p_params.get('payment_type') or 'UPI',
+                                'date': p_params.get('date') or datetime.now().strftime('%Y-%m-%d'),
+                                'reason': p_params.get('reason') or ''
+                            },
+                            'reply_text': ''
+                        }
+
+                # 2. Pending attendance continuation
+                elif p_action == 'create_manual_attendance':
+                    hours_val = '08:00'
+                    if 'half day' in msg_lower:
+                        hours_val = '04:00'
+                    elif 'full day' in msg_lower:
+                        hours_val = '08:00'
+                    st_val = 'Proper'
+                    if 'improper' in msg_lower:
+                        st_val = 'Improper'
+                    parsed_action = {
+                        'action': 'create_manual_attendance',
+                        'parameters': {
+                            'employee_name': p_params.get('employee_name'),
+                            'date': p_params.get('date') or datetime.now().strftime('%Y-%m-%d'),
+                            'hours': hours_val,
+                            'status': st_val,
+                            'reason': p_params.get('reason') or 'Recorded by Co-Worker AI'
+                        },
+                        'reply_text': ''
+                    }
+
+                # 3. Pending leave continuation
+                elif p_action == 'apply_leave':
+                    leave_type = 'Casual Leave'
+                    if 'sick' in msg_lower:
+                        leave_type = 'Sick Leave'
+                    elif 'earned' in msg_lower:
+                        leave_type = 'Earned Leave'
+                    parsed_action = {
+                        'action': 'apply_leave',
+                        'parameters': {
+                            'employee_name': p_params.get('employee_name'),
+                            'leave_type': leave_type,
+                            'from_date': p_params.get('from_date') or datetime.now().strftime('%Y-%m-%d'),
+                            'to_date': p_params.get('to_date') or datetime.now().strftime('%Y-%m-%d'),
+                            'reason': p_params.get('reason') or 'Personal'
+                        },
+                        'reply_text': ''
+                    }
+
+            # B. Single-turn fallback if no pending task matched
+            if not parsed_action:
+                is_nav = any(w in msg_lower for w in ['open', 'go to', 'take me', 'navigate', 'show', 'view'])
+                pay_match = re.search(r'(?:create|add|make|give|record)?\s*payment(?:\s+entry)?\s+(?:for\s+)?([A-Za-z\s]+?)\s+(?:for\s+|of\s+|rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)(?:\s+(?:as|set|with|status)?\s*(.*))?', user_message, re.IGNORECASE)
+                alt_pay = re.search(r'(?:give|advance\s+of|pay)\s+([A-Za-z\s]+?)\s+(?:for\s+|of\s+|rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
+                partial_pay = re.search(r'(?:create|add|make|record)?\s*payment(?:\s+entry)?\s+(?:for\s+)([A-Za-z\s]+)', user_message, re.IGNORECASE)
+
+                if pay_match:
+                    emp = pay_match.group(1).strip()
+                    emp = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', emp, flags=re.IGNORECASE).strip()
+                    amt = float(pay_match.group(2))
+                    st = (pay_match.group(3) or 'Advance Repayment').strip()
+                    parsed_action = {
+                        'action': 'create_payment',
+                        'parameters': {'employee_name': emp, 'amount': amt, 'status': st},
+                        'reply_text': ''
+                    }
+                elif alt_pay:
+                    emp = alt_pay.group(1).strip()
+                    emp = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', emp, flags=re.IGNORECASE).strip()
+                    amt = float(alt_pay.group(2))
+                    parsed_action = {
+                        'action': 'create_payment',
+                        'parameters': {'employee_name': emp, 'amount': amt, 'status': 'Advance Repayment'},
+                        'reply_text': ''
+                    }
+                elif partial_pay and not is_nav:
+                    emp = partial_pay.group(1).strip()
+                    emp = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', emp, flags=re.IGNORECASE).strip()
+                    parsed_action = {
+                        'action': 'create_payment',
+                        'parameters': {'employee_name': emp, 'amount': None},
+                        'reply_text': ''
+                    }
+                elif is_nav and ('manual' in msg_lower):
+                    parsed_action = {
+                        'action': 'navigate',
+                        'parameters': {'target': 'manual_entry'},
+                        'reply_text': "Taking you to Manual Entries."
+                    }
+                elif is_nav and ('payment' in msg_lower):
+                    parsed_action = {
+                        'action': 'navigate',
+                        'parameters': {'target': 'payment_entry'},
+                        'reply_text': "Taking you to Payment Entries."
+                    }
+                elif 'present today' in msg_lower or 'who is present' in msg_lower or 'attendance today' in msg_lower:
+                    parsed_action = {
+                        'action': 'check_attendance',
+                        'parameters': {'employee_name': None},
+                        'reply_text': "Checking today's attendance status."
+                    }
+                elif is_nav and ('salary' in msg_lower):
+                    parsed_action = {
+                        'action': 'navigate',
+                        'parameters': {'target': 'salary_report'},
+                        'reply_text': "Taking you to Salary Report."
+                    }
+                elif is_nav and ('field' in msg_lower):
+                    parsed_action = {
+                        'action': 'navigate',
+                        'parameters': {'target': 'field_worker'},
+                        'reply_text': "Taking you to Field Worker Module."
+                    }
+                else:
+                    parsed_action = {
+                        'action': 'general_chat',
+                        'parameters': {},
+                        'reply_text': f"I understand you said: '{user_message}'. You can ask me to create a payment entry (e.g. *Create a payment for Ramesh of ₹5,000 as Advance Repayment*), record attendance, or look up records."
+                    }
 
         # Task Execution Dispatcher
         action_name = parsed_action.get('action') or 'general_chat'
@@ -6431,6 +6526,7 @@ def api_coworker_ai_chat():
         def resolve_employee(name):
             if not name:
                 return None, []
+            import difflib
             raw = str(name).strip()
             # Clean common trailing prepositions or punctuation
             cleaned = re.sub(r'^(for|to|of)\s+', '', raw, flags=re.IGNORECASE).strip()
@@ -6448,22 +6544,44 @@ def api_coworker_ai_chat():
 
             # 2. Token match / Substring match
             target_tokens = set(target.split())
-            candidates = []
+            token_candidates = []
             for e in employees:
                 e_name = str(e.get('employee_name') or '').strip()
                 e_lower = e_name.lower()
                 e_tokens = set(e_lower.split())
-                if target_tokens and target_tokens.issubset(e_tokens):
-                    candidates.append(e)
+                if target_tokens and (target_tokens.issubset(e_tokens) or any(t in e_tokens for t in target_tokens if len(t) >= 4)):
+                    token_candidates.append(e)
                 elif len(target) >= 3 and (target in e_lower or e_lower in target):
-                    candidates.append(e)
+                    token_candidates.append(e)
 
-            if len(candidates) == 1:
-                return candidates[0], []
-            elif len(candidates) > 1:
-                return None, candidates
+            if len(token_candidates) == 1:
+                return token_candidates[0], []
+            elif len(token_candidates) > 1:
+                best_match = None
+                best_score = 0.0
+                for c in token_candidates:
+                    score = difflib.SequenceMatcher(None, target, str(c.get('employee_name') or '').lower()).ratio()
+                    if score > best_score:
+                        best_score = score
+                        best_match = c
+                if best_score >= 0.80:
+                    return best_match, []
+                return None, token_candidates
 
-            # 3. No match found - strictly return None!
+            # 3. Fuzzy similarity match (handles spelling variations like Mathew vs Matthew)
+            fuzzy_matches = []
+            for e in employees:
+                e_name = str(e.get('employee_name') or '').strip()
+                sim = difflib.SequenceMatcher(None, target, e_name.lower()).ratio()
+                if sim >= 0.76:
+                    fuzzy_matches.append((sim, e))
+
+            if fuzzy_matches:
+                fuzzy_matches.sort(key=lambda x: x[0], reverse=True)
+                if len(fuzzy_matches) == 1 or (fuzzy_matches[0][0] - fuzzy_matches[1][0] >= 0.12):
+                    return fuzzy_matches[0][1], []
+                return None, [m[1] for m in fuzzy_matches]
+
             return None, []
 
         # 1. CREATE PAYMENT
@@ -6474,32 +6592,47 @@ def api_coworker_ai_chat():
             if raw_name:
                 raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
 
+            emp_doc = None
+            if raw_name:
+                emp_doc, candidates = resolve_employee(raw_name)
+                if not emp_doc:
+                    if candidates:
+                        cand_names = ", ".join([f"**{c.get('employee_name')}**" for c in candidates[:4]])
+                        return jsonify({
+                            'success': True,
+                            'reply': f"I found multiple employees matching '**{raw_name}**': {cand_names}. Which one would you like to record the payment for?",
+                            'task_executed': False,
+                            'pending_task': None
+                        })
+                    else:
+                        sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:5] if e.get('employee_name')])
+                        staff_hint = f" Here are some registered employees in your company: {sample_staff}." if sample_staff else ""
+                        return jsonify({
+                            'success': True,
+                            'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company.{staff_hint} Please check the name and try again.",
+                            'task_executed': False,
+                            'pending_task': None
+                        })
+
+            canonical_emp_name = emp_doc.get('employee_name') if emp_doc else raw_name
+
             if not raw_name or raw_amt is None:
+                new_pending = {
+                    'action': 'create_payment',
+                    'parameters': {
+                        'employee_name': canonical_emp_name,
+                        'status': params.get('status')
+                    }
+                }
+                session['coworker_pending_task'] = new_pending
                 return jsonify({
                     'success': True,
-                    'reply': f"I'd be glad to record a payment for {raw_name or 'the employee'}. Could you please specify the **amount (₹)** and payment status (e.g. *Advance Repayment*, *Salary*)?",
-                    'task_executed': False
+                    'reply': f"I'd be glad to record a payment for **{canonical_emp_name}**. Could you please specify the **amount (₹)** and payment status (e.g. *Advance Repayment*, *Salary*, *Incentive*)?",
+                    'task_executed': False,
+                    'pending_task': new_pending
                 })
 
-            emp_doc, candidates = resolve_employee(raw_name)
-            if not emp_doc:
-                if candidates:
-                    cand_names = ", ".join([f"**{c.get('employee_name')}**" for c in candidates[:4]])
-                    return jsonify({
-                        'success': True,
-                        'reply': f"I found multiple employees matching '**{raw_name}**': {cand_names}. Which one would you like to record the payment for?",
-                        'task_executed': False
-                    })
-                else:
-                    sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:5] if e.get('employee_name')])
-                    staff_hint = f" Here are some registered employees in your company: {sample_staff}." if sample_staff else ""
-                    return jsonify({
-                        'success': True,
-                        'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company.{staff_hint} Please check the name and try again.",
-                        'task_executed': False
-                    })
-
-            emp_name = emp_doc.get('employee_name')
+            emp_name = canonical_emp_name
             amt = float(raw_amt)
             status = params.get('status') or 'Advance Repayment'
             pay_type = params.get('payment_type') or 'UPI'
@@ -6516,6 +6649,7 @@ def api_coworker_ai_chat():
                 'bank': ''
             }
             inserted_id = database.create_payment(payment_payload, company_id=cid)
+            session['coworker_pending_task'] = None
 
             return jsonify({
                 'success': True,
@@ -6533,7 +6667,8 @@ def api_coworker_ai_chat():
                     },
                     'action_label': 'View Payment Ledger',
                     'action_url': '/payment-entry'
-                }
+                },
+                'pending_task': None
             })
 
         # 2. CREATE MANUAL ATTENDANCE
@@ -6543,10 +6678,16 @@ def api_coworker_ai_chat():
                 raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
 
             if not raw_name:
+                new_pending = {
+                    'action': 'create_manual_attendance',
+                    'parameters': params
+                }
+                session['coworker_pending_task'] = new_pending
                 return jsonify({
                     'success': True,
                     'reply': "Please specify which employee you want to record manual attendance for (e.g., *'Add manual attendance for Priya today from 9:00 AM to 6:00 PM'*).",
-                    'task_executed': False
+                    'task_executed': False,
+                    'pending_task': new_pending
                 })
 
             emp_doc, candidates = resolve_employee(raw_name)
@@ -6556,7 +6697,8 @@ def api_coworker_ai_chat():
                     return jsonify({
                         'success': True,
                         'reply': f"I found multiple employees matching '**{raw_name}**': {cand_names}. Which one did you mean?",
-                        'task_executed': False
+                        'task_executed': False,
+                        'pending_task': None
                     })
                 else:
                     sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:5] if e.get('employee_name')])
@@ -6564,7 +6706,8 @@ def api_coworker_ai_chat():
                     return jsonify({
                         'success': True,
                         'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company.{staff_hint} Please check the spelling.",
-                        'task_executed': False
+                        'task_executed': False,
+                        'pending_task': None
                     })
 
             emp_name = emp_doc.get('employee_name')
@@ -6582,6 +6725,7 @@ def api_coworker_ai_chat():
                 'reason': reason
             }
             inserted_id = database.create_manual_entry(entry_payload, company_id=cid)
+            session['coworker_pending_task'] = None
 
             return jsonify({
                 'success': True,
@@ -6598,7 +6742,8 @@ def api_coworker_ai_chat():
                     },
                     'action_label': 'View Manual Entries',
                     'action_url': '/manual-entry'
-                }
+                },
+                'pending_task': None
             })
 
         # 3. APPLY LEAVE
@@ -6608,10 +6753,16 @@ def api_coworker_ai_chat():
                 raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
 
             if not raw_name:
+                new_pending = {
+                    'action': 'apply_leave',
+                    'parameters': params
+                }
+                session['coworker_pending_task'] = new_pending
                 return jsonify({
                     'success': True,
                     'reply': "Please specify the employee name and leave dates (e.g. *'Apply casual leave for Suresh tomorrow'*).",
-                    'task_executed': False
+                    'task_executed': False,
+                    'pending_task': new_pending
                 })
 
             emp_doc, candidates = resolve_employee(raw_name)
@@ -6621,13 +6772,15 @@ def api_coworker_ai_chat():
                     return jsonify({
                         'success': True,
                         'reply': f"I found multiple employees matching '**{raw_name}**': {cand_names}. Which one did you mean?",
-                        'task_executed': False
+                        'task_executed': False,
+                        'pending_task': None
                     })
                 else:
                     return jsonify({
                         'success': True,
                         'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company. Please check the name.",
-                        'task_executed': False
+                        'task_executed': False,
+                        'pending_task': None
                     })
 
             emp_name = emp_doc.get('employee_name')
@@ -6647,6 +6800,7 @@ def api_coworker_ai_chat():
                 'company_id': cid
             }
             database.submit_leave_request(leave_payload)
+            session['coworker_pending_task'] = None
 
             return jsonify({
                 'success': True,
@@ -6663,7 +6817,8 @@ def api_coworker_ai_chat():
                     },
                     'action_label': 'View Leave Portal',
                     'action_url': '/employee-portal#leave'
-                }
+                },
+                'pending_task': None
             })
 
         # 4. CHECK ATTENDANCE
@@ -6676,7 +6831,8 @@ def api_coworker_ai_chat():
                     return jsonify({
                         'success': True,
                         'reply': f"I couldn't find an employee named '**{raw_name}**' in your registered company staff.",
-                        'task_executed': False
+                        'task_executed': False,
+                        'pending_task': None
                     })
                 emp_name = emp_doc.get('employee_name')
                 rec = db.attendance.find_one({'employee_name': emp_name, 'date': today_str})
@@ -6691,13 +6847,15 @@ def api_coworker_ai_chat():
                         'task_data': {
                             'type': 'attendance',
                             'details': {'Employee': emp_name, 'Date': today_str, 'Status': st, 'In Time': in_t, 'Out Time': out_t}
-                        }
+                        },
+                        'pending_task': None
                     })
                 else:
                     return jsonify({
                         'success': True,
                         'reply': f"**{emp_name}** has not punched in today yet ({today_str}). Would you like me to log a manual entry for them?",
-                        'task_executed': False
+                        'task_executed': False,
+                        'pending_task': {'action': 'create_manual_attendance', 'parameters': {'employee_name': emp_name}}
                     })
             else:
                 total_emps = len(employees)
@@ -6709,7 +6867,8 @@ def api_coworker_ai_chat():
                     'task_data': {
                         'type': 'attendance',
                         'details': {'Date': today_str, 'Total Staff': str(total_emps), 'Present Today': str(present_count)}
-                    }
+                    },
+                    'pending_task': None
                 })
 
         # 5. NAVIGATION
@@ -6727,7 +6886,8 @@ def api_coworker_ai_chat():
                 'success': True,
                 'reply': reply_text or f"Navigating to {target.replace('_', ' ').title()}...",
                 'action': 'navigate',
-                'task_data': {'url': dest_url}
+                'task_data': {'url': dest_url},
+                'pending_task': None
             })
 
         # 6. GENERAL CHAT
@@ -6735,11 +6895,13 @@ def api_coworker_ai_chat():
             return jsonify({
                 'success': True,
                 'reply': reply_text or "How can I assist you with attendance, payments, or employee tasks today?",
-                'task_executed': False
+                'task_executed': False,
+                'pending_task': None
             })
 
     except Exception as e:
         return jsonify({'success': False, 'error': f"Co-Worker AI error: {str(e)}"}), 500
+
 
 
 @app.route('/api/field-worker/salary-report', methods=['GET'])
