@@ -526,32 +526,66 @@
       if (!chipsContainer) return;
 
       let chipPrompts = [];
-      if (pendingTask && pendingTask.action === 'create_payment') {
+      if (pendingTask && pendingTask.action === 'create_manual_attendance') {
+        chipPrompts = [
+          { label: '📝 8 Hrs Proper', prompt: '8 hours Proper' },
+          { label: '⏱️ 4 Hrs Half Day', prompt: '4 hours Half Day' },
+          { label: '⚠️ 8 Hrs Improper', prompt: '8 hours Improper' },
+          { label: '❌ Cancel', prompt: 'Cancel' }
+        ];
+      } else if (pendingTask && pendingTask.action === 'create_payment') {
         chipPrompts = [
           { label: '💰 ₹5,000 Advance', prompt: 'rupees 5000 as Advance Repayment' },
           { label: '🎁 ₹5,000 Incentive', prompt: 'rupees 5000 and the status will be incentive' },
           { label: '💼 ₹10,000 Salary', prompt: 'rupees 10000 and the status will be salary' },
           { label: '❌ Cancel', prompt: 'Cancel' }
         ];
+      } else if (pendingTask && pendingTask.action === 'create_advance') {
+        chipPrompts = [
+          { label: '💵 ₹2,000 Advance', prompt: 'advance of 2000' },
+          { label: '💵 ₹5,000 Advance', prompt: 'advance of 5000' },
+          { label: '❌ Cancel', prompt: 'Cancel' }
+        ];
+      } else if (pendingTask && pendingTask.action === 'apply_leave') {
+        chipPrompts = [
+          { label: '🏖️ Casual Leave Tomorrow', prompt: 'casual leave tomorrow' },
+          { label: '🤒 Sick Leave Today', prompt: 'sick leave today' },
+          { label: '❌ Cancel', prompt: 'Cancel' }
+        ];
       } else if (taskData && taskData.type === 'payment') {
         const emp = (taskData.details && taskData.details.Employee) ? taskData.details.Employee : '';
         chipPrompts = [
-          { label: '💰 Check Balance', prompt: `Check payment balance for ${emp}` },
-          { label: '➕ New Payment', prompt: `Create a payment entry for ` },
-          { label: '📋 View Ledger', prompt: `Take me to payment entry` }
+          { label: '📊 Check Balance', prompt: emp ? `check balance for ${emp}` : 'check balance' },
+          { label: '📝 Manual Entry', prompt: emp ? `add manual entry for ${emp} 8 hours proper` : 'create a manual entry' },
+          { label: '📋 View Ledger', prompt: 'take me to payment entry' }
+        ];
+      } else if (taskData && taskData.type === 'balance') {
+        const emp = (taskData.details && taskData.details.Employee) ? taskData.details.Employee : '';
+        chipPrompts = [
+          { label: '💰 Record Repayment', prompt: emp ? `create payment for ${emp} as Advance Repayment` : 'create payment' },
+          { label: '💵 Give Advance', prompt: emp ? `give advance of 2000 to ${emp}` : 'give advance' },
+          { label: '📋 View Ledger', prompt: 'take me to payment entry' }
         ];
       } else if (taskData && taskData.type === 'attendance') {
         chipPrompts = [
-          { label: '👥 Who is absent today?', prompt: `Who is absent today?` },
-          { label: '📋 View Manual Entries', prompt: `Take me to manual entries` },
-          { label: '💰 Check Payments', prompt: `Check total payments this month` }
+          { label: '👥 Who is absent today?', prompt: 'who is absent today?' },
+          { label: '📝 Add Manual Entry', prompt: 'create a manual entry' },
+          { label: '📊 Live Report', prompt: 'take me to live report' }
+        ];
+      } else if (taskData && taskData.type === 'employee') {
+        const emp = (taskData.details && taskData.details.Employee) ? taskData.details.Employee : '';
+        chipPrompts = [
+          { label: '📊 Check Balance', prompt: emp ? `check balance for ${emp}` : 'check balance' },
+          { label: '📝 Manual Entry', prompt: emp ? `add manual entry for ${emp} 8 hours proper` : 'create a manual entry' },
+          { label: '💰 Record Payment', prompt: emp ? `create payment for ${emp}` : 'create payment' }
         ];
       } else {
         chipPrompts = [
-          { label: '💰 Create Payment', prompt: 'Create a payment entry for ' },
-          { label: '📋 Today\'s Attendance', prompt: 'How many employees are present today?' },
-          { label: '🏖️ Apply Leave', prompt: 'Apply leave for ' },
-          { label: '🔍 Search Staff', prompt: 'Search employee details for ' }
+          { label: '📝 Manual Entry', prompt: 'create a manual entry' },
+          { label: '💰 Create Payment', prompt: 'create a payment entry for ' },
+          { label: '📊 Check Balance', prompt: 'check balance' },
+          { label: '👥 Today\'s Attendance', prompt: 'who is present today?' },
+          { label: '🏖️ Apply Leave', prompt: 'apply casual leave for ' }
         ];
       }
 
@@ -663,6 +697,14 @@
         title = 'Payment Entry Created';
         badgeClass = 'payment';
         icon = '💳';
+      } else if (type === 'advance') {
+        title = 'Advance Issued';
+        badgeClass = 'advance';
+        icon = '💵';
+      } else if (type === 'balance') {
+        title = 'Advance & Payment Statement';
+        badgeClass = 'balance';
+        icon = '📊';
       } else if (type === 'attendance') {
         title = 'Attendance Logged';
         badgeClass = 'attendance';
@@ -671,6 +713,14 @@
         title = 'Leave Application Submitted';
         badgeClass = 'leave';
         icon = '🏖️';
+      } else if (type === 'employee') {
+        title = 'Employee Profile';
+        badgeClass = 'employee';
+        icon = '📇';
+      } else if (type === 'salary') {
+        title = 'Salary Overview';
+        badgeClass = 'salary';
+        icon = '📑';
       }
 
       let gridItems = '';

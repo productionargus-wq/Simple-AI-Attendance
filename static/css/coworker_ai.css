@@ -372,12 +372,28 @@ body.coworker-modal-open .argus-ai-dock {
   border-left-color: #059669;
 }
 
+.coworker-task-card.advance {
+  border-left-color: #0d9488;
+}
+
+.coworker-task-card.balance {
+  border-left-color: #0284c7;
+}
+
 .coworker-task-card.attendance {
   border-left-color: #2563eb;
 }
 
 .coworker-task-card.leave {
   border-left-color: #d97706;
+}
+
+.coworker-task-card.employee {
+  border-left-color: #8b5cf6;
+}
+
+.coworker-task-card.salary {
+  border-left-color: #10b981;
 }
 
 .coworker-task-card-header {

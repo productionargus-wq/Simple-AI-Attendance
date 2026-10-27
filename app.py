@@ -6270,7 +6270,7 @@ def api_coworker_ai_transcribe():
 
 @app.route('/api/ai/coworker/chat', methods=['POST'])
 def api_coworker_ai_chat():
-    """Autonomous executive assistant endpoint with multi-turn conversational memory & task execution."""
+    """Autonomous executive assistant endpoint supporting all Argus operations with multi-turn conversational memory & task execution."""
     try:
         data = request.get_json(silent=True) or {}
         user_message = str(data.get('message') or '').strip()
@@ -6283,7 +6283,7 @@ def api_coworker_ai_chat():
 
         # Check for explicit cancellation
         msg_lower = user_message.lower().strip()
-        if msg_lower in ['cancel', 'cancel task', 'never mind', 'stop', 'abort', 'leave it', 'dont do it', "don't do it"]:
+        if msg_lower in ['cancel', 'cancel task', 'never mind', 'stop', 'abort', 'leave it', 'dont do it', "don't do it", 'forget it']:
             session['coworker_pending_task'] = None
             return jsonify({
                 'success': True,
@@ -6299,238 +6299,22 @@ def api_coworker_ai_chat():
         emp_filter = {'status': {'$ne': 'Terminated'}}
         if cid and cid != 'ARGUS_MASTER':
             emp_filter['$or'] = [{'company_id': cid}, {'company_id': {'$in': [None, '', 'ARGUS_MASTER']}}]
-        emp_cursor = db.employees.find(emp_filter, {'employee_name': 1, 'id': 1, 'department': 1, 'phone': 1, 'mobile': 1, 'company_id': 1})
+        emp_cursor = db.employees.find(emp_filter, {
+            'employee_name': 1, 'id': 1, 'department': 1, 'phone': 1, 'mobile': 1,
+            'designation': 1, 'basic_salary': 1, 'salary_type': 1, 'shift_hours': 1,
+            'branch_id': 1, 'company_id': 1, 'created_at': 1, 'status': 1
+        })
         employees = list(emp_cursor)
         emp_names = [e.get('employee_name') for e in employees if e.get('employee_name')]
-
-        gemini_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
-        if not gemini_key:
-            setting = db.system_settings.find_one({'key': 'gemini_api_key'})
-            if setting and setting.get('value'):
-                gemini_key = str(setting['value']).strip()
-
-        parsed_action = None
-
-        if gemini_key:
-            try:
-                import requests
-                emp_list_str = ", ".join(emp_names[:60])
-                today_str = datetime.now().strftime('%Y-%m-%d')
-                clean_msg = user_message.replace('"', '\"').replace('\n', ' ')
-
-                # Format conversation history
-                history_lines = []
-                if isinstance(history, list):
-                    for h in history[-6:]:
-                        sender = 'User' if h.get('sender') == 'user' else 'Assistant'
-                        txt = str(h.get('text') or '').replace('\n', ' ')
-                        history_lines.append(f"{sender}: {txt}")
-                transcript_str = "\n".join(history_lines) if history_lines else "None"
-                pending_str = json.dumps(pending_task) if pending_task else "None"
-
-                prompt = (
-                    "You are Co-Worker AI, an autonomous operations executive assistant for the Argus Attendance Web App.\n"
-                    f"Current Date: {today_str}\n"
-                    f"Known Employees in this Company: [{emp_list_str}]\n\n"
-                    f"Recent Conversation Transcript:\n{transcript_str}\n\n"
-                    f"Active In-Progress Pending Task:\n{pending_str}\n\n"
-                    f'Latest User Message: "{clean_msg}"\n\n'
-                    "CRITICAL MULTI-TURN INSTRUCTIONS:\n"
-                    "1. If an Active Pending Task exists (e.g. creating payment for an employee) and the latest user message provides missing information (like amount, status 'incentive', 'salary', 'advance', or date), YOU MUST MERGE the new parameters into the pending task and set the action to execute it!\n"
-                    "2. If user mentions an amount or status following an assistant inquiry, associate it with the pending employee.\n"
-                    "3. If an employee name is not in Known Employees, set action to 'ask_clarification'.\n\n"
-                    "Actions available:\n"
-                    "1. 'create_payment': Parameters: { 'employee_name': string, 'amount': number, 'status': string, 'payment_type': string, 'date': string, 'reason': string }\n"
-                    "2. 'create_manual_attendance': Parameters: { 'employee_name': string, 'date': string, 'hours': string, 'status': string, 'reason': string }\n"
-                    "3. 'apply_leave': Parameters: { 'employee_name': string, 'leave_type': string, 'from_date': string, 'to_date': string, 'reason': string }\n"
-                    "4. 'check_attendance': Inquiries about today's attendance, who is present, employee attendance status.\n"
-                    "5. 'check_payments': Inquiries about advance balances, payments, or ledger.\n"
-                    "6. 'get_employee_info': Inquiries about employee details, phone number, department.\n"
-                    "7. 'navigate': Parameters: { 'target': 'manual_entry'|'payment_entry'|'salary_report'|'field_worker'|'employees' }\n"
-                    "8. 'ask_clarification': Parameters: { 'question': string }\n"
-                    "9. 'general_chat': Conversational response.\n\n"
-                    "Respond ONLY with a valid JSON object matching this schema:\n"
-                    "{\n"
-                    '  "action": "create_payment" | "create_manual_attendance" | "apply_leave" | "check_attendance" | "check_payments" | "get_employee_info" | "navigate" | "ask_clarification" | "general_chat",\n'
-                    '  "parameters": { ... },\n'
-                    '  "reply_text": "Conversational response acknowledging the action or asking for clarification."\n'
-                    "}"
-                )
-
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
-                payload = {
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 400}
-                }
-                resp = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload, timeout=6)
-                if resp.status_code == 200:
-                    cand = resp.json().get('candidates', [])
-                    if cand:
-                        t = cand[0].get('content', {}).get('parts', [{}])[0].get('text', '')
-                        m = re.search(r'\{.*\}', t, re.DOTALL)
-                        if m:
-                            parsed_action = json.loads(m.group(0))
-            except Exception as e:
-                print(f"Notice: Co-Worker AI Gemini NLU fallback triggered: {e}")
-
-        # Deterministic Multi-Turn Fallback if Gemini did not parse
-        if not parsed_action:
-            msg_lower = user_message.lower()
-
-            # A. Check if we can continue a PENDING TASK
-            if pending_task and isinstance(pending_task, dict):
-                p_action = pending_task.get('action')
-                p_params = pending_task.get('parameters') or {}
-
-                # 1. Pending payment continuation
-                if p_action == 'create_payment':
-                    amt_match = re.search(r'(?:rs\.?|inr|rupees|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
-                    st_val = None
-                    for cand_st in ['advance repayment', 'advance', 'salary', 'incentive', 'bonus', 'allowance', 'petrol', 'other']:
-                        if cand_st in msg_lower:
-                            st_val = cand_st.title()
-                            break
-
-                    amt_val = float(amt_match.group(1)) if amt_match else p_params.get('amount')
-                    if amt_val is not None:
-                        parsed_action = {
-                            'action': 'create_payment',
-                            'parameters': {
-                                'employee_name': p_params.get('employee_name'),
-                                'amount': amt_val,
-                                'status': st_val or p_params.get('status') or 'Advance Repayment',
-                                'payment_type': p_params.get('payment_type') or 'UPI',
-                                'date': p_params.get('date') or datetime.now().strftime('%Y-%m-%d'),
-                                'reason': p_params.get('reason') or ''
-                            },
-                            'reply_text': ''
-                        }
-
-                # 2. Pending attendance continuation
-                elif p_action == 'create_manual_attendance':
-                    hours_val = '08:00'
-                    if 'half day' in msg_lower:
-                        hours_val = '04:00'
-                    elif 'full day' in msg_lower:
-                        hours_val = '08:00'
-                    st_val = 'Proper'
-                    if 'improper' in msg_lower:
-                        st_val = 'Improper'
-                    parsed_action = {
-                        'action': 'create_manual_attendance',
-                        'parameters': {
-                            'employee_name': p_params.get('employee_name'),
-                            'date': p_params.get('date') or datetime.now().strftime('%Y-%m-%d'),
-                            'hours': hours_val,
-                            'status': st_val,
-                            'reason': p_params.get('reason') or 'Recorded by Co-Worker AI'
-                        },
-                        'reply_text': ''
-                    }
-
-                # 3. Pending leave continuation
-                elif p_action == 'apply_leave':
-                    leave_type = 'Casual Leave'
-                    if 'sick' in msg_lower:
-                        leave_type = 'Sick Leave'
-                    elif 'earned' in msg_lower:
-                        leave_type = 'Earned Leave'
-                    parsed_action = {
-                        'action': 'apply_leave',
-                        'parameters': {
-                            'employee_name': p_params.get('employee_name'),
-                            'leave_type': leave_type,
-                            'from_date': p_params.get('from_date') or datetime.now().strftime('%Y-%m-%d'),
-                            'to_date': p_params.get('to_date') or datetime.now().strftime('%Y-%m-%d'),
-                            'reason': p_params.get('reason') or 'Personal'
-                        },
-                        'reply_text': ''
-                    }
-
-            # B. Single-turn fallback if no pending task matched
-            if not parsed_action:
-                is_nav = any(w in msg_lower for w in ['open', 'go to', 'take me', 'navigate', 'show', 'view'])
-                pay_match = re.search(r'(?:create|add|make|give|record)?\s*payment(?:\s+entry)?\s+(?:for\s+)?([A-Za-z\s]+?)\s+(?:for\s+|of\s+|rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)(?:\s+(?:as|set|with|status)?\s*(.*))?', user_message, re.IGNORECASE)
-                alt_pay = re.search(r'(?:give|advance\s+of|pay)\s+([A-Za-z\s]+?)\s+(?:for\s+|of\s+|rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
-                partial_pay = re.search(r'(?:create|add|make|record)?\s*payment(?:\s+entry)?\s+(?:for\s+)([A-Za-z\s]+)', user_message, re.IGNORECASE)
-
-                if pay_match:
-                    emp = pay_match.group(1).strip()
-                    emp = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', emp, flags=re.IGNORECASE).strip()
-                    amt = float(pay_match.group(2))
-                    st = (pay_match.group(3) or 'Advance Repayment').strip()
-                    parsed_action = {
-                        'action': 'create_payment',
-                        'parameters': {'employee_name': emp, 'amount': amt, 'status': st},
-                        'reply_text': ''
-                    }
-                elif alt_pay:
-                    emp = alt_pay.group(1).strip()
-                    emp = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', emp, flags=re.IGNORECASE).strip()
-                    amt = float(alt_pay.group(2))
-                    parsed_action = {
-                        'action': 'create_payment',
-                        'parameters': {'employee_name': emp, 'amount': amt, 'status': 'Advance Repayment'},
-                        'reply_text': ''
-                    }
-                elif partial_pay and not is_nav:
-                    emp = partial_pay.group(1).strip()
-                    emp = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', emp, flags=re.IGNORECASE).strip()
-                    parsed_action = {
-                        'action': 'create_payment',
-                        'parameters': {'employee_name': emp, 'amount': None},
-                        'reply_text': ''
-                    }
-                elif is_nav and ('manual' in msg_lower):
-                    parsed_action = {
-                        'action': 'navigate',
-                        'parameters': {'target': 'manual_entry'},
-                        'reply_text': "Taking you to Manual Entries."
-                    }
-                elif is_nav and ('payment' in msg_lower):
-                    parsed_action = {
-                        'action': 'navigate',
-                        'parameters': {'target': 'payment_entry'},
-                        'reply_text': "Taking you to Payment Entries."
-                    }
-                elif 'present today' in msg_lower or 'who is present' in msg_lower or 'attendance today' in msg_lower:
-                    parsed_action = {
-                        'action': 'check_attendance',
-                        'parameters': {'employee_name': None},
-                        'reply_text': "Checking today's attendance status."
-                    }
-                elif is_nav and ('salary' in msg_lower):
-                    parsed_action = {
-                        'action': 'navigate',
-                        'parameters': {'target': 'salary_report'},
-                        'reply_text': "Taking you to Salary Report."
-                    }
-                elif is_nav and ('field' in msg_lower):
-                    parsed_action = {
-                        'action': 'navigate',
-                        'parameters': {'target': 'field_worker'},
-                        'reply_text': "Taking you to Field Worker Module."
-                    }
-                else:
-                    parsed_action = {
-                        'action': 'general_chat',
-                        'parameters': {},
-                        'reply_text': f"I understand you said: '{user_message}'. You can ask me to create a payment entry (e.g. *Create a payment for Ramesh of ₹5,000 as Advance Repayment*), record attendance, or look up records."
-                    }
-
-        # Task Execution Dispatcher
-        action_name = parsed_action.get('action') or 'general_chat'
-        params = parsed_action.get('parameters') or {}
-        reply_text = parsed_action.get('reply_text') or ''
 
         def resolve_employee(name):
             if not name:
                 return None, []
             import difflib
             raw = str(name).strip()
-            # Clean common trailing prepositions or punctuation
-            cleaned = re.sub(r'^(for|to|of)\s+', '', raw, flags=re.IGNORECASE).strip()
-            cleaned = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', cleaned, flags=re.IGNORECASE).strip()
+            # Clean common trailing/leading prepositions or punctuation
+            cleaned = re.sub(r'^(?:for|to|of|about)\s+', '', raw, flags=re.IGNORECASE).strip()
+            cleaned = re.sub(r'\s+(?:for|to|of|as|with|at|in|on|rs|inr)$', '', cleaned, flags=re.IGNORECASE).strip()
             if not cleaned:
                 return None, []
 
@@ -6584,11 +6368,736 @@ def api_coworker_ai_chat():
 
             return None, []
 
-        # 1. CREATE PAYMENT
-        if action_name == 'create_payment':
+        def find_context_employee():
+            """Recovers the most relevant employee from pending task or recent message turns."""
+            if pending_task and isinstance(pending_task, dict):
+                p_emp = (pending_task.get('parameters') or {}).get('employee_name')
+                if p_emp:
+                    doc, _ = resolve_employee(p_emp)
+                    if doc:
+                        return doc.get('employee_name')
+            if isinstance(history, list):
+                for h in reversed(history[-6:]):
+                    task_info = h.get('task')
+                    if isinstance(task_info, dict) and task_info.get('details'):
+                        d_emp = task_info['details'].get('Employee')
+                        if d_emp:
+                            doc, _ = resolve_employee(d_emp)
+                            if doc:
+                                return doc.get('employee_name')
+                    h_text = str(h.get('text') or '')
+                    for en in emp_names:
+                        if re.search(r'\b' + re.escape(en) + r'\b', h_text, re.IGNORECASE):
+                            return en
+            return None
+
+        parsed_action = None
+
+        # Tier 2: Fast Gemini NLU Attempt with strict 3.5s timeout guard
+        gemini_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+        if not gemini_key:
+            setting = db.system_settings.find_one({'key': 'gemini_api_key'})
+            if setting and setting.get('value'):
+                gemini_key = str(setting['value']).strip()
+
+        if gemini_key:
+            try:
+                import requests
+                emp_list_str = ", ".join(emp_names[:60])
+                today_str = datetime.now().strftime('%Y-%m-%d')
+                clean_msg = user_message.replace('"', '\"').replace('\n', ' ')
+
+                history_lines = []
+                if isinstance(history, list):
+                    for h in history[-6:]:
+                        sender = 'User' if h.get('sender') == 'user' else 'Assistant'
+                        txt = str(h.get('text') or '').replace('\n', ' ')
+                        history_lines.append(f"{sender}: {txt}")
+                transcript_str = "\n".join(history_lines) if history_lines else "None"
+                pending_str = json.dumps(pending_task) if pending_task else "None"
+
+                prompt = (
+                    "You are Co-Worker AI, an operations executive assistant for the Argus Attendance Web App.\n"
+                    f"Current Date: {today_str}\n"
+                    f"Known Employees in this Company: [{emp_list_str}]\n\n"
+                    f"Recent Conversation Transcript:\n{transcript_str}\n\n"
+                    f"Active In-Progress Pending Task:\n{pending_str}\n\n"
+                    f'Latest User Message: "{clean_msg}"\n\n'
+                    "Actions available in Argus:\n"
+                    "1. 'create_manual_attendance': Parameters: { 'employee_name': string, 'date': string, 'hours': string, 'status': string, 'reason': string }\n"
+                    "2. 'create_payment': Parameters: { 'employee_name': string, 'amount': number, 'status': string, 'payment_type': string, 'date': string, 'reason': string }\n"
+                    "3. 'create_advance': Parameters: { 'employee_name': string, 'amount': number, 'date': string, 'reason': string }\n"
+                    "4. 'check_payments': Parameters: { 'employee_name': string, 'query_type': 'balance'|'history'|'summary' }\n"
+                    "5. 'check_attendance': Parameters: { 'employee_name': string, 'date': string }\n"
+                    "6. 'apply_leave': Parameters: { 'employee_name': string, 'leave_type': string, 'from_date': string, 'to_date': string, 'reason': string }\n"
+                    "7. 'get_employee_info': Parameters: { 'employee_name': string, 'field': string }\n"
+                    "8. 'get_salary_info': Parameters: { 'employee_name': string }\n"
+                    "9. 'check_field_worker': Parameters: { 'target': string }\n"
+                    "10. 'navigate': Parameters: { 'target': 'manual_entry'|'payment_entry'|'salary_report'|'field_worker'|'employees'|'leaves'|'live_report'|'attendance_report'|'payslips'|'dashboard' }\n"
+                    "11. 'general_chat': Conversational response.\n\n"
+                    "Respond ONLY with a valid JSON object matching this schema:\n"
+                    "{\n"
+                    '  "action": string,\n'
+                    '  "parameters": { ... },\n'
+                    '  "reply_text": string\n'
+                    "}"
+                )
+
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={gemini_key}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 350}
+                }
+                resp = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload, timeout=3.5)
+                if resp.status_code == 200:
+                    cand = resp.json().get('candidates', [])
+                    if cand:
+                        t = cand[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+                        m = re.search(r'\{.*\}', t, re.DOTALL)
+                        if m:
+                            parsed_action = json.loads(m.group(0))
+            except Exception as e:
+                pass
+
+        # Tier 1: Deterministic Multi-Turn & Feature NLU Engine (Zero Latency, Complete Offline Support)
+        if not parsed_action or not parsed_action.get('action') or parsed_action.get('action') == 'general_chat':
+            msg_lower = user_message.lower().strip()
+
+            # A. Check active in-progress pending tasks
+            if pending_task and isinstance(pending_task, dict):
+                p_action = pending_task.get('action')
+                p_params = pending_task.get('parameters') or {}
+
+                # 1. Pending Manual Attendance Continuation
+                if p_action == 'create_manual_attendance':
+                    # Extract employee if provided now or already saved
+                    curr_emp = p_params.get('employee_name')
+                    if not curr_emp:
+                        # Check if user mentioned an employee
+                        for e in employees:
+                            en = str(e.get('employee_name') or '')
+                            if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
+                                curr_emp = en
+                                break
+                        if not curr_emp:
+                            # Try resolving from raw message tokens
+                            clean_candidate = re.sub(r'\b(?:hours?|hrs?|proper|improper|half\s*day|full\s*day|for|to|of|add|log|today|yesterday)\b', '', msg_lower, flags=re.IGNORECASE).strip()
+                            if clean_candidate:
+                                c_doc, _ = resolve_employee(clean_candidate)
+                                if c_doc:
+                                    curr_emp = c_doc.get('employee_name')
+
+                    # Extract hours
+                    hours_val = p_params.get('hours') or '08:00'
+                    hr_m = re.search(r'(\d{1,2}(?::\d{2})?)\s*(?:hrs?|hours?)?', msg_lower)
+                    if 'half day' in msg_lower or '4 hour' in msg_lower or '4 hr' in msg_lower:
+                        hours_val = '04:00'
+                    elif 'full day' in msg_lower or '8 hour' in msg_lower or '8 hr' in msg_lower:
+                        hours_val = '08:00'
+                    elif hr_m:
+                        raw_h = hr_m.group(1)
+                        hours_val = f"{int(raw_h):02d}:00" if ':' not in raw_h else raw_h
+
+                    # Extract status
+                    st_val = p_params.get('status') or 'Proper'
+                    if 'improper' in msg_lower:
+                        st_val = 'Improper'
+                    elif 'half day' in msg_lower:
+                        st_val = 'Half Day'
+                    elif 'late' in msg_lower:
+                        st_val = 'Late'
+                    elif 'overtime' in msg_lower or 'ot' in msg_lower:
+                        st_val = 'Overtime'
+                    elif 'proper' in msg_lower:
+                        st_val = 'Proper'
+
+                    # Extract date
+                    date_val = p_params.get('date') or datetime.now().strftime('%Y-%m-%d')
+                    if 'yesterday' in msg_lower:
+                        date_val = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+                    elif 'tomorrow' in msg_lower:
+                        date_val = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+
+                    parsed_action = {
+                        'action': 'create_manual_attendance',
+                        'parameters': {
+                            'employee_name': curr_emp,
+                            'hours': hours_val,
+                            'status': st_val,
+                            'date': date_val,
+                            'reason': p_params.get('reason') or 'Recorded by Co-Worker AI'
+                        },
+                        'reply_text': ''
+                    }
+
+                # 2. Pending Payment Continuation
+                elif p_action == 'create_payment':
+                    amt_match = re.search(r'(?:rs\.?|inr|rupees|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
+                    st_val = None
+                    for cand_st in ['advance repayment', 'advance', 'salary', 'incentive', 'bonus', 'allowance', 'petrol', 'other']:
+                        if cand_st in msg_lower:
+                            st_val = cand_st.title()
+                            break
+
+                    curr_emp = p_params.get('employee_name')
+                    if not curr_emp:
+                        for e in employees:
+                            en = str(e.get('employee_name') or '')
+                            if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
+                                curr_emp = en
+                                break
+
+                    amt_val = float(amt_match.group(1)) if amt_match else p_params.get('amount')
+                    parsed_action = {
+                        'action': 'create_payment',
+                        'parameters': {
+                            'employee_name': curr_emp,
+                            'amount': amt_val,
+                            'status': st_val or p_params.get('status') or 'Advance Repayment',
+                            'payment_type': p_params.get('payment_type') or 'UPI',
+                            'date': p_params.get('date') or datetime.now().strftime('%Y-%m-%d'),
+                            'reason': p_params.get('reason') or ''
+                        },
+                        'reply_text': ''
+                    }
+
+                # 3. Pending Advance Continuation
+                elif p_action == 'create_advance':
+                    amt_match = re.search(r'(?:rs\.?|inr|rupees|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
+                    amt_val = float(amt_match.group(1)) if amt_match else p_params.get('amount')
+                    curr_emp = p_params.get('employee_name')
+                    if not curr_emp:
+                        for e in employees:
+                            en = str(e.get('employee_name') or '')
+                            if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
+                                curr_emp = en
+                                break
+                    parsed_action = {
+                        'action': 'create_advance',
+                        'parameters': {
+                            'employee_name': curr_emp,
+                            'amount': amt_val,
+                            'date': p_params.get('date') or datetime.now().strftime('%Y-%m-%d'),
+                            'reason': p_params.get('reason') or 'Staff Advance'
+                        },
+                        'reply_text': ''
+                    }
+
+                # 4. Pending Leave Continuation
+                elif p_action == 'apply_leave':
+                    curr_emp = p_params.get('employee_name')
+                    if not curr_emp:
+                        for e in employees:
+                            en = str(e.get('employee_name') or '')
+                            if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
+                                curr_emp = en
+                                break
+                    leave_type = p_params.get('leave_type') or 'Casual Leave'
+                    if 'sick' in msg_lower:
+                        leave_type = 'Sick Leave'
+                    elif 'earned' in msg_lower:
+                        leave_type = 'Earned Leave'
+                    parsed_action = {
+                        'action': 'apply_leave',
+                        'parameters': {
+                            'employee_name': curr_emp,
+                            'leave_type': leave_type,
+                            'from_date': p_params.get('from_date') or datetime.now().strftime('%Y-%m-%d'),
+                            'to_date': p_params.get('to_date') or datetime.now().strftime('%Y-%m-%d'),
+                            'reason': p_params.get('reason') or 'Personal'
+                        },
+                        'reply_text': ''
+                    }
+
+            # B. Single-Turn Intent Parsing (If no pending task matched or continues)
+            if not parsed_action:
+                is_nav = any(w in msg_lower for w in ['open', 'go to', 'take me', 'navigate', 'show page', 'view page'])
+
+                # 1. BALANCE & ADVANCE INQUIRY
+                is_balance_inq = any(phrase in msg_lower for phrase in ['check balance', 'advance balance', 'payment balance', 'balance for', 'advance summary', 'what is the balance', 'outstanding advance', 'dues for']) or (msg_lower == 'check balance') or (msg_lower == 'balance')
+                if is_balance_inq and not is_nav:
+                    # Check if employee specified in text
+                    target_emp = None
+                    for e in employees:
+                        en = str(e.get('employee_name') or '')
+                        if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
+                            target_emp = en
+                            break
+                    if not target_emp:
+                        bal_m = re.search(r'(?:balance|advance|dues)\s+(?:for|of)\s+([A-Za-z\s]+)', user_message, re.IGNORECASE)
+                        if bal_m:
+                            b_doc, _ = resolve_employee(bal_m.group(1))
+                            if b_doc:
+                                target_emp = b_doc.get('employee_name')
+                    if not target_emp:
+                        # Fallback to context employee
+                        target_emp = find_context_employee()
+
+                    parsed_action = {
+                        'action': 'check_payments',
+                        'parameters': {'employee_name': target_emp, 'query_type': 'balance'},
+                        'reply_text': ''
+                    }
+
+                # 2. MANUAL ATTENDANCE ENTRY
+                elif ('manual' in msg_lower and any(w in msg_lower for w in ['entry', 'attendance', 'create', 'add', 'log', 'record'])) and not is_nav:
+                    # Check for employee
+                    target_emp = None
+                    for e in employees:
+                        en = str(e.get('employee_name') or '')
+                        if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
+                            target_emp = en
+                            break
+                    if not target_emp:
+                        emp_m = re.search(r'(?:for|to)\s+([A-Za-z\s]+?)(?:\s+(?:\d+|proper|improper|half|today|yesterday)|$)', user_message, re.IGNORECASE)
+                        if emp_m:
+                            m_doc, _ = resolve_employee(emp_m.group(1))
+                            if m_doc:
+                                target_emp = m_doc.get('employee_name')
+
+                    # Hours & Status
+                    hours_val = '08:00'
+                    if 'half day' in msg_lower or '4 hour' in msg_lower or '4 hr' in msg_lower:
+                        hours_val = '04:00'
+                    elif 'full day' in msg_lower or '8 hour' in msg_lower or '8 hr' in msg_lower:
+                        hours_val = '08:00'
+                    else:
+                        hr_m = re.search(r'(\d{1,2}(?::\d{2})?)\s*(?:hrs?|hours?)?', msg_lower)
+                        if hr_m:
+                            raw_h = hr_m.group(1)
+                            hours_val = f"{int(raw_h):02d}:00" if ':' not in raw_h else raw_h
+
+                    st_val = 'Proper'
+                    if 'improper' in msg_lower:
+                        st_val = 'Improper'
+                    elif 'half day' in msg_lower:
+                        st_val = 'Half Day'
+                    elif 'late' in msg_lower:
+                        st_val = 'Late'
+                    elif 'overtime' in msg_lower:
+                        st_val = 'Overtime'
+
+                    date_val = datetime.now().strftime('%Y-%m-%d')
+                    if 'yesterday' in msg_lower:
+                        date_val = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+
+                    parsed_action = {
+                        'action': 'create_manual_attendance',
+                        'parameters': {
+                            'employee_name': target_emp,
+                            'hours': hours_val,
+                            'status': st_val,
+                            'date': date_val,
+                            'reason': 'Recorded by Co-Worker AI'
+                        },
+                        'reply_text': ''
+                    }
+
+                # 3. CREATE ADVANCE ENTRY
+                elif re.search(r'(?:give|create|add|record|issue)?\s*advance\s+(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\s*(?:to|for)\s*([A-Za-z\s]+)', user_message, re.IGNORECASE) or \
+                     re.search(r'advance\s+(?:for|to)\s*([A-Za-z\s]+)\s*(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE):
+                    adv_m1 = re.search(r'(?:give|create|add|record|issue)?\s*advance\s+(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\s*(?:to|for)\s*([A-Za-z\s]+)', user_message, re.IGNORECASE)
+                    adv_m2 = re.search(r'advance\s+(?:for|to)\s*([A-Za-z\s]+)\s*(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
+                    if adv_m1:
+                        amt = float(adv_m1.group(1))
+                        emp_raw = adv_m1.group(2).strip()
+                    else:
+                        emp_raw = adv_m2.group(1).strip()
+                        amt = float(adv_m2.group(2))
+                    parsed_action = {
+                        'action': 'create_advance',
+                        'parameters': {'employee_name': emp_raw, 'amount': amt, 'date': datetime.now().strftime('%Y-%m-%d')},
+                        'reply_text': ''
+                    }
+
+                # 4. CREATE PAYMENT ENTRY
+                elif any(w in msg_lower for w in ['payment', 'pay ', 'paid ']) and not is_nav:
+                    pay_match = re.search(r'(?:create|add|make|give|record)?\s*payment(?:\s+entry)?\s+(?:for\s+)?([A-Za-z\s]+?)\s+(?:for\s+|of\s+|rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)(?:\s+(?:as|set|with|status)?\s*(.*))?', user_message, re.IGNORECASE)
+                    alt_pay = re.search(r'(?:give|pay)\s+([A-Za-z\s]+?)\s+(?:for\s+|of\s+|rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
+                    partial_pay = re.search(r'(?:create|add|make|record)?\s*payment(?:\s+entry)?(?:\s+(?:for|to)\s+([A-Za-z\s]+))?', user_message, re.IGNORECASE)
+
+                    if pay_match:
+                        emp = pay_match.group(1).strip()
+                        emp = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', emp, flags=re.IGNORECASE).strip()
+                        amt = float(pay_match.group(2))
+                        st = (pay_match.group(3) or 'Advance Repayment').strip()
+                        parsed_action = {
+                            'action': 'create_payment',
+                            'parameters': {'employee_name': emp, 'amount': amt, 'status': st},
+                            'reply_text': ''
+                        }
+                    elif alt_pay:
+                        emp = alt_pay.group(1).strip()
+                        emp = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', emp, flags=re.IGNORECASE).strip()
+                        amt = float(alt_pay.group(2))
+                        parsed_action = {
+                            'action': 'create_payment',
+                            'parameters': {'employee_name': emp, 'amount': amt, 'status': 'Advance Repayment'},
+                            'reply_text': ''
+                        }
+                    elif partial_pay:
+                        emp = partial_pay.group(1)
+                        if emp:
+                            emp = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', emp.strip(), flags=re.IGNORECASE).strip()
+                        parsed_action = {
+                            'action': 'create_payment',
+                            'parameters': {'employee_name': emp, 'amount': None},
+                            'reply_text': ''
+                        }
+
+                # 5. ATTENDANCE & PRESENCE INQUIRY
+                elif any(p in msg_lower for p in ['present today', 'who is present', 'who is absent', 'attendance today', 'how many present', 'punch in today', 'is present']) and not is_nav:
+                    target_emp = None
+                    for e in employees:
+                        en = str(e.get('employee_name') or '')
+                        if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
+                            target_emp = en
+                            break
+                    parsed_action = {
+                        'action': 'check_attendance',
+                        'parameters': {'employee_name': target_emp},
+                        'reply_text': ''
+                    }
+
+                # 6. APPLY LEAVE
+                elif ('leave' in msg_lower or 'permission' in msg_lower) and any(w in msg_lower for w in ['apply', 'request', 'take', 'for', 'sick', 'casual']) and not is_nav:
+                    target_emp = None
+                    for e in employees:
+                        en = str(e.get('employee_name') or '')
+                        if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
+                            target_emp = en
+                            break
+                    l_type = 'Casual Leave'
+                    if 'sick' in msg_lower:
+                        l_type = 'Sick Leave'
+                    elif 'earned' in msg_lower:
+                        l_type = 'Earned Leave'
+                    elif 'permission' in msg_lower:
+                        l_type = 'Permission'
+                    parsed_action = {
+                        'action': 'apply_leave',
+                        'parameters': {'employee_name': target_emp, 'leave_type': l_type},
+                        'reply_text': ''
+                    }
+
+                # 7. EMPLOYEE DIRECTORY & CONTACT
+                elif any(p in msg_lower for p in ['phone number', 'mobile', 'contact', 'email', 'department', 'designation', 'who is', 'details of', 'info of', 'profile of']) and not is_nav:
+                    target_emp = None
+                    for e in employees:
+                        en = str(e.get('employee_name') or '')
+                        if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
+                            target_emp = en
+                            break
+                    if not target_emp:
+                        e_m = re.search(r'(?:of|for|is)\s+([A-Za-z\s]+)', user_message, re.IGNORECASE)
+                        if e_m:
+                            e_doc, _ = resolve_employee(e_m.group(1))
+                            if e_doc:
+                                target_emp = e_doc.get('employee_name')
+                    parsed_action = {
+                        'action': 'get_employee_info',
+                        'parameters': {'employee_name': target_emp},
+                        'reply_text': ''
+                    }
+
+                # 8. SALARY & PAYSLIP INQUIRY
+                elif any(p in msg_lower for p in ['salary', 'payslip', 'pay slip', 'wages', 'earnings']) and not is_nav:
+                    target_emp = None
+                    for e in employees:
+                        en = str(e.get('employee_name') or '')
+                        if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
+                            target_emp = en
+                            break
+                    if target_emp:
+                        parsed_action = {
+                            'action': 'get_salary_info',
+                            'parameters': {'employee_name': target_emp},
+                            'reply_text': ''
+                        }
+
+                # 9. NAVIGATION
+                if not parsed_action and is_nav:
+                    target = 'dashboard'
+                    if 'manual' in msg_lower:
+                        target = 'manual_entry'
+                    elif 'payment' in msg_lower or 'ledger' in msg_lower or 'advance' in msg_lower:
+                        target = 'payment_entry'
+                    elif 'salary' in msg_lower:
+                        target = 'salary_report'
+                    elif 'payslip' in msg_lower:
+                        target = 'payslips'
+                    elif 'leave' in msg_lower:
+                        target = 'leaves'
+                    elif 'live' in msg_lower:
+                        target = 'live_report'
+                    elif 'report' in msg_lower or 'attendance' in msg_lower:
+                        target = 'attendance_report'
+                    elif 'employee' in msg_lower or 'staff' in msg_lower:
+                        target = 'employees'
+                    elif 'field' in msg_lower:
+                        target = 'field_worker'
+                    elif 'profile' in msg_lower or 'company' in msg_lower:
+                        target = 'company_profile'
+                    elif 'support' in msg_lower or 'help' in msg_lower:
+                        target = 'support'
+                    parsed_action = {
+                        'action': 'navigate',
+                        'parameters': {'target': target},
+                        'reply_text': f"Navigating to {target.replace('_', ' ').title()}."
+                    }
+
+                # 10. Fallback General Operations Chat
+                if not parsed_action:
+                    parsed_action = {
+                        'action': 'general_chat',
+                        'parameters': {},
+                        'reply_text': f"I understand you said: '{user_message}'. As your Co-Worker AI assistant, I can log manual attendance, record payments or advances, check advance balances, inspect today's attendance, apply leaves, look up employee contacts, and navigate anywhere in Argus."
+                    }
+
+        # Task Execution Dispatcher
+        action_name = parsed_action.get('action') or 'general_chat'
+        params = parsed_action.get('parameters') or {}
+        reply_text = parsed_action.get('reply_text') or ''
+
+        # 1. CREATE MANUAL ATTENDANCE
+        if action_name == 'create_manual_attendance':
+            raw_name = params.get('employee_name')
+            if raw_name:
+                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
+
+            emp_doc = None
+            if raw_name:
+                emp_doc, candidates = resolve_employee(raw_name)
+                if not emp_doc:
+                    if candidates:
+                        cand_names = ", ".join([f"**{c.get('employee_name')}**" for c in candidates[:4]])
+                        return jsonify({
+                            'success': True,
+                            'reply': f"I found multiple employees matching '**{raw_name}**': {cand_names}. Which one would you like to log attendance for?",
+                            'task_executed': False,
+                            'pending_task': None
+                        })
+                    else:
+                        sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:5] if e.get('employee_name')])
+                        staff_hint = f" Active staff in your company: {sample_staff}." if sample_staff else ""
+                        return jsonify({
+                            'success': True,
+                            'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company.{staff_hint} Please check the spelling.",
+                            'task_executed': False,
+                            'pending_task': None
+                        })
+
+            canonical_emp_name = emp_doc.get('employee_name') if emp_doc else raw_name
+
+            # If employee is missing, initiate multi-turn state!
+            if not canonical_emp_name:
+                new_pending = {
+                    'action': 'create_manual_attendance',
+                    'parameters': {
+                        'hours': params.get('hours') or '08:00',
+                        'status': params.get('status') or 'Proper',
+                        'date': params.get('date') or datetime.now().strftime('%Y-%m-%d')
+                    }
+                }
+                session['coworker_pending_task'] = new_pending
+                return jsonify({
+                    'success': True,
+                    'reply': "I'd be glad to record a manual entry! Which **employee** is this for, and what are the **hours** / **status**? (e.g., *'Add manual attendance for Philip Matthew today for 8 hours Proper'*).",
+                    'task_executed': False,
+                    'pending_task': new_pending
+                })
+
+            emp_name = canonical_emp_name
+            date_str = params.get('date') or datetime.now().strftime('%Y-%m-%d')
+            hours_str = params.get('hours') or '08:00'
+            status = params.get('status') or 'Proper'
+            reason = params.get('reason') or 'Recorded by Co-Worker AI'
+
+            entry_payload = {
+                'employee_name': emp_name,
+                'date': date_str,
+                'hours': hours_str,
+                'mode': 'Hours',
+                'status': status,
+                'reason': reason
+            }
+            inserted_id = database.create_manual_entry(entry_payload, company_id=cid)
+            session['coworker_pending_task'] = None
+
+            return jsonify({
+                'success': True,
+                'reply': f"I've successfully logged manual attendance for **{emp_name}** on **{date_str}** with status **{status}** ({hours_str} hrs). Entry ID is **#{inserted_id}**.",
+                'task_executed': True,
+                'task_data': {
+                    'type': 'attendance',
+                    'details': {
+                        'Employee': emp_name,
+                        'Date': date_str,
+                        'Hours': hours_str,
+                        'Status': status,
+                        'Entry ID': str(inserted_id)
+                    },
+                    'action_label': 'View Manual Entries',
+                    'action_url': '/manual-entry'
+                },
+                'pending_task': None
+            })
+
+        # 2. CHECK PAYMENTS / BALANCE / ADVANCE LEDGER
+        elif action_name == 'check_payments':
+            raw_name = params.get('employee_name')
+            if raw_name:
+                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
+
+            emp_doc = None
+            if raw_name:
+                emp_doc, _ = resolve_employee(raw_name)
+
+            if emp_doc or raw_name:
+                emp_name = emp_doc.get('employee_name') if emp_doc else raw_name
+                # Calculate advances and repayments
+                adv_f = {'employee_name': emp_name}
+                if cid and cid != 'ARGUS_MASTER':
+                    adv_f['company_id'] = cid
+                advances = list(db.advances.find(adv_f))
+                total_adv = sum(float(a.get('amount') or 0.0) for a in advances)
+
+                pay_f = {'employee_name': emp_name}
+                if cid and cid != 'ARGUS_MASTER':
+                    pay_f['company_id'] = cid
+                payments = list(db.payments.find(pay_f))
+                total_repaid = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
+                total_other = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' not in str(p.get('status') or '').lower())
+                outstanding_bal = max(0.0, total_adv - total_repaid)
+
+                return jsonify({
+                    'success': True,
+                    'reply': f"Here is the advance & payment statement for **{emp_name}**:\n"
+                             f"• Total Advance Issued: **₹{total_adv:,.2f}**\n"
+                             f"• Total Advance Repaid: **₹{total_repaid:,.2f}**\n"
+                             f"• **Outstanding Advance Balance: ₹{outstanding_bal:,.2f}**\n"
+                             f"• Other Payouts/Disbursements: **₹{total_other:,.2f}**",
+                    'task_executed': True,
+                    'task_data': {
+                        'type': 'balance',
+                        'details': {
+                            'Employee': emp_name,
+                            'Total Advance': f"₹{total_adv:,.2f}",
+                            'Total Repaid': f"₹{total_repaid:,.2f}",
+                            'Outstanding Balance': f"₹{outstanding_bal:,.2f}",
+                            'Other Payments': f"₹{total_other:,.2f}"
+                        },
+                        'action_label': 'View Payment Ledger',
+                        'action_url': '/payment-entry'
+                    },
+                    'pending_task': None
+                })
+            else:
+                # Company-wide advance summary
+                adv_f = {}
+                if cid and cid != 'ARGUS_MASTER':
+                    adv_f['company_id'] = cid
+                advances = list(db.advances.find(adv_f))
+                tot_comp_adv = sum(float(a.get('amount') or 0.0) for a in advances)
+
+                pay_f = {}
+                if cid and cid != 'ARGUS_MASTER':
+                    pay_f['company_id'] = cid
+                payments = list(db.payments.find(pay_f))
+                tot_comp_rep = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
+                net_comp_bal = max(0.0, tot_comp_adv - tot_comp_rep)
+
+                sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:4] if e.get('employee_name')])
+                return jsonify({
+                    'success': True,
+                    'reply': f"Here is your company-wide Advance Summary:\n"
+                             f"• Total Company Advances: **₹{tot_comp_adv:,.2f}**\n"
+                             f"• Total Repayments: **₹{tot_comp_rep:,.2f}**\n"
+                             f"• **Net Outstanding Advances: ₹{net_comp_bal:,.2f}**\n\n"
+                             f"To check an individual's balance, you can say *'Check balance for Philip Matthew'* or ask about: {sample_staff}.",
+                    'task_executed': True,
+                    'task_data': {
+                        'type': 'balance',
+                        'details': {
+                            'Scope': 'Company Total',
+                            'Total Advance': f"₹{tot_comp_adv:,.2f}",
+                            'Total Repaid': f"₹{tot_comp_rep:,.2f}",
+                            'Net Outstanding': f"₹{net_comp_bal:,.2f}"
+                        },
+                        'action_label': 'View Payment Ledger',
+                        'action_url': '/payment-entry'
+                    },
+                    'pending_task': None
+                })
+
+        # 3. CREATE ADVANCE ENTRY
+        elif action_name == 'create_advance':
             raw_name = params.get('employee_name')
             raw_amt = params.get('amount')
+            if raw_name:
+                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
 
+            emp_doc = None
+            if raw_name:
+                emp_doc, candidates = resolve_employee(raw_name)
+                if not emp_doc and candidates:
+                    cand_names = ", ".join([f"**{c.get('employee_name')}**" for c in candidates[:4]])
+                    return jsonify({
+                        'success': True,
+                        'reply': f"Multiple employees matched '**{raw_name}**': {cand_names}. Which one should receive the advance?",
+                        'task_executed': False,
+                        'pending_task': None
+                    })
+
+            canonical_emp = emp_doc.get('employee_name') if emp_doc else raw_name
+            if not canonical_emp or raw_amt is None:
+                new_pending = {
+                    'action': 'create_advance',
+                    'parameters': {'employee_name': canonical_emp, 'amount': raw_amt}
+                }
+                session['coworker_pending_task'] = new_pending
+                return jsonify({
+                    'success': True,
+                    'reply': f"Please specify the employee name and advance amount (e.g., *'Give advance of ₹2,000 to Philip Matthew'*).",
+                    'task_executed': False,
+                    'pending_task': new_pending
+                })
+
+            amt = float(raw_amt)
+            adv_date = params.get('date') or datetime.now().strftime('%Y-%m-%d')
+            reason = params.get('reason') or 'Staff Advance'
+
+            adv_payload = {
+                'employee_name': canonical_emp,
+                'amount': amt,
+                'advance_date': adv_date,
+                'reason': reason
+            }
+            adv_id = database.create_advance(adv_payload, company_id=cid)
+            session['coworker_pending_task'] = None
+
+            return jsonify({
+                'success': True,
+                'reply': f"I've recorded an advance of **₹{amt:,.2f}** for **{canonical_emp}**. Advance ID is **#{adv_id}**.",
+                'task_executed': True,
+                'task_data': {
+                    'type': 'advance',
+                    'details': {
+                        'Employee': canonical_emp,
+                        'Amount': f"₹{amt:,.2f}",
+                        'Date': adv_date,
+                        'Entry ID': str(adv_id)
+                    },
+                    'action_label': 'View Advance Ledger',
+                    'action_url': '/payment-entry'
+                },
+                'pending_task': None
+            })
+
+        # 4. CREATE PAYMENT ENTRY
+        elif action_name == 'create_payment':
+            raw_name = params.get('employee_name')
+            raw_amt = params.get('amount')
             if raw_name:
                 raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
 
@@ -6606,10 +7115,10 @@ def api_coworker_ai_chat():
                         })
                     else:
                         sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:5] if e.get('employee_name')])
-                        staff_hint = f" Here are some registered employees in your company: {sample_staff}." if sample_staff else ""
+                        staff_hint = f" Active staff: {sample_staff}." if sample_staff else ""
                         return jsonify({
                             'success': True,
-                            'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company.{staff_hint} Please check the name and try again.",
+                            'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company.{staff_hint} Please check the name.",
                             'task_executed': False,
                             'pending_task': None
                         })
@@ -6653,7 +7162,7 @@ def api_coworker_ai_chat():
 
             return jsonify({
                 'success': True,
-                'reply': f"I've recorded the payment entry of **₹{amt:,.2f}** for **{emp_name}** ({status}). The entry ID is **#{inserted_id}**. You can review the details on the card below or click to open the ledger. Is there anything else you'd like me to handle?",
+                'reply': f"I've recorded the payment entry of **₹{amt:,.2f}** for **{emp_name}** ({status}). Entry ID is **#{inserted_id}**.",
                 'task_executed': True,
                 'task_data': {
                     'type': 'payment',
@@ -6671,88 +7180,73 @@ def api_coworker_ai_chat():
                 'pending_task': None
             })
 
-        # 2. CREATE MANUAL ATTENDANCE
-        elif action_name == 'create_manual_attendance':
+        # 5. CHECK ATTENDANCE & LIVE STATUS
+        elif action_name == 'check_attendance':
+            today_str = datetime.now().strftime('%Y-%m-%d')
             raw_name = params.get('employee_name')
             if raw_name:
-                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
-
-            if not raw_name:
-                new_pending = {
-                    'action': 'create_manual_attendance',
-                    'parameters': params
-                }
-                session['coworker_pending_task'] = new_pending
-                return jsonify({
-                    'success': True,
-                    'reply': "Please specify which employee you want to record manual attendance for (e.g., *'Add manual attendance for Priya today from 9:00 AM to 6:00 PM'*).",
-                    'task_executed': False,
-                    'pending_task': new_pending
-                })
-
-            emp_doc, candidates = resolve_employee(raw_name)
-            if not emp_doc:
-                if candidates:
-                    cand_names = ", ".join([f"**{c.get('employee_name')}**" for c in candidates[:4]])
+                emp_doc, candidates = resolve_employee(raw_name)
+                if not emp_doc:
                     return jsonify({
                         'success': True,
-                        'reply': f"I found multiple employees matching '**{raw_name}**': {cand_names}. Which one did you mean?",
+                        'reply': f"I couldn't find an employee named '**{raw_name}**' in your registered company staff.",
                         'task_executed': False,
+                        'pending_task': None
+                    })
+                emp_name = emp_doc.get('employee_name')
+                rec = db.attendance.find_one({'employee_name': emp_name, 'date': today_str})
+                if rec:
+                    in_t = rec.get('in_time', 'N/A')
+                    out_t = rec.get('out_time', 'Active')
+                    st = rec.get('status', 'Present')
+                    return jsonify({
+                        'success': True,
+                        'reply': f"**{emp_name}** is marked **{st}** today ({today_str}). In-time: *{in_t}*, Out-time: *{out_t}*.",
+                        'task_executed': True,
+                        'task_data': {
+                            'type': 'attendance',
+                            'details': {'Employee': emp_name, 'Date': today_str, 'Status': st, 'In Time': in_t, 'Out Time': out_t}
+                        },
                         'pending_task': None
                     })
                 else:
-                    sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:5] if e.get('employee_name')])
-                    staff_hint = f" Active staff: {sample_staff}." if sample_staff else ""
                     return jsonify({
                         'success': True,
-                        'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company.{staff_hint} Please check the spelling.",
+                        'reply': f"**{emp_name}** has not punched in today yet ({today_str}). Would you like me to log a manual entry for them?",
                         'task_executed': False,
-                        'pending_task': None
+                        'pending_task': {'action': 'create_manual_attendance', 'parameters': {'employee_name': emp_name}}
                     })
-
-            emp_name = emp_doc.get('employee_name')
-            date_str = params.get('date') or datetime.now().strftime('%Y-%m-%d')
-            hours_str = params.get('hours') or '08:00'
-            status = params.get('status') or 'Proper'
-            reason = params.get('reason') or 'Recorded by Co-Worker AI'
-
-            entry_payload = {
-                'employee_name': emp_name,
-                'date': date_str,
-                'hours': hours_str,
-                'mode': 'Hours',
-                'status': status,
-                'reason': reason
-            }
-            inserted_id = database.create_manual_entry(entry_payload, company_id=cid)
-            session['coworker_pending_task'] = None
-
-            return jsonify({
-                'success': True,
-                'reply': f"Manual attendance for **{emp_name}** on **{date_str}** has been successfully logged with status *{status}* ({hours_str} hrs). What else can I do for you?",
-                'task_executed': True,
-                'task_data': {
-                    'type': 'attendance',
-                    'details': {
-                        'Employee': emp_name,
-                        'Date': date_str,
-                        'Hours': hours_str,
-                        'Status': status,
-                        'Entry ID': str(inserted_id)
+            else:
+                total_emps = len(employees)
+                present_count = db.attendance.count_documents({'date': today_str})
+                absent_count = max(0, total_emps - present_count)
+                return jsonify({
+                    'success': True,
+                    'reply': f"Attendance Summary for today (**{today_str}**):\n"
+                             f"• Present Today: **{present_count}**\n"
+                             f"• Absent Today: **{absent_count}**\n"
+                             f"• Total Registered Staff: **{total_emps}**",
+                    'task_executed': True,
+                    'task_data': {
+                        'type': 'attendance',
+                        'details': {'Date': today_str, 'Present': str(present_count), 'Absent': str(absent_count), 'Total Staff': str(total_emps)}
                     },
-                    'action_label': 'View Manual Entries',
-                    'action_url': '/manual-entry'
-                },
-                'pending_task': None
-            })
+                    'action_label': 'View Live Report',
+                    'action_url': '/live-report',
+                    'pending_task': None
+                })
 
-        # 3. APPLY LEAVE
+        # 6. APPLY LEAVE
         elif action_name == 'apply_leave':
             raw_name = params.get('employee_name')
             if raw_name:
                 raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
 
-            if not raw_name:
+            emp_doc = None
+            if raw_name:
+                emp_doc, candidates = resolve_employee(raw_name)
+
+            if not emp_doc:
                 new_pending = {
                     'action': 'apply_leave',
                     'parameters': params
@@ -6760,28 +7254,10 @@ def api_coworker_ai_chat():
                 session['coworker_pending_task'] = new_pending
                 return jsonify({
                     'success': True,
-                    'reply': "Please specify the employee name and leave dates (e.g. *'Apply casual leave for Suresh tomorrow'*).",
+                    'reply': "Please specify the employee name and leave type (e.g. *'Apply casual leave for Suresh tomorrow'*).",
                     'task_executed': False,
                     'pending_task': new_pending
                 })
-
-            emp_doc, candidates = resolve_employee(raw_name)
-            if not emp_doc:
-                if candidates:
-                    cand_names = ", ".join([f"**{c.get('employee_name')}**" for c in candidates[:4]])
-                    return jsonify({
-                        'success': True,
-                        'reply': f"I found multiple employees matching '**{raw_name}**': {cand_names}. Which one did you mean?",
-                        'task_executed': False,
-                        'pending_task': None
-                    })
-                else:
-                    return jsonify({
-                        'success': True,
-                        'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company. Please check the name.",
-                        'task_executed': False,
-                        'pending_task': None
-                    })
 
             emp_name = emp_doc.get('employee_name')
             leave_type = params.get('leave_type') or 'Casual Leave'
@@ -6804,7 +7280,7 @@ def api_coworker_ai_chat():
 
             return jsonify({
                 'success': True,
-                'reply': f"Leave application for **{emp_name}** ({leave_type}) from **{from_d}** to **{to_d}** has been submitted for approval.",
+                'reply': f"Leave application for **{emp_name}** ({leave_type}) from **{from_d}** to **{to_d}** has been submitted.",
                 'task_executed': True,
                 'task_data': {
                     'type': 'leave',
@@ -6821,67 +7297,120 @@ def api_coworker_ai_chat():
                 'pending_task': None
             })
 
-        # 4. CHECK ATTENDANCE
-        elif action_name == 'check_attendance':
-            today_str = datetime.now().strftime('%Y-%m-%d')
+        # 7. GET EMPLOYEE INFO & DIRECTORY
+        elif action_name == 'get_employee_info':
             raw_name = params.get('employee_name')
             if raw_name:
+                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
+            emp_doc = None
+            if raw_name:
                 emp_doc, candidates = resolve_employee(raw_name)
-                if not emp_doc:
-                    return jsonify({
-                        'success': True,
-                        'reply': f"I couldn't find an employee named '**{raw_name}**' in your registered company staff.",
-                        'task_executed': False,
-                        'pending_task': None
-                    })
-                emp_name = emp_doc.get('employee_name')
-                rec = db.attendance.find_one({'employee_name': emp_name, 'date': today_str})
-                if rec:
-                    in_t = rec.get('in_time', 'N/A')
-                    out_t = rec.get('out_time', 'Active')
-                    st = rec.get('status', 'Present')
-                    return jsonify({
-                        'success': True,
-                        'reply': f"**{emp_name}** is marked **{st}** today ({today_str}). In-time: *{in_t}*, Out-time: *{out_t}*. Can I help you with anything else?",
-                        'task_executed': True,
-                        'task_data': {
-                            'type': 'attendance',
-                            'details': {'Employee': emp_name, 'Date': today_str, 'Status': st, 'In Time': in_t, 'Out Time': out_t}
-                        },
-                        'pending_task': None
-                    })
-                else:
-                    return jsonify({
-                        'success': True,
-                        'reply': f"**{emp_name}** has not punched in today yet ({today_str}). Would you like me to log a manual entry for them?",
-                        'task_executed': False,
-                        'pending_task': {'action': 'create_manual_attendance', 'parameters': {'employee_name': emp_name}}
-                    })
-            else:
-                total_emps = len(employees)
-                present_count = db.attendance.count_documents({'date': today_str})
+
+            if not emp_doc:
+                sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:5] if e.get('employee_name')])
                 return jsonify({
                     'success': True,
-                    'reply': f"Today (**{today_str}**), **{present_count}** out of **{total_emps}** registered employees have punched in. What would you like to do next?",
-                    'task_executed': True,
-                    'task_data': {
-                        'type': 'attendance',
-                        'details': {'Date': today_str, 'Total Staff': str(total_emps), 'Present Today': str(present_count)}
-                    },
+                    'reply': f"Which employee would you like details for? Active staff: {sample_staff}.",
+                    'task_executed': False,
                     'pending_task': None
                 })
 
-        # 5. NAVIGATION
+            e_name = emp_doc.get('employee_name')
+            dept = emp_doc.get('department') or 'General'
+            desig = emp_doc.get('designation') or 'Staff'
+            phone = emp_doc.get('phone') or emp_doc.get('mobile') or 'Not listed'
+            status_e = emp_doc.get('status') or 'Active'
+
+            return jsonify({
+                'success': True,
+                'reply': f"**{e_name}** ({desig} - {dept}):\n• Phone / Mobile: **{phone}**\n• Status: **{status_e}**",
+                'task_executed': True,
+                'task_data': {
+                    'type': 'employee',
+                    'details': {
+                        'Employee': e_name,
+                        'Department': dept,
+                        'Designation': desig,
+                        'Phone': phone,
+                        'Status': status_e
+                    },
+                    'action_label': 'View Employee Profile',
+                    'action_url': '/employees'
+                },
+                'pending_task': None
+            })
+
+        # 8. GET SALARY INFO
+        elif action_name == 'get_salary_info':
+            raw_name = params.get('employee_name')
+            emp_doc = None
+            if raw_name:
+                emp_doc, _ = resolve_employee(raw_name)
+            if not emp_doc:
+                return jsonify({
+                    'success': True,
+                    'reply': "Please specify the employee name to look up salary details.",
+                    'task_executed': False,
+                    'pending_task': None
+                })
+
+            e_name = emp_doc.get('employee_name')
+            sal_type = emp_doc.get('salary_type') or 'monthly'
+            basic = float(emp_doc.get('basic_salary') or 0.0)
+            shift_hrs = emp_doc.get('shift_hours') or '08:00'
+
+            return jsonify({
+                'success': True,
+                'reply': f"Salary Structure for **{e_name}**:\n• Type: **{sal_type.title()}**\n• Basic Pay: **₹{basic:,.2f}**\n• Standard Shift: **{shift_hrs} hrs**",
+                'task_executed': True,
+                'task_data': {
+                    'type': 'salary',
+                    'details': {
+                        'Employee': e_name,
+                        'Salary Type': sal_type.title(),
+                        'Basic Pay': f"₹{basic:,.2f}",
+                        'Shift Hours': shift_hrs
+                    },
+                    'action_label': 'View Payslip Preview',
+                    'action_url': '/payslip-preview'
+                },
+                'pending_task': None
+            })
+
+        # 9. FIELD WORKER MODULE
+        elif action_name == 'check_field_worker':
+            fw_count = db.employees.count_documents({'is_field_worker': True, 'status': {'$ne': 'Terminated'}})
+            return jsonify({
+                'success': True,
+                'reply': f"There are **{fw_count}** active field workers registered. You can review location logs, visits, and field disbursements below.",
+                'task_executed': True,
+                'task_data': {
+                    'type': 'attendance',
+                    'details': {'Field Workers': str(fw_count), 'Module': 'Field Worker Operations'}
+                },
+                'action_label': 'Open Field Worker Module',
+                'action_url': '/field-worker-module',
+                'pending_task': None
+            })
+
+        # 10. NAVIGATION
         elif action_name == 'navigate':
             target = params.get('target', '').lower()
             url_map = {
                 'manual_entry': '/manual-entry',
                 'payment_entry': '/payment-entry',
                 'salary_report': '/salary-report',
+                'payslips': '/payslip-preview',
                 'field_worker': '/field-worker-module',
-                'employees': '/employees'
+                'employees': '/employees',
+                'leaves': '/leaves',
+                'live_report': '/live-report',
+                'attendance_report': '/attendance-report',
+                'dashboard': '/dashboard',
+                'company_profile': '/company-profile',
+                'support': '/support'
             }
-            dest_url = url_map.get(target, '/manual-entry')
+            dest_url = url_map.get(target, '/dashboard')
             return jsonify({
                 'success': True,
                 'reply': reply_text or f"Navigating to {target.replace('_', ' ').title()}...",
@@ -6890,11 +7419,11 @@ def api_coworker_ai_chat():
                 'pending_task': None
             })
 
-        # 6. GENERAL CHAT
+        # 11. GENERAL CHAT
         else:
             return jsonify({
                 'success': True,
-                'reply': reply_text or "How can I assist you with attendance, payments, or employee tasks today?",
+                'reply': reply_text or "How can I assist you with attendance, payments, leaves, or employee operations today?",
                 'task_executed': False,
                 'pending_task': None
             })
