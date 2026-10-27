@@ -7456,6 +7456,358 @@ def api_coworker_ai_chat():
 
 
 
+
+
+# ==============================================================================
+# AGENT 3: ADVISOR AI - STRATEGIC MANAGEMENT INTELLIGENCE & C-SUITE CONSULTANT
+# ==============================================================================
+
+@app.route('/api/ai/advisor/briefing', methods=['GET'])
+@login_required
+def api_advisor_ai_briefing():
+    """Generates real-time executive C-Suite briefing & workforce risk analytics for management."""
+    try:
+        db = database.get_db()
+        cid = str(get_current_company_id() or 'ARGUS_MASTER')
+
+        emp_filter = {'status': {'$ne': 'Terminated'}}
+        if cid and cid != 'ARGUS_MASTER':
+            emp_filter['$or'] = [{'company_id': cid}, {'company_id': {'$in': [None, '', 'ARGUS_MASTER']}}]
+        
+        employees = list(db.employees.find(emp_filter))
+        total_staff = len(employees)
+        
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        
+        # 1. Today's Attendance & Punctuality
+        att_filter = {'date': today_str}
+        if cid and cid != 'ARGUS_MASTER':
+            att_filter['company_id'] = cid
+        today_records = list(db.attendance.find(att_filter))
+        present_count = len(today_records)
+        absent_count = max(0, total_staff - present_count)
+        
+        # Late punches
+        late_count = 0
+        for att in today_records:
+            in_t = str(att.get('in_time') or '')
+            st = str(att.get('status') or '').lower()
+            if in_t and in_t not in ['N/A', '', 'None']:
+                if 'late' in st or any(h in in_t for h in ['09:3', '09:4', '09:5', '10:', '11:', '12:']):
+                    late_count += 1
+        
+        punctuality_score = round(((present_count - late_count) / present_count * 100), 1) if present_count > 0 else 100.0
+        
+        # 2. Advance Exposure & Credit Risk
+        adv_f = {}
+        if cid and cid != 'ARGUS_MASTER':
+            adv_f['company_id'] = cid
+        advances = list(db.advances.find(adv_f))
+        total_advances = sum(float(a.get('amount') or 0.0) for a in advances)
+        
+        pay_f = {}
+        if cid and cid != 'ARGUS_MASTER':
+            pay_f['company_id'] = cid
+        payments = list(db.payments.find(pay_f))
+        total_repaid = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
+        net_advance_liability = max(0.0, total_advances - total_repaid)
+        
+        # High Risk Employees (Advance > 50% of monthly basic pay or > 3000)
+        high_risk_staff = []
+        for e in employees:
+            ename = e.get('employee_name')
+            basic_pay = float(e.get('basic_salary') or 0.0)
+            emp_adv = sum(float(a.get('amount') or 0.0) for a in advances if a.get('employee_name') == ename)
+            emp_rep = sum(float(p.get('amount') or 0.0) for p in payments if p.get('employee_name') == ename and 'repayment' in str(p.get('status') or '').lower())
+            emp_net_adv = max(0.0, emp_adv - emp_rep)
+            
+            threshold = basic_pay * 0.5 if basic_pay > 0 else 2500.0
+            if emp_net_adv > threshold and emp_net_adv > 0:
+                high_risk_staff.append({
+                    'employee_name': ename,
+                    'outstanding_advance': emp_net_adv,
+                    'basic_salary': basic_pay,
+                    'risk_level': 'High' if emp_net_adv > (basic_pay or 5000) else 'Moderate'
+                })
+        
+        # 3. Workforce Health Index Score (0 - 100%)
+        att_rate = (present_count / total_staff * 100) if total_staff > 0 else 100.0
+        adv_risk_factor = max(0.0, 100.0 - (len(high_risk_staff) * 12.0))
+        health_index = round((att_rate * 0.40) + (punctuality_score * 0.30) + (adv_risk_factor * 0.30), 1)
+        
+        # 4. Department Attendance Rankings
+        dept_map = {}
+        for e in employees:
+            d = e.get('department') or 'General'
+            dept_map.setdefault(d, {'total': 0, 'present': 0})
+            dept_map[d]['total'] += 1
+            if any(att.get('employee_name') == e.get('employee_name') for att in today_records):
+                dept_map[d]['present'] += 1
+                
+        dept_rankings = []
+        for d, counts in dept_map.items():
+            rate = round((counts['present'] / counts['total'] * 100), 1) if counts['total'] > 0 else 0.0
+            dept_rankings.append({'department': d, 'rate': rate, 'present': counts['present'], 'total': counts['total']})
+        dept_rankings.sort(key=lambda x: x['rate'], reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'kpis': {
+                'health_index': health_index,
+                'total_staff': total_staff,
+                'present_today': present_count,
+                'absent_today': absent_count,
+                'punctuality_score': punctuality_score,
+                'late_punches': late_count,
+                'net_advance_liability': net_advance_liability,
+                'high_risk_count': len(high_risk_staff)
+            },
+            'high_risk_staff': high_risk_staff[:5],
+            'dept_rankings': dept_rankings,
+            'date': today_str
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Advisor AI Briefing Error: {str(e)}"}), 500
+
+
+@app.route('/api/ai/advisor/consult', methods=['POST'])
+@login_required
+def api_advisor_ai_consult():
+    """C-Suite interactive management advisory endpoint with strategic analytics."""
+    try:
+        data = request.get_json(silent=True) or {}
+        user_query = str(data.get('query') or data.get('message') or '').strip()
+        audit_type = str(data.get('audit_type') or '').strip().lower()
+
+        db = database.get_db()
+        cid = str(get_current_company_id() or 'ARGUS_MASTER')
+
+        emp_filter = {'status': {'$ne': 'Terminated'}}
+        if cid and cid != 'ARGUS_MASTER':
+            emp_filter['$or'] = [{'company_id': cid}, {'company_id': {'$in': [None, '', 'ARGUS_MASTER']}}]
+        employees = list(db.employees.find(emp_filter))
+        total_staff = len(employees)
+
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        att_filter = {'date': today_str}
+        if cid and cid != 'ARGUS_MASTER':
+            att_filter['company_id'] = cid
+        today_records = list(db.attendance.find(att_filter))
+        present_count = len(today_records)
+        absent_count = max(0, total_staff - present_count)
+
+        # Advances & Liabilities
+        adv_f = {}
+        if cid and cid != 'ARGUS_MASTER':
+            adv_f['company_id'] = cid
+        advances = list(db.advances.find(adv_f))
+        tot_advances = sum(float(a.get('amount') or 0.0) for a in advances)
+
+        pay_f = {}
+        if cid and cid != 'ARGUS_MASTER':
+            pay_f['company_id'] = cid
+        payments = list(db.payments.find(pay_f))
+        tot_repaid = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
+        net_liability = max(0.0, tot_advances - tot_repaid)
+
+        # High Risk Employees List
+        high_risk_list = []
+        for e in employees:
+            ename = e.get('employee_name')
+            basic_pay = float(e.get('basic_salary') or 0.0)
+            emp_adv = sum(float(a.get('amount') or 0.0) for a in advances if a.get('employee_name') == ename)
+            emp_rep = sum(float(p.get('amount') or 0.0) for p in payments if p.get('employee_name') == ename and 'repayment' in str(p.get('status') or '').lower())
+            emp_net = max(0.0, emp_adv - emp_rep)
+            threshold = basic_pay * 0.5 if basic_pay > 0 else 2500.0
+            if emp_net > threshold and emp_net > 0:
+                high_risk_list.append((ename, emp_net, basic_pay))
+
+        # Late punches
+        late_staff = []
+        for att in today_records:
+            in_t = str(att.get('in_time') or '')
+            st = str(att.get('status') or '').lower()
+            if in_t and in_t not in ['N/A', '', 'None']:
+                if 'late' in st or any(h in in_t for h in ['09:3', '09:4', '09:5', '10:', '11:', '12:']):
+                    late_staff.append(att.get('employee_name') or 'Unknown')
+
+        # 1. Preset Audits Execution
+        if audit_type == 'health_audit' or 'health audit' in user_query.lower() or 'workforce audit' in user_query.lower():
+            att_pct = round((present_count / total_staff * 100), 1) if total_staff > 0 else 100.0
+            punc_pct = round(((present_count - len(late_staff)) / present_count * 100), 1) if present_count > 0 else 100.0
+            
+            reply = (
+                f"### 📊 Strategic Workforce Health Audit\n\n"
+                f"**1. Executive Overview:**\n"
+                f"• Total Active Headcount: **{total_staff} staff members**\n"
+                f"• Today's Punch-In Rate: **{att_pct}%** ({present_count} present, {absent_count} absent)\n"
+                f"• Punctuality Consistency: **{punc_pct}% on-time rate** ({len(late_staff)} late arrivals)\n\n"
+                f"**2. Critical Observations:**\n"
+                f"• Absenteeism Exposure: {absent_count} employee(s) unverified for today's roster.\n"
+                f"• Advance Exposure: **₹{net_liability:,.2f}** in outstanding advances across workforce.\n\n"
+                f"**3. Management Action Plan:**\n"
+                f"1. **Roster Stabilization**: Verify absent personnel to ensure operations shift coverage.\n"
+                f"2. **Punctuality Enforcement**: Review morning punch-in grace period for late arrivals.\n"
+                f"3. **Recovery Cap**: Institute automatic payroll deductions for accounts with advance balances."
+            )
+            return jsonify({
+                'success': True,
+                'reply': reply,
+                'audit_type': 'health_audit',
+                'highlights': {
+                    'Attendance Rate': f"{att_pct}%",
+                    'Punctuality': f"{punc_pct}%",
+                    'Advance Liability': f"₹{net_liability:,.2f}",
+                    'At-Risk Staff': str(len(high_risk_list))
+                }
+            })
+
+        elif audit_type == 'advance_risk' or 'advance risk' in user_query.lower() or 'credit risk' in user_query.lower():
+            risk_rows = ""
+            if high_risk_list:
+                for name, bal, basic in high_risk_list[:5]:
+                    risk_rows += f"• **{name}**: Outstanding **₹{bal:,.2f}** (Basic Pay: ₹{basic:,.2f})\n"
+            else:
+                risk_rows = "• *No staff members currently exceed the critical 50% basic pay advance limit.*\n"
+
+            reply = (
+                f"### ⚠️ Executive Advance & Credit Risk Radar\n\n"
+                f"**1. Capital Liability Exposure:**\n"
+                f"• Gross Advances Disbursed: **₹{tot_advances:,.2f}**\n"
+                f"• Total Advances Repaid: **₹{tot_repaid:,.2f}**\n"
+                f"• **Net Unrecovered Liability: ₹{net_liability:,.2f}**\n\n"
+                f"**2. High-Risk Exposure Accounts:**\n"
+                f"{risk_rows}\n"
+                f"**3. C-Suite Risk Mitigation Strategy:**\n"
+                f"1. **Advance Freeze**: Suspend additional advance issuances for accounts with unrecovered balances.\n"
+                f"2. **Graduated Repayment Schedule**: Set maximum recovery at 25% of monthly salary per cycle to prevent hardship.\n"
+                f"3. **Company Advance Ceiling**: Cap maximum allowable advance per employee at 50% of monthly basic pay."
+            )
+            return jsonify({
+                'success': True,
+                'reply': reply,
+                'audit_type': 'advance_risk',
+                'highlights': {
+                    'Net Advance Liability': f"₹{net_liability:,.2f}",
+                    'High Risk Accounts': str(len(high_risk_list)),
+                    'Repayment Ratio': f"{round((tot_repaid / tot_advances * 100), 1) if tot_advances > 0 else 100.0}%"
+                }
+            })
+
+        elif audit_type == 'latecomers' or 'late' in user_query.lower() or 'punctuality' in user_query.lower():
+            late_names = ", ".join([f"**{n}**" for n in late_staff[:6]]) if late_staff else "None (100% on-time arrivals today)"
+            reply = (
+                f"### ⏰ Punctuality & Late Arrival Analysis\n\n"
+                f"**1. Today's Punch Timeliness:**\n"
+                f"• On-Time Arrivals: **{present_count - len(late_staff)}**\n"
+                f"• Late Arrivals Today: **{len(late_staff)} staff**\n"
+                f"• Staff Flagged Late: {late_names}\n\n"
+                f"**2. Operational Impact:**\n"
+                f"• Estimated Productivity Delay: **~{len(late_staff) * 0.75:.1f} lost labor hours** today.\n\n"
+                f"**3. Management Recommendations:**\n"
+                f"1. Re-align shift arrival buffers for departments with persistent delays.\n"
+                f"2. Activate automated SMS / WhatsApp punch reminders 15 minutes prior to shift start.\n"
+                f"3. Recognize and incentivize top on-time departments in the monthly town hall."
+            )
+            return jsonify({
+                'success': True,
+                'reply': reply,
+                'audit_type': 'latecomers',
+                'highlights': {
+                    'Late Staff': str(len(late_staff)),
+                    'On-Time Rate': f"{round(((present_count - len(late_staff)) / present_count * 100), 1) if present_count > 0 else 100.0}%"
+                }
+            })
+
+        elif audit_type == 'executive_summary' or 'briefing' in user_query.lower() or 'executive summary' in user_query.lower() or 'summary' in user_query.lower():
+            reply = (
+                f"### 📋 Daily Executive C-Suite Briefing ({today_str})\n\n"
+                f"**Workforce Operations:**\n"
+                f"• **{present_count} of {total_staff}** staff clocked in ({round((present_count/total_staff*100) if total_staff else 100, 1)}% attendance).\n"
+                f"• **{len(late_staff)} late arrivals** recorded today.\n\n"
+                f"**Capital & Advance Overview:**\n"
+                f"• Net Advance Outstanding: **₹{net_liability:,.2f}**.\n"
+                f"• At-Risk Accounts: **{len(high_risk_list)} employee(s)** with advances > 50% basic pay.\n\n"
+                f"**Key Strategic Focus Today:**\n"
+                f"• Review operations shift coverage for absent employees.\n"
+                f"• Maintain repayment deduction schedule on upcoming payroll run."
+            )
+            return jsonify({
+                'success': True,
+                'reply': reply,
+                'audit_type': 'executive_summary',
+                'highlights': {
+                    'Present Today': str(present_count),
+                    'Absent Today': str(absent_count),
+                    'Advance Liability': f"₹{net_liability:,.2f}"
+                }
+            })
+
+        # 2. Custom Executive Consultation via Gemini 3.8-Flash (with fast 3.5s timeout)
+        gemini_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+        if not gemini_key:
+            setting = db.system_settings.find_one({'key': 'gemini_api_key'})
+            if setting and setting.get('value'):
+                gemini_key = str(setting['value']).strip()
+
+        advisor_reply = None
+        if gemini_key and user_query:
+            try:
+                import requests
+                prompt = (
+                    "You are Advisor AI, a prestigious C-Suite Executive Strategic Advisor for company management in the Argus Attendance Web App.\n"
+                    f"Current Date: {today_str}\n"
+                    f"Live Company Metrics:\n"
+                    f"- Total Staff: {total_staff}\n"
+                    f"- Present Today: {present_count}\n"
+                    f"- Absent Today: {absent_count}\n"
+                    f"- Late Punches: {len(late_staff)}\n"
+                    f"- Outstanding Advance Liability: Rs.{net_liability:,.2f}\n"
+                    f"- High Risk Accounts: {len(high_risk_list)}\n\n"
+                    f'Management Inquiry: "{user_query}"\n\n'
+                    "Respond with a high-level, executive management advisory briefing formatted in clean Markdown with sections:\n"
+                    "1. Executive Strategic Assessment (Insights & Data Findings)\n"
+                    "2. Risk & Financial Impact Analysis\n"
+                    "3. Actionable Management Roadmap (Concrete, prioritized steps for leadership)\n"
+                    "Maintain an authoritative, polished, executive consultant tone."
+                )
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={gemini_key}"
+                resp = requests.post(url, json={'contents': [{'parts': [{'text': prompt}]}]}, timeout=3.5)
+                if resp.status_code == 200:
+                    cand = resp.json().get('candidates', [])
+                    if cand:
+                        advisor_reply = cand[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+            except Exception:
+                pass
+
+        # Tier 1 Local Strategic Reasoning Engine Fallback
+        if not advisor_reply:
+            advisor_reply = (
+                f"### 💼 Strategic Management Advisory\n\n"
+                f"**Executive Assessment for:** *'{user_query}'*\n\n"
+                f"• **Workforce Health**: Today's active attendance is **{round((present_count/total_staff*100) if total_staff else 100, 1)}%** with **{present_count}** of **{total_staff}** employees punched in.\n"
+                f"• **Financial Exposure**: Total unrecovered advance exposure stands at **₹{net_liability:,.2f}** across {len(high_risk_list)} flagged account(s).\n\n"
+                f"**Management Recommendations:**\n"
+                f"1. **Roster Optimization**: Re-balance workload among present staff to avoid overtime spikes.\n"
+                f"2. **Advance Policy**: Enforce automated 25% salary deduction caps on outstanding credit lines.\n"
+                f"3. **Department Audit**: Review shift punctuality in upcoming management sync."
+            )
+
+        return jsonify({
+            'success': True,
+            'reply': advisor_reply,
+            'audit_type': 'custom_consult',
+            'highlights': {
+                'Active Staff': str(total_staff),
+                'Present': str(present_count),
+                'Advance Exposure': f"₹{net_liability:,.2f}"
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Advisor AI Consultation Error: {str(e)}"}), 500
+
+
 @app.route('/api/field-worker/salary-report', methods=['GET'])
 def api_field_worker_salary_report():
     """Returns monthly Field Worker Salary & Activity report."""

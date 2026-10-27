@@ -784,6 +784,9 @@
       document.body.classList.add('coworker-modal-open');
       const dock = document.getElementById('argusAiDock');
       if (dock) dock.classList.add('dock-hidden');
+      if (window.argusAdvisorAI && window.argusAdvisorAI.isOpen) {
+        window.argusAdvisorAI.close();
+      }
       this.scrollToBottom();
       setTimeout(() => this.textarea.focus(), 150);
     }
