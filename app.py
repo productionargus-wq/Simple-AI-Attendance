@@ -6312,7 +6312,6 @@ def api_coworker_ai_chat():
                 return None, []
             import difflib
             raw = str(name).strip()
-            # Clean common trailing/leading prepositions or punctuation
             cleaned = re.sub(r'^(?:for|to|of|about)\s+', '', raw, flags=re.IGNORECASE).strip()
             cleaned = re.sub(r'\s+(?:for|to|of|as|with|at|in|on|rs|inr)$', '', cleaned, flags=re.IGNORECASE).strip()
             if not cleaned:
@@ -6320,7 +6319,7 @@ def api_coworker_ai_chat():
 
             target = cleaned.lower()
 
-            # 1. Exact match (case-insensitive)
+            # 1. Exact match
             for e in employees:
                 e_name = str(e.get('employee_name') or '').strip()
                 if e_name.lower() == target:
@@ -6348,25 +6347,73 @@ def api_coworker_ai_chat():
                     if score > best_score:
                         best_score = score
                         best_match = c
-                if best_score >= 0.80:
+                if best_score >= 0.78:
                     return best_match, []
                 return None, token_candidates
 
-            # 3. Fuzzy similarity match (handles spelling variations like Mathew vs Matthew)
+            # 3. Fuzzy similarity match (full name or individual tokens)
             fuzzy_matches = []
             for e in employees:
                 e_name = str(e.get('employee_name') or '').strip()
-                sim = difflib.SequenceMatcher(None, target, e_name.lower()).ratio()
-                if sim >= 0.76:
+                sim_full = difflib.SequenceMatcher(None, target, e_name.lower()).ratio()
+                sim_token = 0.0
+                if len(target) >= 4:
+                    for t in e_name.lower().split():
+                        if len(t) >= 4:
+                            st = difflib.SequenceMatcher(None, target, t).ratio()
+                            if st > sim_token:
+                                sim_token = st
+                sim = max(sim_full, sim_token)
+                if sim >= 0.72:
                     fuzzy_matches.append((sim, e))
 
             if fuzzy_matches:
                 fuzzy_matches.sort(key=lambda x: x[0], reverse=True)
-                if len(fuzzy_matches) == 1 or (fuzzy_matches[0][0] - fuzzy_matches[1][0] >= 0.12):
+                if len(fuzzy_matches) == 1 or (fuzzy_matches[0][0] - fuzzy_matches[1][0] >= 0.10):
                     return fuzzy_matches[0][1], []
                 return None, [m[1] for m in fuzzy_matches]
 
             return None, []
+
+        def find_employee_in_text(text):
+            if not text or not employees:
+                return None
+            import difflib
+            # 1. Exact match
+            for e in employees:
+                en = str(e.get('employee_name') or '')
+                if en and re.search(r'\b' + re.escape(en) + r'\b', text, re.IGNORECASE):
+                    return e
+
+            # 2. Extract after 'for', 'to', 'of', 'entry for'
+            m = re.search(r'(?:for|to|of)\s+([A-Za-z\s\.]+?)(?:\s+(?:today|yesterday|tomorrow|\d+|proper|improper|half|late|hours?|hrs?|as|with|at|set)|$)', text, re.IGNORECASE)
+            if m:
+                cand = m.group(1).strip()
+                cand = re.sub(r'\b(?:add|create|make|put|log|record|manual|entry|attendance|payment|advance|leave)\b', '', cand, flags=re.IGNORECASE).strip()
+                if cand:
+                    doc, _ = resolve_employee(cand)
+                    if doc:
+                        return doc
+
+            # 3. Sliding n-grams (1 to 4 words)
+            words = re.findall(r'[A-Za-z]+', text)
+            stop_words = {'add', 'create', 'make', 'put', 'log', 'record', 'manual', 'entry', 'attendance', 
+                          'payment', 'advance', 'leave', 'today', 'yesterday', 'tomorrow', 'for', 'to', 'of', 
+                          'in', 'at', 'on', 'with', 'as', 'hours', 'hour', 'hrs', 'hr', 'proper', 'improper', 
+                          'half', 'full', 'day', 'days', 'rs', 'inr', 'rupees', 'status', 'set', 'give', 'check',
+                          'who', 'is', 'the', 'my', 'can', 'you', 'please', 'and'}
+            filtered_words = [w for w in words if w.lower() not in stop_words]
+
+            best_match = None
+            best_score = 0.0
+            for n in range(min(4, len(filtered_words)), 0, -1):
+                for i in range(len(filtered_words) - n + 1):
+                    chunk = ' '.join(filtered_words[i:i+n])
+                    doc, _ = resolve_employee(chunk)
+                    if doc:
+                        return doc
+
+            return None
 
         def find_context_employee():
             """Recovers the most relevant employee from pending task or recent message turns."""
@@ -6470,22 +6517,9 @@ def api_coworker_ai_chat():
 
                 # 1. Pending Manual Attendance Continuation
                 if p_action == 'create_manual_attendance':
-                    # Extract employee if provided now or already saved
-                    curr_emp = p_params.get('employee_name')
-                    if not curr_emp:
-                        # Check if user mentioned an employee
-                        for e in employees:
-                            en = str(e.get('employee_name') or '')
-                            if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
-                                curr_emp = en
-                                break
-                        if not curr_emp:
-                            # Try resolving from raw message tokens
-                            clean_candidate = re.sub(r'\b(?:hours?|hrs?|proper|improper|half\s*day|full\s*day|for|to|of|add|log|today|yesterday)\b', '', msg_lower, flags=re.IGNORECASE).strip()
-                            if clean_candidate:
-                                c_doc, _ = resolve_employee(clean_candidate)
-                                if c_doc:
-                                    curr_emp = c_doc.get('employee_name')
+                    # Extract employee using deep fuzzy resolver or pending parameters
+                    emp_doc_found = find_employee_in_text(user_message)
+                    curr_emp = emp_doc_found.get('employee_name') if emp_doc_found else p_params.get('employee_name')
 
                     # Extract hours
                     hours_val = p_params.get('hours') or '08:00'
@@ -6641,19 +6675,8 @@ def api_coworker_ai_chat():
 
                 # 2. MANUAL ATTENDANCE ENTRY
                 elif ('manual' in msg_lower and any(w in msg_lower for w in ['entry', 'attendance', 'create', 'add', 'log', 'record'])) and not is_nav:
-                    # Check for employee
-                    target_emp = None
-                    for e in employees:
-                        en = str(e.get('employee_name') or '')
-                        if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
-                            target_emp = en
-                            break
-                    if not target_emp:
-                        emp_m = re.search(r'(?:for|to)\s+([A-Za-z\s]+?)(?:\s+(?:\d+|proper|improper|half|today|yesterday)|$)', user_message, re.IGNORECASE)
-                        if emp_m:
-                            m_doc, _ = resolve_employee(emp_m.group(1))
-                            if m_doc:
-                                target_emp = m_doc.get('employee_name')
+                    emp_doc_found = find_employee_in_text(user_message)
+                    target_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
 
                     # Hours & Status
                     hours_val = '08:00'
