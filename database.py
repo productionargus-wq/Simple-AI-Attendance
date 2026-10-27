@@ -4128,10 +4128,6 @@ def get_manual_entries(from_date=None, to_date=None, status='All', search=None, 
         if branch_cond:
             query.setdefault('$and', []).append(branch_cond)
         
-    if not from_date and not to_date:
-        def_start, _, _, _ = get_default_two_month_range()
-        from_date = def_start
-
     if from_date:
         query['entry_date'] = {'$gte': from_date}
     if to_date:
@@ -4151,7 +4147,7 @@ def get_manual_entries(from_date=None, to_date=None, status='All', search=None, 
         ]
         
     total = db.manual_entries.count_documents(query)
-    cursor = db.manual_entries.find(query).sort([("entry_date", DESCENDING), ("created_at", DESCENDING), ("id", DESCENDING), ("_id", DESCENDING)])
+    cursor = db.manual_entries.find(query).sort([("created_at", DESCENDING), ("id", DESCENDING), ("entry_date", DESCENDING), ("_id", DESCENDING)])
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
@@ -4245,7 +4241,7 @@ def create_manual_entry(data, company_id=None):
         'company_id': assigned_company_id,
         'employee_id': emp_id,
         'employee_name': emp_name,
-        'entry_date': data.get('entry_date', ''),
+        'entry_date': str(data.get('entry_date') or data.get('date') or '').strip(),
         'hours': hours_str,
         'status': status,
         'reason': reason,
@@ -4265,7 +4261,7 @@ def create_manual_entry(data, company_id=None):
     recent_entry = db.manual_entries.find_one({
         'company_id': assigned_company_id,
         'employee_name': emp_name,
-        'entry_date': data.get('entry_date', ''),
+        'entry_date': str(data.get('entry_date') or data.get('date') or '').strip(),
         'hours': hours_str,
         'status': status,
         'id': {'$gt': entry_id - 5000}
@@ -4342,7 +4338,7 @@ def update_manual_entry(entry_id, data):
     reason = str(data.get('reason') or '').strip()
     upd = {
         'employee_name': emp_name,
-        'entry_date': data.get('entry_date', ''),
+        'entry_date': str(data.get('entry_date') or data.get('date') or '').strip(),
         'hours': hours_str,
         'status': status,
         'reason': reason,

@@ -6378,7 +6378,6 @@ def api_coworker_ai_chat():
         def find_employee_in_text(text):
             if not text or not employees:
                 return None
-            import difflib
             # 1. Exact match
             for e in employees:
                 en = str(e.get('employee_name') or '')
@@ -6386,7 +6385,7 @@ def api_coworker_ai_chat():
                     return e
 
             # 2. Extract after 'for', 'to', 'of', 'entry for'
-            m = re.search(r'(?:for|to|of)\s+([A-Za-z\s\.]+?)(?:\s+(?:today|yesterday|tomorrow|\d+|proper|improper|half|late|hours?|hrs?|as|with|at|set)|$)', text, re.IGNORECASE)
+            m = re.search(r'(?:for|to|of)\s+([A-Za-z\s\.]+?)(?:\s+(?:today|yesterday|tomorrow|\d+|proper|improper|half|late|hours?|hrs?|as|with|at|set|on)|$)', text, re.IGNORECASE)
             if m:
                 cand = m.group(1).strip()
                 cand = re.sub(r'\b(?:add|create|make|put|log|record|manual|entry|attendance|payment|advance|leave)\b', '', cand, flags=re.IGNORECASE).strip()
@@ -6404,8 +6403,6 @@ def api_coworker_ai_chat():
                           'who', 'is', 'the', 'my', 'can', 'you', 'please', 'and'}
             filtered_words = [w for w in words if w.lower() not in stop_words]
 
-            best_match = None
-            best_score = 0.0
             for n in range(min(4, len(filtered_words)), 0, -1):
                 for i in range(len(filtered_words) - n + 1):
                     chunk = ' '.join(filtered_words[i:i+n])
@@ -6414,6 +6411,45 @@ def api_coworker_ai_chat():
                         return doc
 
             return None
+
+        def parse_date_from_text(text, default_today=True):
+            if not text:
+                return datetime.now().strftime('%Y-%m-%d') if default_today else None
+            t = text.lower()
+            if 'day before yesterday' in t:
+                return (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d')
+            if 'yesterday' in t:
+                return (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+            if 'tomorrow' in t:
+                return (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+            if 'today' in t:
+                return datetime.now().strftime('%Y-%m-%d')
+
+            # 1. YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
+            m_iso = re.search(r'\b(20\d\d|19\d\d)[-/. ](0?[1-9]|1[0-2])[-/. ](0?[1-9]|[12]\d|3[01])\b', text)
+            if m_iso:
+                y, m, d = int(m_iso.group(1)), int(m_iso.group(2)), int(m_iso.group(3))
+                return f"{y:04d}-{m:02d}-{d:02d}"
+
+            # 2. DD MM YYYY or DD-MM-YYYY or DD.MM.YYYY or DD/MM/YYYY (e.g. 26 10 2004 or 26.10.2024)
+            m_dmy = re.search(r'\b(0?[1-9]|[12]\d|3[01])[-/. ](0?[1-9]|1[0-2])[-/. ](20\d\d|19\d\d|\d{2})\b', text)
+            if m_dmy:
+                d, m, y_raw = int(m_dmy.group(1)), int(m_dmy.group(2)), int(m_dmy.group(3))
+                y = (2000 + y_raw) if y_raw < 100 else y_raw
+                return f"{y:04d}-{m:02d}-{d:02d}"
+
+            # 3. Month text e.g. 26th October 2024, 26 Oct
+            months = {'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12}
+            for mname, mnum in months.items():
+                m_txt = re.search(r'\b(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?\s+' + mname + r'(?:ober|ember|uary|arch|il|une|uly|ust)?(?:\s+(20\d\d|\d{2}))?\b', t)
+                if m_txt:
+                    d = int(m_txt.group(1))
+                    y_raw = m_txt.group(2)
+                    y = int(y_raw) if y_raw else datetime.now().year
+                    if y < 100: y += 2000
+                    return f"{y:04d}-{mnum:02d}-{d:02d}"
+
+            return datetime.now().strftime('%Y-%m-%d') if default_today else None
 
         def find_context_employee():
             """Recovers the most relevant employee from pending task or recent message turns."""
@@ -6506,6 +6542,17 @@ def api_coworker_ai_chat():
             except Exception as e:
                 pass
 
+        # Enrich and validate parsed_action parameters with deep local resolvers
+        if parsed_action and isinstance(parsed_action.get('parameters'), dict):
+            p = parsed_action['parameters']
+            if not p.get('employee_name') or not resolve_employee(p.get('employee_name'))[0]:
+                emp_found = find_employee_in_text(user_message)
+                if emp_found:
+                    p['employee_name'] = emp_found.get('employee_name')
+            extracted_date = parse_date_from_text(user_message, default_today=False)
+            if extracted_date:
+                p['date'] = extracted_date
+
         # Tier 1: Deterministic Multi-Turn & Feature NLU Engine (Zero Latency, Complete Offline Support)
         if not parsed_action or not parsed_action.get('action') or parsed_action.get('action') == 'general_chat':
             msg_lower = user_message.lower().strip()
@@ -6545,12 +6592,8 @@ def api_coworker_ai_chat():
                     elif 'proper' in msg_lower:
                         st_val = 'Proper'
 
-                    # Extract date
-                    date_val = p_params.get('date') or datetime.now().strftime('%Y-%m-%d')
-                    if 'yesterday' in msg_lower:
-                        date_val = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-                    elif 'tomorrow' in msg_lower:
-                        date_val = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                    # Extract date using comprehensive date parser
+                    date_val = parse_date_from_text(user_message, default_today=False) or p_params.get('date') or datetime.now().strftime('%Y-%m-%d')
 
                     parsed_action = {
                         'action': 'create_manual_attendance',
@@ -6700,9 +6743,7 @@ def api_coworker_ai_chat():
                     elif 'overtime' in msg_lower:
                         st_val = 'Overtime'
 
-                    date_val = datetime.now().strftime('%Y-%m-%d')
-                    if 'yesterday' in msg_lower:
-                        date_val = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+                    date_val = parse_date_from_text(user_message, default_today=True)
 
                     parsed_action = {
                         'action': 'create_manual_attendance',
@@ -6910,6 +6951,11 @@ def api_coworker_ai_chat():
                             'pending_task': None
                         })
 
+            if not emp_doc:
+                emp_found = find_employee_in_text(user_message)
+                if emp_found:
+                    emp_doc = emp_found
+
             canonical_emp_name = emp_doc.get('employee_name') if emp_doc else raw_name
 
             # If employee is missing, initiate multi-turn state!
@@ -6938,6 +6984,7 @@ def api_coworker_ai_chat():
 
             entry_payload = {
                 'employee_name': emp_name,
+                'entry_date': date_str,
                 'date': date_str,
                 'hours': hours_str,
                 'mode': 'Hours',

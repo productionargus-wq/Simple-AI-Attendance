@@ -68,6 +68,9 @@
         document.body.appendChild(dock);
       }
 
+      // Remove existing advisor circle buttons to prevent duplicate dock icons
+      dock.querySelectorAll('#advisorAiCircleBtn').forEach(b => b.remove());
+
       const circleBtn = document.createElement('button');
       circleBtn.className = 'argus-ai-circle-btn advisor-ai-btn';
       circleBtn.id = 'advisorAiCircleBtn';
@@ -80,6 +83,8 @@
       this.triggerPill = circleBtn;
 
       // 2. Modal Backdrop
+      const oldBackdrop = document.getElementById('advisorModalBackdrop');
+      if (oldBackdrop) oldBackdrop.remove();
       const backdrop = document.createElement('div');
       backdrop.className = 'advisor-modal-backdrop';
       backdrop.id = 'advisorModalBackdrop';
@@ -87,6 +92,8 @@
       this.backdrop = backdrop;
 
       // 3. Boardroom Console Window
+      const oldWin = document.getElementById('advisorConsoleWindow');
+      if (oldWin) oldWin.remove();
       const win = document.createElement('div');
       win.className = 'advisor-chat-window';
       win.id = 'advisorChatWindow';
@@ -530,9 +537,22 @@
     }
   }
 
-  // Initialize on DOM load
-  document.addEventListener('DOMContentLoaded', () => {
-    window.argusAdvisorAI = new AdvisorAIEngine();
-  });
+  // Initialize on DOM load (guarded against duplicate executions)
+  if (window.__argusAdvisorAIInitialized && window.argusAdvisorAI) {
+    // Already active
+  } else {
+    window.__argusAdvisorAIInitialized = true;
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        if (!window.argusAdvisorAI) {
+          window.argusAdvisorAI = new AdvisorAIEngine();
+        }
+      });
+    } else {
+      if (!window.argusAdvisorAI) {
+        window.argusAdvisorAI = new AdvisorAIEngine();
+      }
+    }
+  }
 
 })();

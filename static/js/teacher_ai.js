@@ -403,6 +403,9 @@
         document.body.appendChild(dock);
       }
 
+      // Remove existing teacher AI buttons if any to prevent duplicate dock icons
+      dock.querySelectorAll('#teacherAiCircleBtn').forEach(b => b.remove());
+
       this.circleBtn = document.createElement('button');
       this.circleBtn.className = 'argus-ai-circle-btn teacher-ai-btn';
       this.circleBtn.id = 'teacherAiCircleBtn';
@@ -819,13 +822,22 @@
     }
   }
 
-  // Auto-instantiate when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      window.ArgusTeacherAI = new ArgusTeacherAI();
-    });
+  // Auto-instantiate when DOM is ready (guarded against duplicate executions)
+  if (window.__argusTeacherAIInitialized && window.ArgusTeacherAI) {
+    // Already active
   } else {
-    window.ArgusTeacherAI = new ArgusTeacherAI();
+    window.__argusTeacherAIInitialized = true;
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        if (!window.ArgusTeacherAI) {
+          window.ArgusTeacherAI = new ArgusTeacherAI();
+        }
+      });
+    } else {
+      if (!window.ArgusTeacherAI) {
+        window.ArgusTeacherAI = new ArgusTeacherAI();
+      }
+    }
   }
 
 })(window, document);

@@ -93,6 +93,9 @@
         document.body.appendChild(dock);
       }
 
+      // Remove existing coworker circle buttons to prevent duplicate dock icons
+      dock.querySelectorAll('#coworkerAiCircleBtn').forEach(b => b.remove());
+
       const circleBtn = document.createElement('button');
       circleBtn.className = 'argus-ai-circle-btn coworker-ai-btn';
       circleBtn.id = 'coworkerAiCircleBtn';
@@ -106,6 +109,8 @@
       this.triggerPill = circleBtn;
 
       // 2. Backdrop
+      const oldBackdrop = document.getElementById('coworkerBackdrop');
+      if (oldBackdrop) oldBackdrop.remove();
       const backdrop = document.createElement('div');
       backdrop.className = 'coworker-modal-backdrop';
       backdrop.id = 'coworkerBackdrop';
@@ -113,6 +118,8 @@
       this.backdrop = backdrop;
 
       // 3. WhatsApp Chat Window
+      const oldWin = document.getElementById('coworkerChatWindow');
+      if (oldWin) oldWin.remove();
       const win = document.createElement('div');
       win.className = 'coworker-chat-window';
       win.id = 'coworkerChatWindow';
@@ -810,13 +817,22 @@
     }
   }
 
-  // Initialize on DOMContentLoaded or immediately if ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      window.argusCoworker = new ArgusCoworkerAI();
-    });
+  // Initialize on DOMContentLoaded or immediately if ready (guarded against duplicate executions)
+  if (window.__argusCoworkerAIInitialized && window.argusCoworker) {
+    // Already active
   } else {
-    window.argusCoworker = new ArgusCoworkerAI();
+    window.__argusCoworkerAIInitialized = true;
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        if (!window.argusCoworker) {
+          window.argusCoworker = new ArgusCoworkerAI();
+        }
+      });
+    } else {
+      if (!window.argusCoworker) {
+        window.argusCoworker = new ArgusCoworkerAI();
+      }
+    }
   }
 
 })(window);
