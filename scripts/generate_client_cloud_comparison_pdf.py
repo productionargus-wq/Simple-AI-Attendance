@@ -418,6 +418,10 @@ def create_cloud_comparison_pdf(output_path):
     return output_path
 
 if __name__ == '__main__':
-    out_pdf = "Cloud_Hosting_Comparison_Render_vs_AWS.pdf"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    default_out_dir = os.path.join(project_root, "docs")
+    os.makedirs(default_out_dir, exist_ok=True)
+    out_pdf = os.path.join(default_out_dir, "Cloud_Hosting_Comparison_Render_vs_AWS.pdf")
     create_cloud_comparison_pdf(out_pdf)
     print(f"Generated PDF successfully: {out_pdf}")

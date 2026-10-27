@@ -63,6 +63,46 @@ A full-stack attendance and payroll management web application built with Python
    - **Zero Disk Storage**: No folder of employee photos.
    - **Sub-millisecond Speed**: Fast vector dot product with NumPy.
 
+## Directory Structure
+
+```text
+Simple AI Attendance Web App/
+├── docs/                     # Client proposals, technical dossiers, and architecture specs
+│   ├── AI_Field_Worker_Tracking_Proposal.pdf
+│   ├── ARGUS_Attendance_Services_and_Credentials_Directory.pdf
+│   ├── ARGUS_Attendance_Technical_Architecture_and_Credentials_Dossier.pdf
+│   ├── Cloud_Hosting_Comparison_Render_vs_AWS.pdf
+│   ├── Face_Registration_Guidelines.pdf
+│   ├── Field_Worker_Module_Client_Proposal.pdf
+│   ├── Technology_Stack_Simple_AI_Attendance.pdf
+│   └── README.md
+├── mobile-app/               # Capacitor Android & iOS native mobile application
+├── models/                   # Face recognition & detection ONNX deep learning models
+├── scripts/                  # Utility and generator scripts
+│   ├── generate_client_cloud_comparison_pdf.py
+│   └── generate_demo_videos.py
+├── static/                   # Static assets: CSS, client JS, vendor libraries, icons, images
+│   ├── css/
+│   ├── js/
+│   ├── images/
+│   └── vendor/
+├── templates/                # Jinja2 HTML templates for all web views and portals
+├── app.py                    # Main Flask application & REST API controller
+├── database.py               # MongoDB Atlas database abstraction layer
+├── desktop_app.py            # Standalone PyWebView desktop runner
+├── email_service.py          # Automated email delivery service
+├── face_engine.py            # Zero-image-storage 128-d face recognition engine
+├── pdf_generator.py          # Dynamic PDF payslip and attendance report generator
+├── report_scheduler.py       # Automated background report scheduling daemon
+├── run.py                    # Local web server runner
+├── requirements.txt          # Python project dependencies
+├── Procfile                  # Production deployment configuration (Render / Heroku)
+├── ArgusAttendance.spec      # PyInstaller standalone executable build spec
+├── build_desktop_exe.bat     # Windows desktop application builder
+├── Run_Argus_Attendance.bat  # Quick launcher for desktop build
+└── installer.iss             # Inno Setup Windows installer script
+```
+
 ## How to Run
 
 1. Open PowerShell or Command Prompt in the project folder:
