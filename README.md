@@ -78,8 +78,8 @@ Simple AI Attendance Web App/
 │   └── README.md
 ├── mobile-app/               # Capacitor Android & iOS native mobile application
 ├── models/                   # Face recognition & detection ONNX deep learning models
+├── mobile-app/               # Capacitor 7 Android & iOS mobile application
 ├── scripts/                  # Utility and generator scripts
-│   ├── generate_client_cloud_comparison_pdf.py
 │   └── generate_demo_videos.py
 ├── static/                   # Static assets: CSS, client JS, vendor libraries, icons, images
 │   ├── css/
@@ -99,6 +99,7 @@ Simple AI Attendance Web App/
 ├── Procfile                  # Production deployment configuration (Render / Heroku)
 ├── ArgusAttendance.spec      # PyInstaller standalone executable build spec
 ├── build_desktop_exe.bat     # Windows desktop application builder
+├── build_apk.ps1             # Android APK & iOS mobile application builder
 ├── Run_Argus_Attendance.bat  # Quick launcher for desktop build
 └── installer.iss             # Inno Setup Windows installer script
 ```
