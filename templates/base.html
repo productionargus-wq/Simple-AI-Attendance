@@ -8,9 +8,9 @@
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261007_white">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261007_white">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261024_desktop_fixes">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/teacher_ai.css') }}?v=20261028_dockv2">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/coworker_ai.css') }}?v=20261028_dockv2">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/advisor_ai.css') }}?v=20261028_dockv2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/teacher_ai.css') }}?v=20261028_indepdockv3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/coworker_ai.css') }}?v=20261028_indepdockv3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/advisor_ai.css') }}?v=20261028_indepdockv3">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script>
     window.IS_SYSTEM_ADMIN = {{ 'true' if is_system_admin else 'false' }};
@@ -535,13 +535,13 @@
   <script src="{{ url_for('static', filename='js/voice_assistant.js') }}?v=20261023_v3"></script>
 
   <!-- ARGUS Teacher AI Engine (Agent 1) -->
-  <script src="{{ url_for('static', filename='js/teacher_ai.js') }}?v=20261028_dockv2"></script>
+  <script src="{{ url_for('static', filename='js/teacher_ai.js') }}?v=20261028_indepdockv3"></script>
 
   <!-- ARGUS Co-Worker AI Engine (Agent 2) -->
-  <script src="{{ url_for('static', filename='js/coworker_ai.js') }}?v=20261028_dockv2"></script>
+  <script src="{{ url_for('static', filename='js/coworker_ai.js') }}?v=20261028_indepdockv3"></script>
 
   <!-- ARGUS Advisor AI Engine (Agent 3) -->
-  <script src="{{ url_for('static', filename='js/advisor_ai.js') }}?v=20261028_dockv2"></script>
+  <script src="{{ url_for('static', filename='js/advisor_ai.js') }}?v=20261028_indepdockv3"></script>
 
   {% block scripts %}{% endblock %}
 </body>

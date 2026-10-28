@@ -11,149 +11,137 @@
 (function (window, document) {
   'use strict';
 
-// --- UNIVERSAL DRAGGABLE & BOTTOM-CENTERED AI DOCK CONTROLLER ---
-if (!window.initArgusAiDockDraggable) {
-// Shared utility: Initialize Draggable & Bottom-Centered AI Dock
-window.initArgusAiDockDraggable = function (dock) {
-  if (!dock || dock.__argusDraggableReady) return;
-  dock.__argusDraggableReady = true;
+// --- UNIVERSAL INDEPENDENTLY DRAGGABLE AGENT BUTTON CONTROLLER ---
+if (!window.makeAgentButtonDraggable) {
+  window.makeAgentButtonDraggable = function (btn, storageKey, defaultOffsetPx) {
+    if (!btn || btn.__agentDraggableReady) return;
+    btn.__agentDraggableReady = true;
 
-  const STORAGE_KEY = 'argus_ai_dock_pos';
+    function clampAndApply(left, top) {
+      const margin = 12;
+      const btnW = btn.offsetWidth || 48;
+      const btnH = btn.offsetHeight || 48;
+      const maxL = Math.max(margin, window.innerWidth - btnW - margin);
+      const maxT = Math.max(margin, window.innerHeight - btnH - margin);
+      const safeL = Math.max(margin, Math.min(left, maxL));
+      const safeT = Math.max(margin, Math.min(top, maxT));
 
-  function clampAndApply(left, top) {
-    const dockW = dock.offsetWidth || 170;
-    const dockH = dock.offsetHeight || 50;
-    const margin = 12;
-    const maxL = Math.max(margin, window.innerWidth - dockW - margin);
-    const maxT = Math.max(margin, window.innerHeight - dockH - margin);
-    const safeL = Math.max(margin, Math.min(left, maxL));
-    const safeT = Math.max(margin, Math.min(top, maxT));
-
-    dock.style.left = safeL + 'px';
-    dock.style.top = safeT + 'px';
-    dock.style.bottom = 'auto';
-    dock.style.right = 'auto';
-    dock.style.transform = 'none';
-  }
-
-  function restorePosition() {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const pos = JSON.parse(saved);
-        if (typeof pos.left === 'number' && typeof pos.top === 'number') {
-          clampAndApply(pos.left, pos.top);
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn('Dock restore error:', e);
-    }
-    // Default position: bottom center
-    dock.style.left = '50%';
-    dock.style.bottom = '24px';
-    dock.style.top = 'auto';
-    dock.style.right = 'auto';
-    dock.style.transform = 'translateX(-50%)';
-  }
-
-  let isDragging = false;
-  let hasMoved = false;
-  let startX = 0, startY = 0;
-  let initialLeft = 0, initialTop = 0;
-
-  function onPointerDown(e) {
-    // Only primary mouse button or single touch
-    if (e.type === 'mousedown' && e.button !== 0) return;
-
-    const pt = e.touches ? e.touches[0] : e;
-    startX = pt.clientX;
-    startY = pt.clientY;
-
-    const rect = dock.getBoundingClientRect();
-    initialLeft = rect.left;
-    initialTop = rect.top;
-    hasMoved = false;
-    isDragging = true;
-
-    document.addEventListener('mousemove', onPointerMove, { passive: false });
-    document.addEventListener('mouseup', onPointerUp, { passive: false });
-    document.addEventListener('touchmove', onPointerMove, { passive: false });
-    document.addEventListener('touchend', onPointerUp, { passive: false });
-  }
-
-  function onPointerMove(e) {
-    if (!isDragging) return;
-    const pt = e.touches ? e.touches[0] : e;
-    const dx = pt.clientX - startX;
-    const dy = pt.clientY - startY;
-
-    if (!hasMoved && Math.hypot(dx, dy) > 5) {
-      hasMoved = true;
-      dock.classList.add('is-dragging');
+      btn.style.left = safeL + 'px';
+      btn.style.top = safeT + 'px';
+      btn.style.bottom = 'auto';
+      btn.style.right = 'auto';
+      btn.style.transform = 'none';
     }
 
-    if (hasMoved) {
-      if (e.cancelable) e.preventDefault();
-      clampAndApply(initialLeft + dx, initialTop + dy);
-    }
-  }
-
-  function onPointerUp(e) {
-    if (!isDragging) return;
-    isDragging = false;
-    dock.classList.remove('is-dragging');
-
-    document.removeEventListener('mousemove', onPointerMove);
-    document.removeEventListener('mouseup', onPointerUp);
-    document.removeEventListener('touchmove', onPointerMove);
-    document.removeEventListener('touchend', onPointerUp);
-
-    if (hasMoved) {
-      // Mark as just dragged so clicks on circle buttons are suppressed
-      window.__argusDockJustDragged = true;
-      setTimeout(() => {
-        window.__argusDockJustDragged = false;
-      }, 160);
-
-      const rect = dock.getBoundingClientRect();
+    function restorePosition() {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          left: Math.round(rect.left),
-          top: Math.round(rect.top)
-        }));
-      } catch (err) {}
-    }
-  }
-
-  dock.addEventListener('mousedown', onPointerDown);
-  dock.addEventListener('touchstart', onPointerDown, { passive: true });
-
-  // Capture click events during or immediately after drag to prevent opening agent modals
-  dock.addEventListener('click', function (e) {
-    if (window.__argusDockJustDragged) {
-      e.stopImmediatePropagation();
-      e.preventDefault();
-    }
-  }, true);
-
-  // Restore position immediately and on window resize
-  setTimeout(restorePosition, 40);
-  window.addEventListener('resize', () => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const pos = JSON.parse(saved);
-        if (typeof pos.left === 'number' && typeof pos.top === 'number') {
-          clampAndApply(pos.left, pos.top);
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const pos = JSON.parse(saved);
+          if (typeof pos.left === 'number' && typeof pos.top === 'number') {
+            clampAndApply(pos.left, pos.top);
+            return;
+          }
         }
+      } catch (e) {}
+
+      // Default slot positioned relative to horizontal center
+      btn.style.left = `calc(50% + ${defaultOffsetPx}px)`;
+      btn.style.bottom = '24px';
+      btn.style.top = 'auto';
+      btn.style.right = 'auto';
+      btn.style.transform = 'translateX(-50%)';
+    }
+
+    let isDragging = false;
+    let hasMoved = false;
+    let startX = 0, startY = 0;
+    let initialLeft = 0, initialTop = 0;
+
+    function onPointerDown(e) {
+      if (e.type === 'mousedown' && e.button !== 0) return;
+      const pt = e.touches ? e.touches[0] : e;
+      startX = pt.clientX;
+      startY = pt.clientY;
+
+      const rect = btn.getBoundingClientRect();
+      initialLeft = rect.left;
+      initialTop = rect.top;
+      hasMoved = false;
+      isDragging = true;
+
+      document.addEventListener('mousemove', onPointerMove, { passive: false });
+      document.addEventListener('mouseup', onPointerUp, { passive: false });
+      document.addEventListener('touchmove', onPointerMove, { passive: false });
+      document.addEventListener('touchend', onPointerUp, { passive: false });
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging) return;
+      const pt = e.touches ? e.touches[0] : e;
+      const dx = pt.clientX - startX;
+      const dy = pt.clientY - startY;
+
+      if (!hasMoved && Math.hypot(dx, dy) > 5) {
+        hasMoved = true;
+        btn.classList.add('is-dragging');
       }
-    } catch (e) {}
-  });
-};
 
+      if (hasMoved) {
+        if (e.cancelable) e.preventDefault();
+        clampAndApply(initialLeft + dx, initialTop + dy);
+      }
+    }
+
+    function onPointerUp(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      btn.classList.remove('is-dragging');
+
+      document.removeEventListener('mousemove', onPointerMove);
+      document.removeEventListener('mouseup', onPointerUp);
+      document.removeEventListener('touchmove', onPointerMove);
+      document.removeEventListener('touchend', onPointerUp);
+
+      if (hasMoved) {
+        btn.__justDragged = true;
+        setTimeout(() => { btn.__justDragged = false; }, 160);
+
+        const rect = btn.getBoundingClientRect();
+        try {
+          localStorage.setItem(storageKey, JSON.stringify({
+            left: Math.round(rect.left),
+            top: Math.round(rect.top)
+          }));
+        } catch (err) {}
+      }
+    }
+
+    btn.addEventListener('mousedown', onPointerDown);
+    btn.addEventListener('touchstart', onPointerDown, { passive: true });
+
+    // Suppress click on release after dragging
+    btn.addEventListener('click', function (e) {
+      if (btn.__justDragged) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }
+    }, true);
+
+    setTimeout(restorePosition, 40);
+    window.addEventListener('resize', () => {
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const pos = JSON.parse(saved);
+          if (typeof pos.left === 'number' && typeof pos.top === 'number') {
+            clampAndApply(pos.left, pos.top);
+          }
+        }
+      } catch (e) {}
+    });
+  };
 }
-
 
   // =========================================================================
   // 1. ARGUS KNOWLEDGE BASE (TIER 1 - INSTANT 0ms RESPONSES)
@@ -546,9 +534,7 @@ window.initArgusAiDockDraggable = function (dock) {
         dock.className = 'argus-ai-dock';
         document.body.appendChild(dock);
       }
-      if (window.initArgusAiDockDraggable) {
-        window.initArgusAiDockDraggable(dock);
-      }
+
 
       // Remove existing teacher AI buttons if any to prevent duplicate dock icons
       dock.querySelectorAll('#teacherAiCircleBtn').forEach(b => b.remove());
@@ -563,6 +549,9 @@ window.initArgusAiDockDraggable = function (dock) {
       `;
       dock.appendChild(this.circleBtn);
       this.triggerPillEl = this.circleBtn;
+      if (window.makeAgentButtonDraggable) {
+        window.makeAgentButtonDraggable(this.circleBtn, 'argus_ai_pos_teacher', -60);
+      }
 
       // Bind HUD Buttons
       const voiceBtn = this.hudEl.querySelector('#teacherAiToggleVoiceBtn');

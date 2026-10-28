@@ -6,66 +6,78 @@
  */
 
 /* ==========================================================================
-   1. UNIFIED FLOATING ACTION BUTTON (FAB) DOCK & CIRCLE BUTTONS
+   1. UNIFIED AI FLOATING CIRCLE AGENTS (INDEPENDENTLY DRAGGABLE)
    ========================================================================== */
-.argus-ai-dock.dock-hidden,
-body.coworker-modal-open .argus-ai-dock {
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
 .argus-ai-dock {
   position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  inset: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
   z-index: 9998;
-  cursor: grab;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: none;
-  transition: opacity 0.25s ease, filter 0.2s ease;
 }
 
-.argus-ai-dock:active {
-  cursor: grabbing;
-}
-
-.argus-ai-dock.is-dragging {
-  cursor: grabbing !important;
-  transition: none !important;
-  opacity: 0.95 !important;
-  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35));
-}
-
-.argus-ai-dock.is-dragging .argus-ai-circle-btn {
-  cursor: grabbing !important;
-  pointer-events: none !important;
-}
-
-.argus-ai-dock.is-dragging .argus-ai-circle-btn::after {
-  display: none !important;
+.argus-ai-dock.dock-hidden .argus-ai-circle-btn,
+body.coworker-modal-open .argus-ai-circle-btn {
   opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(14px) scale(0.9) !important;
 }
 
 .argus-ai-circle-btn {
-  position: relative;
+  position: fixed;
+  bottom: 24px;
   width: 48px;
   height: 48px;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.2);
   outline: none;
-  cursor: pointer;
+  cursor: grab;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.15);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, opacity 0.25s ease;
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
   padding: 0;
+  pointer-events: auto;
+  z-index: 9998;
+}
+
+/* Default Centered Slots for Each Agent */
+.argus-ai-circle-btn.teacher-ai-btn {
+  left: calc(50% - 60px);
+  transform: translateX(-50%);
+}
+
+.argus-ai-circle-btn.coworker-ai-btn {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.argus-ai-circle-btn.advisor-ai-btn {
+  left: calc(50% + 60px);
+  transform: translateX(-50%);
+}
+
+.argus-ai-circle-btn:active {
+  cursor: grabbing;
+}
+
+.argus-ai-circle-btn.is-dragging {
+  cursor: grabbing !important;
+  transition: none !important;
+  transform: scale(1.12) !important;
+  z-index: 99999 !important;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45) !important;
+  opacity: 0.95 !important;
+}
+
+.argus-ai-circle-btn.is-dragging::after {
+  display: none !important;
+  opacity: 0 !important;
 }
 
 .argus-ai-circle-btn:hover {
@@ -700,15 +712,22 @@ body.coworker-modal-open .argus-ai-dock {
    9. MOBILE RESPONSIVENESS
    ========================================================================== */
 @media (max-width: 640px) {
-  .argus-ai-dock {
-    bottom: 76px;
-    left: 50%;
-    transform: translateX(-50%);
-    gap: 8px;
-  }
   .argus-ai-circle-btn {
+    bottom: 76px;
     width: 44px;
     height: 44px;
+  }
+  .argus-ai-circle-btn.teacher-ai-btn {
+    left: calc(50% - 52px);
+    transform: translateX(-50%);
+  }
+  .argus-ai-circle-btn.coworker-ai-btn {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .argus-ai-circle-btn.advisor-ai-btn {
+    left: calc(50% + 52px);
+    transform: translateX(-50%);
   }
   .argus-ai-icon {
     font-size: 20px;
