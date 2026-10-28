@@ -1,0 +1,296 @@
+name: Automated Multi-Platform Release (.exe, .dmg, .apk, .ipa)
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on release tags like v1.6.0, v2.0.0
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g. v2.0.0)'
+        required: true
+        default: 'v2.0.0'
+      release_title:
+        description: 'Release Title'
+        required: false
+        default: 'Argus AI Attendance v2.0.0 Release'
+
+permissions:
+  contents: write
+
+jobs:
+  # =========================================================================
+  # 1. WINDOWS BUILD (.exe Setup Wizard & Standalone Executable)
+  # =========================================================================
+  build-windows:
+    name: Build Windows Desktop (.exe)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Create Production Environment
+        run: |
+          New-Item -Path .env -ItemType File -Value "FLASK_ENV=production`nPORT=5000" -Force
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup --no-progress
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pywebview waitress pyinstaller pythonnet
+
+      - name: Compile Standalone Windows EXE
+        run: |
+          pyinstaller --noconfirm ArgusAttendance.spec
+
+      - name: Compile Windows Setup Wizard
+        run: |
+          $isccCmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+          if ($isccCmd) {
+            & $isccCmd.Source installer.iss
+          } elseif (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+            & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+          } elseif (Test-Path "C:\Program Files\Inno Setup 6\ISCC.exe") {
+            & "C:\Program Files\Inno Setup 6\ISCC.exe" installer.iss
+          } else {
+            iscc installer.iss
+          }
+
+      - name: Prepare Windows Release Artifacts
+        run: |
+          New-Item -ItemType Directory -Force -Path staged-windows
+          if (Test-Path "dist\ArgusAttendance_Setup_v2.0.exe") {
+            Copy-Item "dist\ArgusAttendance_Setup_v2.0.exe" -Destination "staged-windows\ArgusAttendance-Setup-Windows.exe"
+          }
+          if (Test-Path "dist\ArgusAttendance.exe") {
+            Copy-Item "dist\ArgusAttendance.exe" -Destination "staged-windows\ArgusAttendance-Standalone-Windows.exe"
+          }
+
+      - name: Upload Windows Staging Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-asset-windows
+          path: staged-windows/*
+          if-no-files-found: error
+
+  # =========================================================================
+  # 2. MACOS BUILD (.dmg Installer & Portable .app.zip)
+  # =========================================================================
+  build-macos:
+    name: Build macOS Desktop (.dmg)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Create Production Environment
+        run: |
+          echo "FLASK_ENV=production" > .env
+          echo "PORT=5000" >> .env
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pywebview waitress pyinstaller
+
+      - name: Compile macOS Application (.app)
+        run: |
+          pyinstaller --noconfirm ArgusAttendance.spec
+
+      - name: Package DMG & Portable ZIP
+        run: |
+          mkdir -p staged-macos
+          cd dist
+          hdiutil create -volname "Argus Attendance" -srcfolder "ArgusAttendance.app" -ov -format UDZO "../staged-macos/ArgusAttendance-macOS.dmg"
+          zip -r "../staged-macos/ArgusAttendance-macOS.app.zip" "ArgusAttendance.app"
+          cd ..
+
+      - name: Upload macOS Staging Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-asset-macos
+          path: staged-macos/*
+          if-no-files-found: error
+
+  # =========================================================================
+  # 3. ANDROID BUILD (.apk Package)
+  # =========================================================================
+  build-android:
+    name: Build Android (.apk)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'mobile-app/package-lock.json'
+
+      - name: Install Capacitor Dependencies & Sync Android
+        working-directory: mobile-app
+        run: |
+          npm ci
+          npx cap sync android
+
+      - name: Build Android APK
+        working-directory: mobile-app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease assembleDebug --no-daemon
+
+      - name: Stage Android APKs
+        run: |
+          mkdir -p staged-android
+          # Copy release APK if present, or fallback to available apk
+          if [ -f mobile-app/android/app/build/outputs/apk/release/app-release-unsigned.apk ]; then
+            cp mobile-app/android/app/build/outputs/apk/release/app-release-unsigned.apk staged-android/ArgusAttendance-Android.apk
+          elif [ -f mobile-app/android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp mobile-app/android/app/build/outputs/apk/release/app-release.apk staged-android/ArgusAttendance-Android.apk
+          fi
+          
+          # Also stage debug APK for immediate phone testing
+          if [ -f mobile-app/android/app/build/outputs/apk/debug/app-debug.apk ]; then
+            cp mobile-app/android/app/build/outputs/apk/debug/app-debug.apk staged-android/ArgusAttendance-Android-Debug.apk
+          fi
+
+      - name: Upload Android Staging Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-asset-android
+          path: staged-android/*
+          if-no-files-found: error
+
+  # =========================================================================
+  # 4. IOS BUILD (.ipa Package)
+  # =========================================================================
+  build-ios:
+    name: Build iOS (.ipa)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'mobile-app/package-lock.json'
+
+      - name: Set up CocoaPods
+        run: |
+          sudo gem install cocoapods
+
+      - name: Install Dependencies & Sync iOS
+        working-directory: mobile-app
+        run: |
+          npm ci
+          npx cap sync ios
+
+      - name: Install Pods
+        working-directory: mobile-app/ios/App
+        run: |
+          pod install --repo-update
+
+      - name: Build iOS Archive (App.xcarchive)
+        working-directory: mobile-app/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/App.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+
+      - name: Package Payload into .IPA
+        working-directory: mobile-app/ios/App
+        run: |
+          mkdir -p build/Payload
+          cp -r build/App.xcarchive/Products/Applications/App.app build/Payload/
+          cd build
+          zip -r ArgusAttendance-iOS.ipa Payload/
+          cd ../../../
+          mkdir -p staged-ios
+          cp mobile-app/ios/App/build/ArgusAttendance-iOS.ipa staged-ios/ArgusAttendance-iOS.ipa
+
+      - name: Upload iOS Staging Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-asset-ios
+          path: staged-ios/*
+          if-no-files-found: error
+
+  # =========================================================================
+  # 5. UNIFIED GITHUB RELEASE PUBLISHING
+  # =========================================================================
+  publish-release:
+    name: Publish All Packages to GitHub Release
+    needs: [build-windows, build-macos, build-android, build-ios]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-asset-windows
+          path: final-release-assets
+
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-asset-macos
+          path: final-release-assets
+
+      - name: Download Android Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-asset-android
+          path: final-release-assets
+
+      - name: Download iOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-asset-ios
+          path: final-release-assets
+
+      - name: List Release Packages
+        run: |
+          echo "=== Ready Release Packages ==="
+          ls -la final-release-assets/
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
+          name: ${{ github.event.inputs.release_title || github.ref_name }}
+          files: final-release-assets/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
