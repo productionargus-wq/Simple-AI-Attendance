@@ -1646,12 +1646,16 @@ def api_dashboard_previous_month_salary_pdf():
 def employee_details():
     comp_id = get_current_company_id()
     branches = []
+    company_calculate_proper_entries = True
     if comp_id:
         try:
             branches = database.get_company_branches(comp_id)
+            comp = database.get_company_by_id(comp_id)
+            if comp and comp.get('calculate_proper_entries') is False:
+                company_calculate_proper_entries = False
         except Exception:
             branches = []
-    return render_template('employees.html', active_tab='EMPLOYEE DETAILS', branches=branches, active_branch_id=get_current_branch_id())
+    return render_template('employees.html', active_tab='EMPLOYEE DETAILS', branches=branches, active_branch_id=get_current_branch_id(), company_calculate_proper_entries=company_calculate_proper_entries)
 
 @app.route('/live-report')
 @login_required
@@ -2812,9 +2816,10 @@ def api_get_employees():
     limit = int(request.args.get('limit', 10))
     status = request.args.get('status', '').strip()
     
+    comp_id = get_current_company_id()
     branch_id = request.args.get('branch_id') or get_current_branch_id()
     result = database.get_all_employees(
-        company_id=get_current_company_id(),
+        company_id=comp_id,
         search=search,
         sort_col=sort_col,
         sort_dir=sort_dir,
@@ -2823,14 +2828,22 @@ def api_get_employees():
         status=status,
         branch_id=branch_id
     )
+    if isinstance(result, dict):
+        comp = None
+        if comp_id:
+            comp = database.get_company_by_id(comp_id)
+        result['company_calculate_proper_entries'] = (comp.get('calculate_proper_entries') is not False) if comp else True
     return jsonify(result)
 
 @app.route('/api/employees/<emp_id>', methods=['GET'])
 @login_required
 def api_get_employee(emp_id):
-    emp = database.get_employee_by_id(emp_id)
+    emp = database.get_employee_by_id(emp_id, company_id=get_current_company_id())
     if not emp:
         return jsonify({'error': 'Employee not found'}), 404
+    comp_id = emp.get('company_id') or get_current_company_id()
+    comp = database.get_company_by_id(comp_id) if comp_id else None
+    emp['company_calculate_proper_entries'] = (comp.get('calculate_proper_entries') is not False) if comp else True
     return jsonify(emp)
 
 def extract_employee_permissions(data, default_val=True):

@@ -11,6 +11,150 @@
 (function (window, document) {
   'use strict';
 
+// --- UNIVERSAL DRAGGABLE & BOTTOM-CENTERED AI DOCK CONTROLLER ---
+if (!window.initArgusAiDockDraggable) {
+// Shared utility: Initialize Draggable & Bottom-Centered AI Dock
+window.initArgusAiDockDraggable = function (dock) {
+  if (!dock || dock.__argusDraggableReady) return;
+  dock.__argusDraggableReady = true;
+
+  const STORAGE_KEY = 'argus_ai_dock_pos';
+
+  function clampAndApply(left, top) {
+    const dockW = dock.offsetWidth || 170;
+    const dockH = dock.offsetHeight || 50;
+    const margin = 12;
+    const maxL = Math.max(margin, window.innerWidth - dockW - margin);
+    const maxT = Math.max(margin, window.innerHeight - dockH - margin);
+    const safeL = Math.max(margin, Math.min(left, maxL));
+    const safeT = Math.max(margin, Math.min(top, maxT));
+
+    dock.style.left = safeL + 'px';
+    dock.style.top = safeT + 'px';
+    dock.style.bottom = 'auto';
+    dock.style.right = 'auto';
+    dock.style.transform = 'none';
+  }
+
+  function restorePosition() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const pos = JSON.parse(saved);
+        if (typeof pos.left === 'number' && typeof pos.top === 'number') {
+          clampAndApply(pos.left, pos.top);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Dock restore error:', e);
+    }
+    // Default position: bottom center
+    dock.style.left = '50%';
+    dock.style.bottom = '24px';
+    dock.style.top = 'auto';
+    dock.style.right = 'auto';
+    dock.style.transform = 'translateX(-50%)';
+  }
+
+  let isDragging = false;
+  let hasMoved = false;
+  let startX = 0, startY = 0;
+  let initialLeft = 0, initialTop = 0;
+
+  function onPointerDown(e) {
+    // Only primary mouse button or single touch
+    if (e.type === 'mousedown' && e.button !== 0) return;
+
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX;
+    startY = pt.clientY;
+
+    const rect = dock.getBoundingClientRect();
+    initialLeft = rect.left;
+    initialTop = rect.top;
+    hasMoved = false;
+    isDragging = true;
+
+    document.addEventListener('mousemove', onPointerMove, { passive: false });
+    document.addEventListener('mouseup', onPointerUp, { passive: false });
+    document.addEventListener('touchmove', onPointerMove, { passive: false });
+    document.addEventListener('touchend', onPointerUp, { passive: false });
+  }
+
+  function onPointerMove(e) {
+    if (!isDragging) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const dx = pt.clientX - startX;
+    const dy = pt.clientY - startY;
+
+    if (!hasMoved && Math.hypot(dx, dy) > 5) {
+      hasMoved = true;
+      dock.classList.add('is-dragging');
+    }
+
+    if (hasMoved) {
+      if (e.cancelable) e.preventDefault();
+      clampAndApply(initialLeft + dx, initialTop + dy);
+    }
+  }
+
+  function onPointerUp(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    dock.classList.remove('is-dragging');
+
+    document.removeEventListener('mousemove', onPointerMove);
+    document.removeEventListener('mouseup', onPointerUp);
+    document.removeEventListener('touchmove', onPointerMove);
+    document.removeEventListener('touchend', onPointerUp);
+
+    if (hasMoved) {
+      // Mark as just dragged so clicks on circle buttons are suppressed
+      window.__argusDockJustDragged = true;
+      setTimeout(() => {
+        window.__argusDockJustDragged = false;
+      }, 160);
+
+      const rect = dock.getBoundingClientRect();
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          left: Math.round(rect.left),
+          top: Math.round(rect.top)
+        }));
+      } catch (err) {}
+    }
+  }
+
+  dock.addEventListener('mousedown', onPointerDown);
+  dock.addEventListener('touchstart', onPointerDown, { passive: true });
+
+  // Capture click events during or immediately after drag to prevent opening agent modals
+  dock.addEventListener('click', function (e) {
+    if (window.__argusDockJustDragged) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+    }
+  }, true);
+
+  // Restore position immediately and on window resize
+  setTimeout(restorePosition, 40);
+  window.addEventListener('resize', () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const pos = JSON.parse(saved);
+        if (typeof pos.left === 'number' && typeof pos.top === 'number') {
+          clampAndApply(pos.left, pos.top);
+        }
+      }
+    } catch (e) {}
+  });
+};
+
+}
+
+
   // =========================================================================
   // 1. ARGUS KNOWLEDGE BASE (TIER 1 - INSTANT 0ms RESPONSES)
   // =========================================================================
@@ -401,6 +545,9 @@
         dock.id = 'argusAiDock';
         dock.className = 'argus-ai-dock';
         document.body.appendChild(dock);
+      }
+      if (window.initArgusAiDockDraggable) {
+        window.initArgusAiDockDraggable(dock);
       }
 
       // Remove existing teacher AI buttons if any to prevent duplicate dock icons

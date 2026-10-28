@@ -1508,6 +1508,15 @@ def get_employee_by_id(emp_id, company_id=None):
                 'monthly_payslip': True,
                 'employee_credentials': True
             }
+        cid = cleaned.get('company_id')
+        if cid:
+            try:
+                comp = get_company_by_id(cid)
+                cleaned['company_calculate_proper_entries'] = (comp.get('calculate_proper_entries') is not False) if comp else True
+            except Exception:
+                cleaned['company_calculate_proper_entries'] = True
+        else:
+            cleaned['company_calculate_proper_entries'] = True
     return cleaned
 
 def safe_float(val, default=0.0):
