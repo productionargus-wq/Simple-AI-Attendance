@@ -237,9 +237,8 @@ jobs:
           cp -r build/App.xcarchive/Products/Applications/App.app build/Payload/
           cd build
           zip -r ArgusAttendance-iOS.ipa Payload/
-          cd ../../../
-          mkdir -p staged-ios
-          cp mobile-app/ios/App/build/ArgusAttendance-iOS.ipa staged-ios/ArgusAttendance-iOS.ipa
+          mkdir -p "$GITHUB_WORKSPACE/staged-ios"
+          cp ArgusAttendance-iOS.ipa "$GITHUB_WORKSPACE/staged-ios/ArgusAttendance-iOS.ipa"
 
       - name: Upload iOS Staging Artifact
         uses: actions/upload-artifact@v4
