@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connecting to Google - ARGUS TECHNOLOGIES</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0d3257 0%, #152e4d 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+    }
+    .waiting-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 36px 32px;
+      max-width: 440px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+    }
+    .spinner-ring {
+      display: inline-block;
+      width: 54px;
+      height: 54px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #ff5500;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 20px;
+      color: #0d3257;
+      font-weight: 700;
+    }
+    p {
+      margin: 0 0 16px;
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f1f5f9;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #475569;
+      font-weight: 600;
+      margin-bottom: 22px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff5500;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .btn-action {
+      display: block;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: #ff5500;
+      color: #ffffff;
+    }
+    .btn-primary:hover {
+      background: #e04b00;
+    }
+    .btn-secondary {
+      background: #f8fafc;
+      color: #64748b;
+      border: 1px solid #cbd5e1;
+    }
+    .btn-secondary:hover {
+      background: #f1f5f9;
+      color: #334155;
+    }
+  </style>
+</head>
+<body>
+  <div class="waiting-card">
+    <div class="spinner-ring"></div>
+    <h2>Signing In with Google</h2>
+    <p>We've launched Google Sign-In in your default web browser (Chrome, Edge, etc.) for a secure authentication.</p>
+
+    <div class="status-badge">
+      <span class="status-dot"></span>
+      <span id="statusText">Waiting for browser sign-in...</span>
+    </div>
+
+    <div class="actions">
+      <a href="{{ auth_url }}" target="_blank" class="btn-action btn-primary" id="openBrowserBtn">
+        Open Browser Again
+      </a>
+      <a href="{{ cancel_url }}" class="btn-action btn-secondary">
+        Cancel &amp; Return to Login
+      </a>
+    </div>
+  </div>
+
+  <script>
+    const authId = "{{ auth_id }}";
+    const statusText = document.getElementById('statusText');
+    let pollInterval = null;
+
+    function checkAuthStatus() {
+      fetch(`/auth/google/desktop-check?auth_id=${encodeURIComponent(authId)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'success') {
+            clearInterval(pollInterval);
+            statusText.textContent = 'Authenticated! Opening dashboard...';
+            statusText.style.color = '#16a34a';
+            window.location.href = `/auth/google/desktop-claim?auth_id=${encodeURIComponent(authId)}`;
+          } else if (data.status === 'error') {
+            clearInterval(pollInterval);
+            statusText.textContent = data.message || 'Authentication failed.';
+            statusText.style.color = '#dc2626';
+          }
+        })
+        .catch(err => {
+          console.error("Auth status check error:", err);
+        });
+    }
+
+    // Poll every 1200ms
+    pollInterval = setInterval(checkAuthStatus, 1200);
+
+    // Initial check after 1.5s
+    setTimeout(checkAuthStatus, 1500);
+  </script>
+</body>
+</html>

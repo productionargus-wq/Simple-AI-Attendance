@@ -61,6 +61,9 @@ def wait_for_server_ready(url, timeout=12):
 
 
 def main():
+    # Mark execution as running inside the desktop application wrapper
+    os.environ['ARGUS_DESKTOP'] = '1'
+
     # Lazy import Flask app to ensure all paths are initialized
     from app import app
 

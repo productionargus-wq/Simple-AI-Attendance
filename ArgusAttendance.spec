@@ -14,6 +14,9 @@ datas = [
     ('models', 'models'),
 ]
 
+if os.path.exists('.env'):
+    datas.append(('.env', '.'))
+
 # Hidden imports required for dynamic dependencies
 hidden_imports = [
     'waitress',

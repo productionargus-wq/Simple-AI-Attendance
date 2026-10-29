@@ -38,6 +38,22 @@ import database
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '').strip()
 
+# Thread-safe in-memory store for desktop Google OAuth sessions
+DESKTOP_AUTH_SESSIONS = {}
+DESKTOP_AUTH_LOCK = threading.Lock()
+
+def is_desktop_mode():
+    """Detects if the application is running in the native desktop window (PyWebView/frozen)."""
+    return getattr(sys, 'frozen', False) or os.environ.get('ARGUS_DESKTOP') == '1'
+
+def cleanup_desktop_auth_sessions():
+    """Removes desktop authentication sessions older than 10 minutes."""
+    now = time.time()
+    with DESKTOP_AUTH_LOCK:
+        expired = [k for k, v in DESKTOP_AUTH_SESSIONS.items() if now - v.get('created_at', now) > 600]
+        for k in expired:
+            DESKTOP_AUTH_SESSIONS.pop(k, None)
+
 try:
     import pdf_generator
 except Exception as e:
@@ -1074,8 +1090,8 @@ def google_login():
     else:
         session.pop('oauth_next_url', None)
 
-    state = secrets.token_urlsafe(32)
-    session['oauth_state'] = state
+    raw_state = secrets.token_urlsafe(32)
+    session['oauth_state'] = raw_state
     session['oauth_login_type'] = login_type
 
     redirect_uri = url_for('google_callback', _external=True)
@@ -1084,16 +1100,56 @@ def google_login():
 
     session['oauth_redirect_uri'] = redirect_uri
 
+    # Check if request is initiated within the native desktop app
+    is_desktop = is_desktop_mode() or request.args.get('desktop') == '1'
+    desktop_auth_id = None
+    state_param = raw_state
+
+    if is_desktop:
+        desktop_auth_id = secrets.token_urlsafe(32)
+        state_param = f"{raw_state}__d_{desktop_auth_id}"
+        cleanup_desktop_auth_sessions()
+        with DESKTOP_AUTH_LOCK:
+            DESKTOP_AUTH_SESSIONS[desktop_auth_id] = {
+                'status': 'pending',
+                'created_at': time.time(),
+                'login_type': login_type,
+                'oauth_next': next_url,
+                'raw_state': raw_state,
+                'redirect_uri': redirect_uri
+            }
+
     params = {
         'client_id': GOOGLE_CLIENT_ID,
         'redirect_uri': redirect_uri,
         'response_type': 'code',
         'scope': 'openid email profile',
-        'state': state,
+        'state': state_param,
         'access_type': 'online',
         'prompt': 'select_account'
     }
     auth_url = 'https://accounts.google.com/o/oauth2/v2/auth?' + urllib.parse.urlencode(params)
+
+    if is_desktop and desktop_auth_id:
+        # Launch Google OAuth in the user's default real browser (Chrome/Edge) to prevent 403 disallowed_useragent
+        try:
+            import webbrowser
+            webbrowser.open(auth_url)
+        except Exception as e:
+            print(f"[DesktopOAuth] Could not auto-open browser: {e}")
+
+        cancel_url = next_url if next_url == '/field-worker' else (
+            url_for('company_login') if login_type == 'company' else (
+                url_for('employee_login') if login_type == 'employee' else url_for('login')
+            )
+        )
+        return render_template(
+            'desktop_oauth_waiting.html',
+            auth_id=desktop_auth_id,
+            auth_url=auth_url,
+            cancel_url=cancel_url
+        )
+
     return redirect(auth_url)
 
 @app.route('/auth/google/callback')
@@ -1103,7 +1159,38 @@ def google_callback():
     login_type = session.get('oauth_login_type', 'admin')
     oauth_next = session.pop('oauth_next_url', None)
 
+    code = request.args.get('code')
+    state = request.args.get('state')
+
+    # Detect if this callback originated from a desktop OAuth flow
+    desktop_auth_id = None
+    expected_state = session.get('oauth_state')
+    desktop_sess = None
+
+    if state and '__d_' in state:
+        parts = state.split('__d_', 1)
+        raw_state_received = parts[0]
+        desktop_auth_id = parts[1] if len(parts) > 1 else None
+
+        if desktop_auth_id:
+            cleanup_desktop_auth_sessions()
+            with DESKTOP_AUTH_LOCK:
+                desktop_sess = DESKTOP_AUTH_SESSIONS.get(desktop_auth_id)
+
+            if desktop_sess:
+                login_type = desktop_sess.get('login_type', 'admin')
+                oauth_next = desktop_sess.get('oauth_next')
+                expected_state = desktop_sess.get('raw_state')
+                state = raw_state_received
+
     def render_oauth_error(msg):
+        if desktop_auth_id:
+            with DESKTOP_AUTH_LOCK:
+                DESKTOP_AUTH_SESSIONS[desktop_auth_id] = {
+                    'status': 'error',
+                    'message': msg,
+                    'created_at': time.time()
+                }
         if oauth_next == '/field-worker':
             return render_template('field_worker_login.html', error=msg, selected_role='field_worker' if login_type == 'employee' else 'company_admin')
         if login_type == 'company':
@@ -1116,14 +1203,14 @@ def google_callback():
     if error:
         return render_oauth_error(f"Google sign-in was cancelled or failed ({error}).")
 
-    code = request.args.get('code')
-    state = request.args.get('state')
-    expected_state = session.get('oauth_state')
-
     if not code or not state or state != expected_state:
         return render_oauth_error("Invalid or expired OAuth state. Please try logging in again.")
 
-    redirect_uri = session.get('oauth_redirect_uri') or url_for('google_callback', _external=True)
+    redirect_uri = (
+        (desktop_sess.get('redirect_uri') if desktop_sess else None) or
+        session.get('oauth_redirect_uri') or
+        url_for('google_callback', _external=True)
+    )
     if request.headers.get('X-Forwarded-Proto') == 'https' and redirect_uri.startswith('http://'):
         redirect_uri = redirect_uri.replace('http://', 'https://', 1)
 
@@ -1163,6 +1250,17 @@ def google_callback():
 
     # Helper login session finalizers
     def _do_admin_login(adm_user):
+        if desktop_auth_id:
+            with DESKTOP_AUTH_LOCK:
+                DESKTOP_AUTH_SESSIONS[desktop_auth_id] = {
+                    'status': 'success',
+                    'role': 'super_admin',
+                    'user_data': adm_user,
+                    'redirect_target': oauth_next if oauth_next == '/field-worker' else url_for('dashboard'),
+                    'google_email': google_email,
+                    'created_at': time.time()
+                }
+            return render_template('desktop_oauth_browser_success.html', email=google_email)
         session.clear()
         session.permanent = True
         session['admin_logged_in'] = True
@@ -1175,6 +1273,17 @@ def google_callback():
         return finalize_login_session(resp, 'super_admin', adm_user)
 
     def _do_company_login(comp):
+        if desktop_auth_id:
+            with DESKTOP_AUTH_LOCK:
+                DESKTOP_AUTH_SESSIONS[desktop_auth_id] = {
+                    'status': 'success',
+                    'role': 'company_admin',
+                    'user_data': comp,
+                    'redirect_target': oauth_next if oauth_next == '/field-worker' else url_for('dashboard'),
+                    'google_email': google_email,
+                    'created_at': time.time()
+                }
+            return render_template('desktop_oauth_browser_success.html', email=google_email)
         session.clear()
         session.permanent = True
         session['admin_logged_in'] = True
@@ -1187,6 +1296,17 @@ def google_callback():
         return finalize_login_session(resp, 'company_admin', comp)
 
     def _do_employee_login(emp):
+        if desktop_auth_id:
+            with DESKTOP_AUTH_LOCK:
+                DESKTOP_AUTH_SESSIONS[desktop_auth_id] = {
+                    'status': 'success',
+                    'role': 'employee',
+                    'user_data': emp,
+                    'redirect_target': oauth_next if oauth_next == '/field-worker' else url_for('employee_portal'),
+                    'google_email': google_email,
+                    'created_at': time.time()
+                }
+            return render_template('desktop_oauth_browser_success.html', email=google_email)
         session.clear()
         session.permanent = True
         session['employee_logged_in'] = True
@@ -1278,6 +1398,85 @@ def google_callback():
         )
 
     return redirect(url_for('login'))
+
+@app.route('/auth/google/desktop-check')
+def google_desktop_check():
+    """Polls status of a pending desktop OAuth session."""
+    auth_id = request.args.get('auth_id', '').strip()
+    if not auth_id:
+        return jsonify({'status': 'error', 'message': 'Missing auth_id'}), 400
+
+    cleanup_desktop_auth_sessions()
+    with DESKTOP_AUTH_LOCK:
+        sess = DESKTOP_AUTH_SESSIONS.get(auth_id)
+
+    if not sess:
+        return jsonify({'status': 'pending'})
+
+    return jsonify({
+        'status': sess.get('status', 'pending'),
+        'message': sess.get('message', '')
+    })
+
+@app.route('/auth/google/desktop-claim')
+def google_desktop_claim():
+    """Finalizes session in the desktop app window once external browser auth succeeds."""
+    auth_id = request.args.get('auth_id', '').strip()
+    if not auth_id:
+        return redirect(url_for('login'))
+
+    cleanup_desktop_auth_sessions()
+    with DESKTOP_AUTH_LOCK:
+        sess = DESKTOP_AUTH_SESSIONS.pop(auth_id, None)
+
+    if not sess or sess.get('status') != 'success':
+        flash('Desktop authentication expired or was not completed. Please try again.', 'error')
+        return redirect(url_for('login'))
+
+    role = sess.get('role')
+    user_data = sess.get('user_data') or {}
+    redirect_target = sess.get('redirect_target') or url_for('dashboard')
+
+    if role == 'super_admin':
+        session.clear()
+        session.permanent = True
+        session['admin_logged_in'] = True
+        session['admin_username'] = user_data.get('username', 'Admin')
+        session['admin_email'] = user_data.get('email', 'technologiesargus@gmail.com')
+        session['role'] = 'super_admin'
+        session['company_id'] = 'ARGUS_MASTER'
+        session['company_name'] = 'ARGUS TECHNOLOGIES'
+        resp = redirect(redirect_target)
+        return finalize_login_session(resp, 'super_admin', user_data)
+
+    elif role == 'company_admin':
+        session.clear()
+        session.permanent = True
+        session['admin_logged_in'] = True
+        session['admin_username'] = user_data.get('company_name', 'Company Admin')
+        session['role'] = 'company_admin'
+        session['company_id'] = str(user_data.get('id') or user_data.get('_id', ''))
+        session['company_name'] = user_data.get('company_name', '')
+        session['company_email'] = user_data.get('email', '')
+        resp = redirect(redirect_target)
+        return finalize_login_session(resp, 'company_admin', user_data)
+
+    elif role == 'employee':
+        session.clear()
+        session.permanent = True
+        session['employee_logged_in'] = True
+        session['role'] = 'employee'
+        session['employee_id'] = str(user_data.get('id', user_data.get('_id', '')))
+        session['employee_name'] = user_data.get('employee_name', '')
+        session['employee_email'] = user_data.get('email_id', '')
+        c_id = user_data.get('company_id', 'ARGUS_MASTER')
+        session['company_id'] = c_id
+        c_rec = database.get_company_by_id(c_id) if c_id != 'ARGUS_MASTER' else None
+        session['company_name'] = c_rec.get('company_name', 'ARGUS TECHNOLOGIES') if c_rec else 'ARGUS TECHNOLOGIES'
+        resp = redirect(redirect_target)
+        return finalize_login_session(resp, 'employee', user_data)
+
+    return redirect(url_for('dashboard'))
 
 @app.route('/company-login', methods=['GET', 'POST'])
 def company_login():

@@ -36,8 +36,14 @@ jobs:
           cache: 'pip'
 
       - name: Create Production Environment
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         run: |
-          New-Item -Path .env -ItemType File -Value "FLASK_ENV=production`nPORT=5000" -Force
+          $envContent = "FLASK_ENV=production`nPORT=5000"
+          if ($env:GOOGLE_CLIENT_ID) { $envContent += "`nGOOGLE_CLIENT_ID=$($env:GOOGLE_CLIENT_ID)" }
+          if ($env:GOOGLE_CLIENT_SECRET) { $envContent += "`nGOOGLE_CLIENT_SECRET=$($env:GOOGLE_CLIENT_SECRET)" }
+          Set-Content -Path .env -Value $envContent -Force
 
       - name: Install Inno Setup
         run: |
@@ -100,9 +106,14 @@ jobs:
           cache: 'pip'
 
       - name: Create Production Environment
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         run: |
           echo "FLASK_ENV=production" > .env
           echo "PORT=5000" >> .env
+          if [ -n "$GOOGLE_CLIENT_ID" ]; then echo "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" >> .env; fi
+          if [ -n "$GOOGLE_CLIENT_SECRET" ]; then echo "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" >> .env; fi
 
       - name: Install Python Dependencies
         run: |
