@@ -259,7 +259,7 @@ def render_daily_activity_html(report_data):
           <tr>
             <td style="background-color: #f8fafc; padding: 16px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.5;">
               This is an automated notification dispatched by <strong>Argus Attendance Intelligence version 2.0.0</strong>.<br>
-              &copy; 2026 Argus Attendance Intelligence version 2.0.0 &bull; Powered by ARGUS CNC™
+              &copy; 2026 Argus Attendance Intelligence v2.0.0 &bull; Powered by ARGUS CNC™
             </td>
           </tr>
 
@@ -400,7 +400,7 @@ def render_monthly_salary_html(report_data):
           <tr>
             <td style="background-color: #f8fafc; padding: 16px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.5;">
               This is an automated notification dispatched by <strong>Argus Attendance Intelligence version 2.0.0</strong>.<br>
-              &copy; 2026 Argus Attendance Intelligence version 2.0.0 &bull; Powered by ARGUS CNC™
+              &copy; 2026 Argus Attendance Intelligence v2.0.0 &bull; Powered by ARGUS CNC™
             </td>
           </tr>
 

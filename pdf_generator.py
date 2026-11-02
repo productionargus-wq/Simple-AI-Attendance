@@ -3483,7 +3483,7 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
     ))
     elements.append(Spacer(1, 2))
     elements.append(Paragraph(
-        "&copy; 2026 Argus Attendance Intelligence version 2.0.0 | Powered by ArgusCNC(TM)",
+        "&copy; 2026 Argus Attendance Intelligence v2.0.0 | Powered by ArgusCNC(TM)",
         footer_style
     ))
 
