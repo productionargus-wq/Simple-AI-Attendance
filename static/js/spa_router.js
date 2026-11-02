@@ -32,9 +32,9 @@
   const inflightFetches = new Map(); // key -> Promise<string>
   const hoverTimers = new Map(); // anchor -> timerId
 
-  const CACHE_MAX_AGE_MS = 60 * 1000;       // 60 seconds max cache lifetime
-  const SWR_STALE_AFTER_MS = 25 * 1000;     // After 25 seconds, revalidate in background
-  const HOVER_DELAY_MS = 65;                // 65ms hover debounce to avoid accidental swipes
+  const CACHE_MAX_AGE_MS = 120 * 1000;       // 60 seconds max cache lifetime
+  const SWR_STALE_AFTER_MS = 45 * 1000;     // After 25 seconds, revalidate in background
+  const HOVER_DELAY_MS = 100;                // 65ms hover debounce to avoid accidental swipes
 
   let isNavigating = false;
   let activeAbortController = null;
@@ -211,11 +211,31 @@
     // Clear old dynamically injected scripts
     scriptContainer.innerHTML = '';
 
-    // Find scripts in new document that are page-specific
+    // Only execute scripts that are inside .main-content or specific to the incoming page view
+    // (Shared layout scripts in <head> or footer like base.html scripts are already active and must NOT re-execute)
+    const newMain = newDoc.querySelector('.main-content');
+    const mainScripts = newMain ? Array.from(newMain.querySelectorAll('script')) : [];
     const incomingScripts = Array.from(newDoc.querySelectorAll('script'));
+    
+    // Also include any inline scripts from the new document that are NOT in the layout template
     const scriptsToRun = incomingScripts.filter(s => {
-      const src = s.getAttribute('src') || '';
-      return !src.includes('main.js') && !src.includes('spa_router.js') && !src.includes('chart.umd.min.js');
+      if (s.hasAttribute('data-layout-script')) return false;
+      const src = (s.getAttribute('src') || '').toLowerCase();
+      if (src) {
+        return !src.includes('main.js') &&
+               !src.includes('spa_router.js') &&
+               !src.includes('chart.umd.min.js') &&
+               !src.includes('teacher_ai.js') &&
+               !src.includes('coworker_ai.js') &&
+               !src.includes('advisor_ai.js') &&
+               !src.includes('voice_assistant.js');
+      }
+      // For inline scripts, only run if inside .main-content or marked page-script
+      const text = s.textContent || '';
+      if (text.includes('argus_remember_token') || text.includes('toggleNavBranchDropdown') || text.includes('IS_SYSTEM_ADMIN')) {
+        return false; // Skip base layout global scripts
+      }
+      return true;
     });
 
     for (const oldScript of scriptsToRun) {
@@ -434,16 +454,17 @@
     navigateTo(window.location.href, false);
   });
 
-  // 12. Idle Pre-loading: Pre-load common routes when CPU & Network are idle
+  // 12. Idle Pre-loading: Only pre-load primary routes after browser is fully settled
   function preloadCommonTabs() {
-    const commonTabs = ['/dashboard', '/live-report', '/attendance-report', '/employee-details', '/branches'];
-    const idleRunner = window.requestIdleCallback || ((cb) => setTimeout(cb, 1200));
+    // Only pre-load the 2 most likely next tabs, spaced well apart
+    const commonTabs = ['/live-report', '/employee-details'];
+    const idleRunner = window.requestIdleCallback || ((cb) => setTimeout(cb, 2500));
 
     idleRunner(() => {
       commonTabs.forEach((tab, index) => {
         setTimeout(() => {
           prefetch(tab);
-        }, index * 300);
+        }, 800 + (index * 1200));
       });
     });
   }
@@ -451,12 +472,19 @@
   // 13. Initialize on boot
   document.addEventListener('DOMContentLoaded', () => {
     initProgressBar();
-    setTimeout(preloadCommonTabs, 1200);
+    setTimeout(preloadCommonTabs, 3000);
   });
 
   // Expose global methods
   window.spaNavigate = navigateTo;
   window.spaPrefetch = prefetch;
   window.spaClearCache = () => pageCache.clear();
+  window.spaInvalidateRoute = (url) => {
+    try {
+      const key = getCacheKey(url);
+      pageCache.delete(key);
+    } catch (e) {}
+  };
+  window.spaInvalidateAll = () => pageCache.clear();
 
 })();

@@ -1,5 +1,10 @@
 import os
 import sys
+import platform
+try:
+    platform.win32_ver()
+except Exception:
+    platform.win32_ver = lambda *a, **k: ('10', '10.0.22631', 'SP0', 'Multiprocessor Free')
 import time
 import re
 import io

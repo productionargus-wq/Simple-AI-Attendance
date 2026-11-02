@@ -909,21 +909,31 @@ def toggle_company_delete_entries(comp_id, enabled=None):
     invalidate_company_cache(comp_id)
     return new_val
 
+_company_active_cache = {}
+_company_active_cache_ttl = 30  # seconds
+
 def is_company_active(comp_id):
-    """Checks whether a company is active. Returns False ONLY if explicitly marked Deactive or Inactive."""
+    """Checks whether a company is active (cached for 30s to avoid DB query on every tab switch). Returns False ONLY if explicitly marked Deactive or Inactive."""
     if not comp_id or str(comp_id).strip() in ['ALL', 'ARGUS_MASTER']:
         return True
+    cid_str = str(comp_id).strip()
+    now = time.time()
+    if cid_str in _company_active_cache:
+        ts, status = _company_active_cache[cid_str]
+        if now - ts < _company_active_cache_ttl:
+            return status
     try:
         db = get_db()
-        cid_str = str(comp_id).strip()
-        comp = db.company_admin.find_one({'id': cid_str})
+        comp = db.company_admin.find_one({'id': cid_str}, {'status': 1})
         if not comp:
-            comp = db.company_admin.find_one(build_id_filter(cid_str))
+            comp = db.company_admin.find_one(build_id_filter(cid_str), {'status': 1})
         if not comp:
-            # If company record not found, don't falsely evict an active session
+            _company_active_cache[cid_str] = (now, True)
             return True
-        status = str(comp.get('status', 'Active')).strip().lower()
-        return status not in ['deactive', 'inactive', 'disabled']
+        status_val = str(comp.get('status', 'Active')).strip().lower()
+        is_act = status_val not in ['deactive', 'inactive', 'disabled']
+        _company_active_cache[cid_str] = (now, is_act)
+        return is_act
     except Exception as e:
         print(f"Warning: is_company_active check error: {e}")
         return True
