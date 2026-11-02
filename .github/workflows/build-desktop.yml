@@ -100,7 +100,7 @@ jobs:
       - name: Package macOS DMG Installer & ZIP
         run: |
           cd dist
-          hdiutil create -volname "Argus Attendance" -srcfolder "ArgusAttendance.app" -ov -format UDZO "ArgusAttendance-macOS.dmg"
+          hdiutil create -volname "Argus Attendance Intelligence" -srcfolder "ArgusAttendance.app" -ov -format UDZO "ArgusAttendance-macOS.dmg"
           zip -r "ArgusAttendance-macOS.zip" "ArgusAttendance.app"
 
       - name: Upload macOS Installers

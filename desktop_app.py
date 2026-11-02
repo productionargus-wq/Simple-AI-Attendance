@@ -1,5 +1,5 @@
 """
-ARGUS TECHNOLOGIES - Desktop Application Launcher
+ARGUS CNC™ - Desktop Application Launcher
 Runs the Flask Attendance & Operations Management Web Application inside a native,
 dedicated desktop window (powered by Microsoft Edge WebView2 via PyWebView):
 - Runs in its own desktop window: NO browser address bar, NO tabs, NO bookmarks.
@@ -72,7 +72,7 @@ def main():
     server_url = f"http://{host}:{port}/"
 
     print("================================================================")
-    print("ARGUS TECHNOLOGIES - AI ATTENDANCE DESKTOP APPLICATION")
+    print("ARGUS CNC™ - ARGUS ATTENDANCE INTELLIGENCE VERSION 2.0.0")
     print(f"Embedded Server URL: {server_url}")
     print("Initializing Native Application Window (WebView2)...")
     print("================================================================")
@@ -104,7 +104,7 @@ def main():
 
     # 5. Create native desktop window
     window = webview.create_window(
-        title='ARGUS TECHNOLOGIES - AI Attendance & Operations Management',
+        title='Argus Attendance Intelligence version 2.0.0',
         url=server_url,
         width=1366,
         height=860,

@@ -1,5 +1,5 @@
 /**
- * ARGUS TECHNOLOGIES — TEACHER AI ENGINE (AGENT 1)
+ * ARGUS CNC™ — TEACHER AI ENGINE (AGENT 1)
  * =============================================================
  * Interactive on-screen AI tutor and mentor that explains any element,
  * tab, form input, modal control, or button wherever the cursor hovers.
@@ -229,7 +229,7 @@ if (!window.makeAgentButtonDraggable) {
     'nav-support': {
       title: 'Support & Help Desk',
       category: 'Support Portal',
-      text: 'Submit technical inquiries, report hardware or biometric issues, and communicate directly with Argus Technologies technical support engineers.'
+      text: 'Submit technical inquiries, report hardware or biometric issues, and communicate directly with ARGUS CNC™ technical support engineers.'
     },
 
     // --- EMPLOYEE MODAL FIELDS ---
@@ -462,9 +462,11 @@ if (!window.makeAgentButtonDraggable) {
   class ArgusTeacherAI {
     constructor() {
       this.isActive = false;
+      this.language = localStorage.getItem('argus_ai_voice_lang') || 'en';
       this.voiceEnabled = localStorage.getItem('argus_teacher_ai_voice') !== 'false';
       this.synth = window.speechSynthesis || null;
       this.currentUtterance = null;
+      this.activeServerAudio = null;
       this.lastInspectedEl = null;
       this.debounceTimer = null;
       this.cachedExplanations = new Map();
@@ -501,6 +503,9 @@ if (!window.makeAgentButtonDraggable) {
         </div>
         <div class="teacher-ai-hud-info">Hover over any tab, field, or button to learn</div>
         <div class="teacher-ai-hud-actions">
+          <button type="button" class="teacher-ai-btn-voice teacher-ai-btn-lang" id="teacherAiToggleLangBtn" title="Switch Voice Language">
+            <span id="teacherAiLangText">${this.language === 'ta' ? '🌐 தமிழ்' : '🌐 EN'}</span>
+          </button>
           <button type="button" class="teacher-ai-btn-voice" id="teacherAiToggleVoiceBtn" title="Toggle Spoken Voice Explanation">
             <span>${this.voiceEnabled ? '🔊 Voice: ON' : '🔇 Voice: OFF'}</span>
           </button>
@@ -554,6 +559,20 @@ if (!window.makeAgentButtonDraggable) {
       }
 
       // Bind HUD Buttons
+      const langBtn = this.hudEl.querySelector('#teacherAiToggleLangBtn');
+      if (langBtn) {
+        langBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.language = (this.language === 'ta') ? 'en' : 'ta';
+          localStorage.setItem('argus_ai_voice_lang', this.language);
+          const lbl = langBtn.querySelector('#teacherAiLangText');
+          if (lbl) lbl.innerText = (this.language === 'ta') ? '🌐 தமிழ்' : '🌐 EN';
+          if (this.voiceEnabled) {
+            this.speak(this.language === 'ta' ? 'குரல் மொழி தமிழில் மாற்றப்பட்டது.' : 'Voice language set to English.');
+          }
+        });
+      }
+
       const voiceBtn = this.hudEl.querySelector('#teacherAiToggleVoiceBtn');
       if (voiceBtn) {
         voiceBtn.addEventListener('click', (e) => {
@@ -708,8 +727,9 @@ if (!window.makeAgentButtonDraggable) {
       if (info) {
         this.renderBubble(el, info);
         if (this.voiceEnabled) {
-          const speechText = `${info.title}. ${info.text}`;
-          this.speak(speechText);
+          const speechText = (this.language === 'ta' && info.text_ta) ? `${info.title_ta || info.title}. ${info.text_ta}` : `${info.title}. ${info.text}`;
+          const altEnglish = `${info.title}. ${info.text}`;
+          this.speak(speechText, altEnglish);
         }
       }
     }
@@ -925,30 +945,82 @@ if (!window.makeAgentButtonDraggable) {
     }
 
     // Text to Speech
-    speak(text) {
-      if (!this.synth || !this.voiceEnabled || !text) return;
+    speak(text, altEnglishText) {
+      if (!this.voiceEnabled || !text) return;
 
       this.stopSpeaking();
-      try {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.05;
-        utterance.pitch = 1.0;
+      const clean = text.replace(/[*_#`•⚠️📈🏢🚨👉📥👁️🔗]/g, '').replace(/₹/g, ' rupees ').trim();
 
-        // Choose English or Tamil voice based on device / availability
-        const voices = this.synth.getVoices();
-        if (voices && voices.length > 0) {
-          const enVoice = voices.find(v => v.lang.startsWith('en-US') || v.lang.startsWith('en-IN') || v.lang.startsWith('en-GB'));
-          if (enVoice) utterance.voice = enVoice;
+      if (this.language === 'ta') {
+        // 1. Attempt Native Browser Tamil Voice
+        if (this.synth) {
+          const voices = this.synth.getVoices() || [];
+          const taVoice = voices.find(v => {
+            const lang = (v.lang || '').toLowerCase();
+            const name = (v.name || '').toLowerCase();
+            return lang.startsWith('ta') || name.includes('tamil') || name.includes('தமிழ்') || name.includes('valluvar') || name.includes('pallavi');
+          });
+
+          if (taVoice) {
+            try {
+              const utter = new SpeechSynthesisUtterance(clean);
+              utter.voice = taVoice;
+              utter.lang = taVoice.lang || 'ta-IN';
+              utter.rate = 1.05;
+              this.currentUtterance = utter;
+              this.synth.speak(utter);
+              return;
+            } catch (err) {
+              console.warn('[Teacher AI] Native Tamil TTS notice:', err);
+            }
+          }
         }
 
-        this.currentUtterance = utterance;
-        this.synth.speak(utterance);
-      } catch (err) {
-        console.warn('[Teacher AI] Speech synthesis notice:', err);
+        // 2. Server-side Streaming Audio via gTTS disk cache
+        try {
+          const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(clean.slice(0, 950)) + '&lang=ta');
+          audio.playbackRate = 1.1;
+          this.activeServerAudio = audio;
+          audio.play().catch(e => {
+            console.warn('[Teacher AI] Server Tamil audio failed, falling back to English voice:', e);
+            this.speakEnglishFallback(altEnglishText || clean);
+          });
+          return;
+        } catch (e) {
+          console.warn('[Teacher AI] Server audio init error, falling back to English voice:', e);
+        }
+
+        // 3. Desktop Fallback to English Voice
+        this.speakEnglishFallback(altEnglishText || clean);
+      } else {
+        // English voice exclusively
+        this.speakEnglishFallback(clean);
       }
     }
 
+    speakEnglishFallback(text) {
+      if (!this.synth) return;
+      try {
+        const clean = (text || '').replace(/[*_#`•⚠️📈🏢🚨👉📥👁️🔗]/g, '').replace(/₹/g, ' rupees ').trim();
+        const utter = new SpeechSynthesisUtterance(clean);
+        utter.rate = 1.05;
+        const voices = this.synth.getVoices() || [];
+        const enVoice = voices.find(v => (v.lang === 'en-US' || v.lang === 'en-IN' || v.lang === 'en-GB')) ||
+                        voices.find(v => (v.lang || '').toLowerCase().startsWith('en'));
+        if (enVoice) utter.voice = enVoice;
+        this.currentUtterance = utter;
+        this.synth.speak(utter);
+      } catch (e) {}
+    }
+
     stopSpeaking() {
+      if (this.activeServerAudio) {
+        try {
+          this.activeServerAudio.pause();
+          this.activeServerAudio.currentTime = 0;
+        } catch (e) {}
+        this.activeServerAudio = null;
+      }
       if (this.synth) {
         try {
           this.synth.cancel();

@@ -1,6 +1,6 @@
 {
   "appId": "com.argus.attendance",
-  "appName": "Argus Attendance",
+  "appName": "Argus Attendance Intelligence",
   "webDir": "www",
   "server": {
     "url": "https://argusattendance.argussoftwares.com/?app=1",

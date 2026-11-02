@@ -142,11 +142,13 @@ if (!window.makeAgentButtonDraggable) {
   class AdvisorAIEngine {
     constructor() {
       this.isOpen = false;
-      this.voiceEnabled = localStorage.getItem('argus_advisor_voice') === 'true';
+      this.language = localStorage.getItem('argus_ai_voice_lang') || 'en';
+      this.voiceEnabled = localStorage.getItem('argus_advisor_voice') !== 'false';
       this.history = [];
       this.isRecognizing = false;
       this.recognition = null;
       this.kpis = null;
+      this.activeServerAudio = null;
 
       this.init();
     }
@@ -165,14 +167,7 @@ if (!window.makeAgentButtonDraggable) {
         if (saved) {
           this.history = JSON.parse(saved);
         } else {
-          this.history = [
-            {
-              sender: 'advisor',
-              text: 'Welcome to **Advisor AI Executive Boardroom**. I analyze your real-time workforce health, credit risks, advance liabilities, and punctuality patterns. How can I advise company leadership today?',
-              time: this.formatTime(new Date()),
-              highlights: null
-            }
-          ];
+          this.history = [];
         }
       } catch (e) {
         this.history = [];
@@ -251,6 +246,9 @@ if (!window.makeAgentButtonDraggable) {
             </div>
           </div>
           <div class="advisor-header-actions">
+            <button class="advisor-icon-btn advisor-lang-btn" id="advisorLangToggleBtn" title="Language: English / தமிழ்">
+              🌐 <span id="advisorLangLabel">${this.language === 'ta' ? 'தமிழ்' : 'EN'}</span>
+            </button>
             <button class="advisor-icon-btn ${this.voiceEnabled ? 'active' : ''}" id="advisorVoiceBtn" title="Toggle Executive Audio Briefings">
               ${this.voiceEnabled ? '🔊' : '🔇'}
             </button>
@@ -285,6 +283,9 @@ if (!window.makeAgentButtonDraggable) {
 
         <!-- STRATEGIC AUDIT PRESET BAR -->
         <div class="advisor-presets-bar">
+          <div class="advisor-preset-chip active-chip" data-audit="flaw_audit">
+            🚨 Flaw Radar & Solutions
+          </div>
           <div class="advisor-preset-chip" data-audit="health_audit">
             📊 Workforce Health Audit
           </div>
@@ -355,12 +356,27 @@ if (!window.makeAgentButtonDraggable) {
       // Clear button
       this.clearBtn.addEventListener('click', () => this.clearChat());
 
+      // Language toggle
+      this.langBtn = win.querySelector('#advisorLangToggleBtn');
+      if (this.langBtn) {
+        this.langBtn.addEventListener('click', () => {
+          this.language = (this.language === 'ta') ? 'en' : 'ta';
+          localStorage.setItem('argus_ai_voice_lang', this.language);
+          const lbl = this.langBtn.querySelector('#advisorLangLabel');
+          if (lbl) lbl.innerText = (this.language === 'ta') ? 'தமிழ்' : 'EN';
+          this.autoRunFlawAudit();
+        });
+      }
+
       // Voice toggle
       this.voiceBtn.addEventListener('click', () => {
         this.voiceEnabled = !this.voiceEnabled;
         localStorage.setItem('argus_advisor_voice', this.voiceEnabled ? 'true' : 'false');
         this.voiceBtn.innerHTML = this.voiceEnabled ? '🔊' : '🔇';
         this.voiceBtn.classList.toggle('active', this.voiceEnabled);
+        if (!this.voiceEnabled) {
+          this.stopSpeaking();
+        }
       });
 
       // Quick preset audits
@@ -544,15 +560,108 @@ if (!window.makeAgentButtonDraggable) {
       }
     }
 
-    speakReply(text) {
+    async autoRunFlawAudit() {
+      this.showTyping(true);
+      try {
+        const resp = await fetch(`/api/ai/advisor/live-flaws?lang=${this.language}`);
+        const data = await resp.json();
+        this.showTyping(false);
+
+        if (data && data.success) {
+          const speechScript = (this.language === 'ta') ? (data.speech_ta || data.speech_en) : data.speech_en;
+          const altEnglish = data.speech_en;
+
+          this.appendMessage('advisor', data.report_markdown, this.formatTime(new Date()), data.kpis);
+
+          // Automatically speak immediately without asking introductory questions!
+          if (this.voiceEnabled !== false) {
+            this.speakReply(speechScript, altEnglish);
+          }
+        } else {
+          this.appendMessage('advisor', 'Unable to scan organizational flaws at this moment. Please retry.');
+        }
+      } catch (err) {
+        this.showTyping(false);
+        this.appendMessage('advisor', 'Connection error while communicating with Advisor AI flaw scanner.');
+      }
+    }
+
+    stopSpeaking() {
+      if (this.activeServerAudio) {
+        try {
+          this.activeServerAudio.pause();
+          this.activeServerAudio.currentTime = 0;
+        } catch (e) {}
+        this.activeServerAudio = null;
+      }
+      if (window.speechSynthesis) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
+    }
+
+    speakReply(text, altEnglishText) {
+      if (!text || this.voiceEnabled === false) return;
+      this.stopSpeaking();
+
+      const clean = text.replace(/[*_#`•⚠️📈🏢🚨]/g, '').replace(/₹/g, ' rupees ').trim();
+
+      if (this.language === 'ta') {
+        // 1. Attempt Native Browser Tamil Voice
+        if (window.speechSynthesis) {
+          const voices = window.speechSynthesis.getVoices() || [];
+          const taVoice = voices.find(v => {
+            const lang = (v.lang || '').toLowerCase();
+            const name = (v.name || '').toLowerCase();
+            return lang.startsWith('ta') || name.includes('tamil') || name.includes('தமிழ்') || name.includes('valluvar') || name.includes('pallavi');
+          });
+
+          if (taVoice) {
+            try {
+              const utter = new SpeechSynthesisUtterance(clean);
+              utter.voice = taVoice;
+              utter.lang = taVoice.lang || 'ta-IN';
+              utter.rate = 1.05;
+              window.speechSynthesis.speak(utter);
+              return;
+            } catch (err) {
+              console.warn('[Advisor AI] Native Tamil TTS error:', err);
+            }
+          }
+        }
+
+        // 2. Server-side Streaming Audio via gTTS disk cache
+        try {
+          const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(clean.slice(0, 950)) + '&lang=ta');
+          audio.playbackRate = 1.1;
+          this.activeServerAudio = audio;
+          audio.play().catch(e => {
+            console.warn('[Advisor AI] Server Tamil audio failed, falling back to English voice:', e);
+            this.speakEnglishFallback(altEnglishText || clean);
+          });
+          return;
+        } catch (e) {
+          console.warn('[Advisor AI] Server audio init error, falling back to English voice:', e);
+        }
+
+        // 3. Fallback to English voice if Tamil not working on desktop
+        this.speakEnglishFallback(altEnglishText || clean);
+      } else {
+        // English voice exclusively
+        this.speakEnglishFallback(clean);
+      }
+    }
+
+    speakEnglishFallback(text) {
       if (!window.speechSynthesis) return;
       try {
-        window.speechSynthesis.cancel();
-        // Clean markdown symbols for cleaner TTS
-        const clean = text.replace(/[*_#`•]/g, '').replace(/₹/g, ' rupees ');
-        const utterance = new SpeechSynthesisUtterance(clean);
-        utterance.rate = 1.02;
-        window.speechSynthesis.speak(utterance);
+        const clean = (text || '').replace(/[*_#`•⚠️📈🏢🚨]/g, '').replace(/₹/g, ' rupees ').trim();
+        const utter = new SpeechSynthesisUtterance(clean);
+        utter.rate = 1.05;
+        const voices = window.speechSynthesis.getVoices() || [];
+        const enVoice = voices.find(v => (v.lang === 'en-US' || v.lang === 'en-IN' || v.lang === 'en-GB')) ||
+                        voices.find(v => (v.lang || '').toLowerCase().startsWith('en'));
+        if (enVoice) utter.voice = enVoice;
+        window.speechSynthesis.speak(utter);
       } catch (e) {}
     }
 
@@ -650,6 +759,9 @@ if (!window.makeAgentButtonDraggable) {
       this.loadBriefing();
       this.scrollToBottom();
       setTimeout(() => this.textarea.focus(), 150);
+
+      // Autonomous Advisor AI: Automatically scan company flaws and start speaking immediately!
+      this.autoRunFlawAudit();
     }
 
     close() {

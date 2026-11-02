@@ -1,6 +1,6 @@
 # Documentation & Proposals Directory
 
-This directory contains client proposals, technical dossiers, hosting comparisons, and operational guidelines for the **ARGUS TECHNOLOGIES Simple AI Attendance & Operations Management System**.
+This directory contains client proposals, technical dossiers, hosting comparisons, and operational guidelines for the **ARGUS CNC™ - Argus Attendance Intelligence version 2.0.0**.
 
 ---
 

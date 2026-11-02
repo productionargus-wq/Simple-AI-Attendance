@@ -1,11 +1,11 @@
-# ARGUS TECHNOLOGIES - AI Face Attendance Web Application
+# ARGUS CNC™ - Argus Attendance Intelligence version 2.0.0
 
-A full-stack attendance and payroll management web application built with Python Flask and MongoDB Atlas, styled to match Argus Technologies UI.
+A full-stack attendance and payroll management web application built with Python Flask and MongoDB Atlas, styled to match ARGUS CNC™ UI.
 
 ## Features Implemented
 
 ### 1. Dashboard Tab
-- **Top Bar**: Yellow brand banner (`#ffd166`) with Argus Technologies title, hamburger sidebar toggle, Logout button, and Fullscreen toggle.
+- **Top Bar**: Yellow brand banner (`#ffd166`) with ARGUS CNC™ title, hamburger sidebar toggle, Logout button, and Fullscreen toggle.
 - **Fixed Sidebar**: Fixed, non-scrollable left navigation sidebar with responsive collapse. Only right-side content scrolls.
 - **Header Card**: Live updating date and time ticker (`DD/MM/YYYY HH:MM:SS`).
 - **5 Dynamic Stat Summary Cards**: Total, Present, Absent, Present %, Timeout.
@@ -35,7 +35,7 @@ A full-stack attendance and payroll management web application built with Python
 
 ### 7. Monthly Payslip Tab (`/monthly-payslip`)
 - Selection view with Employee, Year, and Month dropdowns.
-- Dynamic Payslip Generation matching official Argus Technologies payslip template (Company info, 4-column earnings/deductions breakdown, Net Pay in figures and words).
+- Dynamic Payslip Generation matching official ARGUS CNC™ payslip template (Company info, 4-column earnings/deductions breakdown, Net Pay in figures and words).
 
 ### 8. Salary Report Tab (`/salary-report`)
 - Comprehensive 14-column monthly salary report table with status badges and totals.

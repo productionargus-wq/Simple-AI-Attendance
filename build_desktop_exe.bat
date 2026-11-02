@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 echo ================================================================
-echo   ARGUS TECHNOLOGIES - DESKTOP EXECUTABLE & INSTALLER BUILDER
+echo   ARGUS CNC™ - DESKTOP EXECUTABLE & INSTALLER BUILDER
 echo ================================================================
 echo.
 
@@ -30,6 +30,7 @@ echo [3/6] Cleaning previous build artifacts...
 if exist "build" rd /s /q "build"
 if exist "dist\ArgusAttendance.exe" del /f /q "dist\ArgusAttendance.exe"
 if exist "dist\ArgusAttendance_Setup_v2.0.exe" del /f /q "dist\ArgusAttendance_Setup_v2.0.exe"
+if exist "dist\ArgusAttendanceIntelligence_Setup_v2.0.exe" del /f /q "dist\ArgusAttendanceIntelligence_Setup_v2.0.exe"
 
 echo.
 echo [4/6] Building standalone single-file Windows executable (.exe)...
@@ -70,20 +71,20 @@ echo [6/6] Cleaning intermediate build files and updating launcher shortcuts...
 if exist "build" rd /s /q "build"
 
 REM Update root launcher shortcut
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('%~dp0ArgusAttendance.lnk'); $s.TargetPath = '%~dp0dist\ArgusAttendance.exe'; $s.WorkingDirectory = '%~dp0dist'; if (Test-Path '%~dp0static\favicon.ico') { $s.IconLocation = '%~dp0static\favicon.ico' }; $s.Description = 'Argus Attendance Desktop Application'; $s.Save()" 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('%~dp0ArgusAttendance.lnk'); $s.TargetPath = '%~dp0dist\ArgusAttendance.exe'; $s.WorkingDirectory = '%~dp0dist'; if (Test-Path '%~dp0static\favicon.ico') { $s.IconLocation = '%~dp0static\favicon.ico' }; $s.Description = 'Argus Attendance Intelligence version 2.0.0'; $s.Save()" 2>nul
 
 echo.
 echo ================================================================
 echo [SUCCESS] Build Process Completed!
 echo.
 echo 1. WINDOWS SETUP INSTALLER (Recommended for Clients):
-echo    dist\ArgusAttendance_Setup_v2.0.exe
+echo    dist\ArgusAttendanceIntelligence_Setup_v2.0.exe
 echo.
 echo 2. PORTABLE STANDALONE EXECUTABLE:
 echo    dist\ArgusAttendance.exe
 echo.
 echo SHARING WITH CLIENTS:
-echo Send "dist\ArgusAttendance_Setup_v2.0.exe" to your clients.
+echo Send "dist\ArgusAttendanceIntelligence_Setup_v2.0.exe" to your clients.
 echo When they run it, it installs like any standard Windows software:
 echo - Creates Start Menu and Desktop shortcuts with Argus icon
 echo - Adds an uninstaller in Windows Settings / Control Panel

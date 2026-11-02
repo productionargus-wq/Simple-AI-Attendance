@@ -12,7 +12,7 @@ from reportlab.graphics.shapes import Drawing, Rect, Path
 def build_pdf_header(elements, company_info=None, title=None, subtitle=None):
     """Renders standardized dynamic company header across all generated PDF reports."""
     comp_info = company_info or {}
-    comp_name = comp_info.get('company_name') or "ARGUS TECHNOLOGIES"
+    comp_name = comp_info.get('company_name') or "ARGUS CNC™"
     comp_addr = comp_info.get('company_address') or comp_info.get('address') or ""
     email = comp_info.get('email') or comp_info.get('company_email') or ""
     phone = comp_info.get('phone') or comp_info.get('company_phone') or ""
@@ -165,7 +165,7 @@ def generate_employee_pdf(emp):
                     photo_widget = None
 
     # Header logo or company text
-    comp_name = emp.get('company_name') or "ARGUS TECHNOLOGIES"
+    comp_name = emp.get('company_name') or "ARGUS CNC™"
     if photo_widget:
         hdr_text = [
             Paragraph(comp_name, title_style),
@@ -252,7 +252,7 @@ def generate_employee_pdf(emp):
     
     elements.append(t)
     elements.append(Spacer(1, 20))
-    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -332,7 +332,7 @@ def generate_employees_pdf(employees, company_info=None):
     ]))
     elements.append(t)
     elements.append(Spacer(1, 14))
-    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -407,7 +407,7 @@ def generate_companies_pdf(companies, company_info=None):
     ]))
     elements.append(t)
     elements.append(Spacer(1, 14))
-    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -500,7 +500,7 @@ def generate_live_report_pdf(title, entries, company_info=None):
     
     elements.append(t)
     elements.append(Spacer(1, 16))
-    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -649,7 +649,7 @@ def generate_attendance_report_pdf(title, entries, is_simple=False, totals=None,
 
     elements.append(t)
     elements.append(Spacer(1, 14))
-    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -743,7 +743,7 @@ def generate_manual_entries_pdf(entries, company_info=None):
     
     elements.append(t)
     elements.append(Spacer(1, 16))
-    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -845,7 +845,7 @@ def generate_payments_pdf(payments, company_info=None):
     
     elements.append(t)
     elements.append(Spacer(1, 16))
-    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -934,7 +934,7 @@ def generate_advances_pdf(advances, company_info=None):
     
     elements.append(t)
     elements.append(Spacer(1, 16))
-    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -1027,7 +1027,7 @@ def generate_balance_report_pdf(data, totals=None, company_info=None):
         elements.append(Paragraph(tot_text, ParagraphStyle('Totals', fontName='Helvetica', fontSize=10, textColor=colors.HexColor('#0d6efd'))))
         elements.append(Spacer(1, 14))
         
-    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     doc.build(elements)
     buffer.seek(0)
     return buffer
@@ -1115,7 +1115,7 @@ PAYSLIP_THEMES = {
 
 def _extract_payslip_fields(p):
     """Centralized extractor for all payslip data fields ensuring consistent dynamic reporting."""
-    comp_name = str(p.get('company_name') or 'ARGUS TECHNOLOGIES').upper()
+    comp_name = str(p.get('company_name') or 'ARGUS CNC™').upper()
     comp_addr = str(p.get('company_address') or '').upper()
     
     contact_bits = []
@@ -1466,8 +1466,8 @@ def _build_payslip_modern_executive(p, template_id, palette):
     # 8. Standardized Footer
     elements.append(Spacer(1, 10))
     footer_data = [[
-        Paragraph("Generated by ARGUS Attendance", ParagraphStyle('FtrL', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
-        Paragraph("Argus Attendance | version 5.1 | powered by ArgusCNC(TM)", ParagraphStyle('FtrR', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b')))
+        Paragraph("Generated by Argus Attendance Intelligence version 2.0.0", ParagraphStyle('FtrL', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
+        Paragraph("Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC(TM)", ParagraphStyle('FtrR', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b')))
     ]]
     t_ftr = Table(footer_data, colWidths=[270, 270])
     t_ftr.setStyle(TableStyle([
@@ -1685,8 +1685,8 @@ def _build_payslip_premium_executive(p, palette):
     # 7. Standardized Footer
     elements.append(Spacer(1, 14))
     footer_data = [[
-        Paragraph("Generated by ARGUS Attendance", ParagraphStyle('FtrL3', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
-        Paragraph("Argus Attendance | version 5.1 | powered by ArgusCNC(TM)", ParagraphStyle('FtrR3', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b')))
+        Paragraph("Generated by Argus Attendance Intelligence version 2.0.0", ParagraphStyle('FtrL3', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
+        Paragraph("Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC(TM)", ParagraphStyle('FtrR3', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b')))
     ]]
     t_ftr = Table(footer_data, colWidths=[270, 270])
     t_ftr.setStyle(TableStyle([
@@ -1827,7 +1827,7 @@ def _build_payslip_classic_grid(p, palette):
     ]))
     elements.append(t_dark)
     elements.append(Spacer(1, 4))
-    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Ftr4', fontName='Helvetica', fontSize=7, leading=9, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC™", ParagraphStyle('Ftr4', fontName='Helvetica', fontSize=7, leading=9, alignment=TA_CENTER, textColor=colors.gray)))
 
     doc.build(elements)
     buffer.seek(0)
@@ -2030,8 +2030,8 @@ def _build_payslip_minimalist_card(p, palette):
 
     # Footer
     footer_data = [[
-        Paragraph("Generated by ARGUS Attendance", ParagraphStyle('FtrL5', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
-        Paragraph("Professional Payroll Document | © Argus Attendance | Version 5.1", ParagraphStyle('FtrR5', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b')))
+        Paragraph("Generated by Argus Attendance Intelligence version 2.0.0", ParagraphStyle('FtrL5', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
+        Paragraph("Professional Payroll Document | © Argus Attendance Intelligence version 2.0.0", ParagraphStyle('FtrR5', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b')))
     ]]
     t_ftr = Table(footer_data, colWidths=[270, 270])
     t_ftr.setStyle(TableStyle([
@@ -2242,8 +2242,8 @@ def _build_payslip_professional_elegant(p, palette):
 
     # Footer
     footer_data = [[
-        Paragraph("Generated by ARGUS Attendance", ParagraphStyle('FtrL6', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
-        Paragraph("Professional Payroll Document | © Argus Attendance | Version 5.1", ParagraphStyle('FtrR6', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b')))
+        Paragraph("Generated by Argus Attendance Intelligence version 2.0.0", ParagraphStyle('FtrL6', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
+        Paragraph("Professional Payroll Document | © Argus Attendance Intelligence version 2.0.0", ParagraphStyle('FtrR6', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b')))
     ]]
     t_ftr = Table(footer_data, colWidths=[270, 270])
     t_ftr.setStyle(TableStyle([
@@ -2520,9 +2520,9 @@ def _build_payslip_template_7(p, palette):
 
     # Footer
     footer_data7 = [[
-        Paragraph("Generated by ARGUS Attendance", ParagraphStyle('FtrL7', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
+        Paragraph("Generated by Argus Attendance Intelligence version 2.0.0", ParagraphStyle('FtrL7', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
         Paragraph("Professional Payroll Document", ParagraphStyle('FtrM7', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b'))),
-        Paragraph("© Argus Attendance | Version 5.1", ParagraphStyle('FtrR7', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_RIGHT, textColor=colors.HexColor('#64748b')))
+        Paragraph("© Argus Attendance Intelligence version 2.0.0", ParagraphStyle('FtrR7', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_RIGHT, textColor=colors.HexColor('#64748b')))
     ]]
     t_ftr7 = Table(footer_data7, colWidths=[180, 180, 180])
     t_ftr7.setStyle(TableStyle([
@@ -2790,9 +2790,9 @@ def _build_payslip_template_8(p, palette):
 
     # Footer
     footer_data8 = [[
-        Paragraph("Generated by ARGUS Attendance", ParagraphStyle('FtrL8', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
+        Paragraph("Generated by Argus Attendance Intelligence version 2.0.0", ParagraphStyle('FtrL8', fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.HexColor('#64748b'))),
         Paragraph("Professional Payroll Document", ParagraphStyle('FtrM8', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_CENTER, textColor=colors.HexColor('#64748b'))),
-        Paragraph("© Argus Attendance | Version 5.1", ParagraphStyle('FtrR8', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_RIGHT, textColor=colors.HexColor('#64748b')))
+        Paragraph("© Argus Attendance Intelligence version 2.0.0", ParagraphStyle('FtrR8', fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_RIGHT, textColor=colors.HexColor('#64748b')))
     ]]
     t_ftr8 = Table(footer_data8, colWidths=[180, 180, 180])
     t_ftr8.setStyle(TableStyle([
@@ -2946,7 +2946,7 @@ def generate_salary_report_pdf(data, company_info=None):
     
     elements.append(t)
     elements.append(Spacer(1, 10))
-    elements.append(Paragraph("© Argus Attendance | version 5.1 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    elements.append(Paragraph("© Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
     
     doc.build(elements)
     buffer.seek(0)
@@ -2969,7 +2969,7 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
     )
 
     comp_info = company_info or {}
-    comp_name = activity_data.get('company_name') or comp_info.get('company_name') or "ARGUS TECHNOLOGIES"
+    comp_name = activity_data.get('company_name') or comp_info.get('company_name') or "ARGUS CNC™"
     comp_loc = activity_data.get('company_location') or activity_data.get('company_address') or comp_info.get('company_address') or comp_info.get('location') or comp_info.get('address') or ""
     act_date_str = activity_data.get('activity_date_str') or "01 October 2026"
     gen_date_str = activity_data.get('generated_date_str') or "02 October 2026"
@@ -3168,7 +3168,7 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
     if comp_loc:
         elements.append(Paragraph(comp_loc.upper(), subtitle_style))
         elements.append(Spacer(1, 1))
-    elements.append(Paragraph("ARGUS ATTENDANCE - VERSION 5.1", subtitle_style))
+    elements.append(Paragraph("ARGUS ATTENDANCE INTELLIGENCE - VERSION 2.0.0", subtitle_style))
     elements.append(Spacer(1, 3))
     elements.append(Paragraph("YESTERDAY'S ACTIVITY REPORT", doc_title_style))
     elements.append(Spacer(1, 3))
@@ -3478,12 +3478,12 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
 
     # 11. Page Footers
     elements.append(Paragraph(
-        "Automatically generated by ARGUS Attendance and sent to the registered company email. Computer generated report - no signature required.",
+        "Automatically generated by Argus Attendance Intelligence version 2.0.0 and sent to the registered company email. Computer generated report - no signature required.",
         footer_style
     ))
     elements.append(Spacer(1, 2))
     elements.append(Paragraph(
-        "&copy; 2026 ARGUS Attendance | Version 5.1 | Powered by ArgusCNC(TM)",
+        "&copy; 2026 Argus Attendance Intelligence version 2.0.0 | Powered by ArgusCNC(TM)",
         footer_style
     ))
 
@@ -3507,7 +3507,7 @@ def generate_field_worker_payslip_pdf(data, company_info=None):
     elements = []
 
     comp_meta = company_info or {
-        'company_name': data.get('company_name', 'ARGUS TECHNOLOGIES'),
+        'company_name': data.get('company_name', 'ARGUS CNC™'),
         'address': data.get('company_address', '')
     }
     build_pdf_header(
@@ -3656,7 +3656,7 @@ def generate_field_worker_payslip_pdf(data, company_info=None):
     elements.append(t_pay)
     elements.append(Spacer(1, 18))
     elements.append(Paragraph(
-        "© Argus Attendance | Field Worker Force Management Module | Computer generated statement.",
+        "© Argus Attendance Intelligence version 2.0.0 | Field Worker Force Management Module | Computer generated statement.",
         ParagraphStyle('FWFoot', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)
     ))
 
@@ -3704,7 +3704,7 @@ def generate_field_worker_report_pdf(headers, rows, title="FIELD WORKER MODULE R
     elements.append(t)
     elements.append(Spacer(1, 14))
     elements.append(Paragraph(
-        "© Argus Attendance | Field Worker Module | Powered by ArgusCNC™",
+        "© Argus Attendance Intelligence version 2.0.0 | Field Worker Module | Powered by ArgusCNC™",
         ParagraphStyle('FWRepFoot', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)
     ))
     doc.build(elements)

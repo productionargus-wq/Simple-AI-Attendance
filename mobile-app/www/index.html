@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Argus Attendance Terminal</title>
+  <title>Argus Attendance Intelligence Terminal version 2.0.0</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -102,7 +102,7 @@
     <div class="logo-glow">
       <img src="logo.png" alt="Argus Attendance" class="logo-img">
     </div>
-    <h1>ARGUS ATTENDANCE</h1>
+    <h1>ARGUS ATTENDANCE INTELLIGENCE</h1>
     <p>AI Biometric Attendance Terminal</p>
     <div class="loader-bar">
       <div class="loader-progress"></div>
@@ -118,7 +118,7 @@
     async function connectToTerminal() {
       const statusEl = document.getElementById('statusMsg');
       try {
-        statusEl.textContent = 'Connecting to Argus Attendance Cloud...';
+        statusEl.textContent = 'Connecting to Argus Attendance Intelligence Cloud...';
         const res = await fetch(LIVE_URL, { method: 'HEAD', mode: 'no-cors' });
         window.location.replace(LIVE_URL);
       } catch (err) {

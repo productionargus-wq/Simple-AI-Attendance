@@ -1,5 +1,5 @@
-# Create Code Signing Certificate for ARGUS TECHNOLOGIES
-$cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=ARGUS TECHNOLOGIES" -CertStoreLocation "Cert:\CurrentUser\My" -NotAfter (Get-Date).AddYears(5)
+# Create Code Signing Certificate for ARGUS CNC™
+$cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=ARGUS CNC™" -CertStoreLocation "Cert:\CurrentUser\My" -NotAfter (Get-Date).AddYears(5)
 Write-Host "Created Certificate with Thumbprint: $($cert.Thumbprint)"
 
 # Also add to Trusted Root Certification Authorities for Current User so this PC trusts it completely

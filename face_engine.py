@@ -1,5 +1,5 @@
 """
-ARGUS TECHNOLOGIES - Boosted Deep Learning Face Recognition Engine
+ARGUS CNC™ - Boosted Deep Learning Face Recognition Engine
 Zero-Image-Storage Architecture powered by OpenCV YuNet & SFace Neural Networks
 
 Key Features:

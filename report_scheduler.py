@@ -258,7 +258,7 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
 
     comp_id_str = str(company_id)
     comp = db.company_admin.find_one({'id': comp_id_str}) or {}
-    comp_name = comp.get('company_name', 'ARGUS TECHNOLOGIES')
+    comp_name = comp.get('company_name', 'ARGUS CNC™')
     comp_address = comp.get('address') or comp.get('location') or ''
     comp_location = comp.get('location') or comp.get('address') or ''
 

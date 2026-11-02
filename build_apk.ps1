@@ -6,7 +6,7 @@ param(
 )
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "    ARGUS ATTENDANCE - MULTI-PLATFORM MOBILE BUILDER      " -ForegroundColor Cyan
+Write-Host "    ARGUS ATTENDANCE INTELLIGENCE - MULTI-PLATFORM MOBILE BUILDER " -ForegroundColor Cyan
 Write-Host "    Target: $($Target.ToUpper()) | Type: $($BuildType.ToUpper())" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 

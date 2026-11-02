@@ -487,7 +487,7 @@ document.addEventListener('DOMContentLoaded', function () {
         .btn-action-manual-edit, .btn-action-manual-del { display: none; }
       `);
       printWindow.document.write('</style></head><body>');
-      printWindow.document.write('<h2>ARGUS TECHNOLOGIES - MANUAL ENTRIES</h2>');
+      printWindow.document.write('<h2>ARGUS CNC™ - MANUAL ENTRIES</h2>');
       printWindow.document.write(printContents);
       printWindow.document.write('</body></html>');
       printWindow.document.close();

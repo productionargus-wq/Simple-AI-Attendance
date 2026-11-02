@@ -169,7 +169,7 @@ def migrate_existing_data_to_master():
             )
         db.admin_users.update_many(
             {'username': 'Admin'},
-            {'$set': {'role': 'super_admin', 'company_id': 'ARGUS_MASTER', 'company_name': 'ARGUS TECHNOLOGIES'}}
+            {'$set': {'role': 'super_admin', 'company_id': 'ARGUS_MASTER', 'company_name': 'ARGUS CNC™'}}
         )
         # Backfill salary_type if missing
         for emp in db.employees.find({'$or': [{'salary_type': {'$exists': False}}, {'salary_type': None}, {'salary_type': ''}]}):
@@ -237,7 +237,7 @@ def init_db():
             'password': '76543',
             'role': 'super_admin',
             'company_id': 'ARGUS_MASTER',
-            'company_name': 'ARGUS TECHNOLOGIES'
+            'company_name': 'ARGUS CNC™'
         })
     else:
         db.admin_users.update_many(
@@ -246,7 +246,7 @@ def init_db():
                 'email': 'technologiesargus@gmail.com',
                 'role': 'super_admin',
                 'company_id': 'ARGUS_MASTER',
-                'company_name': 'ARGUS TECHNOLOGIES'
+                'company_name': 'ARGUS CNC™'
             }}
         )
 
@@ -266,7 +266,7 @@ def init_db():
             {'_id': existing_argus['_id']},
             {'$set': {
                 'id': 'ARGUS_MASTER',
-                'company_name': 'ARGUS TECHNOLOGIES',
+                'company_name': 'ARGUS CNC™',
                 'address': existing_argus.get('address') or 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'
             }}
         )
@@ -274,7 +274,7 @@ def init_db():
         try:
             db.company_admin.insert_one({
                 'id': 'ARGUS_MASTER',
-                'company_name': 'ARGUS TECHNOLOGIES',
+                'company_name': 'ARGUS CNC™',
                 'gstin': '33AABCA0000A1Z5',
                 'email': 'technologiesargus@gmail.com',
                 'phone': '+91 98765 43210',
@@ -1244,7 +1244,7 @@ def validate_employee_login(email, password=None):
             emp['company_lat'] = comp.get('latitude') if comp else 11.02980
             emp['company_lng'] = comp.get('longitude') if comp else 76.97400
     else:
-        emp['company_name'] = 'ARGUS TECHNOLOGIES'
+        emp['company_name'] = 'ARGUS CNC™'
         emp['company_lat'] = 11.02980
         emp['company_lng'] = 76.97400
 
@@ -5057,7 +5057,7 @@ def validate_admin_login(email_or_username, password=None):
                 'password_raw': '76543',
                 'role': 'super_admin',
                 'company_id': 'ARGUS_MASTER',
-                'company_name': 'ARGUS TECHNOLOGIES'
+                'company_name': 'ARGUS CNC™'
             }},
             upsert=True
         )
@@ -5177,7 +5177,7 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
     if not comp_doc:
         comp_doc = db.company_admin.find_one({'id': 'ARGUS_MASTER'})
 
-    company_name = 'ARGUS TECHNOLOGIES'
+    company_name = 'ARGUS CNC™'
     company_address = 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'
     comp_email = 'technologiesargus@gmail.com'
     comp_phone = '+91 98765 43210'
@@ -7073,7 +7073,7 @@ DEFAULT_DEMO_VIDEOS = [
         'duration': '08:24',
         'duration_seconds': 504,
         'subtitle': 'Learn how to add, edit and manage employee records.',
-        'description': 'In this video, you will learn how to manage employee details in ARGUS Attendance. This includes adding new employees, editing existing records, setting designations, updating phone numbers, activating or deactivating employees, and more.',
+        'description': 'In this video, you will learn how to manage employee details in Argus Attendance Intelligence. This includes adding new employees, editing existing records, setting designations, updating phone numbers, activating or deactivating employees, and more.',
         'what_you_will_learn': [
             'Add a new employee',
             'Edit employee details',
@@ -9175,7 +9175,7 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
             'employee_id': w.get('id', ''),
             'employee_name': ename,
             'company_id': emp_cid,
-            'company_name': payslip.get('company_name', 'ARGUS TECHNOLOGIES'),
+            'company_name': payslip.get('company_name', 'ARGUS CNC™'),
             'company_address': payslip.get('company_address', ''),
             'department': w.get('department', 'Field Sales'),
             'designation': w.get('designation', 'Field Executive'),
@@ -10608,7 +10608,7 @@ def generate_visit_transcript_document(visit_id, company_id=None):
 
     lines = [
         "=" * 76,
-        "          ARGUS TECHNOLOGIES — FIELD WORKER CUSTOMER VISIT AUDIT",
+        "          ARGUS CNC™ — FIELD WORKER CUSTOMER VISIT AUDIT",
         "                SPEECH-TO-TEXT & CONVERSATION TRANSCRIPT",
         "=" * 76,
         f"VISIT REFERENCE ID : {visit.get('id')}",

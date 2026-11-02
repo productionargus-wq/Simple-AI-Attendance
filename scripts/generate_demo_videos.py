@@ -73,7 +73,7 @@ def draw_shell(img, active_idx):
     # Top Navbar
     draw.rectangle([0, 0, WIDTH, 54], fill=C_CARD_BG, outline=C_BORDER)
     draw.polygon([(26, 18), (40, 40), (12, 40)], fill=C_PRIMARY)
-    draw.text((48, 18), "ARGUS ATTENDANCE", font=font_bold_16, fill=C_TEXT_DARK)
+    draw.text((48, 18), "ARGUS ATTENDANCE INTELLIGENCE", font=font_bold_16, fill=C_TEXT_DARK)
     draw.text((540, 18), "HEXA TECHNOLOGIES", font=font_bold_16, fill=C_TEXT_DARK)
     
     # User Badge
@@ -121,7 +121,7 @@ def draw_intro_card(img, chapter_num, title, subtitle):
     draw = ImageDraw.Draw(img)
     draw.rectangle([0, 0, WIDTH, HEIGHT], fill=C_DARK_BG)
     draw.polygon([(620, 210), (660, 270), (580, 270)], fill=C_PRIMARY)
-    draw.text((540, 285), "ARGUS ATTENDANCE TUTORIAL", font=font_bold_14, fill=C_PRIMARY)
+    draw.text((540, 285), "ARGUS ATTENDANCE INTELLIGENCE TUTORIAL", font=font_bold_14, fill=C_PRIMARY)
     ch_text = f"CHAPTER {chapter_num}: {title.upper()}"
     bbox = font_title.getbbox(ch_text)
     tw = bbox[2] - bbox[0]

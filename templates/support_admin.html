@@ -1281,7 +1281,7 @@ async function fetchAdminTickets() {
           ${t.ticket_id}
         </td>
         <td style="font-weight: 500;">${escapeHtml(t.date_time_str || '')}</td>
-        <td style="font-weight: 700; color: #1e293b;">${escapeHtml(t.company_name || 'ARGUS TECHNOLOGIES')}</td>
+        <td style="font-weight: 700; color: #1e293b;">${escapeHtml(t.company_name || 'ARGUS CNC™')}</td>
         <td style="font-weight: 600;">${escapeHtml(t.subject || '')}</td>
         <td>
           <div class="table-desc-preview" title="${escapeHtml(t.description || '')}">
@@ -1393,7 +1393,7 @@ function backToAdminTicketsList() {
 
 function populateAdminDetailsView(t) {
   document.getElementById('admDTicketId').innerText = t.ticket_id;
-  document.getElementById('admDCompanyName').innerText = t.company_name || 'ARGUS TECHNOLOGIES';
+  document.getElementById('admDCompanyName').innerText = t.company_name || 'ARGUS CNC™';
   document.getElementById('admDRaisedBy').innerText = t.raised_by || 'Admin';
   document.getElementById('admDDateTime').innerText = t.date_time_str || '';
   document.getElementById('admDSubject').innerText = t.subject || '';

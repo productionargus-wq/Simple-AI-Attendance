@@ -508,3 +508,18 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* Advisor Language Toggle Button */
+.advisor-lang-btn {
+  font-size: 11.5px;
+  font-weight: 700;
+  gap: 4px;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+  padding: 5px 9px !important;
+}
+.advisor-lang-btn:hover {
+  background: rgba(56, 189, 248, 0.25) !important;
+  border-color: #38bdf8 !important;
+}

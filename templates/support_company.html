@@ -376,7 +376,7 @@
                 About this video
               </div>
               <p class="info-box-desc" id="activeVideoDesc">
-                In this video, you will learn how to manage employee details in ARGUS Attendance. This includes adding new employees, editing existing records, setting designations, updating phone numbers, activating or deactivating employees, and more.
+                In this video, you will learn how to manage employee details in Argus Attendance Intelligence. This includes adding new employees, editing existing records, setting designations, updating phone numbers, activating or deactivating employees, and more.
               </p>
             </div>
 
@@ -2568,7 +2568,7 @@ function closeTicketModal() {
 
 function populateTicketModal(t) {
   document.getElementById('mTicketId').innerText = t.ticket_id;
-  document.getElementById('mCompanyName').innerText = t.company_name || 'ARGUS TECHNOLOGIES';
+  document.getElementById('mCompanyName').innerText = t.company_name || 'ARGUS CNC™';
   document.getElementById('mRaisedBy').innerText = t.raised_by || 'Admin';
   document.getElementById('mDateTime').innerText = t.date_time_str || '';
   document.getElementById('mSubject').innerText = t.subject || '';
@@ -2885,7 +2885,7 @@ function selectDemoVideoChapter(idx) {
 
   // Update Main Headings & Duration
   document.getElementById('activeVideoTitle').innerText = v.title;
-  document.getElementById('activeVideoSubtitle').innerText = v.subtitle || `Learn how to use ${v.title.replace(/^[0-9]+\.\s*/, '')} in ARGUS Attendance.`;
+  document.getElementById('activeVideoSubtitle').innerText = v.subtitle || `Learn how to use ${v.title.replace(/^[0-9]+\.\s*/, '')} in Argus Attendance Intelligence.`;
   document.getElementById('activeVideoDuration').innerText = v.duration || '08:24';
   document.getElementById('vCtlTimeDisplay').innerText = `0:00 / ${v.duration || '08:24'}`;
   document.getElementById('vSeekBarFill').style.width = '0%';
@@ -2896,7 +2896,7 @@ function selectDemoVideoChapter(idx) {
 
   // Update Description
   document.getElementById('activeVideoDesc').innerText = v.description || 
-    `In this video, you will learn how to manage ${v.title.replace(/^[0-9]+\.\s*/, '')} in ARGUS Attendance. This includes configuration, workflow operations, export options, and best practices.`;
+    `In this video, you will learn how to manage ${v.title.replace(/^[0-9]+\.\s*/, '')} in Argus Attendance Intelligence. This includes configuration, workflow operations, export options, and best practices.`;
 
   // Update Checklist
   const checkList = document.getElementById('activeVideoLearningList');
@@ -3420,7 +3420,7 @@ function renderChapterMockup(idx) {
     <div class="mockup-top-nav">
       <div class="mockup-nav-left">
         <img src="/static/images/argus_triangle_logo.png" class="mockup-nav-logo" alt="Argus">
-        <span class="mockup-nav-brand">ARGUS ATTENDANCE</span>
+        <span class="mockup-nav-brand">ARGUS ATTENDANCE INTELLIGENCE</span>
       </div>
       <div class="mockup-nav-title">${escapeHtml(compName)}</div>
       <div class="mockup-nav-right">

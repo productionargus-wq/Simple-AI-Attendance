@@ -912,14 +912,14 @@
         <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="Argus" style="width: 22px; height: 22px; object-fit: contain;">
       </div>
       <div>
-        <div class="portal-nav-title" style="font-size: 16px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">ARGUS ATTENDANCE</div>
+        <div class="portal-nav-title" style="font-size: 15px; font-weight: 900; letter-spacing: 0.8px; color: #ffffff;">ARGUS ATTENDANCE INTELLIGENCE <span style="font-size: 11px; font-weight: 600; opacity: 0.9;">v2.0.0</span></div>
         <div class="portal-nav-subtitle" style="font-size: 10px; color: #ffd166; font-weight: 700; letter-spacing: 0.8px;">EMPLOYEE SELF-SERVICE PORTAL</div>
       </div>
     </div>
 
     <!-- Center Company Name -->
     <div class="portal-nav-center">
-      {{ (company.company_name if company and company.company_name else session.get('company_name') or 'ARGUS TECHNOLOGIES') | upper }}
+      {{ (company.company_name if company and company.company_name else session.get('company_name') or 'ARGUS CNC™') | upper }}
     </div>
 
     <div class="portal-nav-right" style="display: flex; align-items: center; gap: 14px;">
@@ -963,7 +963,7 @@
       </div>
       <div><strong>Mobile:</strong> {{ employee.mobile_number if employee else '-' }}</div>
       <div><strong>Shift Hours:</strong> {{ employee.shift_hours if employee else '09:00' }}</div>
-      <div><strong>Company:</strong> {{ company.company_name if company else 'Argus Technologies' }}</div>
+      <div><strong>Company:</strong> {{ company.company_name if company else 'Argus CNC™' }}</div>
     </div>
 
     {% set emp_perms = employee.permissions if (employee and employee.permissions) else {} %}
@@ -1682,11 +1682,11 @@
 
   <footer style="background-color: #ffffff; display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; border-top: 1px solid #e2e8f0; margin-top: auto; font-size: 11.5px; color: #64748b; flex-wrap: wrap; gap: 8px;">
     <div>
-      &copy; 2026 ARGUS Attendance &nbsp;|&nbsp; Version 5.1
+      &copy; 2026 Argus Attendance Intelligence version 2.0.0
     </div>
     <div style="display: flex; align-items: center; gap: 6px;">
       <span style="font-size: 11px; color: #64748b; font-weight: 500;">Powered by</span>
-      <img src="{{ url_for('static', filename='images/argus_cnc_logo.png') }}" alt="ARGUS CNC" style="height: 22px; width: auto; object-fit: contain; vertical-align: middle;">
+      <img src="{{ url_for('static', filename='images/argus_cnc_logo.png') }}" alt="ARGUS CNC™" style="height: 22px; width: auto; object-fit: contain; vertical-align: middle;">
     </div>
   </footer>
 

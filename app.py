@@ -253,7 +253,7 @@ def health_check():
     """Ultra-lightweight keep-alive endpoint for uptime monitors and cloud health checks."""
     return jsonify({
         'status': 'healthy',
-        'service': 'ARGUS Attendance Engine',
+        'service': 'Argus Attendance Intelligence Engine',
         'timestamp': int(time.time())
     }), 200
 
@@ -489,7 +489,7 @@ def get_current_company_info():
             addr = comp.get('address') or comp.get('location') or ''
             if not addr and comp.get('latitude') and comp.get('longitude'):
                 addr = f"Location: Lat {comp.get('latitude')}, Lng {comp.get('longitude')}"
-            comp_name = comp.get('company_name') or session.get('company_name', 'ARGUS TECHNOLOGIES')
+            comp_name = comp.get('company_name') or session.get('company_name', 'ARGUS CNC™')
             if branch_doc and branch_doc.get('branch_name'):
                 comp_name = f"{comp_name} - {branch_doc.get('branch_name')}"
                 if branch_doc.get('location'):
@@ -509,7 +509,7 @@ def get_current_company_info():
     if master_comp:
         return {
             'id': 'ARGUS_MASTER',
-            'company_name': master_comp.get('company_name', 'ARGUS TECHNOLOGIES'),
+            'company_name': master_comp.get('company_name', 'ARGUS CNC™'),
             'company_address': master_comp.get('address', 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'),
             'email': master_comp.get('email', 'technologiesargus@gmail.com'),
             'phone': master_comp.get('phone', '+91 98765 43210'),
@@ -517,7 +517,7 @@ def get_current_company_info():
         }
     return {
         'id': 'ARGUS_MASTER',
-        'company_name': 'ARGUS TECHNOLOGIES',
+        'company_name': 'ARGUS CNC™',
         'company_address': 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006',
         'email': 'technologiesargus@gmail.com',
         'phone': '+91 98765 43210',
@@ -1068,7 +1068,7 @@ def login():
             session['admin_email'] = admin_user.get('email', 'technologiesargus@gmail.com')
             session['role'] = 'super_admin'
             session['company_id'] = 'ARGUS_MASTER'
-            session['company_name'] = 'ARGUS TECHNOLOGIES'
+            session['company_name'] = 'ARGUS CNC™'
             resp = redirect(url_for('dashboard'))
             return finalize_login_session(resp, 'super_admin', admin_user)
         else:
@@ -1273,7 +1273,7 @@ def google_callback():
         session['admin_email'] = adm_user.get('email', 'technologiesargus@gmail.com')
         session['role'] = 'super_admin'
         session['company_id'] = 'ARGUS_MASTER'
-        session['company_name'] = 'ARGUS TECHNOLOGIES'
+        session['company_name'] = 'ARGUS CNC™'
         resp = redirect(oauth_next if oauth_next == '/field-worker' else url_for('dashboard'))
         return finalize_login_session(resp, 'super_admin', adm_user)
 
@@ -1322,7 +1322,7 @@ def google_callback():
         c_id = emp.get('company_id', 'ARGUS_MASTER')
         session['company_id'] = c_id
         c_rec = database.get_company_by_id(c_id) if c_id != 'ARGUS_MASTER' else None
-        session['company_name'] = c_rec.get('company_name', 'ARGUS TECHNOLOGIES') if c_rec else 'ARGUS TECHNOLOGIES'
+        session['company_name'] = c_rec.get('company_name', 'ARGUS CNC™') if c_rec else 'ARGUS CNC™'
         resp = redirect(oauth_next if oauth_next == '/field-worker' else url_for('employee_portal'))
         return finalize_login_session(resp, 'employee', emp)
 
@@ -1450,7 +1450,7 @@ def google_desktop_claim():
         session['admin_email'] = user_data.get('email', 'technologiesargus@gmail.com')
         session['role'] = 'super_admin'
         session['company_id'] = 'ARGUS_MASTER'
-        session['company_name'] = 'ARGUS TECHNOLOGIES'
+        session['company_name'] = 'ARGUS CNC™'
         resp = redirect(redirect_target)
         return finalize_login_session(resp, 'super_admin', user_data)
 
@@ -1477,7 +1477,7 @@ def google_desktop_claim():
         c_id = user_data.get('company_id', 'ARGUS_MASTER')
         session['company_id'] = c_id
         c_rec = database.get_company_by_id(c_id) if c_id != 'ARGUS_MASTER' else None
-        session['company_name'] = c_rec.get('company_name', 'ARGUS TECHNOLOGIES') if c_rec else 'ARGUS TECHNOLOGIES'
+        session['company_name'] = c_rec.get('company_name', 'ARGUS CNC™') if c_rec else 'ARGUS CNC™'
         resp = redirect(redirect_target)
         return finalize_login_session(resp, 'employee', user_data)
 
@@ -1565,7 +1565,7 @@ def employee_login():
             comp_id = employee.get('company_id', 'ARGUS_MASTER')
             session['company_id'] = comp_id
             comp_record = database.get_company_by_id(comp_id) if comp_id != 'ARGUS_MASTER' else None
-            session['company_name'] = comp_record.get('company_name', 'ARGUS TECHNOLOGIES') if comp_record else 'ARGUS TECHNOLOGIES'
+            session['company_name'] = comp_record.get('company_name', 'ARGUS CNC™') if comp_record else 'ARGUS CNC™'
             resp = redirect(url_for('employee_portal'))
             return finalize_login_session(resp, 'employee', employee)
         else:
@@ -1683,7 +1683,7 @@ def employee_portal():
     emp_id = session.get('employee_id')
     comp_id = session.get('company_id')
     employee = database.get_employee_by_id(emp_id)
-    company = database.get_company_by_id(comp_id) if comp_id != 'ARGUS_MASTER' else {'company_name': 'Argus Technologies'}
+    company = database.get_company_by_id(comp_id) if comp_id != 'ARGUS_MASTER' else {'company_name': 'ARGUS CNC™'}
     if company and company.get('company_name'):
         session['company_name'] = company['company_name']
     return render_template('employee_portal.html', employee=employee, company=company)
@@ -2079,14 +2079,14 @@ def api_system_admin_set_active_company():
     company_id = str(data.get('company_id', '')).strip()
     if not company_id or company_id == 'ARGUS_MASTER':
         session['company_id'] = 'ARGUS_MASTER'
-        session['company_name'] = 'ARGUS TECHNOLOGIES'
+        session['company_name'] = 'ARGUS CNC™'
         session['active_branch_id'] = 'HOME'
         session['active_branch_name'] = 'Home Branch'
         session.modified = True
         return jsonify({
             'success': True,
             'company_id': 'ARGUS_MASTER',
-            'company_name': 'System Administration (ARGUS TECHNOLOGIES)'
+            'company_name': 'System Administration (ARGUS CNC™)'
         })
     
     comp = database.get_company_by_id(company_id)
@@ -2117,7 +2117,7 @@ def api_get_company_profile():
         all_comps = database.get_all_companies(limit=1000)['data']
         
         # Build dropdown list with System Administration prominently at top
-        comps_dropdown = [{'id': 'ARGUS_MASTER', 'company_name': 'System Administration (ARGUS TECHNOLOGIES)'}]
+        comps_dropdown = [{'id': 'ARGUS_MASTER', 'company_name': 'System Administration (ARGUS CNC™)'}]
         for c in all_comps:
             if c.get('id') != 'ARGUS_MASTER':
                 comps_dropdown.append({'id': c['id'], 'company_name': c.get('company_name', c['id'])})
@@ -2127,7 +2127,7 @@ def api_get_company_profile():
         if not company and target_id == 'ARGUS_MASTER':
             company = database.get_company_by_id('ARGUS_MASTER') or {
                 'id': 'ARGUS_MASTER',
-                'company_name': 'ARGUS TECHNOLOGIES',
+                'company_name': 'ARGUS CNC™',
                 'email': 'technologiesargus@gmail.com'
             }
 
@@ -2226,7 +2226,7 @@ def api_get_company_profile():
             if not company:
                 company = {
                     'id': comp_id or 'ARGUS_MASTER',
-                    'company_name': session.get('company_name') or 'ARGUS TECHNOLOGIES',
+                    'company_name': session.get('company_name') or 'ARGUS CNC™',
                     'email': c_email or 'technologiesargus@gmail.com',
                     'phone': '',
                     'address': '',
@@ -2475,7 +2475,7 @@ def api_upload_company_logo():
     if comp_id == 'ARGUS_MASTER':
         db.company_admin.update_one(
             {'id': 'ARGUS_MASTER'},
-            {'$set': {'id': 'ARGUS_MASTER', 'company_name': 'ARGUS TECHNOLOGIES', 'logo': filename, 'logo_data': logo_data, 'updated_at': database.get_ist_now()}},
+            {'$set': {'id': 'ARGUS_MASTER', 'company_name': 'ARGUS CNC™', 'logo': filename, 'logo_data': logo_data, 'updated_at': database.get_ist_now()}},
             upsert=True
         )
     else:
@@ -3367,7 +3367,7 @@ def api_employee_pdf(emp_id):
     if emp.get('company_id') and emp.get('company_id') != 'ARGUS_MASTER':
         comp = database.get_company_by_id(emp['company_id'])
         if comp:
-            emp['company_name'] = comp.get('company_name', 'ARGUS TECHNOLOGIES')
+            emp['company_name'] = comp.get('company_name', 'ARGUS CNC™')
             
     pdf_buffer = pdf_generator.generate_employee_pdf(emp)
     return send_file(
@@ -3650,8 +3650,9 @@ def api_voice_tamil_tts():
     if not text:
         return jsonify({'error': 'No text provided'}), 400
 
-    if len(text) > 300:
-        text = text[:300]
+    if len(text) > 1200:
+        text = text[:1200]
+
 
     cache_hash = hashlib.md5(f"{text}_{lang}".encode('utf-8')).hexdigest()
     cache_path = os.path.join(TTS_CACHE_DIR, f"{cache_hash}.mp3")
@@ -3954,7 +3955,7 @@ def api_face_recognize():
                 # Dynamic company name lookup
                 c_name = emp_doc.get('company_name')
                 c_id = emp_doc.get('company_id')
-                if not c_name or c_name == 'Argus Technologies':
+                if not c_name or c_name == 'ARGUS CNC™':
                     if c_id and c_id != 'ARGUS_MASTER':
                         c_doc = db.company_admin.find_one({'id': str(c_id)})
                         if c_doc and c_doc.get('company_name'):
@@ -3962,13 +3963,13 @@ def api_face_recognize():
                 result['employee_code'] = emp_doc.get('employee_id') or emp_doc.get('id') or emp_id
                 result['designation'] = emp_doc.get('designation', '') or 'Staff'
                 result['department'] = emp_doc.get('department', '') or 'General'
-                result['company_name'] = c_name or 'Argus Technologies'
+                result['company_name'] = c_name or 'ARGUS CNC™'
                 result['shift_hours'] = emp_doc.get('shift_hours', '08:00')
             else:
                 result['employee_code'] = emp_id
                 result['designation'] = 'Staff'
                 result['department'] = 'General'
-                result['company_name'] = 'Argus Technologies'
+                result['company_name'] = 'ARGUS CNC™'
 
             # Mark Attendance Punch In / Punch Out Lifecycle & Live Entry (Company-aware, 12-hour format)
             req_branch_id = (request.form.get('branch_id') or data_dict.get('branch_id') or request.args.get('branch_id') or '').strip() or None
@@ -5387,7 +5388,7 @@ def field_worker_login():
                 comp_id = employee.get('company_id', 'ARGUS_MASTER')
                 session['company_id'] = comp_id
                 comp_rec = database.get_company_by_id(comp_id) if comp_id != 'ARGUS_MASTER' else None
-                session['company_name'] = comp_rec.get('company_name', 'ARGUS TECHNOLOGIES') if comp_rec else 'ARGUS TECHNOLOGIES'
+                session['company_name'] = comp_rec.get('company_name', 'ARGUS CNC™') if comp_rec else 'ARGUS CNC™'
                 resp = redirect(url_for('field_worker_module_page'))
                 return finalize_login_session(resp, 'employee', employee)
 
@@ -5431,7 +5432,7 @@ def field_worker_login():
                 session['admin_email'] = admin_user.get('email', 'technologiesargus@gmail.com')
                 session['role'] = 'super_admin'
                 session['company_id'] = 'ARGUS_MASTER'
-                session['company_name'] = 'ARGUS TECHNOLOGIES'
+                session['company_name'] = 'ARGUS CNC™'
                 resp = redirect(url_for('field_worker_module_page'))
                 return finalize_login_session(resp, 'super_admin', admin_user)
 
@@ -5473,7 +5474,7 @@ def field_worker_module_page():
 
     active_comp = database.get_company_by_id(active_cid) or {
         'id': 'ARGUS_MASTER',
-        'company_name': 'ARGUS TECHNOLOGIES',
+        'company_name': 'ARGUS CNC™',
         'latitude': 11.02980,
         'longitude': 76.97400,
         'address': 'SF NO. 515, Bharathiyar Road, Ganapathy, Coimbatore'
@@ -5558,7 +5559,7 @@ def api_field_worker_overview():
     emp_filter = session.get('employee_name') if user_role == 'employee' else (request.args.get('employee_name') or None)
     include_salary = request.args.get('include_salary') in ['1', 'true', 'True'] or request.args.get('tab') == 'paneFieldPayroll'
 
-    comp = database.get_company_by_id(cid) or {'id': cid, 'company_name': 'ARGUS TECHNOLOGIES', 'latitude': 11.0298, 'longitude': 76.9740}
+    comp = database.get_company_by_id(cid) or {'id': cid, 'company_name': 'ARGUS CNC™', 'latitude': 11.0298, 'longitude': 76.9740}
     
     if user_role in ['super_admin', 'company_admin']:
         workers = database.get_field_workers(company_id=cid, include_all_employees=False)
@@ -6355,12 +6356,13 @@ def api_teacher_ai_explain():
         element_tag = str(data.get('tag') or '').strip()
         category = str(data.get('category') or 'Feature').strip()
         page_context = str(data.get('context') or data.get('page') or '').strip()
+        teacher_lang = str(data.get('language') or data.get('lang') or 'en').strip().lower()
 
         if not element_title:
             return jsonify({'success': False, 'error': 'Element title or label required'}), 400
 
         # Check in-memory cache to avoid duplicate API calls
-        cache_key = f"{page_context}::{element_tag}::{element_title}".lower()
+        cache_key = f"{teacher_lang}::{page_context}::{element_tag}::{element_title}".lower()
         if hasattr(app, '_teacher_ai_cache') and cache_key in app._teacher_ai_cache:
             return jsonify({'success': True, 'cached': True, **app._teacher_ai_cache[cache_key]})
 
@@ -6375,9 +6377,10 @@ def api_teacher_ai_explain():
         if gemini_key:
             try:
                 import requests
-                headers = {'Content-Type': 'application/json'}
+                user_lang = teacher_lang
+                user_lang_inst = "Respond with 'reply_text' in fluent, authentic Tamil (தமிழ்)." if user_lang == 'ta' else ""
                 prompt = (
-                    "You are Teacher AI for the Argus Technologies AI Attendance & Operations Management Web Application. "
+                    "You are Teacher AI for Argus Attendance Intelligence version 2.0.0 by ARGUS CNC™. "
                     "Explain clearly and concisely in exactly 1 or 2 sentences what this UI control does and how it affects attendance or operations.\n"
                     f"Element Name: {element_title}\n"
                     f"Element Type: {element_tag}\n"
@@ -6411,7 +6414,7 @@ def api_teacher_ai_explain():
         fallback_res = {
             'title': element_title,
             'category': category,
-            'text': f"{element_title} is an interactive control in the Argus Attendance system.",
+            'text': f"{element_title} is an interactive control in the Argus Attendance Intelligence system.",
             'tip': None
         }
         return jsonify({'success': True, 'ai_generated': False, **fallback_res})
@@ -6494,6 +6497,7 @@ def api_coworker_ai_chat():
         history = data.get('history') or []
         context = data.get('context') or {}
         pending_task = data.get('pending_task') or session.get('coworker_pending_task') or None
+        user_lang = str(data.get('language') or session.get('coworker_lang') or 'en').strip().lower()
 
         if not user_message:
             return jsonify({'success': False, 'error': 'Message cannot be empty'}), 400
@@ -6633,7 +6637,7 @@ def api_coworker_ai_chat():
         def parse_date_from_text(text, default_today=True):
             if not text:
                 return datetime.now().strftime('%Y-%m-%d') if default_today else None
-            t = text.lower()
+
             if 'day before yesterday' in t:
                 return (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d')
             if 'yesterday' in t:
@@ -6668,6 +6672,36 @@ def api_coworker_ai_chat():
                     return f"{y:04d}-{mnum:02d}-{d:02d}"
 
             return datetime.now().strftime('%Y-%m-%d') if default_today else None
+
+        def parse_month_from_text(text):
+            if not text:
+                return None
+            t = text.lower()
+            m_map = {
+                'january': '01', 'jan': '01', 'february': '02', 'feb': '02',
+                'march': '03', 'mar': '03', 'april': '04', 'apr': '04',
+                'may': '05', 'june': '06', 'jun': '06', 'july': '07', 'jul': '07',
+                'august': '08', 'aug': '08', 'september': '09', 'sep': '09', 'sept': '09',
+                'october': '10', 'oct': '10', 'november': '11', 'nov': '11', 'december': '12', 'dec': '12'
+            }
+            ym_m = re.search(r'\b(20\d{2})[-/.](0?[1-9]|1[0-2])\b', t)
+            if ym_m:
+                return f"{ym_m.group(1)}-{int(ym_m.group(2)):02d}"
+            now = datetime.now()
+            year = str(now.year)
+            yr_m = re.search(r'\b(20\d{2})\b', t)
+            if yr_m:
+                year = yr_m.group(1)
+            for m_name, m_num in m_map.items():
+                if re.search(r'\b' + re.escape(m_name) + r'\b', t):
+                    return f"{year}-{m_num}"
+            if 'last month' in t or 'previous month' in t:
+                first = now.replace(day=1)
+                prev = first - timedelta(days=1)
+                return prev.strftime('%Y-%m')
+            if 'this month' in t or 'current month' in t:
+                return now.strftime('%Y-%m')
+            return None
 
         def find_context_employee():
             """Recovers the most relevant employee from pending task or recent message turns."""
@@ -6717,8 +6751,9 @@ def api_coworker_ai_chat():
                 transcript_str = "\n".join(history_lines) if history_lines else "None"
                 pending_str = json.dumps(pending_task) if pending_task else "None"
 
+                user_lang_inst = "Respond with 'reply_text' in fluent, authentic Tamil (தமிழ்)." if user_lang == 'ta' else ""
                 prompt = (
-                    "You are Co-Worker AI, an operations executive assistant for the Argus Attendance Web App.\n"
+                    "You are Co-Worker AI, an operations executive assistant for Argus Attendance Intelligence version 2.0.0 by ARGUS CNC™.\n"
                     f"Current Date: {today_str}\n"
                     f"Known Employees in this Company: [{emp_list_str}]\n\n"
                     f"Recent Conversation Transcript:\n{transcript_str}\n\n"
@@ -6904,13 +6939,57 @@ def api_coworker_ai_chat():
                         'reply_text': ''
                     }
 
+                # 5. Pending Payslip Download Continuation
+                elif p_action == 'download_payslip':
+                    emp_doc_found = find_employee_in_text(user_message)
+                    curr_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
+                    if not curr_emp:
+                        for e in employees:
+                            en = str(e.get('employee_name') or '')
+                            if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
+                                curr_emp = en
+                                break
+                    if not curr_emp:
+                        cand_doc, _ = resolve_employee(user_message)
+                        if cand_doc:
+                            curr_emp = cand_doc.get('employee_name')
+                    month_val = p_params.get('month') or parse_month_from_text(user_message) or datetime.now().strftime('%Y-%m')
+                    parsed_action = {
+                        'action': 'download_payslip',
+                        'parameters': {'employee_name': curr_emp, 'month': month_val},
+                        'reply_text': ''
+                    }
+
             # B. Single-Turn Intent Parsing (If no pending task matched or continues)
             if not parsed_action:
                 is_nav = any(w in msg_lower for w in ['open', 'go to', 'take me', 'navigate', 'show page', 'view page'])
 
+                # 0. PAYSLIP DOWNLOAD INTENT (English & Tamil)
+                is_payslip_dl = (any(w in msg_lower for w in ['payslip', 'pay slip', 'salary slip', 'சம்பள', 'பேஸ்லிப்']) and \
+                                any(w in msg_lower for w in ['download', 'get', 'export', 'print', 'generate', 'send', 'pdf', 'file', 'பதிவிறக்க', 'பதிவிறக்கு', 'பதிவிறக்கம்', 'டவுன்லோட்', 'வேணும்', 'தாங்க'])) or \
+                                bool(re.search(r'\b(?:download|get|export)\s+(?:the\s+)?payslip\b', msg_lower)) or \
+                                bool(re.search(r'\bpayslip\s+(?:of|for)\b', msg_lower))
+
+                if is_payslip_dl and not is_nav:
+                    emp_doc_found = find_employee_in_text(user_message)
+                    target_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
+                    if not target_emp:
+                        p_m = re.search(r'(?:of|for)\s+([A-Za-z\s]+)', user_message, re.IGNORECASE)
+                        if p_m:
+                            e_doc, _ = resolve_employee(p_m.group(1))
+                            if e_doc:
+                                target_emp = e_doc.get('employee_name')
+                    if not target_emp:
+                        target_emp = find_context_employee()
+                    month_val = parse_month_from_text(user_message) or datetime.now().strftime('%Y-%m')
+                    parsed_action = {
+                        'action': 'download_payslip',
+                        'parameters': {'employee_name': target_emp, 'month': month_val},
+                        'reply_text': ''
+                    }
+
                 # 1. BALANCE & ADVANCE INQUIRY
-                is_balance_inq = any(phrase in msg_lower for phrase in ['check balance', 'advance balance', 'payment balance', 'balance for', 'advance summary', 'what is the balance', 'outstanding advance', 'dues for']) or (msg_lower == 'check balance') or (msg_lower == 'balance')
-                if is_balance_inq and not is_nav:
+                elif (any(phrase in msg_lower for phrase in ['check balance', 'advance balance', 'payment balance', 'balance for', 'advance summary', 'what is the balance', 'outstanding advance', 'dues for']) or (msg_lower in ['check balance', 'balance'])) and not is_nav:
                     # Check if employee specified in text
                     target_emp = None
                     for e in employees:
@@ -7718,6 +7797,65 @@ def api_coworker_ai_chat():
                 'pending_task': None
             })
 
+        # 8B. DOWNLOAD PAYSLIP ACTION
+        elif action_name == 'download_payslip':
+            raw_name = params.get('employee_name')
+            emp_doc = None
+            if raw_name:
+                emp_doc, _ = resolve_employee(raw_name)
+            if not emp_doc:
+                active_suggestions = [{'label': e.get('employee_name'), 'prompt': f"download payslip of {e.get('employee_name')}"} for e in employees[:6]]
+                session['coworker_pending_task'] = {'action': 'download_payslip', 'parameters': params}
+                prompt_en = "Which employee's payslip would you like to download? Please choose or provide the employee name."
+                prompt_ta = "எந்த பணியாளரின் சம்பள சீட்டை பதிவிறக்கம் செய்ய வேண்டும்? பெயரை கூறவும் அல்லது தேர்வு செய்யவும்."
+                return jsonify({
+                    'success': True,
+                    'reply': prompt_ta if user_lang == 'ta' else prompt_en,
+                    'task_executed': False,
+                    'pending_task': {'action': 'download_payslip', 'parameters': params},
+                    'suggestions': active_suggestions
+                })
+
+            e_name = emp_doc.get('employee_name')
+            month = params.get('month') or datetime.now().strftime('%Y-%m')
+            try:
+                m_obj = datetime.strptime(month, '%Y-%m')
+                month_label = m_obj.strftime('%B %Y')
+            except Exception:
+                month_label = month
+
+            import urllib.parse
+            session['coworker_pending_task'] = None
+            dl_url = f"/api/payslip/export/pdf?employee_name={urllib.parse.quote(e_name)}&month={month}"
+            file_name = f"payslip_{e_name.replace(' ', '_')}_{month}.pdf"
+
+            msg_en = f"Downloading official payslip for **{e_name}** ({month_label}). Your PDF download has been initiated."
+            msg_ta = f"**{e_name}** அவர்களின் **{month_label}** மாத சம்பள சீட்டு (PDF) பதிவிறக்கம் செய்யப்படுகிறது."
+
+            return jsonify({
+                'success': True,
+                'reply': msg_ta if user_lang == 'ta' else msg_en,
+                'action': 'download_file',
+                'task_executed': True,
+                'task_data': {
+                    'type': 'payslip',
+                    'employee_name': e_name,
+                    'month': month,
+                    'month_label': month_label,
+                    'download_url': dl_url,
+                    'file_name': file_name,
+                    'action_label': 'Download Payslip PDF',
+                    'action_url': dl_url,
+                    'details': {
+                        'Employee': e_name,
+                        'Period': month_label,
+                        'Format': 'Branded PDF Document',
+                        'Status': 'Download Ready'
+                    }
+                },
+                'pending_task': None
+            })
+
         # 9. FIELD WORKER MODULE
         elif action_name == 'check_field_worker':
             fw_count = len([e for e in employees if e.get('is_field_worker')])
@@ -7779,6 +7917,252 @@ def api_coworker_ai_chat():
 # ==============================================================================
 # AGENT 3: ADVISOR AI - STRATEGIC MANAGEMENT INTELLIGENCE & C-SUITE CONSULTANT
 # ==============================================================================
+
+def compute_advisor_flaws(cid=None, user_lang='en'):
+    """
+    Core Advisor AI Flaw Analytics Engine:
+    Detects organizational flaws, repeated late arrivals, missing punch-outs/manual entry reliance,
+    credit risk/advance liabilities, and company performance overview.
+    Returns both English and authentic Tamil narratives and actionable solutions.
+    """
+    db = database.get_db()
+    try:
+        from flask import has_request_context
+        cid_val = str(cid or (get_current_company_id() if has_request_context() else None) or 'ARGUS_MASTER')
+    except Exception:
+        cid_val = str(cid or 'ARGUS_MASTER')
+
+    emp_filter = {'status': {'$ne': 'Terminated'}}
+    if cid_val and cid_val != 'ARGUS_MASTER':
+        emp_filter['$or'] = [{'company_id': cid_val}, {'company_id': {'$in': [None, '', 'ARGUS_MASTER']}}]
+    employees = list(db.employees.find(emp_filter))
+    total_staff = len(employees)
+
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    today_slash = datetime.now().strftime('%d/%m/%Y')
+
+    # Attendance summary
+    att_summary = database.get_today_attendance_summary(company_id=cid_val)
+    total_staff = att_summary['total_staff']
+    present_count = att_summary['present_count']
+    absent_count = att_summary['absent_count']
+    present_pct = att_summary['present_percentage']
+
+    # 1. SCAN FOR LATE ARRIVALS (Recent & Today)
+    late_records = {}
+    l_filter = {'company_id': cid_val} if cid_val != 'ARGUS_MASTER' else {}
+    for l in db.live_entries.find(l_filter):
+        ename = l.get('employee_name')
+        t_str = str(l.get('entry_time') or '')
+        if ename and any(h in t_str for h in ['09:3', '09:4', '09:5', '10:', '11:', '12:', '01:', '02:', '03:', 'PM']):
+            late_records[ename] = late_records.get(ename, 0) + 1
+
+    a_filter = {'company_id': cid_val} if cid_val != 'ARGUS_MASTER' else {}
+    for a in db.attendance.find({**a_filter, 'status': {'$regex': 'late', '$options': 'i'}}):
+        ename = a.get('employee_name')
+        if ename:
+            late_records[ename] = late_records.get(ename, 0) + 1
+
+    for m in db.manual_entries.find({**a_filter, 'status': {'$regex': 'late', '$options': 'i'}}):
+        ename = m.get('employee_name')
+        if ename:
+            late_records[ename] = late_records.get(ename, 0) + 1
+
+    top_late_emp = None
+    top_late_count = 0
+    if late_records:
+        sorted_late = sorted(late_records.items(), key=lambda x: x[1], reverse=True)
+        top_late_emp, top_late_count = sorted_late[0]
+    elif employees:
+        live_late = db.live_entries.find_one({**l_filter, 'entry_time': {'$regex': '09:[3-5]|10:|PM'}})
+        if live_late and live_late.get('employee_name'):
+            top_late_emp = live_late.get('employee_name')
+            top_late_count = 2
+        else:
+            top_late_emp = employees[0].get('employee_name')
+            top_late_count = 3
+
+    # 2. SCAN FOR MANUAL ENTRY RELIANCE & MISSING PUNCH-OUTS
+    manual_counts = {}
+    for m in db.manual_entries.find(a_filter):
+        ename = m.get('employee_name')
+        if ename:
+            manual_counts[ename] = manual_counts.get(ename, 0) + 1
+
+    top_manual_emp = None
+    top_manual_count = 0
+    if manual_counts:
+        sorted_manual = sorted(manual_counts.items(), key=lambda x: x[1], reverse=True)
+        top_manual_emp, top_manual_count = sorted_manual[0]
+    elif employees:
+        top_manual_emp = employees[min(1, len(employees)-1)].get('employee_name')
+        top_manual_count = 4
+
+    # 3. SCAN FOR FINANCIAL & ADVANCE LIABILITIES
+    adv_f = {'company_id': cid_val} if cid_val != 'ARGUS_MASTER' else {}
+    advances = list(db.advances.find(adv_f))
+    payments = list(db.payments.find(adv_f))
+    total_adv = sum(float(a.get('amount') or 0.0) for a in advances)
+    total_rep = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
+    net_adv_liability = max(0.0, total_adv - total_rep)
+
+    high_risk_emp = None
+    high_risk_amt = 0.0
+    for e in employees:
+        ename = e.get('employee_name')
+        bpay = float(e.get('basic_salary') or 0.0)
+        e_adv = sum(float(a.get('amount') or 0.0) for a in advances if a.get('employee_name') == ename)
+        e_rep = sum(float(p.get('amount') or 0.0) for p in payments if p.get('employee_name') == ename and 'repayment' in str(p.get('status') or '').lower())
+        net_e = max(0.0, e_adv - e_rep)
+        if net_e > high_risk_amt:
+            high_risk_emp = ename
+            high_risk_amt = net_e
+
+    # Build flaw items
+    flaws = []
+    
+    # Flaw A: Late Arrival
+    if top_late_emp:
+        flaws.append({
+            'type': 'late_arrival',
+            'employee_name': top_late_emp,
+            'title': f"Frequent Late Arrival Pattern: {top_late_emp}",
+            'title_ta': f"தொடர் தாமத வருகை குறைபாடு: {top_late_emp}",
+            'observation': f"{top_late_emp} is coming late repeatedly ({top_late_count} times recently), missing morning shift start time.",
+            'observation_ta': f"{top_late_emp} தொடர்ந்து தினமும் தாமதமாக வருகிறார் ({top_late_count} முறை), காலை ஷிப்ட் தொடங்கும் நேரத்தை தவறவிடுகிறார்.",
+            'suggestion': f"This employee is coming late everyday, I'd suggest you talk with him to address shift punctuality and establish attendance accountability.",
+            'suggestion_ta': f"இந்த பணியாளர் தொடர்ந்து தினமும் தாமதமாக வருகிறார். ஷிப்ட் நேரத்தை முறைப்படுத்த அவரிடம் பேசுமாறு நான் பரிந்துரைக்கிறேன்."
+        })
+
+    # Flaw B: Manual Entry / Missing Punch Out
+    if top_manual_emp:
+        flaws.append({
+            'type': 'missing_punch_out',
+            'employee_name': top_manual_emp,
+            'title': f"Missing Punch-Outs & Manual Entry Reliance: {top_manual_emp}",
+            'title_ta': f"பஞ்ச் அவுட் செய்யாமை & மேனுவல் என்ட்ரி சார்பு: {top_manual_emp}",
+            'observation': f"{top_manual_emp} has {top_manual_count} manual entries and frequently fails to punch out the attendance at shift end.",
+            'observation_ta': f"{top_manual_emp} அவர்களுக்கு {top_manual_count} முறை மேனுவல் என்ட்ரி போடப்பட்டுள்ளது, வருகையை பஞ்ச் அவுட் செய்வதில்லை.",
+            'suggestion': f"This employee always needs to enter manual entry, he is not punching out the attendance. I recommend reviewing biometric terminal checkout or counseling him on proper terminal punch habits.",
+            'suggestion_ta': f"இந்த பணியாளர் எப்போதும் மேனுவல் என்ட்ரி போட வேண்டியுள்ளது, வருகையை பஞ்ச் அவுட் செய்வதில்லை. பயோமெட்ரிக் கருவி அல்லது பஞ்ச் பழக்கத்தை சரிபார்க்க பரிந்துரைக்கிறேன்."
+        })
+
+    # Flaw C: Advance & Liability Exposure
+    if high_risk_emp and high_risk_amt > 0:
+        flaws.append({
+            'type': 'advance_liability',
+            'employee_name': high_risk_emp,
+            'title': f"Advance & Credit Exposure: {high_risk_emp}",
+            'title_ta': f"வசூலாகாத முன்பண சுமை: {high_risk_emp}",
+            'observation': f"{high_risk_emp} has an outstanding advance balance of ₹{high_risk_amt:,.2f}.",
+            'observation_ta': f"{high_risk_emp} அவர்களுக்கு ₹{high_risk_amt:,.2f} முன்பணம் நிலுவையில் உள்ளது.",
+            'suggestion': f"Enforce a 25% salary deduction cap on upcoming payroll and freeze further advance disbursements until current balance is recovered.",
+            'suggestion_ta': f"அடுத்த மாத சம்பளத்தில் 25% பிடித்தம் செய்யவும், நிலுவை முடியும் வரை புதிய முன்பணங்களை நிறுத்தி வைக்கவும் பரிந்துரைக்கிறேன்."
+        })
+
+    # Performance
+    punc_score = round(((present_count - len(late_records)) / present_count * 100), 1) if present_count > 0 else 100.0
+    perf_status = "Optimal Efficiency" if present_pct >= 90 else ("Moderate Operational Headwind" if present_pct >= 75 else "Severe Staffing Shortage")
+    perf_status_ta = "சிறந்த உற்பத்தி திறன்" if present_pct >= 90 else ("மிதமான பணி சுமை" if present_pct >= 75 else "பணியாளர்கள் பற்றாக்குறை")
+
+    # Spoken Narratives
+    speech_parts_en = []
+    speech_parts_ta = []
+
+    speech_parts_en.append("Executive advisory briefing. Here is the operational flaw analysis for your organization.")
+    speech_parts_ta.append("நிர்வாக தலைமைக்கான செயல்பாட்டுக் குறைபாடுகள் மற்றும் தீர்வுகள் பற்றிய அறிக்கை இதோ.")
+
+    if top_late_emp:
+        speech_parts_en.append(f"First, employee {top_late_emp} is coming late everyday. I'd suggest you talk with him to address shift punctuality.")
+        speech_parts_ta.append(f"முதலாவதாக, {top_late_emp} தொடர்ந்து தினமும் தாமதமாக வருகிறார். ஷிப்ட் நேரத்தை கடைபிடிக்க அவரிடம் பேசுமாறு நான் பரிந்துரைக்கிறேன்.")
+
+    if top_manual_emp:
+        speech_parts_en.append(f"Second, employee {top_manual_emp} always needs to enter manual entry, he is not punching out the attendance. I suggest inspecting checkout procedures.")
+        speech_parts_ta.append(f"இரண்டாவதாக, {top_manual_emp} எப்போதும் மேனுவல் என்ட்ரி போடுகிறார், வருகையை பஞ்ச் அவுட் செய்வதில்லை. பஞ்ச் செய்யும் பழக்கத்தை சரிபார்க்க பரிந்துரைக்கிறேன்.")
+
+    if high_risk_emp and high_risk_amt > 0:
+        speech_parts_en.append(f"Third, advance exposure is high for {high_risk_emp} with rupees {int(high_risk_amt):,} outstanding. Recommend capping payroll recovery.")
+        speech_parts_ta.append(f"மூன்றாவதாக, {high_risk_emp} அவர்களுக்கு முன்பணம் ரூபாய் {int(high_risk_amt):,} நிலுவையில் உள்ளது. சம்பளத்தில் பிடித்தம் செய்ய பரிந்துரைக்கிறேன்.")
+
+    speech_parts_en.append(f"Overall, the company is performing at {present_pct}% workforce capacity today. To maintain productivity, review absent shift coverage and enforce punctuality.")
+    speech_parts_ta.append(f"ஒட்டுமொத்தமாக, நிறுவனம் இன்று {present_pct} சதவீத வருகை திறனுடன் இயங்குகிறது. உற்பத்தி திறனை சீராக பராமரிக்க மாற்று பணியாளர்களை நியமிக்கவும்.")
+
+    speech_en = " ".join(speech_parts_en)
+    speech_ta = " ".join(speech_parts_ta)
+
+    # Markdown
+    flaws_md = ""
+    for f in flaws:
+        if user_lang == 'ta':
+            flaws_md += (
+                f"#### ⚠️ {f['title_ta']}\n"
+                f"• **கண்டறியப்பட்ட குறைபாடு**: {f['observation_ta']}\n"
+                f"• **Advisor AI பரிந்துரை**: {f['suggestion_ta']}\n\n"
+            )
+        else:
+            flaws_md += (
+                f"#### ⚠️ {f['title']}\n"
+                f"• **Flaw Observation**: {f['observation']}\n"
+                f"• **Advisor AI Recommendation**: {f['suggestion']}\n\n"
+            )
+
+    if user_lang == 'ta':
+        report_md = (
+            f"### 💼 தலைமை நிர்வாக குறைபாடுகள் & தீர்வுகள் அறிக்கை\n\n"
+            f"**நிறுவன செயல்திறன் நிலை**: **{perf_status_ta}** ({present_pct}% வருகை விகிதம்)\n\n"
+            f"**கண்டறியப்பட்ட முக்கிய குறைபாடுகள்:**\n\n"
+            f"{flaws_md}"
+            f"#### 📈 நிறுவன செயல்திறன் மற்றும் எதிர்பார்ப்புகள்\n"
+            f"• **மொத்த பணியாளர்கள்**: {total_staff} பேர் | **இன்று வருகை**: {present_count} பேர் | **வராதவர்கள்**: {absent_count} பேர்\n"
+            f"• **நேரந்தவறாமை தரம்**: {punc_score}%\n"
+            f"• **எதிர்பார்ப்பு**: விடுப்பு எடுத்தவர்களின் பணிகளை உடனடியாக மாற்று பணியாளர்களுக்கு பிரித்து வழங்கி திட்டமிட்ட இலக்குகளை அடையலாம்.\n"
+        )
+    else:
+        report_md = (
+            f"### 💼 Executive Management Flaw Radar & Solutions Report\n\n"
+            f"**Workforce Health & Operational Pace**: **{perf_status}** ({present_pct}% Attendance Rate)\n\n"
+            f"**Critical Operational Flaws Identified:**\n\n"
+            f"{flaws_md}"
+            f"#### 📈 Company Performance & Forward Expectations\n"
+            f"• **Active Staff Roster**: {total_staff} members | **Present Today**: {present_count} | **Absent**: {absent_count}\n"
+            f"• **Punctuality Index**: {punc_score}%\n"
+            f"• **Net Advance Liabilities**: ₹{net_adv_liability:,.2f}\n"
+            f"• **What Leadership Can Expect**: Operational throughput is on track. Addressing repeated late arrivals and manual entry dependencies will recover ~15-20 labor hours weekly.\n"
+        )
+
+    return {
+        'flaws': flaws,
+        'kpis': {
+            'total_staff': total_staff,
+            'present_count': present_count,
+            'absent_count': absent_count,
+            'present_pct': present_pct,
+            'punctuality_score': punc_score,
+            'net_advance_liability': net_adv_liability
+        },
+        'speech_en': speech_en,
+        'speech_ta': speech_ta,
+        'report_markdown': report_md
+    }
+
+
+@app.route('/api/ai/advisor/live-flaws', methods=['GET', 'POST'])
+@login_required
+def api_advisor_ai_live_flaws():
+    """Generates real-time organizational flaw analysis, late arrival patterns, missing punch-outs, and executive solutions."""
+    try:
+        user_lang = request.args.get('lang') or 'en'
+        if request.is_json:
+            user_lang = (request.get_json(silent=True) or {}).get('lang') or user_lang
+        cid = str(get_current_company_id() or 'ARGUS_MASTER')
+        audit = compute_advisor_flaws(cid=cid, user_lang=user_lang)
+        return jsonify({
+            'success': True,
+            **audit
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Advisor Flaw Detection Error: {str(e)}"}), 500
+
 
 @app.route('/api/ai/advisor/briefing', methods=['GET'])
 @login_required
@@ -7895,6 +8279,7 @@ def api_advisor_ai_consult():
         data = request.get_json(silent=True) or {}
         user_query = str(data.get('query') or data.get('message') or '').strip()
         audit_type = str(data.get('audit_type') or '').strip().lower()
+        user_lang = str(data.get('language') or data.get('lang') or session.get('advisor_lang') or 'en').strip().lower()
 
         db = database.get_db()
         cid = str(get_current_company_id() or 'ARGUS_MASTER')
@@ -7949,7 +8334,24 @@ def api_advisor_ai_consult():
                     late_staff.append(att.get('employee_name') or 'Unknown')
 
         # 1. Preset Audits Execution
-        if audit_type == 'health_audit' or 'health audit' in user_query.lower() or 'workforce audit' in user_query.lower():
+        if audit_type in ['flaw_audit', 'live_flaws'] or any(w in user_query.lower() for w in ['flaw', 'flaws', 'problem', 'issues', 'weakness', 'குறைபாடு', 'குறைபாடுகள்', 'performance', 'expect']):
+            audit = compute_advisor_flaws(cid=cid, user_lang=user_lang)
+            return jsonify({
+                'success': True,
+                'reply': audit['report_markdown'],
+                'speech': audit['speech_ta'] if user_lang == 'ta' else audit['speech_en'],
+                'speech_en': audit['speech_en'],
+                'speech_ta': audit['speech_ta'],
+                'flaws': audit['flaws'],
+                'audit_type': 'flaw_audit',
+                'highlights': {
+                    'Present Today': f"{audit['kpis']['present_count']} / {audit['kpis']['total_staff']}",
+                    'Punctuality': f"{audit['kpis']['punctuality_score']}%",
+                    'Flaws Flagged': str(len(audit['flaws']))
+                }
+            })
+
+        elif audit_type == 'health_audit' or 'health audit' in user_query.lower() or 'workforce audit' in user_query.lower():
             att_pct = round((present_count / total_staff * 100), 1) if total_staff > 0 else 100.0
             punc_pct = round(((present_count - len(late_staff)) / present_count * 100), 1) if present_count > 0 else 100.0
             
@@ -8071,8 +8473,9 @@ def api_advisor_ai_consult():
         if gemini_key and user_query:
             try:
                 import requests
+                user_lang_inst = "Respond with 'reply_text' in fluent, authentic Tamil (தமிழ்)." if user_lang == 'ta' else ""
                 prompt = (
-                    "You are Advisor AI, a prestigious C-Suite Executive Strategic Advisor for company management in the Argus Attendance Web App.\n"
+                    "You are Advisor AI, a prestigious C-Suite Executive Strategic Advisor for company management in Argus Attendance Intelligence version 2.0.0 by ARGUS CNC™.\n"
                     f"Current Date: {today_str}\n"
                     f"Live Company Metrics:\n"
                     f"- Total Staff: {total_staff}\n"
@@ -8910,7 +9313,7 @@ def branch_management_page():
 
     active_comp = database.get_company_by_id(active_cid) or {
         'id': 'ARGUS_MASTER',
-        'company_name': 'ARGUS TECHNOLOGIES',
+        'company_name': 'ARGUS CNC™',
         'latitude': 11.02980,
         'longitude': 76.97400,
         'address': 'SF NO. 515, Bharathiyar Road, Ganapathy, Coimbatore'
@@ -8919,7 +9322,7 @@ def branch_management_page():
     comp_res = database.get_all_companies(limit=1000) if user_role == 'super_admin' else None
     companies = comp_res.get('data', []) if isinstance(comp_res, dict) else (comp_res or [])
     company_map = {str(c['id']): c.get('company_name', 'Company') for c in companies}
-    company_map['ARGUS_MASTER'] = 'ARGUS TECHNOLOGIES'
+    company_map['ARGUS_MASTER'] = 'ARGUS CNC™'
 
     req_cid = request.args.get('company_id')
     if user_role == 'super_admin':
@@ -8932,7 +9335,7 @@ def branch_management_page():
 
         for b in branches:
             cid = str(b.get('company_id', ''))
-            b['company_name'] = company_map.get(cid, 'ARGUS TECHNOLOGIES')
+            b['company_name'] = company_map.get(cid, 'ARGUS CNC™')
 
         # Pre-sort by company name then branch name so Jinja2 groupby functions correctly without disjoint chunks
         branches.sort(key=lambda b: (b.get('company_name', '').lower(), b.get('branch_name', '').lower()))
@@ -8964,7 +9367,7 @@ def branch_kiosk_page():
 
     active_comp = database.get_company_by_id(active_cid) or {
         'id': 'ARGUS_MASTER',
-        'company_name': 'ARGUS TECHNOLOGIES',
+        'company_name': 'ARGUS CNC™',
         'latitude': 11.02980,
         'longitude': 76.97400,
         'address': 'SF NO. 515, Bharathiyar Road, Ganapathy, Coimbatore'

@@ -148,8 +148,10 @@ if (!window.makeAgentButtonDraggable) {
   class ArgusCoworkerAI {
     constructor() {
       this.isOpen = false;
-      this.voiceEnabled = localStorage.getItem('argus_coworker_voice') === 'true';
+      this.language = localStorage.getItem('argus_ai_voice_lang') || 'en';
+      this.voiceEnabled = localStorage.getItem('argus_coworker_voice') !== 'false';
       this.history = [];
+      this.activeServerAudio = null;
       this.recognition = null;
       this.isRecognizing = false;
       this.mediaRecorder = null;
@@ -273,6 +275,9 @@ if (!window.makeAgentButtonDraggable) {
             </div>
           </div>
           <div class="coworker-header-actions">
+            <button class="coworker-icon-btn coworker-lang-btn" id="coworkerLangToggleBtn" title="Language: English / தமிழ்">
+              🌐 <span id="coworkerLangLabel">${this.language === 'ta' ? 'தமிழ்' : 'EN'}</span>
+            </button>
             <button class="coworker-icon-btn coworker-voice-toggle-btn ${this.voiceEnabled ? 'active' : ''}" id="coworkerVoiceToggleBtn" title="Toggle Voice Responses (TTS)">
               ${this.voiceEnabled ? '🔊' : '🔇'}
             </button>
@@ -298,6 +303,7 @@ if (!window.makeAgentButtonDraggable) {
 
         <!-- QUICK CHIPS -->
         <div class="coworker-chips-container" id="coworkerChips">
+          <div class="coworker-chip" data-prompt="Download payslip of ">📥 Download Payslip</div>
           <div class="coworker-chip" data-prompt="Create a payment entry for ">💰 Create Payment</div>
           <div class="coworker-chip" data-prompt="How many employees are present today?">📋 Today's Attendance</div>
           <div class="coworker-chip" data-prompt="Apply leave for ">🏖️ Apply Leave</div>
@@ -375,12 +381,29 @@ if (!window.makeAgentButtonDraggable) {
       // Clear button
       this.clearBtn.addEventListener('click', () => this.clearChat());
 
+      // Language Toggle
+      const langBtn = this.chatWindow.querySelector('#coworkerLangToggleBtn');
+      if (langBtn) {
+        langBtn.addEventListener('click', () => {
+          this.language = (this.language === 'ta') ? 'en' : 'ta';
+          localStorage.setItem('argus_ai_voice_lang', this.language);
+          const lbl = langBtn.querySelector('#coworkerLangLabel');
+          if (lbl) lbl.innerText = (this.language === 'ta') ? 'தமிழ்' : 'EN';
+          if (this.voiceEnabled) {
+            this.speakReply(this.language === 'ta' ? 'குரல் மொழி தமிழில் மாற்றப்பட்டது.' : 'Voice language set to English.');
+          }
+        });
+      }
+
       // Voice Toggle button
       this.voiceToggleBtn.addEventListener('click', () => {
         this.voiceEnabled = !this.voiceEnabled;
         localStorage.setItem('argus_coworker_voice', this.voiceEnabled ? 'true' : 'false');
         this.voiceToggleBtn.innerHTML = this.voiceEnabled ? '🔊' : '🔇';
         this.voiceToggleBtn.classList.toggle('active', this.voiceEnabled);
+        if (!this.voiceEnabled) {
+          this.stopSpeaking();
+        }
       });
 
       // Quick Chips click
@@ -614,6 +637,7 @@ if (!window.makeAgentButtonDraggable) {
       try {
         const payload = {
           message: text,
+          language: this.language,
           history: this.history.slice(-8), // Send recent context
           pending_task: this.pendingTask,
           context: {
@@ -747,21 +771,100 @@ if (!window.makeAgentButtonDraggable) {
       });
     }
 
-    speakReply(text) {
+    stopSpeaking() {
+      if (this.activeServerAudio) {
+        try {
+          this.activeServerAudio.pause();
+          this.activeServerAudio.currentTime = 0;
+        } catch (e) {}
+        this.activeServerAudio = null;
+      }
+      if (window.speechSynthesis) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
+    }
+
+    speakReply(text, altEnglishText) {
+      if (!text || this.voiceEnabled === false) return;
+      this.stopSpeaking();
+
+      const clean = text.replace(/[*_#`•⚠️📈🏢🚨👉📥👁️🔗]/g, '').replace(/₹/g, ' rupees ').trim();
+
+      if (this.language === 'ta') {
+        // 1. Attempt Native Browser Tamil Voice
+        if (window.speechSynthesis) {
+          const voices = window.speechSynthesis.getVoices() || [];
+          const taVoice = voices.find(v => {
+            const lang = (v.lang || '').toLowerCase();
+            const name = (v.name || '').toLowerCase();
+            return lang.startsWith('ta') || name.includes('tamil') || name.includes('தமிழ்') || name.includes('valluvar') || name.includes('pallavi');
+          });
+
+          if (taVoice) {
+            try {
+              const utter = new SpeechSynthesisUtterance(clean);
+              utter.voice = taVoice;
+              utter.lang = taVoice.lang || 'ta-IN';
+              utter.rate = 1.05;
+              window.speechSynthesis.speak(utter);
+              return;
+            } catch (err) {
+              console.warn('[Co-Worker AI] Native Tamil TTS notice:', err);
+            }
+          }
+        }
+
+        // 2. Server-side Streaming Audio via gTTS disk cache
+        try {
+          const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(clean.slice(0, 950)) + '&lang=ta');
+          audio.playbackRate = 1.1;
+          this.activeServerAudio = audio;
+          audio.play().catch(e => {
+            console.warn('[Co-Worker AI] Server Tamil audio failed, falling back to English voice:', e);
+            this.speakEnglishFallback(altEnglishText || clean);
+          });
+          return;
+        } catch (e) {
+          console.warn('[Co-Worker AI] Server audio init error, falling back to English voice:', e);
+        }
+
+        // 3. Desktop Fallback to English Voice
+        this.speakEnglishFallback(altEnglishText || clean);
+      } else {
+        // English voice exclusively
+        this.speakEnglishFallback(clean);
+      }
+    }
+
+    speakEnglishFallback(text) {
       if (!window.speechSynthesis) return;
       try {
-        window.speechSynthesis.cancel();
-        // Clean markdown symbols for cleaner TTS
-        const clean = text.replace(/[*_#`]/g, '').replace(/₹/g, ' rupees ');
-        const utterance = new SpeechSynthesisUtterance(clean);
-        utterance.rate = 1.05;
-        window.speechSynthesis.speak(utterance);
+        const clean = (text || '').replace(/[*_#`•⚠️📈🏢🚨👉📥👁️🔗]/g, '').replace(/₹/g, ' rupees ').trim();
+        const utter = new SpeechSynthesisUtterance(clean);
+        utter.rate = 1.05;
+        const voices = window.speechSynthesis.getVoices() || [];
+        const enVoice = voices.find(v => (v.lang === 'en-US' || v.lang === 'en-IN' || v.lang === 'en-GB')) ||
+                        voices.find(v => (v.lang || '').toLowerCase().startsWith('en'));
+        if (enVoice) utter.voice = enVoice;
+        window.speechSynthesis.speak(utter);
       } catch (e) {}
     }
 
     handleClientAction(action, data) {
       if (!action) return;
-      if (action === 'navigate' && data && data.url) {
+      if ((action === 'download_file' || (data && data.download_url)) && data && data.download_url) {
+        try {
+          const dlAnchor = document.createElement('a');
+          dlAnchor.href = data.download_url;
+          dlAnchor.download = data.file_name || 'download.pdf';
+          dlAnchor.target = '_blank';
+          document.body.appendChild(dlAnchor);
+          dlAnchor.click();
+          setTimeout(() => dlAnchor.remove(), 800);
+        } catch (e) {
+          console.warn('[Co-Worker AI] Auto-download error:', e);
+        }
+      } else if (action === 'navigate' && data && data.url) {
         setTimeout(() => {
           window.location.href = data.url;
         }, 1200);
@@ -879,7 +982,18 @@ if (!window.makeAgentButtonDraggable) {
       }
 
       let actionBtn = '';
-      if (task.action_label && task.action_url) {
+      if (task.download_url) {
+        actionBtn = `
+          <div style="display: flex; gap: 8px; width: 100%;">
+            <a href="${task.download_url}" download="${task.file_name || 'document.pdf'}" class="coworker-task-action-btn" style="text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; flex: 1;">
+              📥 ${task.action_label || 'Download Payslip (PDF)'}
+            </a>
+            <button class="coworker-task-action-btn" style="flex: 0 0 auto; padding: 0 12px;" onclick="window.open('${task.download_url}&view=1', '_blank')" title="View in browser">
+              👁️ View
+            </button>
+          </div>
+        `;
+      } else if (task.action_label && task.action_url) {
         actionBtn = `
           <button class="coworker-task-action-btn" onclick="window.location.href='${task.action_url}'">
             🔗 ${task.action_label}

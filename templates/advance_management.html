@@ -487,7 +487,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const printWindow = window.open('', '', 'height=600,width=800');
     printWindow.document.write('<html><head><title>Print Advance Entries</title>');
     printWindow.document.write('<style>body{font-family:sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;font-size:12px;}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;}th{background:#f0f4f8;}.btn-edit-advance,.btn-del-advance{display:none;}</style>');
-    const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS TECHNOLOGIES';
+    const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS CNC™';
     printWindow.document.write(`</head><body><h2>${compName} - ADVANCE MANAGEMENT REPORT</h2>`);
     printWindow.document.write(printContents);
     printWindow.document.write('</body></html>');

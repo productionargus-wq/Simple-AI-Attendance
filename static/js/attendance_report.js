@@ -564,7 +564,7 @@ document.addEventListener('DOMContentLoaded', function () {
       .row-total td { background: #e9ecef; font-weight: bold; }
     `);
     printWindow.document.write('</style></head><body>');
-    const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS TECHNOLOGIES';
+    const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS CNC™';
     printWindow.document.write(`<h2>${compName} - ${title}</h2>`);
     printWindow.document.write(printContents);
     printWindow.document.write('</body></html>');

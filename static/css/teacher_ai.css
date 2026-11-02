@@ -1,5 +1,5 @@
 /**
- * ARGUS TECHNOLOGIES - TEACHER AI STYLESHEET
+ * ARGUS CNC™ - TEACHER AI STYLESHEET
  * =============================================================
  * Provides styles for:
  * 1. Floating Top HUD bar when Teacher AI is active
@@ -373,4 +373,21 @@ body.coworker-modal-open .argus-ai-circle-btn {
     left: 12px !important;
     right: 12px !important;
   }
+}
+
+/* Teacher Language Toggle Button */
+.teacher-ai-btn-lang {
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  cursor: pointer;
+  margin-right: 6px;
+}
+.teacher-ai-btn-lang:hover {
+  background: rgba(56, 189, 248, 0.25) !important;
+  border-color: #38bdf8 !important;
 }

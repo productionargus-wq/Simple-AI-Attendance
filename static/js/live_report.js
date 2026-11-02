@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function () {
         th { background: #f0f4f8; }
       `);
       printWindow.document.write('</style></head><body>');
-      const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS TECHNOLOGIES';
+      const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS CNC™';
       printWindow.document.write(`<h2>${compName} - ${currentType === 'live' ? 'LIVE ENTRIES' : 'TIMEOUT ENTRIES'}</h2>`);
       printWindow.document.write(printContents);
       printWindow.document.write('</body></html>');

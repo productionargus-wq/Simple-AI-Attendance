@@ -129,7 +129,7 @@ jobs:
         run: |
           mkdir -p staged-macos
           cd dist
-          hdiutil create -volname "Argus Attendance" -srcfolder "ArgusAttendance.app" -ov -format UDZO "../staged-macos/ArgusAttendance-macOS.dmg"
+          hdiutil create -volname "Argus Attendance Intelligence" -srcfolder "ArgusAttendance.app" -ov -format UDZO "../staged-macos/ArgusAttendance-macOS.dmg"
           zip -r "../staged-macos/ArgusAttendance-macOS.app.zip" "ArgusAttendance.app"
           cd ..
 
