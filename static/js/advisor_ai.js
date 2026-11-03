@@ -442,16 +442,11 @@
       this.isOpen = true;
       this.hudPill.classList.add('open');
       const introLead = this.isSystemAdmin ?
-        'Broadcasting: Multi-Company Fleet Performance & Operational Flaw Audit' :
-        'Broadcasting: Organizational Performance & Operational Flaw Audit';
-      this.updateStatus(introLead, true);
+        'Analyzing Multi-Company Fleet Performance & Operational Flaws...' :
+        'Analyzing Live Organizational Performance & Operational Flaws...';
+      this.updateStatus(introLead, false);
 
-      // Start talking immediately upon clicking!
-      const immediateIntro = (this.language === 'ta') ?
-        'தலைமை சிஸ்டம் அட்மினுக்கான நிறுவனங்களின் செயல்திறன் மற்றும் குறைபாடுகள் பற்றிய அறிக்கை தொடங்குகிறது.' :
-        'Executive Advisory Briefing in progress. Analyzing operational performance and identified flaws across your workforce.';
-      this.speak(immediateIntro, immediateIntro);
-
+      // Load live briefing cleanly without duplicate audio race condition
       this.loadBriefing();
     }
 
@@ -510,29 +505,64 @@
     populateCompanyChips(data) {
       if (!this.chipsScroll) return;
 
+      const activeChip = this.chipsScroll.querySelector('.advisor-hud-chip.active');
+      const activeAudit = activeChip ? activeChip.getAttribute('data-audit') : 'flaw_audit';
+      const activeComp = activeChip ? activeChip.getAttribute('data-company') : null;
+
+      const summaryLabel = this.isSystemAdmin ? '🏢 Fleet Flaws Summary' : '🏢 Executive Summary';
+      const isFlawActive = (activeAudit === 'flaw_audit' && !activeComp) ? 'active' : '';
+      const isHealthActive = activeAudit === 'health_audit' ? 'active' : '';
+      const isAdvActive = activeAudit === 'advance_risk' ? 'active' : '';
+      const isLateActive = activeAudit === 'latecomers' ? 'active' : '';
+
       const baseChips = `
-        <div class="advisor-hud-chip active" data-audit="flaw_audit">🏢 Fleet Flaws Summary</div>
-        <div class="advisor-hud-chip" data-audit="health_audit">📊 Workforce Health</div>
-        <div class="advisor-hud-chip" data-audit="advance_risk">⚠️ Advance Liabilities</div>
-        <div class="advisor-hud-chip" data-audit="latecomers">⏰ Latecomers & Timeouts</div>
+        <div class="advisor-hud-chip ${isFlawActive}" data-audit="flaw_audit">${summaryLabel}</div>
+        <div class="advisor-hud-chip ${isHealthActive}" data-audit="health_audit">📊 Workforce Health</div>
+        <div class="advisor-hud-chip ${isAdvActive}" data-audit="advance_risk">⚠️ Advance Liabilities</div>
+        <div class="advisor-hud-chip ${isLateActive}" data-audit="latecomers">⏰ Latecomers & Timeouts</div>
       `;
 
       let companyPills = '';
       if (data.fleet_companies && data.fleet_companies.length > 0) {
         data.fleet_companies.forEach(c => {
           const dot = c.flaws && c.flaws.length > 0 ? '🔴' : '🟢';
-          companyPills += `<div class="advisor-hud-chip" data-company="${c.name}">${dot} ${c.name}</div>`;
+          const isAct = (activeComp === c.name) ? 'active' : '';
+          companyPills += `<div class="advisor-hud-chip ${isAct}" data-company="${c.name}">${dot} ${c.name}</div>`;
         });
       }
 
       this.chipsScroll.innerHTML = baseChips + companyPills;
     }
 
+    renderMarkdown(md) {
+      if (!md) return '';
+      let html = md
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/^#### (.*?)$/gm, '<h5 class="adv-md-h5">$1</h5>')
+        .replace(/^### (.*?)$/gm, '<h4 class="adv-md-h4">$1</h4>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="adv-md-bold">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em class="adv-md-em">$1</em>')
+        .replace(/^[•\-] (.*?)$/gm, '<div class="adv-md-bullet"><span class="adv-md-dot">•</span><span>$1</span></div>')
+        .replace(/^(\d+)\. (.*?)$/gm, '<div class="adv-md-num"><span class="adv-md-idx">$1.</span><span>$2</span></div>')
+        .replace(/\n\n+/g, '<div class="adv-md-gap"></div>')
+        .replace(/\n/g, '<br/>');
+      return html;
+    }
+
     async handleInterruptionQuery(queryText) {
       if (!queryText) return;
 
       this.stopSpeaking();
-      this.updateStatus(`Interrupting: "${queryText}"`, true);
+      this.updateStatus(`Consulting: "${queryText}"`, true);
+
+      if (this.targetCard) {
+        this.targetTitle.innerText = `Consultation: ${queryText}`;
+        this.targetMetric.innerText = 'Evaluating...';
+        this.targetBody.innerHTML = '<div style="padding: 10px 0; color: #94a3b8; font-style: italic;">Consulting live analytics...</div>';
+        this.targetCard.classList.add('visible');
+      }
 
       try {
         const resp = await fetch('/api/ai/advisor/consult', {
@@ -544,14 +574,15 @@
 
         if (data && data.success) {
           if (this.targetCard) {
-            this.targetTitle.innerText = `Diagnostic: ${queryText}`;
-            this.targetMetric.innerText = `Matched Flaws: ${(data.flaws || []).length}`;
-            this.targetBody.innerHTML = (data.reply || '').replace(/\n/g, '<br/>');
+            this.targetTitle.innerText = `Audit: ${queryText}`;
+            const flawMetric = (data.flaws && data.flaws[0] && data.flaws[0].title) ? data.flaws[0].title : `${(data.flaws || []).length} Flaw(s)`;
+            this.targetMetric.innerText = flawMetric;
+            this.targetBody.innerHTML = this.renderMarkdown(data.reply || '');
             this.targetCard.classList.add('visible');
           }
 
           const speech = (this.language === 'ta') ? (data.speech_ta || data.speech || data.speech_en) : (data.speech_en || data.speech);
-          this.updateStatus(`Advisor Answering: "${queryText}"`, true);
+          this.updateStatus(`Explaining: "${queryText}"`, true);
           this.speak(speech, data.speech_en);
         }
       } catch (err) {
@@ -562,6 +593,13 @@
     async runAudit(auditType, title) {
       this.stopSpeaking();
       this.updateStatus(`Running ${title}...`, true);
+
+      if (this.targetCard) {
+        this.targetTitle.innerText = title;
+        this.targetMetric.innerText = 'Auditing...';
+        this.targetBody.innerHTML = `<div style="padding: 10px 0; color: #94a3b8; font-style: italic;">Auditing live metrics for ${title}...</div>`;
+        this.targetCard.classList.add('visible');
+      }
 
       try {
         const resp = await fetch('/api/ai/advisor/consult', {
@@ -574,8 +612,9 @@
         if (data && data.success) {
           if (this.targetCard) {
             this.targetTitle.innerText = title;
-            this.targetMetric.innerText = `${(data.flaws || []).length} Flaw(s)`;
-            this.targetBody.innerHTML = (data.reply || '').replace(/\n/g, '<br/>');
+            const flawMetric = (data.flaws && data.flaws[0] && data.flaws[0].title) ? data.flaws[0].title : `${(data.flaws || []).length} Flaw(s)`;
+            this.targetMetric.innerText = flawMetric;
+            this.targetBody.innerHTML = this.renderMarkdown(data.reply || '');
             this.targetCard.classList.add('visible');
           }
 
@@ -596,8 +635,15 @@
       if (this.playPauseBtn) this.playPauseBtn.innerHTML = '⏸️ Pause';
       if (this.voiceWave) this.voiceWave.classList.add('speaking');
 
-      // Use Server-Side Google Cloud TTS with client fallback
-      const encoded = encodeURIComponent(textTaOrEn);
+      // For English, use native browser speech synthesis directly for instant 0-latency playback
+      if (this.language === 'en' && 'speechSynthesis' in window) {
+        this.fallbackBrowserTTS(textTaOrEn, textEnFallback);
+        return;
+      }
+
+      // Clean special symbols before streaming
+      const cleanText = textTaOrEn.replace(/[*#`_•]/g, '').slice(0, 1000);
+      const encoded = encodeURIComponent(cleanText);
       const audioUrl = `/api/ai/speak?text=${encoded}&lang=${this.language}`;
       const audio = new Audio(audioUrl);
       this.activeServerAudio = audio;
@@ -627,7 +673,8 @@
 
       window.speechSynthesis.cancel();
       const textToSpeak = (this.language === 'ta' && textTa) ? textTa : (textEn || textTa);
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      const cleanText = textToSpeak.replace(/[*#`_•]/g, '');
+      const utterance = new SpeechSynthesisUtterance(cleanText);
 
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
@@ -668,6 +715,7 @@
         try {
           this.activeServerAudio.pause();
           this.activeServerAudio.currentTime = 0;
+          this.activeServerAudio.src = '';
         } catch (e) {}
         this.activeServerAudio = null;
       }

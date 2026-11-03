@@ -292,15 +292,70 @@
 /* 6. TARGETED ANSWER CARD (APPEARS ON INTERRUPTION) */
 .advisor-hud-target-card {
   margin: 0 14px 10px 14px;
-  padding: 8px 12px;
-  background: rgba(30, 41, 59, 0.7);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 10px;
-  font-size: 11px;
-  line-height: 1.45;
+  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 12px;
+  font-size: 11.5px;
+  line-height: 1.5;
   color: #cbd5e1;
   display: none;
-  animation: advSlideDown 0.2s ease-out;
+  max-height: 380px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.3) transparent;
+  animation: advSlideDown 0.22s ease-out;
+}
+
+.advisor-hud-target-card::-webkit-scrollbar {
+  width: 5px;
+}
+.advisor-hud-target-card::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.3);
+  border-radius: 4px;
+}
+
+/* Advisor Markdown Typography */
+.adv-md-h4 {
+  margin: 8px 0 4px 0;
+  color: #38bdf8;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+.adv-md-h5 {
+  margin: 6px 0 3px 0;
+  color: #93c5fd;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.adv-md-bold {
+  color: #f8fafc;
+  font-weight: 600;
+}
+.adv-md-em {
+  color: #94a3b8;
+  font-style: italic;
+}
+.adv-md-bullet, .adv-md-num {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 3px 0;
+  color: #e2e8f0;
+}
+.adv-md-dot {
+  color: #38bdf8;
+  font-size: 13px;
+  line-height: 1;
+}
+.adv-md-idx {
+  color: #fbbf24;
+  font-weight: 700;
+  font-size: 11px;
+}
+.adv-md-gap {
+  height: 6px;
 }
 
 .advisor-hud-target-card.visible {

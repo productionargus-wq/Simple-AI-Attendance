@@ -3639,28 +3639,31 @@ TTS_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static
 os.makedirs(TTS_CACHE_DIR, exist_ok=True)
 
 @app.route('/api/voice/tamil-tts', methods=['GET'])
+@app.route('/api/ai/speak', methods=['GET'])
+@app.route('/api/voice/speak', methods=['GET'])
 def api_voice_tamil_tts():
     """
-    Synthesizes and streams authentic Tamil voice audio (MP3) using gTTS.
+    Synthesizes and streams authentic voice audio (MP3) using gTTS for English and Tamil.
     Implements persistent disk caching so repeated voice messages return in < 10ms.
-    Used as an automatic fallback for desktop devices without native Tamil OS voices.
+    Used for Advisor AI, Teacher AI, and Co-Worker AI audio responses.
     """
     text = (request.args.get('text') or '').strip()
-    lang = request.args.get('lang', 'ta').strip()
+    default_lang = 'ta' if request.path.endswith('tamil-tts') else 'en'
+    lang = (request.args.get('lang') or default_lang).strip().lower()
     if not text:
         return jsonify({'error': 'No text provided'}), 400
 
-    if len(text) > 1200:
-        text = text[:1200]
+    if len(text) > 1500:
+        text = text[:1500]
 
-
-    cache_hash = hashlib.md5(f"{text}_{lang}".encode('utf-8')).hexdigest()
+    clean_lang = 'ta' if lang.startswith('ta') else 'en'
+    cache_hash = hashlib.md5(f"{text}_{clean_lang}".encode('utf-8')).hexdigest()
     cache_path = os.path.join(TTS_CACHE_DIR, f"{cache_hash}.mp3")
 
     if not os.path.exists(cache_path):
         try:
             from gtts import gTTS
-            tts = gTTS(text=text, lang=lang, slow=False)
+            tts = gTTS(text=text, lang=clean_lang, slow=False)
             tts.save(cache_path)
         except Exception as e:
             print("gTTS generation error:", e)
@@ -8044,7 +8047,7 @@ def api_advisor_ai_briefing():
 @app.route('/api/ai/advisor/consult', methods=['POST'])
 @login_required
 def api_advisor_ai_consult():
-    """C-Suite interactive management advisory endpoint with strategic analytics and live interruption handling."""
+    """C-Suite interactive management advisory endpoint with category-specific analytics and live interruption handling."""
     try:
         data = request.get_json(silent=True) or {}
         user_query = str(data.get('query') or data.get('message') or '').strip()
@@ -8054,27 +8057,19 @@ def api_advisor_ai_consult():
         db = database.get_db()
         is_super = session.get('role') == 'super_admin'
         cid = str(get_current_company_id() or 'ARGUS_MASTER')
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        today_slash = datetime.now().strftime('%d/%m/%Y')
+        query_lower = user_query.lower()
 
-        # 1. Preset Audits Execution
-        if audit_type in ['flaw_audit', 'live_flaws'] or any(w in user_query.lower() for w in ['flaw', 'flaws', 'problem', 'issues', 'weakness', 'குறைபாடு', 'குறைபாடுகள்']):
-            audit = compute_advisor_flaws(cid=cid, user_lang=user_lang)
-            return jsonify({
-                'success': True,
-                'reply': audit['report_markdown'],
-                'speech': audit['speech_ta'] if user_lang == 'ta' else audit['speech_en'],
-                'speech_en': audit['speech_en'],
-                'speech_ta': audit['speech_ta'],
-                'flaws': audit['flaws'],
-                'audit_type': 'flaw_audit'
-            })
-
-        # 2. Interruption / Specific Company Query (for System Admin)
+        # -------------------------------------------------------------
+        # 1. SPECIFIC TENANT COMPANY QUERY (SYSTEM ADMIN MULTI-COMPANY)
+        # -------------------------------------------------------------
         if user_query:
             matched_company = None
             for c in db.company_admin.find():
                 cname = str(c.get('company_name') or '').strip()
                 cid_str = str(c.get('id') or '').strip()
-                if cname and (cname.lower() in user_query.lower() or (cid_str and cid_str.lower() in user_query.lower())):
+                if cname and (cname.lower() in query_lower or (cid_str and cid_str.lower() in query_lower)):
                     matched_company = c
                     break
 
@@ -8092,21 +8087,19 @@ def api_advisor_ai_consult():
                 mc_rep = sum(float(p.get('amount') or 0.0) for p in db.payments.find({'company_id': mc_id}) if 'repayment' in str(p.get('status') or '').lower())
                 mc_net_adv = max(0.0, mc_adv - mc_rep)
 
-                today_slash = datetime.now().strftime('%d/%m/%Y')
                 mc_timeouts = db.timeout_entries.count_documents({
                     'company_id': mc_id,
                     '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
                 })
 
-                # Specific diagnosis for this interrupted company
                 diag_md = (
                     f"### 🏢 Targeted Company Audit: **{mc_name}**\n\n"
                     f"• **Headcount & Quota**: {mc_staff} registered active employees ({mc_staff}/{mc_limit} quota used).\n"
                     f"• **Today's Attendance**: **{mc_pres} Present**, **{mc_abs} Absent** ({mc_pct}% attendance rate).\n"
                     f"• **Timeout Punches (>15h)**: **{mc_timeouts} open timeout entries**.\n"
                     f"• **Unrecovered Advance Debt**: **₹{mc_net_adv:,.2f}**.\n\n"
-                    f"**Advisor AI Actionable Solutions:**\n"
-                    f"1. {'Enforce automatic 20% salary deductions to recover remaining ₹' + f'{mc_net_adv:,.2f}' if mc_net_adv > 0 else 'Capital recovery is healthy with zero advance debt.'}\n"
+                    f"#### 💡 Actionable Solutions:\n"
+                    f"1. {'Enforce automatic 20% salary deductions to recover remaining ₹' + f'{mc_net_adv:,.2f}.' if mc_net_adv > 0 else 'Capital recovery is healthy with zero advance debt.'}\n"
                     f"2. {'Require company administrator to reconcile open timeout punches.' if mc_timeouts > 0 else 'Checkout discipline is intact with zero timeouts.'}\n"
                     f"3. {'Alert manager regarding severe absenteeism today.' if mc_pct < 65.0 else 'Attendance throughput is operating within normal expectations.'}"
                 )
@@ -8131,19 +8124,287 @@ def api_advisor_ai_consult():
                     'audit_type': 'targeted_company_consult'
                 })
 
-        # 3. Custom Strategic Consultation Fallback
-        audit = compute_advisor_flaws(cid=cid, user_lang=user_lang)
+        # -------------------------------------------------------------
+        # 2. CATEGORY AUDIT INTENT ROUTING
+        # -------------------------------------------------------------
+        is_advance_audit = (audit_type == 'advance_risk') or any(w in query_lower for w in [
+            'advance', 'advances', 'loan', 'loans', 'debt', 'liability', 'liabilities', 'repayment', 'முன்பணம்', 'கடன்', 'பாக்கி'
+        ])
+        is_health_audit = (audit_type == 'health_audit') or any(w in query_lower for w in [
+            'health', 'workforce', 'attendance', 'present', 'absent', 'headcount', 'staffing', 'capacity', 'வருகை', 'பணியாளர்', 'ஆரோக்கியம்'
+        ])
+        is_latecomers_audit = (audit_type == 'latecomers') or any(w in query_lower for w in [
+            'late', 'latecomer', 'latecomers', 'delay', 'punctual', 'punctuality', 'timeout', 'timeouts', 'punch out', 'checkout', 'தாமதம்', 'டைம்-அவுட்'
+        ])
+        is_flaw_audit = (audit_type in ['flaw_audit', 'live_flaws']) or any(w in query_lower for w in [
+            'flaw', 'flaws', 'problem', 'issues', 'weakness', 'summary', 'overview', 'radar', 'குறைபாடு', 'குறைபாடுகள்'
+        ])
+
+        # -------------------------------------------------------------
+        # 3. ADVANCE LIABILITIES AUDIT (advance_risk)
+        # -------------------------------------------------------------
+        if is_advance_audit:
+            if is_super:
+                companies = list(db.company_admin.find())
+                all_adv = list(db.advances.find())
+                all_pay = list(db.payments.find())
+                fleet_adv = sum(float(a.get('amount') or 0.0) for a in all_adv)
+                fleet_rep = sum(float(p.get('amount') or 0.0) for p in all_pay if 'repayment' in str(p.get('status') or '').lower())
+                fleet_net_adv = max(0.0, fleet_adv - fleet_rep)
+
+                comp_adv = {}
+                for a in all_adv:
+                    c_key = str(a.get('company_id') or 'ARGUS_MASTER')
+                    comp_adv[c_key] = comp_adv.get(c_key, 0.0) + float(a.get('amount') or 0.0)
+                for p in all_pay:
+                    if 'repayment' in str(p.get('status') or '').lower():
+                        c_key = str(p.get('company_id') or 'ARGUS_MASTER')
+                        comp_adv[c_key] = max(0.0, comp_adv.get(c_key, 0.0) - float(p.get('amount') or 0.0))
+
+                top_comps = sorted([(c.get('company_name') or c.get('id'), comp_adv.get(str(c.get('id') or c.get('_id')), 0.0)) for c in companies], key=lambda x: x[1], reverse=True)[:5]
+                top_comp_md = "\n".join([f"• **{name}**: ₹{amt:,.2f} pending liability" for name, amt in top_comps if amt > 0]) or "• All registered companies have zero outstanding advance debt."
+
+                top_names = ", ".join([f"{name} (₹{int(amt):,})" for name, amt in top_comps[:2] if amt > 0]) or "none"
+                speech_en = f"Fleet advance liabilities audit. Across all client companies, total net unrecovered employee advance debt is rupees {int(fleet_net_adv):,}. Top exposures are observed in {top_names}. Recommend enforcing automatic salary deductions."
+                speech_ta = f"நிறுவனங்களின் நிலுவை முன்பணம் பற்றிய அறிக்கை. வாடிக்கையாளர் நிறுவனங்களில் ஒட்டுமொத்தமாக நிலுவை முன்பணம் ரூபாய் {int(fleet_net_adv):,} உள்ளது. சம்பளத்தில் தானியங்கி பிடித்தம் செய்ய பரிந்துரைக்கிறேன்."
+
+                reply_md = (
+                    f"### ⚠️ Multi-Company Advance Liabilities & Credit Risk Audit\n\n"
+                    f"**Platform Fleet Totals**: Disbursed: **₹{fleet_adv:,.2f}** | Repaid: **₹{fleet_rep:,.2f}** | **Net Outstanding Debt: ₹{fleet_net_adv:,.2f}**\n\n"
+                    f"#### 🏢 Client Companies with Highest Advance Exposure\n"
+                    f"{top_comp_md}\n\n"
+                    f"#### 🛡️ Advisor AI Capital Preservation Actions\n"
+                    f"1. Enforce automated 20% salary deduction cap across client companies with outstanding debt.\n"
+                    f"2. Implement advance ceilings linked directly to 50% of employee monthly base salary.\n"
+                    f"3. Require supervisory pre-approval for any new advance requests exceeding ₹5,000."
+                )
+            else:
+                adv_f = {'company_id': cid} if cid != 'ARGUS_MASTER' else {}
+                advances = list(db.advances.find(adv_f))
+                payments = list(db.payments.find(adv_f))
+                tot_adv = sum(float(a.get('amount') or 0.0) for a in advances)
+                tot_rep = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
+                net_adv_liability = max(0.0, tot_adv - tot_rep)
+
+                adv_by_emp = {}
+                for a in advances:
+                    ename = str(a.get('employee_name') or 'Unknown').strip()
+                    adv_by_emp[ename] = adv_by_emp.get(ename, 0.0) + float(a.get('amount') or 0.0)
+                for p in payments:
+                    if 'repayment' in str(p.get('status') or '').lower():
+                        ename = str(p.get('employee_name') or 'Unknown').strip()
+                        adv_by_emp[ename] = max(0.0, adv_by_emp.get(ename, 0.0) - float(p.get('amount') or 0.0))
+
+                active_debtors = [(name, amt) for name, amt in adv_by_emp.items() if amt > 0]
+                active_debtors.sort(key=lambda x: x[1], reverse=True)
+
+                if active_debtors:
+                    debtor_md = "\n".join([f"• **{name}**: ₹{amt:,.2f} outstanding" for name, amt in active_debtors[:8]])
+                    top_emp, top_amt = active_debtors[0]
+                    speech_en = f"Advance Liabilities Briefing. Your organization holds rupees {int(net_adv_liability):,} in net outstanding employee advances across {len(active_debtors)} staff members. Top balance is held by {top_emp} with rupees {int(top_amt):,}. Recommend scheduling automatic 20% payroll deductions."
+                    speech_ta = f"முன்பணம் நிலுவை அறிக்கை. உங்கள் அமைப்பில் {len(active_debtors)} பணியாளர்களிடம் மொத்தம் ரூபாய் {int(net_adv_liability):,} முன்பணம் நிலுவையில் உள்ளது. அதிகபட்சமாக {top_emp} அவர்களுக்கு ரூபாய் {int(top_amt):,} உள்ளது. சம்பளத்தில் பிடித்தம் செய்ய பரிந்துரைக்கிறேன்."
+                else:
+                    debtor_md = "• *All employee advance disbursements have been fully recovered with zero active debt.*"
+                    speech_en = "Advance Liabilities Briefing. Capital recovery is optimal with zero outstanding advance liabilities. Your organization currently carries zero employee credit risk."
+                    speech_ta = "முன்பணம் நிலுவை அறிக்கை. உங்கள் நிறுவனத்தில் நிலுவை முன்பணம் ஏதுமில்லை. மூலதன பயன்பாடு சீராக உள்ளது."
+
+                reply_md = (
+                    f"### ⚠️ Advance Liabilities & Payroll Exposure Audit\n\n"
+                    f"**Organization Capital Status**: Disbursed: **₹{tot_adv:,.2f}** | Repaid: **₹{tot_rep:,.2f}** | **Net Outstanding Balance: ₹{net_adv_liability:,.2f}**\n\n"
+                    f"#### 👥 Outstanding Employee Advance Balances ({len(active_debtors)} Staff)\n"
+                    f"{debtor_md}\n\n"
+                    f"#### 🛡️ Advisor AI Financial Control Recommendations\n"
+                    f"1. **Automated Payroll Deductions**: Schedule automatic 20% salary deductions on monthly payroll disbursements until balances are cleared.\n"
+                    f"2. **Advance Cap Ceiling**: Cap future employee advance requests at a maximum of 50% of net monthly earnings.\n"
+                    f"3. **Payment Receipt Audit**: Reconcile manual repayment cash vouchers against financial settlement statements."
+                )
+
+            return jsonify({
+                'success': True,
+                'reply': reply_md,
+                'speech': speech_ta if user_lang == 'ta' else speech_en,
+                'speech_en': speech_en,
+                'speech_ta': speech_ta,
+                'flaws': [{'type': 'advance_risk', 'title': f'Advance Debt: ₹{net_adv_liability if not is_super else fleet_net_adv:,.2f}'}],
+                'audit_type': 'advance_risk'
+            })
+
+        # -------------------------------------------------------------
+        # 4. WORKFORCE HEALTH AUDIT (health_audit)
+        # -------------------------------------------------------------
+        if is_health_audit:
+            if is_super:
+                audit = compute_advisor_flaws(cid=cid, user_lang=user_lang)
+                kpis = audit.get('kpis', {})
+                fleet_staff = kpis.get('total_staff', 0)
+                fleet_pres = kpis.get('present_count', 0)
+                fleet_abs = kpis.get('absent_count', 0)
+                fleet_pct = kpis.get('present_pct', 0.0)
+
+                speech_en = f"Workforce Health Briefing. Across all {kpis.get('total_companies', 0)} registered companies, platform attendance is {fleet_pct}% today with {fleet_pres} of {fleet_staff} active employees present. Review absenteeism in critical deficit companies."
+                speech_ta = f"பணியாளர் வருகை நிலை அறிக்கை. மேடையில் உள்ள அனைத்து நிறுவனங்களிலும் இன்று ஒட்டுமொத்த வருகை {fleet_pct}% ஆக உள்ளது. {fleet_staff} பணியாளர்களில் {fleet_pres} பேர் வருகை தந்துள்ளனர்."
+
+                reply_md = (
+                    f"### 📊 Multi-Company Workforce Health & Attendance Audit\n\n"
+                    f"**Platform Attendance**: **{fleet_pct}% Overall Attendance** | **{fleet_pres} Present** | **{fleet_abs} Absent** (Total Roster: {fleet_staff})\n\n"
+                    f"#### 🏢 Fleet Operations Breakdown\n"
+                    f"• **Active Tenant Organizations**: {kpis.get('total_companies', 0)} registered accounts\n"
+                    f"• **Platform Attendance Rating**: {'🟢 Optimal' if fleet_pct >= 85.0 else ('🟡 Moderate Deficit' if fleet_pct >= 65.0 else '🔴 Critical Deficit')}\n"
+                    f"• **Average Organization Punctuality**: {kpis.get('punctuality_score', 95.0)}%\n\n"
+                    f"#### 🎯 Strategic Platform Recommendations\n"
+                    f"1. Send attendance compliance notifications to tenant organizations with under 65% attendance.\n"
+                    f"2. Verify GPS geofence terminal uptime for accurate biometric scans.\n"
+                    f"3. Review field worker attendance sync logs."
+                )
+            else:
+                att_summary = database.get_today_attendance_summary(company_id=cid)
+                total_staff = att_summary['total_staff']
+                present_count = att_summary['present_count']
+                absent_count = att_summary['absent_count']
+                present_pct = att_summary['present_percentage']
+                health_badge = "🟢 Optimal Operational Pace" if present_pct >= 90.0 else ("🟡 Moderate Capacity Deficit" if present_pct >= 75.0 else "🔴 Critical Workforce Deficit")
+
+                emp_filter = {'status': {'$ne': 'Terminated'}}
+                if cid and cid != 'ARGUS_MASTER':
+                    emp_filter['$or'] = [{'company_id': cid}, {'company_id': {'$in': [None, '', 'ARGUS_MASTER']}}]
+                all_emps = list(db.employees.find(emp_filter, {'employee_name': 1}))
+                today_att = list(db.attendance.find({'date': today_str, **({'company_id': cid} if cid != 'ARGUS_MASTER' else {})}, {'employee_name': 1}))
+                pres_names = set(a.get('employee_name') for a in today_att if a.get('employee_name'))
+                absent_names = [e.get('employee_name') for e in all_emps if e.get('employee_name') and e.get('employee_name') not in pres_names][:6]
+                absent_md = ("• **Absent Staff Sample**: " + ", ".join(absent_names)) if absent_names else "• *Full shift coverage present today.*"
+
+                speech_en = f"Workforce Health Briefing. Your organization is currently operating at {present_pct}% workforce capacity today, with {present_count} present and {absent_count} absent out of {total_staff} total staff. {'Attendance is at a critical deficit; review absent shift coverage to maintain operational throughput.' if present_pct < 75.0 else ('Attendance is at moderate capacity.' if present_pct < 90.0 else 'Workforce operations are performing at optimal capacity today.')}"
+                speech_ta = f"பணியாளர் வருகை திறன் அறிக்கை. உங்கள் நிறுவனம் இன்று {present_pct}% வருகை திறனுடன் இயங்குகிறது. மொத்தமுள்ள {total_staff} பணியாளர்களில் {present_count} பேர் வருகை தந்துள்ளனர், {absent_count} பேர் வரவில்லை."
+
+                reply_md = (
+                    f"### 📊 Workforce Health & Operational Pace Audit\n\n"
+                    f"**Operational Pace**: **{health_badge}** ({present_pct}% Attendance Rate)\n\n"
+                    f"#### 📈 Today's Workforce Capacity Breakdown\n"
+                    f"• **Total Active Staff**: {total_staff} registered employees\n"
+                    f"• **Present Today**: **{present_count}** ({present_pct}%)\n"
+                    f"• **Absent Today**: **{absent_count}** ({round(100.0 - present_pct, 1)}%)\n"
+                    f"{absent_md}\n\n"
+                    f"#### 🎯 Strategic Workforce Recommendations\n"
+                    f"1. {'Coordinate shift task reassignments to cover critical absent roles.' if present_pct < 75.0 else 'Workforce throughput is operating smoothly.'}\n"
+                    f"2. Review pending sick leave and emergency permission requests in Leave Management.\n"
+                    f"3. Verify that onsite field workers and branch staff have logged biometric camera punches."
+                )
+
+            return jsonify({
+                'success': True,
+                'reply': reply_md,
+                'speech': speech_ta if user_lang == 'ta' else speech_en,
+                'speech_en': speech_en,
+                'speech_ta': speech_ta,
+                'flaws': [{'type': 'health_audit', 'title': f'Attendance Rate: {present_pct if not is_super else fleet_pct}%'}],
+                'audit_type': 'health_audit'
+            })
+
+        # -------------------------------------------------------------
+        # 5. LATECOMERS & TIMEOUTS AUDIT (latecomers)
+        # -------------------------------------------------------------
+        if is_latecomers_audit:
+            adv_f = {'company_id': cid} if cid != 'ARGUS_MASTER' else {}
+            late_records = list(db.attendance.find({**adv_f, 'date': today_str, 'status': 'Late'}))
+            late_count = len(late_records)
+
+            timeout_cnt = db.timeout_entries.count_documents({
+                **adv_f,
+                '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
+            })
+
+            manual_entries = list(db.manual_entries.find({
+                **adv_f,
+                '$or': [{'entry_date': today_str}, {'date': today_str}]
+            }))
+            manual_count = len(manual_entries)
+
+            punc_score = 95.0
+            if late_count > 0:
+                punc_score = max(50.0, round(100.0 - (late_count * 10.0), 1))
+
+            top_late = late_records[0].get('employee_name') if late_records else None
+            late_items = "\n".join([f"• **{r.get('employee_name', 'Employee')}**: Punch-in at {r.get('time', 'Past tolerance')}" for r in late_records[:6]]) if late_records else "• *Zero late arrivals recorded today. All punches met shift schedule tolerance.*"
+            timeout_items = f"• **{timeout_cnt} shift(s)** reached the 15-hour timeout limit without a verified departure punch." if timeout_cnt > 0 else "• *Departure checkout discipline intact with zero unclosed timeout entries.*"
+
+            if late_count > 0 or timeout_cnt > 0:
+                speech_en = f"Late arrivals and shift punctuality audit. {late_count} employee{'s' if late_count > 1 else ''} clocked in late today{', led by ' + top_late if top_late else ''}. There are {timeout_cnt} open attendance session{'s' if timeout_cnt > 1 else ''} exceeding 15 hours without checkout. Recommend reviewing departure punches and reinforcing punctuality."
+                speech_ta = f"தாமத வருகை மற்றும் ஷிப்ட் அறிக்கை. இன்று {late_count} பணியாளர்கள் தாமதமாக வந்துள்ளனர். மேலும் 15 மணிநேரத்தை தாண்டிய {timeout_cnt} முடிவடையாத வருகை பதிவுகள் உள்ளன. வெளியேறும் பதிவை சரிபார்க்கவும்."
+            else:
+                speech_en = "Late arrivals and shift punctuality audit. Excellent shift discipline today. Zero late arrivals flagged and all attendance punches were recorded on schedule."
+                speech_ta = "தாமத வருகை அறிக்கை. இன்று பணியாளர்கள் அனைவரும் குறித்த நேரத்தில் வருகை தந்துள்ளனர். நேரந்தவறாமை தரம் மிகச் சிறப்பாக உள்ளது."
+
+            reply_md = (
+                f"### ⏰ Late Arrivals & Shift Punctuality Audit\n\n"
+                f"**Punctuality Status**: **{punc_score}% Punctuality Index** | **{late_count} Late Arrival(s)** | **{timeout_cnt} Timeouts (>15h)**\n\n"
+                f"#### 🏃 Late Arrivals Flagged Today ({late_count})\n"
+                f"{late_items}\n\n"
+                f"#### ⏳ Open Checkout Sessions Exceeding 15 Hours ({timeout_cnt})\n"
+                f"{timeout_items}\n\n"
+                f"#### 📋 Advisor AI Disciplinary & Shift Actions\n"
+                f"1. {'Conduct punctuality review with ' + top_late + ' and enforce shift schedule windows.' if top_late else 'Shift punctuality meets operational targets.'}\n"
+                f"2. {'Reconcile ' + str(timeout_cnt) + ' open departure punches in Live Report before calculating monthly payroll.' if timeout_cnt > 0 else 'All previous shifts successfully recorded departure punches.'}\n"
+                f"3. Check biometric terminal clock alignment and kiosk connectivity."
+            )
+
+            return jsonify({
+                'success': True,
+                'reply': reply_md,
+                'speech': speech_ta if user_lang == 'ta' else speech_en,
+                'speech_en': speech_en,
+                'speech_ta': speech_ta,
+                'flaws': [{'type': 'late_arrivals', 'title': f'{late_count} Late, {timeout_cnt} Timeouts'}],
+                'audit_type': 'latecomers'
+            })
+
+        # -------------------------------------------------------------
+        # 6. FLAW SUMMARY AUDIT (flaw_audit / live_flaws)
+        # -------------------------------------------------------------
+        if is_flaw_audit or not user_query:
+            audit = compute_advisor_flaws(cid=cid, user_lang=user_lang)
+            return jsonify({
+                'success': True,
+                'reply': audit['report_markdown'],
+                'speech': audit['speech_ta'] if user_lang == 'ta' else audit['speech_en'],
+                'speech_en': audit['speech_en'],
+                'speech_ta': audit['speech_ta'],
+                'flaws': audit['flaws'],
+                'audit_type': 'flaw_audit'
+            })
+
+        # -------------------------------------------------------------
+        # 7. NATURAL LANGUAGE VOICE INTERRUPT CONSULTATION
+        # -------------------------------------------------------------
+        att_summary = database.get_today_attendance_summary(company_id=cid)
+        total_staff = att_summary['total_staff']
+        present_count = att_summary['present_count']
+        present_pct = att_summary['present_percentage']
+
+        adv_f = {'company_id': cid} if cid != 'ARGUS_MASTER' else {}
+        advances = list(db.advances.find(adv_f))
+        payments = list(db.payments.find(adv_f))
+        tot_adv = sum(float(a.get('amount') or 0.0) for a in advances)
+        tot_rep = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
+        net_adv_liability = max(0.0, tot_adv - tot_rep)
+
+        spoken_en = f"Regarding your inquiry about {user_query}. Your company is currently operating with {present_count} of {total_staff} staff present today ({present_pct}% attendance), with net advance liabilities of rupees {int(net_adv_liability):,}."
+        spoken_ta = f"உங்கள் கேள்வி: {user_query}. இன்று நிறுவனத்தில் {present_count} பணியாளர்கள் வருகை தந்துள்ளனர். நிலுவை முன்பணம் ரூபாய் {int(net_adv_liability):,} ஆக உள்ளது."
+
         reply_md = (
-            f"### 💼 Strategic Management Advisory\n\n"
-            f"**Inquiry Evaluation**: *'{user_query}'*\n\n"
-            f"{audit['report_markdown']}"
+            f"### 💼 Executive Management Consultation\n\n"
+            f"**Inquiry**: *\"{user_query}\"*\n\n"
+            f"• **Current Attendance Pace**: **{present_count} Present** / {total_staff} Staff ({present_pct}%)\n"
+            f"• **Net Advance Liabilities**: **₹{net_adv_liability:,.2f}**\n\n"
+            f"#### 💡 Advisor AI Recommendation\n"
+            f"To optimize organizational performance in response to *\"{user_query}\"*, monitor shift schedule adherence and review departure punch reconciliations."
         )
+
         return jsonify({
             'success': True,
             'reply': reply_md,
-            'speech': audit['speech_ta'] if user_lang == 'ta' else audit['speech_en'],
-            'speech_en': audit['speech_en'],
-            'speech_ta': audit['speech_ta'],
+            'speech': spoken_ta if user_lang == 'ta' else spoken_en,
+            'speech_en': spoken_en,
+            'speech_ta': spoken_ta,
             'audit_type': 'custom_consult'
         })
 
