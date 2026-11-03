@@ -10649,7 +10649,7 @@ def generate_visit_transcript_document(visit_id, company_id=None):
         "",
         "=" * 76,
         f"Document Generated: {get_ist_now().strftime('%Y-%m-%d %I:%M:%S %p')} IST",
-        "System: Argus AI Attendance & Field Force Intelligence",
+        "System: Argus Attendance Intelligence v2.0.0",
         "=" * 76
     ])
 

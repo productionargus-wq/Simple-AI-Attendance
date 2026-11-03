@@ -55,7 +55,7 @@ jobs:
       - name: Upload Android APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Argus-Attendance-Android-APKs
+          name: Argus-Attendance-Intelligence-Android-APKs
           path: |
             mobile-app/android/app/build/outputs/apk/release/*.apk
             mobile-app/android/app/build/outputs/apk/debug/*.apk
@@ -63,7 +63,7 @@ jobs:
       - name: Upload Google Play Store AAB Bundle
         uses: actions/upload-artifact@v4
         with:
-          name: Argus-Attendance-PlayStore-AAB
+          name: Argus-Attendance-Intelligence-PlayStore-AAB
           path: mobile-app/android/app/build/outputs/bundle/release/*.aab
 
   build-ios:
@@ -114,13 +114,13 @@ jobs:
           mkdir -p build/Payload
           cp -r build/App.xcarchive/Products/Applications/App.app build/Payload/
           cd build
-          zip -r Argus-Attendance-iOS-unsigned.ipa Payload/
+          zip -r Argus-Attendance-Intelligence-iOS-unsigned.ipa Payload/
           cd ../
 
       - name: Upload iOS IPA & Archive
         uses: actions/upload-artifact@v4
         with:
-          name: Argus-Attendance-iOS-IPA
+          name: Argus-Attendance-Intelligence-iOS-IPA
           path: |
-            mobile-app/ios/App/build/Argus-Attendance-iOS-unsigned.ipa
+            mobile-app/ios/App/build/Argus-Attendance-Intelligence-iOS-unsigned.ipa
             mobile-app/ios/App/build/App.xcarchive

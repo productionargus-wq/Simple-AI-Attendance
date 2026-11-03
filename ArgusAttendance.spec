@@ -104,7 +104,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='ArgusAttendance',
+    name='Argus-Attendance-Intelligence',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -124,7 +124,7 @@ exe = EXE(
 if is_macos:
     app = BUNDLE(
         exe,
-        name='ArgusAttendance.app',
+        name='Argus-Attendance-Intelligence.app',
         icon=None,
         bundle_identifier='com.argus.attendance',
         info_plist={

@@ -72,7 +72,7 @@ def main():
     server_url = f"http://{host}:{port}/"
 
     print("================================================================")
-    print("ARGUS CNC™ - ARGUS ATTENDANCE INTELLIGENCE VERSION 2.0.0")
+    print("ARGUS CNC™ - ARGUS ATTENDANCE INTELLIGENCE V2.0.0")
     print(f"Embedded Server URL: {server_url}")
     print("Initializing Native Application Window (WebView2)...")
     print("================================================================")
@@ -104,7 +104,7 @@ def main():
 
     # 5. Create native desktop window
     window = webview.create_window(
-        title='Argus Attendance Intelligence version 2.0.0',
+        title='Argus Attendance Intelligence v2.0.0',
         url=server_url,
         width=1366,
         height=860,

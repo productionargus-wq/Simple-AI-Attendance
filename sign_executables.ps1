@@ -10,13 +10,16 @@ $rootStore.Close()
 Write-Host "Installed in CurrentUser Trusted Root Store."
 
 # Sign both the Setup Installer and the Portable Executable
-$sigSetup = Set-AuthenticodeSignature -FilePath "dist\ArgusAttendance_Setup_v2.0.exe" -Certificate $cert
-Write-Host "ArgusAttendance_Setup_v2.0.exe signature status: $($sigSetup.Status)"
+$setupPath = if (Test-Path "dist\Argus-Attendance-Intelligence-Setup.exe") { "dist\Argus-Attendance-Intelligence-Setup.exe" } else { "dist\ArgusAttendance_Setup_v2.0.exe" }
+$exePath = if (Test-Path "dist\Argus-Attendance-Intelligence.exe") { "dist\Argus-Attendance-Intelligence.exe" } else { "dist\ArgusAttendance.exe" }
 
-$sigExe = Set-AuthenticodeSignature -FilePath "dist\ArgusAttendance.exe" -Certificate $cert
-Write-Host "ArgusAttendance.exe signature status: $($sigExe.Status)"
+$sigSetup = Set-AuthenticodeSignature -FilePath $setupPath -Certificate $cert
+Write-Host "$setupPath signature status: $($sigSetup.Status)"
+
+$sigExe = Set-AuthenticodeSignature -FilePath $exePath -Certificate $cert
+Write-Host "$exePath signature status: $($sigExe.Status)"
 
 # Verify signature details
-$sigCheck = Get-AuthenticodeSignature "dist\ArgusAttendance_Setup_v2.0.exe"
+$sigCheck = Get-AuthenticodeSignature $setupPath
 Write-Host "Signer Subject: $($sigCheck.SignerCertificate.Subject)"
 Write-Host "StatusMessage: $($sigCheck.StatusMessage)"

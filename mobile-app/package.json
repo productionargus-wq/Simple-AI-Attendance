@@ -1,7 +1,7 @@
 {
-  "name": "argus-ai-attendance-mobile",
-  "version": "1.0.0",
-  "description": "Argus AI Attendance Mobile App - Hands-Free Biometric Attendance Terminal",
+  "name": "argus-attendance-intelligence",
+  "version": "2.0.0",
+  "description": "Argus Attendance Intelligence Mobile App - Hands-Free Biometric Attendance Terminal",
   "private": true,
   "scripts": {
     "build": "echo \"Ready\"",

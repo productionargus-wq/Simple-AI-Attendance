@@ -1,7 +1,9 @@
 @echo off
-title Launching Argus Attendance Intelligence version 2.0.0...
+title Launching Argus Attendance Intelligence v2.0.0...
 cd /d "%~dp0"
-if exist "dist\ArgusAttendance.exe" (
+if exist "dist\Argus-Attendance-Intelligence.exe" (
+    start "" "%~dp0dist\Argus-Attendance-Intelligence.exe"
+) else if exist "dist\ArgusAttendance.exe" (
     start "" "%~dp0dist\ArgusAttendance.exe"
 ) else if exist "dist\ArgusAttendance\ArgusAttendance.exe" (
     start "" "%~dp0dist\ArgusAttendance\ArgusAttendance.exe"

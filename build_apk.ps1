@@ -1,4 +1,4 @@
-# Argus AI Attendance - Mobile App Builder (APK, Play Store AAB, iOS Workspace)
+# Argus Attendance Intelligence v2.0.0 - Mobile App Builder (APK, Play Store AAB, iOS Workspace)
 param(
     [ValidateSet("apk", "aab", "ios", "all")]
     [string]$Target = "apk",
@@ -48,14 +48,14 @@ if ($Target -in @("apk", "all")) {
     }
 
     if (Test-Path $ApkSource) {
-        $MobileDestPath = Join-Path $MobileDir "Argus Attendance.apk"
+        $MobileDestPath = Join-Path $MobileDir "Argus-Attendance-Intelligence.apk"
         Copy-Item -Path $ApkSource -Destination $MobileDestPath -Force
         $MobileSizeMB = [math]::Round((Get-Item $MobileDestPath).Length / 1MB, 2)
 
         if (-not (Test-Path $OutputDir)) {
             New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
         }
-        $DestPath = Join-Path $OutputDir "Argus Attendance Kiosk.apk"
+        $DestPath = Join-Path $OutputDir "Argus-Attendance-Intelligence.apk"
         Copy-Item -Path $ApkSource -Destination $DestPath -Force
 
         Write-Host " -> APK Generated: $MobileDestPath ($MobileSizeMB MB)" -ForegroundColor Green
@@ -83,7 +83,7 @@ if ($Target -in @("aab", "all")) {
         if (-not (Test-Path $OutputDir)) {
             New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
         }
-        $AabBackupPath = Join-Path $OutputDir "Argus Attendance Kiosk.aab"
+        $AabBackupPath = Join-Path $OutputDir "Argus-Attendance-Intelligence.aab"
         Copy-Item -Path $AabSource -Destination $AabBackupPath -Force
 
         Write-Host " -> Play Store AAB Generated: $AabDestPath ($AabSizeMB MB)" -ForegroundColor Green
@@ -96,12 +96,12 @@ if ($Target -in @("aab", "all")) {
 if ($Target -in @("ios", "all")) {
     Write-Host "`n[4/4] Packaging Native iOS Project Workspace..." -ForegroundColor Yellow
     Set-Location $MobileDir
-    $IosZipPath = Join-Path $MobileDir "Argus Attendance iOS Workspace.zip"
+    $IosZipPath = Join-Path $MobileDir "Argus-Attendance-Intelligence-iOS-Workspace.zip"
     Compress-Archive -Path (Join-Path $IosDir "*") -DestinationPath $IosZipPath -Force
     $IosSizeMB = [math]::Round((Get-Item $IosZipPath).Length / 1MB, 2)
 
     if (Test-Path $OutputDir) {
-        Copy-Item -Path $IosZipPath -Destination (Join-Path $OutputDir "Argus Attendance iOS Workspace.zip") -Force
+        Copy-Item -Path $IosZipPath -Destination (Join-Path $OutputDir "Argus-Attendance-Intelligence-iOS-Workspace.zip") -Force
     }
 
     Write-Host " -> iOS Workspace Packaged: $IosZipPath ($IosSizeMB MB)" -ForegroundColor Green

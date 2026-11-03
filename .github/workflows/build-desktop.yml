@@ -63,8 +63,10 @@ jobs:
       - name: Upload Windows Executables
         uses: actions/upload-artifact@v4
         with:
-          name: Argus-Attendance-Windows-Desktop
+          name: Argus-Attendance-Intelligence-Windows-Desktop
           path: |
+            dist/Argus-Attendance-Intelligence.exe
+            dist/Argus-Attendance-Intelligence-Setup.exe
             dist/ArgusAttendance.exe
             dist/ArgusAttendance_Setup_v2.0.exe
 
@@ -100,13 +102,15 @@ jobs:
       - name: Package macOS DMG Installer & ZIP
         run: |
           cd dist
-          hdiutil create -volname "Argus Attendance Intelligence" -srcfolder "ArgusAttendance.app" -ov -format UDZO "ArgusAttendance-macOS.dmg"
-          zip -r "ArgusAttendance-macOS.zip" "ArgusAttendance.app"
+          APP_NAME="Argus-Attendance-Intelligence.app"
+          if [ ! -d "$APP_NAME" ]; then APP_NAME="ArgusAttendance.app"; fi
+          hdiutil create -volname "Argus Attendance Intelligence" -srcfolder "$APP_NAME" -ov -format UDZO "Argus-Attendance-Intelligence-macOS.dmg"
+          zip -r "Argus-Attendance-Intelligence-macOS.zip" "$APP_NAME"
 
       - name: Upload macOS Installers
         uses: actions/upload-artifact@v4
         with:
-          name: Argus-Attendance-macOS-Desktop
+          name: Argus-Attendance-Intelligence-macOS-Desktop
           path: |
-            dist/ArgusAttendance-macOS.dmg
-            dist/ArgusAttendance-macOS.zip
+            dist/Argus-Attendance-Intelligence-macOS.dmg
+            dist/Argus-Attendance-Intelligence-macOS.zip

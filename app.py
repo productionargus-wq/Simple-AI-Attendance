@@ -6380,7 +6380,7 @@ def api_teacher_ai_explain():
                 user_lang = teacher_lang
                 user_lang_inst = "Respond with 'reply_text' in fluent, authentic Tamil (தமிழ்)." if user_lang == 'ta' else ""
                 prompt = (
-                    "You are Teacher AI for Argus Attendance Intelligence version 2.0.0 by ARGUS CNC™. "
+                    "You are Teacher AI for Argus Attendance Intelligence v2.0.0 by Argus CNC™. "
                     "Explain clearly and concisely in exactly 1 or 2 sentences what this UI control does and how it affects attendance or operations.\n"
                     f"Element Name: {element_title}\n"
                     f"Element Type: {element_tag}\n"

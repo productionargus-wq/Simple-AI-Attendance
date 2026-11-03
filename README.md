@@ -1,4 +1,4 @@
-# ARGUS CNC™ - Argus Attendance Intelligence version 2.0.0
+# Argus CNC™ - Argus Attendance Intelligence v2.0.0
 
 A full-stack attendance and payroll management web application built with Python Flask and MongoDB Atlas, styled to match ARGUS CNC™ UI.
 

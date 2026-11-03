@@ -13,7 +13,7 @@ on:
       release_title:
         description: 'Release Title'
         required: false
-        default: 'Argus AI Attendance v2.0.0 Release'
+        default: 'Argus Attendance Intelligence v2.0.0 Release'
 
 permissions:
   contents: write
@@ -75,11 +75,15 @@ jobs:
       - name: Prepare Windows Release Artifacts
         run: |
           New-Item -ItemType Directory -Force -Path staged-windows
-          if (Test-Path "dist\ArgusAttendance_Setup_v2.0.exe") {
-            Copy-Item "dist\ArgusAttendance_Setup_v2.0.exe" -Destination "staged-windows\ArgusAttendance-Setup-Windows.exe"
+          if (Test-Path "dist\Argus-Attendance-Intelligence-Setup.exe") {
+            Copy-Item "dist\Argus-Attendance-Intelligence-Setup.exe" -Destination "staged-windows\Argus-Attendance-Intelligence-Setup-Windows.exe"
+          } elseif (Test-Path "dist\ArgusAttendance_Setup_v2.0.exe") {
+            Copy-Item "dist\ArgusAttendance_Setup_v2.0.exe" -Destination "staged-windows\Argus-Attendance-Intelligence-Setup-Windows.exe"
           }
-          if (Test-Path "dist\ArgusAttendance.exe") {
-            Copy-Item "dist\ArgusAttendance.exe" -Destination "staged-windows\ArgusAttendance-Standalone-Windows.exe"
+          if (Test-Path "dist\Argus-Attendance-Intelligence.exe") {
+            Copy-Item "dist\Argus-Attendance-Intelligence.exe" -Destination "staged-windows\Argus-Attendance-Intelligence-Standalone-Windows.exe"
+          } elseif (Test-Path "dist\ArgusAttendance.exe") {
+            Copy-Item "dist\ArgusAttendance.exe" -Destination "staged-windows\Argus-Attendance-Intelligence-Standalone-Windows.exe"
           }
 
       - name: Upload Windows Staging Artifact
@@ -129,8 +133,10 @@ jobs:
         run: |
           mkdir -p staged-macos
           cd dist
-          hdiutil create -volname "Argus Attendance Intelligence" -srcfolder "ArgusAttendance.app" -ov -format UDZO "../staged-macos/ArgusAttendance-macOS.dmg"
-          zip -r "../staged-macos/ArgusAttendance-macOS.app.zip" "ArgusAttendance.app"
+          APP_NAME="Argus-Attendance-Intelligence.app"
+          if [ ! -d "$APP_NAME" ]; then APP_NAME="ArgusAttendance.app"; fi
+          hdiutil create -volname "Argus Attendance Intelligence" -srcfolder "$APP_NAME" -ov -format UDZO "../staged-macos/Argus-Attendance-Intelligence-macOS.dmg"
+          zip -r "../staged-macos/Argus-Attendance-Intelligence-macOS.app.zip" "$APP_NAME"
           cd ..
 
       - name: Upload macOS Staging Artifact
@@ -180,14 +186,14 @@ jobs:
           mkdir -p staged-android
           # Copy release APK if present, or fallback to available apk
           if [ -f mobile-app/android/app/build/outputs/apk/release/app-release-unsigned.apk ]; then
-            cp mobile-app/android/app/build/outputs/apk/release/app-release-unsigned.apk staged-android/ArgusAttendance-Android.apk
+            cp mobile-app/android/app/build/outputs/apk/release/app-release-unsigned.apk staged-android/Argus-Attendance-Intelligence-Android.apk
           elif [ -f mobile-app/android/app/build/outputs/apk/release/app-release.apk ]; then
-            cp mobile-app/android/app/build/outputs/apk/release/app-release.apk staged-android/ArgusAttendance-Android.apk
+            cp mobile-app/android/app/build/outputs/apk/release/app-release.apk staged-android/Argus-Attendance-Intelligence-Android.apk
           fi
           
           # Also stage debug APK for immediate phone testing
           if [ -f mobile-app/android/app/build/outputs/apk/debug/app-debug.apk ]; then
-            cp mobile-app/android/app/build/outputs/apk/debug/app-debug.apk staged-android/ArgusAttendance-Android-Debug.apk
+            cp mobile-app/android/app/build/outputs/apk/debug/app-debug.apk staged-android/Argus-Attendance-Intelligence-Android-Debug.apk
           fi
 
       - name: Upload Android Staging Artifact
@@ -247,9 +253,9 @@ jobs:
           mkdir -p build/Payload
           cp -r build/App.xcarchive/Products/Applications/App.app build/Payload/
           cd build
-          zip -r ArgusAttendance-iOS.ipa Payload/
+          zip -r Argus-Attendance-Intelligence-iOS.ipa Payload/
           mkdir -p "$GITHUB_WORKSPACE/staged-ios"
-          cp ArgusAttendance-iOS.ipa "$GITHUB_WORKSPACE/staged-ios/ArgusAttendance-iOS.ipa"
+          cp Argus-Attendance-Intelligence-iOS.ipa "$GITHUB_WORKSPACE/staged-ios/Argus-Attendance-Intelligence-iOS.ipa"
 
       - name: Upload iOS Staging Artifact
         uses: actions/upload-artifact@v4
