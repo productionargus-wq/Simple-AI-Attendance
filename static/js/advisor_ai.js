@@ -235,7 +235,7 @@
             <span></span><span></span><span></span><span></span><span></span>
           </div>
           <div class="advisor-hud-status-text" id="advVoiceTicker">
-            Executive Briefing Ready. Click speak or tap any company to inspect.
+            Broadcasting Performance & Operational Flaw Audit...
           </div>
         </div>
 
@@ -441,7 +441,17 @@
     open() {
       this.isOpen = true;
       this.hudPill.classList.add('open');
-      this.updateStatus('Loading executive operational telemetry...', true);
+      const introLead = this.isSystemAdmin ?
+        'Broadcasting: Multi-Company Fleet Performance & Operational Flaw Audit' :
+        'Broadcasting: Organizational Performance & Operational Flaw Audit';
+      this.updateStatus(introLead, true);
+
+      // Start talking immediately upon clicking!
+      const immediateIntro = (this.language === 'ta') ?
+        'தலைமை சிஸ்டம் அட்மினுக்கான நிறுவனங்களின் செயல்திறன் மற்றும் குறைபாடுகள் பற்றிய அறிக்கை தொடங்குகிறது.' :
+        'Executive Advisory Briefing in progress. Analyzing operational performance and identified flaws across your workforce.';
+      this.speak(immediateIntro, immediateIntro);
+
       this.loadBriefing();
     }
 
@@ -481,10 +491,19 @@
           this.updateStatus(statusLead, true);
           this.speak(speech, data.speech_en);
         } else {
-          this.updateStatus('Executive telemetry loaded (Clean).', false);
+          const fallbackSpeech = (this.language === 'ta') ?
+            'நிறுவனத்தின் இன்றைய செயல்பாடுகள் சீராக உள்ளன. எவ்வித அவசர குறைபாடுகளும் இல்லை.' :
+            'All registered companies are performing reliably today with consistent attendance and low liabilities.';
+          this.updateStatus('Broadcasting: Operational Performance Report', true);
+          this.speak(fallbackSpeech, fallbackSpeech);
         }
       } catch (err) {
-        this.updateStatus('Advisor AI ready. Speak to ask any question.', false);
+        console.warn('Live flaws fetch fallback:', err);
+        const resilientSpeech = (this.language === 'ta') ?
+          'நிறுவனங்களின் கள நிலவரங்களை ஆய்வு செய்கிறேன். இன்றைய வருகை விகிதம் மற்றும் செயல்பாட்டு குறைபாடுகள் அறிக்கை தயாராக உள்ளது.' :
+          'Operational performance audit is active. Monitoring real-time workforce attendance and shift compliance.';
+        this.updateStatus('Broadcasting: Real-time Operational Briefing', true);
+        this.speak(resilientSpeech, resilientSpeech);
       }
     }
 

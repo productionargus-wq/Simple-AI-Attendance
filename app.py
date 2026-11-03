@@ -7467,6 +7467,64 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
     # =========================================================================
     if is_super:
         companies = list(db.company_admin.find().sort([("created_at", -1)]))
+
+        # --- HIGH-SPEED BULK AGGREGATION (5 queries total instead of 160) ---
+        all_active_emps = list(db.employees.find({'status': {'$ne': 'Terminated'}}, {'company_id': 1, 'employee_name': 1}))
+        emps_by_cid = {}
+        for e in all_active_emps:
+            e_cid = str(e.get('company_id') or 'ARGUS_MASTER')
+            emps_by_cid.setdefault(e_cid, []).append(e)
+
+        today_att_docs = list(db.attendance.find({'date': today_str}, {'company_id': 1, 'employee_name': 1, 'status': 1}))
+        today_rep_docs = list(db.attendance_reports.find({'date': today_str}, {'company_id': 1, 'employee_name': 1}))
+        today_live_docs = list(db.live_entries.find({'entry_time': {'$regex': today_slash}}, {'company_id': 1, 'employee_name': 1}))
+        today_manual_docs = list(db.manual_entries.find({
+            '$or': [{'entry_date': today_str}, {'date': today_str}]
+        }, {'company_id': 1, 'employee_name': 1}))
+
+        present_names_by_cid = {}
+        for doc_list in [today_att_docs, today_rep_docs, today_live_docs, today_manual_docs]:
+            for d in doc_list:
+                dcid = str(d.get('company_id') or 'ARGUS_MASTER')
+                ename = str(d.get('employee_name') or '').strip()
+                if ename:
+                    present_names_by_cid.setdefault(dcid, set()).add(ename)
+
+        all_timeouts = list(db.timeout_entries.find({
+            '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
+        }, {'company_id': 1}))
+        timeouts_by_cid = {}
+        for t in all_timeouts:
+            tcid = str(t.get('company_id') or 'ARGUS_MASTER')
+            timeouts_by_cid[tcid] = timeouts_by_cid.get(tcid, 0) + 1
+
+        all_advances = list(db.advances.find({}, {'company_id': 1, 'amount': 1, 'employee_name': 1}))
+        all_payments = list(db.payments.find({}, {'company_id': 1, 'amount': 1, 'status': 1, 'employee_name': 1}))
+
+        adv_by_cid = {}
+        for a in all_advances:
+            acid = str(a.get('company_id') or 'ARGUS_MASTER')
+            try:
+                amt = float(str(a.get('amount') or 0.0).replace(',', '').strip() or 0.0)
+            except Exception:
+                amt = 0.0
+            adv_by_cid[acid] = adv_by_cid.get(acid, 0.0) + amt
+
+        rep_by_cid = {}
+        for p in all_payments:
+            if 'repayment' in str(p.get('status') or '').lower():
+                pcid = str(p.get('company_id') or 'ARGUS_MASTER')
+                try:
+                    amt = float(str(p.get('amount') or 0.0).replace(',', '').strip() or 0.0)
+                except Exception:
+                    amt = 0.0
+                rep_by_cid[pcid] = rep_by_cid.get(pcid, 0.0) + amt
+
+        manual_by_cid = {}
+        for m in today_manual_docs:
+            mcid = str(m.get('company_id') or 'ARGUS_MASTER')
+            manual_by_cid[mcid] = manual_by_cid.get(mcid, 0) + 1
+
         fleet_companies = []
         fleet_total_staff = 0
         fleet_total_present = 0
@@ -7491,40 +7549,27 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
                 except Exception:
                     c_limit = 50
 
-                # Active Staff & Quota
-                c_emps = list(db.employees.find({'company_id': c_id, 'status': {'$ne': 'Terminated'}}))
-                c_staff = len(c_emps)
+                c_staff = len(emps_by_cid.get(c_id, []))
                 fleet_total_staff += c_staff
                 quota_pct = round((c_staff / c_limit * 100), 1) if c_limit > 0 else 0.0
 
-                # Today's attendance summary
-                c_att = database.get_today_attendance_summary(company_id=c_id)
-                c_pres = c_att.get('present_count', 0)
-                c_abs = c_att.get('absent_count', 0)
-                c_pct = c_att.get('present_percentage', 0.0)
+                c_pres_set = present_names_by_cid.get(c_id, set())
+                c_pres = len(c_pres_set)
+                c_abs = max(0, c_staff - c_pres)
+                c_pct = round((c_pres / c_staff * 100), 1) if c_staff > 0 else 0.0
                 fleet_total_present += c_pres
                 fleet_total_absent += c_abs
 
-                # Timeouts
-                c_timeouts = db.timeout_entries.count_documents({
-                    'company_id': c_id,
-                    '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
-                })
+                c_timeouts = timeouts_by_cid.get(c_id, 0)
                 fleet_total_timeouts += c_timeouts
 
-                # Advances & Repayments
-                c_adv_total = sum(float(a.get('amount') or 0.0) for a in db.advances.find({'company_id': c_id}))
-                c_rep_total = sum(float(p.get('amount') or 0.0) for p in db.payments.find({'company_id': c_id}) if 'repayment' in str(p.get('status') or '').lower())
+                c_adv_total = adv_by_cid.get(c_id, 0.0)
+                c_rep_total = rep_by_cid.get(c_id, 0.0)
                 c_net_adv = max(0.0, c_adv_total - c_rep_total)
                 fleet_total_adv += c_net_adv
 
-                # Manual punches count
-                c_manual_cnt = db.manual_entries.count_documents({
-                    'company_id': c_id,
-                    '$or': [{'entry_date': today_str}, {'date': today_str}]
-                })
+                c_manual_cnt = manual_by_cid.get(c_id, 0)
 
-                # Detect Specific Company Flaws
                 comp_flaws = []
                 if c_staff == 0:
                     comp_flaws.append({
@@ -7586,7 +7631,6 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
 
                 fleet_flaws.extend(comp_flaws)
 
-                # Health score (0 - 100)
                 c_health = 100.0
                 if c_staff == 0:
                     c_health = 40.0
@@ -7616,7 +7660,7 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
                     'flaws': comp_flaws
                 })
             except Exception as e_comp:
-                print(f"[Advisor AI Fleet Audit] Skipping company {c.get('company_name')}: {e_comp}")
+                print(f"[Advisor AI Fleet Audit] Skipping company: {e_comp}")
                 continue
 
         fleet_companies.sort(key=lambda x: (x['health_score'], -len(x['flaws']), -x['net_adv']))
