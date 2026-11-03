@@ -303,11 +303,12 @@ if (!window.makeAgentButtonDraggable) {
 
         <!-- QUICK CHIPS -->
         <div class="coworker-chips-container" id="coworkerChips">
+          <div class="coworker-chip" data-prompt="Enter advance repayment for ">💵 Advance Repayment</div>
+          <div class="coworker-chip" data-prompt="Add manual attendance for ">📝 Manual Entry</div>
           <div class="coworker-chip" data-prompt="Download payslip of ">📥 Download Payslip</div>
-          <div class="coworker-chip" data-prompt="Create a payment entry for ">💰 Create Payment</div>
+          <div class="coworker-chip" data-prompt="Check balance for ">💰 Check Balance</div>
+          <div class="coworker-chip" data-prompt="Add employee named ">➕ Add Employee</div>
           <div class="coworker-chip" data-prompt="How many employees are present today?">📋 Today's Attendance</div>
-          <div class="coworker-chip" data-prompt="Apply leave for ">🏖️ Apply Leave</div>
-          <div class="coworker-chip" data-prompt="Search employee details for ">🔍 Search Employee</div>
         </div>
 
         <!-- FOOTER / INPUT -->

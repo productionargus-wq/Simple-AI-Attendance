@@ -2,7 +2,11 @@
  * ARGUS CNC™ — TEACHER AI ENGINE (AGENT 1)
  * =============================================================
  * Interactive on-screen AI tutor and mentor that explains any element,
- * tab, form input, modal control, or button wherever the cursor hovers.
+ * badge, stat card, report column, or calculation rule in our application.
+ *
+ * Standard Format for all Concepts:
+ *   a. Explanation
+ *   b. Rule / criteria
  *
  * Triggered by shortcut key: CTRL + SHIFT (or CTRL + SHIFT + T)
  * Or by clicking the floating bottom-right '🎓 Teacher AI' trigger pill.
@@ -11,448 +15,346 @@
 (function (window, document) {
   'use strict';
 
-// --- UNIVERSAL INDEPENDENTLY DRAGGABLE AGENT BUTTON CONTROLLER ---
-if (!window.makeAgentButtonDraggable) {
-  window.makeAgentButtonDraggable = function (btn, storageKey, defaultOffsetPx) {
-    if (!btn || btn.__agentDraggableReady) return;
-    btn.__agentDraggableReady = true;
+  // --- UNIVERSAL INDEPENDENTLY DRAGGABLE AGENT BUTTON CONTROLLER ---
+  if (!window.makeAgentButtonDraggable) {
+    window.makeAgentButtonDraggable = function (btn, storageKey, defaultOffsetPx) {
+      if (!btn || btn.__agentDraggableReady) return;
+      btn.__agentDraggableReady = true;
 
-    function clampAndApply(left, top) {
-      const margin = 12;
-      const btnW = btn.offsetWidth || 48;
-      const btnH = btn.offsetHeight || 48;
-      const maxL = Math.max(margin, window.innerWidth - btnW - margin);
-      const maxT = Math.max(margin, window.innerHeight - btnH - margin);
-      const safeL = Math.max(margin, Math.min(left, maxL));
-      const safeT = Math.max(margin, Math.min(top, maxT));
+      function clampAndApply(left, top) {
+        const margin = 12;
+        const btnW = btn.offsetWidth || 48;
+        const btnH = btn.offsetHeight || 48;
+        const maxL = Math.max(margin, window.innerWidth - btnW - margin);
+        const maxT = Math.max(margin, window.innerHeight - btnH - margin);
+        const safeL = Math.max(margin, Math.min(left, maxL));
+        const safeT = Math.max(margin, Math.min(top, maxT));
 
-      btn.style.left = safeL + 'px';
-      btn.style.top = safeT + 'px';
-      btn.style.bottom = 'auto';
-      btn.style.right = 'auto';
-      btn.style.transform = 'none';
-    }
+        btn.style.left = safeL + 'px';
+        btn.style.top = safeT + 'px';
+        btn.style.bottom = 'auto';
+        btn.style.right = 'auto';
+        btn.style.transform = 'none';
+      }
 
-    function restorePosition() {
-      try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-          const pos = JSON.parse(saved);
-          if (typeof pos.left === 'number' && typeof pos.top === 'number') {
-            clampAndApply(pos.left, pos.top);
-            return;
+      function restorePosition() {
+        try {
+          const saved = localStorage.getItem(storageKey);
+          if (saved) {
+            const pos = JSON.parse(saved);
+            if (typeof pos.left === 'number' && typeof pos.top === 'number') {
+              clampAndApply(pos.left, pos.top);
+              return;
+            }
           }
-        }
-      } catch (e) {}
+        } catch (e) {}
 
-      // Default slot positioned relative to horizontal center
-      btn.style.left = `calc(50% + ${defaultOffsetPx}px)`;
-      btn.style.bottom = '24px';
-      btn.style.top = 'auto';
-      btn.style.right = 'auto';
-      btn.style.transform = 'translateX(-50%)';
-    }
-
-    let isDragging = false;
-    let hasMoved = false;
-    let startX = 0, startY = 0;
-    let initialLeft = 0, initialTop = 0;
-
-    function onPointerDown(e) {
-      if (e.type === 'mousedown' && e.button !== 0) return;
-      const pt = e.touches ? e.touches[0] : e;
-      startX = pt.clientX;
-      startY = pt.clientY;
-
-      const rect = btn.getBoundingClientRect();
-      initialLeft = rect.left;
-      initialTop = rect.top;
-      hasMoved = false;
-      isDragging = true;
-
-      document.addEventListener('mousemove', onPointerMove, { passive: false });
-      document.addEventListener('mouseup', onPointerUp, { passive: false });
-      document.addEventListener('touchmove', onPointerMove, { passive: false });
-      document.addEventListener('touchend', onPointerUp, { passive: false });
-    }
-
-    function onPointerMove(e) {
-      if (!isDragging) return;
-      const pt = e.touches ? e.touches[0] : e;
-      const dx = pt.clientX - startX;
-      const dy = pt.clientY - startY;
-
-      if (!hasMoved && Math.hypot(dx, dy) > 5) {
-        hasMoved = true;
-        btn.classList.add('is-dragging');
+        btn.style.left = `calc(50% + ${defaultOffsetPx}px)`;
+        btn.style.bottom = '24px';
+        btn.style.top = 'auto';
+        btn.style.right = 'auto';
+        btn.style.transform = 'translateX(-50%)';
       }
 
-      if (hasMoved) {
-        if (e.cancelable) e.preventDefault();
-        clampAndApply(initialLeft + dx, initialTop + dy);
-      }
-    }
+      let isDragging = false;
+      let hasMoved = false;
+      let startX = 0, startY = 0;
+      let initialLeft = 0, initialTop = 0;
 
-    function onPointerUp(e) {
-      if (!isDragging) return;
-      isDragging = false;
-      btn.classList.remove('is-dragging');
-
-      document.removeEventListener('mousemove', onPointerMove);
-      document.removeEventListener('mouseup', onPointerUp);
-      document.removeEventListener('touchmove', onPointerMove);
-      document.removeEventListener('touchend', onPointerUp);
-
-      if (hasMoved) {
-        btn.__justDragged = true;
-        setTimeout(() => { btn.__justDragged = false; }, 160);
+      function onPointerDown(e) {
+        if (e.type === 'mousedown' && e.button !== 0) return;
+        const pt = e.touches ? e.touches[0] : e;
+        startX = pt.clientX;
+        startY = pt.clientY;
 
         const rect = btn.getBoundingClientRect();
-        try {
-          localStorage.setItem(storageKey, JSON.stringify({
-            left: Math.round(rect.left),
-            top: Math.round(rect.top)
-          }));
-        } catch (err) {}
+        initialLeft = rect.left;
+        initialTop = rect.top;
+        hasMoved = false;
+        isDragging = true;
+
+        document.addEventListener('mousemove', onPointerMove, { passive: false });
+        document.addEventListener('mouseup', onPointerUp, { passive: false });
+        document.addEventListener('touchmove', onPointerMove, { passive: false });
+        document.addEventListener('touchend', onPointerUp, { passive: false });
       }
-    }
 
-    btn.addEventListener('mousedown', onPointerDown);
-    btn.addEventListener('touchstart', onPointerDown, { passive: true });
+      function onPointerMove(e) {
+        if (!isDragging) return;
+        const pt = e.touches ? e.touches[0] : e;
+        const dx = pt.clientX - startX;
+        const dy = pt.clientY - startY;
 
-    // Suppress click on release after dragging
-    btn.addEventListener('click', function (e) {
-      if (btn.__justDragged) {
-        e.stopImmediatePropagation();
-        e.preventDefault();
-      }
-    }, true);
-
-    setTimeout(restorePosition, 40);
-    window.addEventListener('resize', () => {
-      try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-          const pos = JSON.parse(saved);
-          if (typeof pos.left === 'number' && typeof pos.top === 'number') {
-            clampAndApply(pos.left, pos.top);
-          }
+        if (!hasMoved && Math.hypot(dx, dy) > 5) {
+          hasMoved = true;
+          btn.classList.add('is-dragging');
         }
-      } catch (e) {}
-    });
-  };
-}
+
+        if (hasMoved) {
+          if (e.cancelable) e.preventDefault();
+          clampAndApply(initialLeft + dx, initialTop + dy);
+        }
+      }
+
+      function onPointerUp(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        btn.classList.remove('is-dragging');
+
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('mouseup', onPointerUp);
+        document.removeEventListener('touchmove', onPointerMove);
+        document.removeEventListener('touchend', onPointerUp);
+
+        if (hasMoved) {
+          btn.__justDragged = true;
+          setTimeout(() => { btn.__justDragged = false; }, 160);
+
+          const rect = btn.getBoundingClientRect();
+          try {
+            localStorage.setItem(storageKey, JSON.stringify({
+              left: Math.round(rect.left),
+              top: Math.round(rect.top)
+            }));
+          } catch (err) {}
+        }
+      }
+
+      btn.addEventListener('mousedown', onPointerDown);
+      btn.addEventListener('touchstart', onPointerDown, { passive: true });
+
+      btn.addEventListener('click', function (e) {
+        if (btn.__justDragged) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      }, true);
+
+      setTimeout(restorePosition, 40);
+      window.addEventListener('resize', () => {
+        try {
+          const saved = localStorage.getItem(storageKey);
+          if (saved) {
+            const pos = JSON.parse(saved);
+            if (typeof pos.left === 'number' && typeof pos.top === 'number') {
+              clampAndApply(pos.left, pos.top);
+            }
+          }
+        } catch (e) {}
+      });
+    };
+  }
 
   // =========================================================================
-  // 1. ARGUS KNOWLEDGE BASE (TIER 1 - INSTANT 0ms RESPONSES)
+  // 1. ARGUS KNOWLEDGE BASE (STRUCTURED: a. Explanation, b. Rule/criteria)
   // =========================================================================
   const ARGUS_KNOWLEDGE_BASE = {
+    // --- DASHBOARD STAT CARDS & BADGES ---
+    'stat-timeout-emp': {
+      title: 'On Timeout / Timeout Badge',
+      category: 'Attendance Metric',
+      text: 'a. Explanation: Identifies check-in attendance sessions that remained open and unclosed long past the normal shift conclusion without a departure punch.\nb. Rule / criteria: In our application, an entry is marked "On Timeout" when the elapsed time from punch-in exceeds 15 consecutive hours without a checkout punch. It is automatically flagged for administrative review and stops accumulating working hours to prevent unintended overtime salary calculation.',
+      tip: 'Admins can reconcile timeouts from Live Report or Attendance Report tabs.'
+    },
+    'stat-total-emp': {
+      title: 'Total Active Employees',
+      category: 'Workforce KPI',
+      text: 'a. Explanation: The complete count of registered personnel currently employed in this company who are scheduled to work.\nb. Rule / criteria: Evaluates all records in the employees registry where status is "Active". Employees tagged as "Terminated" or "Inactive" are excluded from this count and do not count toward your subscription quota.',
+      tip: 'Click to open Employee Directory.'
+    },
+    'stat-present-emp': {
+      title: 'Present Employees Today',
+      category: 'Workforce KPI',
+      text: 'a. Explanation: The verified count of employees who have clocked into work today through biometric facial recognition, mobile GPS check-in, or manual entry.\nb. Rule / criteria: Condition: Any registered employee who has at least one attendance punch matching today\'s calendar date (entry_date = today).',
+      tip: 'Real-time count auto-updates with each facial scan.'
+    },
+    'stat-absent-emp': {
+      title: 'Absent Employees Today',
+      category: 'Workforce KPI',
+      text: 'a. Explanation: Active employees scheduled to work today who have neither checked in nor submitted an authorized leave request.\nb. Rule / criteria: Formula: Total Active Employees - (Present Employees Today + Approved Leaves Today). Unexcused absences are flagged for operations shift coverage.',
+      tip: 'Employees on approved leave are excluded from the absent count.'
+    },
+    'stat-present-pct': {
+      title: 'Attendance Percentage Rate',
+      category: 'Workforce KPI',
+      text: 'a. Explanation: The proportional attendance capacity of your total workforce operating on duty today.\nb. Rule / criteria: Formula: (Present Today ÷ Total Active Employees) × 100. A rate >= 90% reflects optimal production efficiency; below 75% triggers an operational staffing warning.',
+      tip: 'Target 90%+ for steady factory and office throughput.'
+    },
+    'stat-on-leave': {
+      title: 'On Leave Badge',
+      category: 'Attendance Metric',
+      text: 'a. Explanation: Personnel who are officially excused from work today under an authorized company leave of absence.\nb. Rule / criteria: Verified against the leave database where request_type is "Leave", status is "Approved", and today\'s date falls within [from_date, to_date]. Does not penalize punctuality.',
+      tip: 'Manage leave requests from the Leaves tab.'
+    },
+
+    // --- SALARY CONCEPTS & TYPES ---
+    'concept-day-salary': {
+      title: 'Day Salary (Daily Wage Basis)',
+      category: 'Compensation Policy',
+      text: 'a. Explanation: Fixed daily wage rate credited to an employee upon successfully completing their full daily operational work shift.\nb. Rule / criteria: In our application, when worked minutes >= full shift target duration (e.g. 8 or 9 hours), the employee earns 100% of the Day Salary. If worked duration is >= half-shift target (e.g. 4 hours), half-day rate is credited. Total Daily Basic Salary = (Full Days × Day Salary) + (Half Days × Half Salary).',
+      tip: 'Configured in the employee profile modal under Salary Type: Daily.'
+    },
+    'concept-half-day-salary': {
+      title: 'Half Day Salary (Half-Day Basis)',
+      category: 'Compensation Policy',
+      text: 'a. Explanation: Compensation credited when an employee works at least half of their standard shift or operates on half-day units.\nb. Rule / criteria: In our application, an attendance record is classified as Half-Day when worked duration is >= 4 hours and < 8 hours. Basic Salary is computed in half-day blocks: (Total Half Units × Half Day Salary) + Prorated Partial Minutes.',
+      tip: 'Employees leaving early with permission are evaluated under this rate.'
+    },
+    'concept-hourly-salary': {
+      title: 'Hourly Salary (Hour-Based Basis)',
+      category: 'Compensation Policy',
+      text: 'a. Explanation: Precision wage calculation directly proportional to the exact number of elapsed working hours and minutes recorded.\nb. Rule / criteria: In our application: Basic Salary = (Total Worked Minutes ÷ 60.0) × Hourly Salary Rate. Every minute between punch-in and punch-out is compensated precisely at the hourly rate quotient.',
+      tip: 'Ideal for part-time, temporary, or machine-operator shift rosters.'
+    },
+
+    // --- ATTENDANCE ENTRY TYPES & CRITERIA ---
+    'concept-manual-entry': {
+      title: 'Manual Attendance Entry',
+      category: 'Attendance Policy',
+      text: 'a. Explanation: Administrative override tool allowing managers to insert past, missed, or adjusted attendance punches without camera facial recognition.\nb. Rule / criteria: Criteria & When to Use: Used when the biometric terminal is offline, power outage, off-site client deployment without mobile app, or backdated reconciliation. When logged, sets working salary or hours directly and is distinctly flagged as "Manual Entry" so biometric audit trails remain intact.',
+      tip: 'Manual entries are permanently audited under Manual Entries tab.'
+    },
+    'concept-live-entries': {
+      title: 'Live Entries',
+      category: 'Attendance Policy',
+      text: 'a. Explanation: Real-time active shift check-ins currently in progress on the company premises for today.\nb. Rule / criteria: Criteria in our application: Punch-in timestamp is recorded today, punch-out is null (empty), and elapsed duration is <= 15 hours. Indicates the staff member is currently on duty.',
+      tip: 'Monitors real-time employee presence across all office branches.'
+    },
+    'concept-timeout-entries': {
+      title: 'Timeout Entries',
+      category: 'Attendance Policy',
+      text: 'a. Explanation: Attendance sessions where an employee clocked in but did not register a departure punch at shift conclusion.\nb. Rule / criteria: Criteria in our application: Elapsed time from clock-in > 15 consecutive hours without checkout. Automatically held for administrator review to prevent unintended overtime wage accrual.',
+      tip: 'Reconcile timeout entries daily before generating monthly payroll.'
+    },
+    'concept-proper-entries': {
+      title: 'Proper Entries (Geofence Verified)',
+      category: 'Geofencing Policy',
+      text: 'a. Explanation: High-trust biometric attendance punches recorded strictly within the authorized physical perimeter of your office or factory.\nb. Rule / criteria: Criteria in our application: Punch GPS Coordinates Distance <= Company Geofence Radius (default: 200 meters from office coordinates). Marked in green with verified badge.',
+      tip: 'Ensures employees are physically on premises when clocking in.'
+    },
+    'concept-improper-entries': {
+      title: 'Improper Entries (Outside Geofence)',
+      category: 'Geofencing Policy',
+      text: 'a. Explanation: Attendance punches recorded outside the designated company premises perimeter (e.g. from home, transit, or outside allowed radius).\nb. Rule / criteria: Criteria in our application: Punch GPS Coordinates Distance > Company Geofence Radius. Flagged in orange/red with exact distance in meters for administrative inspection.',
+      tip: 'Remote workers can be exempted via "Calculate Proper Entries" toggle.'
+    },
+    'concept-all-entries': {
+      title: 'All Entries Feed',
+      category: 'Attendance Report',
+      text: 'a. Explanation: The master, unfiltered unified log displaying every punch recorded across the company.\nb. Rule / criteria: Combines all Proper Entries, Improper Entries, and Manual Entries in chronological sequence without filtering.',
+      tip: 'Use date and branch filters to audit comprehensive punch trails.'
+    },
+    'concept-compact-view': {
+      title: 'Compact Consolidated View',
+      category: 'Attendance Report',
+      text: 'a. Explanation: High-density daily summary view consolidating multiple punches per employee into a single clean row per date.\nb. Rule / criteria: Aggregates first punch-in, last punch-out, net daily minutes worked, daily basic wage, and status. Differentiates from raw logs by providing executive-level daily totals.',
+      tip: 'Recommended view for rapid end-of-month attendance audits.'
+    },
+
+    // --- FINANCIAL METRICS: EARNINGS & DEDUCTIONS ---
+    'concept-earnings': {
+      title: 'Earnings / Total Earnings Calculation',
+      category: 'Payroll Formula',
+      text: 'a. Explanation: The gross monetary compensation earned by an employee during the pay period before deductions.\nb. Rule / criteria: In our application: Total Earnings = Basic Salary + Regular Allowance + Incentive + Petrol/Travel Allowance + Verified Customer Visits Incentive + Other Earnings.\n• Basic Salary is computed from attendance records based on the employee\'s salary type (Daily, Half-Day, or Hourly).\n• Allowances and Incentives come from payments logged with status "Allowance" or "Incentive".\n• Petrol Allowance is computed as Total GPS KM × Per-KM Rate.\n• Verified Client Visits add Verified Visits × Per-Visit Incentive.',
+      tip: 'All earnings breakdown items are certified on official monthly payslips.'
+    },
+    'concept-deductions': {
+      title: 'Deductions / Total Deductions Calculation',
+      category: 'Payroll Formula',
+      text: 'a. Explanation: The sum of all financial withholdings, repayments, and prior disbursements deducted from gross earnings.\nb. Rule / criteria: In our application: Total Deductions = Paid Salary + Advance Repayment + Advance Cash Deductions + Other Deductions.\n• Final Net Pay = max(0, Total Earnings - Total Deductions).\n• Advance Repayment recovers borrowed employee loans logged in the payment ledger.\n• Paid Salary accounts for interim salary advances already disbursed.',
+      tip: 'Deductions can never exceed gross earnings (Net pay floored at ₹0.00).'
+    },
+    'concept-basic-salary': {
+      title: 'Basic Salary Calculation',
+      category: 'Payroll Formula',
+      text: 'a. Explanation: The base guaranteed compensation earned from verified shifts worked during the calendar month.\nb. Rule / criteria: Computed based on employee\'s Salary Type:\n• Daily Basis: (Worked Full Days × Day Salary) + (Half Days × Half Salary)\n• Hourly Basis: (Total Worked Minutes ÷ 60.0) × Hourly Salary\n• Half-Day Basis: (Total Half Units × Half Salary) + Prorated Partial Minutes.',
+      tip: 'Overtime hours beyond full shift target can accrue overtime credits.'
+    },
+    'concept-net-salary': {
+      title: 'Net Salary Payable',
+      category: 'Payroll Formula',
+      text: 'a. Explanation: The final certified take-home wage disbursed to the employee.\nb. Rule / criteria: Formula: max(0, Total Gross Earnings - Total Deductions). This exact figure is printed on the authorized monthly salary slip and voucher.',
+      tip: 'Export payslips with authorized seal and signature from Monthly Payslip tab.'
+    },
+    'concept-advance-repayment': {
+      title: 'Advance Repayment',
+      category: 'Financial Ledger',
+      text: 'a. Explanation: Payment entry crediting funds back to the company against an outstanding advance loan.\nb. Rule / criteria: In our application, logged in Payment Entry with status "Advance Repayment". Directly reduces the employee\'s outstanding loan balance in the Advance & Balance statement.',
+      tip: 'Supports Cash, UPI, and Bank Transfer disbursement modes.'
+    },
+
     // --- NAVIGATION TABS ---
     'nav-dashboard': {
       title: 'Dashboard Overview',
       category: 'Navigation Tab',
-      text: 'Provides real-time attendance KPIs, active employee headcounts, dynamic attendance trend graphs, and operational alerts for your organization.',
+      text: 'a. Explanation: Central command screen providing real-time headcount, attendance KPIs, and trend telemetry.\nb. Rule / criteria: Aggregates active employee counts, present headcounts, absent rates, and timeout entries for today.',
       tip: 'Click any KPI stat card to drill down into detailed attendance lists.'
     },
     'nav-employee-details': {
       title: 'Employee Registry & Directory',
       category: 'Navigation Tab',
-      text: 'Manage full employee profiles, register 128-d AI facial biometrics, configure salary types, assign branches, and upload ID documents.',
+      text: 'a. Explanation: Directory for managing full employee profiles, 128-d biometric facial embeddings, and salary terms.\nb. Rule / criteria: Only active employees in this registry can punch biometric attendance and count toward company quotas.',
       tip: 'Use "+ Add Employee" to enroll new staff with zero-image biometric storage.'
     },
     'nav-live-report': {
       title: 'Live Check-In & Timeout Monitor',
       category: 'Navigation Tab',
-      text: 'Monitors real-time facial check-in sessions, active on-duty personnel, and flags overtime shifts (>15 hrs) for automatic timeout reconciliation.',
+      text: 'a. Explanation: Monitors real-time on-duty facial check-in sessions and flags open shifts exceeding 15 hours.\nb. Rule / criteria: Entries with elapsed time > 15 hours without checkout punch are auto-transferred to Timeout review.',
       tip: 'Entries are automatically synchronized with GPS proximity distance.'
     },
     'nav-attendance-report': {
       title: 'Attendance Report Central',
       category: 'Navigation Tab',
-      text: 'Review daily and monthly attendance categorized into Proper Entries, Improper Entries (outside geofence), Manual Entries, and Simple Tables.',
+      text: 'a. Explanation: Historical attendance registry categorized into Proper, Improper, Manual, and Compact views.\nb. Rule / criteria: Allows managers to recalculate hours, filter by date ranges, and export formatted spreadsheets.',
       tip: 'Use the 🔄 Update button to recalculate attendance and working hours on-the-fly.'
     },
     'nav-manual-entry': {
       title: 'Manual Attendance Entry',
       category: 'Navigation Tab',
-      text: 'Allows administrators to insert past attendance punches, backdate entries, and override in/out hours with automated working salary calculation.',
-      tip: 'Manual entries are audited and flagged under Manual Entries reports.'
+      text: 'a. Explanation: Administrative tool allowing managers to log or adjust attendance punches without camera biometrics.\nb. Rule / criteria: Used when biometric terminal is offline or for backdated reconciliation. Flagged under Manual Entries.',
+      tip: 'Manual entries calculate salary based on entered hours and status.'
     },
     'nav-payment-entry': {
       title: 'Payment & Wage Management',
       category: 'Navigation Tab',
-      text: 'Disburse employee salaries, log payment disbursements (Cash, UPI, Bank Transfer), settle employee advances, and print verified payment vouchers.',
+      text: 'a. Explanation: Disburse employee salaries, record advance repayments, and track payment transactions.\nb. Rule / criteria: Supports Advance Repayment, Salary, Incentive, Allowance, and Bonus disbursement statuses.',
       tip: 'Linked directly with the Advance Management and Balance Report tabs.'
     },
     'nav-advance-management': {
       title: 'Advance & Loan Management',
       category: 'Navigation Tab',
-      text: 'Record employee salary advances, track repayment balances, and automatically deduct agreed installments during monthly payroll processing.',
+      text: 'a. Explanation: Record employee salary advances, track repayment balances, and deduct installments during payroll.\nb. Rule / criteria: Unsettled advance balances are tracked continuously until cleared by repayments or salary deductions.',
       tip: 'Remaining balances sync with monthly salary slips.'
     },
     'nav-balance-report': {
       title: 'Employee Balance Statement',
       category: 'Navigation Tab',
-      text: 'Consolidated financial report showing gross earnings, total advances disbursed, advance repayments, and net balance outstanding across all employees.'
+      text: 'a. Explanation: Consolidated financial report showing gross earnings, total advances, repayments, and net balance.\nb. Rule / criteria: Formula: Outstanding Balance = Total Advances Issued - Total Advance Repayments.',
+      tip: 'Audit all employee loan balances from this statement.'
     },
     'nav-monthly-payslip': {
       title: 'Monthly Certified Payslip',
       category: 'Navigation Tab',
-      text: 'Generates official Argus corporate salary slips with 4-column earnings and deductions breakdown, company seal, authorized signature, and PDF export.',
+      text: 'a. Explanation: Generates official Argus corporate salary slips with earnings and deductions breakdown.\nb. Rule / criteria: Computes Net Pay = max(0, Total Earnings - Total Deductions) with company seal and authorized signature.',
       tip: 'Select employee, year, and month to preview and print payslips.'
     },
     'nav-salary-report': {
       title: 'Monthly Consolidated Salary Report',
       category: 'Navigation Tab',
-      text: 'Detailed 14-column payroll sheet calculating total working days, overtime, basic wages, travel allowances, deductions, and net salary payable.'
+      text: 'a. Explanation: Detailed multi-column payroll sheet calculating working days, overtime, allowances, deductions, and net pay.\nb. Rule / criteria: Aggregates full attendance and payment data across the entire workforce for the selected month.',
+      tip: 'Export to Excel for accounting and bookkeeping.'
     },
     'nav-company-profile': {
       title: 'Company Profile & Geofence Settings',
       category: 'Navigation Tab',
-      text: 'Configure company branding, official office address, GPS geofence coordinates, shift hours, and automated email reporting schedules.'
+      text: 'a. Explanation: Configure company legal branding, office address, GPS geofence coordinates, and shift hours.\nb. Rule / criteria: Geofence radius defines the physical perimeter for validating Proper vs Improper punches.',
+      tip: 'Use Detect Location to automatically set your office coordinates.'
     },
     'nav-manage-companies': {
       title: 'Multi-Tenant Company Management',
       category: 'Super Admin Portal',
-      text: 'System Admin command center to register client companies, allocate employee quotas, assign platform modules, and manage corporate credentials.'
-    },
-    'nav-branches': {
-      title: 'Branch & Regional Hub Management',
-      category: 'Enterprise Module',
-      text: 'Create and oversee regional branch offices, independent branch GPS perimeters, and assign local staff to dedicated branch hubs.'
-    },
-    'nav-field-worker': {
-      title: 'Field Worker Tracking & CRM',
-      category: 'Field Force Module',
-      text: 'Live GPS route tracking, client visit logging, Tamil voice audio AI summaries, KM travel reimbursements, and detour anomaly detection for mobile staff.'
-    },
-    'nav-support': {
-      title: 'Support & Help Desk',
-      category: 'Support Portal',
-      text: 'Submit technical inquiries, report hardware or biometric issues, and communicate directly with ARGUS CNC™ technical support engineers.'
-    },
-
-    // --- EMPLOYEE MODAL FIELDS ---
-    'inputName': {
-      title: 'Employee Full Name',
-      category: 'Employee Registry',
-      text: 'The legal full name of the employee as it will appear on official company attendance records, daily rosters, and monthly payslips.'
-    },
-    'inputDepartment': {
-      title: 'Department / Division',
-      category: 'Employee Registry',
-      text: 'Assigns the staff member to an operational department (e.g. Production, IT, HR, Marketing) for filtered reporting and team management.'
-    },
-    'inputDesignation': {
-      title: 'Designation / Job Role',
-      category: 'Employee Registry',
-      text: 'The employee’s job position or title within the company hierarchy (e.g. Senior CNC Operator, Software Engineer, Supervisor).'
-    },
-    'inputStatus': {
-      title: 'Employee Status',
-      category: 'Employee Registry',
-      text: 'Active employees count toward your company headcount quota and are eligible for biometric check-in. Inactive employees are archived and quota-exempt.',
-      tip: 'Deactivating an employee preserves all their past attendance and payroll records.'
-    },
-    'inputEmployeeType': {
-      title: 'Employee Classification',
-      category: 'Employee Registry',
-      text: 'Choose Standard Employee for office/in-house biometric terminal check-in, or Field Worker for mobile staff with real-time GPS telemetry and client visits.'
-    },
-    'inputBranchId': {
-      title: 'Assigned Branch Location',
-      category: 'Employee Registry',
-      text: 'Tags the employee to a specific regional office or the Main Home Office, filtering their attendance to that branch’s geofence perimeter.'
-    },
-    'inputCalculateProperEntries': {
-      title: 'Calculate Proper Entries (Geofence Check)',
-      category: 'Attendance Policy',
-      text: 'When checked (default), attendance punches outside the company geofence radius are flagged as Improper. Uncheck to exempt this employee (all punches will be marked Proper).',
-      tip: 'Ideal for executives, remote staff, or roving workers who need flexible check-in locations.'
-    },
-    'inputSalaryType': {
-      title: 'Salary Basis / Structure',
-      category: 'Compensation',
-      text: 'Defines how wages are calculated: Hourly-Based (hours worked x hourly rate), Day-Based (daily wage on completing full shift), or Half-Day-Based.'
-    },
-    'inputDaySalary': {
-      title: 'Full Day Salary Rate (₹)',
-      category: 'Compensation',
-      text: 'The base compensation credited to this employee upon completing their full daily shift hours.'
-    },
-    'inputHalfDaySalary': {
-      title: 'Half Day Salary Rate (₹)',
-      category: 'Compensation',
-      text: 'The compensation credited when the employee works half shift duration or punches out early.'
-    },
-    'inputHourlySalary': {
-      title: 'Hourly Pay Rate (₹)',
-      category: 'Compensation',
-      text: 'The rate per hour used to compute precise prorated wages based on exact punch-in and punch-out working hours.'
-    },
-    'inputShiftStart': {
-      title: 'Shift Start Time',
-      category: 'Work Schedule',
-      text: 'The official expected shift commencement time (e.g. 09:00 AM) used to compute arrival punctuality and shift grace limits.'
-    },
-    'inputShiftEnd': {
-      title: 'Shift End Time',
-      category: 'Work Schedule',
-      text: 'The official shift conclusion time (e.g. 06:00 PM) used to measure full shift completion and overtime hours.'
-    },
-    'inputShiftHours': {
-      title: 'Shift Duration Target',
-      category: 'Work Schedule',
-      text: 'Total required working hours per day (e.g. 09:00 or 08:00) needed for a full day wage credit.'
-    },
-    'inputPhoto': {
-      title: 'Face Biometrics Registration',
-      category: 'AI Biometrics',
-      text: 'Upload or capture a clear frontal portrait. The AI neural engine extracts a 128-dimensional embedding vector and immediately discards the raw photo for 100% privacy.',
-      tip: 'Ensure good lighting, direct frontal gaze, and no face coverings.'
-    },
-    'btnCaptureface': {
-      title: 'Capture Face with Webcam',
-      category: 'AI Biometrics',
-      text: 'Opens the live webcam camera modal with real-time AI face quality analysis to register biometric embeddings directly from your browser.'
-    },
-    'btnAddDocRowTop': {
-      title: 'Add Employee Document',
-      category: 'Document Management',
-      text: 'Attach identity proofs, certificates, and contracts (PDF, DOCX, JPG, PNG) stored securely in the company document repository.'
-    },
-    'permPunchAttendance': {
-      title: 'Portal Permission: Punch Attendance',
-      category: 'Portal Security',
-      text: 'Controls whether this employee is permitted to record attendance punches through their personal employee portal login.'
-    },
-    'permAttendanceHistory': {
-      title: 'Portal Permission: Attendance History',
-      category: 'Portal Security',
-      text: 'Allows the employee to view their historical monthly check-in logs, total working hours, and punch timestamps.'
-    },
-    'permMonthlyPayslip': {
-      title: 'Portal Permission: Monthly Payslip',
-      category: 'Portal Security',
-      text: 'Enables the employee to preview and download their official monthly salary slips directly from their self-service portal.'
-    },
-
-    // --- COMPANY MODAL FIELDS ---
-    'inputCompanyName': {
-      title: 'Company Legal Name',
-      category: 'Company Profile',
-      text: 'The registered legal entity name displayed on the top navigation bar, client login portal, reports, and certified payslips.'
-    },
-    'inputGstin': {
-      title: 'GSTIN Registration Number',
-      category: 'Company Profile',
-      text: 'The 15-digit Goods and Services Tax Identification Number displayed on official corporate documentation and monthly payslips.'
-    },
-    'inputGeofenceRadius': {
-      title: 'Geofence Radius (Meters)',
-      category: 'Geofencing Policy',
-      text: 'The allowed physical perimeter distance in meters from your office coordinates. Punches within this boundary are recorded as Proper Entries (default: 200m).',
-      tip: 'Editable anytime by System Admin to adapt to large campus or factory layouts.'
-    },
-    'inputCalculateProperEntriesCompany': {
-      title: 'Company Proper Entry Policy',
-      category: 'Geofencing Policy',
-      text: 'When enabled, all employee punches are validated against the geofence perimeter. When disabled, geofence checks are bypassed for the entire company (all punches marked Proper).',
-      tip: 'Useful for fully remote companies or distributed workforces without physical offices.'
-    },
-    'inputEmployeeLimit': {
-      title: 'Employee Headcount Quota',
-      category: 'Subscription Quota',
-      text: 'The maximum number of active employees allowed to be registered by this company under their active subscription tier.'
-    },
-    'inputBranchLimit': {
-      title: 'Branch Creation Limit',
-      category: 'Subscription Quota',
-      text: 'The maximum number of regional hub branches this company can create under the Multi-Branch Enterprise Module.'
-    },
-    'inputAutoEmailReports': {
-      title: 'Automated Email Digest Service',
-      category: 'Automated Reporting',
-      text: 'Automatically delivers yesterday’s daily attendance digest and monthly salary spreadsheets directly to the company admin email.'
-    },
-    'inputDailyReportTime': {
-      title: 'Daily Digest Dispatch Time',
-      category: 'Automated Reporting',
-      text: 'The scheduled time each morning (default: 07:00 AM) when the system automatically compiles and emails yesterday’s attendance report.'
-    },
-    'inputMonthlyReportDay': {
-      title: 'Monthly Salary Report Dispatch Day',
-      category: 'Automated Reporting',
-      text: 'The day of the month (e.g. 1st) when the system automatically computes and emails the consolidated monthly salary spreadsheet.'
-    },
-    'inputModSingleCompany': {
-      title: 'Single Company Module',
-      category: 'Platform Module',
-      text: 'Core single-office attendance system including live camera check-in, employee roster, manual entries, and monthly payslips.'
-    },
-    'inputModBranchCompany': {
-      title: 'Multi-Branch Enterprise Module',
-      category: 'Platform Module',
-      text: 'Enables regional branch offices, independent branch geofences, branch managers, and district-filtered payroll reports.'
-    },
-    'inputModFieldWorker': {
-      title: 'Field Worker & CRM Module',
-      category: 'Platform Module',
-      text: 'Enables live mobile GPS tracking, client visit CRM, travel allowance calculations, and detour anomaly AI detection.'
-    },
-
-    // --- DASHBOARD STAT CARDS ---
-    'stat-total-emp': {
-      title: 'Total Active Employees',
-      category: 'Dashboard KPI',
-      text: 'Total number of active staff enrolled in this company who are scheduled to work today.'
-    },
-    'stat-present-emp': {
-      title: 'Present Employees Today',
-      category: 'Dashboard KPI',
-      text: 'The count of employees who have successfully registered at least one attendance punch today.'
-    },
-    'stat-absent-emp': {
-      title: 'Absent Employees Today',
-      category: 'Dashboard KPI',
-      text: 'The number of active employees who have not punched attendance today and do not have an approved leave.'
-    },
-    'stat-present-pct': {
-      title: 'Attendance Percentage Rate',
-      category: 'Dashboard KPI',
-      text: 'The proportion of present employees relative to total active staff: (Present ÷ Total Active) × 100.'
-    },
-    'stat-timeout-emp': {
-      title: 'Active Timeout Entries',
-      category: 'Dashboard KPI',
-      text: 'Punches that have exceeded 15 consecutive hours without a checkout, flagged for administrator review.'
-    },
-
-    // --- BUTTONS & CONTROLS ---
-    'btnDetectLocation': {
-      title: 'GPS Office Location Detector',
-      category: 'Action Button',
-      text: 'Uses your device GPS hardware to automatically obtain current high-precision latitude and longitude coordinates.'
-    },
-    'btnExportPdf': {
-      title: 'Export Formatted PDF Report',
-      category: 'Action Button',
-      text: 'Compiles the current filtered table into a branded, printable corporate PDF report with headers, totals, and timestamps.'
-    },
-    'btnExportExcel': {
-      title: 'Export Excel Spreadsheet',
-      category: 'Action Button',
-      text: 'Downloads raw report data as an editable Microsoft Excel (.xlsx) spreadsheet for internal bookkeeping and audits.'
-    },
-    'navBranchDropdownBtn': {
-      title: 'Active Branch Location Selector',
-      category: 'Header Control',
-      text: 'Switch active view between Main Office and regional branches. Filters all dashboards, employee rosters, and reports to that branch.'
-    },
-    'navCompanyDropdownBtn': {
-      title: 'Multi-Tenant Company Switcher',
-      category: 'System Admin Control',
-      text: 'Allows System Administrators to switch between registered client companies to inspect and manage their individual tenants.'
+      text: 'a. Explanation: System Admin command center to register client companies, allocate employee quotas, and manage credentials.\nb. Rule / criteria: Available exclusively to System Administrators with super_admin privileges.',
+      tip: 'Control tenant quotas, branch modules, and billing status.'
     }
   };
 
@@ -465,11 +367,9 @@ if (!window.makeAgentButtonDraggable) {
       this.language = localStorage.getItem('argus_ai_voice_lang') || 'en';
       this.voiceEnabled = localStorage.getItem('argus_teacher_ai_voice') !== 'false';
       this.synth = window.speechSynthesis || null;
-      this.currentUtterance = null;
       this.activeServerAudio = null;
       this.lastInspectedEl = null;
       this.debounceTimer = null;
-      this.cachedExplanations = new Map();
 
       // UI Elements
       this.hudEl = null;
@@ -480,6 +380,7 @@ if (!window.makeAgentButtonDraggable) {
       this._onKeyDown = this.handleKeyDown.bind(this);
       this._onMouseMove = this.handleMouseMove.bind(this);
       this._onMouseLeave = this.handleMouseLeave.bind(this);
+      this._onDocumentClick = this.handleDocumentClick.bind(this);
 
       this.init();
     }
@@ -490,7 +391,6 @@ if (!window.makeAgentButtonDraggable) {
       console.log('%c[Argus Teacher AI] Agent 1 initialized. Shortcut: CTRL+SHIFT', 'color: #38bdf8; font-weight: bold;');
     }
 
-    // Injects the floating HUD, Explanation Bubble, and Shortcut Trigger Pill
     injectUI() {
       // 1. Top HUD
       this.hudEl = document.createElement('div');
@@ -501,7 +401,7 @@ if (!window.makeAgentButtonDraggable) {
           <span>🎓</span>
           <span>Teacher AI Active</span>
         </div>
-        <div class="teacher-ai-hud-info">Hover over any tab, field, or button to learn</div>
+        <div class="teacher-ai-hud-info">Hover or click any card, badge, or text to learn rules & criteria</div>
         <div class="teacher-ai-hud-actions">
           <button type="button" class="teacher-ai-btn-voice teacher-ai-btn-lang" id="teacherAiToggleLangBtn" title="Switch Voice Language">
             <span id="teacherAiLangText">${this.language === 'ta' ? '🌐 தமிழ்' : '🌐 EN'}</span>
@@ -516,11 +416,11 @@ if (!window.makeAgentButtonDraggable) {
 
       // 2. Floating Contextual Bubble
       this.bubbleEl = document.createElement('div');
-      this.bubbleEl.className = 'teacher-ai-bubble';
+      this.bubbleEl.className = 'teacher-ai-bubble teacher-ai-bubble-structured';
       this.bubbleEl.innerHTML = `
         <div class="teacher-ai-bubble-header">
           <span class="teacher-ai-badge" id="teacherAiBadge">FEATURE</span>
-          <span style="font-size: 11px; color: #64748b; font-family: monospace;">ARGUS AI</span>
+          <span style="font-size: 11px; color: #64748b; font-family: monospace;">ARGUS AI TUTOR</span>
         </div>
         <div class="teacher-ai-bubble-title" id="teacherAiTitle">Title</div>
         <div class="teacher-ai-bubble-body" id="teacherAiBody">Explanation</div>
@@ -531,7 +431,7 @@ if (!window.makeAgentButtonDraggable) {
       `;
       document.body.appendChild(this.bubbleEl);
 
-      // 3. Shared Floating Action Dock & Circular Trigger Button
+      // 3. Floating Trigger Button
       let dock = document.getElementById('argusAiDock');
       if (!dock) {
         dock = document.createElement('div');
@@ -540,8 +440,6 @@ if (!window.makeAgentButtonDraggable) {
         document.body.appendChild(dock);
       }
 
-
-      // Remove existing teacher AI buttons if any to prevent duplicate dock icons
       dock.querySelectorAll('#teacherAiCircleBtn').forEach(b => b.remove());
 
       this.circleBtn = document.createElement('button');
@@ -549,16 +447,14 @@ if (!window.makeAgentButtonDraggable) {
       this.circleBtn.id = 'teacherAiCircleBtn';
       this.circleBtn.setAttribute('data-tooltip', 'Teacher AI (Ctrl + Shift)');
       this.circleBtn.setAttribute('aria-label', 'Toggle Teacher AI');
-      this.circleBtn.innerHTML = `
-        <span class="argus-ai-icon">🎓</span>
-      `;
+      this.circleBtn.innerHTML = `<span class="argus-ai-icon">🎓</span>`;
       dock.appendChild(this.circleBtn);
       this.triggerPillEl = this.circleBtn;
       if (window.makeAgentButtonDraggable) {
         window.makeAgentButtonDraggable(this.circleBtn, 'argus_ai_pos_teacher', -60);
       }
 
-      // Bind HUD Buttons
+      // HUD Button Listeners
       const langBtn = this.hudEl.querySelector('#teacherAiToggleLangBtn');
       if (langBtn) {
         langBtn.addEventListener('click', (e) => {
@@ -589,22 +485,18 @@ if (!window.makeAgentButtonDraggable) {
         });
       }
 
-      // Bind Trigger Pill Click
       this.triggerPillEl.addEventListener('click', () => {
         this.toggle();
       });
     }
 
-    // Listens for CTRL+SHIFT or CTRL+SHIFT+T
     bindShortcuts() {
       window.addEventListener('keydown', this._onKeyDown, true);
     }
 
     handleKeyDown(e) {
-      // Check for CTRL + SHIFT (with or without T)
       const isCtrlShift = (e.ctrlKey || e.metaKey) && e.shiftKey;
       if (isCtrlShift && (e.key === 'Control' || e.key === 'Shift' || e.code === 'KeyT' || e.key === 'T')) {
-        // Prevent default browser conflicts where applicable
         if (e.code === 'KeyT' || e.key === 'T') {
           e.preventDefault();
         }
@@ -626,14 +518,13 @@ if (!window.makeAgentButtonDraggable) {
       this.hudEl.classList.add('active');
       this.triggerPillEl.classList.add('active');
       this.triggerPillEl.setAttribute('data-tooltip', 'Teacher AI Active (Esc / Ctrl+Shift)');
-      this.triggerPillEl.innerHTML = '<span class="argus-ai-icon">🎓</span>';
 
-      // Attach mouse tracking
+      // Attach mouse tracking and click inspection
       document.addEventListener('mouseover', this._onMouseMove, true);
       document.addEventListener('mouseleave', this._onMouseLeave, true);
+      document.addEventListener('click', this._onDocumentClick, true);
 
-      // Announce activation if voice enabled
-      this.speak("Teacher AI activated. Move your cursor over any button, tab, or field to learn how it works.");
+      this.speak("Teacher AI activated. Hover over or click any card, badge, or text to learn its rules and criteria.");
     }
 
     deactivate() {
@@ -642,13 +533,11 @@ if (!window.makeAgentButtonDraggable) {
       this.hudEl.classList.remove('active');
       this.triggerPillEl.classList.remove('active');
       this.triggerPillEl.setAttribute('data-tooltip', 'Teacher AI (Ctrl + Shift)');
-      this.triggerPillEl.innerHTML = '<span class="argus-ai-icon">🎓</span>';
 
-      // Detach mouse tracking
       document.removeEventListener('mouseover', this._onMouseMove, true);
       document.removeEventListener('mouseleave', this._onMouseLeave, true);
+      document.removeEventListener('click', this._onDocumentClick, true);
 
-      // Clear highlights & speech
       this.clearHighlight();
       this.hideBubble();
       this.stopSpeaking();
@@ -668,7 +557,25 @@ if (!window.makeAgentButtonDraggable) {
       }
     }
 
-    // Handles mouse cursor movement across UI elements with smart 160ms debounce
+    // Handles user clicking on any card, text, or header (e.g. "Earnings", "Deductions")
+    handleDocumentClick(e) {
+      if (!this.isActive) return;
+
+      const target = e.target;
+      if (!target || target === this.bubbleEl || this.bubbleEl.contains(target) ||
+          target === this.hudEl || this.hudEl.contains(target) ||
+          target === this.triggerPillEl || this.triggerPillEl.contains(target)) {
+        return;
+      }
+
+      const candidate = this.resolveInteractiveTarget(target);
+      if (candidate) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.inspectElement(candidate, true);
+      }
+    }
+
     handleMouseMove(e) {
       if (!this.isActive) return;
 
@@ -679,7 +586,6 @@ if (!window.makeAgentButtonDraggable) {
         return;
       }
 
-      // Resolve the closest interactive candidate
       const candidate = this.resolveInteractiveTarget(target);
       if (!candidate || candidate === this.lastInspectedEl) {
         return;
@@ -687,7 +593,7 @@ if (!window.makeAgentButtonDraggable) {
 
       clearTimeout(this.debounceTimer);
       this.debounceTimer = setTimeout(() => {
-        this.inspectElement(candidate);
+        this.inspectElement(candidate, false);
       }, 160);
     }
 
@@ -698,48 +604,62 @@ if (!window.makeAgentButtonDraggable) {
       this.stopSpeaking();
     }
 
-    // Traverses up from the raw target to find an element with semantic meaning
     resolveInteractiveTarget(el) {
       if (!el || el === document.body || el === document.documentElement) return null;
 
-      // Direct matchers: Links, buttons, form inputs, stat cards, table headers
+      // 1. Direct attribute or wrapper with data-teacher-key
+      const explicitCard = el.closest('[data-teacher-key], .dash-stat-card, .stat-card, .stat-card-clean, .kpi-card');
+      if (explicitCard) return explicitCard;
+
+      // 2. Direct matchers: Badges, table headers, buttons, inputs, links, labels, tabs
       const direct = el.closest(
-        'a, button, input, select, textarea, .stat-card, .stat-card-clean, th, .nav-item, ' +
-        '.nav-branch-toggle-btn, .nav-company-toggle-btn, .modal-box .form-group, .info-table tr, [data-explain], [title]'
+        '.badge, [class*="badge"], th, .nav-item, a, button, input, select, textarea, ' +
+        '.info-table tr, [data-explain], [title], .table-header, label, .btn-toggle-tab'
       );
       if (direct) return direct;
 
-      // If clicked on a label, return its linked input or the label itself
-      if (el.tagName === 'LABEL') return el;
+      // 3. If clicked or hovered on standalone text element
+      const text = (el.innerText || el.textContent || '').trim().toLowerCase();
+      if (text.length > 2 && text.length < 50) {
+        if (text.includes('earning') || text.includes('deduction') || text.includes('salary') ||
+            text.includes('timeout') || text.includes('advance') || text.includes('proper') ||
+            text.includes('improper') || text.includes('manual') || text.includes('present') ||
+            text.includes('absent') || text.includes('leave') || text.includes('total')) {
+          return el;
+        }
+      }
 
       return el;
     }
 
-    // Analyzes the element and displays explanation
-    inspectElement(el) {
+    inspectElement(el, isExplicitClick = false) {
       if (!this.isActive || !el) return;
 
       this.lastInspectedEl = el;
       this.applyHighlight(el);
 
-      // 1. Query Knowledge Base (Tier 1)
       const info = this.resolveElementExplanation(el);
       if (info) {
         this.renderBubble(el, info);
         if (this.voiceEnabled) {
-          const speechText = (this.language === 'ta' && info.text_ta) ? `${info.title_ta || info.title}. ${info.text_ta}` : `${info.title}. ${info.text}`;
-          const altEnglish = `${info.title}. ${info.text}`;
-          this.speak(speechText, altEnglish);
+          const speechClean = `${info.title}. ${info.text.replace(/a\.\s*Explanation:?/gi, 'Explanation:').replace(/b\.\s*Rule\s*\/?\s*criteria:?/gi, 'Rule and criteria:')}`;
+          this.speak(speechClean);
         }
       }
     }
 
-    // Resolves element explanation using Tier 1 dictionary or Tier 2 heuristic
     resolveElementExplanation(el) {
       const id = el.id || '';
       const name = el.getAttribute('name') || '';
       const href = el.getAttribute('href') || '';
       const customExplain = el.getAttribute('data-explain');
+      const textContent = (el.textContent || el.innerText || '').toLowerCase();
+
+      // 0. Direct data-teacher-key attribute on element or closest parent
+      const teacherKey = el.getAttribute('data-teacher-key') || el.closest('[data-teacher-key]')?.getAttribute('data-teacher-key');
+      if (teacherKey && ARGUS_KNOWLEDGE_BASE[teacherKey]) {
+        return ARGUS_KNOWLEDGE_BASE[teacherKey];
+      }
 
       // 1. Explicit data-explain attribute
       if (customExplain) {
@@ -751,12 +671,12 @@ if (!window.makeAgentButtonDraggable) {
         };
       }
 
-      // 2. Direct ID lookup in Knowledge Base
+      // 2. Direct ID lookup
       if (id && ARGUS_KNOWLEDGE_BASE[id]) {
         return ARGUS_KNOWLEDGE_BASE[id];
       }
 
-      // 3. Name lookup in Knowledge Base
+      // 3. Name lookup
       if (name && ARGUS_KNOWLEDGE_BASE[name]) {
         return ARGUS_KNOWLEDGE_BASE[name];
       }
@@ -773,53 +693,85 @@ if (!window.makeAgentButtonDraggable) {
         }
       }
 
-      // 5. Stat Cards by class
-      if (el.classList.contains('stat-card') || el.closest('.stat-card')) {
-        const card = el.classList.contains('stat-card') ? el : el.closest('.stat-card');
-        const textContent = (card.textContent || '').toLowerCase();
-        if (textContent.includes('present %') || textContent.includes('percentage')) return ARGUS_KNOWLEDGE_BASE['stat-present-pct'];
-        if (textContent.includes('present')) return ARGUS_KNOWLEDGE_BASE['stat-present-emp'];
-        if (textContent.includes('absent')) return ARGUS_KNOWLEDGE_BASE['stat-absent-emp'];
-        if (textContent.includes('timeout')) return ARGUS_KNOWLEDGE_BASE['stat-timeout-emp'];
-        if (textContent.includes('total')) return ARGUS_KNOWLEDGE_BASE['stat-total-emp'];
+      // 5. Stat Cards & Badges by class, ID, or content
+      const cardEl = el.closest('.dash-stat-card, .stat-card, .stat-card-clean') || el;
+      if (cardEl.classList.contains('card-timeout') || el.classList.contains('badge-timeout') || el.closest('.badge-timeout') || id.includes('timeout') || textContent.includes('timeout')) {
+        return ARGUS_KNOWLEDGE_BASE['stat-timeout-emp'];
       }
-
-      // 6. Action Buttons by class
-      if (el.classList.contains('btn-action-view') || el.querySelector('.btn-action-view')) {
-        return {
-          title: 'View Details Modal',
-          category: 'Action Button',
-          text: 'Opens the comprehensive full-profile view modal displaying all registered parameters, photos, and documents.'
-        };
+      if (cardEl.classList.contains('card-total') || id === 'statTotal' || id === 'totalEmployees' || textContent.includes('total employee') || textContent.includes('total staff')) {
+        return ARGUS_KNOWLEDGE_BASE['stat-total-emp'];
       }
-      if (el.classList.contains('btn-action-edit') || el.querySelector('.btn-action-edit')) {
-        return {
-          title: 'Edit Record',
-          category: 'Action Button',
-          text: 'Opens the edit modal to modify details, permissions, salary structure, or update profile parameters.'
-        };
-      }
-      if (el.classList.contains('btn-action-delete') || el.querySelector('.btn-action-delete')) {
-        return {
-          title: 'Delete Record',
-          category: 'Action Button',
-          text: 'Permanently removes this record from the database. Available only to authorized System Administrators.'
-        };
-      }
-
-      // 7. Form Input child inside a .form-group
-      if (el.classList.contains('form-group')) {
-        const inputInside = el.querySelector('input, select, textarea');
-        if (inputInside) {
-          return this.resolveElementExplanation(inputInside);
+      if (cardEl.classList.contains('card-present') || id === 'statPresent' || id === 'presentToday' || textContent.includes('present today')) {
+        if (el.id === 'statPresentPct' || (textContent.includes('%') && textContent.includes('present'))) {
+          return ARGUS_KNOWLEDGE_BASE['stat-present-pct'];
         }
+        return ARGUS_KNOWLEDGE_BASE['stat-present-emp'];
+      }
+      if (cardEl.classList.contains('card-leave') || id === 'statOnLeave' || el.classList.contains('badge-leave') || el.closest('.badge-leave') || textContent.includes('on leave')) {
+        return ARGUS_KNOWLEDGE_BASE['stat-on-leave'];
+      }
+      if (cardEl.classList.contains('card-absent') || id === 'statAbsent' || id === 'absentToday' || textContent.includes('absent today')) {
+        return ARGUS_KNOWLEDGE_BASE['stat-absent-emp'];
+      }
+      if (textContent.includes('present %') || textContent.includes('percentage') || textContent.includes('attendance rate') || id === 'statPresentPct') {
+        return ARGUS_KNOWLEDGE_BASE['stat-present-pct'];
       }
 
-      // 8. TIER 2: Heuristic Fallback for unmapped elements
+      // 6. Financial Concepts (Earnings, Deductions, Net Pay, Advances)
+      if (textContent.includes('earning') || textContent.includes('gross pay')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-earnings'];
+      }
+      if (textContent.includes('deduction') || textContent.includes('total deduction')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-deductions'];
+      }
+      if (textContent.includes('net salary') || textContent.includes('net pay') || textContent.includes('take home')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-net-salary'];
+      }
+      if (textContent.includes('basic salary') || textContent.includes('basic wage') || textContent.includes('basic pay')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-basic-salary'];
+      }
+      if (textContent.includes('advance repayment') || textContent.includes('repayment')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-advance-repayment'];
+      }
+      if (textContent.includes('advance')) {
+        return ARGUS_KNOWLEDGE_BASE['nav-advance-management'];
+      }
+
+      // 7. Salary Types
+      if (textContent.includes('day salary') || textContent.includes('daily wage') || textContent.includes('day-based')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-day-salary'];
+      }
+      if (textContent.includes('half day') || textContent.includes('half-day')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-half-day-salary'];
+      }
+      if (textContent.includes('hourly') || textContent.includes('hour rate') || textContent.includes('hour salary')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-hourly-salary'];
+      }
+
+      // 8. Attendance Types (Proper, Improper, Manual, Compact View, Live)
+      if (textContent.includes('proper entry') || textContent.includes('proper entries')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-proper-entries'];
+      }
+      if (textContent.includes('improper entry') || textContent.includes('improper entries')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-improper-entries'];
+      }
+      if (textContent.includes('compact view') || textContent.includes('compact report')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-compact-view'];
+      }
+      if (textContent.includes('all entries')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-all-entries'];
+      }
+      if (textContent.includes('manual entry') || textContent.includes('manual attendance')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-manual-entry'];
+      }
+      if (textContent.includes('live report') || textContent.includes('live entries')) {
+        return ARGUS_KNOWLEDGE_BASE['concept-live-entries'];
+      }
+
+      // 9. Heuristic Fallback with strict a. Explanation and b. Rule/criteria structure
       return this.generateHeuristicExplanation(el);
     }
 
-    // Heuristically builds a concise explanation from DOM metadata
     generateHeuristicExplanation(el) {
       let labelText = '';
       if (el.id) {
@@ -834,34 +786,22 @@ if (!window.makeAgentButtonDraggable) {
         }
       }
       if (!labelText) {
-        labelText = el.getAttribute('placeholder') || el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent.trim().split('\n')[0].substring(0, 30) || 'Action Control';
+        labelText = el.getAttribute('placeholder') || el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent.trim().split('\n')[0].substring(0, 32) || 'Application Control';
       }
 
       const tagName = el.tagName.toUpperCase();
-      let category = 'UI Element';
-      let text = `Interactive ${labelText} control in the application.`;
+      let category = 'Operational Control';
+      let text = `a. Explanation: Configured interface control for managing ${labelText} in this module.\nb. Rule / criteria: Verified according to active tenant business rules and role authorization permissions.`;
 
       if (tagName === 'BUTTON') {
-        category = 'Action Button';
-        text = `Triggers the ${labelText} operation when clicked.`;
-      } else if (tagName === 'SELECT') {
-        category = 'Selection Dropdown';
-        text = `Select the configured option for ${labelText}.`;
-      } else if (tagName === 'INPUT') {
-        const type = el.getAttribute('type') || 'text';
-        if (type === 'checkbox') {
-          category = 'Toggle Option';
-          text = `Enable or disable ${labelText}.`;
-        } else if (type === 'date') {
-          category = 'Date Picker';
-          text = `Select the effective calendar date for ${labelText}.`;
-        } else {
-          category = 'Input Field';
-          text = `Enter the designated value for ${labelText}.`;
-        }
+        category = 'Action Trigger';
+        text = `a. Explanation: Interactive command button to execute the ${labelText} operation.\nb. Rule / criteria: Triggers the designated server action or workflow modal when clicked by an authorized manager.`;
       } else if (tagName === 'TH') {
-        category = 'Table Column';
-        text = `Displays data sorted by ${labelText}.`;
+        category = 'Report Column';
+        text = `a. Explanation: Displays verified tabular data metrics for ${labelText}.\nb. Rule / criteria: In our application, this column reflects data queried directly from the tenant database filtered by selected date and branch parameters.`;
+      } else if (tagName === 'INPUT' || tagName === 'SELECT' || tagName === 'TEXTAREA') {
+        category = 'Form Configuration';
+        text = `a. Explanation: Configurable parameters field for ${labelText}.\nb. Rule / criteria: Input is validated for required formats, numeric boundaries, and tenant isolation before saving.`;
       }
 
       return {
@@ -872,7 +812,6 @@ if (!window.makeAgentButtonDraggable) {
       };
     }
 
-    // Positions and renders the glassmorphic bubble adjacent to the element
     renderBubble(el, info) {
       const rect = el.getBoundingClientRect();
       const badgeEl = this.bubbleEl.querySelector('#teacherAiBadge');
@@ -881,17 +820,16 @@ if (!window.makeAgentButtonDraggable) {
       const tipWrapEl = this.bubbleEl.querySelector('#teacherAiTip');
       const tipTextEl = this.bubbleEl.querySelector('#teacherAiTipText');
 
-      // Set category badge style
       badgeEl.textContent = info.category || 'FEATURE';
-      badgeEl.className = 'teacher-ai-badge';
-      const cat = (info.category || '').toLowerCase();
-      if (cat.includes('nav')) badgeEl.classList.add('category-nav');
-      else if (cat.includes('form') || cat.includes('field')) badgeEl.classList.add('category-form');
-      else if (cat.includes('rule') || cat.includes('policy')) badgeEl.classList.add('category-rule');
-      else if (cat.includes('action') || cat.includes('button')) badgeEl.classList.add('category-action');
-
       titleEl.textContent = info.title;
-      bodyEl.textContent = info.text;
+
+      // Format text into high-impact a. Explanation and b. Rule/criteria HTML blocks
+      let formatted = (info.text || '')
+        .replace(/a\.\s*Explanation:?/gi, '<div class="teacher-ai-exp-block"><span class="teacher-ai-lead">a. Explanation:</span>')
+        .replace(/b\.\s*Rule\s*\/?\s*criteria:?/gi, '</div><div class="teacher-ai-rule-block"><span class="teacher-ai-lead">b. Rule / criteria:</span>') + '</div>';
+
+      formatted = formatted.replace(/\n/g, '<br>');
+      bodyEl.innerHTML = formatted;
 
       if (info.tip) {
         tipWrapEl.style.display = 'flex';
@@ -900,21 +838,18 @@ if (!window.makeAgentButtonDraggable) {
         tipWrapEl.style.display = 'none';
       }
 
-      // Compute optimal position
-      const bubbleWidth = 320;
-      const bubbleHeight = 160;
+      const bubbleWidth = 380;
+      const bubbleHeight = 180;
       const margin = 12;
 
       let top = rect.bottom + margin;
       let left = rect.left + (rect.width / 2) - (bubbleWidth / 2);
 
-      // Prevent overflow horizontally
       if (left < 16) left = 16;
       if (left + bubbleWidth > window.innerWidth - 16) {
         left = window.innerWidth - bubbleWidth - 16;
       }
 
-      // Prevent overflow vertically (flip above if near bottom)
       if (top + bubbleHeight > window.innerHeight - 16) {
         top = rect.top - bubbleHeight - margin;
         if (top < 16) top = 16;
@@ -941,76 +876,9 @@ if (!window.makeAgentButtonDraggable) {
     clearHighlight() {
       if (this.lastInspectedEl) {
         this.lastInspectedEl.classList.remove('teacher-ai-inspected');
+        this.lastInspectedEl = null;
       }
-    }
-
-    // Text to Speech
-    speak(text, altEnglishText) {
-      if (!this.voiceEnabled || !text) return;
-
-      this.stopSpeaking();
-      const clean = text.replace(/[*_#`•⚠️📈🏢🚨👉📥👁️🔗]/g, '').replace(/₹/g, ' rupees ').trim();
-
-      if (this.language === 'ta') {
-        // 1. Attempt Native Browser Tamil Voice
-        if (this.synth) {
-          const voices = this.synth.getVoices() || [];
-          const taVoice = voices.find(v => {
-            const lang = (v.lang || '').toLowerCase();
-            const name = (v.name || '').toLowerCase();
-            return lang.startsWith('ta') || name.includes('tamil') || name.includes('தமிழ்') || name.includes('valluvar') || name.includes('pallavi');
-          });
-
-          if (taVoice) {
-            try {
-              const utter = new SpeechSynthesisUtterance(clean);
-              utter.voice = taVoice;
-              utter.lang = taVoice.lang || 'ta-IN';
-              utter.rate = 1.05;
-              this.currentUtterance = utter;
-              this.synth.speak(utter);
-              return;
-            } catch (err) {
-              console.warn('[Teacher AI] Native Tamil TTS notice:', err);
-            }
-          }
-        }
-
-        // 2. Server-side Streaming Audio via gTTS disk cache
-        try {
-          const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(clean.slice(0, 950)) + '&lang=ta');
-          audio.playbackRate = 1.1;
-          this.activeServerAudio = audio;
-          audio.play().catch(e => {
-            console.warn('[Teacher AI] Server Tamil audio failed, falling back to English voice:', e);
-            this.speakEnglishFallback(altEnglishText || clean);
-          });
-          return;
-        } catch (e) {
-          console.warn('[Teacher AI] Server audio init error, falling back to English voice:', e);
-        }
-
-        // 3. Desktop Fallback to English Voice
-        this.speakEnglishFallback(altEnglishText || clean);
-      } else {
-        // English voice exclusively
-        this.speakEnglishFallback(clean);
-      }
-    }
-
-    speakEnglishFallback(text) {
-      if (!this.synth) return;
-      try {
-        const clean = (text || '').replace(/[*_#`•⚠️📈🏢🚨👉📥👁️🔗]/g, '').replace(/₹/g, ' rupees ').trim();
-        const utter = new SpeechSynthesisUtterance(clean);
-        utter.rate = 1.05;
-        const voices = this.synth.getVoices() || [];
-        const enVoice = voices.find(v => (v.lang === 'en-US' || v.lang === 'en-IN' || v.lang === 'en-GB')) ||
-                        voices.find(v => (v.lang || '').toLowerCase().startsWith('en'));
-        if (enVoice) utter.voice = enVoice;
-        this.currentUtterance = utter;
-        this.synth.speak(utter);
-      } catch (e) {}
+      document.querySelectorAll('.teacher-ai-inspected').forEach(el => el.classList.remove('teacher-ai-inspected'));
     }
 
     stopSpeaking() {
@@ -1022,31 +890,77 @@ if (!window.makeAgentButtonDraggable) {
         this.activeServerAudio = null;
       }
       if (this.synth) {
-        try {
-          this.synth.cancel();
-        } catch (e) {}
+        try { this.synth.cancel(); } catch (e) {}
       }
-      this.currentUtterance = null;
+    }
+
+    speak(text) {
+      if (!text || this.voiceEnabled === false) return;
+      this.stopSpeaking();
+
+      const clean = text.replace(/[*_#`•⚠️📈🏢🚨|]/g, '').replace(/₹/g, ' rupees ').trim();
+
+      if (this.language === 'ta') {
+        if (this.synth) {
+          const voices = this.synth.getVoices() || [];
+          const taVoice = voices.find(v => {
+            const lang = (v.lang || '').toLowerCase();
+            const name = (v.name || '').toLowerCase();
+            return lang.startsWith('ta') || name.includes('tamil') || name.includes('தமிழ்');
+          });
+
+          if (taVoice) {
+            try {
+              const utter = new SpeechSynthesisUtterance(clean);
+              utter.voice = taVoice;
+              utter.lang = taVoice.lang || 'ta-IN';
+              utter.rate = 1.05;
+              this.synth.speak(utter);
+              return;
+            } catch (err) {}
+          }
+        }
+
+        try {
+          const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(clean.slice(0, 950)) + '&lang=ta');
+          audio.playbackRate = 1.1;
+          this.activeServerAudio = audio;
+          audio.play().catch(e => {
+            this.speakEnglishFallback(clean);
+          });
+          return;
+        } catch (e) {
+          this.speakEnglishFallback(clean);
+        }
+      } else {
+        this.speakEnglishFallback(clean);
+      }
+    }
+
+    speakEnglishFallback(text) {
+      if (!this.synth) return;
+      try {
+        const clean = (text || '').replace(/[*_#`•⚠️📈🏢🚨|]/g, '').replace(/₹/g, ' rupees ').trim();
+        const utter = new SpeechSynthesisUtterance(clean);
+        utter.rate = 1.05;
+        const voices = this.synth.getVoices() || [];
+        const enVoice = voices.find(v => (v.lang === 'en-US' || v.lang === 'en-IN' || v.lang === 'en-GB')) ||
+                        voices.find(v => (v.lang || '').toLowerCase().startsWith('en'));
+        if (enVoice) utter.voice = enVoice;
+        this.synth.speak(utter);
+      } catch (e) {}
     }
   }
 
-  // Auto-instantiate when DOM is ready (guarded against duplicate executions)
-  if (window.__argusTeacherAIInitialized && window.ArgusTeacherAI) {
-    // Already active
-  } else {
-    window.__argusTeacherAIInitialized = true;
+  // Initialize on DOM load
+  if (!window.argusTeacherAI) {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
-        if (!window.ArgusTeacherAI) {
-          window.ArgusTeacherAI = new ArgusTeacherAI();
-        }
+        if (!window.argusTeacherAI) window.argusTeacherAI = new ArgusTeacherAI();
       });
     } else {
-      if (!window.ArgusTeacherAI) {
-        window.ArgusTeacherAI = new ArgusTeacherAI();
-      }
+      window.argusTeacherAI = new ArgusTeacherAI();
     }
   }
 
 })(window, document);
-

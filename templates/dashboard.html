@@ -316,7 +316,7 @@
   <!-- ROW 1: 5 Stat Summary Cards -->
   <div class="dash-stats-grid">
     <!-- 1. Total Employees -->
-    <div class="dash-stat-card card-total">
+    <div class="dash-stat-card card-total" data-teacher-key="stat-total-emp">
       <div class="stat-icon-badge">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -335,7 +335,7 @@
     </div>
 
     <!-- 2. Present Today -->
-    <div class="dash-stat-card card-present">
+    <div class="dash-stat-card card-present" data-teacher-key="stat-present-emp">
       <div class="stat-icon-badge">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -346,13 +346,13 @@
         <div class="stat-title">Present Today</div>
         <div class="stat-value-row">
           <span class="stat-num" id="statPresent">{{ stats.present }}</span>
-          <span class="stat-trend trend-present"><span class="trend-arrow">&uarr;</span> <span id="statPresentPct">{{ stats.present_percent }}</span></span>
+          <span class="stat-trend trend-present" id="statPresentPctWrap" data-teacher-key="stat-present-pct"><span class="trend-arrow">&uarr;</span> <span id="statPresentPct">{{ stats.present_percent }}</span></span>
         </div>
       </div>
     </div>
 
     <!-- 3. On Leave -->
-    <div class="dash-stat-card card-leave">
+    <div class="dash-stat-card card-leave" data-teacher-key="stat-on-leave">
       <div class="stat-icon-badge">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -371,7 +371,7 @@
     </div>
 
     <!-- 4. Absent Today -->
-    <div class="dash-stat-card card-absent">
+    <div class="dash-stat-card card-absent" data-teacher-key="stat-absent-emp">
       <div class="stat-icon-badge">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -390,7 +390,7 @@
     </div>
 
     <!-- 5. On Timeout -->
-    <div class="dash-stat-card card-timeout">
+    <div class="dash-stat-card card-timeout" data-teacher-key="stat-timeout-emp">
       <div class="stat-icon-badge">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"></circle>

@@ -152,7 +152,55 @@
   transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.teacher-ai-bubble.active {
+.teacher-ai-bubble.active,
+.teacher-ai-bubble.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1) translateY(0);
+}
+
+.teacher-ai-bubble-structured {
+  width: 400px;
+  max-width: 92vw;
+}
+
+.teacher-ai-exp-block {
+  background: rgba(30, 41, 59, 0.6);
+  border-left: 3px solid #38bdf8;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.teacher-ai-rule-block {
+  background: rgba(30, 41, 59, 0.6);
+  border-left: 3px solid #10b981;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.teacher-ai-lead {
+  font-weight: 700;
+  display: block;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+
+.teacher-ai-exp-block .teacher-ai-lead {
+  color: #38bdf8;
+}
+
+.teacher-ai-rule-block .teacher-ai-lead {
+  color: #34d399;
+}
+
+.teacher-ai-bubble-original-active {
   opacity: 1;
   pointer-events: auto;
   transform: scale(1) translateY(0);

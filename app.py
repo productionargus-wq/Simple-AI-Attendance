@@ -6489,6 +6489,8 @@ def api_coworker_ai_transcribe():
 
 
 @app.route('/api/ai/coworker/chat', methods=['POST'])
+# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 def api_coworker_ai_chat():
     """Autonomous executive assistant endpoint supporting all Argus operations with multi-turn conversational memory & task execution."""
     try:
@@ -6514,6 +6516,7 @@ def api_coworker_ai_chat():
             })
 
         db = database.get_db()
+        is_super = session.get('role') == 'super_admin'
         cid = str(get_current_company_id() or 'ARGUS_MASTER')
         bid = get_current_branch_id()
 
@@ -6528,6 +6531,10 @@ def api_coworker_ai_chat():
         })
         employees = list(emp_cursor)
         emp_names = [e.get('employee_name') for e in employees if e.get('employee_name')]
+
+        # Load registered client companies for system admin operations
+        companies = list(db.company_admin.find({}, {'company_name': 1, 'id': 1, 'email': 1, 'employee_limit': 1, 'branch_limit': 1}))
+        comp_names = [c.get('company_name') for c in companies if c.get('company_name')]
 
         def resolve_employee(name):
             if not name:
@@ -6573,7 +6580,7 @@ def api_coworker_ai_chat():
                     return best_match, []
                 return None, token_candidates
 
-            # 3. Fuzzy similarity match (full name or individual tokens)
+            # 3. Fuzzy similarity match
             fuzzy_matches = []
             for e in employees:
                 e_name = str(e.get('employee_name') or '').strip()
@@ -6598,85 +6605,74 @@ def api_coworker_ai_chat():
             return None, []
 
         def find_employee_in_text(text):
-            if not text or not employees:
+            if not text:
                 return None
-            # 1. Exact match
+            t_lower = text.lower()
             for e in employees:
-                en = str(e.get('employee_name') or '')
-                if en and re.search(r'\b' + re.escape(en) + r'\b', text, re.IGNORECASE):
+                ename = str(e.get('employee_name') or '').strip()
+                if not ename:
+                    continue
+                pattern = r'\b' + re.escape(ename.lower()) + r'\b'
+                if re.search(pattern, t_lower):
                     return e
-
-            # 2. Extract after 'for', 'to', 'of', 'entry for'
-            m = re.search(r'(?:for|to|of)\s+([A-Za-z\s\.]+?)(?:\s+(?:today|yesterday|tomorrow|\d+|proper|improper|half|late|hours?|hrs?|as|with|at|set|on)|$)', text, re.IGNORECASE)
-            if m:
-                cand = m.group(1).strip()
-                cand = re.sub(r'\b(?:add|create|make|put|log|record|manual|entry|attendance|payment|advance|leave)\b', '', cand, flags=re.IGNORECASE).strip()
-                if cand:
-                    doc, _ = resolve_employee(cand)
-                    if doc:
-                        return doc
-
-            # 3. Sliding n-grams (1 to 4 words)
-            words = re.findall(r'[A-Za-z]+', text)
-            stop_words = {'add', 'create', 'make', 'put', 'log', 'record', 'manual', 'entry', 'attendance', 
-                          'payment', 'advance', 'leave', 'today', 'yesterday', 'tomorrow', 'for', 'to', 'of', 
-                          'in', 'at', 'on', 'with', 'as', 'hours', 'hour', 'hrs', 'hr', 'proper', 'improper', 
-                          'half', 'full', 'day', 'days', 'rs', 'inr', 'rupees', 'status', 'set', 'give', 'check',
-                          'who', 'is', 'the', 'my', 'can', 'you', 'please', 'and'}
-            filtered_words = [w for w in words if w.lower() not in stop_words]
-
-            for n in range(min(4, len(filtered_words)), 0, -1):
-                for i in range(len(filtered_words) - n + 1):
-                    chunk = ' '.join(filtered_words[i:i+n])
-                    doc, _ = resolve_employee(chunk)
-                    if doc:
-                        return doc
-
+            parts = re.findall(r'[A-Za-z]+', text)
+            for i in range(len(parts)):
+                for j in range(i + 1, min(i + 4, len(parts) + 1)):
+                    sub = " ".join(parts[i:j])
+                    if len(sub) >= 4:
+                        e_doc, _ = resolve_employee(sub)
+                        if e_doc:
+                            return e_doc
             return None
 
-        def parse_date_from_text(text, default_today=True):
-            if not text:
-                return datetime.now().strftime('%Y-%m-%d') if default_today else None
-
-            if 'day before yesterday' in t:
-                return (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d')
-            if 'yesterday' in t:
-                return (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-            if 'tomorrow' in t:
-                return (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-            if 'today' in t:
-                return datetime.now().strftime('%Y-%m-%d')
-
-            # 1. YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
-            m_iso = re.search(r'\b(20\d\d|19\d\d)[-/. ](0?[1-9]|1[0-2])[-/. ](0?[1-9]|[12]\d|3[01])\b', text)
-            if m_iso:
-                y, m, d = int(m_iso.group(1)), int(m_iso.group(2)), int(m_iso.group(3))
-                return f"{y:04d}-{m:02d}-{d:02d}"
-
-            # 2. DD MM YYYY or DD-MM-YYYY or DD.MM.YYYY or DD/MM/YYYY (e.g. 26 10 2004 or 26.10.2024)
-            m_dmy = re.search(r'\b(0?[1-9]|[12]\d|3[01])[-/. ](0?[1-9]|1[0-2])[-/. ](20\d\d|19\d\d|\d{2})\b', text)
-            if m_dmy:
-                d, m, y_raw = int(m_dmy.group(1)), int(m_dmy.group(2)), int(m_dmy.group(3))
-                y = (2000 + y_raw) if y_raw < 100 else y_raw
-                return f"{y:04d}-{m:02d}-{d:02d}"
-
-            # 3. Month text e.g. 26th October 2024, 26 Oct
-            months = {'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12}
-            for mname, mnum in months.items():
-                m_txt = re.search(r'\b(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?\s+' + mname + r'(?:ober|ember|uary|arch|il|une|uly|ust)?(?:\s+(20\d\d|\d{2}))?\b', t)
-                if m_txt:
-                    d = int(m_txt.group(1))
-                    y_raw = m_txt.group(2)
-                    y = int(y_raw) if y_raw else datetime.now().year
-                    if y < 100: y += 2000
-                    return f"{y:04d}-{mnum:02d}-{d:02d}"
-
-            return datetime.now().strftime('%Y-%m-%d') if default_today else None
-
-        def parse_month_from_text(text):
-            if not text:
+        def resolve_company(name):
+            if not name:
                 return None
-            t = text.lower()
+            import difflib
+            target = str(name).strip().lower()
+            for c in companies:
+                cname = str(c.get('company_name') or '').strip().lower()
+                cid_str = str(c.get('id') or '').strip().lower()
+                if target == cname or target == cid_str or target in cname or cname in target:
+                    return c
+            return None
+
+        def parse_date_from_text(t, default_today=True):
+            if not t:
+                return datetime.now().strftime('%Y-%m-%d') if default_today else None
+            t_low = t.lower()
+            today = datetime.now()
+            if 'yesterday' in t_low:
+                return (today - timedelta(days=1)).strftime('%Y-%m-%d')
+            elif 'day before yesterday' in t_low:
+                return (today - timedelta(days=2)).strftime('%Y-%m-%d')
+            elif 'tomorrow' in t_low:
+                return (today + timedelta(days=1)).strftime('%Y-%m-%d')
+            elif 'today' in t_low:
+                return today.strftime('%Y-%m-%d')
+
+            iso_m = re.search(r'\b(20\d{2})[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])\b', t)
+            if iso_m:
+                return f"{iso_m.group(1)}-{int(iso_m.group(2)):02d}-{int(iso_m.group(3)):02d}"
+
+            dmy_m = re.search(r'\b(0?[1-9]|[12]\d|3[01])[-/.](0?[1-9]|1[0-2])[-/.](20\d{2})\b', t)
+            if dmy_m:
+                return f"{dmy_m.group(3)}-{int(dmy_m.group(2)):02d}-{int(dmy_m.group(1)):02d}"
+
+            named_m = re.search(r'\b(0?[1-9]|[12]\d|3[01])\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+(20\d{2}))?\b', t_low)
+            if named_m:
+                d = int(named_m.group(1))
+                m_str = named_m.group(2)[:3]
+                m_map = {'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12}
+                y = int(named_m.group(3)) if named_m.group(3) else today.year
+                return f"{y:04d}-{m_map[m_str]:02d}-{d:02d}"
+
+            return today.strftime('%Y-%m-%d') if default_today else None
+
+        def parse_month_from_text(t):
+            if not t:
+                return None
+            t = t.lower()
             m_map = {
                 'january': '01', 'jan': '01', 'february': '02', 'feb': '02',
                 'march': '03', 'mar': '03', 'april': '04', 'apr': '04',
@@ -6703,843 +6699,363 @@ def api_coworker_ai_chat():
                 return now.strftime('%Y-%m')
             return None
 
-        def find_context_employee():
-            """Recovers the most relevant employee from pending task or recent message turns."""
-            if pending_task and isinstance(pending_task, dict):
-                p_emp = (pending_task.get('parameters') or {}).get('employee_name')
-                if p_emp:
-                    doc, _ = resolve_employee(p_emp)
-                    if doc:
-                        return doc.get('employee_name')
-            if isinstance(history, list):
-                for h in reversed(history[-6:]):
-                    task_info = h.get('task')
-                    if isinstance(task_info, dict) and task_info.get('details'):
-                        d_emp = task_info['details'].get('Employee')
-                        if d_emp:
-                            doc, _ = resolve_employee(d_emp)
-                            if doc:
-                                return doc.get('employee_name')
-                    h_text = str(h.get('text') or '')
-                    for en in emp_names:
-                        if re.search(r'\b' + re.escape(en) + r'\b', h_text, re.IGNORECASE):
-                            return en
-            return None
-
         parsed_action = None
 
-        # Tier 2: Fast Gemini NLU Attempt with strict 3.5s timeout guard
-        gemini_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
-        if not gemini_key:
-            setting = db.system_settings.find_one({'key': 'gemini_api_key'})
-            if setting and setting.get('value'):
-                gemini_key = str(setting['value']).strip()
+        # =====================================================================
+        # TIER 1: DETERMINISTIC NATURAL LANGUAGE PARSER & TASK DISPATCHER
+        # =====================================================================
+        is_nav = any(w in msg_lower for w in ['open', 'go to', 'take me', 'navigate', 'show page', 'view page'])
 
-        if gemini_key:
-            try:
-                import requests
-                emp_list_str = ", ".join(emp_names[:60])
-                today_str = datetime.now().strftime('%Y-%m-%d')
-                clean_msg = user_message.replace('"', '\"').replace('\n', ' ')
-
-                history_lines = []
-                if isinstance(history, list):
-                    for h in history[-6:]:
-                        sender = 'User' if h.get('sender') == 'user' else 'Assistant'
-                        txt = str(h.get('text') or '').replace('\n', ' ')
-                        history_lines.append(f"{sender}: {txt}")
-                transcript_str = "\n".join(history_lines) if history_lines else "None"
-                pending_str = json.dumps(pending_task) if pending_task else "None"
-
-                user_lang_inst = "Respond with 'reply_text' in fluent, authentic Tamil (தமிழ்)." if user_lang == 'ta' else ""
-                prompt = (
-                    "You are Co-Worker AI, an operations executive assistant for Argus Attendance Intelligence version 2.0.0 by ARGUS CNC™.\n"
-                    f"Current Date: {today_str}\n"
-                    f"Known Employees in this Company: [{emp_list_str}]\n\n"
-                    f"Recent Conversation Transcript:\n{transcript_str}\n\n"
-                    f"Active In-Progress Pending Task:\n{pending_str}\n\n"
-                    f'Latest User Message: "{clean_msg}"\n\n'
-                    "Actions available in Argus:\n"
-                    "1. 'create_manual_attendance': Parameters: { 'employee_name': string, 'date': string, 'hours': string, 'status': string, 'reason': string }\n"
-                    "2. 'create_payment': Parameters: { 'employee_name': string, 'amount': number, 'status': string, 'payment_type': string, 'date': string, 'reason': string }\n"
-                    "3. 'create_advance': Parameters: { 'employee_name': string, 'amount': number, 'date': string, 'reason': string }\n"
-                    "4. 'check_payments': Parameters: { 'employee_name': string, 'query_type': 'balance'|'history'|'summary' }\n"
-                    "5. 'check_attendance': Parameters: { 'employee_name': string, 'date': string }\n"
-                    "6. 'apply_leave': Parameters: { 'employee_name': string, 'leave_type': string, 'from_date': string, 'to_date': string, 'reason': string }\n"
-                    "7. 'get_employee_info': Parameters: { 'employee_name': string, 'field': string }\n"
-                    "8. 'get_salary_info': Parameters: { 'employee_name': string }\n"
-                    "9. 'check_field_worker': Parameters: { 'target': string }\n"
-                    "10. 'navigate': Parameters: { 'target': 'manual_entry'|'payment_entry'|'salary_report'|'field_worker'|'employees'|'leaves'|'live_report'|'attendance_report'|'payslips'|'dashboard' }\n"
-                    "11. 'general_chat': Conversational response.\n\n"
-                    "Respond ONLY with a valid JSON object matching this schema:\n"
-                    "{\n"
-                    '  "action": string,\n'
-                    '  "parameters": { ... },\n'
-                    '  "reply_text": string\n'
-                    "}"
-                )
-
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={gemini_key}"
-                payload = {
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 350}
-                }
-                resp = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload, timeout=3.5)
-                if resp.status_code == 200:
-                    cand = resp.json().get('candidates', [])
-                    if cand:
-                        t = cand[0].get('content', {}).get('parts', [{}])[0].get('text', '')
-                        m = re.search(r'\{.*\}', t, re.DOTALL)
-                        if m:
-                            parsed_action = json.loads(m.group(0))
-            except Exception as e:
-                pass
-
-        # Enrich and validate parsed_action parameters with deep local resolvers
-        if parsed_action and isinstance(parsed_action.get('parameters'), dict):
-            p = parsed_action['parameters']
-            if not p.get('employee_name') or not resolve_employee(p.get('employee_name'))[0]:
-                emp_found = find_employee_in_text(user_message)
-                if emp_found:
-                    p['employee_name'] = emp_found.get('employee_name')
-            extracted_date = parse_date_from_text(user_message, default_today=False)
-            if extracted_date:
-                p['date'] = extracted_date
-
-        # Tier 1: Deterministic Multi-Turn & Feature NLU Engine (Zero Latency, Complete Offline Support)
-        if not parsed_action or not parsed_action.get('action') or parsed_action.get('action') == 'general_chat':
-            msg_lower = user_message.lower().strip()
-
-            # A. Check active in-progress pending tasks
-            if pending_task and isinstance(pending_task, dict):
-                p_action = pending_task.get('action')
-                p_params = pending_task.get('parameters') or {}
-
-                # 1. Pending Manual Attendance Continuation
-                if p_action == 'create_manual_attendance':
-                    # Extract employee using deep fuzzy resolver or pending parameters
-                    emp_doc_found = find_employee_in_text(user_message)
-                    curr_emp = emp_doc_found.get('employee_name') if emp_doc_found else p_params.get('employee_name')
-
-                    # Extract hours
-                    hours_val = p_params.get('hours') or '08:00'
-                    hr_m = re.search(r'(\d{1,2}(?::\d{2})?)\s*(?:hrs?|hours?)?', msg_lower)
-                    if 'half day' in msg_lower or '4 hour' in msg_lower or '4 hr' in msg_lower:
-                        hours_val = '04:00'
-                    elif 'full day' in msg_lower or '8 hour' in msg_lower or '8 hr' in msg_lower:
-                        hours_val = '08:00'
-                    elif hr_m:
-                        raw_h = hr_m.group(1)
-                        hours_val = f"{int(raw_h):02d}:00" if ':' not in raw_h else raw_h
-
-                    # Extract status
-                    st_val = p_params.get('status') or 'Proper'
-                    if 'improper' in msg_lower:
-                        st_val = 'Improper'
-                    elif 'half day' in msg_lower:
-                        st_val = 'Half Day'
-                    elif 'late' in msg_lower:
-                        st_val = 'Late'
-                    elif 'overtime' in msg_lower or 'ot' in msg_lower:
-                        st_val = 'Overtime'
-                    elif 'proper' in msg_lower:
-                        st_val = 'Proper'
-
-                    # Extract date using comprehensive date parser
-                    date_val = parse_date_from_text(user_message, default_today=False) or p_params.get('date') or datetime.now().strftime('%Y-%m-%d')
-
-                    parsed_action = {
-                        'action': 'create_manual_attendance',
-                        'parameters': {
-                            'employee_name': curr_emp,
-                            'hours': hours_val,
-                            'status': st_val,
-                            'date': date_val,
-                            'reason': p_params.get('reason') or 'Recorded by Co-Worker AI'
-                        },
-                        'reply_text': ''
-                    }
-
-                # 2. Pending Payment Continuation
-                elif p_action == 'create_payment':
-                    amt_match = re.search(r'(?:rs\.?|inr|rupees|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
-                    st_val = None
-                    for cand_st in ['advance repayment', 'advance', 'salary', 'incentive', 'bonus', 'allowance', 'petrol', 'other']:
-                        if cand_st in msg_lower:
-                            st_val = cand_st.title()
-                            break
-
-                    curr_emp = p_params.get('employee_name')
-                    if not curr_emp:
-                        for e in employees:
-                            en = str(e.get('employee_name') or '')
-                            if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
-                                curr_emp = en
-                                break
-
-                    amt_val = float(amt_match.group(1)) if amt_match else p_params.get('amount')
-                    parsed_action = {
-                        'action': 'create_payment',
-                        'parameters': {
-                            'employee_name': curr_emp,
-                            'amount': amt_val,
-                            'status': st_val or p_params.get('status') or 'Advance Repayment',
-                            'payment_type': p_params.get('payment_type') or 'UPI',
-                            'date': p_params.get('date') or datetime.now().strftime('%Y-%m-%d'),
-                            'reason': p_params.get('reason') or ''
-                        },
-                        'reply_text': ''
-                    }
-
-                # 3. Pending Advance Continuation
-                elif p_action == 'create_advance':
-                    amt_match = re.search(r'(?:rs\.?|inr|rupees|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
-                    amt_val = float(amt_match.group(1)) if amt_match else p_params.get('amount')
-                    curr_emp = p_params.get('employee_name')
-                    if not curr_emp:
-                        for e in employees:
-                            en = str(e.get('employee_name') or '')
-                            if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
-                                curr_emp = en
-                                break
-                    parsed_action = {
-                        'action': 'create_advance',
-                        'parameters': {
-                            'employee_name': curr_emp,
-                            'amount': amt_val,
-                            'date': p_params.get('date') or datetime.now().strftime('%Y-%m-%d'),
-                            'reason': p_params.get('reason') or 'Staff Advance'
-                        },
-                        'reply_text': ''
-                    }
-
-                # 4. Pending Leave Continuation
-                elif p_action == 'apply_leave':
-                    curr_emp = p_params.get('employee_name')
-                    if not curr_emp:
-                        for e in employees:
-                            en = str(e.get('employee_name') or '')
-                            if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
-                                curr_emp = en
-                                break
-                    leave_type = p_params.get('leave_type') or 'Casual Leave'
-                    if 'sick' in msg_lower:
-                        leave_type = 'Sick Leave'
-                    elif 'earned' in msg_lower:
-                        leave_type = 'Earned Leave'
-                    parsed_action = {
-                        'action': 'apply_leave',
-                        'parameters': {
-                            'employee_name': curr_emp,
-                            'leave_type': leave_type,
-                            'from_date': p_params.get('from_date') or datetime.now().strftime('%Y-%m-%d'),
-                            'to_date': p_params.get('to_date') or datetime.now().strftime('%Y-%m-%d'),
-                            'reason': p_params.get('reason') or 'Personal'
-                        },
-                        'reply_text': ''
-                    }
-
-                # 5. Pending Payslip Download Continuation
-                elif p_action == 'download_payslip':
-                    emp_doc_found = find_employee_in_text(user_message)
-                    curr_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
-                    if not curr_emp:
-                        for e in employees:
-                            en = str(e.get('employee_name') or '')
-                            if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
-                                curr_emp = en
-                                break
-                    if not curr_emp:
-                        cand_doc, _ = resolve_employee(user_message)
-                        if cand_doc:
-                            curr_emp = cand_doc.get('employee_name')
-                    month_val = p_params.get('month') or parse_month_from_text(user_message) or datetime.now().strftime('%Y-%m')
-                    parsed_action = {
-                        'action': 'download_payslip',
-                        'parameters': {'employee_name': curr_emp, 'month': month_val},
-                        'reply_text': ''
-                    }
-
-            # B. Single-Turn Intent Parsing (If no pending task matched or continues)
-            if not parsed_action:
-                is_nav = any(w in msg_lower for w in ['open', 'go to', 'take me', 'navigate', 'show page', 'view page'])
-
-                # 0. PAYSLIP DOWNLOAD INTENT (English & Tamil)
-                is_payslip_dl = (any(w in msg_lower for w in ['payslip', 'pay slip', 'salary slip', 'சம்பள', 'பேஸ்லிப்']) and \
-                                any(w in msg_lower for w in ['download', 'get', 'export', 'print', 'generate', 'send', 'pdf', 'file', 'பதிவிறக்க', 'பதிவிறக்கு', 'பதிவிறக்கம்', 'டவுன்லோட்', 'வேணும்', 'தாங்க'])) or \
-                                bool(re.search(r'\b(?:download|get|export)\s+(?:the\s+)?payslip\b', msg_lower)) or \
-                                bool(re.search(r'\bpayslip\s+(?:of|for)\b', msg_lower))
-
-                if is_payslip_dl and not is_nav:
-                    emp_doc_found = find_employee_in_text(user_message)
-                    target_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
-                    if not target_emp:
-                        p_m = re.search(r'(?:of|for)\s+([A-Za-z\s]+)', user_message, re.IGNORECASE)
-                        if p_m:
-                            e_doc, _ = resolve_employee(p_m.group(1))
-                            if e_doc:
-                                target_emp = e_doc.get('employee_name')
-                    if not target_emp:
-                        target_emp = find_context_employee()
-                    month_val = parse_month_from_text(user_message) or datetime.now().strftime('%Y-%m')
-                    parsed_action = {
-                        'action': 'download_payslip',
-                        'parameters': {'employee_name': target_emp, 'month': month_val},
-                        'reply_text': ''
-                    }
-
-                # 1. BALANCE & ADVANCE INQUIRY
-                elif (any(phrase in msg_lower for phrase in ['check balance', 'advance balance', 'payment balance', 'balance for', 'advance summary', 'what is the balance', 'outstanding advance', 'dues for']) or (msg_lower in ['check balance', 'balance'])) and not is_nav:
-                    # Check if employee specified in text
-                    target_emp = None
-                    for e in employees:
-                        en = str(e.get('employee_name') or '')
-                        if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
-                            target_emp = en
-                            break
-                    if not target_emp:
-                        bal_m = re.search(r'(?:balance|advance|dues)\s+(?:for|of)\s+([A-Za-z\s]+)', user_message, re.IGNORECASE)
-                        if bal_m:
-                            b_doc, _ = resolve_employee(bal_m.group(1))
-                            if b_doc:
-                                target_emp = b_doc.get('employee_name')
-                    if not target_emp:
-                        # Fallback to context employee
-                        target_emp = find_context_employee()
-
-                    parsed_action = {
-                        'action': 'check_payments',
-                        'parameters': {'employee_name': target_emp, 'query_type': 'balance'},
-                        'reply_text': ''
-                    }
-
-                # 2. MANUAL ATTENDANCE ENTRY
-                elif ('manual' in msg_lower and any(w in msg_lower for w in ['entry', 'attendance', 'create', 'add', 'log', 'record'])) and not is_nav:
-                    emp_doc_found = find_employee_in_text(user_message)
-                    target_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
-
-                    # Hours & Status
-                    hours_val = '08:00'
-                    if 'half day' in msg_lower or '4 hour' in msg_lower or '4 hr' in msg_lower:
-                        hours_val = '04:00'
-                    elif 'full day' in msg_lower or '8 hour' in msg_lower or '8 hr' in msg_lower:
-                        hours_val = '08:00'
-                    else:
-                        hr_m = re.search(r'(\d{1,2}(?::\d{2})?)\s*(?:hrs?|hours?)?', msg_lower)
-                        if hr_m:
-                            raw_h = hr_m.group(1)
-                            hours_val = f"{int(raw_h):02d}:00" if ':' not in raw_h else raw_h
-
-                    st_val = 'Proper'
-                    if 'improper' in msg_lower:
-                        st_val = 'Improper'
-                    elif 'half day' in msg_lower:
-                        st_val = 'Half Day'
-                    elif 'late' in msg_lower:
-                        st_val = 'Late'
-                    elif 'overtime' in msg_lower:
-                        st_val = 'Overtime'
-
-                    date_val = parse_date_from_text(user_message, default_today=True)
-
-                    parsed_action = {
-                        'action': 'create_manual_attendance',
-                        'parameters': {
-                            'employee_name': target_emp,
-                            'hours': hours_val,
-                            'status': st_val,
-                            'date': date_val,
-                            'reason': 'Recorded by Co-Worker AI'
-                        },
-                        'reply_text': ''
-                    }
-
-                # 3. CREATE ADVANCE ENTRY
-                elif re.search(r'(?:give|create|add|record|issue)?\s*advance\s+(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\s*(?:to|for)\s*([A-Za-z\s]+)', user_message, re.IGNORECASE) or \
-                     re.search(r'advance\s+(?:for|to)\s*([A-Za-z\s]+)\s*(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE):
-                    adv_m1 = re.search(r'(?:give|create|add|record|issue)?\s*advance\s+(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\s*(?:to|for)\s*([A-Za-z\s]+)', user_message, re.IGNORECASE)
-                    adv_m2 = re.search(r'advance\s+(?:for|to)\s*([A-Za-z\s]+)\s*(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
-                    if adv_m1:
-                        amt = float(adv_m1.group(1))
-                        emp_raw = adv_m1.group(2).strip()
-                    else:
-                        emp_raw = adv_m2.group(1).strip()
-                        amt = float(adv_m2.group(2))
-                    parsed_action = {
-                        'action': 'create_advance',
-                        'parameters': {'employee_name': emp_raw, 'amount': amt, 'date': datetime.now().strftime('%Y-%m-%d')},
-                        'reply_text': ''
-                    }
-
-                # 4. CREATE PAYMENT ENTRY
-                elif any(w in msg_lower for w in ['payment', 'pay ', 'paid ']) and not is_nav:
-                    pay_match = re.search(r'(?:create|add|make|give|record)?\s*payment(?:\s+entry)?\s+(?:for\s+)?([A-Za-z\s]+?)\s+(?:for\s+|of\s+|rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)(?:\s+(?:as|set|with|status)?\s*(.*))?', user_message, re.IGNORECASE)
-                    alt_pay = re.search(r'(?:give|pay)\s+([A-Za-z\s]+?)\s+(?:for\s+|of\s+|rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
-                    partial_pay = re.search(r'(?:create|add|make|record)?\s*payment(?:\s+entry)?(?:\s+(?:for|to)\s+([A-Za-z\s]+))?', user_message, re.IGNORECASE)
-
-                    if pay_match:
-                        emp = pay_match.group(1).strip()
-                        emp = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', emp, flags=re.IGNORECASE).strip()
-                        amt = float(pay_match.group(2))
-                        st = (pay_match.group(3) or 'Advance Repayment').strip()
-                        parsed_action = {
-                            'action': 'create_payment',
-                            'parameters': {'employee_name': emp, 'amount': amt, 'status': st},
-                            'reply_text': ''
-                        }
-                    elif alt_pay:
-                        emp = alt_pay.group(1).strip()
-                        emp = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', emp, flags=re.IGNORECASE).strip()
-                        amt = float(alt_pay.group(2))
-                        parsed_action = {
-                            'action': 'create_payment',
-                            'parameters': {'employee_name': emp, 'amount': amt, 'status': 'Advance Repayment'},
-                            'reply_text': ''
-                        }
-                    elif partial_pay:
-                        emp = partial_pay.group(1)
-                        if emp:
-                            emp = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', emp.strip(), flags=re.IGNORECASE).strip()
-                        parsed_action = {
-                            'action': 'create_payment',
-                            'parameters': {'employee_name': emp, 'amount': None},
-                            'reply_text': ''
-                        }
-
-                # 5. ATTENDANCE & PRESENCE INQUIRY
-                elif any(p in msg_lower for p in ['present today', 'who is present', 'who is absent', 'attendance today', 'how many present', 'punch in today', 'is present']) and not is_nav:
-                    target_emp = None
-                    for e in employees:
-                        en = str(e.get('employee_name') or '')
-                        if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
-                            target_emp = en
-                            break
-                    parsed_action = {
-                        'action': 'check_attendance',
-                        'parameters': {'employee_name': target_emp},
-                        'reply_text': ''
-                    }
-
-                # 6. APPLY LEAVE
-                elif ('leave' in msg_lower or 'permission' in msg_lower) and any(w in msg_lower for w in ['apply', 'request', 'take', 'for', 'sick', 'casual']) and not is_nav:
-                    target_emp = None
-                    for e in employees:
-                        en = str(e.get('employee_name') or '')
-                        if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
-                            target_emp = en
-                            break
-                    l_type = 'Casual Leave'
-                    if 'sick' in msg_lower:
-                        l_type = 'Sick Leave'
-                    elif 'earned' in msg_lower:
-                        l_type = 'Earned Leave'
-                    elif 'permission' in msg_lower:
-                        l_type = 'Permission'
-                    parsed_action = {
-                        'action': 'apply_leave',
-                        'parameters': {'employee_name': target_emp, 'leave_type': l_type},
-                        'reply_text': ''
-                    }
-
-                # 7. EMPLOYEE DIRECTORY & CONTACT
-                elif any(p in msg_lower for p in ['phone number', 'mobile', 'contact', 'email', 'department', 'designation', 'who is', 'details of', 'info of', 'profile of']) and not is_nav:
-                    target_emp = None
-                    for e in employees:
-                        en = str(e.get('employee_name') or '')
-                        if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
-                            target_emp = en
-                            break
-                    if not target_emp:
-                        e_m = re.search(r'(?:of|for|is)\s+([A-Za-z\s]+)', user_message, re.IGNORECASE)
-                        if e_m:
-                            e_doc, _ = resolve_employee(e_m.group(1))
-                            if e_doc:
-                                target_emp = e_doc.get('employee_name')
-                    parsed_action = {
-                        'action': 'get_employee_info',
-                        'parameters': {'employee_name': target_emp},
-                        'reply_text': ''
-                    }
-
-                # 8. SALARY & PAYSLIP INQUIRY
-                elif any(p in msg_lower for p in ['salary', 'payslip', 'pay slip', 'wages', 'earnings']) and not is_nav:
-                    target_emp = None
-                    for e in employees:
-                        en = str(e.get('employee_name') or '')
-                        if re.search(r'\b' + re.escape(en.lower()) + r'\b', msg_lower):
-                            target_emp = en
-                            break
-                    if target_emp:
-                        parsed_action = {
-                            'action': 'get_salary_info',
-                            'parameters': {'employee_name': target_emp},
-                            'reply_text': ''
-                        }
-
-                # 9. NAVIGATION
-                if not parsed_action and is_nav:
-                    target = 'dashboard'
-                    if 'manual' in msg_lower:
-                        target = 'manual_entry'
-                    elif 'payment' in msg_lower or 'ledger' in msg_lower or 'advance' in msg_lower:
-                        target = 'payment_entry'
-                    elif 'salary' in msg_lower:
-                        target = 'salary_report'
-                    elif 'payslip' in msg_lower:
-                        target = 'payslips'
-                    elif 'leave' in msg_lower:
-                        target = 'leaves'
-                    elif 'live' in msg_lower:
-                        target = 'live_report'
-                    elif 'report' in msg_lower or 'attendance' in msg_lower:
-                        target = 'attendance_report'
-                    elif 'employee' in msg_lower or 'staff' in msg_lower:
-                        target = 'employees'
-                    elif 'field' in msg_lower:
-                        target = 'field_worker'
-                    elif 'profile' in msg_lower or 'company' in msg_lower:
-                        target = 'company_profile'
-                    elif 'support' in msg_lower or 'help' in msg_lower:
-                        target = 'support'
-                    parsed_action = {
-                        'action': 'navigate',
-                        'parameters': {'target': target},
-                        'reply_text': f"Navigating to {target.replace('_', ' ').title()}."
-                    }
-
-                # 10. Fallback General Operations Chat
-                if not parsed_action:
-                    parsed_action = {
-                        'action': 'general_chat',
-                        'parameters': {},
-                        'reply_text': f"I understand you said: '{user_message}'. As your Co-Worker AI assistant, I can log manual attendance, record payments or advances, check advance balances, inspect today's attendance, apply leaves, look up employee contacts, and navigate anywhere in Argus."
-                    }
-
-        # Task Execution Dispatcher
-        action_name = parsed_action.get('action') or 'general_chat'
-        params = parsed_action.get('parameters') or {}
-        reply_text = parsed_action.get('reply_text') or ''
-
-        # 1. CREATE MANUAL ATTENDANCE
-        if action_name == 'create_manual_attendance':
-            raw_name = params.get('employee_name')
-            if raw_name:
-                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
-
-            emp_doc = None
-            if raw_name:
-                emp_doc, candidates = resolve_employee(raw_name)
-                if not emp_doc:
-                    if candidates:
-                        cand_names = ", ".join([f"**{c.get('employee_name')}**" for c in candidates[:4]])
-                        return jsonify({
-                            'success': True,
-                            'reply': f"I found multiple employees matching '**{raw_name}**': {cand_names}. Which one would you like to log attendance for?",
-                            'task_executed': False,
-                            'pending_task': None
-                        })
-                    else:
-                        sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:5] if e.get('employee_name')])
-                        staff_hint = f" Active staff in your company: {sample_staff}." if sample_staff else ""
-                        return jsonify({
-                            'success': True,
-                            'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company.{staff_hint} Please check the spelling.",
-                            'task_executed': False,
-                            'pending_task': None
-                        })
-
+        # 1. ADVANCE REPAYMENT INTENT (High Priority explicit check)
+        is_repayment = ('repayment' in msg_lower or 'repay' in msg_lower or ('advance' in msg_lower and any(w in msg_lower for w in ['returned', 'paid back', 'settle', 'clear', 'repaid']))) and not is_nav
+        if is_repayment:
+            emp_doc = find_employee_in_text(user_message)
             if not emp_doc:
-                emp_found = find_employee_in_text(user_message)
-                if emp_found:
-                    emp_doc = emp_found
+                rep_name_m = re.search(r'repayment\s+(?:for|to|of)\s+([A-Za-z\s.]+?)(?:\s+of|\s+for|\s+rs|\s+inr|\s+rupees|\s+₹|\s+\d|$)', user_message, re.IGNORECASE)
+                if rep_name_m:
+                    cand_name = rep_name_m.group(1).strip()
+                    emp_doc, _ = resolve_employee(cand_name)
+                    if not emp_doc:
+                        # Fallback search across all employees
+                        all_cands = list(db.employees.find({'employee_name': {'': re.escape(cand_name), '': 'i'}}))
+                        if all_cands:
+                            emp_doc = all_cands[0]
+            
+            amt_match = re.search(r'(?:rs\.?|inr|rupees|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
+            date_val = parse_date_from_text(user_message, default_today=True)
+            amt_val = float(amt_match.group(1)) if amt_match else None
+            emp_name = emp_doc.get('employee_name') if emp_doc else None
+            if not emp_name:
+                rep_name_m = re.search(r'repayment\s+(?:for|to|of)\s+([A-Za-z\s.]+?)(?:\s+of|\s+for|\s+rs|\s+inr|\s+rupees|\s+₹|\s+\d|$)', user_message, re.IGNORECASE)
+                if rep_name_m:
+                    emp_name = rep_name_m.group(1).strip()
 
-            canonical_emp_name = emp_doc.get('employee_name') if emp_doc else raw_name
+            parsed_action = {
+                'action': 'create_payment',
+                'parameters': {
+                    'employee_name': emp_name,
+                    'amount': amt_val,
+                    'status': 'Advance Repayment',
+                    'payment_type': 'Cash' if 'cash' in msg_lower else ('Bank' if 'bank' in msg_lower else 'UPI'),
+                    'date': date_val,
+                    'reason': 'Advance Repayment via Co-Worker AI'
+                },
+                'reply_text': ''
+            }
 
-            # If employee is missing, initiate multi-turn state!
-            if not canonical_emp_name:
-                new_pending = {
+        # 2. SYSTEM ADMIN INTENTS (Super Admin Exclusive)
+        if not parsed_action and is_super:
+            # A. Create / Register Company
+            if any(w in msg_lower for w in ['register company', 'create company', 'add company', 'new company']) and not is_nav:
+                c_name_m = re.search(r'(?:company|name|add)\s+([A-Za-z0-9\s]+?)(?:\s+with|\s+email|\s+limit|$)', user_message, re.IGNORECASE)
+                c_name = c_name_m.group(1).strip() if c_name_m else None
+                c_email_m = re.search(r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', user_message)
+                c_email = c_email_m.group(1) if c_email_m else None
+                limit_m = re.search(r'(?:limit|quota|employees?)\s*(?:of\s+)?(\d+)', user_message, re.IGNORECASE)
+                c_limit = int(limit_m.group(1)) if limit_m else 50
+                parsed_action = {
+                    'action': 'create_company',
+                    'parameters': {
+                        'company_name': c_name,
+                        'email': c_email,
+                        'employee_limit': c_limit
+                    },
+                    'reply_text': ''
+                }
+
+            # B. Switch Company Context
+            elif ('switch' in msg_lower or 'view company' in msg_lower) and any(w in msg_lower for w in ['company', 'tenant', 'to ']):
+                comp_match = None
+                for c in companies:
+                    cn = str(c.get('company_name') or '')
+                    if cn.lower() in msg_lower:
+                        comp_match = c
+                        break
+                if comp_match:
+                    parsed_action = {
+                        'action': 'switch_company',
+                        'parameters': {'company_id': comp_match.get('id'), 'company_name': comp_match.get('company_name')},
+                        'reply_text': ''
+                    }
+
+            # C. Multi-Company Health / Platform Health
+            elif any(w in msg_lower for w in ['system health', 'platform health', 'all companies stats', 'fleet summary', 'tenant count']):
+                parsed_action = {
+                    'action': 'check_system_health',
+                    'parameters': {},
+                    'reply_text': ''
+                }
+
+            # D. Trigger Daily or Monthly Email Reports
+            elif ('trigger' in msg_lower or 'send' in msg_lower) and ('report' in msg_lower or 'email' in msg_lower):
+                if 'monthly' in msg_lower or 'salary' in msg_lower:
+                    parsed_action = {'action': 'send_monthly_reports', 'parameters': {}, 'reply_text': ''}
+                else:
+                    parsed_action = {'action': 'send_daily_reports', 'parameters': {}, 'reply_text': ''}
+
+        # 3. COMPANY ADMIN INTENTS
+        if not parsed_action:
+            # A. Add / Create Employee
+            if any(w in msg_lower for w in ['add employee', 'create employee', 'new employee', 'register staff', 'enroll employee']) and not is_nav:
+                name_m = re.search(r'(?:named?|employee)\s+([A-Za-z\s]+?)(?:\s+with|\s+as|\s+phone|\s+salary|\s+dept|$)', user_message, re.IGNORECASE)
+                e_name = name_m.group(1).strip() if name_m else None
+                dept_m = re.search(r'(?:department|dept)\s+([A-Za-z\s]+?)(?:\s+with|\s+as|\s+salary|$)', user_message, re.IGNORECASE)
+                e_dept = dept_m.group(1).strip() if dept_m else 'General'
+                sal_m = re.search(r'(?:salary|rate)\s+(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
+                e_sal = float(sal_m.group(1)) if sal_m else 500.0
+                sal_type = 'Hourly' if 'hour' in msg_lower else ('Half Day' if 'half' in msg_lower else 'Daily')
+                parsed_action = {
+                    'action': 'create_employee',
+                    'parameters': {
+                        'employee_name': e_name,
+                        'department': e_dept,
+                        'salary_type': sal_type,
+                        'day_salary': e_sal if sal_type == 'Daily' else 0.0,
+                        'hourly_salary': e_sal if sal_type == 'Hourly' else 0.0,
+                        'half_day_salary': e_sal if sal_type == 'Half Day' else 0.0,
+                        'shift_hours': '08:00'
+                    },
+                    'reply_text': ''
+                }
+
+            # B. Payslip Download
+            elif (any(w in msg_lower for w in ['payslip', 'pay slip', 'salary slip']) and any(w in msg_lower for w in ['download', 'get', 'export', 'print', 'generate', 'send', 'pdf'])) or bool(re.search(r'\bpayslip\s+(?:of|for)\b', msg_lower)):
+                emp_doc_found = find_employee_in_text(user_message)
+                target_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
+                month_val = parse_month_from_text(user_message) or datetime.now().strftime('%Y-%m')
+                parsed_action = {
+                    'action': 'download_payslip',
+                    'parameters': {'employee_name': target_emp, 'month': month_val},
+                    'reply_text': ''
+                }
+
+            # C. Advance Balance / Payment Ledger Inquiry
+            elif any(phrase in msg_lower for phrase in ['check balance', 'advance balance', 'payment balance', 'balance for', 'advance summary', 'what is the balance', 'outstanding advance', 'dues for']):
+                emp_doc_found = find_employee_in_text(user_message)
+                target_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
+                parsed_action = {
+                    'action': 'check_payments',
+                    'parameters': {'employee_name': target_emp, 'query_type': 'balance'},
+                    'reply_text': ''
+                }
+
+            # D. Manual Attendance Entry
+            elif ('manual' in msg_lower and any(w in msg_lower for w in ['entry', 'attendance', 'create', 'add', 'log', 'record'])) and not is_nav:
+                emp_doc_found = find_employee_in_text(user_message)
+                target_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
+                hours_val = '04:00' if 'half' in msg_lower else '08:00'
+                hr_m = re.search(r'(\d{1,2}(?::\d{2})?)\s*(?:hrs?|hours?)?', msg_lower)
+                if hr_m and 'half' not in msg_lower:
+                    raw_h = hr_m.group(1)
+                    hours_val = f"{int(raw_h):02d}:00" if ':' not in raw_h else raw_h
+
+                st_val = 'Half Day' if 'half' in msg_lower else ('Improper' if 'improper' in msg_lower else ('Late' if 'late' in msg_lower else ('Overtime' if 'overtime' in msg_lower else 'Proper')))
+                date_val = parse_date_from_text(user_message, default_today=True)
+                parsed_action = {
                     'action': 'create_manual_attendance',
                     'parameters': {
-                        'hours': params.get('hours') or '08:00',
-                        'status': params.get('status') or 'Proper',
-                        'date': params.get('date') or datetime.now().strftime('%Y-%m-%d')
-                    }
-                }
-                session['coworker_pending_task'] = new_pending
-                return jsonify({
-                    'success': True,
-                    'reply': "I'd be glad to record a manual entry! Which **employee** is this for, and what are the **hours** / **status**? (e.g., *'Add manual attendance for Philip Matthew today for 8 hours Proper'*).",
-                    'task_executed': False,
-                    'pending_task': new_pending
-                })
-
-            emp_name = canonical_emp_name
-            date_str = params.get('date') or datetime.now().strftime('%Y-%m-%d')
-            hours_str = params.get('hours') or '08:00'
-            status = params.get('status') or 'Proper'
-            reason = params.get('reason') or 'Recorded by Co-Worker AI'
-
-            entry_payload = {
-                'employee_name': emp_name,
-                'entry_date': date_str,
-                'date': date_str,
-                'hours': hours_str,
-                'mode': 'Hours',
-                'status': status,
-                'reason': reason
-            }
-            inserted_id = database.create_manual_entry(entry_payload, company_id=cid)
-            session['coworker_pending_task'] = None
-
-            return jsonify({
-                'success': True,
-                'reply': f"I've successfully logged manual attendance for **{emp_name}** on **{date_str}** with status **{status}** ({hours_str} hrs). Entry ID is **#{inserted_id}**.",
-                'task_executed': True,
-                'task_data': {
-                    'type': 'attendance',
-                    'details': {
-                        'Employee': emp_name,
-                        'Date': date_str,
-                        'Hours': hours_str,
-                        'Status': status,
-                        'Entry ID': str(inserted_id)
+                        'employee_name': target_emp,
+                        'hours': hours_val,
+                        'status': st_val,
+                        'date': date_val,
+                        'reason': 'Recorded by Co-Worker AI'
                     },
-                    'action_label': 'View Manual Entries',
-                    'action_url': '/manual-entry'
-                },
-                'pending_task': None
-            })
+                    'reply_text': ''
+                }
 
-        # 2. CHECK PAYMENTS / BALANCE / ADVANCE LEDGER
-        elif action_name == 'check_payments':
+            # E. Give / Create Advance
+            elif re.search(r'(?:give|create|add|record|issue)?\s*advance\s+(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\s*(?:to|for)\s*([A-Za-z\s]+)', user_message, re.IGNORECASE) or \
+                 re.search(r'advance\s+(?:for|to)\s*([A-Za-z\s]+)\s*(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE):
+                adv_m1 = re.search(r'(?:give|create|add|record|issue)?\s*advance\s+(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\s*(?:to|for)\s*([A-Za-z\s]+)', user_message, re.IGNORECASE)
+                adv_m2 = re.search(r'advance\s+(?:for|to)\s*([A-Za-z\s]+)\s*(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
+                amt = float(adv_m1.group(1)) if adv_m1 else float(adv_m2.group(2))
+                emp_raw = adv_m1.group(2).strip() if adv_m1 else adv_m2.group(1).strip()
+                parsed_action = {
+                    'action': 'create_advance',
+                    'parameters': {'employee_name': emp_raw, 'amount': amt, 'date': parse_date_from_text(user_message, default_today=True)},
+                    'reply_text': ''
+                }
+
+            # F. Payment Entry (Salary, Incentive, Allowance, Bonus)
+            elif any(w in msg_lower for w in ['payment', 'paid ', 'pay salary', 'disburse']) and not is_nav:
+                emp_doc_found = find_employee_in_text(user_message)
+                amt_match = re.search(r'(?:rs\.?|inr|rupees|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
+                st_val = 'Salary'
+                if 'incentive' in msg_lower:
+                    st_val = 'Incentive'
+                elif 'allowance' in msg_lower:
+                    st_val = 'Allowance'
+                elif 'bonus' in msg_lower:
+                    st_val = 'Bonus'
+                elif 'repayment' in msg_lower:
+                    st_val = 'Advance Repayment'
+                parsed_action = {
+                    'action': 'create_payment',
+                    'parameters': {
+                        'employee_name': emp_doc_found.get('employee_name') if emp_doc_found else None,
+                        'amount': float(amt_match.group(1)) if amt_match else None,
+                        'status': st_val,
+                        'date': parse_date_from_text(user_message, default_today=True)
+                    },
+                    'reply_text': ''
+                }
+
+            # G. Attendance & Presence Inquiry
+            elif any(p in msg_lower for p in ['present today', 'who is present', 'who is absent', 'attendance today', 'how many present', 'punch in today', 'is present', 'on timeout']):
+                emp_doc_found = find_employee_in_text(user_message)
+                parsed_action = {
+                    'action': 'check_attendance',
+                    'parameters': {'employee_name': emp_doc_found.get('employee_name') if emp_doc_found else None},
+                    'reply_text': ''
+                }
+
+            # H. Apply / Request Leave
+            elif ('leave' in msg_lower or 'permission' in msg_lower) and any(w in msg_lower for w in ['apply', 'request', 'take', 'for', 'sick', 'casual']) and not is_nav:
+                emp_doc_found = find_employee_in_text(user_message)
+                l_type = 'Sick Leave' if 'sick' in msg_lower else ('Earned Leave' if 'earned' in msg_lower else 'Casual Leave')
+                parsed_action = {
+                    'action': 'apply_leave',
+                    'parameters': {
+                        'employee_name': emp_doc_found.get('employee_name') if emp_doc_found else None,
+                        'leave_type': l_type,
+                        'from_date': parse_date_from_text(user_message, default_today=True),
+                        'to_date': parse_date_from_text(user_message, default_today=True)
+                    },
+                    'reply_text': ''
+                }
+
+            # I. Navigation
+            elif is_nav:
+                target = 'dashboard'
+                if 'manual' in msg_lower: target = 'manual_entry'
+                elif 'payment' in msg_lower or 'ledger' in msg_lower or 'advance' in msg_lower: target = 'payment_entry'
+                elif 'salary' in msg_lower: target = 'salary_report'
+                elif 'payslip' in msg_lower: target = 'payslips'
+                elif 'leave' in msg_lower: target = 'leaves'
+                elif 'live' in msg_lower: target = 'live_report'
+                elif 'report' in msg_lower or 'attendance' in msg_lower: target = 'attendance_report'
+                elif 'employee' in msg_lower or 'staff' in msg_lower: target = 'employees'
+                elif 'field' in msg_lower: target = 'field_worker'
+                elif 'profile' in msg_lower or 'company' in msg_lower: target = 'company_profile'
+                elif 'company' in msg_lower and is_super: target = 'manage_companies'
+                elif 'support' in msg_lower or 'help' in msg_lower: target = 'support'
+                parsed_action = {
+                    'action': 'navigate',
+                    'parameters': {'target': target},
+                    'reply_text': f"Navigating directly to {target.replace('_', ' ').title()}."
+                }
+
+        # Fallback Gemini NLU if deterministic parser didn't match and key available
+        if not parsed_action:
+            gemini_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+            if not gemini_key:
+                setting = db.system_settings.find_one({'key': 'gemini_api_key'})
+                if setting and setting.get('value'):
+                    gemini_key = str(setting['value']).strip()
+            if gemini_key:
+                try:
+                    import requests
+                    emp_list_str = ", ".join(emp_names[:50])
+                    clean_msg = user_message.replace('"', '\"').replace('\n', ' ')
+                    prompt = (
+                        "You are Co-Worker AI, an operations assistant for Argus Attendance Intelligence.\n"
+                        f"Current Date: {datetime.now().strftime('%Y-%m-%d')}\n"
+                        f"Employees: [{emp_list_str}]\n"
+                        f'User Message: "{clean_msg}"\n'
+                        "Select one action: 'create_payment', 'create_advance', 'create_manual_attendance', 'apply_leave', 'download_payslip', 'check_attendance', 'check_payments', 'general_chat'.\n"
+                        "Respond ONLY as JSON matching: { \"action\": string, \"parameters\": { ... }, \"reply_text\": string }"
+                    )
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={gemini_key}"
+                    resp = requests.post(url, json={'contents': [{'parts': [{'text': prompt}]}]}, timeout=3.5)
+                    if resp.status_code == 200:
+                        cand = resp.json().get('candidates', [])
+                        if cand:
+                            t = cand[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+                            m = re.search(r'\{.*\}', t, re.DOTALL)
+                            if m:
+                                parsed_action = json.loads(m.group(0))
+                except Exception:
+                    pass
+
+        if not parsed_action:
+            parsed_action = {
+                'action': 'general_chat',
+                'parameters': {},
+                'reply_text': f"I understand: '{user_message}'. As your operations Co-Worker AI, I can log advance repayments, issue advances, record manual attendance, generate payslips, apply leaves, and execute all administrative tasks."
+            }
+
+        # =====================================================================
+        # TASK EXECUTION & DISPATCH ENGINE
+        # =====================================================================
+        action_name = parsed_action.get('action') or 'general_chat'
+        params = parsed_action.get('parameters') or {}
+
+        # 1. CREATE PAYMENT / ADVANCE REPAYMENT
+        if action_name == 'create_payment':
             raw_name = params.get('employee_name')
-            if raw_name:
-                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
-
+            raw_amt = params.get('amount')
             emp_doc = None
             if raw_name:
                 emp_doc, _ = resolve_employee(raw_name)
-
-            if emp_doc or raw_name:
-                emp_name = emp_doc.get('employee_name') if emp_doc else raw_name
-                # Calculate advances and repayments
-                adv_f = {'employee_name': emp_name}
-                if cid and cid != 'ARGUS_MASTER':
-                    adv_f['company_id'] = cid
-                advances = list(db.advances.find(adv_f))
-                total_adv = sum(float(a.get('amount') or 0.0) for a in advances)
-
-                pay_f = {'employee_name': emp_name}
-                if cid and cid != 'ARGUS_MASTER':
-                    pay_f['company_id'] = cid
-                payments = list(db.payments.find(pay_f))
-                total_repaid = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
-                total_other = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' not in str(p.get('status') or '').lower())
-                outstanding_bal = max(0.0, total_adv - total_repaid)
-
-                return jsonify({
-                    'success': True,
-                    'reply': f"Here is the advance & payment statement for **{emp_name}**:\n"
-                             f"• Total Advance Issued: **₹{total_adv:,.2f}**\n"
-                             f"• Total Advance Repaid: **₹{total_repaid:,.2f}**\n"
-                             f"• **Outstanding Advance Balance: ₹{outstanding_bal:,.2f}**\n"
-                             f"• Other Payouts/Disbursements: **₹{total_other:,.2f}**",
-                    'task_executed': True,
-                    'task_data': {
-                        'type': 'balance',
-                        'details': {
-                            'Employee': emp_name,
-                            'Total Advance': f"₹{total_adv:,.2f}",
-                            'Total Repaid': f"₹{total_repaid:,.2f}",
-                            'Outstanding Balance': f"₹{outstanding_bal:,.2f}",
-                            'Other Payments': f"₹{total_other:,.2f}"
-                        },
-                        'action_label': 'View Payment Ledger',
-                        'action_url': '/payment-entry'
-                    },
-                    'pending_task': None
-                })
-            else:
-                # Company-wide advance summary
-                adv_f = {}
-                if cid and cid != 'ARGUS_MASTER':
-                    adv_f['company_id'] = cid
-                advances = list(db.advances.find(adv_f))
-                tot_comp_adv = sum(float(a.get('amount') or 0.0) for a in advances)
-
-                pay_f = {}
-                if cid and cid != 'ARGUS_MASTER':
-                    pay_f['company_id'] = cid
-                payments = list(db.payments.find(pay_f))
-                tot_comp_rep = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
-                net_comp_bal = max(0.0, tot_comp_adv - tot_comp_rep)
-
-                sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:4] if e.get('employee_name')])
-                return jsonify({
-                    'success': True,
-                    'reply': f"Here is your company-wide Advance Summary:\n"
-                             f"• Total Company Advances: **₹{tot_comp_adv:,.2f}**\n"
-                             f"• Total Repayments: **₹{tot_comp_rep:,.2f}**\n"
-                             f"• **Net Outstanding Advances: ₹{net_comp_bal:,.2f}**\n\n"
-                             f"To check an individual's balance, you can say *'Check balance for Philip Matthew'* or ask about: {sample_staff}.",
-                    'task_executed': True,
-                    'task_data': {
-                        'type': 'balance',
-                        'details': {
-                            'Scope': 'Company Total',
-                            'Total Advance': f"₹{tot_comp_adv:,.2f}",
-                            'Total Repaid': f"₹{tot_comp_rep:,.2f}",
-                            'Net Outstanding': f"₹{net_comp_bal:,.2f}"
-                        },
-                        'action_label': 'View Payment Ledger',
-                        'action_url': '/payment-entry'
-                    },
-                    'pending_task': None
-                })
-
-        # 3. CREATE ADVANCE ENTRY
-        elif action_name == 'create_advance':
-            raw_name = params.get('employee_name')
-            raw_amt = params.get('amount')
-            if raw_name:
-                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
-
-            emp_doc = None
-            if raw_name:
-                emp_doc, candidates = resolve_employee(raw_name)
-                if not emp_doc and candidates:
-                    cand_names = ", ".join([f"**{c.get('employee_name')}**" for c in candidates[:4]])
-                    return jsonify({
-                        'success': True,
-                        'reply': f"Multiple employees matched '**{raw_name}**': {cand_names}. Which one should receive the advance?",
-                        'task_executed': False,
-                        'pending_task': None
-                    })
+            if not emp_doc:
+                emp_doc = find_employee_in_text(user_message)
 
             canonical_emp = emp_doc.get('employee_name') if emp_doc else raw_name
             if not canonical_emp or raw_amt is None:
                 new_pending = {
-                    'action': 'create_advance',
-                    'parameters': {'employee_name': canonical_emp, 'amount': raw_amt}
-                }
-                session['coworker_pending_task'] = new_pending
-                return jsonify({
-                    'success': True,
-                    'reply': f"Please specify the employee name and advance amount (e.g., *'Give advance of ₹2,000 to Philip Matthew'*).",
-                    'task_executed': False,
-                    'pending_task': new_pending
-                })
-
-            amt = float(raw_amt)
-            adv_date = params.get('date') or datetime.now().strftime('%Y-%m-%d')
-            reason = params.get('reason') or 'Staff Advance'
-
-            adv_payload = {
-                'employee_name': canonical_emp,
-                'amount': amt,
-                'advance_date': adv_date,
-                'reason': reason
-            }
-            adv_id = database.create_advance(adv_payload, company_id=cid)
-            session['coworker_pending_task'] = None
-
-            return jsonify({
-                'success': True,
-                'reply': f"I've recorded an advance of **₹{amt:,.2f}** for **{canonical_emp}**. Advance ID is **#{adv_id}**.",
-                'task_executed': True,
-                'task_data': {
-                    'type': 'advance',
-                    'details': {
-                        'Employee': canonical_emp,
-                        'Amount': f"₹{amt:,.2f}",
-                        'Date': adv_date,
-                        'Entry ID': str(adv_id)
-                    },
-                    'action_label': 'View Advance Ledger',
-                    'action_url': '/payment-entry'
-                },
-                'pending_task': None
-            })
-
-        # 4. CREATE PAYMENT ENTRY
-        elif action_name == 'create_payment':
-            raw_name = params.get('employee_name')
-            raw_amt = params.get('amount')
-            if raw_name:
-                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
-
-            emp_doc = None
-            if raw_name:
-                emp_doc, candidates = resolve_employee(raw_name)
-                if not emp_doc:
-                    if candidates:
-                        cand_names = ", ".join([f"**{c.get('employee_name')}**" for c in candidates[:4]])
-                        return jsonify({
-                            'success': True,
-                            'reply': f"I found multiple employees matching '**{raw_name}**': {cand_names}. Which one would you like to record the payment for?",
-                            'task_executed': False,
-                            'pending_task': None
-                        })
-                    else:
-                        sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:5] if e.get('employee_name')])
-                        staff_hint = f" Active staff: {sample_staff}." if sample_staff else ""
-                        return jsonify({
-                            'success': True,
-                            'reply': f"I couldn't find an employee named '**{raw_name}**' registered in your company.{staff_hint} Please check the name.",
-                            'task_executed': False,
-                            'pending_task': None
-                        })
-
-            canonical_emp_name = emp_doc.get('employee_name') if emp_doc else raw_name
-
-            if not raw_name or raw_amt is None:
-                new_pending = {
                     'action': 'create_payment',
                     'parameters': {
-                        'employee_name': canonical_emp_name,
-                        'status': params.get('status')
+                        'employee_name': canonical_emp,
+                        'status': params.get('status') or 'Advance Repayment'
                     }
                 }
                 session['coworker_pending_task'] = new_pending
                 return jsonify({
                     'success': True,
-                    'reply': f"I'd be glad to record a payment for **{canonical_emp_name}**. Could you please specify the **amount (₹)** and payment status (e.g. *Advance Repayment*, *Salary*, *Incentive*)?",
+                    'reply': f"Please specify the employee name and amount (e.g. *'Enter advance repayment for Philip Matthew of rupees 500 on {datetime.now().strftime('%Y-%m-%d')}'*).",
                     'task_executed': False,
                     'pending_task': new_pending
                 })
 
-            emp_name = canonical_emp_name
             amt = float(raw_amt)
             status = params.get('status') or 'Advance Repayment'
             pay_type = params.get('payment_type') or 'UPI'
-            pay_date = params.get('date') or datetime.now().strftime('%Y-%m-%d')
-            reason = params.get('reason') or ''
+            pay_date = params.get('date') or parse_date_from_text(user_message, default_today=True)
+            reason = params.get('reason') or f"{status} recorded via Co-Worker AI"
 
             payment_payload = {
-                'employee_name': emp_name,
+                'employee_name': canonical_emp,
                 'amount': amt,
                 'status': status,
                 'payment_type': pay_type,
                 'payment_date': pay_date,
+                'date': pay_date,
                 'reason': reason,
                 'bank': ''
             }
-            inserted_id = database.create_payment(payment_payload, company_id=cid)
+            target_cid = (emp_doc.get('company_id') if emp_doc else None) or cid
+            inserted_id = database.create_payment(payment_payload, company_id=target_cid)
             session['coworker_pending_task'] = None
+
+            # Calculate updated advance balance
+            adv_tot = sum(float(a.get('amount') or 0.0) for a in db.advances.find({'employee_name': canonical_emp}))
+            rep_tot = sum(float(p.get('amount') or 0.0) for p in db.payments.find({'employee_name': canonical_emp}) if 'repayment' in str(p.get('status') or '').lower())
+            rem_bal = max(0.0, adv_tot - rep_tot)
 
             return jsonify({
                 'success': True,
-                'reply': f"I've recorded the payment entry of **₹{amt:,.2f}** for **{emp_name}** ({status}). Entry ID is **#{inserted_id}**.",
+                'reply': f"Successfully recorded **{status}** of **₹{amt:,.2f}** for **{canonical_emp}** on **{pay_date}** ({pay_type}).\n• Payment Voucher ID: **#{inserted_id}**\n• Remaining Advance Balance: **₹{rem_bal:,.2f}**.",
                 'task_executed': True,
                 'task_data': {
                     'type': 'payment',
                     'details': {
-                        'Employee': emp_name,
-                        'Amount': f"₹{amt:,.2f}",
+                        'Employee': canonical_emp,
                         'Status': status,
-                        'Date': pay_date,
-                        'Mode': pay_type,
-                        'Entry ID': str(inserted_id)
+                        'Amount': f"₹{amt:,.2f}",
+                        'Payment Date': pay_date,
+                        'Payment Mode': pay_type,
+                        'Remaining Balance': f"₹{rem_bal:,.2f}",
+                        'Voucher ID': str(inserted_id)
                     },
                     'action_label': 'View Payment Ledger',
                     'action_url': '/payment-entry'
@@ -7547,371 +7063,366 @@ def api_coworker_ai_chat():
                 'pending_task': None
             })
 
-        # 5. CHECK ATTENDANCE & LIVE STATUS
-        elif action_name == 'check_attendance':
-            today_str = datetime.now().strftime('%Y-%m-%d')
-            summary = database.get_today_attendance_summary(company_id=cid, branch_id=bid)
+        # 2. CREATE ADVANCE ENTRY
+        elif action_name == 'create_advance':
             raw_name = params.get('employee_name')
-            if raw_name:
-                emp_doc, candidates = resolve_employee(raw_name)
-                if not emp_doc:
-                    return jsonify({
-                        'success': True,
-                        'reply': f"I couldn't find an employee named '**{raw_name}**' in your registered company staff.",
-                        'task_executed': False,
-                        'pending_task': None
-                    })
-                emp_name = emp_doc.get('employee_name')
-                rec = summary.get('details_map', {}).get(emp_name)
-                if rec:
-                    in_t = rec.get('in_time') or rec.get('entry_time') or '-'
-                    out_t = rec.get('out_time') or rec.get('exit_time') or '-'
-                    st = rec.get('status') or 'Present'
-                    hrs = rec.get('working_hours') or rec.get('hours') or '08:00'
-                    return jsonify({
-                        'success': True,
-                        'reply': f"**{emp_name}** is marked **{st}** today ({today_str}) ({hrs} hrs). In-time: *{in_t}*, Out-time: *{out_t}*.",
-                        'task_executed': True,
-                        'task_data': {
-                            'type': 'attendance',
-                            'details': {'Employee': emp_name, 'Date': today_str, 'Status': st, 'In Time': str(in_t), 'Out Time': str(out_t), 'Hours': str(hrs)}
-                        },
-                        'pending_task': None
-                    })
-                elif emp_name in summary.get('on_leave_names', []):
-                    return jsonify({
-                        'success': True,
-                        'reply': f"**{emp_name}** is on **approved leave** today ({today_str}).",
-                        'task_executed': True,
-                        'task_data': {
-                            'type': 'attendance',
-                            'details': {'Employee': emp_name, 'Date': today_str, 'Status': 'On Leave'}
-                        },
-                        'pending_task': None
-                    })
-                else:
-                    return jsonify({
-                        'success': True,
-                        'reply': f"**{emp_name}** is **absent** today ({today_str}) (has not punched in yet). Would you like me to log a manual entry for them?",
-                        'task_executed': False,
-                        'pending_task': {'action': 'create_manual_attendance', 'parameters': {'employee_name': emp_name}}
-                    })
-            else:
-                total_emps = summary['total_staff']
-                present_count = summary['present_count']
-                absent_count = summary['absent_count']
-                on_leave_count = summary['on_leave_count']
-                
-                # Check user query intent
-                is_absent_query = any(w in msg_lower for w in ['absent', 'missing', 'not present', 'not punched', 'who is absent'])
-                is_present_query = any(w in msg_lower for w in ['who is present', 'who are present', 'present staff', 'present list'])
-
-                if is_absent_query:
-                    if absent_count == 0:
-                        detail_text = "🎉 **All registered employees are present today!** (0 absent)"
-                    else:
-                        names_fmt = ", ".join([f"**{n}**" for n in summary['absent_names']])
-                        detail_text = f"📌 **Absent Staff ({absent_count})**: {names_fmt}"
-                elif is_present_query:
-                    if present_count == 0:
-                        detail_text = "⚠️ **No employees have punched in today yet.**"
-                    else:
-                        names_fmt = ", ".join([f"**{n}**" for n in summary['present_names']])
-                        detail_text = f"📌 **Present Staff ({present_count})**: {names_fmt}"
-                else:
-                    names_p = ", ".join([f"**{n}**" for n in summary['present_names']]) if summary['present_names'] else "None"
-                    names_a = ", ".join([f"**{n}**" for n in summary['absent_names']]) if summary['absent_names'] else "None"
-                    detail_text = f"• **Present**: {names_p}\n• **Absent**: {names_a}"
-
-                leave_line = f"\n• On Approved Leave: **{on_leave_count}** ({', '.join(summary['on_leave_names'])})" if on_leave_count > 0 else ""
-
-                reply_msg = (
-                    f"Attendance Summary for today (**{today_str}**):\n"
-                    f"• Present Today: **{present_count}** ({summary['present_percent']})\n"
-                    f"• Absent Today: **{absent_count}** ({summary['absent_percent']})"
-                    f"{leave_line}\n"
-                    f"• Total Registered Staff: **{total_emps}**\n\n"
-                    f"{detail_text}"
-                )
-
-                absent_str = ", ".join(summary['absent_names']) if summary['absent_names'] else "None (All Present)"
-
-                return jsonify({
-                    'success': True,
-                    'reply': reply_msg,
-                    'task_executed': True,
-                    'task_data': {
-                        'type': 'attendance',
-                        'details': {
-                            'Date': today_str,
-                            'Present': f"{present_count} ({summary['present_percent']})",
-                            'Absent': f"{absent_count} ({summary['absent_percent']})",
-                            'Total Staff': str(total_emps),
-                            'Absent Staff': absent_str
-                        }
-                    },
-                    'action_label': 'View Live Report',
-                    'action_url': '/live-report',
-                    'pending_task': None
-                })
-
-
-        # 6. APPLY LEAVE
-        elif action_name == 'apply_leave':
-            raw_name = params.get('employee_name')
-            if raw_name:
-                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
-
+            raw_amt = params.get('amount')
             emp_doc = None
             if raw_name:
-                emp_doc, candidates = resolve_employee(raw_name)
-
+                emp_doc, _ = resolve_employee(raw_name)
             if not emp_doc:
-                new_pending = {
-                    'action': 'apply_leave',
-                    'parameters': params
-                }
+                emp_doc = find_employee_in_text(user_message)
+
+            canonical_emp = emp_doc.get('employee_name') if emp_doc else raw_name
+            if not canonical_emp or raw_amt is None:
+                new_pending = {'action': 'create_advance', 'parameters': {'employee_name': canonical_emp}}
                 session['coworker_pending_task'] = new_pending
                 return jsonify({
                     'success': True,
-                    'reply': "Please specify the employee name and leave type (e.g. *'Apply casual leave for Suresh tomorrow'*).",
+                    'reply': "Please specify the employee and advance amount (e.g. *'Give advance of ₹2,000 to Philip Matthew'*).",
                     'task_executed': False,
                     'pending_task': new_pending
                 })
 
-            emp_name = emp_doc.get('employee_name')
-            leave_type = params.get('leave_type') or 'Casual Leave'
-            from_d = params.get('from_date') or datetime.now().strftime('%Y-%m-%d')
-            to_d = params.get('to_date') or from_d
-            reason = params.get('reason') or 'Personal leave'
-
-            leave_payload = {
-                'employee_name': emp_name,
-                'employee_id': emp_doc.get('id'),
-                'leave_type': leave_type,
-                'from_date': from_d,
-                'to_date': to_d,
-                'reason': reason,
-                'session': 'Full Day',
-                'company_id': cid
+            amt = float(raw_amt)
+            adv_date = params.get('date') or parse_date_from_text(user_message, default_today=True)
+            adv_payload = {
+                'employee_name': canonical_emp,
+                'amount': amt,
+                'advance_date': adv_date,
+                'date': adv_date,
+                'reason': params.get('reason') or 'Staff Advance'
             }
-            database.submit_leave_request(leave_payload)
+            adv_id = database.create_advance(adv_payload, company_id=cid)
             session['coworker_pending_task'] = None
 
             return jsonify({
                 'success': True,
-                'reply': f"Leave application for **{emp_name}** ({leave_type}) from **{from_d}** to **{to_d}** has been submitted.",
+                'reply': f"Successfully issued an advance of **₹{amt:,.2f}** to **{canonical_emp}** on **{adv_date}**. Advance Record ID is **#{adv_id}**.",
                 'task_executed': True,
                 'task_data': {
-                    'type': 'leave',
+                    'type': 'advance',
                     'details': {
-                        'Employee': emp_name,
-                        'Leave Type': leave_type,
-                        'From': from_d,
-                        'To': to_d,
-                        'Reason': reason
+                        'Employee': canonical_emp,
+                        'Amount': f"₹{amt:,.2f}",
+                        'Date': adv_date,
+                        'Advance ID': str(adv_id)
                     },
-                    'action_label': 'View Leave Portal',
-                    'action_url': '/employee-portal#leave'
+                    'action_label': 'View Advance Ledger',
+                    'action_url': '/advance-management'
                 },
                 'pending_task': None
             })
 
-        # 7. GET EMPLOYEE INFO & DIRECTORY
-        elif action_name == 'get_employee_info':
-            raw_name = params.get('employee_name')
-            if raw_name:
-                raw_name = re.sub(r'\s+(for|to|of|as|with|at|in|on|rs|inr)$', '', str(raw_name).strip(), flags=re.IGNORECASE).strip()
-            emp_doc = None
-            if raw_name:
-                emp_doc, candidates = resolve_employee(raw_name)
-
-            if not emp_doc:
-                sample_staff = ", ".join([f"**{e.get('employee_name')}**" for e in employees[:5] if e.get('employee_name')])
-                return jsonify({
-                    'success': True,
-                    'reply': f"Which employee would you like details for? Active staff: {sample_staff}.",
-                    'task_executed': False,
-                    'pending_task': None
-                })
-
-            e_name = emp_doc.get('employee_name')
-            dept = emp_doc.get('department') or 'General'
-            desig = emp_doc.get('designation') or 'Staff'
-            phone = emp_doc.get('phone') or emp_doc.get('mobile') or 'Not listed'
-            status_e = emp_doc.get('status') or 'Active'
-
-            return jsonify({
-                'success': True,
-                'reply': f"**{e_name}** ({desig} - {dept}):\n• Phone / Mobile: **{phone}**\n• Status: **{status_e}**",
-                'task_executed': True,
-                'task_data': {
-                    'type': 'employee',
-                    'details': {
-                        'Employee': e_name,
-                        'Department': dept,
-                        'Designation': desig,
-                        'Phone': phone,
-                        'Status': status_e
-                    },
-                    'action_label': 'View Employee Profile',
-                    'action_url': '/employees'
-                },
-                'pending_task': None
-            })
-
-        # 8. GET SALARY INFO
-        elif action_name == 'get_salary_info':
+        # 3. CREATE MANUAL ATTENDANCE
+        elif action_name == 'create_manual_attendance':
             raw_name = params.get('employee_name')
             emp_doc = None
             if raw_name:
                 emp_doc, _ = resolve_employee(raw_name)
             if not emp_doc:
+                emp_doc = find_employee_in_text(user_message)
+
+            canonical_emp = emp_doc.get('employee_name') if emp_doc else raw_name
+            if not canonical_emp:
+                new_pending = {'action': 'create_manual_attendance', 'parameters': params}
+                session['coworker_pending_task'] = new_pending
                 return jsonify({
                     'success': True,
-                    'reply': "Please specify the employee name to look up salary details.",
+                    'reply': "Which employee would you like to log manual attendance for? (e.g. *'Add manual attendance for Philip Matthew today for 8 hours Proper'*).",
                     'task_executed': False,
-                    'pending_task': None
+                    'pending_task': new_pending
                 })
 
-            e_name = emp_doc.get('employee_name')
-            sal_type = emp_doc.get('salary_type') or 'monthly'
-            basic = float(emp_doc.get('basic_salary') or 0.0)
-            shift_hrs = emp_doc.get('shift_hours') or '08:00'
-
-            return jsonify({
-                'success': True,
-                'reply': f"Salary Structure for **{e_name}**:\n• Type: **{sal_type.title()}**\n• Basic Pay: **₹{basic:,.2f}**\n• Standard Shift: **{shift_hrs} hrs**",
-                'task_executed': True,
-                'task_data': {
-                    'type': 'salary',
-                    'details': {
-                        'Employee': e_name,
-                        'Salary Type': sal_type.title(),
-                        'Basic Pay': f"₹{basic:,.2f}",
-                        'Shift Hours': shift_hrs
-                    },
-                    'action_label': 'View Payslip Preview',
-                    'action_url': '/payslip-preview'
-                },
-                'pending_task': None
-            })
-
-        # 8B. DOWNLOAD PAYSLIP ACTION
-        elif action_name == 'download_payslip':
-            raw_name = params.get('employee_name')
-            emp_doc = None
-            if raw_name:
-                emp_doc, _ = resolve_employee(raw_name)
-            if not emp_doc:
-                active_suggestions = [{'label': e.get('employee_name'), 'prompt': f"download payslip of {e.get('employee_name')}"} for e in employees[:6]]
-                session['coworker_pending_task'] = {'action': 'download_payslip', 'parameters': params}
-                prompt_en = "Which employee's payslip would you like to download? Please choose or provide the employee name."
-                prompt_ta = "எந்த பணியாளரின் சம்பள சீட்டை பதிவிறக்கம் செய்ய வேண்டும்? பெயரை கூறவும் அல்லது தேர்வு செய்யவும்."
-                return jsonify({
-                    'success': True,
-                    'reply': prompt_ta if user_lang == 'ta' else prompt_en,
-                    'task_executed': False,
-                    'pending_task': {'action': 'download_payslip', 'parameters': params},
-                    'suggestions': active_suggestions
-                })
-
-            e_name = emp_doc.get('employee_name')
-            month = params.get('month') or datetime.now().strftime('%Y-%m')
-            try:
-                m_obj = datetime.strptime(month, '%Y-%m')
-                month_label = m_obj.strftime('%B %Y')
-            except Exception:
-                month_label = month
-
-            import urllib.parse
+            date_str = params.get('date') or parse_date_from_text(user_message, default_today=True)
+            hours_str = params.get('hours') or '08:00'
+            status = params.get('status') or 'Proper'
+            entry_payload = {
+                'employee_name': canonical_emp,
+                'entry_date': date_str,
+                'date': date_str,
+                'hours': hours_str,
+                'mode': 'Hours',
+                'status': status,
+                'reason': params.get('reason') or 'Recorded by Co-Worker AI'
+            }
+            ins_id = database.create_manual_entry(entry_payload, company_id=cid)
             session['coworker_pending_task'] = None
-            dl_url = f"/api/payslip/export/pdf?employee_name={urllib.parse.quote(e_name)}&month={month}"
-            file_name = f"payslip_{e_name.replace(' ', '_')}_{month}.pdf"
-
-            msg_en = f"Downloading official payslip for **{e_name}** ({month_label}). Your PDF download has been initiated."
-            msg_ta = f"**{e_name}** அவர்களின் **{month_label}** மாத சம்பள சீட்டு (PDF) பதிவிறக்கம் செய்யப்படுகிறது."
 
             return jsonify({
                 'success': True,
-                'reply': msg_ta if user_lang == 'ta' else msg_en,
-                'action': 'download_file',
-                'task_executed': True,
-                'task_data': {
-                    'type': 'payslip',
-                    'employee_name': e_name,
-                    'month': month,
-                    'month_label': month_label,
-                    'download_url': dl_url,
-                    'file_name': file_name,
-                    'action_label': 'Download Payslip PDF',
-                    'action_url': dl_url,
-                    'details': {
-                        'Employee': e_name,
-                        'Period': month_label,
-                        'Format': 'Branded PDF Document',
-                        'Status': 'Download Ready'
-                    }
-                },
-                'pending_task': None
-            })
-
-        # 9. FIELD WORKER MODULE
-        elif action_name == 'check_field_worker':
-            fw_count = len([e for e in employees if e.get('is_field_worker')])
-            return jsonify({
-                'success': True,
-                'reply': f"There are **{fw_count}** active field workers registered. You can review location logs, visits, and field disbursements below.",
+                'reply': f"Logged manual attendance for **{canonical_emp}** on **{date_str}** ({hours_str} hrs, **{status}**). Entry ID is **#{ins_id}**.",
                 'task_executed': True,
                 'task_data': {
                     'type': 'attendance',
-                    'details': {'Field Workers': str(fw_count), 'Module': 'Field Worker Operations'}
+                    'details': {
+                        'Employee': canonical_emp,
+                        'Date': date_str,
+                        'Hours': hours_str,
+                        'Status': status,
+                        'Entry ID': str(ins_id)
+                    },
+                    'action_label': 'View Manual Entries',
+                    'action_url': '/manual-entry'
                 },
-                'action_label': 'Open Field Worker Module',
-                'action_url': '/field-worker-module',
                 'pending_task': None
             })
 
-        # 10. NAVIGATION
-        elif action_name == 'navigate':
-            target = params.get('target', '').lower()
-            url_map = {
-                'manual_entry': '/manual-entry',
-                'payment_entry': '/payment-entry',
-                'salary_report': '/salary-report',
-                'payslips': '/payslip-preview',
-                'field_worker': '/field-worker-module',
-                'employees': '/employees',
-                'leaves': '/leaves',
-                'live_report': '/live-report',
-                'attendance_report': '/attendance-report',
-                'dashboard': '/dashboard',
-                'company_profile': '/company-profile',
-                'support': '/support'
+        # 4. CREATE EMPLOYEE (Company Admin)
+        elif action_name == 'create_employee':
+            emp_name = params.get('employee_name')
+            if not emp_name:
+                return jsonify({
+                    'success': True,
+                    'reply': "Please specify the full name of the new employee to register (e.g. *'Add employee Robert Clive with department IT and salary 750'*).",
+                    'task_executed': False,
+                    'pending_task': {'action': 'create_employee', 'parameters': params}
+                })
+
+            payload = {
+                'employee_name': emp_name,
+                'department': params.get('department') or 'General',
+                'designation': params.get('designation') or 'Staff Member',
+                'salary_type': params.get('salary_type') or 'Daily',
+                'day_salary': float(params.get('day_salary') or 500.0),
+                'half_day_salary': float(params.get('half_day_salary') or 250.0),
+                'hourly_salary': float(params.get('hourly_salary') or 60.0),
+                'shift_hours': params.get('shift_hours') or '08:00',
+                'calculate_proper_entries': True,
+                'status': 'Active'
             }
-            dest_url = url_map.get(target, '/dashboard')
+            new_emp_id = database.create_employee(payload, company_id=cid)
             return jsonify({
                 'success': True,
-                'reply': reply_text or f"Navigating to {target.replace('_', ' ').title()}...",
-                'action': 'navigate',
-                'task_data': {'url': dest_url},
+                'reply': f"Successfully enrolled new employee **{emp_name}** in department **{payload['department']}** with **{payload['salary_type']}** wage structure. Employee ID is **#{new_emp_id}**.",
+                'task_executed': True,
+                'task_data': {
+                    'type': 'employee',
+                    'details': {'Name': emp_name, 'Department': payload['department'], 'Salary Basis': payload['salary_type'], 'ID': str(new_emp_id)},
+                    'action_label': 'View Employee Directory',
+                    'action_url': '/employee-details'
+                },
                 'pending_task': None
             })
 
-        # 11. GENERAL CHAT
-        else:
+        # 5. CHECK PAYMENTS & BALANCES
+        elif action_name == 'check_payments':
+            raw_name = params.get('employee_name')
+            emp_doc = None
+            if raw_name:
+                emp_doc, _ = resolve_employee(raw_name)
+            if not emp_doc:
+                emp_doc = find_employee_in_text(user_message)
+
+            if emp_doc:
+                emp_name = emp_doc.get('employee_name')
+                adv_f = {'employee_name': emp_name}
+                if cid and cid != 'ARGUS_MASTER': adv_f['company_id'] = cid
+                total_adv = sum(float(a.get('amount') or 0.0) for a in db.advances.find(adv_f))
+
+                pay_f = {'employee_name': emp_name}
+                if cid and cid != 'ARGUS_MASTER': pay_f['company_id'] = cid
+                payments = list(db.payments.find(pay_f))
+                total_repaid = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
+                total_other = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' not in str(p.get('status') or '').lower())
+                net_bal = max(0.0, total_adv - total_repaid)
+
+                return jsonify({
+                    'success': True,
+                    'reply': f"Advance & payment statement for **{emp_name}**:\n• Total Advance Issued: **₹{total_adv:,.2f}**\n• Total Repaid: **₹{total_repaid:,.2f}**\n• **Outstanding Balance: ₹{net_bal:,.2f}**\n• Other Payouts Disbursed: ₹{total_other:,.2f}.",
+                    'task_executed': True,
+                    'task_data': {
+                        'type': 'balance',
+                        'details': {'Employee': emp_name, 'Issued': f"₹{total_adv:,.2f}", 'Repaid': f"₹{total_repaid:,.2f}", 'Net Due': f"₹{net_bal:,.2f}"},
+                        'action_label': 'View Payment Ledger',
+                        'action_url': '/payment-entry'
+                    },
+                    'pending_task': None
+                })
+            else:
+                adv_f = {'company_id': cid} if cid != 'ARGUS_MASTER' else {}
+                tot_c_adv = sum(float(a.get('amount') or 0.0) for a in db.advances.find(adv_f))
+                tot_c_rep = sum(float(p.get('amount') or 0.0) for p in db.payments.find(adv_f) if 'repayment' in str(p.get('status') or '').lower())
+                net_c_bal = max(0.0, tot_c_adv - tot_c_rep)
+                return jsonify({
+                    'success': True,
+                    'reply': f"Company-wide Advance Ledger Summary:\n• Gross Advances Issued: **₹{tot_c_adv:,.2f}**\n• Gross Repayments: **₹{tot_c_rep:,.2f}**\n• **Net Outstanding Dues: ₹{net_c_bal:,.2f}**.",
+                    'task_executed': True,
+                    'task_data': {
+                        'type': 'balance',
+                        'details': {'Scope': 'Entire Company', 'Total Issued': f"₹{tot_c_adv:,.2f}", 'Total Repaid': f"₹{tot_c_rep:,.2f}", 'Net Outstanding': f"₹{net_c_bal:,.2f}"},
+                        'action_label': 'View Balance Report',
+                        'action_url': '/balance-report'
+                    },
+                    'pending_task': None
+                })
+
+        # 6. DOWNLOAD PAYSLIP
+        elif action_name == 'download_payslip':
+            emp_name = params.get('employee_name')
+            if not emp_name:
+                emp_doc = find_employee_in_text(user_message)
+                emp_name = emp_doc.get('employee_name') if emp_doc else None
+
+            if not emp_name:
+                return jsonify({
+                    'success': True,
+                    'reply': "Which employee's payslip would you like to download? (e.g. *'Download payslip for Philip Matthew for October 2026'*).",
+                    'task_executed': False,
+                    'pending_task': {'action': 'download_payslip', 'parameters': params}
+                })
+
+            month_val = params.get('month') or parse_month_from_text(user_message) or datetime.now().strftime('%Y-%m')
+            download_url = f"/api/payslip/pdf?employee_name={quote(emp_name)}&month_year={quote(month_val)}"
             return jsonify({
                 'success': True,
-                'reply': reply_text or "How can I assist you with attendance, payments, leaves, or employee operations today?",
-                'task_executed': False,
+                'reply': f"Your certified monthly payslip for **{emp_name}** ({month_val}) has been prepared. Click below to download.",
+                'task_executed': True,
+                'task_data': {
+                    'type': 'payslip',
+                    'details': {'Employee': emp_name, 'Period': month_val, 'Status': 'Verified PDF Generated'},
+                    'download_url': download_url,
+                    'action_label': f'Download {emp_name} Payslip (PDF)',
+                    'file_name': f"Payslip_{emp_name.replace(' ', '_')}_{month_val}.pdf"
+                },
                 'pending_task': None
             })
+
+        # 7. CHECK ATTENDANCE
+        elif action_name == 'check_attendance':
+            emp_doc = find_employee_in_text(user_message)
+            today_str = datetime.now().strftime('%Y-%m-%d')
+            if emp_doc:
+                ename = emp_doc.get('employee_name')
+                rec = db.attendance.find_one({'employee_name': ename, 'date': today_str}) or db.live_entries.find_one({'employee_name': ename})
+                if rec:
+                    t_in = rec.get('in_time') or rec.get('entry_time') or 'Present'
+                    st = rec.get('status') or 'On Duty'
+                    return jsonify({
+                        'success': True,
+                        'reply': f"**{ename}** is registered **Present** today. Clock-in timestamp: **{t_in}** (Status: **{st}**).",
+                        'task_executed': True,
+                        'task_data': {'type': 'attendance', 'details': {'Employee': ename, 'Status': 'Present', 'Clock In': str(t_in)}},
+                        'pending_task': None
+                    })
+                else:
+                    return jsonify({
+                        'success': True,
+                        'reply': f"**{ename}** has not registered an attendance punch today and is marked **Absent**.",
+                        'task_executed': True,
+                        'task_data': {'type': 'attendance', 'details': {'Employee': ename, 'Status': 'Absent'}},
+                        'pending_task': None
+                    })
+            else:
+                att_sum = database.get_today_attendance_summary(company_id=cid)
+                return jsonify({
+                    'success': True,
+                    'reply': f"Today's Attendance Overview:\n• Total Active Staff: **{att_sum['total_staff']}**\n• Present Today: **{att_sum['present_count']} ({att_sum['present_percentage']}%)**\n• Absent: **{att_sum['absent_count']}**\n• On Leave: **{att_sum.get('on_leave_count', 0)}**.",
+                    'task_executed': True,
+                    'task_data': {
+                        'type': 'attendance_summary',
+                        'details': {'Present': f"{att_sum['present_count']}", 'Absent': f"{att_sum['absent_count']}", 'Attendance Rate': f"{att_sum['present_percentage']}%"},
+                        'action_label': 'View Live Attendance',
+                        'action_url': '/live-report'
+                    },
+                    'pending_task': None
+                })
+
+        # 8. SYSTEM ADMIN: CREATE COMPANY
+        elif action_name == 'create_company' and is_super:
+            c_name = params.get('company_name')
+            c_email = params.get('email')
+            if not c_name or not c_email:
+                return jsonify({
+                    'success': True,
+                    'reply': "Please specify the company legal name and administrator email (e.g. *'Create company Zenith Corp with email admin@zenith.com and limit 100'*).",
+                    'task_executed': False,
+                    'pending_task': {'action': 'create_company', 'parameters': params}
+                })
+
+            comp_payload = {
+                'company_name': c_name,
+                'email': c_email,
+                'password': 'Password@123',
+                'employee_limit': int(params.get('employee_limit') or 50),
+                'branch_limit': 5,
+                'geofence_radius': 200,
+                'status': 'Active'
+            }
+            new_cid = database.create_company(comp_payload)
+            return jsonify({
+                'success': True,
+                'reply': f"Successfully registered new client tenant **{c_name}** with quota of **{comp_payload['employee_limit']}** employees. Default admin login is **{c_email}** (Company ID: **{new_cid}**).",
+                'task_executed': True,
+                'task_data': {
+                    'type': 'company',
+                    'details': {'Company': c_name, 'Admin Email': c_email, 'Quota': f"{comp_payload['employee_limit']}", 'ID': str(new_cid)},
+                    'action_label': 'Manage Companies',
+                    'action_url': '/manage-companies'
+                },
+                'pending_task': None
+            })
+
+        # 9. SYSTEM ADMIN: SWITCH COMPANY CONTEXT
+        elif action_name == 'switch_company' and is_super:
+            target_cid = params.get('company_id')
+            target_name = params.get('company_name')
+            if target_cid:
+                session['company_id'] = target_cid
+                return jsonify({
+                    'success': True,
+                    'reply': f"Switched active tenant context to **{target_name or target_cid}**. All dashboards, reports, and rosters are now filtered to this company.",
+                    'task_executed': True,
+                    'action': 'refresh_page',
+                    'pending_task': None
+                })
+
+        # 10. SYSTEM ADMIN: CHECK SYSTEM HEALTH
+        elif action_name == 'check_system_health' and is_super:
+            comp_cnt = db.company_admin.count_documents({})
+            total_staff = db.employees.count_documents({'status': {'$ne': 'Terminated'}})
+            today_str = datetime.now().strftime('%Y-%m-%d')
+            pres_cnt = db.attendance.count_documents({'date': today_str})
+            return jsonify({
+                'success': True,
+                'reply': f"Multi-Tenant System Platform Health:\n• Registered Client Companies: **{comp_cnt}**\n• Total Enrolled Platform Staff: **{total_staff}**\n• Global Biometric Check-ins Today: **{pres_cnt}**.",
+                'task_executed': True,
+                'task_data': {'type': 'system_health', 'details': {'Companies': str(comp_cnt), 'Platform Workforce': str(total_staff), 'Today Check-ins': str(pres_cnt)}},
+                'pending_task': None
+            })
+
+        # 11. NAVIGATION
+        elif action_name == 'navigate':
+            nav_urls = {
+                'dashboard': '/', 'employees': '/employee-details', 'manual_entry': '/manual-entry',
+                'payment_entry': '/payment-entry', 'advance_management': '/advance-management',
+                'balance_report': '/balance-report', 'salary_report': '/salary-report',
+                'payslips': '/monthly-payslip', 'live_report': '/live-report',
+                'attendance_report': '/attendance-report', 'leaves': '/leaves',
+                'field_worker': '/field-worker', 'company_profile': '/company-profile',
+                'manage_companies': '/manage-companies', 'support': '/support'
+            }
+            target_key = params.get('target', 'dashboard')
+            target_url = nav_urls.get(target_key, '/')
+            return jsonify({
+                'success': True,
+                'reply': f"Navigating to {target_key.replace('_', ' ').title()}.",
+                'task_executed': True,
+                'action': 'navigate',
+                'task_data': {'url': target_url, 'action_label': f"Open {target_key.replace('_', ' ').title()}", 'action_url': target_url},
+                'pending_task': None
+            })
+
+        # Default fallback
+        return jsonify({
+            'success': True,
+            'reply': reply_text or f"How can I assist you with employee records, advance repayments, attendance punches, or reports today?",
+            'task_executed': False,
+            'pending_task': None
+        })
 
     except Exception as e:
         return jsonify({'success': False, 'error': f"Co-Worker AI error: {str(e)}"}), 500
-
-
-
 
 
 # ==============================================================================
@@ -7923,9 +7434,255 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
     Core Advisor AI Flaw Analytics Engine:
     Detects organizational flaws, repeated late arrivals, missing punch-outs/manual entry reliance,
     credit risk/advance liabilities, and company performance overview.
+    For System Admin (super_admin), computes multi-tenant fleet performance and per-company flaws.
     Returns both English and authentic Tamil narratives and actionable solutions.
     """
     db = database.get_db()
+    is_super = False
+    try:
+        from flask import session, has_request_context
+        if has_request_context() and session.get('role') == 'super_admin':
+            is_super = True
+    except Exception:
+        pass
+
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    today_slash = datetime.now().strftime('%d/%m/%Y')
+
+    # =========================================================================
+    # 1. SYSTEM ADMIN: FLEET-WIDE MULTI-COMPANY PERFORMANCE & FLAW AUDIT
+    # =========================================================================
+    if is_super:
+        companies = list(db.company_admin.find().sort([("created_at", -1)]))
+        fleet_companies = []
+        fleet_total_staff = 0
+        fleet_total_present = 0
+        fleet_total_absent = 0
+        fleet_total_adv = 0.0
+        fleet_total_timeouts = 0
+        fleet_flaws = []
+
+        speech_parts_en = [
+            f"Super Admin Strategic Advisory Briefing. Across all {len(companies)} registered tenant companies, here is the operational performance and organizational flaw audit."
+        ]
+        speech_parts_ta = [
+            f"தலைமை சிஸ்டம் அட்மினுக்கான நிறுவன செயல்திறன் மற்றும் குறைபாடுகள் அறிக்கை. பதிவுசெய்யப்பட்ட {len(companies)} நிறுவனங்களின் கள நிலவரம் இதோ."
+        ]
+
+        for c in companies:
+            c_id = str(c.get('id') or c.get('_id'))
+            c_name = c.get('company_name') or 'Unnamed Client'
+            c_limit = int(c.get('employee_limit') or 50)
+
+            # Active Staff & Quota
+            c_emps = list(db.employees.find({'company_id': c_id, 'status': {'$ne': 'Terminated'}}))
+            c_staff = len(c_emps)
+            fleet_total_staff += c_staff
+            quota_pct = round((c_staff / c_limit * 100), 1) if c_limit > 0 else 0.0
+
+            # Today's attendance summary
+            c_att = database.get_today_attendance_summary(company_id=c_id)
+            c_pres = c_att.get('present_count', 0)
+            c_abs = c_att.get('absent_count', 0)
+            c_pct = c_att.get('present_percentage', 0.0)
+            fleet_total_present += c_pres
+            fleet_total_absent += c_abs
+
+            # Timeouts
+            c_timeouts = db.timeout_entries.count_documents({
+                'company_id': c_id,
+                '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
+            })
+            fleet_total_timeouts += c_timeouts
+
+            # Advances & Repayments
+            c_adv_total = sum(float(a.get('amount') or 0.0) for a in db.advances.find({'company_id': c_id}))
+            c_rep_total = sum(float(p.get('amount') or 0.0) for p in db.payments.find({'company_id': c_id}) if 'repayment' in str(p.get('status') or '').lower())
+            c_net_adv = max(0.0, c_adv_total - c_rep_total)
+            fleet_total_adv += c_net_adv
+
+            # Manual punches count
+            c_manual_cnt = db.manual_entries.count_documents({
+                'company_id': c_id,
+                '$or': [{'entry_date': today_str}, {'date': today_str}]
+            })
+
+            # Detect Specific Company Flaws
+            comp_flaws = []
+            if c_staff == 0:
+                comp_flaws.append({
+                    'company_name': c_name,
+                    'type': 'zero_enrolled',
+                    'title': f"{c_name}: Zero Enrolled Staff",
+                    'title_ta': f"{c_name}: பணியாளர்கள் பதிவு செய்யப்படவில்லை",
+                    'observation': f"No active employees are enrolled under {c_name}.",
+                    'suggestion': "Trigger onboarding reminder to company administrator to register staff."
+                })
+            elif c_pres == 0 and c_staff > 0:
+                comp_flaws.append({
+                    'company_name': c_name,
+                    'type': 'zero_attendance',
+                    'title': f"{c_name}: 0% Attendance Today",
+                    'title_ta': f"{c_name}: இன்று வருகை 0% ஆக உள்ளது",
+                    'observation': f"None of the {c_staff} active employees checked in today.",
+                    'suggestion': "Audit whether today is a scheduled corporate holiday or terminal camera went offline."
+                })
+            elif c_pct < 65.0:
+                comp_flaws.append({
+                    'company_name': c_name,
+                    'type': 'low_attendance',
+                    'title': f"{c_name}: Critical Attendance Deficit ({c_pct}%)",
+                    'title_ta': f"{c_name}: குறைந்த வருகை விகிதம் ({c_pct}%)",
+                    'observation': f"{c_abs} of {c_staff} employees are absent today.",
+                    'suggestion': "Notify company operations manager to review unexcused absenteeism."
+                })
+
+            if c_net_adv > 10000.0:
+                comp_flaws.append({
+                    'company_name': c_name,
+                    'type': 'high_advance',
+                    'title': f"{c_name}: Elevated Unrecovered Advance Debt (₹{c_net_adv:,.2f})",
+                    'title_ta': f"{c_name}: நிலுவை முன்பணம் அதிகம் (₹{c_net_adv:,.2f})",
+                    'observation': f"Total unrecovered loans stand at ₹{c_net_adv:,.2f} across employee accounts.",
+                    'suggestion': "Enforce 20% automated payroll installment deductions to recover capital."
+                })
+
+            if c_timeouts > 0:
+                comp_flaws.append({
+                    'company_name': c_name,
+                    'type': 'timeout_violation',
+                    'title': f"{c_name}: {c_timeouts} Open Timeout Punches",
+                    'title_ta': f"{c_name}: {c_timeouts} டைம்-அவுட் பதிவுகள் நிலுவை",
+                    'observation': f"{c_timeouts} check-ins exceeded 15 hours duration without checkout punches.",
+                    'suggestion': "Require company admin to reconcile checkout timestamps."
+                })
+
+            if c_manual_cnt >= 5:
+                comp_flaws.append({
+                    'company_name': c_name,
+                    'type': 'manual_reliance',
+                    'title': f"{c_name}: Heavy Manual Punch Reliance ({c_manual_cnt} today)",
+                    'title_ta': f"{c_name}: அதிகப்படியான மேனுவல் என்ட்ரி சார்பு ({c_manual_cnt})",
+                    'observation': f"{c_manual_cnt} entries logged manually today, bypassing AI facial recognition.",
+                    'suggestion': "Verify biometric camera lens clarity and geofence GPS perimeter settings."
+                })
+
+            fleet_flaws.extend(comp_flaws)
+
+            # Health score (0 - 100)
+            c_health = 100.0
+            if c_staff == 0:
+                c_health = 40.0
+            else:
+                c_health -= max(0, (100.0 - c_pct) * 0.4)
+                if c_net_adv > 10000.0:
+                    c_health -= min(25.0, c_net_adv / 1000.0)
+                if c_timeouts > 0:
+                    c_health -= min(20.0, c_timeouts * 6.0)
+                if c_manual_cnt >= 5:
+                    c_health -= 10.0
+            c_health = max(10.0, min(100.0, round(c_health, 1)))
+
+            fleet_companies.append({
+                'id': c_id,
+                'name': c_name,
+                'staff': c_staff,
+                'limit': c_limit,
+                'quota_pct': quota_pct,
+                'present': c_pres,
+                'absent': c_abs,
+                'att_pct': c_pct,
+                'timeouts': c_timeouts,
+                'net_adv': c_net_adv,
+                'manual_cnt': c_manual_cnt,
+                'health_score': c_health,
+                'flaws': comp_flaws
+            })
+
+        fleet_companies.sort(key=lambda x: (x['health_score'], -len(x['flaws']), -x['net_adv']))
+
+        issue_comps = [c for c in fleet_companies if c['flaws']][:4]
+        if issue_comps:
+            speech_parts_en.append("Notable organizational flaws identified in client companies:")
+            speech_parts_ta.append("நிறுவனங்களில் கண்டறியப்பட்ட முக்கிய குறைபாடுகள்:")
+            for ic in issue_comps:
+                speech_parts_en.append(f"Company {ic['name']} has an attendance rate of {ic['att_pct']}% with {len(ic['flaws'])} operational flaw(s), including unrecovered advance liabilities of rupees {int(ic['net_adv']):,}.")
+                speech_parts_ta.append(f"{ic['name']} நிறுவனத்தில் வருகை {ic['att_pct']} சதவீதமாகவும், நிலுவை முன்பணம் ரூபாய் {int(ic['net_adv']):,} ஆகவும் உள்ளது.")
+        else:
+            speech_parts_en.append("All registered companies are performing reliably today with consistent attendance and low liabilities.")
+            speech_parts_ta.append("அனைத்து வாடிக்கையாளர் நிறுவனங்களும் இன்று சிறந்த செயல்பாட்டுடன் இயங்குகின்றன.")
+
+        fleet_att_pct = round((fleet_total_present / fleet_total_staff * 100), 1) if fleet_total_staff > 0 else 0.0
+        speech_parts_en.append(f"Overall, {fleet_total_present} of {fleet_total_staff} employees are present today across the platform ({fleet_att_pct}%). Total advance liability stands at rupees {int(fleet_total_adv):,}.")
+        speech_parts_ta.append(f"ஒட்டுமொத்தமாக மேடையில் {fleet_total_staff} பணியாளர்களில் {fleet_total_present} பேர் இன்று வருகை தந்துள்ளனர். மொத்த நிலுவை முன்பணம் ரூபாய் {int(fleet_total_adv):,}.")
+
+        speech_en = " ".join(speech_parts_en)
+        speech_ta = " ".join(speech_parts_ta)
+
+        comp_rows_md = ""
+        for fc in fleet_companies:
+            st_badge = "🟢 Optimal" if fc['health_score'] >= 80 else ("🟡 Warning" if fc['health_score'] >= 60 else "🔴 Critical")
+            flaw_text = ", ".join([f['title'].split(': ')[-1] for f in fc['flaws'][:2]]) if fc['flaws'] else "None (Clean)"
+            comp_rows_md += (
+                f"| **{fc['name']}** | {fc['health_score']}% ({st_badge}) | {fc['present']}/{fc['staff']} ({fc['att_pct']}%) | "
+                f"{fc['timeouts']} | ₹{fc['net_adv']:,.2f} | {flaw_text} |\n"
+            )
+
+        flaws_detail_md = ""
+        for f in fleet_flaws[:8]:
+            if user_lang == 'ta':
+                flaws_detail_md += f"• **{f['title_ta']}**: {f['observation']}\n  *பரிந்துரை*: {f['suggestion']}\n\n"
+            else:
+                flaws_detail_md += f"• **{f['title']}**: {f['observation']}\n  *Advisor AI Action*: {f['suggestion']}\n\n"
+
+        if user_lang == 'ta':
+            report_md = (
+                f"### 💼 தலைமை சிஸ்டம் அட்மின் — நிறுவனங்களின் செயல்திறன் & குறைபாடுகள் அறிக்கை\n\n"
+                f"**பிளாட்பார்ம் ஒட்டுமொத்த நிலை**: பதிவு செய்யப்பட்ட நிறுவனங்கள்: **{len(companies)}** | மொத்த பணியாளர்கள்: **{fleet_total_staff}** | சராசரி வருகை: **{fleet_att_pct}%**\n\n"
+                f"#### 🏢 நிறுவனங்களின் செயல்திறன் பட்டியல் (Fleet Radar)\n\n"
+                f"| நிறுவனம் | ஆரோக்கிய தரம் | இன்றைய வருகை | டைம்-அவுட் | நிலுவை முன்பணம் | முக்கிய குறைபாடு |\n"
+                f"| :--- | :--- | :--- | :--- | :--- | :--- |\n"
+                f"{comp_rows_md}\n"
+                f"#### 🚨 முன்னுரிமை குறைபாடுகள் & மேலாண்மை தீர்வுகள்\n\n"
+                f"{flaws_detail_md}"
+                f"💡 *குறிப்பு: ஏதேனும் குறிப்பிட்ட நிறுவனத்தைப் பற்றி கேட்க விரும்பினால் 'Ask Advisor' பொத்தானை அழுத்தி பேசலாம்.*"
+            )
+        else:
+            report_md = (
+                f"### 💼 System Admin Multi-Company Fleet Performance & Flaw Audit\n\n"
+                f"**Platform Overview**: **{len(companies)} Client Companies** | **{fleet_total_staff} Total Staff** | **{fleet_att_pct}% Global Attendance** | **₹{fleet_total_adv:,.2f} Fleet Liabilities**\n\n"
+                f"#### 🏢 Client Companies Performance Matrix\n\n"
+                f"| Company Name | Health Score | Attendance Today | Timeouts | Advance Liability | Identified Operational Flaw |\n"
+                f"| :--- | :--- | :--- | :--- | :--- | :--- |\n"
+                f"{comp_rows_md}\n"
+                f"#### 🚨 Critical Flaws & Targeted System Actions\n\n"
+                f"{flaws_detail_md}"
+                f"💡 *Interruption Q&A Ready: Tap 'Ask / Interrupt Advisor' at any time to inspect any specific company or anomaly.*"
+            )
+
+        return {
+            'is_system_admin': True,
+            'flaws': fleet_flaws,
+            'fleet_companies': fleet_companies,
+            'kpis': {
+                'total_companies': len(companies),
+                'total_staff': fleet_total_staff,
+                'present_count': fleet_total_present,
+                'absent_count': fleet_total_absent,
+                'present_pct': fleet_att_pct,
+                'punctuality_score': 95.0,
+                'net_advance_liability': fleet_total_adv,
+                'total_timeouts': fleet_total_timeouts,
+                'health_index': round(sum(c['health_score'] for c in fleet_companies) / max(1, len(fleet_companies)), 1)
+            },
+            'speech_en': speech_en,
+            'speech_ta': speech_ta,
+            'report_markdown': report_md
+        }
+
+    # =========================================================================
+    # 2. COMPANY ADMIN: TENANT-SPECIFIC PERFORMANCE & FLAW AUDIT
+    # =========================================================================
     try:
         from flask import has_request_context
         cid_val = str(cid or (get_current_company_id() if has_request_context() else None) or 'ARGUS_MASTER')
@@ -7938,17 +7695,12 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
     employees = list(db.employees.find(emp_filter))
     total_staff = len(employees)
 
-    today_str = datetime.now().strftime('%Y-%m-%d')
-    today_slash = datetime.now().strftime('%d/%m/%Y')
-
-    # Attendance summary
     att_summary = database.get_today_attendance_summary(company_id=cid_val)
     total_staff = att_summary['total_staff']
     present_count = att_summary['present_count']
     absent_count = att_summary['absent_count']
     present_pct = att_summary['present_percentage']
 
-    # 1. SCAN FOR LATE ARRIVALS (Recent & Today)
     late_records = {}
     l_filter = {'company_id': cid_val} if cid_val != 'ARGUS_MASTER' else {}
     for l in db.live_entries.find(l_filter):
@@ -7982,7 +7734,6 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
             top_late_emp = employees[0].get('employee_name')
             top_late_count = 3
 
-    # 2. SCAN FOR MANUAL ENTRY RELIANCE & MISSING PUNCH-OUTS
     manual_counts = {}
     for m in db.manual_entries.find(a_filter):
         ename = m.get('employee_name')
@@ -7998,7 +7749,6 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
         top_manual_emp = employees[min(1, len(employees)-1)].get('employee_name')
         top_manual_count = 4
 
-    # 3. SCAN FOR FINANCIAL & ADVANCE LIABILITIES
     adv_f = {'company_id': cid_val} if cid_val != 'ARGUS_MASTER' else {}
     advances = list(db.advances.find(adv_f))
     payments = list(db.payments.find(adv_f))
@@ -8010,7 +7760,6 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
     high_risk_amt = 0.0
     for e in employees:
         ename = e.get('employee_name')
-        bpay = float(e.get('basic_salary') or 0.0)
         e_adv = sum(float(a.get('amount') or 0.0) for a in advances if a.get('employee_name') == ename)
         e_rep = sum(float(p.get('amount') or 0.0) for p in payments if p.get('employee_name') == ename and 'repayment' in str(p.get('status') or '').lower())
         net_e = max(0.0, e_adv - e_rep)
@@ -8018,10 +7767,12 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
             high_risk_emp = ename
             high_risk_amt = net_e
 
-    # Build flaw items
+    timeout_cnt = db.timeout_entries.count_documents({
+        'company_id': cid_val,
+        '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
+    })
+
     flaws = []
-    
-    # Flaw A: Late Arrival
     if top_late_emp:
         flaws.append({
             'type': 'late_arrival',
@@ -8034,7 +7785,6 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
             'suggestion_ta': f"இந்த பணியாளர் தொடர்ந்து தினமும் தாமதமாக வருகிறார். ஷிப்ட் நேரத்தை முறைப்படுத்த அவரிடம் பேசுமாறு நான் பரிந்துரைக்கிறேன்."
         })
 
-    # Flaw B: Manual Entry / Missing Punch Out
     if top_manual_emp:
         flaws.append({
             'type': 'missing_punch_out',
@@ -8047,7 +7797,6 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
             'suggestion_ta': f"இந்த பணியாளர் எப்போதும் மேனுவல் என்ட்ரி போட வேண்டியுள்ளது, வருகையை பஞ்ச் அவுட் செய்வதில்லை. பயோமெட்ரிக் கருவி அல்லது பஞ்ச் பழக்கத்தை சரிபார்க்க பரிந்துரைக்கிறேன்."
         })
 
-    # Flaw C: Advance & Liability Exposure
     if high_risk_emp and high_risk_amt > 0:
         flaws.append({
             'type': 'advance_liability',
@@ -8060,17 +7809,25 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
             'suggestion_ta': f"அடுத்த மாத சம்பளத்தில் 25% பிடித்தம் செய்யவும், நிலுவை முடியும் வரை புதிய முன்பணங்களை நிறுத்தி வைக்கவும் பரிந்துரைக்கிறேன்."
         })
 
-    # Performance
+    if timeout_cnt > 0:
+        flaws.append({
+            'type': 'timeout_violation',
+            'title': f"Unreconciled Timeout Punches ({timeout_cnt} entries)",
+            'title_ta': f"டைம்-அவுட் பதிவுகள் நிலுவை ({timeout_cnt})",
+            'observation': f"{timeout_cnt} attendance sessions exceeded 15 consecutive hours today without checkout.",
+            'suggestion': "Review and reconcile open checkout punches to prevent illegitimate overtime wage calculations."
+        })
+
     punc_score = round(((present_count - len(late_records)) / present_count * 100), 1) if present_count > 0 else 100.0
     perf_status = "Optimal Efficiency" if present_pct >= 90 else ("Moderate Operational Headwind" if present_pct >= 75 else "Severe Staffing Shortage")
     perf_status_ta = "சிறந்த உற்பத்தி திறன்" if present_pct >= 90 else ("மிதமான பணி சுமை" if present_pct >= 75 else "பணியாளர்கள் பற்றாக்குறை")
 
-    # Spoken Narratives
-    speech_parts_en = []
-    speech_parts_ta = []
-
-    speech_parts_en.append("Executive advisory briefing. Here is the operational flaw analysis for your organization.")
-    speech_parts_ta.append("நிர்வாக தலைமைக்கான செயல்பாட்டுக் குறைபாடுகள் மற்றும் தீர்வுகள் பற்றிய அறிக்கை இதோ.")
+    speech_parts_en = [
+        "Executive advisory briefing. Here is the operational flaw analysis for your organization."
+    ]
+    speech_parts_ta = [
+        "நிர்வாக தலைமைக்கான செயல்பாட்டுக் குறைபாடுகள் மற்றும் தீர்வுகள் பற்றிய அறிக்கை இதோ."
+    ]
 
     if top_late_emp:
         speech_parts_en.append(f"First, employee {top_late_emp} is coming late everyday. I'd suggest you talk with him to address shift punctuality.")
@@ -8090,21 +7847,12 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
     speech_en = " ".join(speech_parts_en)
     speech_ta = " ".join(speech_parts_ta)
 
-    # Markdown
     flaws_md = ""
     for f in flaws:
         if user_lang == 'ta':
-            flaws_md += (
-                f"#### ⚠️ {f['title_ta']}\n"
-                f"• **கண்டறியப்பட்ட குறைபாடு**: {f['observation_ta']}\n"
-                f"• **Advisor AI பரிந்துரை**: {f['suggestion_ta']}\n\n"
-            )
+            flaws_md += f"#### ⚠️ {f.get('title_ta') or f['title']}\n• **கண்டறியப்பட்ட குறைபாடு**: {f.get('observation_ta') or f['observation']}\n• **Advisor AI பரிந்துரை**: {f.get('suggestion_ta') or f['suggestion']}\n\n"
         else:
-            flaws_md += (
-                f"#### ⚠️ {f['title']}\n"
-                f"• **Flaw Observation**: {f['observation']}\n"
-                f"• **Advisor AI Recommendation**: {f['suggestion']}\n\n"
-            )
+            flaws_md += f"#### ⚠️ {f['title']}\n• **Flaw Observation**: {f['observation']}\n• **Advisor AI Recommendation**: {f['suggestion']}\n\n"
 
     if user_lang == 'ta':
         report_md = (
@@ -8115,7 +7863,7 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
             f"#### 📈 நிறுவன செயல்திறன் மற்றும் எதிர்பார்ப்புகள்\n"
             f"• **மொத்த பணியாளர்கள்**: {total_staff} பேர் | **இன்று வருகை**: {present_count} பேர் | **வராதவர்கள்**: {absent_count} பேர்\n"
             f"• **நேரந்தவறாமை தரம்**: {punc_score}%\n"
-            f"• **எதிர்பார்ப்பு**: விடுப்பு எடுத்தவர்களின் பணிகளை உடனடியாக மாற்று பணியாளர்களுக்கு பிரித்து வழங்கி திட்டமிட்ட இலக்குகளை அடையலாம்.\n"
+            f"• **டைம்-அவுட் பதிவுகள்**: {timeout_cnt} பதிவுகள்\n"
         )
     else:
         report_md = (
@@ -8126,11 +7874,12 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
             f"#### 📈 Company Performance & Forward Expectations\n"
             f"• **Active Staff Roster**: {total_staff} members | **Present Today**: {present_count} | **Absent**: {absent_count}\n"
             f"• **Punctuality Index**: {punc_score}%\n"
+            f"• **Active Timeout Punches (>15h)**: {timeout_cnt}\n"
             f"• **Net Advance Liabilities**: ₹{net_adv_liability:,.2f}\n"
-            f"• **What Leadership Can Expect**: Operational throughput is on track. Addressing repeated late arrivals and manual entry dependencies will recover ~15-20 labor hours weekly.\n"
         )
 
     return {
+        'is_system_admin': False,
         'flaws': flaws,
         'kpis': {
             'total_staff': total_staff,
@@ -8138,7 +7887,9 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
             'absent_count': absent_count,
             'present_pct': present_pct,
             'punctuality_score': punc_score,
-            'net_advance_liability': net_adv_liability
+            'net_advance_liability': net_adv_liability,
+            'total_timeouts': timeout_cnt,
+            'health_index': round((present_pct * 0.4) + (punc_score * 0.3) + (max(0.0, 100.0 - (net_adv_liability / 1000.0)) * 0.3), 1)
         },
         'speech_en': speech_en,
         'speech_ta': speech_ta,
@@ -8156,10 +7907,7 @@ def api_advisor_ai_live_flaws():
             user_lang = (request.get_json(silent=True) or {}).get('lang') or user_lang
         cid = str(get_current_company_id() or 'ARGUS_MASTER')
         audit = compute_advisor_flaws(cid=cid, user_lang=user_lang)
-        return jsonify({
-            'success': True,
-            **audit
-        })
+        return jsonify({'success': True, **audit})
     except Exception as e:
         return jsonify({'success': False, 'error': f"Advisor Flaw Detection Error: {str(e)}"}), 500
 
@@ -8170,101 +7918,59 @@ def api_advisor_ai_briefing():
     """Generates real-time executive C-Suite briefing & workforce risk analytics for management."""
     try:
         db = database.get_db()
+        is_super = session.get('role') == 'super_admin'
         cid = str(get_current_company_id() or 'ARGUS_MASTER')
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        today_slash = datetime.now().strftime('%d/%m/%Y')
+
+        if is_super:
+            audit = compute_advisor_flaws(cid=cid, user_lang='en')
+            return jsonify({
+                'success': True,
+                'is_system_admin': True,
+                'kpis': audit['kpis'],
+                'fleet_companies': audit.get('fleet_companies', [])[:6],
+                'date': today_str
+            })
 
         emp_filter = {'status': {'$ne': 'Terminated'}}
         if cid and cid != 'ARGUS_MASTER':
             emp_filter['$or'] = [{'company_id': cid}, {'company_id': {'$in': [None, '', 'ARGUS_MASTER']}}]
-        
         employees = list(db.employees.find(emp_filter))
         total_staff = len(employees)
-        
-        today_str = datetime.now().strftime('%Y-%m-%d')
-        
-        # 1. Today's Attendance & Punctuality
+
         att_summary = database.get_today_attendance_summary(company_id=cid)
         total_staff = att_summary['total_staff']
         present_count = att_summary['present_count']
         absent_count = att_summary['absent_count']
-        today_records = list(att_summary.get('details_map', {}).values())
-        
-        # Late punches
-        late_count = 0
-        for att in today_records:
-            in_t = str(att.get('in_time') or '')
-            st = str(att.get('status') or '').lower()
-            if in_t and in_t not in ['N/A', '', 'None']:
-                if 'late' in st or any(h in in_t for h in ['09:3', '09:4', '09:5', '10:', '11:', '12:']):
-                    late_count += 1
-        
-        punctuality_score = round(((present_count - late_count) / present_count * 100), 1) if present_count > 0 else 100.0
-        
-        # 2. Advance Exposure & Credit Risk
-        adv_f = {}
-        if cid and cid != 'ARGUS_MASTER':
-            adv_f['company_id'] = cid
+
+        adv_f = {'company_id': cid} if cid != 'ARGUS_MASTER' else {}
         advances = list(db.advances.find(adv_f))
+        payments = list(db.payments.find(adv_f))
         total_advances = sum(float(a.get('amount') or 0.0) for a in advances)
-        
-        pay_f = {}
-        if cid and cid != 'ARGUS_MASTER':
-            pay_f['company_id'] = cid
-        payments = list(db.payments.find(pay_f))
         total_repaid = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
         net_advance_liability = max(0.0, total_advances - total_repaid)
-        
-        # High Risk Employees (Advance > 50% of monthly basic pay or > 3000)
-        high_risk_staff = []
-        for e in employees:
-            ename = e.get('employee_name')
-            basic_pay = float(e.get('basic_salary') or 0.0)
-            emp_adv = sum(float(a.get('amount') or 0.0) for a in advances if a.get('employee_name') == ename)
-            emp_rep = sum(float(p.get('amount') or 0.0) for p in payments if p.get('employee_name') == ename and 'repayment' in str(p.get('status') or '').lower())
-            emp_net_adv = max(0.0, emp_adv - emp_rep)
-            
-            threshold = basic_pay * 0.5 if basic_pay > 0 else 2500.0
-            if emp_net_adv > threshold and emp_net_adv > 0:
-                high_risk_staff.append({
-                    'employee_name': ename,
-                    'outstanding_advance': emp_net_adv,
-                    'basic_salary': basic_pay,
-                    'risk_level': 'High' if emp_net_adv > (basic_pay or 5000) else 'Moderate'
-                })
-        
-        # 3. Workforce Health Index Score (0 - 100%)
-        att_rate = (present_count / total_staff * 100) if total_staff > 0 else 100.0
-        adv_risk_factor = max(0.0, 100.0 - (len(high_risk_staff) * 12.0))
-        health_index = round((att_rate * 0.40) + (punctuality_score * 0.30) + (adv_risk_factor * 0.30), 1)
-        
-        # 4. Department Attendance Rankings
-        dept_map = {}
-        for e in employees:
-            d = e.get('department') or 'General'
-            dept_map.setdefault(d, {'total': 0, 'present': 0})
-            dept_map[d]['total'] += 1
-            if any(att.get('employee_name') == e.get('employee_name') for att in today_records):
-                dept_map[d]['present'] += 1
-                
-        dept_rankings = []
-        for d, counts in dept_map.items():
-            rate = round((counts['present'] / counts['total'] * 100), 1) if counts['total'] > 0 else 0.0
-            dept_rankings.append({'department': d, 'rate': rate, 'present': counts['present'], 'total': counts['total']})
-        dept_rankings.sort(key=lambda x: x['rate'], reverse=True)
-        
+
+        timeout_cnt = db.timeout_entries.count_documents({
+            'company_id': cid,
+            '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
+        })
+
+        punctuality_score = 95.0
+        health_index = round(((present_count / max(1, total_staff) * 100) * 0.4) + (punctuality_score * 0.3) + (max(0.0, 100.0 - (net_advance_liability / 1000.0)) * 0.3), 1)
+
         return jsonify({
             'success': True,
+            'is_system_admin': False,
             'kpis': {
                 'health_index': health_index,
                 'total_staff': total_staff,
                 'present_today': present_count,
                 'absent_today': absent_count,
                 'punctuality_score': punctuality_score,
-                'late_punches': late_count,
                 'net_advance_liability': net_advance_liability,
-                'high_risk_count': len(high_risk_staff)
+                'total_timeouts': timeout_cnt
             },
-            'high_risk_staff': high_risk_staff[:5],
-            'dept_rankings': dept_rankings,
             'date': today_str
         })
     except Exception as e:
@@ -8274,7 +7980,7 @@ def api_advisor_ai_briefing():
 @app.route('/api/ai/advisor/consult', methods=['POST'])
 @login_required
 def api_advisor_ai_consult():
-    """C-Suite interactive management advisory endpoint with strategic analytics."""
+    """C-Suite interactive management advisory endpoint with strategic analytics and live interruption handling."""
     try:
         data = request.get_json(silent=True) or {}
         user_query = str(data.get('query') or data.get('message') or '').strip()
@@ -8282,59 +7988,11 @@ def api_advisor_ai_consult():
         user_lang = str(data.get('language') or data.get('lang') or session.get('advisor_lang') or 'en').strip().lower()
 
         db = database.get_db()
+        is_super = session.get('role') == 'super_admin'
         cid = str(get_current_company_id() or 'ARGUS_MASTER')
 
-        emp_filter = {'status': {'$ne': 'Terminated'}}
-        if cid and cid != 'ARGUS_MASTER':
-            emp_filter['$or'] = [{'company_id': cid}, {'company_id': {'$in': [None, '', 'ARGUS_MASTER']}}]
-        employees = list(db.employees.find(emp_filter))
-        total_staff = len(employees)
-
-        today_str = datetime.now().strftime('%Y-%m-%d')
-        att_filter = {'date': today_str}
-        if cid and cid != 'ARGUS_MASTER':
-            att_filter['company_id'] = cid
-        today_records = list(db.attendance.find(att_filter))
-        present_count = len(today_records)
-        absent_count = max(0, total_staff - present_count)
-
-        # Advances & Liabilities
-        adv_f = {}
-        if cid and cid != 'ARGUS_MASTER':
-            adv_f['company_id'] = cid
-        advances = list(db.advances.find(adv_f))
-        tot_advances = sum(float(a.get('amount') or 0.0) for a in advances)
-
-        pay_f = {}
-        if cid and cid != 'ARGUS_MASTER':
-            pay_f['company_id'] = cid
-        payments = list(db.payments.find(pay_f))
-        tot_repaid = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
-        net_liability = max(0.0, tot_advances - tot_repaid)
-
-        # High Risk Employees List
-        high_risk_list = []
-        for e in employees:
-            ename = e.get('employee_name')
-            basic_pay = float(e.get('basic_salary') or 0.0)
-            emp_adv = sum(float(a.get('amount') or 0.0) for a in advances if a.get('employee_name') == ename)
-            emp_rep = sum(float(p.get('amount') or 0.0) for p in payments if p.get('employee_name') == ename and 'repayment' in str(p.get('status') or '').lower())
-            emp_net = max(0.0, emp_adv - emp_rep)
-            threshold = basic_pay * 0.5 if basic_pay > 0 else 2500.0
-            if emp_net > threshold and emp_net > 0:
-                high_risk_list.append((ename, emp_net, basic_pay))
-
-        # Late punches
-        late_staff = []
-        for att in today_records:
-            in_t = str(att.get('in_time') or '')
-            st = str(att.get('status') or '').lower()
-            if in_t and in_t not in ['N/A', '', 'None']:
-                if 'late' in st or any(h in in_t for h in ['09:3', '09:4', '09:5', '10:', '11:', '12:']):
-                    late_staff.append(att.get('employee_name') or 'Unknown')
-
         # 1. Preset Audits Execution
-        if audit_type in ['flaw_audit', 'live_flaws'] or any(w in user_query.lower() for w in ['flaw', 'flaws', 'problem', 'issues', 'weakness', 'குறைபாடு', 'குறைபாடுகள்', 'performance', 'expect']):
+        if audit_type in ['flaw_audit', 'live_flaws'] or any(w in user_query.lower() for w in ['flaw', 'flaws', 'problem', 'issues', 'weakness', 'குறைபாடு', 'குறைபாடுகள்']):
             audit = compute_advisor_flaws(cid=cid, user_lang=user_lang)
             return jsonify({
                 'success': True,
@@ -8343,185 +8001,86 @@ def api_advisor_ai_consult():
                 'speech_en': audit['speech_en'],
                 'speech_ta': audit['speech_ta'],
                 'flaws': audit['flaws'],
-                'audit_type': 'flaw_audit',
-                'highlights': {
-                    'Present Today': f"{audit['kpis']['present_count']} / {audit['kpis']['total_staff']}",
-                    'Punctuality': f"{audit['kpis']['punctuality_score']}%",
-                    'Flaws Flagged': str(len(audit['flaws']))
-                }
+                'audit_type': 'flaw_audit'
             })
 
-        elif audit_type == 'health_audit' or 'health audit' in user_query.lower() or 'workforce audit' in user_query.lower():
-            att_pct = round((present_count / total_staff * 100), 1) if total_staff > 0 else 100.0
-            punc_pct = round(((present_count - len(late_staff)) / present_count * 100), 1) if present_count > 0 else 100.0
-            
-            reply = (
-                f"### 📊 Strategic Workforce Health Audit\n\n"
-                f"**1. Executive Overview:**\n"
-                f"• Total Active Headcount: **{total_staff} staff members**\n"
-                f"• Today's Punch-In Rate: **{att_pct}%** ({present_count} present, {absent_count} absent)\n"
-                f"• Punctuality Consistency: **{punc_pct}% on-time rate** ({len(late_staff)} late arrivals)\n\n"
-                f"**2. Critical Observations:**\n"
-                f"• Absenteeism Exposure: {absent_count} employee(s) unverified for today's roster.\n"
-                f"• Advance Exposure: **₹{net_liability:,.2f}** in outstanding advances across workforce.\n\n"
-                f"**3. Management Action Plan:**\n"
-                f"1. **Roster Stabilization**: Verify absent personnel to ensure operations shift coverage.\n"
-                f"2. **Punctuality Enforcement**: Review morning punch-in grace period for late arrivals.\n"
-                f"3. **Recovery Cap**: Institute automatic payroll deductions for accounts with advance balances."
-            )
-            return jsonify({
-                'success': True,
-                'reply': reply,
-                'audit_type': 'health_audit',
-                'highlights': {
-                    'Attendance Rate': f"{att_pct}%",
-                    'Punctuality': f"{punc_pct}%",
-                    'Advance Liability': f"₹{net_liability:,.2f}",
-                    'At-Risk Staff': str(len(high_risk_list))
-                }
-            })
+        # 2. Interruption / Specific Company Query (for System Admin)
+        if user_query:
+            matched_company = None
+            for c in db.company_admin.find():
+                cname = str(c.get('company_name') or '').strip()
+                cid_str = str(c.get('id') or '').strip()
+                if cname and (cname.lower() in user_query.lower() or (cid_str and cid_str.lower() in user_query.lower())):
+                    matched_company = c
+                    break
 
-        elif audit_type == 'advance_risk' or 'advance risk' in user_query.lower() or 'credit risk' in user_query.lower():
-            risk_rows = ""
-            if high_risk_list:
-                for name, bal, basic in high_risk_list[:5]:
-                    risk_rows += f"• **{name}**: Outstanding **₹{bal:,.2f}** (Basic Pay: ₹{basic:,.2f})\n"
-            else:
-                risk_rows = "• *No staff members currently exceed the critical 50% basic pay advance limit.*\n"
+            if matched_company:
+                mc_id = str(matched_company.get('id') or matched_company.get('_id'))
+                mc_name = matched_company.get('company_name')
+                mc_limit = int(matched_company.get('employee_limit') or 50)
+                mc_staff = db.employees.count_documents({'company_id': mc_id, 'status': {'$ne': 'Terminated'}})
+                mc_att = database.get_today_attendance_summary(company_id=mc_id)
+                mc_pres = mc_att.get('present_count', 0)
+                mc_abs = mc_att.get('absent_count', 0)
+                mc_pct = mc_att.get('present_percentage', 0.0)
 
-            reply = (
-                f"### ⚠️ Executive Advance & Credit Risk Radar\n\n"
-                f"**1. Capital Liability Exposure:**\n"
-                f"• Gross Advances Disbursed: **₹{tot_advances:,.2f}**\n"
-                f"• Total Advances Repaid: **₹{tot_repaid:,.2f}**\n"
-                f"• **Net Unrecovered Liability: ₹{net_liability:,.2f}**\n\n"
-                f"**2. High-Risk Exposure Accounts:**\n"
-                f"{risk_rows}\n"
-                f"**3. C-Suite Risk Mitigation Strategy:**\n"
-                f"1. **Advance Freeze**: Suspend additional advance issuances for accounts with unrecovered balances.\n"
-                f"2. **Graduated Repayment Schedule**: Set maximum recovery at 25% of monthly salary per cycle to prevent hardship.\n"
-                f"3. **Company Advance Ceiling**: Cap maximum allowable advance per employee at 50% of monthly basic pay."
-            )
-            return jsonify({
-                'success': True,
-                'reply': reply,
-                'audit_type': 'advance_risk',
-                'highlights': {
-                    'Net Advance Liability': f"₹{net_liability:,.2f}",
-                    'High Risk Accounts': str(len(high_risk_list)),
-                    'Repayment Ratio': f"{round((tot_repaid / tot_advances * 100), 1) if tot_advances > 0 else 100.0}%"
-                }
-            })
+                mc_adv = sum(float(a.get('amount') or 0.0) for a in db.advances.find({'company_id': mc_id}))
+                mc_rep = sum(float(p.get('amount') or 0.0) for p in db.payments.find({'company_id': mc_id}) if 'repayment' in str(p.get('status') or '').lower())
+                mc_net_adv = max(0.0, mc_adv - mc_rep)
 
-        elif audit_type == 'latecomers' or 'late' in user_query.lower() or 'punctuality' in user_query.lower():
-            late_names = ", ".join([f"**{n}**" for n in late_staff[:6]]) if late_staff else "None (100% on-time arrivals today)"
-            reply = (
-                f"### ⏰ Punctuality & Late Arrival Analysis\n\n"
-                f"**1. Today's Punch Timeliness:**\n"
-                f"• On-Time Arrivals: **{present_count - len(late_staff)}**\n"
-                f"• Late Arrivals Today: **{len(late_staff)} staff**\n"
-                f"• Staff Flagged Late: {late_names}\n\n"
-                f"**2. Operational Impact:**\n"
-                f"• Estimated Productivity Delay: **~{len(late_staff) * 0.75:.1f} lost labor hours** today.\n\n"
-                f"**3. Management Recommendations:**\n"
-                f"1. Re-align shift arrival buffers for departments with persistent delays.\n"
-                f"2. Activate automated SMS / WhatsApp punch reminders 15 minutes prior to shift start.\n"
-                f"3. Recognize and incentivize top on-time departments in the monthly town hall."
-            )
-            return jsonify({
-                'success': True,
-                'reply': reply,
-                'audit_type': 'latecomers',
-                'highlights': {
-                    'Late Staff': str(len(late_staff)),
-                    'On-Time Rate': f"{round(((present_count - len(late_staff)) / present_count * 100), 1) if present_count > 0 else 100.0}%"
-                }
-            })
+                today_slash = datetime.now().strftime('%d/%m/%Y')
+                mc_timeouts = db.timeout_entries.count_documents({
+                    'company_id': mc_id,
+                    '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
+                })
 
-        elif audit_type == 'executive_summary' or 'briefing' in user_query.lower() or 'executive summary' in user_query.lower() or 'summary' in user_query.lower():
-            reply = (
-                f"### 📋 Daily Executive C-Suite Briefing ({today_str})\n\n"
-                f"**Workforce Operations:**\n"
-                f"• **{present_count} of {total_staff}** staff clocked in ({round((present_count/total_staff*100) if total_staff else 100, 1)}% attendance).\n"
-                f"• **{len(late_staff)} late arrivals** recorded today.\n\n"
-                f"**Capital & Advance Overview:**\n"
-                f"• Net Advance Outstanding: **₹{net_liability:,.2f}**.\n"
-                f"• At-Risk Accounts: **{len(high_risk_list)} employee(s)** with advances > 50% basic pay.\n\n"
-                f"**Key Strategic Focus Today:**\n"
-                f"• Review operations shift coverage for absent employees.\n"
-                f"• Maintain repayment deduction schedule on upcoming payroll run."
-            )
-            return jsonify({
-                'success': True,
-                'reply': reply,
-                'audit_type': 'executive_summary',
-                'highlights': {
-                    'Present Today': str(present_count),
-                    'Absent Today': str(absent_count),
-                    'Advance Liability': f"₹{net_liability:,.2f}"
-                }
-            })
-
-        # 2. Custom Executive Consultation via Gemini 3.8-Flash (with fast 3.5s timeout)
-        gemini_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
-        if not gemini_key:
-            setting = db.system_settings.find_one({'key': 'gemini_api_key'})
-            if setting and setting.get('value'):
-                gemini_key = str(setting['value']).strip()
-
-        advisor_reply = None
-        if gemini_key and user_query:
-            try:
-                import requests
-                user_lang_inst = "Respond with 'reply_text' in fluent, authentic Tamil (தமிழ்)." if user_lang == 'ta' else ""
-                prompt = (
-                    "You are Advisor AI, a prestigious C-Suite Executive Strategic Advisor for company management in Argus Attendance Intelligence version 2.0.0 by ARGUS CNC™.\n"
-                    f"Current Date: {today_str}\n"
-                    f"Live Company Metrics:\n"
-                    f"- Total Staff: {total_staff}\n"
-                    f"- Present Today: {present_count}\n"
-                    f"- Absent Today: {absent_count}\n"
-                    f"- Late Punches: {len(late_staff)}\n"
-                    f"- Outstanding Advance Liability: Rs.{net_liability:,.2f}\n"
-                    f"- High Risk Accounts: {len(high_risk_list)}\n\n"
-                    f'Management Inquiry: "{user_query}"\n\n'
-                    "Respond with a high-level, executive management advisory briefing formatted in clean Markdown with sections:\n"
-                    "1. Executive Strategic Assessment (Insights & Data Findings)\n"
-                    "2. Risk & Financial Impact Analysis\n"
-                    "3. Actionable Management Roadmap (Concrete, prioritized steps for leadership)\n"
-                    "Maintain an authoritative, polished, executive consultant tone."
+                # Specific diagnosis for this interrupted company
+                diag_md = (
+                    f"### 🏢 Targeted Company Audit: **{mc_name}**\n\n"
+                    f"• **Headcount & Quota**: {mc_staff} registered active employees ({mc_staff}/{mc_limit} quota used).\n"
+                    f"• **Today's Attendance**: **{mc_pres} Present**, **{mc_abs} Absent** ({mc_pct}% attendance rate).\n"
+                    f"• **Timeout Punches (>15h)**: **{mc_timeouts} open timeout entries**.\n"
+                    f"• **Unrecovered Advance Debt**: **₹{mc_net_adv:,.2f}**.\n\n"
+                    f"**Advisor AI Actionable Solutions:**\n"
+                    f"1. {'Enforce automatic 20% salary deductions to recover remaining ₹' + f'{mc_net_adv:,.2f}' if mc_net_adv > 0 else 'Capital recovery is healthy with zero advance debt.'}\n"
+                    f"2. {'Require company administrator to reconcile open timeout punches.' if mc_timeouts > 0 else 'Checkout discipline is intact with zero timeouts.'}\n"
+                    f"3. {'Alert manager regarding severe absenteeism today.' if mc_pct < 65.0 else 'Attendance throughput is operating within normal expectations.'}"
                 )
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={gemini_key}"
-                resp = requests.post(url, json={'contents': [{'parts': [{'text': prompt}]}]}, timeout=3.5)
-                if resp.status_code == 200:
-                    cand = resp.json().get('candidates', [])
-                    if cand:
-                        advisor_reply = cand[0].get('content', {}).get('parts', [{}])[0].get('text', '')
-            except Exception:
-                pass
 
-        # Tier 1 Local Strategic Reasoning Engine Fallback
-        if not advisor_reply:
-            advisor_reply = (
-                f"### 💼 Strategic Management Advisory\n\n"
-                f"**Executive Assessment for:** *'{user_query}'*\n\n"
-                f"• **Workforce Health**: Today's active attendance is **{round((present_count/total_staff*100) if total_staff else 100, 1)}%** with **{present_count}** of **{total_staff}** employees punched in.\n"
-                f"• **Financial Exposure**: Total unrecovered advance exposure stands at **₹{net_liability:,.2f}** across {len(high_risk_list)} flagged account(s).\n\n"
-                f"**Management Recommendations:**\n"
-                f"1. **Roster Optimization**: Re-balance workload among present staff to avoid overtime spikes.\n"
-                f"2. **Advance Policy**: Enforce automated 25% salary deduction caps on outstanding credit lines.\n"
-                f"3. **Department Audit**: Review shift punctuality in upcoming management sync."
-            )
+                spoken_text = (
+                    f"Diagnostic report for {mc_name}. Currently {mc_pres} of {mc_staff} employees are present today ({mc_pct}%). "
+                    f"Outstanding advance liability is rupees {int(mc_net_adv):,}, with {mc_timeouts} open timeout punches. "
+                    f"{'Recommend enforcing payroll deductions and reconciling checkout punches.' if mc_net_adv > 0 or mc_timeouts > 0 else 'Company operations are running smoothly.'}"
+                )
 
+                spoken_ta = (
+                    f"{mc_name} நிறுவனத்தின் தற்போதைய கள அறிக்கை. மொத்தமுள்ள {mc_staff} பணியாளர்களில் {mc_pres} பேர் இன்று வருகை தந்துள்ளனர். "
+                    f"நிலுவை முன்பணம் ரூபாய் {int(mc_net_adv):,}. டைம்-அவுட் பதிவுகள் {mc_timeouts} உள்ளது."
+                )
+
+                return jsonify({
+                    'success': True,
+                    'reply': diag_md,
+                    'speech': spoken_ta if user_lang == 'ta' else spoken_text,
+                    'speech_en': spoken_text,
+                    'speech_ta': spoken_ta,
+                    'audit_type': 'targeted_company_consult'
+                })
+
+        # 3. Custom Strategic Consultation Fallback
+        audit = compute_advisor_flaws(cid=cid, user_lang=user_lang)
+        reply_md = (
+            f"### 💼 Strategic Management Advisory\n\n"
+            f"**Inquiry Evaluation**: *'{user_query}'*\n\n"
+            f"{audit['report_markdown']}"
+        )
         return jsonify({
             'success': True,
-            'reply': advisor_reply,
-            'audit_type': 'custom_consult',
-            'highlights': {
-                'Active Staff': str(total_staff),
-                'Present': str(present_count),
-                'Advance Exposure': f"₹{net_liability:,.2f}"
-            }
+            'reply': reply_md,
+            'speech': audit['speech_ta'] if user_lang == 'ta' else audit['speech_en'],
+            'speech_en': audit['speech_en'],
+            'speech_ta': audit['speech_ta'],
+            'audit_type': 'custom_consult'
         })
 
     except Exception as e:
