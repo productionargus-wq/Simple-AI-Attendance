@@ -3,8 +3,8 @@
  * Strategic Management Intelligence & C-Suite Executive Consultant
  * Shortcut: CTRL + SHIFT + ALT
  *
- * Chat-Free Boardroom Intelligence HUD with Autonomous Multi-Company Flaw Auditing
- * and Real-Time Interruption Handling for System Admin & Company Management.
+ * Chat-Free, Modal-Free Executive Voice HUD with Autonomous Multi-Company Flaw Auditing
+ * and Real-Time Voice Speech Interruption for System Admin & Company Management.
  */
 
 (function () {
@@ -48,25 +48,30 @@
         btn.style.bottom = '24px';
         btn.style.top = 'auto';
         btn.style.right = 'auto';
-        btn.style.transform = 'translateX(-50%)';
+        btn.style.transform = 'none';
       }
 
       let isDragging = false;
+      let startX = 0;
+      let startY = 0;
+      let initialLeft = 0;
+      let initialTop = 0;
       let hasMoved = false;
-      let startX = 0, startY = 0;
-      let initialLeft = 0, initialTop = 0;
 
       function onPointerDown(e) {
-        if (e.type === 'mousedown' && e.button !== 0) return;
+        if (e.button !== 0 && e.type !== 'touchstart') return;
         const pt = e.touches ? e.touches[0] : e;
+        isDragging = true;
+        hasMoved = false;
         startX = pt.clientX;
         startY = pt.clientY;
 
         const rect = btn.getBoundingClientRect();
         initialLeft = rect.left;
         initialTop = rect.top;
-        hasMoved = false;
-        isDragging = true;
+
+        btn.style.transition = 'none';
+        btn.classList.add('is-dragging');
 
         document.addEventListener('mousemove', onPointerMove, { passive: false });
         document.addEventListener('mouseup', onPointerUp, { passive: false });
@@ -80,21 +85,19 @@
         const dx = pt.clientX - startX;
         const dy = pt.clientY - startY;
 
-        if (!hasMoved && Math.hypot(dx, dy) > 5) {
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
           hasMoved = true;
-          btn.classList.add('is-dragging');
         }
 
-        if (hasMoved) {
-          if (e.cancelable) e.preventDefault();
-          clampAndApply(initialLeft + dx, initialTop + dy);
-        }
+        clampAndApply(initialLeft + dx, initialTop + dy);
+        if (e.cancelable) e.preventDefault();
       }
 
-      function onPointerUp(e) {
+      function onPointerUp() {
         if (!isDragging) return;
         isDragging = false;
         btn.classList.remove('is-dragging');
+        btn.style.transition = '';
 
         document.removeEventListener('mousemove', onPointerMove);
         document.removeEventListener('mouseup', onPointerUp);
@@ -103,15 +106,15 @@
 
         if (hasMoved) {
           btn.__justDragged = true;
-          setTimeout(() => { btn.__justDragged = false; }, 160);
+          setTimeout(() => { btn.__justDragged = false; }, 120);
 
-          const rect = btn.getBoundingClientRect();
           try {
+            const rect = btn.getBoundingClientRect();
             localStorage.setItem(storageKey, JSON.stringify({
               left: Math.round(rect.left),
               top: Math.round(rect.top)
             }));
-          } catch (err) {}
+          } catch (e) {}
         }
       }
 
@@ -131,21 +134,20 @@
           const saved = localStorage.getItem(storageKey);
           if (saved) {
             const pos = JSON.parse(saved);
-            if (typeof pos.left === 'number' && typeof pos.top === 'number') {
-              clampAndApply(pos.left, pos.top);
-            }
+            clampAndApply(pos.left, pos.top);
           }
         } catch (e) {}
       });
     };
   }
 
+  // --- ARGUS ADVISOR AI ENGINE (EXECUTIVE VOICE HUD) ---
   class AdvisorAIEngine {
     constructor() {
       this.isOpen = false;
-      this.isSystemAdmin = Boolean(window.IS_SYSTEM_ADMIN);
       this.language = localStorage.getItem('argus_ai_voice_lang') || 'en';
-      this.voiceEnabled = localStorage.getItem('argus_advisor_voice') !== 'false';
+      this.voiceEnabled = true;
+      this.isSystemAdmin = Boolean(window.IS_SYSTEM_ADMIN);
       this.isSpeaking = false;
       this.isListeningInterruption = false;
       this.recognition = null;
@@ -162,7 +164,7 @@
     }
 
     createUI() {
-      // 1. Shared Floating Dock Icon
+      // 1. Shared Floating Dock Button (💼)
       let dock = document.getElementById('argusAiDock');
       if (!dock) {
         dock = document.createElement('div');
@@ -187,228 +189,153 @@
         window.makeAgentButtonDraggable(circleBtn, 'argus_ai_pos_advisor', 60);
       }
 
-      // 2. Backdrop
+      // Clean up any legacy backdrops or modals
       const oldBackdrop = document.getElementById('advisorModalBackdrop');
       if (oldBackdrop) oldBackdrop.remove();
-      const backdrop = document.createElement('div');
-      backdrop.className = 'advisor-modal-backdrop';
-      backdrop.id = 'advisorModalBackdrop';
-      document.body.appendChild(backdrop);
-      this.backdrop = backdrop;
-
-      // 3. Boardroom Executive Console Window (Chat-Free Strategic HUD)
       const oldWin = document.getElementById('advisorChatWindow') || document.getElementById('advisorConsoleWindow');
       if (oldWin) oldWin.remove();
 
-      const win = document.createElement('div');
-      win.className = 'advisor-chat-window advisor-executive-hud';
-      win.id = 'advisorChatWindow';
+      // 2. Chat-Free Executive Voice Floating HUD Pill
+      const hudPill = document.createElement('div');
+      hudPill.className = 'advisor-voice-hud-pill';
+      hudPill.id = 'advisorVoicePill';
 
-      const roleBadge = this.isSystemAdmin ? 'System Admin Strategic Fleet' : 'C-Suite Intelligence';
-      const roleSubtitle = this.isSystemAdmin ? 'Multi-Company Fleet Performance & Flaw Auditor' : 'Management Strategic Partner • Live Flaw Radar';
+      const roleBadge = this.isSystemAdmin ? 'System Admin Strategic Fleet' : 'C-Suite Advisor';
+      const roleSubtitle = this.isSystemAdmin ? 'Multi-Company Fleet Performance & Flaw Auditor' : 'Operational Flaw Radar';
 
-      win.innerHTML = `
-        <!-- EXECUTIVE HEADER -->
-        <div class="advisor-header">
-          <div class="advisor-header-left">
-            <div class="advisor-avatar">
-              💼
-              <span class="advisor-online-dot"></span>
-            </div>
-            <div class="advisor-header-info">
-              <div class="advisor-header-title">
-                Advisor AI
-                <span class="advisor-badge-pill">${roleBadge}</span>
+      hudPill.innerHTML = `
+        <!-- TOP BRAND & CONTROLS BAR -->
+        <div class="advisor-hud-top">
+          <div class="advisor-hud-brand">
+            <div class="advisor-hud-icon">💼</div>
+            <div class="advisor-hud-meta">
+              <div class="advisor-hud-title-wrap">
+                <span class="advisor-hud-title">Advisor AI</span>
+                <span class="advisor-hud-badge">${roleBadge}</span>
               </div>
-              <div class="advisor-header-subtitle">${roleSubtitle}</div>
+              <span class="advisor-hud-role">${roleSubtitle}</span>
             </div>
           </div>
-          <div class="advisor-header-actions">
-            <button class="advisor-icon-btn advisor-lang-btn" id="advisorLangToggleBtn" title="Language: English / தமிழ்">
-              🌐 <span id="advisorLangLabel">${this.language === 'ta' ? 'தமிழ்' : 'EN'}</span>
+          <div class="advisor-hud-actions">
+            <button class="advisor-hud-btn" id="advHudLangBtn" title="Language: English / தமிழ்">
+              🌐 <span id="advHudLangText">${this.language === 'ta' ? 'தமிழ்' : 'EN'}</span>
             </button>
-            <button class="advisor-icon-btn ${this.voiceEnabled ? 'active' : ''}" id="advisorVoiceBtn" title="Toggle Executive Audio Briefings">
-              ${this.voiceEnabled ? '🔊' : '🔇'}
+            <button class="advisor-hud-btn" id="advHudVoiceToggleBtn" title="Toggle Audio">
+              🔊
             </button>
-            <button class="advisor-icon-btn" id="advisorRefreshBtn" title="Rerun Strategic Audit">
-              🔄
-            </button>
-            <button class="advisor-icon-btn" id="advisorCloseBtn" title="Close (Esc)">
+            <button class="advisor-hud-btn close" id="advHudCloseBtn" title="Close Advisor AI (Esc)">
               ✕
             </button>
           </div>
         </div>
 
-        <!-- LIVE EXECUTIVE KPI STRIP -->
-        <div class="advisor-kpi-ribbon" id="advisorKpiRibbon">
-          <div class="advisor-kpi-card">
-            <span class="advisor-kpi-label">${this.isSystemAdmin ? 'Fleet Health' : 'Health Score'}</span>
-            <span class="advisor-kpi-value green" id="advKpiHealth">--</span>
-          </div>
-          <div class="advisor-kpi-card">
-            <span class="advisor-kpi-label">${this.isSystemAdmin ? 'Fleet Advances' : 'Advance Liability'}</span>
-            <span class="advisor-kpi-value amber" id="advKpiLiability">--</span>
-          </div>
-          <div class="advisor-kpi-card">
-            <span class="advisor-kpi-label">${this.isSystemAdmin ? 'Timeout Punches' : 'Punctuality'}</span>
-            <span class="advisor-kpi-value indigo" id="advKpiPunc">--</span>
-          </div>
-          <div class="advisor-kpi-card">
-            <span class="advisor-kpi-label">${this.isSystemAdmin ? 'Platform Workforce' : 'Present Today'}</span>
-            <span class="advisor-kpi-value" id="advKpiStaff">--</span>
-          </div>
-        </div>
-
-        <!-- STRATEGIC AUDIT PRESET TABS -->
-        <div class="advisor-presets-bar">
-          <div class="advisor-preset-chip active-chip" data-audit="flaw_audit">
-            ${this.isSystemAdmin ? '🏢 Fleet Companies & Flaws' : '🚨 Flaw Radar & Solutions'}
-          </div>
-          <div class="advisor-preset-chip" data-audit="health_audit">
-            📊 Workforce Health Audit
-          </div>
-          <div class="advisor-preset-chip" data-audit="advance_risk">
-            ⚠️ Advance Risk Radar
-          </div>
-          <div class="advisor-preset-chip" data-audit="latecomers">
-            ⏰ Latecomers & Timeouts
-          </div>
-          <div class="advisor-preset-chip" data-audit="executive_summary">
-            📋 Executive Briefing
-          </div>
-        </div>
-
-        <!-- AUDIO WAVEFORM & BRIEFING BROADCAST STATUS -->
-        <div class="advisor-voice-status-bar" id="advisorVoiceStatusBar">
-          <div class="advisor-voice-wave" id="advisorVoiceWave">
+        <!-- LIVE SOUNDWAVE & STATUS TICKER -->
+        <div class="advisor-hud-broadcast">
+          <div class="advisor-voice-wave" id="advVoiceWave">
             <span></span><span></span><span></span><span></span><span></span>
           </div>
-          <div class="advisor-voice-status-text" id="advisorVoiceStatusText">
-            Executive Briefing Ready
+          <div class="advisor-hud-status-text" id="advVoiceTicker">
+            Executive Briefing Ready. Click speak or tap any company to inspect.
           </div>
-          <button class="advisor-voice-control-btn" id="advisorVoicePlayPauseBtn" title="Pause / Resume Audio">
+        </div>
+
+        <!-- PRIMARY ACTION ROW: MIC INTERRUPT & PLAY/PAUSE -->
+        <div class="advisor-hud-controls">
+          <button class="advisor-mic-interrupt-btn" id="advMicInterruptBtn" title="Click to speak and ask Advisor AI directly">
+            🎙️ Speak to Interrupt
+          </button>
+          <button class="advisor-play-btn" id="advPlayPauseBtn" title="Pause / Resume Briefing">
             ⏸️ Pause
           </button>
         </div>
 
-        <!-- BOARDROOM PRESENTATION STAGE (Chat-Free Core) -->
-        <div class="advisor-presentation-stage" id="advisorPresentationStage">
-          <div class="advisor-loading-card" id="advisorLoadingCard">
-            <div class="advisor-typing-dots">
-              <span></span><span></span><span></span>
-            </div>
-            <span>Analyzing organizational telemetry and operational flaws...</span>
-          </div>
-          <div class="advisor-stage-content" id="advisorStageContent">
-            <!-- Strategic Report Markdown & Company Matrix rendered here -->
-          </div>
+        <!-- QUICK ONE-TAP INTERRUPTION CHIPS -->
+        <div class="advisor-hud-chips-scroll" id="advChipsScroll">
+          <div class="advisor-hud-chip active" data-audit="flaw_audit">🏢 Fleet Flaws Summary</div>
+          <div class="advisor-hud-chip" data-audit="health_audit">📊 Workforce Health</div>
+          <div class="advisor-hud-chip" data-audit="advance_risk">⚠️ Advance Liabilities</div>
+          <div class="advisor-hud-chip" data-audit="latecomers">⏰ Latecomers & Timeouts</div>
         </div>
 
-        <!-- LIVE INTERRUPTION BAR (Ask or Interrupt Advisor AI) -->
-        <div class="advisor-interruption-bar">
-          <div class="advisor-interrupt-chips-scroll" id="advisorInterruptChips">
-            <span class="advisor-interrupt-hint">💡 Tap or speak to ask Advisor AI:</span>
-            <!-- Dynamically populated interrupt chips -->
+        <!-- TARGETED DIAGNOSTIC CARD (SHOWN ON INTERRUPTION) -->
+        <div class="advisor-hud-target-card" id="advTargetCard">
+          <div class="advisor-hud-target-header">
+            <span id="advTargetTitle">Target Diagnostic</span>
+            <span id="advTargetMetric" style="font-family: monospace; font-size: 10px;"></span>
           </div>
-          <div class="advisor-interrupt-input-wrap">
-            <button class="advisor-interrupt-mic-btn" id="advisorInterruptMicBtn" title="Speak to Interrupt Advisor AI">
-              🎙️ Tap to Speak / Interrupt
-            </button>
-            <input type="text" class="advisor-interrupt-input" id="advisorInterruptInput" placeholder="Ask specific question about any company, flaw, or metric (e.g. 'What about HEXA TECHNOLOGIES?')..." />
-            <button class="advisor-interrupt-submit-btn" id="advisorInterruptSubmitBtn" title="Submit Question">
-              ➤
-            </button>
-          </div>
+          <div id="advTargetBody"></div>
         </div>
       `;
 
-      document.body.appendChild(win);
-      this.consoleWindow = win;
+      document.body.appendChild(hudPill);
+      this.hudPill = hudPill;
 
       // Selectors
-      this.stageContent = win.querySelector('#advisorStageContent');
-      this.loadingCard = win.querySelector('#advisorLoadingCard');
-      this.voiceStatusBar = win.querySelector('#advisorVoiceStatusBar');
-      this.voiceWave = win.querySelector('#advisorVoiceWave');
-      this.voiceStatusText = win.querySelector('#advisorVoiceStatusText');
-      this.voicePlayPauseBtn = win.querySelector('#advisorVoicePlayPauseBtn');
-      this.voiceBtn = win.querySelector('#advisorVoiceBtn');
-      this.langBtn = win.querySelector('#advisorLangToggleBtn');
-      this.refreshBtn = win.querySelector('#advisorRefreshBtn');
-      this.closeBtn = win.querySelector('#advisorCloseBtn');
-      this.interruptMicBtn = win.querySelector('#advisorInterruptMicBtn');
-      this.interruptInput = win.querySelector('#advisorInterruptInput');
-      this.interruptSubmitBtn = win.querySelector('#advisorInterruptSubmitBtn');
-      this.interruptChipsWrap = win.querySelector('#advisorInterruptChips');
+      this.voiceWave = hudPill.querySelector('#advVoiceWave');
+      this.voiceTicker = hudPill.querySelector('#advVoiceTicker');
+      this.micInterruptBtn = hudPill.querySelector('#advMicInterruptBtn');
+      this.playPauseBtn = hudPill.querySelector('#advPlayPauseBtn');
+      this.chipsScroll = hudPill.querySelector('#advChipsScroll');
+      this.targetCard = hudPill.querySelector('#advTargetCard');
+      this.targetTitle = hudPill.querySelector('#advTargetTitle');
+      this.targetMetric = hudPill.querySelector('#advTargetMetric');
+      this.targetBody = hudPill.querySelector('#advTargetBody');
+      this.langBtn = hudPill.querySelector('#advHudLangBtn');
+      this.langText = hudPill.querySelector('#advHudLangText');
+      this.voiceToggleBtn = hudPill.querySelector('#advHudVoiceToggleBtn');
+      this.closeBtn = hudPill.querySelector('#advHudCloseBtn');
 
       this.bindEvents();
     }
 
     bindEvents() {
-      // Toggle button
+      // Circle Trigger
       this.triggerPill.addEventListener('click', () => this.toggle());
 
-      // Backdrop click
-      this.backdrop.addEventListener('click', () => this.close());
-
-      // Close button
+      // Close Button
       this.closeBtn.addEventListener('click', () => this.close());
 
-      // Refresh button
-      this.refreshBtn.addEventListener('click', () => this.autoRunFlawAudit());
-
-      // Language toggle (Cleanly references this.langBtn with no scoped variable error)
-      if (this.langBtn) {
-        this.langBtn.addEventListener('click', () => {
-          this.language = (this.language === 'ta') ? 'en' : 'ta';
-          localStorage.setItem('argus_ai_voice_lang', this.language);
-          const lbl = this.langBtn.querySelector('#advisorLangLabel');
-          if (lbl) lbl.innerText = (this.language === 'ta') ? 'தமிழ்' : 'EN';
-          this.autoRunFlawAudit();
-        });
-      }
-
-      // Voice toggle
-      this.voiceBtn.addEventListener('click', () => {
+      // Voice Mute Toggle
+      this.voiceToggleBtn.addEventListener('click', () => {
         this.voiceEnabled = !this.voiceEnabled;
-        localStorage.setItem('argus_advisor_voice', this.voiceEnabled ? 'true' : 'false');
-        this.voiceBtn.innerHTML = this.voiceEnabled ? '🔊' : '🔇';
-        this.voiceBtn.classList.toggle('active', this.voiceEnabled);
+        this.voiceToggleBtn.innerHTML = this.voiceEnabled ? '🔊' : '🔇';
         if (!this.voiceEnabled) {
           this.stopSpeaking();
-          this.updateVoiceStatus('Voice Briefing Muted', false);
+          this.updateStatus('Voice Audio Muted', false);
         } else {
-          this.updateVoiceStatus('Voice Briefing Enabled', false);
+          this.updateStatus('Voice Audio Enabled', false);
         }
       });
 
-      // Play / Pause voice briefing
-      this.voicePlayPauseBtn.addEventListener('click', () => {
+      // Language Switcher
+      this.langBtn.addEventListener('click', () => {
+        this.language = (this.language === 'ta') ? 'en' : 'ta';
+        localStorage.setItem('argus_ai_voice_lang', this.language);
+        this.langText.innerText = (this.language === 'ta') ? 'தமிழ்' : 'EN';
+        if (this.recognition) {
+          this.recognition.lang = (this.language === 'ta') ? 'ta-IN' : 'en-US';
+        }
+        this.stopSpeaking();
+        this.loadBriefing();
+      });
+
+      // Play / Pause Briefing
+      this.playPauseBtn.addEventListener('click', () => {
         if (this.isSpeaking) {
           this.stopSpeaking();
-          this.updateVoiceStatus('Briefing Paused', false);
-          this.voicePlayPauseBtn.innerHTML = '▶️ Resume';
+          this.playPauseBtn.innerHTML = '▶️ Resume';
+          this.updateStatus('Briefing Paused', false);
         } else if (this.currentBriefingData) {
-          const speechScript = (this.language === 'ta') ? (this.currentBriefingData.speech_ta || this.currentBriefingData.speech_en) : this.currentBriefingData.speech_en;
-          this.speakReply(speechScript, this.currentBriefingData.speech_en);
-          this.voicePlayPauseBtn.innerHTML = '⏸️ Pause';
+          const speechScript = (this.language === 'ta') ?
+            (this.currentBriefingData.speech_ta || this.currentBriefingData.speech_en) :
+            this.currentBriefingData.speech_en;
+          this.speak(speechScript, this.currentBriefingData.speech_en);
+          this.playPauseBtn.innerHTML = '⏸️ Pause';
         }
       });
 
-      // Preset tabs
-      const chips = this.consoleWindow.querySelectorAll('.advisor-preset-chip');
-      chips.forEach((chip) => {
-        chip.addEventListener('click', () => {
-          chips.forEach(c => c.classList.remove('active-chip'));
-          chip.classList.add('active-chip');
-          const auditType = chip.getAttribute('data-audit');
-          const title = chip.innerText.trim();
-          this.runAudit(auditType, title);
-        });
-      });
-
-      // Interruption Mic
-      this.interruptMicBtn.addEventListener('click', () => {
+      // Mic Interruption
+      this.micInterruptBtn.addEventListener('click', () => {
         if (this.isListeningInterruption) {
           this.stopSpeechRecognition();
         } else {
@@ -416,12 +343,22 @@
         }
       });
 
-      // Interruption Submit
-      this.interruptSubmitBtn.addEventListener('click', () => this.handleInterruptionQuery());
-      this.interruptInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          this.handleInterruptionQuery();
+      // Preset / Company Chips Delegate
+      this.chipsScroll.addEventListener('click', (e) => {
+        const chip = e.target.closest('.advisor-hud-chip');
+        if (!chip) return;
+
+        this.chipsScroll.querySelectorAll('.advisor-hud-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+
+        const auditType = chip.getAttribute('data-audit');
+        const companyName = chip.getAttribute('data-company');
+        const title = chip.innerText.trim();
+
+        if (companyName) {
+          this.handleInterruptionQuery(companyName);
+        } else if (auditType) {
+          this.runAudit(auditType, title);
         }
       });
     }
@@ -450,22 +387,23 @@
 
         this.recognition.onstart = () => {
           this.isListeningInterruption = true;
-          this.interruptMicBtn.classList.add('recording');
-          this.interruptMicBtn.innerHTML = '🔴 Listening...';
+          this.micInterruptBtn.classList.add('recording');
+          this.micInterruptBtn.innerHTML = '🔴 Listening...';
           this.stopSpeaking();
-          this.updateVoiceStatus('Listening for your strategic question...', true);
+          this.updateStatus('Listening for your strategic question...', true);
         };
 
         this.recognition.onresult = (event) => {
           const text = event.results[0][0].transcript;
+          this.stopSpeechRecognition();
           if (text) {
-            this.interruptInput.value = text;
-            this.handleInterruptionQuery();
+            this.handleInterruptionQuery(text);
           }
         };
 
         this.recognition.onerror = () => {
           this.stopSpeechRecognition();
+          this.updateStatus('Listening stopped', false);
         };
 
         this.recognition.onend = () => {
@@ -485,137 +423,126 @@
 
     stopSpeechRecognition() {
       this.isListeningInterruption = false;
-      if (this.interruptMicBtn) {
-        this.interruptMicBtn.classList.remove('recording');
-        this.interruptMicBtn.innerHTML = '🎙️ Tap to Speak / Interrupt';
-      }
+      this.micInterruptBtn.classList.remove('recording');
+      this.micInterruptBtn.innerHTML = '🎙️ Speak to Interrupt';
       if (this.recognition) {
         try { this.recognition.stop(); } catch (e) {}
       }
     }
 
-    updateVoiceStatus(text, isWaving) {
-      if (this.voiceStatusText) this.voiceStatusText.innerText = text;
-      if (this.voiceWave) {
-        this.voiceWave.style.opacity = isWaving ? '1' : '0.2';
+    toggle() {
+      if (this.isOpen) {
+        this.close();
+      } else {
+        this.open();
       }
     }
 
-    populateInterruptChips(fleetCompanies) {
-      if (!this.interruptChipsWrap) return;
-      this.interruptChipsWrap.innerHTML = '<span class="advisor-interrupt-hint">💡 Tap or speak to ask Advisor AI:</span>';
+    open() {
+      this.isOpen = true;
+      this.hudPill.classList.add('open');
+      this.updateStatus('Loading executive operational telemetry...', true);
+      this.loadBriefing();
+    }
 
-      let sampleChips = [];
-      if (this.isSystemAdmin && fleetCompanies && fleetCompanies.length) {
-        fleetCompanies.slice(0, 4).forEach(c => {
-          sampleChips.push(`What about ${c.name}?`);
-        });
-        sampleChips.push("Which company has highest advance debt?");
-        sampleChips.push("Show timeout violations across tenants");
-      } else {
-        sampleChips = [
-          "Why are timeouts flagged?",
-          "How to recover employee advances?",
-          "Workforce health recommendations",
-          "Shift punctuality solutions"
-        ];
+    close() {
+      this.isOpen = false;
+      this.hudPill.classList.remove('open');
+      this.stopSpeaking();
+      this.stopSpeechRecognition();
+      if (this.targetCard) this.targetCard.classList.remove('visible');
+    }
+
+    updateStatus(text, isSpeaking = false) {
+      if (this.voiceTicker) this.voiceTicker.innerText = text;
+      if (this.voiceWave) {
+        if (isSpeaking) {
+          this.voiceWave.classList.add('speaking');
+        } else {
+          this.voiceWave.classList.remove('speaking');
+        }
       }
-
-      sampleChips.forEach(chipText => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'advisor-inter-chip';
-        btn.innerText = chipText;
-        btn.addEventListener('click', () => {
-          this.interruptInput.value = chipText;
-          this.handleInterruptionQuery();
-        });
-        this.interruptChipsWrap.appendChild(btn);
-      });
     }
 
     async loadBriefing() {
       try {
-        const resp = await fetch('/api/ai/advisor/briefing');
-        const data = await resp.json();
-        if (data && data.success && data.kpis) {
-          const k = data.kpis;
-          const healthEl = this.consoleWindow.querySelector('#advKpiHealth');
-          const liabEl = this.consoleWindow.querySelector('#advKpiLiability');
-          const puncEl = this.consoleWindow.querySelector('#advKpiPunc');
-          const staffEl = this.consoleWindow.querySelector('#advKpiStaff');
-
-          if (this.isSystemAdmin) {
-            if (healthEl) healthEl.innerText = `${k.health_index || 0}%`;
-            if (liabEl) liabEl.innerText = `₹${(k.net_advance_liability || 0).toLocaleString()}`;
-            if (puncEl) puncEl.innerText = `${k.total_timeouts || 0} Open`;
-            if (staffEl) staffEl.innerText = `${k.present_count || 0} / ${k.total_staff || 0}`;
-          } else {
-            if (healthEl) healthEl.innerText = `${k.health_index || 0}%`;
-            if (liabEl) liabEl.innerText = `₹${(k.net_advance_liability || 0).toLocaleString()}`;
-            if (puncEl) puncEl.innerText = `${k.punctuality_score || 100}%`;
-            if (staffEl) staffEl.innerText = `${k.present_today || 0} / ${k.total_staff || 0}`;
-          }
-        }
-      } catch (e) {}
-    }
-
-    async autoRunFlawAudit() {
-      this.showLoading(true);
-      this.stopSpeaking();
-      this.updateVoiceStatus('Analyzing organizational telemetry...', true);
-
-      try {
         const resp = await fetch(`/api/ai/advisor/live-flaws?lang=${this.language}`);
         const data = await resp.json();
-        this.showLoading(false);
 
         if (data && data.success) {
           this.currentBriefingData = data;
-          this.renderStageContent(data.report_markdown);
-          this.populateInterruptChips(data.fleet_companies || []);
+          this.populateCompanyChips(data);
 
-          if (data.kpis) {
-            const k = data.kpis;
-            const healthEl = this.consoleWindow.querySelector('#advKpiHealth');
-            const liabEl = this.consoleWindow.querySelector('#advKpiLiability');
-            const puncEl = this.consoleWindow.querySelector('#advKpiPunc');
-            const staffEl = this.consoleWindow.querySelector('#advKpiStaff');
+          const speech = (this.language === 'ta') ? (data.speech_ta || data.speech_en) : data.speech_en;
+          const statusLead = this.isSystemAdmin ?
+            `Broadcasting: Fleet performance audit across ${data.kpis?.total_companies || 'all'} client companies` :
+            `Broadcasting: Organizational flaw analysis for today`;
 
-            if (this.isSystemAdmin) {
-              if (healthEl) healthEl.innerText = `${k.health_index || 0}%`;
-              if (liabEl) liabEl.innerText = `₹${(k.net_advance_liability || 0).toLocaleString()}`;
-              if (puncEl) puncEl.innerText = `${k.total_timeouts || 0} Open`;
-              if (staffEl) staffEl.innerText = `${k.present_count || 0} / ${k.total_staff || 0}`;
-            } else {
-              if (healthEl) healthEl.innerText = `${k.health_index || 0}%`;
-              if (liabEl) liabEl.innerText = `₹${(k.net_advance_liability || 0).toLocaleString()}`;
-              if (puncEl) puncEl.innerText = `${k.total_timeouts || 0} Timeouts`;
-              if (staffEl) staffEl.innerText = `${k.present_count || 0} / ${k.total_staff || 0}`;
-            }
-          }
-
-          const speechScript = (this.language === 'ta') ? (data.speech_ta || data.speech_en) : data.speech_en;
-          if (this.voiceEnabled) {
-            this.speakReply(speechScript, data.speech_en);
-          } else {
-            this.updateVoiceStatus('Executive Briefing Ready', false);
-          }
+          this.updateStatus(statusLead, true);
+          this.speak(speech, data.speech_en);
         } else {
-          this.renderStageContent('### ⚠️ Unable to Compile Strategic Audit\nPlease retry in a moment.');
-          this.updateVoiceStatus('Briefing Compilation Failed', false);
+          this.updateStatus('Executive telemetry loaded (Clean).', false);
         }
       } catch (err) {
-        this.showLoading(false);
-        this.renderStageContent('### ⚠️ Connection Notice\nUnable to establish link with Advisor AI analytics service.');
-        this.updateVoiceStatus('Connection Error', false);
+        this.updateStatus('Advisor AI ready. Speak to ask any question.', false);
+      }
+    }
+
+    populateCompanyChips(data) {
+      if (!this.chipsScroll) return;
+
+      const baseChips = `
+        <div class="advisor-hud-chip active" data-audit="flaw_audit">🏢 Fleet Flaws Summary</div>
+        <div class="advisor-hud-chip" data-audit="health_audit">📊 Workforce Health</div>
+        <div class="advisor-hud-chip" data-audit="advance_risk">⚠️ Advance Liabilities</div>
+        <div class="advisor-hud-chip" data-audit="latecomers">⏰ Latecomers & Timeouts</div>
+      `;
+
+      let companyPills = '';
+      if (data.fleet_companies && data.fleet_companies.length > 0) {
+        data.fleet_companies.forEach(c => {
+          const dot = c.flaws && c.flaws.length > 0 ? '🔴' : '🟢';
+          companyPills += `<div class="advisor-hud-chip" data-company="${c.name}">${dot} ${c.name}</div>`;
+        });
+      }
+
+      this.chipsScroll.innerHTML = baseChips + companyPills;
+    }
+
+    async handleInterruptionQuery(queryText) {
+      if (!queryText) return;
+
+      this.stopSpeaking();
+      this.updateStatus(`Interrupting: "${queryText}"`, true);
+
+      try {
+        const resp = await fetch('/api/ai/advisor/consult', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: queryText, language: this.language })
+        });
+        const data = await resp.json();
+
+        if (data && data.success) {
+          if (this.targetCard) {
+            this.targetTitle.innerText = `Diagnostic: ${queryText}`;
+            this.targetMetric.innerText = `Matched Flaws: ${(data.flaws || []).length}`;
+            this.targetBody.innerHTML = (data.reply || '').replace(/\n/g, '<br/>');
+            this.targetCard.classList.add('visible');
+          }
+
+          const speech = (this.language === 'ta') ? (data.speech_ta || data.speech || data.speech_en) : (data.speech_en || data.speech);
+          this.updateStatus(`Advisor Answering: "${queryText}"`, true);
+          this.speak(speech, data.speech_en);
+        }
+      } catch (err) {
+        this.updateStatus('Consultation complete.', false);
       }
     }
 
     async runAudit(auditType, title) {
-      this.showLoading(true);
       this.stopSpeaking();
-      this.updateVoiceStatus(`Synthesizing ${title}...`, true);
+      this.updateStatus(`Running ${title}...`, true);
 
       try {
         const resp = await fetch('/api/ai/advisor/consult', {
@@ -624,114 +551,96 @@
           body: JSON.stringify({ audit_type: auditType, language: this.language })
         });
         const data = await resp.json();
-        this.showLoading(false);
 
         if (data && data.success) {
-          this.renderStageContent(data.reply);
-          const speechScript = (this.language === 'ta') ? (data.speech_ta || data.speech || data.reply) : (data.speech_en || data.speech || data.reply);
-          if (this.voiceEnabled) {
-            this.speakReply(speechScript, data.speech_en || data.reply);
-          } else {
-            this.updateVoiceStatus(`${title} Ready`, false);
+          if (this.targetCard) {
+            this.targetTitle.innerText = title;
+            this.targetMetric.innerText = `${(data.flaws || []).length} Flaw(s)`;
+            this.targetBody.innerHTML = (data.reply || '').replace(/\n/g, '<br/>');
+            this.targetCard.classList.add('visible');
           }
-        }
-      } catch (e) {
-        this.showLoading(false);
-      }
-    }
 
-    // Handles live interruption query by the administrator
-    async handleInterruptionQuery() {
-      const query = this.interruptInput.value.trim();
-      if (!query) return;
-
-      // 1. Immediately halt current speech!
-      this.stopSpeaking();
-      this.stopSpeechRecognition();
-      this.interruptInput.value = '';
-      this.updateVoiceStatus(`Analyzing question: "${query}"...`, true);
-      this.showLoading(true);
-
-      try {
-        const resp = await fetch('/api/ai/advisor/consult', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: query, language: this.language })
-        });
-        const data = await resp.json();
-        this.showLoading(false);
-
-        if (data && data.success) {
-          this.renderStageContent(data.reply);
-          const speechScript = (this.language === 'ta') ? (data.speech_ta || data.speech || data.reply) : (data.speech_en || data.speech || data.reply);
-          if (this.voiceEnabled) {
-            this.speakReply(speechScript, data.speech_en || data.reply);
-          } else {
-            this.updateVoiceStatus('Targeted Strategic Analysis Ready', false);
-          }
-        } else {
-          this.renderStageContent(`### 💼 Advisor AI Assessment\n\nUnable to analyze specific query *'${query}'*. Please verify company name or query terms.`);
-          this.updateVoiceStatus('Inquiry Unresolved', false);
+          const speech = (this.language === 'ta') ? (data.speech_ta || data.speech || data.speech_en) : (data.speech_en || data.speech);
+          this.updateStatus(`Explaining: ${title}`, true);
+          this.speak(speech, data.speech_en);
         }
       } catch (err) {
-        this.showLoading(false);
-        this.renderStageContent('### ⚠️ Connection Notice\nError consulting Advisor AI.');
-        this.updateVoiceStatus('Connection Error', false);
+        this.updateStatus('Audit refreshed.', false);
       }
     }
 
-    renderStageContent(markdownText) {
-      if (!this.stageContent) return;
+    speak(textTaOrEn, textEnFallback) {
+      if (!this.voiceEnabled || !textTaOrEn) return;
 
-      let html = (markdownText || '')
-        .replace(/^### (.*$)/gim, '<h3 class="adv-stage-h3">$1</h3>')
-        .replace(/^#### (.*$)/gim, '<h4 class="adv-stage-h4">$1</h4>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>');
+      this.stopSpeaking();
+      this.isSpeaking = true;
+      if (this.playPauseBtn) this.playPauseBtn.innerHTML = '⏸️ Pause';
+      if (this.voiceWave) this.voiceWave.classList.add('speaking');
 
-      // Markdown Table Parser
-      if (html.includes('|')) {
-        const lines = html.split('\n');
-        let inTable = false;
-        let tableHtml = '<div class="adv-table-scroll"><table class="adv-stage-table">';
-        let newLines = [];
+      // Use Server-Side Google Cloud TTS with client fallback
+      const encoded = encodeURIComponent(textTaOrEn);
+      const audioUrl = `/api/ai/speak?text=${encoded}&lang=${this.language}`;
+      const audio = new Audio(audioUrl);
+      this.activeServerAudio = audio;
 
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (line.startsWith('|') && line.endsWith('|')) {
-            if (!inTable) {
-              inTable = true;
-              newLines.push(tableHtml);
-            }
-            if (line.includes('---')) {
-              continue; // separator
-            }
-            const cells = line.split('|').slice(1, -1).map(c => c.trim());
-            const isHeader = (newLines.length > 0 && newLines[newLines.length - 1].includes('<table'));
-            const tag = isHeader ? 'th' : 'td';
-            let rowHtml = '<tr>' + cells.map(c => `<${tag}>${c}</${tag}>`).join('') + '</tr>';
-            newLines.push(rowHtml);
-          } else {
-            if (inTable) {
-              inTable = false;
-              newLines.push('</table></div>');
-            }
-            newLines.push(line);
-          }
+      audio.onended = () => {
+        this.isSpeaking = false;
+        if (this.playPauseBtn) this.playPauseBtn.innerHTML = '▶️ Replay';
+        if (this.voiceWave) this.voiceWave.classList.remove('speaking');
+        this.updateStatus('Executive Briefing Completed', false);
+      };
+
+      audio.onerror = () => {
+        this.fallbackBrowserTTS(textTaOrEn, textEnFallback);
+      };
+
+      audio.play().catch(() => {
+        this.fallbackBrowserTTS(textTaOrEn, textEnFallback);
+      });
+    }
+
+    fallbackBrowserTTS(textTa, textEn) {
+      if (!('speechSynthesis' in window)) {
+        this.isSpeaking = false;
+        if (this.voiceWave) this.voiceWave.classList.remove('speaking');
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      const textToSpeak = (this.language === 'ta' && textTa) ? textTa : (textEn || textTa);
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+
+      const voices = window.speechSynthesis.getVoices() || [];
+      if (this.language === 'ta') {
+        const taVoice = voices.find(v => v.lang.startsWith('ta'));
+        if (taVoice) {
+          utterance.voice = taVoice;
+          utterance.lang = taVoice.lang;
+        } else {
+          utterance.lang = 'ta-IN';
         }
-        if (inTable) newLines.push('</table></div>');
-        html = newLines.join('\n');
+      } else {
+        const enVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Premium')));
+        if (enVoice) utterance.voice = enVoice;
+        utterance.lang = 'en-US';
       }
 
-      html = html.replace(/\n/g, '<br>');
-      this.stageContent.innerHTML = html;
-      this.stageContent.scrollTop = 0;
-    }
+      utterance.onend = () => {
+        this.isSpeaking = false;
+        if (this.playPauseBtn) this.playPauseBtn.innerHTML = '▶️ Replay';
+        if (this.voiceWave) this.voiceWave.classList.remove('speaking');
+        this.updateStatus('Executive Briefing Completed', false);
+      };
 
-    showLoading(show) {
-      if (this.loadingCard) this.loadingCard.style.display = show ? 'flex' : 'none';
-      if (this.stageContent && show) this.stageContent.style.opacity = '0.35';
-      if (this.stageContent && !show) this.stageContent.style.opacity = '1';
+      utterance.onerror = () => {
+        this.isSpeaking = false;
+        if (this.voiceWave) this.voiceWave.classList.remove('speaking');
+      };
+
+      window.speechSynthesis.speak(utterance);
     }
 
     stopSpeaking() {
@@ -743,133 +652,28 @@
         } catch (e) {}
         this.activeServerAudio = null;
       }
-      if (window.speechSynthesis) {
-        try { window.speechSynthesis.cancel(); } catch (e) {}
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
       }
-      if (this.voiceWave) this.voiceWave.style.opacity = '0.2';
-      if (this.voicePlayPauseBtn) this.voicePlayPauseBtn.innerHTML = '▶️ Resume';
-    }
-
-    speakReply(text, altEnglishText) {
-      if (!text || this.voiceEnabled === false) return;
-      this.stopSpeaking();
-      this.isSpeaking = true;
-      if (this.voicePlayPauseBtn) this.voicePlayPauseBtn.innerHTML = '⏸️ Pause';
-      this.updateVoiceStatus('🔊 Speaking Executive Advisory...', true);
-
-      const clean = text.replace(/[*_#`•⚠️📈🏢🚨|]/g, '').replace(/₹/g, ' rupees ').trim();
-
-      if (this.language === 'ta') {
-        if (window.speechSynthesis) {
-          const voices = window.speechSynthesis.getVoices() || [];
-          const taVoice = voices.find(v => {
-            const lang = (v.lang || '').toLowerCase();
-            const name = (v.name || '').toLowerCase();
-            return lang.startsWith('ta') || name.includes('tamil') || name.includes('தமிழ்');
-          });
-
-          if (taVoice) {
-            try {
-              const utter = new SpeechSynthesisUtterance(clean);
-              utter.voice = taVoice;
-              utter.lang = taVoice.lang || 'ta-IN';
-              utter.rate = 1.05;
-              utter.onend = () => {
-                this.isSpeaking = false;
-                this.updateVoiceStatus('Briefing Completed', false);
-              };
-              window.speechSynthesis.speak(utter);
-              return;
-            } catch (err) {}
-          }
-        }
-
-        try {
-          const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(clean.slice(0, 950)) + '&lang=ta');
-          audio.playbackRate = 1.1;
-          this.activeServerAudio = audio;
-          audio.onended = () => {
-            this.isSpeaking = false;
-            this.updateVoiceStatus('Briefing Completed', false);
-          };
-          audio.play().catch(e => {
-            this.speakEnglishFallback(altEnglishText || clean);
-          });
-          return;
-        } catch (e) {
-          this.speakEnglishFallback(altEnglishText || clean);
-        }
-      } else {
-        this.speakEnglishFallback(clean);
-      }
-    }
-
-    speakEnglishFallback(text) {
-      if (!window.speechSynthesis) return;
-      try {
-        const clean = (text || '').replace(/[*_#`•⚠️📈🏢🚨|]/g, '').replace(/₹/g, ' rupees ').trim();
-        const utter = new SpeechSynthesisUtterance(clean);
-        utter.rate = 1.05;
-        const voices = window.speechSynthesis.getVoices() || [];
-        const enVoice = voices.find(v => (v.lang === 'en-US' || v.lang === 'en-IN' || v.lang === 'en-GB')) ||
-                        voices.find(v => (v.lang || '').toLowerCase().startsWith('en'));
-        if (enVoice) utter.voice = enVoice;
-        utter.onend = () => {
-          this.isSpeaking = false;
-          this.updateVoiceStatus('Briefing Completed', false);
-        };
-        window.speechSynthesis.speak(utter);
-      } catch (e) {}
-    }
-
-    open() {
-      this.isOpen = true;
-      this.consoleWindow.classList.add('open');
-      this.backdrop.classList.add('active');
-      this.triggerPill.classList.add('active');
-
-      const dock = document.getElementById('argusAiDock');
-      if (dock) dock.classList.add('dock-hidden');
-
-      if (window.argusCoworkerAI && window.argusCoworkerAI.isOpen) {
-        window.argusCoworkerAI.close();
-      }
-
-      this.loadBriefing();
-      this.autoRunFlawAudit();
-    }
-
-    close() {
-      this.isOpen = false;
-      this.consoleWindow.classList.remove('open');
-      this.backdrop.classList.remove('active');
-      this.triggerPill.classList.remove('active');
-
-      const dock = document.getElementById('argusAiDock');
-      if (dock) dock.classList.remove('dock-hidden');
-
-      this.stopSpeaking();
-      this.stopSpeechRecognition();
-    }
-
-    toggle() {
-      if (this.isOpen) {
-        this.close();
-      } else {
-        this.open();
-      }
+      if (this.voiceWave) this.voiceWave.classList.remove('speaking');
     }
   }
 
-  // Initialize on DOM load
-  if (!window.argusAdvisorAI) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        if (!window.argusAdvisorAI) window.argusAdvisorAI = new AdvisorAIEngine();
-      });
-    } else {
-      window.argusAdvisorAI = new AdvisorAIEngine();
-    }
+  // --- INITIALIZE ADVISOR AI ON PAGE LOAD ---
+  function initAdvisorAI() {
+    if (window.argusAdvisorAI) return;
+    window.argusAdvisorAI = new AdvisorAIEngine();
   }
 
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAdvisorAI);
+  } else {
+    initAdvisorAI();
+  }
+
+  // Expose Global Quick Trigger for Audio Briefing button on dashboard
+  window.triggerAdvisorBriefing = function () {
+    if (!window.argusAdvisorAI) window.argusAdvisorAI = new AdvisorAIEngine();
+    window.argusAdvisorAI.open();
+  };
 })();

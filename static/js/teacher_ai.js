@@ -389,6 +389,19 @@
       this.injectUI();
       this.bindShortcuts();
       console.log('%c[Argus Teacher AI] Agent 1 initialized. Shortcut: CTRL+SHIFT', 'color: #38bdf8; font-weight: bold;');
+
+      // Auto-restore active state across sidebar tab navigation & SPA page loads
+      window.addEventListener('page:loaded', () => {
+        if (localStorage.getItem('argus_teacher_ai_active') === 'true' && !this.isActive) {
+          this.activate(true);
+        }
+      });
+
+      if (localStorage.getItem('argus_teacher_ai_active') === 'true') {
+        setTimeout(() => {
+          if (!this.isActive) this.activate(true);
+        }, 200);
+      }
     }
 
     injectUI() {
@@ -512,9 +525,10 @@
       }
     }
 
-    activate() {
+    activate(silent = false) {
       if (this.isActive) return;
       this.isActive = true;
+      localStorage.setItem('argus_teacher_ai_active', 'true');
       this.hudEl.classList.add('active');
       this.triggerPillEl.classList.add('active');
       this.triggerPillEl.setAttribute('data-tooltip', 'Teacher AI Active (Esc / Ctrl+Shift)');
@@ -524,12 +538,15 @@
       document.addEventListener('mouseleave', this._onMouseLeave, true);
       document.addEventListener('click', this._onDocumentClick, true);
 
-      this.speak("Teacher AI activated. Hover over or click any card, badge, or text to learn its rules and criteria.");
+      if (!silent) {
+        this.speak("Teacher AI activated. Hover over any card, badge, or text to learn its rules and criteria.");
+      }
     }
 
     deactivate() {
       if (!this.isActive) return;
       this.isActive = false;
+      localStorage.setItem('argus_teacher_ai_active', 'false');
       this.hudEl.classList.remove('active');
       this.triggerPillEl.classList.remove('active');
       this.triggerPillEl.setAttribute('data-tooltip', 'Teacher AI (Ctrl + Shift)');
@@ -558,6 +575,7 @@
     }
 
     // Handles user clicking on any card, text, or header (e.g. "Earnings", "Deductions")
+    // NEVER prevents navigation, button triggers, or tab switching!
     handleDocumentClick(e) {
       if (!this.isActive) return;
 
@@ -568,12 +586,39 @@
         return;
       }
 
-      const candidate = this.resolveInteractiveTarget(target);
+      // Check if clicked element is an actionable button, link, sidebar item, tab, or input
+      const actionable = target.closest(
+        'a, button, [role="button"], input, select, textarea, ' +
+        '.nav-item, .nav-link, .sidebar-link, .btn, .btn-toggle-tab, [onclick], ' +
+        '.tab-toggle-container, .sysadmin-company-select, .pagination a, [data-dismiss]'
+      );
+      if (actionable) {
+        // ALWAYS permit normal clicks, navigation, tab toggling, and button triggers!
+        return;
+      }
+
+      // If clicked on an informative element (stat card, financial title, column header)
+      const candidate = this.resolveClickableTextTarget(target);
       if (candidate) {
-        e.preventDefault();
-        e.stopPropagation();
         this.inspectElement(candidate, true);
       }
+    }
+
+    resolveClickableTextTarget(el) {
+      if (!el || el === document.body || el === document.documentElement) return null;
+      const card = el.closest('[data-teacher-key], .dash-stat-card, .stat-card, .stat-card-clean');
+      if (card) return card;
+
+      const text = (el.innerText || el.textContent || '').trim().toLowerCase();
+      if (text.length > 2 && text.length < 50) {
+        if (text.includes('earning') || text.includes('deduction') || text.includes('salary') ||
+            text.includes('timeout') || text.includes('advance') || text.includes('proper') ||
+            text.includes('improper') || text.includes('manual') || text.includes('present') ||
+            text.includes('absent') || text.includes('leave') || text.includes('total')) {
+          return el;
+        }
+      }
+      return null;
     }
 
     handleMouseMove(e) {
