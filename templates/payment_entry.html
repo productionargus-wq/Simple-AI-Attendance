@@ -50,26 +50,19 @@
       align-items: center !important;
       justify-content: space-between !important;
       flex-wrap: nowrap !important;
-      gap: 8px !important;
+      gap: 5px !important;
       margin-bottom: 12px;
-      padding-bottom: 4px;
-      overflow-x: auto;
-      overflow-y: hidden;
-      scrollbar-width: thin;
-      scrollbar-color: #cbd5e1 transparent;
-    }
-    .payment-unified-toolbar::-webkit-scrollbar {
-      height: 4px;
-    }
-    .payment-unified-toolbar::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 4px;
+      padding: 2px 0;
+      overflow-x: hidden !important;
+      overflow-y: hidden !important;
+      width: 100%;
+      box-sizing: border-box;
     }
     .toolbar-v-divider {
       width: 1px;
-      height: 22px;
+      height: 18px;
       background-color: #e2e8f0;
-      margin: 0 4px;
+      margin: 0 2px;
       flex-shrink: 0;
     }
     .toolbar-filter-chip {
@@ -77,14 +70,14 @@
       align-items: center;
       background: #ffffff;
       border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      height: 30px;
-      padding: 0 7px;
-      font-size: 11.5px;
+      border-radius: 5px;
+      height: 28px;
+      padding: 0 5px;
+      font-size: 11px;
       color: #334155;
       transition: all 0.15s ease;
       flex-shrink: 0;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      box-sizing: border-box;
     }
     .toolbar-filter-chip:hover {
       border-color: #94a3b8;
@@ -97,111 +90,134 @@
       border-color: #0284c7;
       background: #f0f9ff;
     }
-    .chip-label {
-      font-weight: 600;
-      color: #64748b;
+    .chip-icon {
       font-size: 11px;
-      margin-right: 4px;
+      margin-right: 3px;
       user-select: none;
-      white-space: nowrap;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
     }
     .chip-select {
       border: none;
       outline: none;
       background: transparent;
-      font-size: 11.5px;
+      font-size: 11px;
       color: #0f172a;
       font-weight: 500;
       cursor: pointer;
-      padding-right: 2px;
-      max-width: 125px;
+      padding: 0;
+      margin: 0;
     }
     .chip-input {
       border: none;
       outline: none;
       background: transparent;
-      font-size: 11.5px;
+      font-size: 11px;
       color: #0f172a;
       font-weight: 500;
       padding: 0 2px;
     }
     .chip-date-range {
-      gap: 4px;
-      padding: 0 7px;
+      gap: 2px;
+      padding: 0 4px;
     }
     .chip-date-input {
       border: none;
       outline: none;
       background: transparent;
-      font-size: 11px;
+      font-size: 10px;
       color: #0f172a;
       font-family: inherit;
       cursor: pointer;
       padding: 0;
-      width: 105px;
+      width: 78px;
     }
     .chip-date-sep {
       color: #94a3b8;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 700;
       user-select: none;
+      padding: 0 1px;
     }
     .btn-reset-filters {
       display: inline-flex;
       align-items: center;
-      height: 30px;
-      padding: 0 10px;
-      border-radius: 6px;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border-radius: 5px;
       border: 1px solid #e2e8f0;
       background: #f8fafc;
       color: #64748b;
-      font-size: 11px;
-      font-weight: 600;
       cursor: pointer;
       transition: all 0.15s ease;
       flex-shrink: 0;
-      user-select: none;
     }
     .btn-reset-filters:hover {
-      background: #f1f5f9;
-      color: #0f172a;
-      border-color: #cbd5e1;
+      background: #fee2e2;
+      color: #ef4444;
+      border-color: #fca5a5;
     }
-    .btn-reset-filters:active {
-      background: #e2e8f0;
+    .btn-compact-export {
+      padding: 2px 6px;
+      font-size: 10.5px;
+      font-weight: 600;
+      height: 28px;
+      border-radius: 5px;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      color: #475569;
+    }
+    .btn-compact-export:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #0f172a;
+    }
+    .btn-compact-export.btn-excel:hover {
+      color: #16a34a;
+      border-color: #86efac;
+      background: #f0fdf4;
+    }
+    .btn-compact-export.btn-pdf:hover {
+      color: #dc2626;
+      border-color: #fca5a5;
+      background: #fef2f2;
     }
   </style>
 
   <div class="table-toolbar payment-unified-toolbar">
     <!-- Left Group: Entries limit & Exports -->
-    <div class="table-toolbar-left" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-      <div class="entries-select-wrapper">
-        <span>Show</span>
-        <select id="paymentEntriesLimit" class="entries-select">
-          <option value="10" selected>10</option>
-          <option value="25">25</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        <span>entries</span>
-      </div>
+    <div class="table-toolbar-left" style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+      <select id="paymentEntriesLimit" class="entries-select" style="height: 28px; padding: 0 4px; font-size: 11px; border-radius: 5px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer;" title="Rows per page">
+        <option value="10" selected>10 / pg</option>
+        <option value="25">25 / pg</option>
+        <option value="50">50 / pg</option>
+        <option value="100">100 / pg</option>
+      </select>
 
-      <div class="export-btn-group">
-        <button class="btn-export btn-excel" id="btnPaymentExcel" title="Excel">Excel</button>
-        <button class="btn-export btn-pdf" id="btnPaymentPdf" title="PDF">PDF</button>
-        <button class="btn-export" id="btnPaymentPrint" title="Print">Print</button>
+      <div class="export-btn-group" style="display: flex; align-items: center; gap: 3px;">
+        <button class="btn-compact-export btn-excel" id="btnPaymentExcel" title="Export Excel">XLS</button>
+        <button class="btn-compact-export btn-pdf" id="btnPaymentPdf" title="Export PDF">PDF</button>
+        <button class="btn-compact-export" id="btnPaymentPrint" title="Print table">Print</button>
       </div>
     </div>
 
-    <!-- Center Group: Unified Filters -->
-    <div class="payment-filters-cluster" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: nowrap;">
+    <!-- Center Group: Unified Ultra-Compact Filters -->
+    <div class="payment-filters-cluster" style="display: flex; align-items: center; gap: 4px; flex-shrink: 0; flex-wrap: nowrap;">
       <div class="toolbar-v-divider"></div>
 
       <!-- Employee Filter -->
       <div class="toolbar-filter-chip" title="Filter by Employee">
-        <span class="chip-label">Employee:</span>
-        <select id="filterPaymentEmployee" class="chip-select">
-          <option value="All" selected>All</option>
+        <span class="chip-icon">👤</span>
+        <select id="filterPaymentEmployee" class="chip-select" style="max-width: 95px;">
+          <option value="All" selected>All Employees</option>
           {% for emp in employees %}
           <option value="{{ emp }}">{{ emp }}</option>
           {% endfor %}
@@ -210,23 +226,23 @@
 
       <!-- Date Range (From - To) -->
       <div class="toolbar-filter-chip chip-date-range" title="Filter by Payment Date Range">
-        <span class="chip-label">Date:</span>
-        <input type="date" id="filterPaymentStartDate" class="chip-date-input" title="Start Date">
+        <span class="chip-icon">📅</span>
+        <input type="date" id="filterPaymentStartDate" class="chip-date-input" title="From Date">
         <span class="chip-date-sep">→</span>
-        <input type="date" id="filterPaymentEndDate" class="chip-date-input" title="End Date">
+        <input type="date" id="filterPaymentEndDate" class="chip-date-input" title="To Date">
       </div>
 
       <!-- Amount Filter -->
       <div class="toolbar-filter-chip" title="Filter by Amount">
-        <span class="chip-label">₹</span>
-        <input type="text" id="filterPaymentAmount" class="chip-input" placeholder="Amount" style="width: 60px; text-align: center;">
+        <span class="chip-icon">₹</span>
+        <input type="text" id="filterPaymentAmount" class="chip-input" placeholder="Amt" style="width: 42px; text-align: center;">
       </div>
 
       <!-- Bank Filter -->
       <div class="toolbar-filter-chip" title="Filter by Bank / UPI">
-        <span class="chip-label">Bank:</span>
-        <select id="filterPaymentBank" class="chip-select">
-          <option value="All" selected>All</option>
+        <span class="chip-icon">🏦</span>
+        <select id="filterPaymentBank" class="chip-select" style="max-width: 78px;">
+          <option value="All" selected>Bank: All</option>
           <option value="HDFC">HDFC</option>
           <option value="SBI">SBI</option>
           <option value="ICICI">ICICI</option>
@@ -238,9 +254,9 @@
 
       <!-- Payment Type Filter -->
       <div class="toolbar-filter-chip" title="Filter by Payment Type">
-        <span class="chip-label">Type:</span>
-        <select id="filterPaymentType" class="chip-select">
-          <option value="All" selected>All</option>
+        <span class="chip-icon">💳</span>
+        <select id="filterPaymentType" class="chip-select" style="max-width: 76px;">
+          <option value="All" selected>Type: All</option>
           <option value="UPI">UPI</option>
           <option value="Cash">Cash</option>
           <option value="Net Banking">Net Banking</option>
@@ -252,9 +268,9 @@
 
       <!-- Status Filter -->
       <div class="toolbar-filter-chip" title="Filter by Status / Reason">
-        <span class="chip-label">Status:</span>
-        <select id="filterPaymentStatus" class="chip-select">
-          <option value="All" selected>All</option>
+        <span class="chip-icon">🏷️</span>
+        <select id="filterPaymentStatus" class="chip-select" style="max-width: 82px;">
+          <option value="All" selected>Status: All</option>
           <option value="Advance Payment">Advance Payment</option>
           <option value="Advance Repayment">Advance Repayment</option>
           <option value="Salary">Salary</option>
@@ -265,28 +281,24 @@
         </select>
       </div>
 
-      <!-- Reset Button -->
+      <!-- Reset Button (Icon Only) -->
       <button type="button" class="btn-reset-filters" id="btnResetPaymentFilters" title="Reset all filters">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: -1px; margin-right: 3px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
           <path d="M3 3v5h5"></path>
         </svg>
-        Reset
       </button>
 
       <div class="toolbar-v-divider"></div>
     </div>
 
-    <!-- Right Group: Search Box -->
-    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-      <div class="search-box-wrapper">
-        <label for="paymentSearch">Search:</label>
-        <input type="text" id="paymentSearch" class="search-input" placeholder="Search entries...">
+    <!-- Right Group: Compact Search Box -->
+    <div style="display: flex; align-items: center; flex-shrink: 0;">
+      <div class="search-box-wrapper" style="position: relative; display: flex; align-items: center;">
+        <input type="text" id="paymentSearch" class="search-input" placeholder="🔍 Search..." style="height: 28px; width: 110px; font-size: 11px; padding: 0 8px; border-radius: 5px; border: 1px solid #cbd5e1; background: #fff;">
       </div>
     </div>
-  </div>
-
-  <div class="table-responsive" id="printablePaymentSection">
+  </div><div class="table-responsive" id="printablePaymentSection">
     <table class="employee-table" id="paymentTable">
       <thead>
         <tr>
