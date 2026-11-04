@@ -709,17 +709,50 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  ['filterPaymentEmployee', 'filterPaymentStartDate', 'filterPaymentEndDate', 'filterPaymentAmount', 'filterPaymentBank', 'filterPaymentType', 'filterPaymentStatus'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('change', function () {
-        updateFilterChipActiveStates();
+  // Real-time debounced typing listener for Amount filter
+  const amountEl = document.getElementById('filterPaymentAmount');
+  let amountFilterTimer = null;
+  if (amountEl) {
+    amountEl.addEventListener('input', function () {
+      updateFilterChipActiveStates();
+      clearTimeout(amountFilterTimer);
+      amountFilterTimer = setTimeout(() => {
         paymentPage = 1;
         loadPayments();
+      }, 250);
+    });
+    amountEl.addEventListener('change', function () {
+      updateFilterChipActiveStates();
+      paymentPage = 1;
+      loadPayments();
+    });
+  }
+
+  // Real-time input & change listeners for Date Range filters
+  ['filterPaymentStartDate', 'filterPaymentEndDate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      ['input', 'change'].forEach(evt => {
+        el.addEventListener(evt, function () {
+          updateFilterChipActiveStates();
+          paymentPage = 1;
+          loadPayments();
+        });
       });
-      if (el.tagName === 'INPUT') {
-        el.addEventListener('input', updateFilterChipActiveStates);
-      }
+    }
+  });
+
+  // Real-time selection listeners for Dropdown select filters
+  ['filterPaymentEmployee', 'filterPaymentBank', 'filterPaymentType', 'filterPaymentStatus'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      ['change', 'input'].forEach(evt => {
+        el.addEventListener(evt, function () {
+          updateFilterChipActiveStates();
+          paymentPage = 1;
+          loadPayments();
+        });
+      });
     }
   });
 
@@ -782,20 +815,22 @@ document.addEventListener('DOMContentLoaded', function () {
     const employee = document.getElementById('filterPaymentEmployee').value;
     const startDate = document.getElementById('filterPaymentStartDate').value;
     const endDate = document.getElementById('filterPaymentEndDate').value;
+    const amountVal = document.getElementById('filterPaymentAmount') ? document.getElementById('filterPaymentAmount').value.trim() : '';
     const bank = document.getElementById('filterPaymentBank').value;
     const paymentType = document.getElementById('filterPaymentType').value;
     const statusVal = document.getElementById('filterPaymentStatus') ? document.getElementById('filterPaymentStatus').value : 'All';
-    window.location.href = `/api/payments/export/excel?employee=${encodeURIComponent(employee)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&bank=${encodeURIComponent(bank)}&payment_type=${encodeURIComponent(paymentType)}&status=${encodeURIComponent(statusVal)}&reason=${encodeURIComponent(statusVal)}`;
+    window.location.href = `/api/payments/export/excel?employee=${encodeURIComponent(employee)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&amount=${encodeURIComponent(amountVal)}&bank=${encodeURIComponent(bank)}&payment_type=${encodeURIComponent(paymentType)}&status=${encodeURIComponent(statusVal)}&reason=${encodeURIComponent(statusVal)}`;
   });
 
   document.getElementById('btnPaymentPdf').addEventListener('click', function () {
     const employee = document.getElementById('filterPaymentEmployee').value;
     const startDate = document.getElementById('filterPaymentStartDate').value;
     const endDate = document.getElementById('filterPaymentEndDate').value;
+    const amountVal = document.getElementById('filterPaymentAmount') ? document.getElementById('filterPaymentAmount').value.trim() : '';
     const bank = document.getElementById('filterPaymentBank').value;
     const paymentType = document.getElementById('filterPaymentType').value;
     const statusVal = document.getElementById('filterPaymentStatus') ? document.getElementById('filterPaymentStatus').value : 'All';
-    window.location.href = `/api/payments/export/pdf?employee=${encodeURIComponent(employee)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&bank=${encodeURIComponent(bank)}&payment_type=${encodeURIComponent(paymentType)}&status=${encodeURIComponent(statusVal)}&reason=${encodeURIComponent(statusVal)}`;
+    window.location.href = `/api/payments/export/pdf?employee=${encodeURIComponent(employee)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&amount=${encodeURIComponent(amountVal)}&bank=${encodeURIComponent(bank)}&payment_type=${encodeURIComponent(paymentType)}&status=${encodeURIComponent(statusVal)}&reason=${encodeURIComponent(statusVal)}`;
   });
 
   document.getElementById('btnPaymentPrint').addEventListener('click', function () {

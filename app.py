@@ -4327,6 +4327,7 @@ def api_get_payments():
     employee = request.args.get('employee', 'All').strip()
     start_date = request.args.get('start_date', '').strip()
     end_date = request.args.get('end_date', '').strip()
+    amount = request.args.get('amount', '').strip()
     bank = request.args.get('bank', 'All').strip()
     payment_type = request.args.get('payment_type', 'All').strip()
     status = (request.args.get('status') or request.args.get('reason') or 'All').strip()
@@ -4341,6 +4342,7 @@ def api_get_payments():
         bank=bank,
         payment_type=payment_type,
         status=status,
+        amount=amount,
         search=search,
         page=page,
         limit=limit,
@@ -4427,6 +4429,7 @@ def api_payments_export_excel():
     employee = request.args.get('employee', 'All').strip()
     start_date = request.args.get('start_date', '').strip()
     end_date = request.args.get('end_date', '').strip()
+    amount = request.args.get('amount', '').strip()
     bank = request.args.get('bank', 'All').strip()
     payment_type = request.args.get('payment_type', 'All').strip()
     status = (request.args.get('status') or request.args.get('reason') or 'All').strip()
@@ -4438,6 +4441,7 @@ def api_payments_export_excel():
         bank=bank,
         payment_type=payment_type,
         status=status,
+        amount=amount,
         limit=10000,
         company_id=get_current_company_id(),
         branch_id=get_current_branch_id()
@@ -4464,6 +4468,7 @@ def api_payments_export_pdf():
     employee = request.args.get('employee', 'All').strip()
     start_date = request.args.get('start_date', '').strip()
     end_date = request.args.get('end_date', '').strip()
+    amount = request.args.get('amount', '').strip()
     bank = request.args.get('bank', 'All').strip()
     payment_type = request.args.get('payment_type', 'All').strip()
     status = (request.args.get('status') or request.args.get('reason') or 'All').strip()
@@ -4475,6 +4480,7 @@ def api_payments_export_pdf():
         bank=bank,
         payment_type=payment_type,
         status=status,
+        amount=amount,
         limit=10000,
         company_id=get_current_company_id(),
         branch_id=get_current_branch_id()

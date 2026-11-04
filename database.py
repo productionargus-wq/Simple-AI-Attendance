@@ -4552,7 +4552,7 @@ def delete_attendance_report(report_id, is_manual=False, company_id=None):
 
 # ----------------- PAYMENT MANAGEMENT ----------------- #
 
-def get_payments(employee=None, start_date=None, end_date=None, bank=None, payment_type=None, status=None, reason=None, search=None, page=1, limit=10, company_id=None, branch_id=None):
+def get_payments(employee=None, start_date=None, end_date=None, bank=None, payment_type=None, status=None, reason=None, amount=None, search=None, page=1, limit=10, company_id=None, branch_id=None):
     db = get_db()
     conditions = []
     
@@ -4580,6 +4580,21 @@ def get_payments(employee=None, start_date=None, end_date=None, bank=None, payme
     filter_status = status if (status and status != 'All') else (reason if (reason and reason != 'All') else None)
     if filter_status:
         conditions.append({'$or': [{'status': filter_status}, {'reason': filter_status}]})
+        
+    if amount and str(amount).strip().lower() not in ['', 'all', 'none', 'null']:
+        clean_amt = str(amount).replace('₹', '').replace(',', '').strip()
+        try:
+            amt_val = float(clean_amt)
+            amt_cond = [
+                {'amount': amt_val},
+                {'amount': clean_amt},
+                {'amount': f"{amt_val:.2f}"}
+            ]
+            if amt_val.is_integer():
+                amt_cond.append({'amount': int(amt_val)})
+            conditions.append({'$or': amt_cond})
+        except (ValueError, TypeError):
+            pass
         
     if search:
         reg = {'$regex': re.escape(search), '$options': 'i'}
