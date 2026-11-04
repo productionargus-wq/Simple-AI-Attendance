@@ -259,7 +259,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script data-page-script="true">
 document.addEventListener('DOMContentLoaded', function () {
   let paymentPage = 1;
   let paymentLimit = 10;
@@ -640,6 +640,13 @@ document.addEventListener('DOMContentLoaded', function () {
   // Real-time synchronization with Co-Worker AI
   window.addEventListener('argus:payment-updated', function () {
     loadPayments();
+  });
+
+  // Dynamic SPA navigation lifecycle support
+  window.addEventListener('page:loaded', function () {
+    if (document.getElementById('paymentTableBody')) {
+      loadPayments();
+    }
   });
 });
 </script>

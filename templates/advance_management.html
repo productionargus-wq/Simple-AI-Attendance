@@ -169,7 +169,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script data-page-script="true">
 document.addEventListener('DOMContentLoaded', function () {
   let advancePage = 1;
   let advanceLimit = 10;
@@ -521,6 +521,13 @@ document.addEventListener('DOMContentLoaded', function () {
   // Real-time synchronization with Co-Worker AI
   window.addEventListener('argus:advance-updated', function () {
     loadAdvances();
+  });
+
+  // Dynamic SPA navigation lifecycle support
+  window.addEventListener('page:loaded', function () {
+    if (document.getElementById('advanceTableBody')) {
+      loadAdvances();
+    }
   });
 });
 </script>

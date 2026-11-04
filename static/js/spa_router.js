@@ -220,6 +220,7 @@
     // Also include any inline scripts from the new document that are NOT in the layout template
     const scriptsToRun = incomingScripts.filter(s => {
       if (s.hasAttribute('data-layout-script')) return false;
+      if (s.hasAttribute('data-page-script')) return true;
       const src = (s.getAttribute('src') || '').toLowerCase();
       if (src) {
         return !src.includes('main.js') &&
@@ -230,9 +231,12 @@
                !src.includes('advisor_ai.js') &&
                !src.includes('voice_assistant.js');
       }
-      // For inline scripts, only run if inside .main-content or marked page-script
+      // For inline scripts, only skip true base layout scripts
       const text = s.textContent || '';
-      if (text.includes('argus_remember_token') || text.includes('toggleNavBranchDropdown') || text.includes('IS_SYSTEM_ADMIN')) {
+      if (text.includes('window.IS_SYSTEM_ADMIN =') ||
+          text.includes('toggleNavBranchDropdown') ||
+          text.includes('globalSwitchSystemAdminCompany') ||
+          (text.includes('argus_remember_token') && text.includes('navCompanyDropdownBtn'))) {
         return false; // Skip base layout global scripts
       }
       return true;
