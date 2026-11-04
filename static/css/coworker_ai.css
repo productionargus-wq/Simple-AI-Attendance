@@ -123,6 +123,19 @@ body.coworker-modal-open .argus-ai-circle-btn {
   color: #ffffff;
 }
 
+/* Advisor Circle Button */
+.argus-ai-circle-btn.advisor-ai-btn {
+  background: linear-gradient(135deg, #1e1b4b 0%, #4f46e5 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(99, 102, 241, 0.4) !important;
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+}
+
+.argus-ai-circle-btn.advisor-ai-btn:hover {
+  background: linear-gradient(135deg, #312e81 0%, #6366f1 100%) !important;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5) !important;
+}
+
 .argus-ai-circle-btn.coworker-ai-btn:hover {
   background: linear-gradient(135deg, #128c7e 0%, #25d366 100%);
 }
@@ -202,6 +215,13 @@ body.coworker-modal-open .argus-ai-circle-btn {
 /* ==========================================================================
    3. WHATSAPP HEADER
    ========================================================================== */
+.coworker-chat-header {
+  cursor: grab;
+  user-select: none;
+}
+.coworker-chat-header:active {
+  cursor: grabbing;
+}
 .coworker-chat-header {
   background: #075e54;
   color: #ffffff;

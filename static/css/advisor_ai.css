@@ -8,7 +8,8 @@
   position: fixed;
   top: 20px;
   right: 24px;
-  width: 520px;
+  width: 590px;
+  max-width: calc(100vw - 24px);
   max-width: calc(100vw - 32px);
   background: rgba(15, 23, 42, 0.95);
   backdrop-filter: blur(16px);
@@ -36,6 +37,8 @@
 
 /* 2. HUD TOP BAR */
 .advisor-hud-top {
+  cursor: grab;
+  user-select: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -248,11 +251,9 @@
 .advisor-hud-chips-scroll {
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   padding: 6px 14px 10px 14px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
 }
 
 .advisor-hud-chips-scroll::-webkit-scrollbar {
@@ -384,4 +385,55 @@
     left: 12px;
     width: auto;
   }
+}
+
+
+/* Live Speech Captions Bar */
+.advisor-hud-captions {
+  padding: 6px 14px;
+  background: rgba(15, 23, 42, 0.85);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #f1f5f9;
+  max-height: 68px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.advisor-captions-badge {
+  display: inline-block;
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.advisor-captions-body {
+  flex: 1;
+  color: #e2e8f0;
+  font-style: italic;
+  word-break: break-word;
+}
+
+/* Advisor Circle Button */
+.argus-ai-circle-btn.advisor-ai-btn {
+  background: linear-gradient(135deg, #1e1b4b 0%, #4f46e5 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(99, 102, 241, 0.4) !important;
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+}
+
+.argus-ai-circle-btn.advisor-ai-btn:hover {
+  background: linear-gradient(135deg, #312e81 0%, #6366f1 100%) !important;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5) !important;
 }

@@ -141,6 +141,109 @@
     };
   }
 
+
+  // --- REUSABLE MODAL WINDOW DRAG & PLACE HELPER ---
+  if (!window.makeModalDraggable) {
+    window.makeModalDraggable = function (modalEl, handleEl, storageKey) {
+      if (!modalEl || !handleEl || modalEl.__modalDraggableReady) return;
+      modalEl.__modalDraggableReady = true;
+
+      function clampAndApply(left, top) {
+        const margin = 8;
+        const w = modalEl.offsetWidth || 400;
+        const h = modalEl.offsetHeight || 300;
+        const maxL = Math.max(margin, window.innerWidth - w - margin);
+        const maxT = Math.max(margin, window.innerHeight - h - margin);
+        const safeL = Math.max(margin, Math.min(left, maxL));
+        const safeT = Math.max(margin, Math.min(top, maxT));
+
+        modalEl.style.left = safeL + 'px';
+        modalEl.style.top = safeT + 'px';
+        modalEl.style.right = 'auto';
+        modalEl.style.bottom = 'auto';
+        modalEl.style.transform = 'none';
+      }
+
+      function restorePosition() {
+        try {
+          const saved = localStorage.getItem(storageKey);
+          if (saved) {
+            const pos = JSON.parse(saved);
+            if (typeof pos.left === 'number' && typeof pos.top === 'number') {
+              clampAndApply(pos.left, pos.top);
+              return;
+            }
+          }
+        } catch (e) {}
+      }
+
+      let isDragging = false;
+      let startX = 0;
+      let startY = 0;
+      let initialLeft = 0;
+      let initialTop = 0;
+
+      function onPointerDown(e) {
+        if (e.target.closest('button, input, textarea, select, a, [role="button"]')) return;
+        if (e.button !== 0 && e.type !== 'touchstart') return;
+
+        const pt = e.touches ? e.touches[0] : e;
+        isDragging = true;
+        startX = pt.clientX;
+        startY = pt.clientY;
+
+        const rect = modalEl.getBoundingClientRect();
+        initialLeft = rect.left;
+        initialTop = rect.top;
+
+        modalEl.style.transition = 'none';
+        document.body.style.userSelect = 'none';
+
+        document.addEventListener('mousemove', onPointerMove, { passive: false });
+        document.addEventListener('mouseup', onPointerUp, { passive: false });
+        document.addEventListener('touchmove', onPointerMove, { passive: false });
+        document.addEventListener('touchend', onPointerUp, { passive: false });
+      }
+
+      function onPointerMove(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        const pt = e.touches ? e.touches[0] : e;
+        const deltaX = pt.clientX - startX;
+        const deltaY = pt.clientY - startY;
+        clampAndApply(initialLeft + deltaX, initialTop + deltaY);
+      }
+
+      function onPointerUp() {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('mouseup', onPointerUp);
+        document.removeEventListener('touchmove', onPointerMove);
+        document.removeEventListener('touchend', onPointerUp);
+
+        const rect = modalEl.getBoundingClientRect();
+        try {
+          localStorage.setItem(storageKey, JSON.stringify({ left: rect.left, top: rect.top }));
+        } catch (e) {}
+      }
+
+      handleEl.addEventListener('mousedown', onPointerDown);
+      handleEl.addEventListener('touchstart', onPointerDown, { passive: true });
+
+      modalEl.__restorePosition = restorePosition;
+      window.addEventListener('resize', () => {
+        if (modalEl.classList.contains('active') || modalEl.classList.contains('open')) {
+          const rect = modalEl.getBoundingClientRect();
+          if (rect.left > 0 || rect.top > 0) {
+            clampAndApply(rect.left, rect.top);
+          }
+        }
+      });
+    };
+  }
+
   // --- ARGUS ADVISOR AI ENGINE (EXECUTIVE VOICE HUD) ---
   class AdvisorAIEngine {
     constructor() {
@@ -239,6 +342,12 @@
           </div>
         </div>
 
+        <!-- LIVE SPEECH CAPTIONS -->
+        <div class="advisor-hud-captions" id="advVoiceCaptions" style="display: none;">
+          <span class="advisor-captions-badge">CAPTIONS</span>
+          <span class="advisor-captions-body" id="advCaptionsBody">Ready for briefing...</span>
+        </div>
+
         <!-- PRIMARY ACTION ROW: MIC INTERRUPT & PLAY/PAUSE -->
         <div class="advisor-hud-controls">
           <button class="advisor-mic-interrupt-btn" id="advMicInterruptBtn" title="Click to speak and ask Advisor directly">
@@ -269,10 +378,15 @@
 
       document.body.appendChild(hudPill);
       this.hudPill = hudPill;
+      if (window.makeModalDraggable) {
+        window.makeModalDraggable(hudPill, hudPill.querySelector('.advisor-hud-top'), 'argus_pos_advisor_modal');
+      }
 
       // Selectors
       this.voiceWave = hudPill.querySelector('#advVoiceWave');
       this.voiceTicker = hudPill.querySelector('#advVoiceTicker');
+      this.captionsBox = hudPill.querySelector('#advVoiceCaptions');
+      this.captionsBody = hudPill.querySelector('#advCaptionsBody');
       this.micInterruptBtn = hudPill.querySelector('#advMicInterruptBtn');
       this.playPauseBtn = hudPill.querySelector('#advPlayPauseBtn');
       this.chipsScroll = hudPill.querySelector('#advChipsScroll');
@@ -441,6 +555,9 @@
     open() {
       this.isOpen = true;
       this.hudPill.classList.add('open');
+      if (this.hudPill.__restorePosition) {
+        setTimeout(() => this.hudPill.__restorePosition(), 10);
+      }
       const introLead = this.isSystemAdmin ?
         'Analyzing Multi-Company Fleet Performance & Operational Flaws...' :
         'Analyzing Live Organizational Performance & Operational Flaws...';
@@ -634,6 +751,13 @@
       }
     }
 
+
+    showCaptions(text) {
+      if (!this.captionsBox || !this.captionsBody || !text) return;
+      this.captionsBox.style.display = 'flex';
+      this.captionsBody.textContent = text;
+    }
+
     speak(textTaOrEn, textEnFallback) {
       if (!this.isOpen || !this.voiceEnabled || !textTaOrEn) return;
 
@@ -650,6 +774,7 @@
 
       // Clean special symbols before streaming
       const cleanText = textTaOrEn.replace(/[*#`_•]/g, '').slice(0, 1000);
+      this.showCaptions(cleanText);
       const encoded = encodeURIComponent(cleanText);
       const audioUrl = `/api/ai/speak?text=${encoded}&lang=${this.language}`;
       const audio = new Audio(audioUrl);
@@ -681,7 +806,20 @@
       window.speechSynthesis.cancel();
       const textToSpeak = (this.language === 'ta' && textTa) ? textTa : (textEn || textTa);
       const cleanText = textToSpeak.replace(/[*#`_•]/g, '');
+      this.showCaptions(cleanText);
       const utterance = new SpeechSynthesisUtterance(cleanText);
+
+      utterance.onboundary = (event) => {
+        if (event.name === 'word' && this.captionsBody) {
+          const charIdx = event.charIndex;
+          const spoken = cleanText.substring(0, charIdx);
+          const remaining = cleanText.substring(charIdx);
+          const spaceIdx = remaining.indexOf(' ');
+          const word = spaceIdx !== -1 ? remaining.substring(0, spaceIdx) : remaining;
+          const rest = spaceIdx !== -1 ? remaining.substring(spaceIdx) : '';
+          this.captionsBody.innerHTML = `<span style="color: #94a3b8;">${escapeHtml(spoken)}</span><span style="color: #38bdf8; font-weight: 700; background: rgba(56, 189, 248, 0.15); padding: 0 2px; border-radius: 2px;">${escapeHtml(word)}</span><span>${escapeHtml(rest)}</span>`;
+        }
+      };
 
       utterance.rate = 1.0;
       utterance.pitch = 1.0;

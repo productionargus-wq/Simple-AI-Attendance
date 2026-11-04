@@ -145,6 +145,108 @@ if (!window.makeAgentButtonDraggable) {
   };
 }
 
+// --- REUSABLE MODAL WINDOW DRAG & PLACE HELPER ---
+if (!window.makeModalDraggable) {
+  window.makeModalDraggable = function (modalEl, handleEl, storageKey) {
+    if (!modalEl || !handleEl || modalEl.__modalDraggableReady) return;
+    modalEl.__modalDraggableReady = true;
+
+    function clampAndApply(left, top) {
+      const margin = 8;
+      const w = modalEl.offsetWidth || 400;
+      const h = modalEl.offsetHeight || 300;
+      const maxL = Math.max(margin, window.innerWidth - w - margin);
+      const maxT = Math.max(margin, window.innerHeight - h - margin);
+      const safeL = Math.max(margin, Math.min(left, maxL));
+      const safeT = Math.max(margin, Math.min(top, maxT));
+
+      modalEl.style.left = safeL + 'px';
+      modalEl.style.top = safeT + 'px';
+      modalEl.style.right = 'auto';
+      modalEl.style.bottom = 'auto';
+      modalEl.style.transform = 'none';
+    }
+
+    function restorePosition() {
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const pos = JSON.parse(saved);
+          if (typeof pos.left === 'number' && typeof pos.top === 'number') {
+            clampAndApply(pos.left, pos.top);
+            return;
+          }
+        }
+      } catch (e) {}
+    }
+
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let initialLeft = 0;
+    let initialTop = 0;
+
+    function onPointerDown(e) {
+      if (e.target.closest('button, input, textarea, select, a, [role="button"]')) return;
+      if (e.button !== 0 && e.type !== 'touchstart') return;
+
+      const pt = e.touches ? e.touches[0] : e;
+      isDragging = true;
+      startX = pt.clientX;
+      startY = pt.clientY;
+
+      const rect = modalEl.getBoundingClientRect();
+      initialLeft = rect.left;
+      initialTop = rect.top;
+
+      modalEl.style.transition = 'none';
+      document.body.style.userSelect = 'none';
+
+      document.addEventListener('mousemove', onPointerMove, { passive: false });
+      document.addEventListener('mouseup', onPointerUp, { passive: false });
+      document.addEventListener('touchmove', onPointerMove, { passive: false });
+      document.addEventListener('touchend', onPointerUp, { passive: false });
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+      const pt = e.touches ? e.touches[0] : e;
+      const deltaX = pt.clientX - startX;
+      const deltaY = pt.clientY - startY;
+      clampAndApply(initialLeft + deltaX, initialTop + deltaY);
+    }
+
+    function onPointerUp() {
+      if (!isDragging) return;
+      isDragging = false;
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onPointerMove);
+      document.removeEventListener('mouseup', onPointerUp);
+      document.removeEventListener('touchmove', onPointerMove);
+      document.removeEventListener('touchend', onPointerUp);
+
+      const rect = modalEl.getBoundingClientRect();
+      try {
+        localStorage.setItem(storageKey, JSON.stringify({ left: rect.left, top: rect.top }));
+      } catch (e) {}
+    }
+
+    handleEl.addEventListener('mousedown', onPointerDown);
+    handleEl.addEventListener('touchstart', onPointerDown, { passive: true });
+
+    modalEl.__restorePosition = restorePosition;
+    window.addEventListener('resize', () => {
+      if (modalEl.classList.contains('active') || modalEl.classList.contains('open')) {
+        const rect = modalEl.getBoundingClientRect();
+        if (rect.left > 0 || rect.top > 0) {
+          clampAndApply(rect.left, rect.top);
+        }
+      }
+    });
+  };
+}
+
   class ArgusCoworkerAI {
     constructor() {
       this.isOpen = false;
@@ -336,6 +438,9 @@ if (!window.makeAgentButtonDraggable) {
       `;
       document.body.appendChild(win);
       this.chatWindow = win;
+      if (window.makeModalDraggable) {
+        window.makeModalDraggable(win, win.querySelector('.coworker-chat-header'), 'argus_pos_coworker_modal');
+      }
 
       this.messagesContainer = win.querySelector('#coworkerMessagesContainer');
       this.textarea = win.querySelector('#coworkerTextarea');
@@ -1046,6 +1151,9 @@ if (!window.makeAgentButtonDraggable) {
       this.isOpen = true;
       this.backdrop.classList.add('active');
       this.chatWindow.classList.add('active');
+      if (this.chatWindow.__restorePosition) {
+        setTimeout(() => this.chatWindow.__restorePosition(), 10);
+      }
       document.body.classList.add('coworker-modal-open');
       const dock = document.getElementById('argusAiDock');
       if (dock) dock.classList.add('dock-hidden');
