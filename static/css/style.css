@@ -1151,10 +1151,27 @@ body.modal-open {
   border-right: none !important;
 }
 
-.employee-table th .sort-icon {
+.employee-table th .sort-icon,
+table th .sort-icon,
+th .sort-icon {
   color: #94a3b8;
-  margin-left: 3px;
-  font-size: 10px;
+  margin-left: 4px;
+  font-size: 11px;
+  display: inline-block;
+  vertical-align: middle;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+table th:has(.sort-icon),
+table th[data-col],
+.employee-table th {
+  cursor: pointer;
+  user-select: none;
+}
+
+table th:has(.sort-icon):hover .sort-icon,
+table th[data-col]:hover .sort-icon {
+  color: #2563eb !important;
 }
 
 .employee-table td {
