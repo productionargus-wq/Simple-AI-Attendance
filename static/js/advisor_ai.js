@@ -456,6 +456,9 @@
       this.stopSpeaking();
       this.stopSpeechRecognition();
       if (this.targetCard) this.targetCard.classList.remove('visible');
+      if ('speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
     }
 
     updateStatus(text, isSpeaking = false) {
@@ -473,6 +476,7 @@
       try {
         const resp = await fetch(`/api/ai/advisor/live-flaws?lang=${this.language}`);
         const data = await resp.json();
+        if (!this.isOpen) return;
 
         if (data && data.success) {
           this.currentBriefingData = data;
@@ -493,6 +497,7 @@
           this.speak(fallbackSpeech, fallbackSpeech);
         }
       } catch (err) {
+        if (!this.isOpen) return;
         console.warn('Live flaws fetch fallback:', err);
         const resilientSpeech = (this.language === 'ta') ?
           'நிறுவனங்களின் கள நிலவரங்களை ஆய்வு செய்கிறேன். இன்றைய வருகை விகிதம் மற்றும் செயல்பாட்டு குறைபாடுகள் அறிக்கை தயாராக உள்ளது.' :
@@ -571,6 +576,7 @@
           body: JSON.stringify({ query: queryText, language: this.language })
         });
         const data = await resp.json();
+        if (!this.isOpen) return;
 
         if (data && data.success) {
           if (this.targetCard) {
@@ -608,6 +614,7 @@
           body: JSON.stringify({ audit_type: auditType, language: this.language })
         });
         const data = await resp.json();
+        if (!this.isOpen) return;
 
         if (data && data.success) {
           if (this.targetCard) {
@@ -628,7 +635,7 @@
     }
 
     speak(textTaOrEn, textEnFallback) {
-      if (!this.voiceEnabled || !textTaOrEn) return;
+      if (!this.isOpen || !this.voiceEnabled || !textTaOrEn) return;
 
       this.stopSpeaking();
       this.isSpeaking = true;
@@ -665,7 +672,7 @@
     }
 
     fallbackBrowserTTS(textTa, textEn) {
-      if (!('speechSynthesis' in window)) {
+      if (!this.isOpen || !('speechSynthesis' in window)) {
         this.isSpeaking = false;
         if (this.voiceWave) this.voiceWave.classList.remove('speaking');
         return;

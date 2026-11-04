@@ -931,16 +931,20 @@
         try {
           this.activeServerAudio.pause();
           this.activeServerAudio.currentTime = 0;
+          this.activeServerAudio.src = '';
         } catch (e) {}
         this.activeServerAudio = null;
       }
       if (this.synth) {
         try { this.synth.cancel(); } catch (e) {}
       }
+      if (window.speechSynthesis) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
     }
 
     speak(text) {
-      if (!text || this.voiceEnabled === false) return;
+      if (!this.isActive || !text || this.voiceEnabled === false) return;
       this.stopSpeaking();
 
       const clean = text.replace(/[*_#`•⚠️📈🏢🚨|]/g, '').replace(/₹/g, ' rupees ').trim();
@@ -983,7 +987,7 @@
     }
 
     speakEnglishFallback(text) {
-      if (!this.synth) return;
+      if (!this.isActive || !this.synth) return;
       try {
         const clean = (text || '').replace(/[*_#`•⚠️📈🏢🚨|]/g, '').replace(/₹/g, ' rupees ').trim();
         const utter = new SpeechSynthesisUtterance(clean);

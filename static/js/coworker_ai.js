@@ -655,6 +655,7 @@ if (!window.makeAgentButtonDraggable) {
 
         const data = await resp.json();
         this.showTyping(false);
+        if (!this.isOpen) return;
 
         if (data && data.success) {
           const aiReply = data.reply || 'Task completed.';
@@ -786,7 +787,7 @@ if (!window.makeAgentButtonDraggable) {
     }
 
     speakReply(text, altEnglishText) {
-      if (!text || this.voiceEnabled === false) return;
+      if (!this.isOpen || !text || this.voiceEnabled === false) return;
       this.stopSpeaking();
 
       const clean = text.replace(/[*_#`•⚠️📈🏢🚨👉📥👁️🔗]/g, '').replace(/₹/g, ' rupees ').trim();
@@ -838,7 +839,7 @@ if (!window.makeAgentButtonDraggable) {
     }
 
     speakEnglishFallback(text) {
-      if (!window.speechSynthesis) return;
+      if (!this.isOpen || !window.speechSynthesis) return;
       try {
         const clean = (text || '').replace(/[*_#`•⚠️📈🏢🚨👉📥👁️🔗]/g, '').replace(/₹/g, ' rupees ').trim();
         const utter = new SpeechSynthesisUtterance(clean);
@@ -1062,7 +1063,11 @@ if (!window.makeAgentButtonDraggable) {
       document.body.classList.remove('coworker-modal-open');
       const dock = document.getElementById('argusAiDock');
       if (dock) dock.classList.remove('dock-hidden');
+      this.stopSpeaking();
       this.stopSpeech();
+      if (window.speechSynthesis) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
     }
 
     toggle() {
