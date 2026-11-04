@@ -1995,12 +1995,6 @@ def get_today_attendance_summary(company_id=None, branch_id=None):
         p_filter = _merge(comp_base, branch_cond, {'date': today_str})
         ar_filter = _merge(comp_base, branch_cond, {'date': today_str})
         l_filter = _merge(comp_base, branch_cond, {'entry_time': {'$regex': today_slash}})
-        m_filter = _merge(comp_base, branch_cond, {'$or': [
-            {'entry_date': today_str},
-            {'date': today_str},
-            {'submitted_at': {'$regex': today_str}},
-            {'submitted_at': {'$regex': today_slash}}
-        ]})
         timeout_filter = _merge(comp_base, branch_cond, {'$or': [
             {'entry_time': {'$regex': today_slash}},
             {'exit_time': {'$regex': today_slash}}
@@ -2009,12 +2003,6 @@ def get_today_attendance_summary(company_id=None, branch_id=None):
         p_filter = {**comp_base, 'date': today_str}
         ar_filter = {**comp_base, 'date': today_str}
         l_filter = {**comp_base, 'entry_time': {'$regex': today_slash}}
-        m_filter = {**comp_base, '$or': [
-            {'entry_date': today_str},
-            {'date': today_str},
-            {'submitted_at': {'$regex': today_str}},
-            {'submitted_at': {'$regex': today_slash}}
-        ]}
         timeout_filter = {**comp_base, '$or': [
             {'entry_time': {'$regex': today_slash}},
             {'exit_time': {'$regex': today_slash}}
@@ -2023,10 +2011,9 @@ def get_today_attendance_summary(company_id=None, branch_id=None):
     att_docs = {a['employee_name']: a for a in db.attendance.find(p_filter) if a.get('employee_name')}
     ar_docs = {a['employee_name']: a for a in db.attendance_reports.find(ar_filter) if a.get('employee_name')}
     live_docs = {l['employee_name']: l for l in db.live_entries.find(l_filter) if l.get('employee_name')}
-    manual_docs = {m['employee_name']: m for m in db.manual_entries.find(m_filter) if m.get('employee_name')}
     timeout_today = {t['employee_name']: t for t in db.timeout_entries.find(timeout_filter) if t.get('employee_name')}
 
-    all_present_set = set(att_docs.keys()).union(set(ar_docs.keys())).union(set(live_docs.keys())).union(set(manual_docs.keys())).union(set(timeout_today.keys()))
+    all_present_set = set(att_docs.keys()).union(set(ar_docs.keys())).union(set(live_docs.keys())).union(set(timeout_today.keys()))
     combined_present = all_present_set.intersection(registered_names)
     present_count = len(combined_present)
 
@@ -2062,7 +2049,7 @@ def get_today_attendance_summary(company_id=None, branch_id=None):
         'on_leave_percentage': on_leave_pct,
         'timeout_percent': f"{timeout_pct}%",
         'timeout_percentage': timeout_pct,
-        'details_map': {**timeout_today, **manual_docs, **live_docs, **ar_docs, **att_docs}
+        'details_map': {**timeout_today, **live_docs, **ar_docs, **att_docs}
     }
 
 def get_dashboard_stats(company_id=None, branch_id=None):
@@ -2109,13 +2096,6 @@ def get_dashboard_stats(company_id=None, branch_id=None):
         p_filter = _combine_filter(comp_base, branch_punch_matcher, {'date': today_str})
         ar_today_filter = _combine_filter(comp_base, branch_punch_matcher, {'date': today_str})
         l_filter = _combine_filter(comp_base, branch_punch_matcher, {'entry_time': {'$regex': today_slash}})
-        m_filter = _combine_filter(comp_base, branch_punch_matcher, {
-            '$or': [
-                {'entry_date': today_str},
-                {'submitted_at': {'$regex': today_str}},
-                {'submitted_at': {'$regex': today_slash}}
-            ]
-        })
         timeout_filter = _combine_filter(comp_base, branch_punch_matcher, {
             '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
         })
@@ -2127,20 +2107,13 @@ def get_dashboard_stats(company_id=None, branch_id=None):
         ar_today_filter['date'] = today_str
         l_filter = dict(t_filter)
         l_filter['entry_time'] = {'$regex': today_slash}
-        m_filter = dict(t_filter)
-        m_filter['$or'] = [
-            {'entry_date': today_str},
-            {'submitted_at': {'$regex': today_str}},
-            {'submitted_at': {'$regex': today_slash}}
-        ]
         timeout_filter = {**t_filter, '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]}
 
     att_docs = {a['employee_name']: a for a in db.attendance.find(p_filter)}
     ar_docs = {a['employee_name']: a for a in db.attendance_reports.find(ar_today_filter)}
     live_docs = {l['employee_name']: l for l in db.live_entries.find(l_filter)}
-    manual_docs = {m['employee_name']: m for m in db.manual_entries.find(m_filter)}
     timeout_today = {t['employee_name']: t for t in db.timeout_entries.find(timeout_filter)}
-    combined_present = set(att_docs.keys()).union(set(ar_docs.keys())).union(set(live_docs.keys())).union(set(manual_docs.keys())).union(set(timeout_today.keys()))
+    combined_present = set(att_docs.keys()).union(set(ar_docs.keys())).union(set(live_docs.keys())).union(set(timeout_today.keys()))
     all_active_reg_names = set(e.get('employee_name') for e in db.employees.find({**t_filter, 'status': {'$ne': 'Inactive'}}, {'employee_name': 1}) if e.get('employee_name'))
     combined_present = combined_present.intersection(all_active_reg_names)
     present_count = len(combined_present)
@@ -2181,24 +2154,6 @@ def get_dashboard_stats(company_id=None, branch_id=None):
             day_map[dt]['present'].add(a['employee_name'])
 
     slash_pattern = "|".join([d.replace('/', '\\/') for d in day_slashes])
-    hyphen_pattern = "|".join(day_strs)
-    me_7d = list(db.manual_entries.find({
-        **record_base,
-        '$or': [
-            {'entry_date': {'$in': day_strs}},
-            {'submitted_at': {'$regex': hyphen_pattern}},
-            {'submitted_at': {'$regex': slash_pattern}}
-        ]
-    }, {'employee_name': 1, 'entry_date': 1, 'submitted_at': 1}))
-    for m in me_7d:
-        ename = m.get('employee_name')
-        edate = m.get('entry_date') or m.get('submitted_at', '')
-        for dt, info in day_map.items():
-            if dt in edate or info['slash'] in edate:
-                if ename:
-                    info['present'].add(ename)
-                break
-
     live_7d = list(db.live_entries.find({**record_base, 'entry_time': {'$regex': slash_pattern}}, {'employee_name': 1, 'entry_time': 1, 'is_timeout': 1}))
     for l in live_7d:
         et = l.get('entry_time', '')
@@ -2255,29 +2210,6 @@ def get_dashboard_stats(company_id=None, branch_id=None):
         if len(dt) >= 7:
             try:
                 m_idx = int(dt[5:7])
-                if m_idx in monthly_map:
-                    monthly_map[m_idx]['present_cnt'] += 1
-            except Exception:
-                pass
-
-    year_me = list(db.manual_entries.find({
-        **record_base,
-        '$or': [
-            {'entry_date': {'$regex': f"^{curr_year}-"}},
-            {'submitted_at': {'$regex': f"^{curr_year}-"}},
-            {'submitted_at': {'$regex': f"-{curr_year}$"}}
-        ]
-    }, {'entry_date': 1, 'submitted_at': 1}))
-    for m in year_me:
-        dt = m.get('entry_date') or m.get('submitted_at', '')
-        if len(dt) >= 7:
-            try:
-                if dt[4] == '-':
-                    m_idx = int(dt[5:7])
-                elif '/' in dt:
-                    m_idx = int(dt.split('/')[1])
-                else:
-                    m_idx = 0
                 if m_idx in monthly_map:
                     monthly_map[m_idx]['present_cnt'] += 1
             except Exception:
@@ -2366,13 +2298,6 @@ def get_dashboard_stats(company_id=None, branch_id=None):
             in_time = format_time_str(ar.get('entry_time'))
             out_time = format_time_str(ar.get('exit_time'))
             hours = str(ar.get('working_hours') or '-')
-            status = 'Present'
-            present_names_set.add(ename)
-        elif ename in manual_docs:
-            m = manual_docs[ename]
-            in_time = format_time_str(m.get('in_time') or m.get('entry_time'))
-            out_time = format_time_str(m.get('out_time') or m.get('exit_time'))
-            hours = str(m.get('working_hours') or m.get('hours') or '-')
             status = 'Present'
             present_names_set.add(ename)
         elif ename in approved_leaves_today or str(emp.get('id', '')) in approved_leaves_today:
@@ -9832,19 +9757,10 @@ def get_branch_attendance_summary(company_id=None):
     l_filter['entry_time'] = {'$regex': today_slash}
     live_docs = {l.get('employee_name'): l for l in db.live_entries.find(l_filter)}
     
-    m_filter = dict(t_filter)
-    m_filter['$or'] = [
-        {'entry_date': today_str},
-        {'submitted_at': {'$regex': today_str}},
-        {'submitted_at': {'$regex': today_slash}}
-    ]
-    manual_docs = {m.get('employee_name'): m for m in db.manual_entries.find(m_filter)}
-    
     timeout_today = {t.get('employee_name'): t for t in db.timeout_entries.find({**t_filter, '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]})}
     combined_present = set(k for k in att_docs.keys() if k).union(
         set(k for k in ar_docs.keys() if k),
         set(k for k in live_docs.keys() if k),
-        set(k for k in manual_docs.keys() if k),
         set(k for k in timeout_today.keys() if k)
     )
     
