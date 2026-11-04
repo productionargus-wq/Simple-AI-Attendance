@@ -4246,8 +4246,6 @@ def api_update_manual_entry(entry_id):
 @app.route('/api/manual-entries/<entry_id>', methods=['DELETE'])
 @login_required
 def api_delete_manual_entry(entry_id):
-    if not check_user_can_delete_entries():
-        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     entry = database.get_manual_entry_by_id(entry_id)
     if not entry:
         return jsonify({'error': 'Manual entry not found'}), 404
@@ -4413,8 +4411,6 @@ def api_update_payment(payment_id):
 @app.route('/api/payments/<payment_id>', methods=['DELETE'])
 @login_required
 def api_delete_payment(payment_id):
-    if not check_user_can_delete_entries():
-        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     p = database.get_payment_by_id(payment_id)
     if not p:
         return jsonify({'error': 'Payment not found'}), 404
@@ -4555,8 +4551,6 @@ def api_update_advance(advance_id):
 @app.route('/api/advances/<advance_id>', methods=['DELETE'])
 @login_required
 def api_delete_advance(advance_id):
-    if not check_user_can_delete_entries():
-        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     a = database.get_advance_by_id(advance_id)
     if not a:
         return jsonify({'error': 'Advance not found'}), 404

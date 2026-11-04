@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <td><span class="${salClass}">${salDisplay}</span></td>
         <td>
           <button class="btn-action-manual-edit" onclick="editManualEntry(${r.id})">Edit</button>
-          ${(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? `<button class="btn-action-manual-del" onclick="deleteManualEntry(${r.id}, '${escapeHtml(r.employee_name)}')">Del</button>` : ''}
+          <button class="btn-action-manual-del" onclick="deleteManualEntry(${r.id}, '${escapeHtml(r.employee_name)}')">Del</button>
         </td>
       `;
       tableBody.appendChild(tr);
