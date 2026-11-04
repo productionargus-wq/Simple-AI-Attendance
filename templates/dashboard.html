@@ -486,7 +486,7 @@
           <thead>
             <tr>
               <th style="width: 28px; text-align: center;">#</th>
-              <th style="min-width: 120px;">Employee Name</th>
+              <th class="sticky-col-emp" style="min-width: 120px;">Employee Name</th>
               <th style="text-align: center; white-space: nowrap; width: 68px;">In Time</th>
               <th style="text-align: center; white-space: nowrap; width: 68px;">Out Time</th>
               <th style="text-align: center; white-space: nowrap; width: 60px;">Hours</th>
@@ -498,7 +498,7 @@
               {% for row in stats.today_attendance[:6] %}
               <tr>
                 <td class="text-muted" style="text-align: center;">{{ loop.index }}</td>
-                <td class="font-semibold text-dark" style="white-space: nowrap;">{{ row.employee_name }}</td>
+                <td class="font-semibold text-dark sticky-col-emp" style="white-space: nowrap;">{{ row.employee_name }}</td>
                 <td style="text-align: center; white-space: nowrap;">{{ row.in_time }}</td>
                 <td style="text-align: center; white-space: nowrap;">{{ row.out_time }}</td>
                 <td style="text-align: center; white-space: nowrap;">{{ row.hours }}</td>

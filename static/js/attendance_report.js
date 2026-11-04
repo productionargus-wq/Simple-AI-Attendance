@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const exitLocIcon = isLeave ? '<span style="color: #7e22ce; margin-right: 3px;">📅</span>' : (r.exit_location && r.exit_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : '');
 
       tr.innerHTML = `
-        <td style="white-space: nowrap;"><strong>${escapeHtml(r.employee_name)}</strong></td>
+        <td class="sticky-col-emp" style="white-space: nowrap;"><strong>${escapeHtml(r.employee_name)}</strong></td>
         <td style="white-space: nowrap;">${escapeHtml(r.entry_time || '')}</td>
         <td class="col-nowrap" data-col="entry_distance" title="${escapeHtml(r.entry_location || '')}" style="white-space: nowrap !important; min-width: 130px;">
           ${isLeave ? '<span class="table-badge badge-leave">LEAVE</span>' : escapeHtml(r.entry_distance || '')}
@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function () {
       ` : '';
 
       tr.innerHTML = `
-        <td>${escapeHtml(r.employee_name)}</td>
+        <td class="sticky-col-emp">${escapeHtml(r.employee_name)}</td>
         <td>${entryTimeHtml}</td>
         <td>${escapeHtml(r.exit_time || '')}</td>
         <td>${escapeHtml(r.working_hours || '')}</td>

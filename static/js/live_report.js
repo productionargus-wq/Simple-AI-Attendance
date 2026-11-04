@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', function () {
       ` : '';
 
       tr.innerHTML = `
-        <td style="white-space: nowrap;"><strong>${escapeHtml(entry.employee_name)}</strong></td>
+        <td class="sticky-col-emp" style="white-space: nowrap;"><strong>${escapeHtml(entry.employee_name)}</strong></td>
         <td style="white-space: nowrap;">${escapeHtml(timeDisplay)}</td>
         <td class="col-location" data-col="entry_location" title="${escapeHtml(locDisplay)}" style="min-width: 220px; max-width: 320px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">
           ${locDisplay && locDisplay !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${escapeHtml(locDisplay)}

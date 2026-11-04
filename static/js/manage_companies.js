@@ -332,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function () {
       row.innerHTML = `
         <td style="font-weight: 700; color: #64748b; text-align: center; white-space: nowrap;">${slNo}</td>
         <td style="text-align: center; vertical-align: middle;">${logoHtml}</td>
-        <td class="col-wrap" style="min-width: 170px; max-width: 280px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important;">
+        <td class="col-wrap sticky-col-comp" style="min-width: 170px; max-width: 280px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important;">
           <div style="font-weight: 800; color: #0f172a; font-size: 12.5px; line-height: 1.35; word-break: break-word;">${escapeHtml(comp.company_name)}</div>
           <div style="font-size: 10.5px; color: #64748b; font-family: monospace; margin-top: 2px; white-space: nowrap;">ID: ${comp.id}</div>
         </td>

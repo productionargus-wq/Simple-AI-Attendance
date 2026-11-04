@@ -394,7 +394,7 @@ document.addEventListener('DOMContentLoaded', function () {
       return `
         <tr>
           <td class="text-muted">${idx + 1}</td>
-          <td class="font-semibold text-dark">${escapeHtml(row.employee_name)}</td>
+          <td class="font-semibold text-dark sticky-col-emp">${escapeHtml(row.employee_name)}</td>
           <td>${escapeHtml(row.in_time || '-')}</td>
           <td>${escapeHtml(row.out_time || '-')}</td>
           <td>${escapeHtml(row.hours || '-')}</td>

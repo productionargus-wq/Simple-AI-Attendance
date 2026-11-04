@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', function () {
         tr.innerHTML = `
         <td style="font-weight: 700; color: #0f172a; white-space: nowrap;">${escapeHtml(emp.id)}</td>
         <td style="text-align: center; vertical-align: middle;">${photoHtml}</td>
-        <td class="col-wrap" style="max-width: 180px; white-space: normal !important; word-break: break-word !important;"><strong style="color: #0f172a;">${escapeHtml(emp.employee_name)}</strong>${fwBadge}</td>
+        <td class="col-wrap sticky-col-emp" style="max-width: 180px; white-space: normal !important; word-break: break-word !important;"><strong style="color: #0f172a;">${escapeHtml(emp.employee_name)}</strong>${fwBadge}</td>
         <td class="col-wrap" style="color: #475569; max-width: 160px; white-space: normal !important; word-break: break-word !important;">${escapeHtml(emp.designation || '')}</td>
         <td style="white-space: nowrap;">${statusBadgeHtml}</td>
         <td style="white-space: nowrap;">${badgeHtml}</td>

@@ -9,7 +9,7 @@
  *   b. Rule / criteria
  *
  * Triggered by shortcut key: CTRL + SHIFT (or CTRL + SHIFT + T)
- * Or by clicking the floating bottom-right '🎓 Teacher AI' trigger pill.
+ * Or by clicking the floating bottom-right '🎓 Teacher' trigger pill.
  */
 
 (function (window, document) {
@@ -388,7 +388,7 @@
     init() {
       this.injectUI();
       this.bindShortcuts();
-      console.log('%c[Argus Teacher AI] Agent 1 initialized. Shortcut: CTRL+SHIFT', 'color: #38bdf8; font-weight: bold;');
+      console.log('%c[Argus Teacher] Agent 1 initialized. Shortcut: CTRL+SHIFT', 'color: #38bdf8; font-weight: bold;');
 
       // Auto-restore active state across sidebar tab navigation & SPA page loads
       window.addEventListener('page:loaded', () => {
@@ -412,7 +412,7 @@
         <div class="teacher-ai-hud-pulse"></div>
         <div class="teacher-ai-hud-title">
           <span>🎓</span>
-          <span>Teacher AI Active</span>
+          <span>Teacher Active</span>
         </div>
         <div class="teacher-ai-hud-info">Hover or click any card, badge, or text to learn rules & criteria</div>
         <div class="teacher-ai-hud-actions">
@@ -422,7 +422,7 @@
           <button type="button" class="teacher-ai-btn-voice" id="teacherAiToggleVoiceBtn" title="Toggle Spoken Voice Explanation">
             <span>${this.voiceEnabled ? '🔊 Voice: ON' : '🔇 Voice: OFF'}</span>
           </button>
-          <button type="button" class="teacher-ai-btn-close" id="teacherAiCloseBtn" title="Exit Teacher AI (Ctrl+Shift)">&times;</button>
+          <button type="button" class="teacher-ai-btn-close" id="teacherAiCloseBtn" title="Exit Teacher (Ctrl+Shift)">&times;</button>
         </div>
       `;
       document.body.appendChild(this.hudEl);
@@ -458,8 +458,8 @@
       this.circleBtn = document.createElement('button');
       this.circleBtn.className = 'argus-ai-circle-btn teacher-ai-btn';
       this.circleBtn.id = 'teacherAiCircleBtn';
-      this.circleBtn.setAttribute('data-tooltip', 'Teacher AI (Ctrl + Shift)');
-      this.circleBtn.setAttribute('aria-label', 'Toggle Teacher AI');
+      this.circleBtn.setAttribute('data-tooltip', 'Teacher (Ctrl + Shift)');
+      this.circleBtn.setAttribute('aria-label', 'Toggle Teacher');
       this.circleBtn.innerHTML = `<span class="argus-ai-icon">🎓</span>`;
       dock.appendChild(this.circleBtn);
       this.triggerPillEl = this.circleBtn;
@@ -531,7 +531,7 @@
       localStorage.setItem('argus_teacher_ai_active', 'true');
       this.hudEl.classList.add('active');
       this.triggerPillEl.classList.add('active');
-      this.triggerPillEl.setAttribute('data-tooltip', 'Teacher AI Active (Esc / Ctrl+Shift)');
+      this.triggerPillEl.setAttribute('data-tooltip', 'Teacher Active (Esc / Ctrl+Shift)');
 
       // Attach mouse tracking and click inspection
       document.addEventListener('mouseover', this._onMouseMove, true);
@@ -539,7 +539,7 @@
       document.addEventListener('click', this._onDocumentClick, true);
 
       if (!silent) {
-        this.speak("Teacher AI activated. Hover over any card, badge, or text to learn its rules and criteria.");
+        this.speak("Teacher activated. Hover over any card, badge, or text to learn its rules and criteria.");
       }
     }
 
@@ -549,7 +549,7 @@
       localStorage.setItem('argus_teacher_ai_active', 'false');
       this.hudEl.classList.remove('active');
       this.triggerPillEl.classList.remove('active');
-      this.triggerPillEl.setAttribute('data-tooltip', 'Teacher AI (Ctrl + Shift)');
+      this.triggerPillEl.setAttribute('data-tooltip', 'Teacher (Ctrl + Shift)');
 
       document.removeEventListener('mouseover', this._onMouseMove, true);
       document.removeEventListener('mouseleave', this._onMouseLeave, true);

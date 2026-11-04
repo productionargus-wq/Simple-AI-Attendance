@@ -178,9 +178,9 @@
       const circleBtn = document.createElement('button');
       circleBtn.className = 'argus-ai-circle-btn advisor-ai-btn';
       circleBtn.id = 'advisorAiCircleBtn';
-      circleBtn.setAttribute('data-tooltip', 'Advisor AI (Ctrl+Shift+Alt)');
-      circleBtn.setAttribute('title', 'Advisor AI (Ctrl+Shift+Alt)');
-      circleBtn.setAttribute('aria-label', 'Advisor AI');
+      circleBtn.setAttribute('data-tooltip', 'Advisor (Ctrl+Shift+Alt)');
+      circleBtn.setAttribute('title', 'Advisor (Ctrl+Shift+Alt)');
+      circleBtn.setAttribute('aria-label', 'Advisor');
       circleBtn.innerHTML = '💼';
 
       dock.appendChild(circleBtn);
@@ -210,7 +210,7 @@
             <div class="advisor-hud-icon">💼</div>
             <div class="advisor-hud-meta">
               <div class="advisor-hud-title-wrap">
-                <span class="advisor-hud-title">Advisor AI</span>
+                <span class="advisor-hud-title">Advisor</span>
                 <span class="advisor-hud-badge">${roleBadge}</span>
               </div>
               <span class="advisor-hud-role">${roleSubtitle}</span>
@@ -223,7 +223,7 @@
             <button class="advisor-hud-btn" id="advHudVoiceToggleBtn" title="Toggle Audio">
               🔊
             </button>
-            <button class="advisor-hud-btn close" id="advHudCloseBtn" title="Close Advisor AI (Esc)">
+            <button class="advisor-hud-btn close" id="advHudCloseBtn" title="Close Advisor (Esc)">
               ✕
             </button>
           </div>
@@ -241,7 +241,7 @@
 
         <!-- PRIMARY ACTION ROW: MIC INTERRUPT & PLAY/PAUSE -->
         <div class="advisor-hud-controls">
-          <button class="advisor-mic-interrupt-btn" id="advMicInterruptBtn" title="Click to speak and ask Advisor AI directly">
+          <button class="advisor-mic-interrupt-btn" id="advMicInterruptBtn" title="Click to speak and ask Advisor directly">
             🎙️ Speak to Interrupt
           </button>
           <button class="advisor-play-btn" id="advPlayPauseBtn" title="Pause / Resume Briefing">

@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       tr.innerHTML = `
-        <td class="col-wrap" style="white-space: normal !important; word-break: break-word !important; min-width: 140px;">${escapeHtml(r.employee_name)}</td>
+        <td class="col-wrap sticky-col-emp" style="white-space: normal !important; word-break: break-word !important; min-width: 140px;">${escapeHtml(r.employee_name)}</td>
         <td>${escapeHtml(r.entry_date || '')}</td>
         <td>${hoursDisplay}</td>
         <td class="col-wrap" style="white-space: normal !important; word-break: break-word !important; min-width: 120px;">${escapeHtml(statusDisplay)}</td>

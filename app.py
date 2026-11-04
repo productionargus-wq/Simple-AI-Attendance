@@ -3645,7 +3645,7 @@ def api_voice_tamil_tts():
     """
     Synthesizes and streams authentic voice audio (MP3) using gTTS for English and Tamil.
     Implements persistent disk caching so repeated voice messages return in < 10ms.
-    Used for Advisor AI, Teacher AI, and Co-Worker AI audio responses.
+    Used for Advisor, Teacher, and Co-Worker audio responses.
     """
     text = (request.args.get('text') or '').strip()
     default_lang = 'ta' if request.path.endswith('tamil-tts') else 'en'
@@ -6352,7 +6352,7 @@ def api_system_gemini_key():
 
 @app.route('/api/ai/teacher/explain', methods=['POST'])
 def api_teacher_ai_explain():
-    """Contextual explanation endpoint for Teacher AI powered by Google Gemini (with instant offline fallback)."""
+    """Contextual explanation endpoint for Teacher powered by Google Gemini (with instant offline fallback)."""
     try:
         data = request.get_json(silent=True) or {}
         element_title = str(data.get('title') or data.get('label') or '').strip()
@@ -6383,7 +6383,7 @@ def api_teacher_ai_explain():
                 user_lang = teacher_lang
                 user_lang_inst = "Respond with 'reply_text' in fluent, authentic Tamil (தமிழ்)." if user_lang == 'ta' else ""
                 prompt = (
-                    "You are Teacher AI for Argus Attendance Intelligence v2.0.0 by Argus CNC™. "
+                    "You are Teacher for Argus Attendance Intelligence v2.0.0 by Argus CNC™. "
                     "Explain clearly and concisely in exactly 1 or 2 sentences what this UI control does and how it affects attendance or operations.\n"
                     f"Element Name: {element_title}\n"
                     f"Element Type: {element_tag}\n"
@@ -6411,7 +6411,7 @@ def api_teacher_ai_explain():
                             app._teacher_ai_cache[cache_key] = parsed
                             return jsonify({'success': True, 'ai_generated': True, **parsed})
             except Exception as gemini_err:
-                print(f"Warning: Teacher AI Gemini generation notice: {gemini_err}")
+                print(f"Warning: Teacher Gemini generation notice: {gemini_err}")
 
         # Fallback explanation
         fallback_res = {
@@ -6865,7 +6865,7 @@ def api_coworker_ai_chat():
                     'status': 'Advance Repayment',
                     'payment_type': 'Cash' if 'cash' in msg_lower else ('Bank' if 'bank' in msg_lower else 'UPI'),
                     'date': date_val,
-                    'reason': 'Advance Repayment via Co-Worker AI'
+                    'reason': 'Advance Repayment via Co-Worker'
                 },
                 'reply_text': ''
             }
@@ -6990,7 +6990,7 @@ def api_coworker_ai_chat():
                         'hours': hours_val,
                         'status': st_val,
                         'date': date_val,
-                        'reason': 'Recorded by Co-Worker AI'
+                        'reason': 'Recorded by Co-Worker'
                     },
                     'reply_text': ''
                 }
@@ -7092,7 +7092,7 @@ def api_coworker_ai_chat():
                     emp_list_str = ", ".join(emp_names[:50])
                     clean_msg = user_message.replace('"', '\"').replace('\n', ' ')
                     prompt = (
-                        "You are Co-Worker AI, an operations assistant for Argus Attendance Intelligence.\n"
+                        "You are Co-Worker, an operations assistant for Argus Attendance Intelligence.\n"
                         f"Current Date: {datetime.now().strftime('%Y-%m-%d')}\n"
                         f"Employees: [{emp_list_str}]\n"
                         f'User Message: "{clean_msg}"\n'
@@ -7115,7 +7115,7 @@ def api_coworker_ai_chat():
             parsed_action = {
                 'action': 'general_chat',
                 'parameters': {},
-                'reply_text': f"I understand: '{user_message}'. As your operations Co-Worker AI, I can log advance repayments, issue advances, record manual attendance, generate payslips, apply leaves, and execute all administrative tasks."
+                'reply_text': f"I understand: '{user_message}'. As your operations Co-Worker, I can log advance repayments, issue advances, record manual attendance, generate payslips, apply leaves, and execute all administrative tasks."
             }
 
         # =====================================================================
@@ -7155,7 +7155,7 @@ def api_coworker_ai_chat():
             status = params.get('status') or 'Advance Repayment'
             pay_type = params.get('payment_type') or 'UPI'
             pay_date = params.get('date') or parse_date_from_text(user_message, default_today=True)
-            reason = params.get('reason') or f"{status} recorded via Co-Worker AI"
+            reason = params.get('reason') or f"{status} recorded via Co-Worker"
 
             payment_payload = {
                 'employee_name': canonical_emp,
@@ -7286,7 +7286,7 @@ def api_coworker_ai_chat():
                 'hours': hours_str,
                 'mode': 'Hours',
                 'status': status,
-                'reason': params.get('reason') or 'Recorded by Co-Worker AI',
+                'reason': params.get('reason') or 'Recorded by Co-Worker',
                 'company_id': target_cid,
                 'branch_id': target_bid
             }
@@ -7569,7 +7569,7 @@ def api_coworker_ai_chat():
         })
 
     except Exception as e:
-        return jsonify({'success': False, 'error': f"Co-Worker AI error: {str(e)}"}), 500
+        return jsonify({'success': False, 'error': f"Co-Worker error: {str(e)}"}), 500
 
 
 # ==============================================================================
@@ -7581,7 +7581,7 @@ _ADVISOR_CACHE_LOCK = threading.Lock()
 
 def compute_advisor_flaws(cid=None, user_lang='en'):
     """
-    Core Advisor AI Flaw Analytics Engine:
+    Core Advisor Flaw Analytics Engine:
     Detects organizational flaws, repeated late arrivals, missing punch-outs/manual entry reliance,
     credit risk/advance liabilities, and company performance overview.
     For System Admin (super_admin), computes multi-tenant fleet performance and per-company flaws.
@@ -7807,7 +7807,7 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
                     'flaws': comp_flaws
                 })
             except Exception as e_comp:
-                print(f"[Advisor AI Fleet Audit] Skipping company: {e_comp}")
+                print(f"[Advisor Fleet Audit] Skipping company: {e_comp}")
                 continue
 
         fleet_companies.sort(key=lambda x: (x['health_score'], -len(x['flaws']), -x['net_adv']))
@@ -7844,7 +7844,7 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
             if user_lang == 'ta':
                 flaws_detail_md += f"• **{f['title_ta']}**: {f['observation']}\n  *பரிந்துரை*: {f['suggestion']}\n\n"
             else:
-                flaws_detail_md += f"• **{f['title']}**: {f['observation']}\n  *Advisor AI Action*: {f['suggestion']}\n\n"
+                flaws_detail_md += f"• **{f['title']}**: {f['observation']}\n  *Advisor Action*: {f['suggestion']}\n\n"
 
         if user_lang == 'ta':
             report_md = (
@@ -8029,9 +8029,9 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
     flaws_md = ""
     for f in flaws:
         if user_lang == 'ta':
-            flaws_md += f"#### ⚠️ {f.get('title_ta') or f['title']}\n• **கண்டறியப்பட்ட குறைபாடு**: {f.get('observation_ta') or f['observation']}\n• **Advisor AI பரிந்துரை**: {f.get('suggestion_ta') or f['suggestion']}\n\n"
+            flaws_md += f"#### ⚠️ {f.get('title_ta') or f['title']}\n• **கண்டறியப்பட்ட குறைபாடு**: {f.get('observation_ta') or f['observation']}\n• **Advisor பரிந்துரை**: {f.get('suggestion_ta') or f['suggestion']}\n\n"
         else:
-            flaws_md += f"#### ⚠️ {f['title']}\n• **Identified Flaw**: {f['observation']}\n• **Advisor AI Action**: {f['suggestion']}\n\n"
+            flaws_md += f"#### ⚠️ {f['title']}\n• **Identified Flaw**: {f['observation']}\n• **Advisor Action**: {f['suggestion']}\n\n"
 
     if user_lang == 'ta':
         report_md = (
@@ -8099,9 +8099,9 @@ def api_advisor_ai_live_flaws():
             'is_system_admin': session.get('role') == 'super_admin',
             'flaws': [],
             'fleet_companies': [],
-            'speech_en': 'Advisor AI is continuously monitoring live workforce metrics across your organization.',
+            'speech_en': 'Advisor is continuously monitoring live workforce metrics across your organization.',
             'speech_ta': 'ஆலோசகர் AI உங்கள் அமைப்பின் நிகழ்நேர பணியாளர் நிலவரங்களை தொடர்ந்து கண்காணிக்கிறது.',
-            'report_markdown': '### 💼 Advisor AI Operational Flaw Report\nAll metrics are within acceptable operational thresholds.'
+            'report_markdown': '### 💼 Advisor Operational Flaw Report\nAll metrics are within acceptable operational thresholds.'
         })
 
 
@@ -8317,7 +8317,7 @@ def api_advisor_ai_consult():
                     f"**Platform Fleet Totals**: Disbursed: **₹{fleet_adv:,.2f}** | Repaid: **₹{fleet_rep:,.2f}** | **Net Outstanding Debt: ₹{fleet_net_adv:,.2f}**\n\n"
                     f"#### 🏢 Client Companies with Highest Advance Exposure\n"
                     f"{top_comp_md}\n\n"
-                    f"#### 🛡️ Advisor AI Capital Preservation Actions\n"
+                    f"#### 🛡️ Advisor Capital Preservation Actions\n"
                     f"1. Enforce automated 20% salary deduction cap across client companies with outstanding debt.\n"
                     f"2. Implement advance ceilings linked directly to 50% of employee monthly base salary.\n"
                     f"3. Require supervisory pre-approval for any new advance requests exceeding ₹5,000."
@@ -8357,7 +8357,7 @@ def api_advisor_ai_consult():
                     f"**Organization Capital Status**: Disbursed: **₹{tot_adv:,.2f}** | Repaid: **₹{tot_rep:,.2f}** | **Net Outstanding Balance: ₹{net_adv_liability:,.2f}**\n\n"
                     f"#### 👥 Outstanding Employee Advance Balances ({len(active_debtors)} Staff)\n"
                     f"{debtor_md}\n\n"
-                    f"#### 🛡️ Advisor AI Financial Control Recommendations\n"
+                    f"#### 🛡️ Advisor Financial Control Recommendations\n"
                     f"1. **Automated Payroll Deductions**: Schedule automatic 20% salary deductions on monthly payroll disbursements until balances are cleared.\n"
                     f"2. **Advance Cap Ceiling**: Cap future employee advance requests at a maximum of 50% of net monthly earnings.\n"
                     f"3. **Payment Receipt Audit**: Reconcile manual repayment cash vouchers against financial settlement statements."
@@ -8485,7 +8485,7 @@ def api_advisor_ai_consult():
                 f"{late_items}\n\n"
                 f"#### ⏳ Open Checkout Sessions Exceeding 15 Hours ({timeout_cnt})\n"
                 f"{timeout_items}\n\n"
-                f"#### 📋 Advisor AI Disciplinary & Shift Actions\n"
+                f"#### 📋 Advisor Disciplinary & Shift Actions\n"
                 f"1. {'Conduct punctuality review with ' + top_late + ' and enforce shift schedule windows.' if top_late else 'Shift punctuality meets operational targets.'}\n"
                 f"2. {'Reconcile ' + str(timeout_cnt) + ' open departure punches in Live Report before calculating monthly payroll.' if timeout_cnt > 0 else 'All previous shifts successfully recorded departure punches.'}\n"
                 f"3. Check biometric terminal clock alignment and kiosk connectivity."
@@ -8539,7 +8539,7 @@ def api_advisor_ai_consult():
             f"**Inquiry**: *\"{user_query}\"*\n\n"
             f"• **Current Attendance Pace**: **{present_count} Present** / {total_staff} Staff ({present_pct}%)\n"
             f"• **Net Advance Liabilities**: **₹{net_adv_liability:,.2f}**\n\n"
-            f"#### 💡 Advisor AI Recommendation\n"
+            f"#### 💡 Advisor Recommendation\n"
             f"To optimize organizational performance in response to *\"{user_query}\"*, monitor shift schedule adherence and review departure punch reconciliations."
         )
 
@@ -8553,7 +8553,7 @@ def api_advisor_ai_consult():
         })
 
     except Exception as e:
-        return jsonify({'success': False, 'error': f"Advisor AI Consultation Error: {str(e)}"}), 500
+        return jsonify({'success': False, 'error': f"Advisor Consultation Error: {str(e)}"}), 500
 
 
 @app.route('/api/field-worker/salary-report', methods=['GET'])

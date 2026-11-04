@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function () {
       return `
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: #0f172a;">${escapeHtml(empCode)}</td>
-          <td style="padding: 10px 14px; font-size: 12px; font-weight: 600; color: #334155;">${escapeHtml(empName)}</td>
+          <td class="sticky-col-emp" style="padding: 10px 14px; font-size: 12px; font-weight: 600; color: #334155;">${escapeHtml(empName)}</td>
           <td style="padding: 10px 14px; font-size: 12px; font-weight: 500; color: #64748b;">${escapeHtml(dept)}</td>
           <td style="padding: 10px 14px; font-size: 12px;">
             ${leavesHtml}
@@ -572,7 +572,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px 14px; text-align: center; font-size: 11.5px; color: #64748b; font-weight: 600;">${idx + 1}</td>
           <td style="padding: 10px 14px; font-size: 12px;">${typeBadge}</td>
-          <td style="padding: 10px 14px; font-size: 12px;">
+          <td class="sticky-col-emp" style="padding: 10px 14px; font-size: 12px;">
             <strong style="color: #0f172a;">${escapeHtml(r.employee_name)}</strong><br>
             <span style="font-size: 11px; color: #64748b;">ID: ${escapeHtml(r.employee_id)}</span>
           </td>

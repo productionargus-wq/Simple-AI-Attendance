@@ -183,7 +183,7 @@ if (!window.makeAgentButtonDraggable) {
           this.history = [
             {
               sender: 'ai',
-              text: 'Hello! I am your **Co-Worker AI**.\n\nYou can chat or speak to assign tasks like creating payments, adding attendance, or applying leaves.\n\n*Try:* *"Create a payment entry for Ramesh for ₹5,000 as Advance Repayment"*',
+              text: 'Hello! I am your **Co-Worker**.\n\nYou can chat or speak to assign tasks like creating payments, adding attendance, or applying leaves.\n\n*Try:* *"Create a payment entry for Ramesh for ₹5,000 as Advance Repayment"*',
               time: this.formatTime(new Date()),
               task: null
             }
@@ -234,8 +234,8 @@ if (!window.makeAgentButtonDraggable) {
       const circleBtn = document.createElement('button');
       circleBtn.className = 'argus-ai-circle-btn coworker-ai-btn';
       circleBtn.id = 'coworkerAiCircleBtn';
-      circleBtn.setAttribute('data-tooltip', 'Co-Worker AI (Ctrl + Alt)');
-      circleBtn.setAttribute('aria-label', 'Open Co-Worker AI');
+      circleBtn.setAttribute('data-tooltip', 'Co-Worker (Ctrl + Alt)');
+      circleBtn.setAttribute('aria-label', 'Open Co-Worker');
       circleBtn.innerHTML = `
         <span class="argus-ai-icon">🤖</span>
         <span class="argus-ai-status-dot"></span>
@@ -270,7 +270,7 @@ if (!window.makeAgentButtonDraggable) {
               <div class="coworker-online-dot"></div>
             </div>
             <div class="coworker-header-info">
-              <span class="coworker-header-title">Co-Worker AI</span>
+              <span class="coworker-header-title">Co-Worker</span>
               <span class="coworker-header-status">Argus Executive Assistant • Online</span>
             </div>
           </div>
@@ -811,7 +811,7 @@ if (!window.makeAgentButtonDraggable) {
               window.speechSynthesis.speak(utter);
               return;
             } catch (err) {
-              console.warn('[Co-Worker AI] Native Tamil TTS notice:', err);
+              console.warn('[Co-Worker] Native Tamil TTS notice:', err);
             }
           }
         }
@@ -822,12 +822,12 @@ if (!window.makeAgentButtonDraggable) {
           audio.playbackRate = 1.1;
           this.activeServerAudio = audio;
           audio.play().catch(e => {
-            console.warn('[Co-Worker AI] Server Tamil audio failed, falling back to English voice:', e);
+            console.warn('[Co-Worker] Server Tamil audio failed, falling back to English voice:', e);
             this.speakEnglishFallback(altEnglishText || clean);
           });
           return;
         } catch (e) {
-          console.warn('[Co-Worker AI] Server audio init error, falling back to English voice:', e);
+          console.warn('[Co-Worker] Server audio init error, falling back to English voice:', e);
         }
 
         // 3. Desktop Fallback to English Voice
@@ -864,7 +864,7 @@ if (!window.makeAgentButtonDraggable) {
           dlAnchor.click();
           setTimeout(() => dlAnchor.remove(), 800);
         } catch (e) {
-          console.warn('[Co-Worker AI] Auto-download error:', e);
+          console.warn('[Co-Worker] Auto-download error:', e);
         }
       } else if (action === 'navigate' && data && data.url) {
         setTimeout(() => {
@@ -1030,7 +1030,7 @@ if (!window.makeAgentButtonDraggable) {
     }
 
     clearChat() {
-      if (confirm('Clear Co-Worker AI chat conversation?')) {
+      if (confirm('Clear Co-Worker chat conversation?')) {
         this.history = [];
         this.pendingTask = null;
         sessionStorage.removeItem('argus_coworker_history');

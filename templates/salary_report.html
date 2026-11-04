@@ -86,7 +86,7 @@
     <table class="employee-table" id="salaryReportTable">
       <thead>
         <tr>
-          <th data-col="employee_name">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="employee_name" class="sticky-col-emp">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
           <th data-col="pay_period">PAY PERIOD <span class="sort-icon">⇅</span></th>
           <th data-col="working_days">WORKING DAYS <span class="sort-icon">⇅</span></th>
           <th data-col="working_hours">WORKING HOURS <span class="sort-icon">⇅</span></th>
@@ -296,7 +296,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       rowsHtml += `
         <tr>
-          <td class="col-wrap" style="font-weight: 600; white-space: normal !important; word-break: break-word !important; min-width: 140px;">${empNameSafe}</td>
+          <td class="col-wrap sticky-col-emp" style="font-weight: 600; white-space: normal !important; word-break: break-word !important; min-width: 140px;">${empNameSafe}</td>
           <td>${payPeriodSafe}</td>
           <td>${r.working_days}</td>
           <td>${r.working_hours}</td>

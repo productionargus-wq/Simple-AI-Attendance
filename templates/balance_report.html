@@ -66,7 +66,7 @@
       <thead>
         <tr>
           <th data-col="timestamp" style="width: 18%;">DATE&TIME <span class="sort-icon">⇅</span></th>
-          <th data-col="name" style="width: 18%;">NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="name" class="sticky-col-emp" style="width: 18%;">NAME <span class="sort-icon">⇅</span></th>
           <th data-col="date" style="width: 14%;">DATE <span class="sort-icon">⇅</span></th>
           <th data-col="advance_amount" style="width: 16%;">ADVANCE AMOUNT <span class="sort-icon">⇅</span></th>
           <th data-col="payment_amount" style="width: 18%;">REPAYMENT AMOUNT <span class="sort-icon">⇅</span></th>
@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function () {
       rowsHtml += `
         <tr>
           <td style="white-space: nowrap;">${r.timestamp}</td>
-          <td class="col-wrap" style="font-weight: 600; white-space: normal !important; word-break: break-word !important; min-width: 140px;">${r.name}</td>
+          <td class="col-wrap sticky-col-emp" style="font-weight: 600; white-space: normal !important; word-break: break-word !important; min-width: 140px;">${r.name}</td>
           <td style="white-space: nowrap;">${r.date}</td>
           <td>₹ ${parseFloat(r.advance_amount).toFixed(2)}</td>
           <td>₹ ${parseFloat(payAmt).toFixed(2)}</td>
