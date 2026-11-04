@@ -1511,6 +1511,11 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initial load
   loadEmployees();
 
+  // Real-time synchronization with Co-Worker AI
+  window.addEventListener('argus:employee-updated', function () {
+    loadEmployees();
+  });
+
   // ===== FACE BIOMETRICS CAMERA CAPTURE (SEPARATE OVERLAY MODAL) =====
   const btnCaptureFace = document.getElementById('btnCaptureface');
   const faceCameraModal = document.getElementById('faceCameraModal');

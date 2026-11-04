@@ -876,6 +876,12 @@ if (!window.makeAgentButtonDraggable) {
       } else if (action === 'switch_tab' && data && data.tab_id) {
         const tabEl = document.getElementById(data.tab_id);
         if (tabEl) tabEl.click();
+      } else if (action === 'refresh_manual_entries') {
+        window.dispatchEvent(new CustomEvent('argus:manual-entry-updated', { detail: data }));
+      } else if (action === 'refresh_payments') {
+        window.dispatchEvent(new CustomEvent('argus:payment-updated', { detail: data }));
+      } else if (action === 'refresh_advances') {
+        window.dispatchEvent(new CustomEvent('argus:advance-updated', { detail: data }));
       }
     }
 

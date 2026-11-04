@@ -636,6 +636,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Initial load
   loadPayments();
+
+  // Real-time synchronization with Co-Worker AI
+  window.addEventListener('argus:payment-updated', function () {
+    loadPayments();
+  });
 });
 </script>
 {% endblock %}

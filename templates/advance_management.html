@@ -517,6 +517,11 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   loadAdvances();
+
+  // Real-time synchronization with Co-Worker AI
+  window.addEventListener('argus:advance-updated', function () {
+    loadAdvances();
+  });
 });
 </script>
 {% endblock %}

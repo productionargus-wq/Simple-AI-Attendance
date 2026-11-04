@@ -4295,7 +4295,15 @@ def create_manual_entry(data, company_id=None):
     day_rate = float(emp['day_salary'] if emp and 'day_salary' in emp else 0.0)
     half_rate = float(emp['half_day_salary'] if emp and 'half_day_salary' in emp else 0.0)
     emp_id = emp['id'] if emp and 'id' in emp else 'EMP_' + str(int(time.time()))
-    assigned_company_id = str(company_id or data.get('company_id') or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
+    emp_cid = emp.get('company_id') if emp else None
+    if company_id and str(company_id) != 'ARGUS_MASTER':
+        assigned_company_id = str(company_id)
+    elif emp_cid and str(emp_cid) != 'ARGUS_MASTER':
+        assigned_company_id = str(emp_cid)
+    elif data.get('company_id') and str(data.get('company_id')) != 'ARGUS_MASTER':
+        assigned_company_id = str(data.get('company_id'))
+    else:
+        assigned_company_id = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
     
     hours_str = data.get('hours', '00:00')
     mode = data.get('mode', 'Hours')
@@ -4636,7 +4644,15 @@ def create_payment(data, company_id=None):
     emp_name = data.get('employee_name', '')
     emp = db.employees.find_one({'employee_name': emp_name})
     emp_id = emp['id'] if emp and 'id' in emp else 'EMP_' + str(int(time.time()))
-    assigned_company_id = str(company_id or data.get('company_id') or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
+    emp_cid = emp.get('company_id') if emp else None
+    if company_id and str(company_id) != 'ARGUS_MASTER':
+        assigned_company_id = str(company_id)
+    elif emp_cid and str(emp_cid) != 'ARGUS_MASTER':
+        assigned_company_id = str(emp_cid)
+    elif data.get('company_id') and str(data.get('company_id')) != 'ARGUS_MASTER':
+        assigned_company_id = str(data.get('company_id'))
+    else:
+        assigned_company_id = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
     
     now_ts = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
     payment_date = data.get('payment_date') or datetime.now().strftime("%Y-%m-%d")
@@ -4777,7 +4793,15 @@ def create_advance(data, company_id=None):
     emp_name = data.get('employee_name', '')
     emp = db.employees.find_one({'employee_name': emp_name})
     emp_id = emp['id'] if emp and 'id' in emp else 'EMP_' + str(int(time.time()))
-    assigned_company_id = str(company_id or data.get('company_id') or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
+    emp_cid = emp.get('company_id') if emp else None
+    if company_id and str(company_id) != 'ARGUS_MASTER':
+        assigned_company_id = str(company_id)
+    elif emp_cid and str(emp_cid) != 'ARGUS_MASTER':
+        assigned_company_id = str(emp_cid)
+    elif data.get('company_id') and str(data.get('company_id')) != 'ARGUS_MASTER':
+        assigned_company_id = str(data.get('company_id'))
+    else:
+        assigned_company_id = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
     assigned_branch_id = data.get('branch_id') or (emp.get('branch_id') if emp else None)
     
     now_ts = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")

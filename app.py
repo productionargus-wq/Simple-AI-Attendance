@@ -6702,7 +6702,132 @@ def api_coworker_ai_chat():
                 return now.strftime('%Y-%m')
             return None
 
+        def extract_amount_from_text(t):
+            if not t:
+                return None
+            # Strip dates so years like 2026 are not mistakenly captured as amount
+            clean_t = re.sub(r'\b20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\b|\b\d{1,2}[-/.]\d{1,2}[-/.]20\d{2}\b|\b\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*(?:20\d{2})?\b', '', t, flags=re.IGNORECASE)
+            # Strip hours notations
+            clean_t = re.sub(r'\b\d{1,2}(?::\d{2})?\s*(?:hrs?|hours?)\b|\b\d{1,2}:\d{2}\b', '', clean_t, flags=re.IGNORECASE)
+            
+            # 1. Match with currency prefix or amount indicator
+            m = re.search(r'(?:rs\.?|inr|rupees|₹|amount(?:\s+of)?|for)\s*(\d+(?:\.\d+)?)', clean_t, re.IGNORECASE)
+            if m:
+                try:
+                    return float(m.group(1))
+                except (ValueError, TypeError):
+                    pass
+            # 2. Match number followed by currency or suffix
+            m2 = re.search(r'(\d+(?:\.\d+)?)\s*(?:rs\.?|inr|rupees|₹)', clean_t, re.IGNORECASE)
+            if m2:
+                try:
+                    return float(m2.group(1))
+                except (ValueError, TypeError):
+                    pass
+            # 3. Match standalone number
+            m3 = re.search(r'\b(\d+(?:\.\d+)?)\b', clean_t)
+            if m3:
+                try:
+                    val = float(m3.group(1))
+                    if val not in [2024, 2025, 2026, 2027]:
+                        return val
+                except (ValueError, TypeError):
+                    pass
+            return None
+
+        def determine_payment_status(text):
+            t_low = text.lower()
+            if 'repayment' in t_low or ('advance' in t_low and any(w in t_low for w in ['returned', 'paid back', 'settle', 'clear', 'repaid', 'repay'])):
+                return 'Advance Repayment'
+            elif 'advance' in t_low:
+                return 'Advance Payment'
+            elif 'incentive' in t_low:
+                return 'Incentive'
+            elif any(w in t_low for w in ['allowance', 'petrol', 'diesel', 'fuel', 'travel']):
+                return 'Allowance'
+            elif any(w in t_low for w in ['bonus', 'earning', 'extra']):
+                return 'Other Earnings'
+            elif any(w in t_low for w in ['deduction', 'deduct', 'penalty', 'fine']):
+                return 'Other Deductions'
+            elif 'salary' in t_low:
+                return 'Salary'
+            return 'Salary'
+
+        def determine_payment_mode(text):
+            t_low = text.lower()
+            if 'cash' in t_low:
+                return 'Cash'
+            elif any(w in t_low for w in ['bank', 'neft', 'rtgs', 'transfer']):
+                return 'Bank'
+            elif 'net banking' in t_low or 'netbanking' in t_low:
+                return 'Net Banking'
+            elif 'mobile' in t_low:
+                return 'Mobile Banking'
+            elif 'cheque' in t_low or 'check' in t_low:
+                return 'Others'
+            return 'UPI'
+
         parsed_action = None
+
+        # Check if there is an active pending multi-turn task awaiting user parameters
+        if pending_task and isinstance(pending_task, dict) and pending_task.get('action'):
+            p_action = pending_task.get('action')
+            p_params = dict(pending_task.get('parameters') or {})
+
+            if p_action == 'create_manual_attendance':
+                cand_emp = find_employee_in_text(user_message)
+                if not cand_emp:
+                    cand_emp, _ = resolve_employee(user_message)
+                if cand_emp:
+                    p_params['employee_name'] = cand_emp.get('employee_name')
+                
+                if 'half' in msg_lower:
+                    p_params['hours'] = '04:00'
+                    p_params['status'] = 'Half Day'
+                elif 'proper' in msg_lower:
+                    p_params['status'] = 'Proper'
+                elif 'improper' in msg_lower:
+                    p_params['status'] = 'Improper'
+                elif 'late' in msg_lower:
+                    p_params['status'] = 'Late'
+
+                hr_m = re.search(r'(\d{1,2}(?::\d{2})?)\s*(?:hrs?|hours?)?', msg_lower)
+                if hr_m and 'half' not in msg_lower:
+                    raw_h = hr_m.group(1)
+                    p_params['hours'] = f"{int(raw_h):02d}:00" if ':' not in raw_h else raw_h
+
+                date_val = parse_date_from_text(user_message, default_today=False)
+                if date_val:
+                    p_params['date'] = date_val
+
+                if p_params.get('employee_name'):
+                    parsed_action = {'action': 'create_manual_attendance', 'parameters': p_params, 'reply_text': ''}
+
+            elif p_action == 'create_payment':
+                cand_emp = find_employee_in_text(user_message)
+                if not cand_emp:
+                    cand_emp, _ = resolve_employee(user_message)
+                if cand_emp:
+                    p_params['employee_name'] = cand_emp.get('employee_name')
+                amt_val = extract_amount_from_text(user_message)
+                if amt_val is not None:
+                    p_params['amount'] = amt_val
+                p_params['status'] = determine_payment_status(user_message)
+                p_params['payment_type'] = determine_payment_mode(user_message)
+                if p_params.get('employee_name') and p_params.get('amount') is not None:
+                    parsed_action = {'action': 'create_payment', 'parameters': p_params, 'reply_text': ''}
+
+            elif p_action == 'create_advance':
+                cand_emp = find_employee_in_text(user_message)
+                if not cand_emp:
+                    cand_emp, _ = resolve_employee(user_message)
+                if cand_emp:
+                    p_params['employee_name'] = cand_emp.get('employee_name')
+                amt_val = extract_amount_from_text(user_message)
+                if amt_val is not None:
+                    p_params['amount'] = amt_val
+                if p_params.get('employee_name') and p_params.get('amount') is not None:
+                    parsed_action = {'action': 'create_advance', 'parameters': p_params, 'reply_text': ''}
 
         # =====================================================================
         # TIER 1: DETERMINISTIC NATURAL LANGUAGE PARSER & TASK DISPATCHER
@@ -6724,9 +6849,8 @@ def api_coworker_ai_chat():
                         if all_cands:
                             emp_doc = all_cands[0]
             
-            amt_match = re.search(r'(?:rs\.?|inr|rupees|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
+            amt_val = extract_amount_from_text(user_message)
             date_val = parse_date_from_text(user_message, default_today=True)
-            amt_val = float(amt_match.group(1)) if amt_match else None
             emp_name = emp_doc.get('employee_name') if emp_doc else None
             if not emp_name:
                 rep_name_m = re.search(r'repayment\s+(?:for|to|of)\s+([A-Za-z\s.]+?)(?:\s+of|\s+for|\s+rs|\s+inr|\s+rupees|\s+₹|\s+\d|$)', user_message, re.IGNORECASE)
@@ -6842,8 +6966,13 @@ def api_coworker_ai_chat():
                     'reply_text': ''
                 }
 
-            # D. Manual Attendance Entry
-            elif ('manual' in msg_lower and any(w in msg_lower for w in ['entry', 'attendance', 'create', 'add', 'log', 'record'])) and not is_nav:
+            # D. Attendance / Manual Entry
+            elif (
+                (('manual' in msg_lower or 'attendance' in msg_lower) and any(w in msg_lower for w in ['entry', 'create', 'add', 'log', 'record', 'put', 'enter', 'mark', 'punch']))
+                or 'manual entry' in msg_lower
+                or 'manual attendance' in msg_lower
+                or 'attendance entry' in msg_lower
+            ) and not is_nav and not any(p in msg_lower for p in ['who is present', 'who is absent', 'is present', 'present today', 'how many present', 'summary']):
                 emp_doc_found = find_employee_in_text(user_message)
                 target_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
                 hours_val = '04:00' if 'half' in msg_lower else '08:00'
@@ -6866,38 +6995,40 @@ def api_coworker_ai_chat():
                     'reply_text': ''
                 }
 
-            # E. Give / Create Advance
-            elif re.search(r'(?:give|create|add|record|issue)?\s*advance\s+(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\s*(?:to|for)\s*([A-Za-z\s]+)', user_message, re.IGNORECASE) or \
-                 re.search(r'advance\s+(?:for|to)\s*([A-Za-z\s]+)\s*(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE):
-                adv_m1 = re.search(r'(?:give|create|add|record|issue)?\s*advance\s+(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\s*(?:to|for)\s*([A-Za-z\s]+)', user_message, re.IGNORECASE)
-                adv_m2 = re.search(r'advance\s+(?:for|to)\s*([A-Za-z\s]+)\s*(?:of\s+)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
-                amt = float(adv_m1.group(1)) if adv_m1 else float(adv_m2.group(2))
-                emp_raw = adv_m1.group(2).strip() if adv_m1 else adv_m2.group(1).strip()
+            # E. Give / Create Advance (Advances ledger: issue advance without 'payment' keyword)
+            elif ('advance' in msg_lower or 'loan' in msg_lower) and 'payment' not in msg_lower and not is_repayment and not is_nav:
+                emp_doc_found = find_employee_in_text(user_message)
+                amt_val = extract_amount_from_text(user_message)
+                target_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
+                if not target_emp:
+                    adv_m = re.search(r'advance\s+(?:for|to|of)?\s*([A-Za-z\s]+?)(?:\s+of|\s+for|\s+rs|\s+inr|\s+rupees|\s+₹|\s+\d|$)', user_message, re.IGNORECASE)
+                    if adv_m:
+                        cand_name = adv_m.group(1).strip()
+                        c_doc, _ = resolve_employee(cand_name)
+                        target_emp = c_doc.get('employee_name') if c_doc else cand_name
                 parsed_action = {
                     'action': 'create_advance',
-                    'parameters': {'employee_name': emp_raw, 'amount': amt, 'date': parse_date_from_text(user_message, default_today=True)},
+                    'parameters': {
+                        'employee_name': target_emp,
+                        'amount': amt_val,
+                        'date': parse_date_from_text(user_message, default_today=True)
+                    },
                     'reply_text': ''
                 }
 
-            # F. Payment Entry (Salary, Incentive, Allowance, Bonus)
-            elif any(w in msg_lower for w in ['payment', 'paid ', 'pay salary', 'disburse']) and not is_nav:
+            # F. Payment Entry (Advance Payment, Advance Repayment, Salary, Incentive, Allowance, Other Earnings, Other Deductions)
+            elif (any(w in msg_lower for w in ['payment', 'paid', 'pay ', 'disburse', 'advance payment', 'incentive', 'allowance', 'bonus', 'deduction', 'earning']) or 'payment' in msg_lower) and not is_nav:
                 emp_doc_found = find_employee_in_text(user_message)
-                amt_match = re.search(r'(?:rs\.?|inr|rupees|₹)?\s*(\d+(?:\.\d+)?)', user_message, re.IGNORECASE)
-                st_val = 'Salary'
-                if 'incentive' in msg_lower:
-                    st_val = 'Incentive'
-                elif 'allowance' in msg_lower:
-                    st_val = 'Allowance'
-                elif 'bonus' in msg_lower:
-                    st_val = 'Bonus'
-                elif 'repayment' in msg_lower:
-                    st_val = 'Advance Repayment'
+                amt_val = extract_amount_from_text(user_message)
+                st_val = determine_payment_status(user_message)
+                pay_mode = determine_payment_mode(user_message)
                 parsed_action = {
                     'action': 'create_payment',
                     'parameters': {
                         'employee_name': emp_doc_found.get('employee_name') if emp_doc_found else None,
-                        'amount': float(amt_match.group(1)) if amt_match else None,
+                        'amount': amt_val,
                         'status': st_val,
+                        'payment_type': pay_mode,
                         'date': parse_date_from_text(user_message, default_today=True)
                     },
                     'reply_text': ''
@@ -7049,6 +7180,7 @@ def api_coworker_ai_chat():
                 'success': True,
                 'reply': f"Successfully recorded **{status}** of **₹{amt:,.2f}** for **{canonical_emp}** on **{pay_date}** ({pay_type}).\n• Payment Voucher ID: **#{inserted_id}**\n• Remaining Advance Balance: **₹{rem_bal:,.2f}**.",
                 'task_executed': True,
+                'action': 'refresh_payments',
                 'task_data': {
                     'type': 'payment',
                     'details': {
@@ -7089,20 +7221,25 @@ def api_coworker_ai_chat():
 
             amt = float(raw_amt)
             adv_date = params.get('date') or parse_date_from_text(user_message, default_today=True)
+            target_cid = (emp_doc.get('company_id') if emp_doc else None) or (cid if cid != 'ARGUS_MASTER' else None) or (emp_doc.get('company_id') if emp_doc else 'ARGUS_MASTER')
+            target_bid = (emp_doc.get('branch_id') if emp_doc else None) or bid
             adv_payload = {
                 'employee_name': canonical_emp,
                 'amount': amt,
                 'advance_date': adv_date,
                 'date': adv_date,
-                'reason': params.get('reason') or 'Staff Advance'
+                'reason': params.get('reason') or 'Staff Advance',
+                'company_id': target_cid,
+                'branch_id': target_bid
             }
-            adv_id = database.create_advance(adv_payload, company_id=cid)
+            adv_id = database.create_advance(adv_payload, company_id=target_cid)
             session['coworker_pending_task'] = None
 
             return jsonify({
                 'success': True,
                 'reply': f"Successfully issued an advance of **₹{amt:,.2f}** to **{canonical_emp}** on **{adv_date}**. Advance Record ID is **#{adv_id}**.",
                 'task_executed': True,
+                'action': 'refresh_advances',
                 'task_data': {
                     'type': 'advance',
                     'details': {
@@ -7140,6 +7277,8 @@ def api_coworker_ai_chat():
             date_str = params.get('date') or parse_date_from_text(user_message, default_today=True)
             hours_str = params.get('hours') or '08:00'
             status = params.get('status') or 'Proper'
+            target_cid = (emp_doc.get('company_id') if emp_doc else None) or (cid if cid != 'ARGUS_MASTER' else None) or (emp_doc.get('company_id') if emp_doc else 'ARGUS_MASTER')
+            target_bid = (emp_doc.get('branch_id') if emp_doc else None) or bid
             entry_payload = {
                 'employee_name': canonical_emp,
                 'entry_date': date_str,
@@ -7147,15 +7286,18 @@ def api_coworker_ai_chat():
                 'hours': hours_str,
                 'mode': 'Hours',
                 'status': status,
-                'reason': params.get('reason') or 'Recorded by Co-Worker AI'
+                'reason': params.get('reason') or 'Recorded by Co-Worker AI',
+                'company_id': target_cid,
+                'branch_id': target_bid
             }
-            ins_id = database.create_manual_entry(entry_payload, company_id=cid)
+            ins_id = database.create_manual_entry(entry_payload, company_id=target_cid)
             session['coworker_pending_task'] = None
 
             return jsonify({
                 'success': True,
                 'reply': f"Logged manual attendance for **{canonical_emp}** on **{date_str}** ({hours_str} hrs, **{status}**). Entry ID is **#{ins_id}**.",
                 'task_executed': True,
+                'action': 'refresh_manual_entries',
                 'task_data': {
                     'type': 'attendance',
                     'details': {
@@ -7199,6 +7341,7 @@ def api_coworker_ai_chat():
                 'success': True,
                 'reply': f"Successfully enrolled new employee **{emp_name}** in department **{payload['department']}** with **{payload['salary_type']}** wage structure. Employee ID is **#{new_emp_id}**.",
                 'task_executed': True,
+                'action': 'refresh_employees',
                 'task_data': {
                     'type': 'employee',
                     'details': {'Name': emp_name, 'Department': payload['department'], 'Salary Basis': payload['salary_type'], 'ID': str(new_emp_id)},
@@ -7417,9 +7560,10 @@ def api_coworker_ai_chat():
             })
 
         # Default fallback
+        fallback_reply = parsed_action.get('reply_text') if parsed_action else None
         return jsonify({
             'success': True,
-            'reply': reply_text or f"How can I assist you with employee records, advance repayments, attendance punches, or reports today?",
+            'reply': fallback_reply or f"How can I assist you with employee records, advance repayments, attendance punches, or reports today?",
             'task_executed': False,
             'pending_task': None
         })

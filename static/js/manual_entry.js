@@ -513,6 +513,11 @@ document.addEventListener('DOMContentLoaded', function () {
   loadEmployees();
   loadEntries();
 
+  // Real-time synchronization with Co-Worker AI
+  window.addEventListener('argus:manual-entry-updated', function () {
+    loadEntries();
+  });
+
   // Voice AI Field Guidance for Manual Entry Modal
   if (window.ArgusVoice) {
     window.ArgusVoice.bindToggle('btnManualModalToggleVoice');

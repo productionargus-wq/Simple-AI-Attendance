@@ -426,6 +426,13 @@ document.addEventListener('DOMContentLoaded', function () {
     `).join('');
   }
 
+  // Real-time synchronization with Co-Worker AI
+  ['argus:manual-entry-updated', 'argus:payment-updated', 'argus:advance-updated'].forEach(function (evName) {
+    window.addEventListener(evName, function () {
+      fetchDynamicStats();
+    });
+  });
+
   // 6. Dynamic Fetch
   async function fetchDynamicStats() {
     try {
