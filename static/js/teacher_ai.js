@@ -408,20 +408,24 @@
       this.hudEl = document.createElement('div');
       this.hudEl.className = 'teacher-ai-hud';
       this.hudEl.innerHTML = `
-        <div class="teacher-ai-hud-pulse"></div>
-        <div class="teacher-ai-hud-title">
-          <span>🎓</span>
-          <span>Teacher Active</span>
+        <div class="teacher-ai-hud-pulse-ring" title="Teacher Active">
+          <div class="teacher-ai-hud-pulse-dot"></div>
         </div>
-        <div class="teacher-ai-hud-info">Hover or click any card, badge, or text to learn rules</div>
+        <div class="teacher-ai-hud-brand">
+          <span class="teacher-ai-hud-icon-wrap">🎓</span>
+          <span class="teacher-ai-hud-title">Teacher Active</span>
+        </div>
+        <div class="teacher-ai-hud-divider"></div>
+        <div class="teacher-ai-hud-hint">Hover or click any card, badge, or text to learn rules</div>
         <div class="teacher-ai-hud-actions">
-          <button type="button" class="teacher-ai-btn-voice teacher-ai-btn-lang" id="teacherAiToggleLangBtn" title="Switch Voice Language">
+          <button type="button" class="teacher-ai-hud-btn teacher-ai-hud-btn-lang" id="teacherAiToggleLangBtn" title="Switch Voice Language">
             <span id="teacherAiLangText">${this.language === 'ta' ? '🌐 தமிழ்' : '🌐 EN'}</span>
           </button>
-          <button type="button" class="teacher-ai-btn-voice" id="teacherAiToggleVoiceBtn" title="Toggle Spoken Voice Explanation">
-            <span>${this.voiceEnabled ? '🔊 Voice: ON' : '🔇 Voice: OFF'}</span>
+          <button type="button" class="teacher-ai-hud-btn teacher-ai-hud-btn-voice ${this.voiceEnabled ? 'is-active' : ''}" id="teacherAiToggleVoiceBtn" title="Toggle Spoken Voice Explanation">
+            <span class="voice-icon">${this.voiceEnabled ? '🔊' : '🔇'}</span>
+            <span class="voice-label">${this.voiceEnabled ? 'Voice: ON' : 'Voice: OFF'}</span>
           </button>
-          <button type="button" class="teacher-ai-btn-close" id="teacherAiCloseBtn" title="Exit Teacher (Ctrl+Shift)">&times;</button>
+          <button type="button" class="teacher-ai-hud-btn-close" id="teacherAiCloseBtn" title="Exit Teacher (Ctrl+Shift)" aria-label="Exit Teacher">&times;</button>
         </div>
       `;
       document.body.appendChild(this.hudEl);
@@ -549,7 +553,13 @@
       localStorage.setItem('argus_teacher_ai_voice', this.voiceEnabled ? 'true' : 'false');
       const voiceBtn = this.hudEl.querySelector('#teacherAiToggleVoiceBtn');
       if (voiceBtn) {
-        voiceBtn.innerHTML = `<span>${this.voiceEnabled ? '🔊 Voice: ON' : '🔇 Voice: OFF'}</span>`;
+        if (this.voiceEnabled) {
+          voiceBtn.classList.add('is-active');
+          voiceBtn.innerHTML = '<span class="voice-icon">🔊</span><span class="voice-label">Voice: ON</span>';
+        } else {
+          voiceBtn.classList.remove('is-active');
+          voiceBtn.innerHTML = '<span class="voice-icon">🔇</span><span class="voice-label">Voice: OFF</span>';
+        }
       }
       if (this.voiceEnabled) {
         this.speak("Voice enabled.");
