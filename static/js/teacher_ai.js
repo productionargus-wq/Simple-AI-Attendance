@@ -373,7 +373,6 @@
 
       // UI Elements
       this.hudEl = null;
-      this.bubbleEl = null;
       this.triggerPillEl = null;
 
       // Bound Event Listeners
@@ -427,24 +426,7 @@
       `;
       document.body.appendChild(this.hudEl);
 
-      // 2. Floating Contextual Bubble
-      this.bubbleEl = document.createElement('div');
-      this.bubbleEl.className = 'teacher-ai-bubble teacher-ai-bubble-structured';
-      this.bubbleEl.innerHTML = `
-        <div class="teacher-ai-bubble-header">
-          <span class="teacher-ai-badge" id="teacherAiBadge">FEATURE</span>
-          <span style="font-size: 11px; color: #64748b; font-family: monospace;">ARGUS AI TUTOR</span>
-        </div>
-        <div class="teacher-ai-bubble-title" id="teacherAiTitle">Title</div>
-        <div class="teacher-ai-bubble-body" id="teacherAiBody">Explanation</div>
-        <div class="teacher-ai-bubble-tip" id="teacherAiTip" style="display: none;">
-          <span class="icon">💡</span>
-          <span id="teacherAiTipText"></span>
-        </div>
-      `;
-      document.body.appendChild(this.bubbleEl);
-
-      // 3. Floating Trigger Button
+      // 2. Floating Trigger Button
       let dock = document.getElementById('argusAiDock');
       if (!dock) {
         dock = document.createElement('div');
@@ -556,8 +538,10 @@
       document.removeEventListener('click', this._onDocumentClick, true);
 
       this.clearHighlight();
-      this.hideBubble();
       this.stopSpeaking();
+      if (window.ArgusCaptions) {
+        window.ArgusCaptions.hide(true);
+      }
     }
 
     toggleVoice() {
@@ -580,7 +564,7 @@
       if (!this.isActive) return;
 
       const target = e.target;
-      if (!target || target === this.bubbleEl || this.bubbleEl.contains(target) ||
+      if (!target ||
           target === this.hudEl || this.hudEl.contains(target) ||
           target === this.triggerPillEl || this.triggerPillEl.contains(target)) {
         return;
@@ -625,7 +609,7 @@
       if (!this.isActive) return;
 
       const target = e.target;
-      if (!target || target === this.bubbleEl || this.bubbleEl.contains(target) ||
+      if (!target ||
           target === this.hudEl || this.hudEl.contains(target) ||
           target === this.triggerPillEl || this.triggerPillEl.contains(target)) {
         return;
@@ -645,8 +629,10 @@
     handleMouseLeave() {
       clearTimeout(this.debounceTimer);
       this.clearHighlight();
-      this.hideBubble();
       this.stopSpeaking();
+      if (window.ArgusCaptions) {
+        window.ArgusCaptions.hide(true);
+      }
     }
 
     resolveInteractiveTarget(el) {
@@ -685,10 +671,14 @@
 
       const info = this.resolveElementExplanation(el);
       if (info) {
-        this.renderBubble(el, info);
+        const speechClean = `${info.title}. ${info.text.replace(/a\.\s*Explanation:?/gi, 'Explanation:').replace(/b\.\s*Rule\s*\/?\s*criteria:?/gi, 'Rule and criteria:')}`;
         if (this.voiceEnabled) {
-          const speechClean = `${info.title}. ${info.text.replace(/a\.\s*Explanation:?/gi, 'Explanation:').replace(/b\.\s*Rule\s*\/?\s*criteria:?/gi, 'Rule and criteria:')}`;
           this.speak(speechClean);
+        } else {
+          // If voice is muted, show in live captions HUD without obstruction
+          if (window.ArgusCaptions && this.language === 'en') {
+            window.ArgusCaptions.show(speechClean);
+          }
         }
       }
     }
@@ -857,58 +847,8 @@
       };
     }
 
-    renderBubble(el, info) {
-      const rect = el.getBoundingClientRect();
-      const badgeEl = this.bubbleEl.querySelector('#teacherAiBadge');
-      const titleEl = this.bubbleEl.querySelector('#teacherAiTitle');
-      const bodyEl = this.bubbleEl.querySelector('#teacherAiBody');
-      const tipWrapEl = this.bubbleEl.querySelector('#teacherAiTip');
-      const tipTextEl = this.bubbleEl.querySelector('#teacherAiTipText');
-
-      badgeEl.textContent = info.category || 'FEATURE';
-      titleEl.textContent = info.title;
-
-      // Format text into high-impact a. Explanation and b. Rule/criteria HTML blocks
-      let formatted = (info.text || '')
-        .replace(/a\.\s*Explanation:?/gi, '<div class="teacher-ai-exp-block"><span class="teacher-ai-lead">a. Explanation:</span>')
-        .replace(/b\.\s*Rule\s*\/?\s*criteria:?/gi, '</div><div class="teacher-ai-rule-block"><span class="teacher-ai-lead">b. Rule / criteria:</span>') + '</div>';
-
-      formatted = formatted.replace(/\n/g, '<br>');
-      bodyEl.innerHTML = formatted;
-
-      if (info.tip) {
-        tipWrapEl.style.display = 'flex';
-        tipTextEl.textContent = info.tip;
-      } else {
-        tipWrapEl.style.display = 'none';
-      }
-
-      const bubbleWidth = 380;
-      const bubbleHeight = 180;
-      const margin = 12;
-
-      let top = rect.bottom + margin;
-      let left = rect.left + (rect.width / 2) - (bubbleWidth / 2);
-
-      if (left < 16) left = 16;
-      if (left + bubbleWidth > window.innerWidth - 16) {
-        left = window.innerWidth - bubbleWidth - 16;
-      }
-
-      if (top + bubbleHeight > window.innerHeight - 16) {
-        top = rect.top - bubbleHeight - margin;
-        if (top < 16) top = 16;
-      }
-
-      this.bubbleEl.style.top = `${Math.round(top)}px`;
-      this.bubbleEl.style.left = `${Math.round(left)}px`;
-      this.bubbleEl.classList.add('visible');
-    }
-
     hideBubble() {
-      if (this.bubbleEl) {
-        this.bubbleEl.classList.remove('visible');
-      }
+      // Deprecated: UI modal bubble removed in favor of non-intrusive Live Closed Captions
     }
 
     applyHighlight(el) {
