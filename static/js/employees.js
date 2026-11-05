@@ -1608,6 +1608,9 @@ document.addEventListener('DOMContentLoaded', function () {
       } catch (e) {}
       activeTamilAudio = null;
     }
+    if (window.ArgusCaptions) {
+      try { window.ArgusCaptions.hide(true); } catch (e) {}
+    }
   }
 
   function updateTamilVoicesCache() {
@@ -1768,6 +1771,11 @@ document.addEventListener('DOMContentLoaded', function () {
           utterance.lang = (enVoice && enVoice.lang) || 'en-US';
           utterance.rate = 1.0;
           utterance.pitch = 1.0;
+          utterance.onend = () => { if (window.ArgusCaptions) window.ArgusCaptions.hide(false); };
+          utterance.onerror = () => { if (window.ArgusCaptions) window.ArgusCaptions.hide(false); };
+          if (window.ArgusCaptions) {
+            window.ArgusCaptions.show(englishText, { lang: utterance.lang });
+          }
           window.speechSynthesis.speak(utterance);
           return;
         } catch (err) {

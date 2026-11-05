@@ -116,6 +116,9 @@
         } catch (e) { }
         this.activeServerAudio = null;
       }
+      if (window.ArgusCaptions) {
+        try { window.ArgusCaptions.hide(true); } catch (e) { }
+      }
     }
 
     stop() {
@@ -210,8 +213,17 @@
             utter.volume = 1.0;
             // Prevent Chrome utterance garbage collection
             window._activeSpeechUtterance = utter;
-            utter.onend = () => { window._activeSpeechUtterance = null; };
-            utter.onerror = () => { window._activeSpeechUtterance = null; };
+            utter.onend = () => {
+              window._activeSpeechUtterance = null;
+              if (window.ArgusCaptions) window.ArgusCaptions.hide(false);
+            };
+            utter.onerror = () => {
+              window._activeSpeechUtterance = null;
+              if (window.ArgusCaptions) window.ArgusCaptions.hide(false);
+            };
+            if (window.ArgusCaptions) {
+              window.ArgusCaptions.show(targetText, { lang: utter.lang });
+            }
             this.synth.speak(utter);
             return;
           } catch (err) {

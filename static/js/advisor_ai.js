@@ -844,13 +844,18 @@
         if (this.playPauseBtn) this.playPauseBtn.innerHTML = '▶️ Replay';
         if (this.voiceWave) this.voiceWave.classList.remove('speaking');
         this.updateStatus('Executive Briefing Completed', false);
+        if (window.ArgusCaptions) window.ArgusCaptions.hide(false);
       };
 
       utterance.onerror = () => {
         this.isSpeaking = false;
         if (this.voiceWave) this.voiceWave.classList.remove('speaking');
+        if (window.ArgusCaptions) window.ArgusCaptions.hide(false);
       };
 
+      if (window.ArgusCaptions) {
+        window.ArgusCaptions.show(cleanText, { lang: utterance.lang || 'en-US' });
+      }
       window.speechSynthesis.speak(utterance);
     }
 
@@ -868,6 +873,9 @@
         window.speechSynthesis.cancel();
       }
       if (this.voiceWave) this.voiceWave.classList.remove('speaking');
+      if (window.ArgusCaptions) {
+        try { window.ArgusCaptions.hide(true); } catch (e) {}
+      }
     }
   }
 

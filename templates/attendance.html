@@ -46,6 +46,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="{{ url_for('static', filename='vendor/mediapipe/face_mesh.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/live_captions.css') }}?v=20261105_v1">
+  <script src="{{ url_for('static', filename='js/live_captions.js') }}?v=20261105_v1"></script>
   <style>
     *, *::before, *::after {
       box-sizing: border-box;
@@ -1904,6 +1906,9 @@
           } catch (e) {}
           this.activeServerAudio = null;
         }
+        if (window.ArgusCaptions) {
+          try { window.ArgusCaptions.hide(true); } catch (e) {}
+        }
       }
 
       playServerAudio(text) {
@@ -1960,6 +1965,11 @@
               utter.rate = options.rate || 1.0;
               utter.pitch = options.pitch || 1.0;
               utter.volume = 1.0;
+              utter.onend = () => { if (window.ArgusCaptions) window.ArgusCaptions.hide(false); };
+              utter.onerror = () => { if (window.ArgusCaptions) window.ArgusCaptions.hide(false); };
+              if (window.ArgusCaptions) {
+                window.ArgusCaptions.show(targetText, { lang: utter.lang });
+              }
               this.synth.speak(utter);
               return;
             } catch (err) {

@@ -941,6 +941,9 @@
       if (window.speechSynthesis) {
         try { window.speechSynthesis.cancel(); } catch (e) {}
       }
+      if (window.ArgusCaptions) {
+        try { window.ArgusCaptions.hide(true); } catch (e) {}
+      }
     }
 
     speak(text) {
@@ -996,6 +999,11 @@
         const enVoice = voices.find(v => (v.lang === 'en-US' || v.lang === 'en-IN' || v.lang === 'en-GB')) ||
                         voices.find(v => (v.lang || '').toLowerCase().startsWith('en'));
         if (enVoice) utter.voice = enVoice;
+        utter.onend = () => { if (window.ArgusCaptions) window.ArgusCaptions.hide(false); };
+        utter.onerror = () => { if (window.ArgusCaptions) window.ArgusCaptions.hide(false); };
+        if (window.ArgusCaptions) {
+          window.ArgusCaptions.show(clean, { lang: utter.lang || 'en-US' });
+        }
         this.synth.speak(utter);
       } catch (e) {}
     }
