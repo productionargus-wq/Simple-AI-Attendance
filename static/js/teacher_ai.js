@@ -413,7 +413,7 @@
           <span>🎓</span>
           <span>Teacher Active</span>
         </div>
-        <div class="teacher-ai-hud-info">Hover or click any card, badge, or text to learn rules & criteria</div>
+        <div class="teacher-ai-hud-info">Hover or click any card, badge, or text to learn rules</div>
         <div class="teacher-ai-hud-actions">
           <button type="button" class="teacher-ai-btn-voice teacher-ai-btn-lang" id="teacherAiToggleLangBtn" title="Switch Voice Language">
             <span id="teacherAiLangText">${this.language === 'ta' ? '🌐 தமிழ்' : '🌐 EN'}</span>
@@ -521,7 +521,7 @@
       document.addEventListener('click', this._onDocumentClick, true);
 
       if (!silent) {
-        this.speak("Teacher activated. Hover over any card, badge, or text to learn its rules and criteria.");
+        this.speak("Teacher activated. Hover over any card, badge, or text to learn its rules.");
       }
     }
 
@@ -663,6 +663,20 @@
       return el;
     }
 
+    sanitizeExplanationText(rawText) {
+      if (!rawText) return '';
+      return String(rawText)
+        .replace(/a\.\s*Explanation:?\s*/gi, '')
+        .replace(/b\.\s*Rule\s*\/?\s*criteria:?\s*/gi, '')
+        .replace(/Criteria\s*&\s*When\s*to\s*Use:?\s*/gi, 'When to use: ')
+        .replace(/Criteria\s*in\s*our\s*application:?\s*/gi, 'In our application: ')
+        .replace(/\bExplanation:?\s*/gi, '')
+        .replace(/\b(?:Rule\s*(?:and|\/|&)?\s*)?Criteria:?\s*/gi, '')
+        .replace(/\n+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
     inspectElement(el, isExplicitClick = false) {
       if (!this.isActive || !el) return;
 
@@ -671,7 +685,8 @@
 
       const info = this.resolveElementExplanation(el);
       if (info) {
-        const speechClean = `${info.title}. ${info.text.replace(/a\.\s*Explanation:?/gi, 'Explanation:').replace(/b\.\s*Rule\s*\/?\s*criteria:?/gi, 'Rule and criteria:')}`;
+        const cleanBody = this.sanitizeExplanationText(info.text);
+        const speechClean = cleanBody ? `${info.title}. ${cleanBody}` : info.title;
         if (this.voiceEnabled) {
           this.speak(speechClean);
         } else {

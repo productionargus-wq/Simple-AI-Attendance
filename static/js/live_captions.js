@@ -90,6 +90,10 @@
         .replace(/\*(.*?)\*/g, '$1')
         .replace(/`([^`]+)`/g, '$1')
         .replace(/#{1,6}\s*/g, '')
+        .replace(/a\.\s*Explanation:?\s*/gi, '')
+        .replace(/b\.\s*Rule\s*\/?\s*criteria:?\s*/gi, '')
+        .replace(/\bExplanation:?\s*/gi, '')
+        .replace(/\b(?:Rule\s*(?:and|\/|&)?\s*)?Criteria:?\s*/gi, '')
         .replace(/\s+/g, ' ')
         .trim();
     }
