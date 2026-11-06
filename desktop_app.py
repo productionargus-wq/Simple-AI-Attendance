@@ -1,11 +1,14 @@
 """
-ARGUS CNC™ - Desktop Application Launcher
-Runs the Flask Attendance & Operations Management Web Application inside a native,
-dedicated desktop window (powered by Microsoft Edge WebView2 via PyWebView):
-- Runs in its own desktop window: NO browser address bar, NO tabs, NO bookmarks.
-- Automatic free port discovery & multi-threaded Waitress WSGI background server.
-- Full WebRTC camera & microphone hardware access for Face AI and Voice Recording.
-- Seamless, clean process shutdown when the desktop window is closed.
+ARGUS CNC™ - Desktop Application Launcher (Cloud-Connected with Offline Fallback)
+Runs the Argus Attendance Intelligence Application inside a native, dedicated desktop window
+(powered by Microsoft Edge WebView2 via PyWebView):
+- Primary Mode: Connects directly to the live production cloud server:
+    https://argusattendanceintelligence.argussoftwares.com/
+  This guarantees all clients instantly receive every feature, fix, and update in real-time
+  without ever needing to reinstall the desktop .exe!
+- Offline Fallback Mode: If the laptop is disconnected from the internet or the cloud server
+  is temporarily unreachable, it automatically starts the embedded Waitress WSGI local server
+  (http://127.0.0.1:<port>/) so local attendance operations continue without interruption.
 """
 
 import os
@@ -14,8 +17,12 @@ import time
 import socket
 import threading
 import urllib.request
+import urllib.error
 import webview
 from waitress import serve
+
+CLOUD_URL = "https://argusattendanceintelligence.argussoftwares.com/"
+CLOUD_HEALTH_URL = "https://argusattendanceintelligence.argussoftwares.com/health"
 
 
 def get_base_dir():
@@ -60,34 +67,60 @@ def wait_for_server_ready(url, timeout=12):
     return False
 
 
+def check_cloud_online(timeout=3.0):
+    """Checks if the production cloud server is reachable within timeout."""
+    try:
+        req = urllib.request.Request(
+            CLOUD_HEALTH_URL,
+            headers={'User-Agent': 'ArgusDesktop/2.0 (Windows)'}
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status in (200, 301, 302, 307, 308)
+    except Exception as e:
+        print(f"[CloudCheck] Cloud server unreachable ({e}).")
+        return False
+
+
 def main():
     # Mark execution as running inside the desktop application wrapper
     os.environ['ARGUS_DESKTOP'] = '1'
 
-    # Lazy import Flask app to ensure all paths are initialized
+    # Lazy import Flask app for local server fallback
     from app import app
 
     host = '127.0.0.1'
-    port = find_available_port(5000)
-    server_url = f"http://{host}:{port}/"
+    local_port = find_available_port(5000)
+    local_server_url = f"http://{host}:{local_port}/"
 
     print("================================================================")
     print("ARGUS CNC™ - ARGUS ATTENDANCE INTELLIGENCE V2.0.0")
-    print(f"Embedded Server URL: {server_url}")
-    print("Initializing Native Application Window (WebView2)...")
+    print("Checking Cloud Server Connectivity...")
+    print(f"Cloud URL: {CLOUD_URL}")
     print("================================================================")
 
-    # 1. Start Waitress WSGI server in background daemon thread
+    # 1. Start local WSGI server as a background standby daemon thread
     server_thread = threading.Thread(
         target=start_wsgi_server,
-        args=(app, host, port),
+        args=(app, host, local_port),
         daemon=True
     )
     server_thread.start()
 
-    # 2. Wait until server is healthy and responding
-    if not wait_for_server_ready(server_url):
-        print("Notice: Proceeding with window launch...")
+    # 2. Check if the production cloud is reachable
+    cloud_is_online = check_cloud_online(timeout=3.0)
+
+    if cloud_is_online:
+        target_url = CLOUD_URL
+        window_title = 'Argus Attendance Intelligence (Cloud Connected)'
+        print("✓ Production Cloud Server is ONLINE. Connecting to live cloud...")
+        print("  All latest web changes and features will reflect in real-time.")
+    else:
+        target_url = local_server_url
+        window_title = 'Argus Attendance Intelligence (Offline Mode - Local Fallback)'
+        print("⚠ Notice: Cloud server is unreachable or device is offline.")
+        print(f"✓ Falling back to local offline server at: {local_server_url}")
+        # Wait until local server responds before displaying window
+        wait_for_server_ready(local_server_url)
 
     # 3. Configure PyWebView settings
     webview.settings['ALLOW_DOWNLOADS'] = True
@@ -104,8 +137,8 @@ def main():
 
     # 5. Create native desktop window
     window = webview.create_window(
-        title='Argus Attendance Intelligence v2.0.0',
-        url=server_url,
+        title=window_title,
+        url=target_url,
         width=1366,
         height=860,
         min_size=(1024, 680),
@@ -115,7 +148,24 @@ def main():
         confirm_close=False
     )
 
-    # 6. Launch PyWebView with Windows Edge Chromium (WebView2)
+    # 6. Background connectivity monitor:
+    # If starting in offline mode, background thread detects when internet returns
+    def monitor_connectivity():
+        time.sleep(10)
+        while True:
+            try:
+                current_url = window.get_current_url()
+                if current_url and '127.0.0.1' in current_url:
+                    if check_cloud_online(timeout=2.0):
+                        print("[Network] Internet connection restored! Cloud server is available.")
+            except Exception:
+                pass
+            time.sleep(20)
+
+    monitor_thread = threading.Thread(target=monitor_connectivity, daemon=True)
+    monitor_thread.start()
+
+    # 7. Launch PyWebView with Windows Edge Chromium (WebView2)
     # private_mode=False ensures cookie persistence across app launches
     webview.start(gui='edgechromium', debug=False, private_mode=False)
 
