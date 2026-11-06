@@ -1,203 +1,406 @@
-{% extends 'base.html' %}
-
-{% block content %}
-<!-- Top Manual Entry Banner with Add Entry Button -->
-<div class="content-banner-card">
-  <div class="banner-left">
-    <div class="banner-icon-badge">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-      </svg>
-    </div>
-    <div class="banner-text-group">
-      <div class="banner-title">MANUAL ENTRY</div>
-      <div class="banner-subtitle">Record and correct punch times, permissions, and manual work hours</div>
-    </div>
-  </div>
-  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: nowrap;">
-    {% if is_system_admin and system_admin_companies %}
-    <div class="sysadmin-company-filter-wrap" style="display: inline-flex; align-items: center; gap: 6px; margin: 0;">
-      <label for="sysadminCompanyFilterManual">COMPANY:</label>
-      <select class="sysadmin-company-select" id="sysadminCompanyFilterManual" onchange="globalSwitchSystemAdminCompany(this.value)">
-        {% for c in system_admin_companies %}
-        <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    {% endif %}
-    <button class="btn-primary-action" id="btnOpenManualEntryModal">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="5" x2="12" y2="19"></line>
-        <line x1="5" y1="12" x2="19" y2="12"></line>
-      </svg>
-      Add Entry
-    </button>
-  </div>
-</div>
-
-<!-- Table Card with Single-Row Unified Toolbar -->
-<div class="table-card">
-  <div class="table-toolbar">
-    <div class="table-toolbar-left">
-      <div class="filter-group">
-        <label for="fromDateFilter">From Date</label>
-        <input type="date" id="fromDateFilter" class="filter-input" placeholder="mm/dd/yyyy">
-      </div>
-      <div class="filter-group">
-        <label for="toDateFilter">To Date</label>
-        <input type="date" id="toDateFilter" class="filter-input" placeholder="mm/dd/yyyy">
-      </div>
-      <div class="filter-group">
-        <label for="statusFilter">Status</label>
-        <select id="statusFilter" class="filter-input" style="max-width: 95px; min-width: 75px;">
-          <option value="All" selected>All</option>
-          <option value="Proper">Proper</option>
-          <option value="Permission">Permission</option>
-          <option value="Improper">Improper</option>
-          <option value="Others">Others</option>
-        </select>
-      </div>
-      <button class="btn-filter" id="btnFilterManual">Filter</button>
-      <button class="btn-clear" id="btnClearManual">Clear</button>
-    </div>
-
-    <div class="table-toolbar-right">
-      <div class="entries-select-wrapper">
-        <span>Show</span>
-        <select id="entriesLimit" class="entries-select">
-          <option value="10" selected>10</option>
-          <option value="25">25</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        <span>entries</span>
-      </div>
-
-      <div class="export-btn-group">
-        <button class="btn-export" id="btnCopyTable" title="Copy">Copy</button>
-        <button class="btn-export" id="btnCsvTable" title="CSV">CSV</button>
-        <button class="btn-export btn-excel" id="btnExcelTable" title="Excel">Excel</button>
-        <button class="btn-export btn-pdf" id="btnPdfTable" title="PDF">PDF</button>
-        <button class="btn-export" id="btnPrintTable" title="Print">Print</button>
-      </div>
-
-
-      <div class="search-box-wrapper">
-        <label for="tableSearch">Search:</label>
-        <input type="text" id="tableSearch" class="search-input">
-      </div>
-    </div>
-  </div>
-
-  <div class="table-responsive" id="printableManualSection">
-    <table class="employee-table" id="manualEntryTable">
-      <thead>
-        <tr>
-          <th data-col="employee_name" class="sticky-col-emp">NAME <span class="sort-icon">⇅</span></th>
-          <th data-col="entry_date">DATE <span class="sort-icon">⇅</span></th>
-          <th data-col="hours">HOURS <span class="sort-icon">⇅</span></th>
-          <th data-col="status">STATUS <span class="sort-icon">⇅</span></th>
-          <th data-col="submitted_at">SUBMITTED <span class="sort-icon">⇅</span></th>
-          <th data-col="hourly_rate">HOURLY <span class="sort-icon">⇅</span></th>
-          <th data-col="day_rate">DAY <span class="sort-icon">⇅</span></th>
-          <th data-col="half_rate">HALF <span class="sort-icon">⇅</span></th>
-          <th data-col="working_salary">WORKING SALARY <span class="sort-icon">⇅</span></th>
-          <th>ACTIONS <span class="sort-icon">⇅</span></th>
-        </tr>
-      </thead>
-      <tbody id="manualEntryTableBody">
-        <!-- Populated dynamically via JS -->
-      </tbody>
-    </table>
-  </div>
-
-  <div class="table-footer">
-    <div id="tableInfoText">Showing 1 to 3 of 3 entries</div>
-    <div class="pagination-controls">
-      <button class="pagination-btn disabled" id="prevPageBtn">Previous</button>
-      <button class="pagination-btn active" id="currentPageBtn">1</button>
-      <button class="pagination-btn disabled" id="nextPageBtn">Next</button>
-    </div>
-  </div>
-</div>
-
-<!-- ================= MODAL: Manual Entry (Images 2, 3, 4) ================= -->
-<div class="modal-overlay" id="manualEntryModal">
-  <div class="modal-box modal-box-manual">
-    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
-      <div class="modal-header-title" id="manualModalTitle">Manual Entry</div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <button type="button" class="btn-modal-voice-toggle" id="btnManualModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
-          <span class="voice-icon">🔊</span>
-          <span class="voice-text">Audio: On</span>
-        </button>
-        <button class="modal-close-btn" id="closeManualModal">&times;</button>
-      </div>
-    </div>
-    
-    <form id="manualEntryForm">
-      <input type="hidden" id="manualEntryId" name="id">
-      
-      <div class="modal-body">
-        <div class="modal-form-vertical">
-          <!-- Entry Type -->
-          <div class="form-group">
-            <label class="form-label">Entry Type</label>
-            <select class="form-input" id="inputEntryType" name="entry_type">
-              <option value="Add" selected>Add</option>
-              <option value="Sub">Sub</option>
-            </select>
-          </div>
-
-          <!-- Name -->
-          <div class="form-group">
-            <label class="form-label">Name</label>
-            <select class="form-input" id="inputEmployeeName" name="employee_name" required>
-              <option value="" disabled selected>Select</option>
-              {% for emp in employees %}
-              <option value="{{ emp }}">{{ emp }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <!-- Date -->
-          <div class="form-group">
-            <label class="form-label">Date</label>
-            <input type="date" class="form-input" id="inputEntryDate" name="entry_date" required>
-          </div>
-
-          <!-- Hours (HH:MM) -->
-          <div class="form-group" id="hoursGroup">
-            <label class="form-label">Hours (HH:MM)</label>
-            <input type="text" class="form-input" id="inputHours" name="hours" placeholder="04:00" value="04:00">
-          </div>
-
-          <!-- Status (Proper / Permission / Improper / Others) -->
-          <div class="form-group">
-            <label class="form-label">Status</label>
-            <select class="form-input" id="inputStatus" name="status">
-              <option value="Proper" selected>Proper</option>
-              <option value="Permission">Permission</option>
-              <option value="Improper">Improper</option>
-              <option value="Others">Others</option>
-            </select>
-          </div>
-
-          <!-- Reason (Optional) -->
-          <div class="form-group">
-            <label class="form-label">Reason <span style="font-size: 11px; color: #888; font-weight: normal;">(Optional)</span></label>
-            <input type="text" class="form-input" id="inputReason" name="reason" placeholder="e.g. Went to a function">
-          </div>
-
-          <button type="submit" class="btn-submit-full" id="btnSubmitManual">Submit</button>
-        </div>
-      </div>
-    </form>
-  </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/manual_entry.js') }}?v=20261002_1730"></script>
-{% endblock %}
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<!-- Top Manual Entry Banner with Add Entry Button -->
+
+<div class="content-banner-card">
+
+  <div class="banner-left">
+
+    <div class="banner-icon-badge">
+
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+
+      </svg>
+
+    </div>
+
+    <div class="banner-text-group">
+
+      <div class="banner-title">MANUAL ENTRY</div>
+
+      <div class="banner-subtitle">Record and correct punch times, permissions, and manual work hours</div>
+
+    </div>
+
+  </div>
+
+  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: nowrap;">
+
+    {% if is_system_admin and system_admin_companies %}
+
+    <div class="sysadmin-company-filter-wrap" style="display: inline-flex; align-items: center; gap: 6px; margin: 0;">
+
+      <label for="sysadminCompanyFilterManual">COMPANY:</label>
+
+      <select class="sysadmin-company-select" id="sysadminCompanyFilterManual" onchange="globalSwitchSystemAdminCompany(this.value)">
+
+        {% for c in system_admin_companies %}
+
+        <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
+
+        {% endfor %}
+
+      </select>
+
+    </div>
+
+    {% endif %}
+
+    <button class="btn-primary-action" id="btnOpenManualEntryModal">
+
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+
+      </svg>
+
+      Add Entry
+
+    </button>
+
+  </div>
+
+</div>
+
+
+
+<!-- Table Card with Single-Row Unified Toolbar -->
+
+<div class="table-card">
+
+  <div class="table-toolbar">
+
+    <div class="table-toolbar-left">
+
+      <div class="filter-group">
+
+        <label for="fromDateFilter">From Date</label>
+
+        <input type="date" id="fromDateFilter" class="filter-input" placeholder="mm/dd/yyyy">
+
+      </div>
+
+      <div class="filter-group">
+
+        <label for="toDateFilter">To Date</label>
+
+        <input type="date" id="toDateFilter" class="filter-input" placeholder="mm/dd/yyyy">
+
+      </div>
+
+      <div class="filter-group">
+
+        <label for="statusFilter">Status</label>
+
+        <select id="statusFilter" class="filter-input" style="max-width: 95px; min-width: 75px;">
+
+          <option value="All" selected>All</option>
+
+          <option value="Proper">Proper</option>
+
+          <option value="Permission">Permission</option>
+
+          <option value="Improper">Improper</option>
+
+          <option value="Others">Others</option>
+
+        </select>
+
+      </div>
+
+      <button class="btn-filter" id="btnFilterManual">Filter</button>
+
+      <button class="btn-clear" id="btnClearManual">Clear</button>
+
+    </div>
+
+
+
+    <div class="table-toolbar-right">
+
+      <div class="entries-select-wrapper">
+
+        <span>Show</span>
+
+        <select id="entriesLimit" class="entries-select">
+
+          <option value="10" selected>10</option>
+
+          <option value="25">25</option>
+
+          <option value="50">50</option>
+
+          <option value="100">100</option>
+
+        </select>
+
+        <span>entries</span>
+
+      </div>
+
+
+
+      <div class="export-btn-group">
+
+        <button class="btn-export" id="btnCopyTable" title="Copy">Copy</button>
+
+        <button class="btn-export" id="btnCsvTable" title="CSV">CSV</button>
+
+        <button class="btn-export btn-excel" id="btnExcelTable" title="Excel">Excel</button>
+
+        <button class="btn-export btn-pdf" id="btnPdfTable" title="PDF">PDF</button>
+
+        <button class="btn-export" id="btnPrintTable" title="Print">Print</button>
+
+      </div>
+
+
+
+
+
+      <div class="search-box-wrapper">
+
+        <label for="tableSearch">Search:</label>
+
+        <input type="text" id="tableSearch" class="search-input">
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+
+  <div class="table-responsive" id="printableManualSection">
+
+    <table class="employee-table" id="manualEntryTable">
+
+      <thead>
+
+        <tr>
+
+          <th data-col="employee_name" class="sticky-col-emp">NAME <span class="sort-icon">⇅</span></th>
+
+          <th data-col="entry_date">DATE <span class="sort-icon">⇅</span></th>
+
+          <th data-col="hours">HOURS <span class="sort-icon">⇅</span></th>
+
+          <th data-col="status">STATUS <span class="sort-icon">⇅</span></th>
+
+          <th data-col="submitted_at">SUBMITTED <span class="sort-icon">⇅</span></th>
+
+          <th data-col="hourly_rate">HOURLY <span class="sort-icon">⇅</span></th>
+
+          <th data-col="day_rate">DAY <span class="sort-icon">⇅</span></th>
+
+          <th data-col="half_rate">HALF <span class="sort-icon">⇅</span></th>
+
+          <th data-col="working_salary">WORKING SALARY <span class="sort-icon">⇅</span></th>
+
+          <th>ACTIONS <span class="sort-icon">⇅</span></th>
+
+        </tr>
+
+      </thead>
+
+      <tbody id="manualEntryTableBody">
+
+        <!-- Populated dynamically via JS -->
+
+      </tbody>
+
+    </table>
+
+  </div>
+
+
+
+  <div class="table-footer">
+
+    <div id="tableInfoText">Showing 1 to 3 of 3 entries</div>
+
+    <div class="pagination-controls">
+
+      <button class="pagination-btn disabled" id="prevPageBtn">Previous</button>
+
+      <button class="pagination-btn active" id="currentPageBtn">1</button>
+
+      <button class="pagination-btn disabled" id="nextPageBtn">Next</button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+
+<!-- ================= MODAL: Manual Entry (Images 2, 3, 4) ================= -->
+
+<div class="modal-overlay" id="manualEntryModal">
+
+  <div class="modal-box modal-box-manual">
+
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+
+      <div class="modal-header-title" id="manualModalTitle">Manual Entry</div>
+
+      <div style="display: flex; align-items: center; gap: 8px;">
+
+        <button type="button" class="btn-modal-voice-toggle" id="btnManualModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
+
+          <span class="voice-icon">🔊</span>
+
+          <span class="voice-text">Audio: On</span>
+
+        </button>
+
+        <button class="modal-close-btn" id="closeManualModal">&times;</button>
+
+      </div>
+
+    </div>
+
+    
+
+    <form id="manualEntryForm">
+
+      <input type="hidden" id="manualEntryId" name="id">
+
+      
+
+      <div class="modal-body">
+
+        <div class="modal-form-vertical">
+
+          <!-- Entry Type -->
+
+          <div class="form-group">
+
+            <label class="form-label">Entry Type</label>
+
+            <select class="form-input" id="inputEntryType" name="entry_type">
+
+              <option value="Add" selected>Add</option>
+
+              <option value="Sub">Sub</option>
+
+            </select>
+
+          </div>
+
+
+
+          <!-- Name -->
+
+          <div class="form-group">
+
+            <label class="form-label">Name</label>
+
+            <select class="form-input" id="inputEmployeeName" name="employee_name" required>
+
+              <option value="" disabled selected>Select</option>
+
+              {% for emp in employees %}
+
+              <option value="{{ emp }}">{{ emp }}</option>
+
+              {% endfor %}
+
+            </select>
+
+          </div>
+
+
+
+          <!-- Date -->
+
+          <div class="form-group">
+
+            <label class="form-label">Date</label>
+
+            <input type="date" class="form-input" id="inputEntryDate" name="entry_date" required>
+
+          </div>
+
+
+
+          <!-- Hours (HH:MM) -->
+
+          <div class="form-group" id="hoursGroup">
+
+            <label class="form-label">Hours (HH:MM)</label>
+
+            <input type="text" class="form-input" id="inputHours" name="hours" placeholder="04:00" value="04:00">
+
+          </div>
+
+
+
+          <!-- Status (Proper / Permission / Improper / Others) -->
+
+          <div class="form-group">
+
+            <label class="form-label">Status</label>
+
+            <select class="form-input" id="inputStatus" name="status">
+
+              <option value="Proper" selected>Proper</option>
+
+              <option value="Permission">Permission</option>
+
+              <option value="Improper">Improper</option>
+
+              <option value="Others">Others</option>
+
+            </select>
+
+          </div>
+
+
+
+          <!-- Reason (Optional) -->
+
+          <div class="form-group">
+
+            <label class="form-label">Reason <span style="font-size: 11px; color: #888; font-weight: normal;">(Optional)</span></label>
+
+            <input type="text" class="form-input" id="inputReason" name="reason" placeholder="e.g. Went to a function">
+
+          </div>
+
+
+
+          <button type="submit" class="btn-submit-full" id="btnSubmitManual">Submit</button>
+
+        </div>
+
+      </div>
+
+    </form>
+
+  </div>
+
+</div>
+
+{% endblock %}
+
+
+
+{% block scripts %}
+
+<script src="{{ url_for('static', filename='js/manual_entry.js') }}?v=20261106_spin_v3"></script>
+
+{% endblock %}
+
