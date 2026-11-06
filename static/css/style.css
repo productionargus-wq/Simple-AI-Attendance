@@ -7214,3 +7214,63 @@ body {
 }
 
 
+
+/* Email Sliding Toggle Switch Inside Input */
+.email-switch {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.email-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.email-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 16px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.email-slider:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #ffffff;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.email-switch input:checked + .email-slider {
+  background: #10b981;
+}
+
+.email-switch input:checked + .email-slider:before {
+  transform: translateX(12px);
+}
+
+.email-switch input:not(:checked) + .email-slider {
+  background-color: #cbd5e1;
+}
+
+.email-switch input:not(:checked) + .email-slider:before {
+  transform: translateX(0);
+}

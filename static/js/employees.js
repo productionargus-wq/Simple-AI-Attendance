@@ -592,13 +592,23 @@ document.addEventListener('DOMContentLoaded', function () {
   function setEmailTurnedOff(turnedOff) {
     const emailInput = document.getElementById('inputEmail');
     const noEmailInput = document.getElementById('inputNoEmail');
-    const btnToggle = document.getElementById('btnToggleNoEmail');
+    const toggleSwitch = document.getElementById('toggleEmailSwitch');
+    const stateText = document.getElementById('emailToggleStateText');
+    const container = document.getElementById('emailToggleContainer');
     const marker = document.getElementById('emailRequiredMarker');
 
-    if (!emailInput || !btnToggle) return;
+    if (!emailInput) return;
 
     if (turnedOff) {
       if (noEmailInput) noEmailInput.value = '1';
+      if (toggleSwitch) toggleSwitch.checked = false;
+      if (stateText) {
+        stateText.textContent = 'OFF';
+        stateText.style.color = '#94a3b8';
+      }
+      if (container) {
+        container.setAttribute('title', 'Email requirement is OFF (click toggle to re-enable)');
+      }
       emailInput.disabled = true;
       emailInput.required = false;
       emailInput.value = '';
@@ -611,15 +621,16 @@ document.addEventListener('DOMContentLoaded', function () {
       if (marker) {
         marker.style.visibility = 'hidden';
       }
-
-      btnToggle.classList.add('is-turned-off');
-      btnToggle.style.backgroundColor = '#fef2f2';
-      btnToggle.style.borderColor = '#fca5a5';
-      btnToggle.style.color = '#dc2626';
-      btnToggle.setAttribute('title', 'Email is turned off (click to re-enable)');
-      btnToggle.innerHTML = '<span class="toggle-icon">✓</span> <span class="toggle-text">No Email</span>';
     } else {
       if (noEmailInput) noEmailInput.value = '0';
+      if (toggleSwitch) toggleSwitch.checked = true;
+      if (stateText) {
+        stateText.textContent = 'ON';
+        stateText.style.color = '#10b981';
+      }
+      if (container) {
+        container.setAttribute('title', 'Email requirement is ON (click toggle to disable)');
+      }
       emailInput.disabled = false;
       emailInput.required = true;
       emailInput.placeholder = 'Email ID (e.g. employee@company.com)';
@@ -636,26 +647,16 @@ document.addEventListener('DOMContentLoaded', function () {
         marker.style.fontWeight = 'bold';
         marker.style.fontSize = '';
       }
-
-      btnToggle.classList.remove('is-turned-off');
-      btnToggle.style.backgroundColor = '#f8fafc';
-      btnToggle.style.borderColor = '#cbd5e1';
-      btnToggle.style.color = '#64748b';
-      btnToggle.setAttribute('title', 'Click to turn off email requirement for this employee');
-      btnToggle.innerHTML = '<span class="toggle-icon">🚫</span> <span class="toggle-text">No Email</span>';
     }
   }
 
-  const btnToggleNoEmail = document.getElementById('btnToggleNoEmail');
-  if (btnToggleNoEmail) {
-    btnToggleNoEmail.addEventListener('click', function (e) {
-      if (e && e.preventDefault) e.preventDefault();
-      const noEmailInput = document.getElementById('inputNoEmail');
-      const isCurrentlyOff = noEmailInput && noEmailInput.value === '1';
-      const newState = !isCurrentlyOff;
-      setEmailTurnedOff(newState);
+  const toggleEmailSwitch = document.getElementById('toggleEmailSwitch');
+  if (toggleEmailSwitch) {
+    toggleEmailSwitch.addEventListener('change', function () {
+      const isTurnedOff = !this.checked;
+      setEmailTurnedOff(isTurnedOff);
       if (window.ArgusVoice) {
-        if (newState) {
+        if (isTurnedOff) {
           window.ArgusVoice.speakDual({
             english: 'Email requirement turned off for this employee.',
             tamil: 'இந்த ஊழியருக்கு மின்னஞ்சல் தேவையில்லை என அமைக்கப்பட்டது.'
@@ -665,6 +666,20 @@ document.addEventListener('DOMContentLoaded', function () {
             english: 'Email requirement enabled.',
             tamil: 'மின்னஞ்சல் தேவை இயக்கப்பட்டது.'
           }, { interrupt: true });
+        }
+      }
+    });
+  }
+
+  const emailToggleContainer = document.getElementById('emailToggleContainer');
+  if (emailToggleContainer) {
+    emailToggleContainer.addEventListener('click', function (e) {
+      if (e.target.tagName !== 'INPUT') {
+        const sw = document.getElementById('toggleEmailSwitch');
+        if (sw) {
+          sw.checked = !sw.checked;
+          const event = new Event('change');
+          sw.dispatchEvent(event);
         }
       }
     });
