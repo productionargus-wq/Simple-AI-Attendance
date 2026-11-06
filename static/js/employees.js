@@ -609,11 +609,7 @@ document.addEventListener('DOMContentLoaded', function () {
       emailInput.style.borderColor = '#e2e8f0';
 
       if (marker) {
-        marker.textContent = ' (Turned Off)';
-        marker.className = 'email-off-marker';
-        marker.style.color = '#94a3b8';
-        marker.style.fontWeight = 'normal';
-        marker.style.fontSize = '11px';
+        marker.style.visibility = 'hidden';
       }
 
       btnToggle.classList.add('is-turned-off');
@@ -621,7 +617,7 @@ document.addEventListener('DOMContentLoaded', function () {
       btnToggle.style.borderColor = '#fca5a5';
       btnToggle.style.color = '#dc2626';
       btnToggle.setAttribute('title', 'Email is turned off (click to re-enable)');
-      btnToggle.innerHTML = '<span class="toggle-icon">✓</span> <span class="toggle-text">No Email (Active)</span>';
+      btnToggle.innerHTML = '<span class="toggle-icon">✓</span> <span class="toggle-text">No Email</span>';
     } else {
       if (noEmailInput) noEmailInput.value = '0';
       emailInput.disabled = false;
@@ -633,6 +629,7 @@ document.addEventListener('DOMContentLoaded', function () {
       emailInput.style.borderColor = '';
 
       if (marker) {
+        marker.style.visibility = 'visible';
         marker.textContent = '*';
         marker.className = 'required';
         marker.style.color = '#ef4444';
