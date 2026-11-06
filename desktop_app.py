@@ -21,6 +21,18 @@ import urllib.error
 import webview
 from waitress import serve
 
+# Configure stdout and stderr for UTF-8 and safe character replacement on Windows
+if sys.stdout is not None:
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+if sys.stderr is not None:
+    try:
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 CLOUD_URL = "https://argusattendanceintelligence.argussoftwares.com/"
 CLOUD_HEALTH_URL = "https://argusattendanceintelligence.argussoftwares.com/health"
 
@@ -93,7 +105,7 @@ def main():
     local_server_url = f"http://{host}:{local_port}/"
 
     print("================================================================")
-    print("ARGUS CNC™ - ARGUS ATTENDANCE INTELLIGENCE V2.0.0")
+    print("ARGUS CNC - ARGUS ATTENDANCE INTELLIGENCE V2.0.0")
     print("Checking Cloud Server Connectivity...")
     print(f"Cloud URL: {CLOUD_URL}")
     print("================================================================")
@@ -112,13 +124,13 @@ def main():
     if cloud_is_online:
         target_url = CLOUD_URL
         window_title = 'Argus Attendance Intelligence (Cloud Connected)'
-        print("✓ Production Cloud Server is ONLINE. Connecting to live cloud...")
+        print("[OK] Production Cloud Server is ONLINE. Connecting to live cloud...")
         print("  All latest web changes and features will reflect in real-time.")
     else:
         target_url = local_server_url
         window_title = 'Argus Attendance Intelligence (Offline Mode - Local Fallback)'
-        print("⚠ Notice: Cloud server is unreachable or device is offline.")
-        print(f"✓ Falling back to local offline server at: {local_server_url}")
+        print("[WARN] Notice: Cloud server is unreachable or device is offline.")
+        print(f"[OK] Falling back to local offline server at: {local_server_url}")
         # Wait until local server responds before displaying window
         wait_for_server_ready(local_server_url)
 
