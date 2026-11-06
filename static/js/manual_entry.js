@@ -64,6 +64,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Load entries from server
   async function loadEntries() {
+    if (window.renderTableLoading && tableBody) {
+      window.renderTableLoading(tableBody, "Loading manual entry logs...", 10);
+    }
     try {
       const params = new URLSearchParams({
         from_date: fromDate,

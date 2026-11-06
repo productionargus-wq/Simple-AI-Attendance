@@ -1,634 +1,641 @@
-{% extends 'base.html' %}
-
-{% block content %}
-<!-- Top Manage Companies Banner -->
-<div class="content-banner-card">
-  <div class="banner-left">
-    <div class="banner-icon-badge">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-        <circle cx="9" cy="7" r="4"></circle>
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-      </svg>
-    </div>
-    <div class="banner-text-group">
-      <div class="banner-title">MANAGE COMPANIES</div>
-      <div class="banner-subtitle">System Admin tenant organization and subscription management</div>
-    </div>
-  </div>
-  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px;">
-    <button class="btn-secondary-action" id="btnOpenReportsModal">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10"></line>
-        <line x1="12" y1="20" x2="12" y2="4"></line>
-        <line x1="6" y1="20" x2="6" y2="14"></line>
-      </svg>
-      Reports
-    </button>
-    <button class="btn-primary-action" id="btnOpenAddCompanyModal">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="5" x2="12" y2="19"></line>
-        <line x1="5" y1="12" x2="19" y2="12"></line>
-      </svg>
-      Add Company
-    </button>
-  </div>
-</div>
-
-<!-- Companies Table Card -->
-<div class="table-card">
-  <div class="table-toolbar">
-    <div class="table-toolbar-left">
-      <div class="entries-select-wrapper">
-        <span>Show</span>
-        <select id="companyEntriesLimit" class="entries-select">
-          <option value="10" selected>10</option>
-          <option value="25">25</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        <span>entries</span>
-      </div>
-
-      <div class="export-btn-group">
-        <button class="btn-export" id="btnCopyCompanies" title="Copy">Copy</button>
-        <button class="btn-export" id="btnCsvCompanies" title="CSV">CSV</button>
-        <button class="btn-export btn-excel" id="btnExcelCompanies" title="Excel">Excel</button>
-        <button class="btn-export btn-pdf" id="btnPdfCompanies" title="PDF">PDF</button>
-        <button class="btn-export" id="btnPrintCompanies" title="Print">Print</button>
-      </div>
-    </div>
-
-    <!-- Right Controls: Toggle Icons + Search Box -->
-    <div class="toolbar-right-controls" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto;">
-      <div class="view-toggle-wrapper">
-        <button type="button" class="btn-icon-view" id="btnCompanyListView" title="List View" aria-label="List View">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="8" y1="6" x2="21" y2="6"></line>
-            <line x1="8" y1="12" x2="21" y2="12"></line>
-            <line x1="8" y1="18" x2="21" y2="18"></line>
-            <line x1="3" y1="6" x2="3.01" y2="6"></line>
-            <line x1="3" y1="12" x2="3.01" y2="12"></line>
-            <line x1="3" y1="18" x2="3.01" y2="18"></line>
-          </svg>
-        </button>
-        <button type="button" class="btn-icon-view active" id="btnCompanyGridView" title="Grid View" aria-label="Grid View">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
-          </svg>
-        </button>
-      </div>
-
-      <div class="search-box-wrapper">
-        <label for="companyTableSearch">Search:</label>
-        <input type="text" id="companyTableSearch" class="search-input" placeholder="Search company, GSTIN, email...">
-      </div>
-    </div>
-  </div>
-
-  <!-- List View Table Section -->
-  <div class="table-responsive" id="companyListSection" style="display: none;">
-    <table class="employee-table" id="companyDataTable">
-      <thead>
-        <tr>
-          <th data-col="sl_no" style="width: 50px; text-align: center; white-space: nowrap;">SL NO <span class="sort-icon">⇅</span></th>
-          <th style="width: 55px; text-align: center; white-space: nowrap;">LOGO</th>
-          <th data-col="company_name" class="sticky-col-comp" style="min-width: 170px; white-space: nowrap;">COMPANY NAME <span class="sort-icon">⇅</span></th>
-          <th data-col="registered_date" style="min-width: 145px; white-space: nowrap; text-align: center;">REGISTERED DATE <span class="sort-icon">⇅</span></th>
-          <th data-col="days_active" style="min-width: 125px; white-space: nowrap; text-align: center;">DAYS ACTIVE <span class="sort-icon">⇅</span></th>
-          <th data-col="gstin" style="min-width: 140px; white-space: nowrap;">GSTIN NUMBER <span class="sort-icon">⇅</span></th>
-          <th data-col="email" style="min-width: 170px; white-space: nowrap;">REGISTERED EMAIL <span class="sort-icon">⇅</span></th>
-          <th data-col="phone" style="min-width: 120px; white-space: nowrap;">PHONE NUMBER <span class="sort-icon">⇅</span></th>
-          <th style="min-width: 150px; white-space: nowrap;">LOCATION</th>
-          <th data-col="shift_hours" style="min-width: 70px; text-align: center; white-space: nowrap;">SHIFT <span class="sort-icon">⇅</span></th>
-          <th style="min-width: 70px; text-align: center; white-space: nowrap;">LIMIT</th>
-          <th data-col="status" style="min-width: 80px; text-align: center; white-space: nowrap;">STATUS <span class="sort-icon">⇅</span></th>
-          <th style="min-width: 110px; text-align: center; white-space: nowrap;">AUTO REPORTS</th>
-          <th style="min-width: 165px; text-align: center; white-space: nowrap;">DELETE ENTRIES</th>
-          <th style="min-width: 110px; text-align: center; white-space: nowrap;">SUPPORT</th>
-          <th style="min-width: 115px; text-align: center; white-space: nowrap;">ACTIONS <span class="sort-icon">⇅</span></th>
-        </tr>
-      </thead>
-      <tbody id="companyTableBody">
-        <tr>
-          <td colspan="16" style="text-align: center; padding: 24px; color: #6c757d;">Loading registered companies...</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Responsive Card Grid Section -->
-  <div id="companyGridSection" class="company-grid-container" style="display: grid;">
-    <!-- Rendered dynamically via JavaScript -->
-  </div>
-
-  <div class="table-footer">
-    <div id="companyTableInfo">Showing 0 to 0 of 0 entries</div>
-    <div class="pagination-controls" id="companyPagination">
-      <button class="pagination-btn disabled" id="companyPrevBtn">Previous</button>
-      <button class="pagination-btn active" id="companyCurrentBtn">1</button>
-      <button class="pagination-btn disabled" id="companyNextBtn">Next</button>
-    </div>
-  </div>
-</div>
-
-<!-- ================= MODAL 1: Add Company Modal ================= -->
-<div class="modal-overlay" id="companyModal">
-  <div class="modal-box modal-box-large" style="max-width: 620px;">
-    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
-      <div class="modal-header-title" id="companyModalTitle">Register New Company</div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <button type="button" class="btn-modal-voice-toggle" id="btnCompanyModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
-          <span class="voice-icon">🔊</span>
-          <span class="voice-text">Audio: On</span>
-        </button>
-        <button class="modal-close-btn" id="closeCompanyModal">&times;</button>
-      </div>
-    </div>
-
-    <form id="companyForm">
-      <div class="modal-body" style="max-height: calc(85vh - 130px); overflow-y: auto; padding: 20px;">
-        <div id="companyFormAlert" style="display: none; padding: 10px 14px; border-radius: 4px; font-size: 12px; margin-bottom: 14px;"></div>
-
-        <div class="form-grid-company" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-          <!-- Field 1: Company Name -->
-          <div class="form-group" style="grid-column: span 2;">
-            <label class="form-label">Company Name <span class="required">*</span></label>
-            <input type="text" class="form-input" id="inputCompanyName" name="company_name" placeholder="e.g. Acme Innovations Pvt Ltd" required>
-          </div>
-
-          <!-- Field 2: GSTIN Number -->
-          <div class="form-group">
-            <label class="form-label">GSTIN Number</label>
-            <input type="text" class="form-input" id="inputGstin" name="gstin" placeholder="15-digit GSTIN (e.g. 33AAAAA0000A1Z5)" style="text-transform: uppercase;">
-          </div>
-
-          <!-- Field 3: Phone Number -->
-          <div class="form-group">
-            <label class="form-label">Phone Number <span class="required">*</span></label>
-            <input type="tel" class="form-input" id="inputPhone" name="phone" placeholder="e.g. +91 9876543210" required>
-          </div>
-
-          <!-- Field 4: Registered Corporate Email -->
-          <div class="form-group" style="grid-column: span 2;">
-            <label class="form-label">Registered Corporate Email ID <span class="required">*</span></label>
-            <input type="email" class="form-input" id="inputEmail" name="email" placeholder="admin@acme.com" required>
-            <span style="font-size: 11px; color: #3d6078; font-weight: 600; margin-top: 3px;">
-              ℹ️ Crucial: This email will be used as the exclusive Company Admin Login ID on <code>/company-login</code>.
-            </span>
-          </div>
-
-          <!-- Field 5: Geolocation -->
-          <div class="form-group">
-            <label class="form-label">Office Latitude</label>
-            <input type="text" class="form-input" id="inputLatitude" name="latitude" placeholder="e.g. 11.029800 or any coordinate">
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Office Longitude</label>
-            <input type="text" class="form-input" id="inputLongitude" name="longitude" placeholder="e.g. 76.974000 or any coordinate">
-          </div>
-
-          <!-- Auto Geolocation Trigger -->
-          <div style="grid-column: span 2; display: flex; align-items: center; justify-content: space-between; background-color: #f1f5f9; padding: 8px 12px; border-radius: 4px; flex-wrap: wrap; gap: 8px;">
-            <span style="font-size: 11px; color: #475569;">Used to calculate proximity when employees punch attendance.</span>
-            <button type="button" id="btnDetectLocation" style="background-color: #3d6078; color: #ffffff; border: none; border-radius: 4px; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer;">
-              📍 Get Current Location
-            </button>
-          </div>
-
-          <!-- Field 6: Geofence Radius (System Admin Configurable Only) -->
-          <div class="form-group" style="grid-column: span 2;">
-            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
-              <span>Geofence Radius (Meters) <span class="required">*</span></span>
-            </label>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <input type="number" class="form-input" id="inputGeofenceRadius" name="geofence_radius" min="10" max="50000" step="5" value="200" placeholder="e.g. 200" required style="font-weight: 700; max-width: 180px;">
-              <span style="font-size: 13px; font-weight: 700; color: #64748b; white-space: nowrap;">Meters</span>
-            </div>
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Perimeter distance from office coordinates allowed for valid attendance punches (default 200m). Locked for Company Admin; editable anytime by System Admin.</span>
-          </div>
-
-          <!-- Field: Calculate Proper Entries (Geofence Validation Policy) -->
-          <div class="form-group" style="grid-column: span 2;">
-            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
-              <span>Calculate Proper Entries <span class="required">*</span></span>
-            </label>
-            <select class="form-input" id="inputCalculateProperEntriesCompany" name="calculate_proper_entries" style="font-weight: 600;">
-              <option value="true" selected>Enabled (Default - Check distance against geofence radius)</option>
-              <option value="false">Disabled (Exempt company from geofence checks - all entries Proper)</option>
-            </select>
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">When enabled, employee attendance punches are checked against the geofence perimeter. When disabled, all punches for this company are recorded as Proper without distance validation.</span>
-          </div>
-
-          <!-- Row: Employee Limit & Branch Limit -->
-          <div class="form-group">
-            <label class="form-label">Employee Count Limit <span class="required">*</span></label>
-            <input type="number" class="form-input" id="inputEmployeeLimit" name="employee_limit" min="1" max="10000" placeholder="e.g. 25" required>
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Maximum allowed employees for this company.</span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Branch Creation Limit <span class="required">*</span></label>
-            <input type="number" class="form-input" id="inputBranchLimit" name="branch_limit" min="1" max="100" value="5" placeholder="e.g. 5" required>
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Maximum regional branch locations this company can create.</span>
-          </div>
-
-          <div class="form-group" style="grid-column: span 2;">
-            <label class="form-label">Automatic Checkout Limit <span class="required">*</span></label>
-            <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="e.g. 08:00 or 8" value="08:00" required>
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Maximum hours before auto-checkout (e.g. 08:00).</span>
-          </div>
-
-          <!-- Row: Manual Registered Date -->
-          <div class="form-group" style="grid-column: span 2;">
-            <label class="form-label">Date <span class="required">*</span></label>
-            <input type="date" class="form-input" id="inputRegisteredDate" name="registered_date" required>
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Date this company is registered in the application.</span>
-          </div>
-
-          <!-- Row: Company Status & Auto Email Reports -->
-          <div class="form-group">
-            <label class="form-label">Company Status</label>
-            <select class="form-input" id="inputStatus" name="status">
-              <option value="Active" selected>Active</option>
-              <option value="Deactive">Deactive</option>
-            </select>
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Deactivating locks out this company and all its employees.</span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Auto Email Reports</label>
-            <select class="form-input" id="inputAutoEmailReports" name="auto_email_reports">
-              <option value="false" selected>Disabled (No Emails)</option>
-              <option value="true">Enabled (Send Emails)</option>
-            </select>
-          </div>
-
-          <!-- Row: Daily Report Email Time -->
-          <div class="form-group">
-            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
-              <span>Daily Report Email Time <span class="required">*</span></span>
-            </label>
-            <input type="time" class="form-input" id="inputDailyReportTime" name="daily_report_time" value="07:00" required style="font-weight: 700;">
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Time of day to send yesterday's daily activity digest (default: 07:00 AM).</span>
-          </div>
-
-          <!-- Row: Monthly Report Email Day -->
-          <div class="form-group">
-            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
-              <span>Monthly Report Email Day <span class="required">*</span></span>
-            </label>
-            <select class="form-input" id="inputMonthlyReportDay" name="monthly_report_day" style="font-weight: 700;">
-              <option value="1" selected>1st of every month (Default)</option>
-              <option value="2">2nd of every month</option>
-              <option value="3">3rd of every month</option>
-              <option value="4">4th of every month</option>
-              <option value="5">5th of every month</option>
-              <option value="6">6th of every month</option>
-              <option value="7">7th of every month</option>
-              <option value="8">8th of every month</option>
-              <option value="9">9th of every month</option>
-              <option value="10">10th of every month</option>
-              <option value="11">11th of every month</option>
-              <option value="12">12th of every month</option>
-              <option value="13">13th of every month</option>
-              <option value="14">14th of every month</option>
-              <option value="15">15th of every month</option>
-              <option value="16">16th of every month</option>
-              <option value="17">17th of every month</option>
-              <option value="18">18th of every month</option>
-              <option value="19">19th of every month</option>
-              <option value="20">20th of every month</option>
-              <option value="21">21st of every month</option>
-              <option value="22">22nd of every month</option>
-              <option value="23">23rd of every month</option>
-              <option value="24">24th of every month</option>
-              <option value="25">25th of every month</option>
-              <option value="26">26th of every month</option>
-              <option value="27">27th of every month</option>
-              <option value="28">28th of every month</option>
-            </select>
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Day of the month to send the monthly salary and payroll report.</span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Delete Entries Permission</label>
-            <select class="form-input" id="inputCanDeleteEntries" name="can_delete_entries">
-              <option value="false" selected>Disabled (Delete buttons hidden in company UI)</option>
-              <option value="true">Enabled (Allow deleting entries in company UI)</option>
-            </select>
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Controls whether delete buttons are visible in company UI.</span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Support Access</label>
-            <select class="form-input" id="inputSupportEnabled" name="support_enabled">
-              <option value="false" selected>Disabled (Support tab hidden)</option>
-              <option value="true">Enabled (Support tab visible)</option>
-            </select>
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Controls if company admin has access to the Support & Help tab.</span>
-          </div>
-
-          <!-- Field: Authorized Company Modules (Feature Toggles) -->
-          <div class="form-group" style="grid-column: span 2; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin-top: 4px;">
-            <label class="form-label" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.4px;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-              <span>Authorized Platform Modules &amp; Subscriptions</span>
-            </label>
-            <div style="font-size: 11.5px; color: #64748b; margin-bottom: 12px; line-height: 1.4;">
-              Select the feature modules granted to this client. Only checked modules will be accessible in their navigation and portal.
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              <!-- Module 1: Single Company -->
-              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
-                <input type="checkbox" id="inputModSingleCompany" name="module_single_company" checked style="width: 17px; height: 17px; margin-top: 2px; accent-color: #2563eb; cursor: pointer;">
-                <div>
-                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-                    <span>1. Single Company Module</span>
-                    <span style="font-size: 10px; background: #eff6ff; color: #1d4ed8; padding: 1px 6px; border-radius: 10px; font-weight: 700;">Base Office</span>
-                  </div>
-                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
-                    Enables core company attendance, AI gate camera punch, basic shift management, leave permissions, and monthly payroll.
-                  </div>
-                </div>
-              </label>
-
-              <!-- Module 2: Branch Company -->
-              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
-                <input type="checkbox" id="inputModBranchCompany" name="module_branch_company" style="width: 17px; height: 17px; margin-top: 2px; accent-color: #0284c7; cursor: pointer;">
-                <div>
-                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-                    <span>2. Multi-Branch Enterprise Module</span>
-                    <span style="font-size: 10px; background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 10px; font-weight: 700;">Multi-Site Hub</span>
-                  </div>
-                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
-                    Enables multiple regional branches, individual branch geofences, branch manager logins, and district-filtered attendance &amp; payroll.
-                  </div>
-                </div>
-              </label>
-
-              <!-- Module 3: Field Worker -->
-              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
-                <input type="checkbox" id="inputModFieldWorker" name="module_field_worker" style="width: 17px; height: 17px; margin-top: 2px; accent-color: #d97706; cursor: pointer;">
-                <div>
-                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-                    <span>3. Field Worker Module</span>
-                    <span style="font-size: 10px; background: #fef3c7; color: #b45309; padding: 1px 6px; border-radius: 10px; font-weight: 700;">GPS &amp; CRM</span>
-                  </div>
-                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
-                    Enables live GPS route telemetry, customer visit CRM, KM travel allowances, detour detection, and field attendance terminal.
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-footer modal-footer-right" style="padding: 14px 20px; background-color: #ffffff; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; justify-content: flex-end; align-items: center; position: sticky; bottom: 0; z-index: 10;">
-        <button type="button" class="btn-reset" id="btnCancelCompany" style="background-color: #64748b; color: #ffffff; border: none; border-radius: 4px; padding: 8px 20px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s ease;">Cancel</button>
-        <button type="submit" class="btn-submit" id="btnSaveCompany" style="background-color: #198754; color: #ffffff; border: none; border-radius: 4px; padding: 8px 22px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">Save Company</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- ================= MODAL 2: Reports Summary Modal ================= -->
-<div class="modal-overlay" id="reportsModal">
-  <div class="modal-box modal-box-large" style="max-width: 700px;">
-    <div class="modal-header" style="background-color: #3d6078; color: #ffffff;">
-      <div class="modal-header-title" style="color: #ffffff;">🏢 Multi-Tenant Companies & Headcount Report</div>
-      <button class="modal-close-btn" id="closeReportsModal" style="color: #ffffff;">&times;</button>
-    </div>
-
-    <div class="modal-body">
-      <!-- 4 Quick Stat Cards -->
-      <div class="reports-stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
-        <div style="background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 6px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: 700; color: #0d47a1;">TOTAL COMPANIES</div>
-          <div id="statTotalCompanies" style="font-size: 24px; font-weight: 800; color: #0d47a1; margin-top: 4px;">0</div>
-        </div>
-        <div style="background-color: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 6px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: 700; color: #1b5e20;">ACTIVE CLIENTS</div>
-          <div id="statActiveCompanies" style="font-size: 24px; font-weight: 800; color: #1b5e20; margin-top: 4px;">0</div>
-        </div>
-        <div style="background-color: #fff8e1; border: 1px solid #ffecb3; border-radius: 6px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: 700; color: #b78103;">CLIENT EMPLOYEES</div>
-          <div id="statTenantEmployees" style="font-size: 24px; font-weight: 800; color: #b78103; margin-top: 4px;">0</div>
-        </div>
-        <div style="background-color: #f3e5f5; border: 1px solid #e1bee7; border-radius: 6px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: 700; color: #4a148c;">MASTER EMPLOYEES</div>
-          <div id="statArgusEmployees" style="font-size: 24px; font-weight: 800; color: #4a148c; margin-top: 4px;">0</div>
-        </div>
-      </div>
-
-      <!-- Companies Headcount Breakdown Table -->
-      <div style="font-size: 13px; font-weight: 700; color: #2c3e50; margin-bottom: 8px;">Registered Tenants Breakdown</div>
-      <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
-        <table class="employee-table">
-          <thead>
-            <tr>
-              <th>COMPANY NAME</th>
-              <th>REGISTERED EMAIL</th>
-              <th style="text-align: center;">ENROLLED EMPLOYEES</th>
-              <th style="text-align: center;">STATUS</th>
-            </tr>
-          </thead>
-          <tbody id="reportsBreakdownBody">
-            <!-- Dynamically populated -->
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="modal-footer modal-footer-right">
-      <button type="button" class="btn-reset" id="btnCloseReportsFooter">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- ================= MODAL 3: View Company Details Modal ================= -->
-<div class="modal-overlay" id="viewCompanyModal">
-  <div class="modal-box modal-box-large" style="max-width: 650px; border-radius: 12px; overflow: hidden;">
-    <div class="modal-header" style="background-color: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 16px 20px;">
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <div class="banner-icon-badge" style="width: 38px; height: 38px; border-radius: 8px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-          </svg>
-        </div>
-        <div>
-          <div class="modal-header-title" style="color: #0f172a; font-size: 15px; font-weight: 800;">Company Details</div>
-          <div style="font-size: 11px; color: #64748b;">Registration profile and tenant configuration</div>
-        </div>
-      </div>
-      <button class="modal-close-btn" id="closeViewCompanyModal" style="color: #64748b; font-size: 22px;">&times;</button>
-    </div>
-
-    <div class="modal-body" style="padding: 20px; background-color: #f8fafc;">
-      <div class="view-company-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Company Name</div>
-          <div id="viewCompanyName" style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 3px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Company ID</div>
-          <div id="viewCompanyId" style="font-size: 13px; font-weight: 700; color: #2563eb; margin-top: 3px; font-family: monospace;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Registered Date in Application</div>
-          <div id="viewCompanyRegisteredDate" style="font-size: 13px; font-weight: 800; color: #16a34a; margin-top: 3px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Application Usage Duration</div>
-          <div id="viewCompanyDaysActiveBadge" style="margin-top: 3px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">GSTIN Number</div>
-          <div id="viewCompanyGstin" style="font-size: 13px; font-weight: 700; color: #334155; margin-top: 3px; font-family: monospace;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Phone Number</div>
-          <div id="viewCompanyPhone" style="font-size: 13px; font-weight: 700; color: #334155; margin-top: 3px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; grid-column: span 2;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Registered Corporate Email</div>
-          <div id="viewCompanyEmail" style="font-size: 13px; font-weight: 700; color: #2563eb; margin-top: 3px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; grid-column: span 2;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Office Geolocation (Latitude, Longitude)</div>
-          <div id="viewCompanyLocation" style="font-size: 13px; font-weight: 700; color: #334155; margin-top: 3px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Daily Shift Hours</div>
-          <div id="viewCompanyShiftHours" style="font-size: 13px; font-weight: 800; color: #0f172a; margin-top: 3px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Employee Limit / Enrolled</div>
-          <div id="viewCompanyEmployees" style="font-size: 13px; font-weight: 800; color: #0f172a; margin-top: 3px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Branch Limit / Active</div>
-          <div id="viewCompanyBranches" style="font-size: 13px; font-weight: 800; color: #0284c7; margin-top: 3px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Status</div>
-          <div id="viewCompanyStatusBadge" style="margin-top: 4px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Auto Email Reports</div>
-          <div id="viewCompanyReportsBadge" style="margin-top: 4px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Daily Report Time</div>
-          <div id="viewCompanyDailyTime" style="font-size: 13px; font-weight: 700; color: #0284c7; margin-top: 4px;">07:00 AM</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Monthly Report Day</div>
-          <div id="viewCompanyMonthlyDay" style="font-size: 13px; font-weight: 700; color: #16a34a; margin-top: 4px;">1st of month</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Delete Entries Permission</div>
-          <div id="viewCompanyDeleteEntriesBadge" style="margin-top: 4px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Support & Help Access</div>
-          <div id="viewCompanySupportBadge" style="margin-top: 4px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; grid-column: span 2;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Proper Entry Calculation (Geofence Check)</div>
-          <div id="viewCompanyProperEntriesBadge" style="margin-top: 4px;">-</div>
-        </div>
-
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; grid-column: span 2;">
-          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">Authorized Platform Modules</div>
-          <div id="viewCompanyModulesBadges" style="display: flex; flex-wrap: wrap; gap: 8px;">-</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-footer modal-footer-right" style="padding: 12px 20px; background-color: #ffffff; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
-      <button type="button" class="btn-reset" id="btnCloseViewCompanyFooter" style="background-color: #64748b; color: #ffffff; border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px; font-weight: 700; cursor: pointer;">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- ================= MODAL: Delete Company Confirmation Modal ================= -->
-<div class="modal-overlay" id="deleteCompanyModal">
-  <div class="modal-box" style="max-width: 500px; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
-    <div class="modal-header" style="background-color: #fee2e2; border-bottom: 1px solid #fecaca; padding: 16px 20px;">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <div style="width: 38px; height: 38px; border-radius: 50%; background-color: #ef4444; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-            <line x1="12" y1="9" x2="12" y2="13"></line>
-            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-          </svg>
-        </div>
-        <div>
-          <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #991b1b;">Delete Company</h4>
-          <span style="font-size: 11.5px; color: #b91c1c; font-weight: 600;">Cascade Deletion Confirmation</span>
-        </div>
-      </div>
-      <button class="modal-close-btn" id="closeDeleteCompanyModal" style="color: #991b1b; font-size: 20px;">&times;</button>
-    </div>
-    <div class="modal-body" style="padding: 20px; font-size: 13px; color: #334155; line-height: 1.6;">
-      <p style="margin-bottom: 12px; font-size: 13.5px; font-weight: 600; color: #1e293b;">
-        Are you sure you want to permanently delete company <strong id="deleteCompanyTargetName" style="color: #0f172a; text-decoration: underline;"></strong> (<span id="deleteCompanyTargetId" style="font-family: monospace; color: #64748b; font-weight: 700;"></span>)?
-      </p>
-      <div style="background-color: #fff1f2; border: 1px solid #ffe4e6; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
-        <div style="font-weight: 700; color: #be123c; margin-bottom: 6px; font-size: 12px;">⚠️ Cascading Deletion will permanently purge:</div>
-        <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #881337; line-height: 1.5;">
-          <li>All registered employees & facial biometric vectors</li>
-          <li>All attendance punch history, live entries & timeout logs</li>
-          <li>All attendance reports, manual entries & shift history</li>
-          <li>All leave applications, permission requests & leave policies</li>
-          <li>All payments, advances, payslips & salary reports</li>
-          <li>All support tickets & file attachments on server</li>
-        </ul>
-      </div>
-      <p style="margin: 0; font-size: 12px; color: #dc2626; font-weight: 700;">
-        This action is permanent and cannot be undone.
-      </p>
-    </div>
-    <div class="modal-footer" style="padding: 14px 20px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
-      <button type="button" class="btn-reset" id="btnCancelDeleteCompany" style="background-color: #94a3b8; color: #ffffff; border: none; border-radius: 6px; padding: 8px 18px; font-size: 12.5px; font-weight: 700; cursor: pointer;">Cancel</button>
-      <button type="button" id="btnConfirmDeleteCompany" style="background-color: #dc2626; color: #ffffff; border: none; border-radius: 6px; padding: 8px 20px; font-size: 12.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(220, 38, 38, 0.4);">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        </svg>
-        <span id="btnConfirmDeleteText">Yes, Delete Company & All Records</span>
-      </button>
-    </div>
-  </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/manage_companies.js') }}?v=20261022_daysactive"></script>
-{% endblock %}
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Manage Companies Banner -->
+<div class="content-banner-card">
+  <div class="banner-left">
+    <div class="banner-icon-badge">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+    </div>
+    <div class="banner-text-group">
+      <div class="banner-title">MANAGE COMPANIES</div>
+      <div class="banner-subtitle">System Admin tenant organization and subscription management</div>
+    </div>
+  </div>
+  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px;">
+    <button class="btn-secondary-action" id="btnOpenReportsModal">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"></line>
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="14"></line>
+      </svg>
+      Reports
+    </button>
+    <button class="btn-primary-action" id="btnOpenAddCompanyModal">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      Add Company
+    </button>
+  </div>
+</div>
+
+<!-- Companies Table Card -->
+<div class="table-card">
+  <div class="table-toolbar">
+    <div class="table-toolbar-left">
+      <div class="entries-select-wrapper">
+        <span>Show</span>
+        <select id="companyEntriesLimit" class="entries-select">
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+        <span>entries</span>
+      </div>
+
+      <div class="export-btn-group">
+        <button class="btn-export" id="btnCopyCompanies" title="Copy">Copy</button>
+        <button class="btn-export" id="btnCsvCompanies" title="CSV">CSV</button>
+        <button class="btn-export btn-excel" id="btnExcelCompanies" title="Excel">Excel</button>
+        <button class="btn-export btn-pdf" id="btnPdfCompanies" title="PDF">PDF</button>
+        <button class="btn-export" id="btnPrintCompanies" title="Print">Print</button>
+      </div>
+    </div>
+
+    <!-- Right Controls: Toggle Icons + Search Box -->
+    <div class="toolbar-right-controls" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto;">
+      <div class="view-toggle-wrapper">
+        <button type="button" class="btn-icon-view" id="btnCompanyListView" title="List View" aria-label="List View">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+        </button>
+        <button type="button" class="btn-icon-view active" id="btnCompanyGridView" title="Grid View" aria-label="Grid View">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+        </button>
+      </div>
+
+      <div class="search-box-wrapper">
+        <label for="companyTableSearch">Search:</label>
+        <input type="text" id="companyTableSearch" class="search-input" placeholder="Search company, GSTIN, email...">
+      </div>
+    </div>
+  </div>
+
+  <!-- List View Table Section -->
+  <div class="table-responsive" id="companyListSection" style="display: none;">
+    <table class="employee-table" id="companyDataTable">
+      <thead>
+        <tr>
+          <th data-col="sl_no" style="width: 50px; text-align: center; white-space: nowrap;">SL NO <span class="sort-icon">⇅</span></th>
+          <th style="width: 55px; text-align: center; white-space: nowrap;">LOGO</th>
+          <th data-col="company_name" class="sticky-col-comp" style="min-width: 170px; white-space: nowrap;">COMPANY NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="registered_date" style="min-width: 145px; white-space: nowrap; text-align: center;">REGISTERED DATE <span class="sort-icon">⇅</span></th>
+          <th data-col="days_active" style="min-width: 125px; white-space: nowrap; text-align: center;">DAYS ACTIVE <span class="sort-icon">⇅</span></th>
+          <th data-col="gstin" style="min-width: 140px; white-space: nowrap;">GSTIN NUMBER <span class="sort-icon">⇅</span></th>
+          <th data-col="email" style="min-width: 170px; white-space: nowrap;">REGISTERED EMAIL <span class="sort-icon">⇅</span></th>
+          <th data-col="phone" style="min-width: 120px; white-space: nowrap;">PHONE NUMBER <span class="sort-icon">⇅</span></th>
+          <th style="min-width: 150px; white-space: nowrap;">LOCATION</th>
+          <th data-col="shift_hours" style="min-width: 70px; text-align: center; white-space: nowrap;">SHIFT <span class="sort-icon">⇅</span></th>
+          <th style="min-width: 70px; text-align: center; white-space: nowrap;">LIMIT</th>
+          <th data-col="status" style="min-width: 80px; text-align: center; white-space: nowrap;">STATUS <span class="sort-icon">⇅</span></th>
+          <th style="min-width: 110px; text-align: center; white-space: nowrap;">AUTO REPORTS</th>
+          <th style="min-width: 165px; text-align: center; white-space: nowrap;">DELETE ENTRIES</th>
+          <th style="min-width: 110px; text-align: center; white-space: nowrap;">SUPPORT</th>
+          <th style="min-width: 115px; text-align: center; white-space: nowrap;">ACTIONS <span class="sort-icon">⇅</span></th>
+        </tr>
+      </thead>
+            <tbody id="companyTableBody">
+        <tr class="table-loading-row">
+          <td colspan="16" class="table-loading-cell">
+            <div class="table-loading-container" role="status" aria-label="Loading registered companies...">
+              <div class="argus-logo-spinner" style="--spinner-size: 42px;">
+                <img src="/static/images/argus_triangle_logo.png" alt="Argus">
+              </div>
+              <span class="table-loading-label">Loading registered companies...</span>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Responsive Card Grid Section -->
+  <div id="companyGridSection" class="company-grid-container" style="display: grid;">
+    <!-- Rendered dynamically via JavaScript -->
+  </div>
+
+  <div class="table-footer">
+    <div id="companyTableInfo">Showing 0 to 0 of 0 entries</div>
+    <div class="pagination-controls" id="companyPagination">
+      <button class="pagination-btn disabled" id="companyPrevBtn">Previous</button>
+      <button class="pagination-btn active" id="companyCurrentBtn">1</button>
+      <button class="pagination-btn disabled" id="companyNextBtn">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL 1: Add Company Modal ================= -->
+<div class="modal-overlay" id="companyModal">
+  <div class="modal-box modal-box-large" style="max-width: 620px;">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="modal-header-title" id="companyModalTitle">Register New Company</div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" class="btn-modal-voice-toggle" id="btnCompanyModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
+          <span class="voice-icon">🔊</span>
+          <span class="voice-text">Audio: On</span>
+        </button>
+        <button class="modal-close-btn" id="closeCompanyModal">&times;</button>
+      </div>
+    </div>
+
+    <form id="companyForm">
+      <div class="modal-body" style="max-height: calc(85vh - 130px); overflow-y: auto; padding: 20px;">
+        <div id="companyFormAlert" style="display: none; padding: 10px 14px; border-radius: 4px; font-size: 12px; margin-bottom: 14px;"></div>
+
+        <div class="form-grid-company" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <!-- Field 1: Company Name -->
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label">Company Name <span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputCompanyName" name="company_name" placeholder="e.g. Acme Innovations Pvt Ltd" required>
+          </div>
+
+          <!-- Field 2: GSTIN Number -->
+          <div class="form-group">
+            <label class="form-label">GSTIN Number</label>
+            <input type="text" class="form-input" id="inputGstin" name="gstin" placeholder="15-digit GSTIN (e.g. 33AAAAA0000A1Z5)" style="text-transform: uppercase;">
+          </div>
+
+          <!-- Field 3: Phone Number -->
+          <div class="form-group">
+            <label class="form-label">Phone Number <span class="required">*</span></label>
+            <input type="tel" class="form-input" id="inputPhone" name="phone" placeholder="e.g. +91 9876543210" required>
+          </div>
+
+          <!-- Field 4: Registered Corporate Email -->
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label">Registered Corporate Email ID <span class="required">*</span></label>
+            <input type="email" class="form-input" id="inputEmail" name="email" placeholder="admin@acme.com" required>
+            <span style="font-size: 11px; color: #3d6078; font-weight: 600; margin-top: 3px;">
+              ℹ️ Crucial: This email will be used as the exclusive Company Admin Login ID on <code>/company-login</code>.
+            </span>
+          </div>
+
+          <!-- Field 5: Geolocation -->
+          <div class="form-group">
+            <label class="form-label">Office Latitude</label>
+            <input type="text" class="form-input" id="inputLatitude" name="latitude" placeholder="e.g. 11.029800 or any coordinate">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Office Longitude</label>
+            <input type="text" class="form-input" id="inputLongitude" name="longitude" placeholder="e.g. 76.974000 or any coordinate">
+          </div>
+
+          <!-- Auto Geolocation Trigger -->
+          <div style="grid-column: span 2; display: flex; align-items: center; justify-content: space-between; background-color: #f1f5f9; padding: 8px 12px; border-radius: 4px; flex-wrap: wrap; gap: 8px;">
+            <span style="font-size: 11px; color: #475569;">Used to calculate proximity when employees punch attendance.</span>
+            <button type="button" id="btnDetectLocation" style="background-color: #3d6078; color: #ffffff; border: none; border-radius: 4px; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer;">
+              📍 Get Current Location
+            </button>
+          </div>
+
+          <!-- Field 6: Geofence Radius (System Admin Configurable Only) -->
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Geofence Radius (Meters) <span class="required">*</span></span>
+            </label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input type="number" class="form-input" id="inputGeofenceRadius" name="geofence_radius" min="10" max="50000" step="5" value="200" placeholder="e.g. 200" required style="font-weight: 700; max-width: 180px;">
+              <span style="font-size: 13px; font-weight: 700; color: #64748b; white-space: nowrap;">Meters</span>
+            </div>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Perimeter distance from office coordinates allowed for valid attendance punches (default 200m). Locked for Company Admin; editable anytime by System Admin.</span>
+          </div>
+
+          <!-- Field: Calculate Proper Entries (Geofence Validation Policy) -->
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Calculate Proper Entries <span class="required">*</span></span>
+            </label>
+            <select class="form-input" id="inputCalculateProperEntriesCompany" name="calculate_proper_entries" style="font-weight: 600;">
+              <option value="true" selected>Enabled (Default - Check distance against geofence radius)</option>
+              <option value="false">Disabled (Exempt company from geofence checks - all entries Proper)</option>
+            </select>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">When enabled, employee attendance punches are checked against the geofence perimeter. When disabled, all punches for this company are recorded as Proper without distance validation.</span>
+          </div>
+
+          <!-- Row: Employee Limit & Branch Limit -->
+          <div class="form-group">
+            <label class="form-label">Employee Count Limit <span class="required">*</span></label>
+            <input type="number" class="form-input" id="inputEmployeeLimit" name="employee_limit" min="1" max="10000" placeholder="e.g. 25" required>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Maximum allowed employees for this company.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Branch Creation Limit <span class="required">*</span></label>
+            <input type="number" class="form-input" id="inputBranchLimit" name="branch_limit" min="1" max="100" value="5" placeholder="e.g. 5" required>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Maximum regional branch locations this company can create.</span>
+          </div>
+
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label">Automatic Checkout Limit <span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="e.g. 08:00 or 8" value="08:00" required>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Maximum hours before auto-checkout (e.g. 08:00).</span>
+          </div>
+
+          <!-- Row: Manual Registered Date -->
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label">Date <span class="required">*</span></label>
+            <input type="date" class="form-input" id="inputRegisteredDate" name="registered_date" required>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Date this company is registered in the application.</span>
+          </div>
+
+          <!-- Row: Company Status & Auto Email Reports -->
+          <div class="form-group">
+            <label class="form-label">Company Status</label>
+            <select class="form-input" id="inputStatus" name="status">
+              <option value="Active" selected>Active</option>
+              <option value="Deactive">Deactive</option>
+            </select>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Deactivating locks out this company and all its employees.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Auto Email Reports</label>
+            <select class="form-input" id="inputAutoEmailReports" name="auto_email_reports">
+              <option value="false" selected>Disabled (No Emails)</option>
+              <option value="true">Enabled (Send Emails)</option>
+            </select>
+          </div>
+
+          <!-- Row: Daily Report Email Time -->
+          <div class="form-group">
+            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+              <span>Daily Report Email Time <span class="required">*</span></span>
+            </label>
+            <input type="time" class="form-input" id="inputDailyReportTime" name="daily_report_time" value="07:00" required style="font-weight: 700;">
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Time of day to send yesterday's daily activity digest (default: 07:00 AM).</span>
+          </div>
+
+          <!-- Row: Monthly Report Email Day -->
+          <div class="form-group">
+            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+              <span>Monthly Report Email Day <span class="required">*</span></span>
+            </label>
+            <select class="form-input" id="inputMonthlyReportDay" name="monthly_report_day" style="font-weight: 700;">
+              <option value="1" selected>1st of every month (Default)</option>
+              <option value="2">2nd of every month</option>
+              <option value="3">3rd of every month</option>
+              <option value="4">4th of every month</option>
+              <option value="5">5th of every month</option>
+              <option value="6">6th of every month</option>
+              <option value="7">7th of every month</option>
+              <option value="8">8th of every month</option>
+              <option value="9">9th of every month</option>
+              <option value="10">10th of every month</option>
+              <option value="11">11th of every month</option>
+              <option value="12">12th of every month</option>
+              <option value="13">13th of every month</option>
+              <option value="14">14th of every month</option>
+              <option value="15">15th of every month</option>
+              <option value="16">16th of every month</option>
+              <option value="17">17th of every month</option>
+              <option value="18">18th of every month</option>
+              <option value="19">19th of every month</option>
+              <option value="20">20th of every month</option>
+              <option value="21">21st of every month</option>
+              <option value="22">22nd of every month</option>
+              <option value="23">23rd of every month</option>
+              <option value="24">24th of every month</option>
+              <option value="25">25th of every month</option>
+              <option value="26">26th of every month</option>
+              <option value="27">27th of every month</option>
+              <option value="28">28th of every month</option>
+            </select>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Day of the month to send the monthly salary and payroll report.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Delete Entries Permission</label>
+            <select class="form-input" id="inputCanDeleteEntries" name="can_delete_entries">
+              <option value="false" selected>Disabled (Delete buttons hidden in company UI)</option>
+              <option value="true">Enabled (Allow deleting entries in company UI)</option>
+            </select>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Controls whether delete buttons are visible in company UI.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Support Access</label>
+            <select class="form-input" id="inputSupportEnabled" name="support_enabled">
+              <option value="false" selected>Disabled (Support tab hidden)</option>
+              <option value="true">Enabled (Support tab visible)</option>
+            </select>
+            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Controls if company admin has access to the Support & Help tab.</span>
+          </div>
+
+          <!-- Field: Authorized Company Modules (Feature Toggles) -->
+          <div class="form-group" style="grid-column: span 2; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin-top: 4px;">
+            <label class="form-label" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.4px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              <span>Authorized Platform Modules &amp; Subscriptions</span>
+            </label>
+            <div style="font-size: 11.5px; color: #64748b; margin-bottom: 12px; line-height: 1.4;">
+              Select the feature modules granted to this client. Only checked modules will be accessible in their navigation and portal.
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <!-- Module 1: Single Company -->
+              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
+                <input type="checkbox" id="inputModSingleCompany" name="module_single_company" checked style="width: 17px; height: 17px; margin-top: 2px; accent-color: #2563eb; cursor: pointer;">
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                    <span>1. Single Company Module</span>
+                    <span style="font-size: 10px; background: #eff6ff; color: #1d4ed8; padding: 1px 6px; border-radius: 10px; font-weight: 700;">Base Office</span>
+                  </div>
+                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                    Enables core company attendance, AI gate camera punch, basic shift management, leave permissions, and monthly payroll.
+                  </div>
+                </div>
+              </label>
+
+              <!-- Module 2: Branch Company -->
+              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
+                <input type="checkbox" id="inputModBranchCompany" name="module_branch_company" style="width: 17px; height: 17px; margin-top: 2px; accent-color: #0284c7; cursor: pointer;">
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                    <span>2. Multi-Branch Enterprise Module</span>
+                    <span style="font-size: 10px; background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 10px; font-weight: 700;">Multi-Site Hub</span>
+                  </div>
+                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                    Enables multiple regional branches, individual branch geofences, branch manager logins, and district-filtered attendance &amp; payroll.
+                  </div>
+                </div>
+              </label>
+
+              <!-- Module 3: Field Worker -->
+              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
+                <input type="checkbox" id="inputModFieldWorker" name="module_field_worker" style="width: 17px; height: 17px; margin-top: 2px; accent-color: #d97706; cursor: pointer;">
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                    <span>3. Field Worker Module</span>
+                    <span style="font-size: 10px; background: #fef3c7; color: #b45309; padding: 1px 6px; border-radius: 10px; font-weight: 700;">GPS &amp; CRM</span>
+                  </div>
+                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                    Enables live GPS route telemetry, customer visit CRM, KM travel allowances, detour detection, and field attendance terminal.
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer modal-footer-right" style="padding: 14px 20px; background-color: #ffffff; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; justify-content: flex-end; align-items: center; position: sticky; bottom: 0; z-index: 10;">
+        <button type="button" class="btn-reset" id="btnCancelCompany" style="background-color: #64748b; color: #ffffff; border: none; border-radius: 4px; padding: 8px 20px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s ease;">Cancel</button>
+        <button type="submit" class="btn-submit" id="btnSaveCompany" style="background-color: #198754; color: #ffffff; border: none; border-radius: 4px; padding: 8px 22px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">Save Company</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL 2: Reports Summary Modal ================= -->
+<div class="modal-overlay" id="reportsModal">
+  <div class="modal-box modal-box-large" style="max-width: 700px;">
+    <div class="modal-header" style="background-color: #3d6078; color: #ffffff;">
+      <div class="modal-header-title" style="color: #ffffff;">🏢 Multi-Tenant Companies & Headcount Report</div>
+      <button class="modal-close-btn" id="closeReportsModal" style="color: #ffffff;">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- 4 Quick Stat Cards -->
+      <div class="reports-stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
+        <div style="background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="font-size: 11px; font-weight: 700; color: #0d47a1;">TOTAL COMPANIES</div>
+          <div id="statTotalCompanies" style="font-size: 24px; font-weight: 800; color: #0d47a1; margin-top: 4px;">0</div>
+        </div>
+        <div style="background-color: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="font-size: 11px; font-weight: 700; color: #1b5e20;">ACTIVE CLIENTS</div>
+          <div id="statActiveCompanies" style="font-size: 24px; font-weight: 800; color: #1b5e20; margin-top: 4px;">0</div>
+        </div>
+        <div style="background-color: #fff8e1; border: 1px solid #ffecb3; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="font-size: 11px; font-weight: 700; color: #b78103;">CLIENT EMPLOYEES</div>
+          <div id="statTenantEmployees" style="font-size: 24px; font-weight: 800; color: #b78103; margin-top: 4px;">0</div>
+        </div>
+        <div style="background-color: #f3e5f5; border: 1px solid #e1bee7; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="font-size: 11px; font-weight: 700; color: #4a148c;">MASTER EMPLOYEES</div>
+          <div id="statArgusEmployees" style="font-size: 24px; font-weight: 800; color: #4a148c; margin-top: 4px;">0</div>
+        </div>
+      </div>
+
+      <!-- Companies Headcount Breakdown Table -->
+      <div style="font-size: 13px; font-weight: 700; color: #2c3e50; margin-bottom: 8px;">Registered Tenants Breakdown</div>
+      <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+        <table class="employee-table">
+          <thead>
+            <tr>
+              <th>COMPANY NAME</th>
+              <th>REGISTERED EMAIL</th>
+              <th style="text-align: center;">ENROLLED EMPLOYEES</th>
+              <th style="text-align: center;">STATUS</th>
+            </tr>
+          </thead>
+          <tbody id="reportsBreakdownBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="modal-footer modal-footer-right">
+      <button type="button" class="btn-reset" id="btnCloseReportsFooter">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL 3: View Company Details Modal ================= -->
+<div class="modal-overlay" id="viewCompanyModal">
+  <div class="modal-box modal-box-large" style="max-width: 650px; border-radius: 12px; overflow: hidden;">
+    <div class="modal-header" style="background-color: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 16px 20px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="banner-icon-badge" style="width: 38px; height: 38px; border-radius: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </div>
+        <div>
+          <div class="modal-header-title" style="color: #0f172a; font-size: 15px; font-weight: 800;">Company Details</div>
+          <div style="font-size: 11px; color: #64748b;">Registration profile and tenant configuration</div>
+        </div>
+      </div>
+      <button class="modal-close-btn" id="closeViewCompanyModal" style="color: #64748b; font-size: 22px;">&times;</button>
+    </div>
+
+    <div class="modal-body" style="padding: 20px; background-color: #f8fafc;">
+      <div class="view-company-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Company Name</div>
+          <div id="viewCompanyName" style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 3px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Company ID</div>
+          <div id="viewCompanyId" style="font-size: 13px; font-weight: 700; color: #2563eb; margin-top: 3px; font-family: monospace;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Registered Date in Application</div>
+          <div id="viewCompanyRegisteredDate" style="font-size: 13px; font-weight: 800; color: #16a34a; margin-top: 3px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Application Usage Duration</div>
+          <div id="viewCompanyDaysActiveBadge" style="margin-top: 3px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">GSTIN Number</div>
+          <div id="viewCompanyGstin" style="font-size: 13px; font-weight: 700; color: #334155; margin-top: 3px; font-family: monospace;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Phone Number</div>
+          <div id="viewCompanyPhone" style="font-size: 13px; font-weight: 700; color: #334155; margin-top: 3px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; grid-column: span 2;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Registered Corporate Email</div>
+          <div id="viewCompanyEmail" style="font-size: 13px; font-weight: 700; color: #2563eb; margin-top: 3px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; grid-column: span 2;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Office Geolocation (Latitude, Longitude)</div>
+          <div id="viewCompanyLocation" style="font-size: 13px; font-weight: 700; color: #334155; margin-top: 3px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Daily Shift Hours</div>
+          <div id="viewCompanyShiftHours" style="font-size: 13px; font-weight: 800; color: #0f172a; margin-top: 3px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Employee Limit / Enrolled</div>
+          <div id="viewCompanyEmployees" style="font-size: 13px; font-weight: 800; color: #0f172a; margin-top: 3px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Branch Limit / Active</div>
+          <div id="viewCompanyBranches" style="font-size: 13px; font-weight: 800; color: #0284c7; margin-top: 3px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Status</div>
+          <div id="viewCompanyStatusBadge" style="margin-top: 4px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Auto Email Reports</div>
+          <div id="viewCompanyReportsBadge" style="margin-top: 4px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Daily Report Time</div>
+          <div id="viewCompanyDailyTime" style="font-size: 13px; font-weight: 700; color: #0284c7; margin-top: 4px;">07:00 AM</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Monthly Report Day</div>
+          <div id="viewCompanyMonthlyDay" style="font-size: 13px; font-weight: 700; color: #16a34a; margin-top: 4px;">1st of month</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Delete Entries Permission</div>
+          <div id="viewCompanyDeleteEntriesBadge" style="margin-top: 4px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Support & Help Access</div>
+          <div id="viewCompanySupportBadge" style="margin-top: 4px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; grid-column: span 2;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Proper Entry Calculation (Geofence Check)</div>
+          <div id="viewCompanyProperEntriesBadge" style="margin-top: 4px;">-</div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; grid-column: span 2;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">Authorized Platform Modules</div>
+          <div id="viewCompanyModulesBadges" style="display: flex; flex-wrap: wrap; gap: 8px;">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer modal-footer-right" style="padding: 12px 20px; background-color: #ffffff; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+      <button type="button" class="btn-reset" id="btnCloseViewCompanyFooter" style="background-color: #64748b; color: #ffffff; border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px; font-weight: 700; cursor: pointer;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: Delete Company Confirmation Modal ================= -->
+<div class="modal-overlay" id="deleteCompanyModal">
+  <div class="modal-box" style="max-width: 500px; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+    <div class="modal-header" style="background-color: #fee2e2; border-bottom: 1px solid #fecaca; padding: 16px 20px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 38px; height: 38px; border-radius: 50%; background-color: #ef4444; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <div>
+          <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #991b1b;">Delete Company</h4>
+          <span style="font-size: 11.5px; color: #b91c1c; font-weight: 600;">Cascade Deletion Confirmation</span>
+        </div>
+      </div>
+      <button class="modal-close-btn" id="closeDeleteCompanyModal" style="color: #991b1b; font-size: 20px;">&times;</button>
+    </div>
+    <div class="modal-body" style="padding: 20px; font-size: 13px; color: #334155; line-height: 1.6;">
+      <p style="margin-bottom: 12px; font-size: 13.5px; font-weight: 600; color: #1e293b;">
+        Are you sure you want to permanently delete company <strong id="deleteCompanyTargetName" style="color: #0f172a; text-decoration: underline;"></strong> (<span id="deleteCompanyTargetId" style="font-family: monospace; color: #64748b; font-weight: 700;"></span>)?
+      </p>
+      <div style="background-color: #fff1f2; border: 1px solid #ffe4e6; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
+        <div style="font-weight: 700; color: #be123c; margin-bottom: 6px; font-size: 12px;">⚠️ Cascading Deletion will permanently purge:</div>
+        <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #881337; line-height: 1.5;">
+          <li>All registered employees & facial biometric vectors</li>
+          <li>All attendance punch history, live entries & timeout logs</li>
+          <li>All attendance reports, manual entries & shift history</li>
+          <li>All leave applications, permission requests & leave policies</li>
+          <li>All payments, advances, payslips & salary reports</li>
+          <li>All support tickets & file attachments on server</li>
+        </ul>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #dc2626; font-weight: 700;">
+        This action is permanent and cannot be undone.
+      </p>
+    </div>
+    <div class="modal-footer" style="padding: 14px 20px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
+      <button type="button" class="btn-reset" id="btnCancelDeleteCompany" style="background-color: #94a3b8; color: #ffffff; border: none; border-radius: 6px; padding: 8px 18px; font-size: 12.5px; font-weight: 700; cursor: pointer;">Cancel</button>
+      <button type="button" id="btnConfirmDeleteCompany" style="background-color: #dc2626; color: #ffffff; border: none; border-radius: 6px; padding: 8px 20px; font-size: 12.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(220, 38, 38, 0.4);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        <span id="btnConfirmDeleteText">Yes, Delete Company & All Records</span>
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/manage_companies.js') }}?v=20261022_daysactive"></script>
+{% endblock %}

@@ -174,6 +174,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Load Standard Table Data (All / Proper / Improper / Manual)
   async function loadStandardTable() {
+    if (window.renderTableLoading && standardTableBody) {
+      window.renderTableLoading(standardTableBody, "Loading attendance records...", (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? 13 : 12);
+    }
     try {
       const params = new URLSearchParams({
         type: currentView,
@@ -276,6 +279,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Load Simple Table Data
   async function loadSimpleTable() {
+    if (window.renderTableLoading && simpleTableBody) {
+      window.renderTableLoading(simpleTableBody, "Loading compact attendance overview...", 6);
+    }
     try {
       const empSelectVal = simpleEmployeeSelect ? simpleEmployeeSelect.value : employeeName;
       const curStart = startDateInput ? startDateInput.value.trim() : startDate;

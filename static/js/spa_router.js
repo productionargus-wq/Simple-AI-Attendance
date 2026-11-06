@@ -291,6 +291,9 @@
 
     isNavigating = true;
     startProgress();
+    if (window.showCentralTabLoader) {
+      window.showCentralTabLoader("Loading page...");
+    }
 
     // Dismiss any open dropdowns upon navigating
     const navBranchMenu = document.getElementById('navBranchDropdownMenu');
@@ -399,6 +402,9 @@
     } finally {
       isNavigating = false;
       finishProgress();
+      if (window.hideCentralTabLoader) {
+        setTimeout(() => window.hideCentralTabLoader(), 120);
+      }
     }
   }
 

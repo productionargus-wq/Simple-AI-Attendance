@@ -300,3 +300,55 @@ window.hideSavingPopup = function () {
     overlay.classList.remove('active');
   }
 };
+
+
+// ==========================================================================
+// Argus Branded Logo Spinner & Central Tab-Switching Helpers
+// ==========================================================================
+const ARGUS_LOGO_SRC = '/static/images/argus_triangle_logo.png';
+
+window.showCentralTabLoader = function (text = 'Loading records...') {
+  const loader = document.getElementById('appCentralTabLoader');
+  const label = document.getElementById('appCentralTabLoaderText');
+  if (label && text) label.textContent = text;
+  if (loader) {
+    loader.classList.add('is-active');
+  }
+};
+
+window.hideCentralTabLoader = function () {
+  const loader = document.getElementById('appCentralTabLoader');
+  if (loader) {
+    loader.classList.remove('is-active');
+  }
+};
+
+window.renderTableLoading = function (tbodyOrId, message = 'Loading records...', colspan = 12) {
+  const tbody = typeof tbodyOrId === 'string' ? document.getElementById(tbodyOrId) : tbodyOrId;
+  if (!tbody) return;
+  tbody.innerHTML = `
+    <tr class="table-loading-row">
+      <td colspan="${colspan}" class="table-loading-cell">
+        <div class="table-loading-container" role="status" aria-label="${message}">
+          <div class="argus-logo-spinner" style="--spinner-size: 42px;">
+            <img src="${ARGUS_LOGO_SRC}" alt="Argus">
+          </div>
+          <span class="table-loading-label">${message}</span>
+        </div>
+      </td>
+    </tr>
+  `;
+};
+
+window.renderGridLoading = function (containerOrId, message = 'Loading records...') {
+  const container = typeof containerOrId === 'string' ? document.getElementById(containerOrId) : containerOrId;
+  if (!container) return;
+  container.innerHTML = `
+    <div class="grid-loading-container" role="status" aria-label="${message}">
+      <div class="argus-logo-spinner" style="--spinner-size: 48px;">
+        <img src="${ARGUS_LOGO_SRC}" alt="Argus">
+      </div>
+      <span class="table-loading-label">${message}</span>
+    </div>
+  `;
+};

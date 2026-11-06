@@ -66,6 +66,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Fetch and render data
   async function loadEmployees() {
+    if (window.renderTableLoading && tableBody) {
+      window.renderTableLoading(tableBody, "Loading employee directory...", 13);
+    }
+    if (window.renderGridLoading && employeeGridSection && employeeGridSection.style.display !== "none") {
+      window.renderGridLoading(employeeGridSection, "Loading employee directory...");
+    }
     try {
       const bParam = new URLSearchParams(window.location.search).get('branch_id');
       const url = `/api/employees?search=${encodeURIComponent(currentSearch)}&status=${encodeURIComponent(currentStatus)}&sort_col=${currentSortCol}&sort_dir=${currentSortDir}&page=${currentPage}&limit=${currentLimit}${bParam ? '&branch_id=' + encodeURIComponent(bParam) : ''}`;

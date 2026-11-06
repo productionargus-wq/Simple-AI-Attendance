@@ -123,6 +123,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // 2. Fetch & Render Employee Balances
   async function loadBalances() {
     if (!balancesTbody) return;
+    if (window.renderTableLoading) {
+      window.renderTableLoading(balancesTbody, "Loading leave balances...", 5);
+    }
     try {
       const compId = getSelectedCompanyId();
       const url = `/api/admin/leave-permission/balances${compId ? '?company_id=' + encodeURIComponent(compId) : ''}`;
@@ -429,6 +432,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // 4. Fetch & Render Leave Requests
   async function loadRequests() {
     if (!requestsTbody) return;
+    if (window.renderTableLoading) {
+      window.renderTableLoading(requestsTbody, "Loading leave requests...", 8);
+    }
     try {
       const compId = getSelectedCompanyId();
       let url = `/api/admin/leave-permission/requests?limit=100`;

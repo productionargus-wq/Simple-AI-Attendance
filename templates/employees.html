@@ -1,526 +1,526 @@
-{% extends 'base.html' %}
-
-{% block content %}
-<!-- Top Employee Details Banner -->
-<div class="content-banner-card">
-  <div class="banner-left">
-    <div class="banner-icon-badge">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-        <circle cx="9" cy="7" r="4"></circle>
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-      </svg>
-    </div>
-    <div class="banner-text-group">
-      <div class="banner-title">EMPLOYEE DETAILS</div>
-      <div class="banner-subtitle">Manage employee information, salary details and attendance settings</div>
-    </div>
-  </div>
-  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: nowrap;">
-    {% if is_system_admin and system_admin_companies %}
-    <div class="sysadmin-company-filter-wrap" style="display: inline-flex; align-items: center; gap: 6px; margin: 0;">
-      <label for="sysadminCompanyFilterEmployees">COMPANY:</label>
-      <select class="sysadmin-company-select" id="sysadminCompanyFilterEmployees" onchange="globalSwitchSystemAdminCompany(this.value)">
-        {% for c in system_admin_companies %}
-        <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    {% endif %}
-    <button class="btn-primary-action" id="btnOpenNewEntryModal">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="5" x2="12" y2="19"></line>
-        <line x1="5" y1="12" x2="19" y2="12"></line>
-      </svg>
-      New Entry
-    </button>
-  </div>
-</div>
-
-<!-- Employee Data Table Card -->
-<div class="table-card">
-  <div class="table-toolbar">
-    <div class="table-toolbar-left">
-      <div class="entries-select-wrapper">
-        <span>Show</span>
-        <select id="entriesLimit" class="entries-select">
-          <option value="10" selected>10</option>
-          <option value="25">25</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        <span>entries</span>
-      </div>
-
-      <div class="export-btn-group">
-        <button class="btn-export" id="btnCopyEmployees" title="Copy">Copy</button>
-        <button class="btn-export" id="btnCsvEmployees" title="CSV">CSV</button>
-        <button class="btn-export btn-excel" id="btnExcelEmployees" title="Excel">Excel</button>
-        <button class="btn-export btn-pdf" id="btnPdfEmployees" title="PDF">PDF</button>
-        <button class="btn-export" id="btnPrintEmployees" title="Print">Print</button>
-      </div>
-
-      <!-- Status Filter Tabs -->
-      <div class="status-filter-pills" style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 2px 3px; border-radius: 6px; flex-shrink: 0;">
-        <button type="button" class="btn-status-filter active" data-status="All" id="filterBtnAll" style="border: none; background: #ffffff; color: #0f172a; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.06); transition: all 0.15s ease;">All <span id="countAllPill" style="font-weight: 800; color: #64748b; margin-left: 2px;">(0)</span></button>
-        <button type="button" class="btn-status-filter" data-status="Active" id="filterBtnActive" style="border: none; background: transparent; color: #166534; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; transition: all 0.15s ease;">Active <span id="countActivePill" style="font-weight: 800; color: #16a34a; margin-left: 2px;">(0)</span></button>
-        <button type="button" class="btn-status-filter" data-status="Inactive" id="filterBtnInactive" style="border: none; background: transparent; color: #991b1b; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; transition: all 0.15s ease;">Inactive <span id="countInactivePill" style="font-weight: 800; color: #dc2626; margin-left: 2px;">(0)</span></button>
-      </div>
-
-      <!-- Active Quota Badge -->
-      <div id="quotaUsageBadge" style="display: inline-flex; align-items: center; gap: 5px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; color: #166534; white-space: nowrap; flex-shrink: 0;" title="Active employees vs Allocated restriction limit">
-        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: #22c55e;"></span>
-        <span>Active Quota:</span>
-        <span id="quotaUsageText" style="font-weight: 800;">-- / --</span>
-      </div>
-    </div>
-
-    <!-- Right Controls: Toggle Icons + Search Box -->
-    <div class="toolbar-right-controls" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto;">
-      <div class="view-toggle-wrapper">
-        <button type="button" class="btn-icon-view" id="btnListView" title="List View" aria-label="List View">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="8" y1="6" x2="21" y2="6"></line>
-            <line x1="8" y1="12" x2="21" y2="12"></line>
-            <line x1="8" y1="18" x2="21" y2="18"></line>
-            <line x1="3" y1="6" x2="3.01" y2="6"></line>
-            <line x1="3" y1="12" x2="3.01" y2="12"></line>
-            <line x1="3" y1="18" x2="3.01" y2="18"></line>
-          </svg>
-        </button>
-        <button type="button" class="btn-icon-view active" id="btnGridView" title="Grid View" aria-label="Grid View">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
-          </svg>
-        </button>
-      </div>
-
-
-      <div class="search-box-wrapper">
-        <label for="tableSearch">Search:</label>
-        <input type="text" id="tableSearch" class="search-input">
-      </div>
-    </div>
-  </div>
-
-  <div class="table-responsive" id="employeeListSection" style="display: none;">
-    <table class="employee-table" id="employeeDataTable">
-      <thead>
-        <tr>
-          <th data-col="id">ID <span class="sort-icon">⇅</span></th>
-          <th>PHOTO <span class="sort-icon">⇅</span></th>
-          <th data-col="employee_name" class="sticky-col-emp">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
-          <th data-col="designation">DESIGNATION <span class="sort-icon">⇅</span></th>
-          <th data-col="status">STATUS <span class="sort-icon">⇅</span></th>
-          <th data-col="salary_type">SALARY BASIS <span class="sort-icon">⇅</span></th>
-          <th data-col="hourly_salary">HOURLY SALARY <span class="sort-icon">⇅</span></th>
-          <th data-col="day_salary">DAY SALARY <span class="sort-icon">⇅</span></th>
-          <th data-col="half_day_salary">HALF DAY SALARY <span class="sort-icon">⇅</span></th>
-          <th data-col="mobile_number">MOBILE NUMBER <span class="sort-icon">⇅</span></th>
-          <th data-col="email_id">EMAIL ID <span class="sort-icon">⇅</span></th>
-          <th data-col="shift_hours">SHIFT HOURS <span class="sort-icon">⇅</span></th>
-          <th style="text-align: center; width: 120px;">Actions <span class="sort-icon">⇅</span></th>
-        </tr>
-      </thead>
-      <tbody id="employeeTableBody">
-        <!-- Rendered dynamically via JavaScript -->
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Responsive Card Grid Section -->
-  <div id="employeeGridSection" class="employee-grid-container" style="display: grid;">
-    <!-- Rendered dynamically via JavaScript -->
-  </div>
-
-  <div class="table-footer">
-    <div id="tableInfoText">Showing 1 to 3 of 3 entries</div>
-    <div class="pagination-controls" id="tablePagination">
-      <button class="pagination-btn" id="prevPageBtn">Previous</button>
-      <button class="pagination-btn active" id="currentPageBtn">1</button>
-      <button class="pagination-btn" id="nextPageBtn">Next</button>
-    </div>
-  </div>
-</div>
-
-<!-- ================= MODAL 1: Employee Detail Entry (Add/Edit) ================= -->
-<div class="modal-overlay" id="entryModal">
-  <div class="modal-box modal-box-large">
-    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
-      <div class="modal-header-title" id="entryModalTitle">Employee Detail Entry</div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <button type="button" class="btn-modal-voice-toggle" id="btnEntryModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
-          <span class="voice-icon">🔊</span>
-          <span class="voice-text">Audio: On</span>
-        </button>
-        <button class="modal-close-btn" id="closeEntryModal">&times;</button>
-      </div>
-    </div>
-    
-    <form id="employeeForm" enctype="multipart/form-data">
-      <input type="hidden" id="formEmployeeId" name="id">
-      
-      <div class="modal-body">
-        <div class="form-grid">
-          <!-- Row 1 -->
-          <div class="form-group">
-            <label class="form-label">Employee Name<span class="required">*</span></label>
-            <input type="text" class="form-input" id="inputName" name="employee_name" placeholder="Name" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Department<span class="required">*</span></label>
-            <input type="text" class="form-input" id="inputDepartment" name="department" placeholder="Department (e.g. Production, IT, HR)" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Designation<span class="required">*</span></label>
-            <input type="text" class="form-input" id="inputDesignation" name="designation" placeholder="Type/Select Designation" required>
-          </div>
-
-          <!-- Row 2: Contact & Employee Status -->
-          <div class="form-group">
-            <label class="form-label">Mobile Number<span class="required">*</span></label>
-            <input type="text" class="form-input" id="inputMobile" name="mobile_number" placeholder="Number" required>
-          </div>
-          <div class="form-group" id="groupEmailField">
-            <label class="form-label">Email ID<span id="emailRequiredMarker" class="required">*</span></label>
-            <div class="email-input-wrapper" style="position: relative; display: flex; align-items: center; width: 100%;">
-              <input type="email" class="form-input" id="inputEmail" name="email_id" placeholder="Email ID (e.g. employee@company.com)" style="padding-right: 68px; width: 100%; box-sizing: border-box;" required>
-              <!-- Sliding Toggle Switch -->
-              <label class="email-toggle-container" id="emailToggleContainer" title="Toggle email requirement (ON = Required, OFF = Optional/Disabled)"
-                     style="position: absolute; right: 7px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; z-index: 5; margin: 0;">
-                <span class="email-toggle-state-text" id="emailToggleStateText" style="font-size: 10px; font-weight: 700; color: #10b981; letter-spacing: 0.5px; transition: color 0.2s;">ON</span>
-                <span class="email-switch" title="Toggle Email Requirement">
-                  <input type="checkbox" id="toggleEmailSwitch" checked>
-                  <span class="email-slider" id="emailSlider"></span>
-                </span>
-              </label>
-            </div>
-            <input type="hidden" id="inputNoEmail" name="no_email" value="0">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Employee Status<span class="required">*</span></label>
-            <select class="form-input" id="inputStatus" name="status" required>
-              <option value="Active" selected>Active (Counts towards Quota)</option>
-              <option value="Inactive">Inactive (Unlimited / Quota Exempt)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Employee Type<span class="required">*</span></label>
-            <select class="form-input" id="inputEmployeeType" name="employee_type" required>
-              <option value="standard" selected>🏢 Standard Employee (Office / In-House)</option>
-              <option value="field_worker">🏃 Field Worker (GPS Tracked / Site Visits)</option>
-            </select>
-          </div>
-          {% if company_modules and company_modules.branch_company and branches and branches|length > 0 %}
-          <div class="form-group" id="groupBranchAssign">
-            <label class="form-label">Assigned Branch Location</label>
-            <select class="form-input" id="inputBranchId" name="branch_id" data-default-branch="{{ active_branch_id or '' }}">
-              <option value="HOME" {% if active_branch_id == 'HOME' or not active_branch_id or active_branch_id == 'ALL' %}selected{% endif %}>🏠 Home Branch (Head Office / Initial Company)</option>
-              {% for b in branches or [] %}
-              <option value="{{ b.id }}" {% if active_branch_id and (active_branch_id == b.id or active_branch_id == b.branch_id) %}selected{% endif %}>📍 {{ b.branch_name }} ({{ b.district or 'Hub' }})</option>
-              {% endfor %}
-            </select>
-          </div>
-          {% endif %}
-
-          <!-- Contextual Field Worker Settings (Visible when Field Worker is selected) -->
-          <div class="form-group" id="groupFieldWorkerSettings" style="display: none; grid-column: 1 / -1; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 14px; margin-top: 4px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 18px;">🏃</span>
-                <span style="font-weight: 700; color: #166534; font-size: 13px;">Field Worker Telemetry &amp; Compensation Settings</span>
-              </div>
-              <span style="font-size: 11px; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 12px; font-weight: 700;">Enrolled in Field Worker Module</span>
-            </div>
-            <div style="font-size: 11.5px; color: #166534; margin-bottom: 12px; line-height: 1.4;">
-              This employee is enrolled as an active Field Worker with real-time GPS telemetry, client visit tracking, detour anomaly AI detection, and automated travel reimbursement.
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-              <div>
-                <label class="form-label" style="font-size: 11.5px; color: #14532d; font-weight: 600;">Assigned Territory / Zone</label>
-                <input type="text" class="form-input" id="inputTerritoryZone" name="territory_zone" placeholder="e.g. Coimbatore North, Metro Area">
-              </div>
-              <div>
-                <label class="form-label" style="font-size: 11.5px; color: #14532d; font-weight: 600;">Per-Visit Incentive (₹)</label>
-                <input type="number" step="0.01" min="0" class="form-input" id="inputVisitIncentive" name="per_visit_incentive" placeholder="e.g. 150.00">
-              </div>
-              <div>
-                <label class="form-label" style="font-size: 11.5px; color: #14532d; font-weight: 600;">KM Allowance Rate (₹/KM)</label>
-                <input type="number" step="0.01" min="0" class="form-input" id="inputKmAllowance" name="km_allowance_rate" placeholder="e.g. 4.50">
-              </div>
-            </div>
-          </div>
-
-          <!-- Row 3: Salary Structure -->
-          <div class="form-group">
-            <label class="form-label">Salary Basis / Type<span class="required">*</span></label>
-            <select class="form-input" id="inputSalaryType" name="salary_type" required>
-              <option value="hourly">Hourly-Based</option>
-              <option value="daily" selected>Day-Based</option>
-              <option value="half_day">Half-Day-Based</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Day Salary</label>
-            <input type="number" step="0.01" min="0" class="form-input" id="inputDaySalary" name="day_salary" placeholder="Amount (e.g. 800)">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Half Day Salary</label>
-            <input type="number" step="0.01" min="0" class="form-input" id="inputHalfDaySalary" name="half_day_salary" placeholder="Amount (e.g. 400)">
-          </div>
-
-          <!-- Row 4: Hourly & Personal Dates -->
-          <div class="form-group">
-            <label class="form-label">Hourly Salary</label>
-            <input type="number" step="0.01" min="0" class="form-input" id="inputHourlySalary" name="hourly_salary" placeholder="Rate in Decimals (e.g. 150.50)">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Date of Birth</label>
-            <input type="date" class="form-input" id="inputDob" name="date_of_birth" placeholder="mm/dd/yyyy">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Joining Date</label>
-            <input type="date" class="form-input" id="inputJoiningDate" name="joining_date" placeholder="mm/dd/yyyy">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Emergency Contact</label>
-            <input type="text" class="form-input" id="inputEmergency" name="emergency_contact" placeholder="Number">
-          </div>
-
-          <!-- Row 5: Shift Details -->
-          <div class="form-group">
-            <label class="form-label">Shift Start</label>
-            <input type="text" class="form-input" id="inputShiftStart" name="shift_start" placeholder="09:00 AM" value="09:00 AM">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Shift End</label>
-            <input type="text" class="form-input" id="inputShiftEnd" name="shift_end" placeholder="06:00 PM" value="06:00 PM">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Shift Hours</label>
-            <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="e.g. 09:00 or 00:00" value="09:00">
-          </div>
-
-          <!-- Row 6: Identity & Banking -->
-          <div class="form-group">
-            <label class="form-label">Aadhar Number</label>
-            <input type="text" class="form-input" id="inputAadhar" name="aadhar_number" placeholder="Number">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Account Holder Name</label>
-            <input type="text" class="form-input" id="inputAccountHolder" name="account_holder_name" placeholder="Account Holder Name">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Account Number</label>
-            <input type="text" class="form-input" id="inputAccountNumber" name="account_number" placeholder="Account Number">
-          </div>
-
-          <!-- Row 7: Banking & UPI -->
-          <div class="form-group">
-            <label class="form-label">IFSC Code</label>
-            <input type="text" class="form-input" id="inputIfsc" name="ifsc_code" placeholder="IFSC Code">
-          </div>
-          <div class="form-group">
-            <label class="form-label">UPI Number</label>
-            <input type="text" class="form-input" id="inputUpi" name="upi_number" placeholder="UPI Number">
-          </div>
-
-          <!-- Row 7: Register Face & Photo -->
-          <div class="form-group" style="grid-column: span 3;">
-            <label class="form-label">Register Face & Photo</label>
-            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-              <input type="file" class="form-input form-file-input" id="inputPhoto" name="photo" accept="image/*" style="flex: 1; min-width: 160px;">
-              <button type="button" id="btnCaptureface" class="btn-submit" style="padding: 7px 14px; font-size: 12px; white-space: nowrap; background-color: #3d6078;">📷 Capture Face</button>
-            </div>
-            <div id="captureStatus" style="font-size: 12px; color: #198754; font-weight: 700; margin-top: 6px;"></div>
-            <div id="currentPhotoPreview" style="display: none; margin-top: 8px; align-items: center; gap: 12px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
-              <img id="editPhotoThumb" src="" alt="Profile Photo" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #3d6078;">
-              <span id="editPhotoNote" style="font-size: 11px; color: #475569; font-weight: 500;">Profile photo attached. Leave file input empty to keep this photo, or capture/upload a new one to replace.</span>
-            </div>
-          </div>
-
-          <!-- Row 8: Employee Documents -->
-          <div class="form-group" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <div>
-                <label class="form-label" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Employee Documents</label>
-                <div style="font-size: 11px; color: #64748b; font-weight: 500; margin-top: 2px;">
-                  Attach identity proofs, certificates, and employment documents (PDF, DOCX, JPG, PNG, etc.)
-                </div>
-              </div>
-              <button type="button" id="btnAddDocRowTop" class="btn-submit" style="padding: 5px 12px; font-size: 11px; background-color: #3d6078; display: inline-flex; align-items: center; gap: 4px;">
-                <span>+ Add Document</span>
-              </button>
-            </div>
-            <div id="employeeDocsContainer" style="display: flex; flex-direction: column; gap: 8px;">
-              <!-- Dynamic document rows rendered via JavaScript -->
-            </div>
-          </div>
-
-          <!-- Row: Attendance & Geofencing Calculation -->
-          <div class="form-group" id="sectionAttendanceGeofencingCriteria" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <label class="form-label" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Attendance &amp; Geofencing Criteria</label>
-              <span style="font-size: 11px; color: #64748b; font-weight: 500;">Geofence distance validation policy</span>
-            </div>
-            <div style="background: #f8fafc; padding: 12px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
-              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; user-select: none; margin: 0;">
-                <input type="checkbox" id="inputCalculateProperEntries" name="calculate_proper_entries" value="true" checked style="accent-color: #3d6078; width: 17px; height: 17px; margin-top: 2px; cursor: pointer;">
-                <div>
-                  <div style="font-size: 12.5px; font-weight: 700; color: #1e293b;">
-                    Calculate Proper Entries (Geofence Radius Check)
-                  </div>
-                  <div style="font-size: 11px; color: #64748b; margin-top: 2px; line-height: 1.4;">
-                    When checked (default), punches outside the company geofence radius are flagged as Improper. Uncheck this to exempt this employee from distance checks (all attendance punches will be recorded as Proper).
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <!-- Row 9: Employee Permissions -->
-          <div class="form-group" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <label class="form-label" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Employee Permissions</label>
-              <span style="font-size: 11px; color: #64748b; font-weight: 500;">Select sections visible in employee portal</span>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; background: #f8fafc; padding: 12px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="permPunchAttendance" name="perm_punch_attendance" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
-                <span>Punch Attendance</span>
-              </label>
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="permAttendanceHistory" name="perm_attendance_history" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
-                <span>Attendance History</span>
-              </label>
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="permMonthlyPayslip" name="perm_monthly_payslip" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
-                <span>Monthly Payslip</span>
-              </label>
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="permEmployeeCredentials" name="perm_employee_credentials" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
-                <span>Employee Credentials</span>
-              </label>
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="permLeavePermission" name="perm_leave_permission" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
-                <span>Leave &amp; Permissions</span>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-footer modal-footer-left" style="display: flex; gap: 8px;">
-        <button type="submit" class="btn-submit" id="btnSubmitForm">Submit</button>
-        <button type="button" class="btn-reset" id="btnCancelEntryModal" style="background-color: #64748b; color: #ffffff;">Cancel</button>
-        <button type="button" class="btn-reset" id="btnResetForm" style="background-color: #e2e8f0; color: #475569;">Reset</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- ================= MODAL: Face Camera Registration (Overlay) ================= -->
-<div class="modal-overlay face-camera-modal-overlay" id="faceCameraModal">
-  <div class="modal-box modal-box-camera">
-    <div class="modal-header" style="background-color: #3d6078; color: #ffffff; padding: 12px 18px;">
-      <div class="modal-header-title" style="color: #ffffff; font-size: 14px;">📷 Capture Employee Face</div>
-      <button type="button" class="modal-close-btn" id="closeCameraModal" style="color: #ffffff;">&times;</button>
-    </div>
-    <div class="modal-body" style="padding: 16px; text-align: center;">
-      <div class="camera-stream-box">
-        <video id="faceRegVideo" autoplay playsinline></video>
-        <div class="face-camera-reticle"></div>
-        <canvas id="faceRegCanvas" style="display: none;"></canvas>
-      </div>
-      <div class="face-guidelines-pills">
-        <span>🚫 No hands covering face</span>
-        <span>👁️ Both eyes visible</span>
-        <span>💡 Good lighting</span>
-      </div>
-      <div id="cameraStatusMsg" class="camera-status-msg"></div>
-      <div class="camera-modal-actions">
-        <button type="button" id="btnTakeSnapshot" class="btn-submit btn-snapshot">Capture Snapshot</button>
-        <button type="button" id="btnCancelCapture" class="btn-reset">Cancel</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ================= MODAL 2: View Employee Detail ================= -->
-<div class="modal-overlay" id="viewModal">
-  <div class="modal-box modal-box-large">
-    <div class="modal-header">
-      <div class="modal-header-title">EMPLOYEE DETAIL</div>
-      <button class="modal-close-btn" id="closeViewModal">&times;</button>
-    </div>
-    
-    <div class="modal-body" id="printSection">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px;">
-        <div class="view-emp-heading" style="margin-bottom: 0;">EMPLOYEE DETAILS</div>
-        <div id="viewEmpPhotoHeader" style="display: flex; align-items: center; gap: 10px;">
-          <!-- Populated dynamically with employee photo preview -->
-        </div>
-      </div>
-      
-      <table class="info-table">
-        <thead>
-          <tr>
-            <th>INFORMATION</th>
-            <th>INFORMATION VALUE</th>
-          </tr>
-        </thead>
-        <tbody id="viewInfoTableBody">
-          <!-- Populated dynamically -->
-        </tbody>
-      </table>
-    </div>
-
-    <div class="modal-footer modal-footer-right">
-      <button type="button" class="btn-print" id="btnPrintDetail">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 6 2 18 2 18 9"></polyline>
-          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-          <rect x="6" y="14" width="12" height="8"></rect>
-        </svg>
-        Print
-      </button>
-      <button type="button" class="btn-pdf" id="btnDownloadPdf">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-          <polyline points="14 2 14 8 20 8"></polyline>
-          <line x1="16" y1="13" x2="8" y2="13"></line>
-          <line x1="16" y1="17" x2="8" y2="17"></line>
-          <polyline points="10 9 9 9 8 9"></polyline>
-        </svg>
-        PDF
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ================= MODAL 3: Photo Preview ================= -->
-<div class="modal-overlay" id="photoModal">
-  <div class="modal-box" style="max-width: 450px;">
-    <div class="modal-header">
-      <div class="modal-header-title" id="photoModalTitle">Employee Photo</div>
-      <button class="modal-close-btn" id="closePhotoModal">&times;</button>
-    </div>
-    <div class="modal-body" style="text-align: center;">
-      <img id="photoModalImg" src="" alt="Employee Photo" class="photo-preview-img">
-    </div>
-  </div>
-</div>
-
-{% endblock %}
-
-{% block scripts %}
-<script>
-  window.ACTIVE_BRANCH_ID = "{{ active_branch_id or '' }}";
-  window.COMPANY_CALCULATE_PROPER_ENTRIES = {{ 'true' if company_calculate_proper_entries else 'false' }};
-</script>
-<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261106_v8"></script>
-{% endblock %}
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Top Employee Details Banner -->
+<div class="content-banner-card">
+  <div class="banner-left">
+    <div class="banner-icon-badge">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+    </div>
+    <div class="banner-text-group">
+      <div class="banner-title">EMPLOYEE DETAILS</div>
+      <div class="banner-subtitle">Manage employee information, salary details and attendance settings</div>
+    </div>
+  </div>
+  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: nowrap;">
+    {% if is_system_admin and system_admin_companies %}
+    <div class="sysadmin-company-filter-wrap" style="display: inline-flex; align-items: center; gap: 6px; margin: 0;">
+      <label for="sysadminCompanyFilterEmployees">COMPANY:</label>
+      <select class="sysadmin-company-select" id="sysadminCompanyFilterEmployees" onchange="globalSwitchSystemAdminCompany(this.value)">
+        {% for c in system_admin_companies %}
+        <option value="{{ c.id }}" {% if c.id == active_company_id %}selected{% endif %}>{{ c.company_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <button class="btn-primary-action" id="btnOpenNewEntryModal">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      New Entry
+    </button>
+  </div>
+</div>
+
+<!-- Employee Data Table Card -->
+<div class="table-card">
+  <div class="table-toolbar">
+    <div class="table-toolbar-left">
+      <div class="entries-select-wrapper">
+        <span>Show</span>
+        <select id="entriesLimit" class="entries-select">
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+        <span>entries</span>
+      </div>
+
+      <div class="export-btn-group">
+        <button class="btn-export" id="btnCopyEmployees" title="Copy">Copy</button>
+        <button class="btn-export" id="btnCsvEmployees" title="CSV">CSV</button>
+        <button class="btn-export btn-excel" id="btnExcelEmployees" title="Excel">Excel</button>
+        <button class="btn-export btn-pdf" id="btnPdfEmployees" title="PDF">PDF</button>
+        <button class="btn-export" id="btnPrintEmployees" title="Print">Print</button>
+      </div>
+
+      <!-- Status Filter Tabs -->
+      <div class="status-filter-pills" style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 2px 3px; border-radius: 6px; flex-shrink: 0;">
+        <button type="button" class="btn-status-filter active" data-status="All" id="filterBtnAll" style="border: none; background: #ffffff; color: #0f172a; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.06); transition: all 0.15s ease;">All <span id="countAllPill" style="font-weight: 800; color: #64748b; margin-left: 2px;">(0)</span></button>
+        <button type="button" class="btn-status-filter" data-status="Active" id="filterBtnActive" style="border: none; background: transparent; color: #166534; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; transition: all 0.15s ease;">Active <span id="countActivePill" style="font-weight: 800; color: #16a34a; margin-left: 2px;">(0)</span></button>
+        <button type="button" class="btn-status-filter" data-status="Inactive" id="filterBtnInactive" style="border: none; background: transparent; color: #991b1b; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; transition: all 0.15s ease;">Inactive <span id="countInactivePill" style="font-weight: 800; color: #dc2626; margin-left: 2px;">(0)</span></button>
+      </div>
+
+      <!-- Active Quota Badge -->
+      <div id="quotaUsageBadge" style="display: inline-flex; align-items: center; gap: 5px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; color: #166534; white-space: nowrap; flex-shrink: 0;" title="Active employees vs Allocated restriction limit">
+        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: #22c55e;"></span>
+        <span>Active Quota:</span>
+        <span id="quotaUsageText" style="font-weight: 800;">-- / --</span>
+      </div>
+    </div>
+
+    <!-- Right Controls: Toggle Icons + Search Box -->
+    <div class="toolbar-right-controls" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto;">
+      <div class="view-toggle-wrapper">
+        <button type="button" class="btn-icon-view" id="btnListView" title="List View" aria-label="List View">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+        </button>
+        <button type="button" class="btn-icon-view active" id="btnGridView" title="Grid View" aria-label="Grid View">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+        </button>
+      </div>
+
+
+      <div class="search-box-wrapper">
+        <label for="tableSearch">Search:</label>
+        <input type="text" id="tableSearch" class="search-input">
+      </div>
+    </div>
+  </div>
+
+  <div class="table-responsive" id="employeeListSection" style="display: none;">
+    <table class="employee-table" id="employeeDataTable">
+      <thead>
+        <tr>
+          <th data-col="id">ID <span class="sort-icon">⇅</span></th>
+          <th>PHOTO <span class="sort-icon">⇅</span></th>
+          <th data-col="employee_name" class="sticky-col-emp">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="designation">DESIGNATION <span class="sort-icon">⇅</span></th>
+          <th data-col="status">STATUS <span class="sort-icon">⇅</span></th>
+          <th data-col="salary_type">SALARY BASIS <span class="sort-icon">⇅</span></th>
+          <th data-col="hourly_salary">HOURLY SALARY <span class="sort-icon">⇅</span></th>
+          <th data-col="day_salary">DAY SALARY <span class="sort-icon">⇅</span></th>
+          <th data-col="half_day_salary">HALF DAY SALARY <span class="sort-icon">⇅</span></th>
+          <th data-col="mobile_number">MOBILE NUMBER <span class="sort-icon">⇅</span></th>
+          <th data-col="email_id">EMAIL ID <span class="sort-icon">⇅</span></th>
+          <th data-col="shift_hours">SHIFT HOURS <span class="sort-icon">⇅</span></th>
+          <th style="text-align: center; width: 120px;">Actions <span class="sort-icon">⇅</span></th>
+        </tr>
+      </thead>
+      <tbody id="employeeTableBody">
+        <!-- Rendered dynamically via JavaScript -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Responsive Card Grid Section -->
+  <div id="employeeGridSection" class="employee-grid-container" style="display: grid;">
+    <!-- Rendered dynamically via JavaScript -->
+  </div>
+
+  <div class="table-footer">
+    <div id="tableInfoText">Showing 1 to 3 of 3 entries</div>
+    <div class="pagination-controls" id="tablePagination">
+      <button class="pagination-btn" id="prevPageBtn">Previous</button>
+      <button class="pagination-btn active" id="currentPageBtn">1</button>
+      <button class="pagination-btn" id="nextPageBtn">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL 1: Employee Detail Entry (Add/Edit) ================= -->
+<div class="modal-overlay" id="entryModal">
+  <div class="modal-box modal-box-large">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="modal-header-title" id="entryModalTitle">Employee Detail Entry</div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" class="btn-modal-voice-toggle" id="btnEntryModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
+          <span class="voice-icon">🔊</span>
+          <span class="voice-text">Audio: On</span>
+        </button>
+        <button class="modal-close-btn" id="closeEntryModal">&times;</button>
+      </div>
+    </div>
+    
+    <form id="employeeForm" enctype="multipart/form-data">
+      <input type="hidden" id="formEmployeeId" name="id">
+      
+      <div class="modal-body">
+        <div class="form-grid">
+          <!-- Row 1 -->
+          <div class="form-group">
+            <label class="form-label">Employee Name<span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputName" name="employee_name" placeholder="Name" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department<span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputDepartment" name="department" placeholder="Department (e.g. Production, IT, HR)" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Designation<span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputDesignation" name="designation" placeholder="Type/Select Designation" required>
+          </div>
+
+          <!-- Row 2: Contact & Employee Status -->
+          <div class="form-group">
+            <label class="form-label">Mobile Number<span class="required">*</span></label>
+            <input type="text" class="form-input" id="inputMobile" name="mobile_number" placeholder="Number" required>
+          </div>
+          <div class="form-group" id="groupEmailField">
+            <label class="form-label">Email ID<span id="emailRequiredMarker" class="required">*</span></label>
+            <div class="email-input-wrapper" style="position: relative; display: flex; align-items: center; width: 100%;">
+              <input type="email" class="form-input" id="inputEmail" name="email_id" placeholder="Email ID (e.g. employee@company.com)" style="padding-right: 68px; width: 100%; box-sizing: border-box;" required>
+              <!-- Sliding Toggle Switch -->
+              <label class="email-toggle-container" id="emailToggleContainer" title="Toggle email requirement (ON = Required, OFF = Optional/Disabled)"
+                     style="position: absolute; right: 7px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; z-index: 5; margin: 0;">
+                <span class="email-toggle-state-text" id="emailToggleStateText" style="font-size: 10px; font-weight: 700; color: #10b981; letter-spacing: 0.5px; transition: color 0.2s;">ON</span>
+                <span class="email-switch" title="Toggle Email Requirement">
+                  <input type="checkbox" id="toggleEmailSwitch" checked>
+                  <span class="email-slider" id="emailSlider"></span>
+                </span>
+              </label>
+            </div>
+            <input type="hidden" id="inputNoEmail" name="no_email" value="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Employee Status<span class="required">*</span></label>
+            <select class="form-input" id="inputStatus" name="status" required>
+              <option value="Active" selected>Active (Counts towards Quota)</option>
+              <option value="Inactive">Inactive (Unlimited / Quota Exempt)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Employee Type<span class="required">*</span></label>
+            <select class="form-input" id="inputEmployeeType" name="employee_type" required>
+              <option value="standard" selected>🏢 Standard Employee (Office / In-House)</option>
+              <option value="field_worker">🏃 Field Worker (GPS Tracked / Site Visits)</option>
+            </select>
+          </div>
+          {% if company_modules and company_modules.branch_company and branches and branches|length > 0 %}
+          <div class="form-group" id="groupBranchAssign">
+            <label class="form-label">Assigned Branch Location</label>
+            <select class="form-input" id="inputBranchId" name="branch_id" data-default-branch="{{ active_branch_id or '' }}">
+              <option value="HOME" {% if active_branch_id == 'HOME' or not active_branch_id or active_branch_id == 'ALL' %}selected{% endif %}>🏠 Home Branch (Head Office / Initial Company)</option>
+              {% for b in branches or [] %}
+              <option value="{{ b.id }}" {% if active_branch_id and (active_branch_id == b.id or active_branch_id == b.branch_id) %}selected{% endif %}>📍 {{ b.branch_name }} ({{ b.district or 'Hub' }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+
+          <!-- Contextual Field Worker Settings (Visible when Field Worker is selected) -->
+          <div class="form-group" id="groupFieldWorkerSettings" style="display: none; grid-column: 1 / -1; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 14px; margin-top: 4px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px;">🏃</span>
+                <span style="font-weight: 700; color: #166534; font-size: 13px;">Field Worker Telemetry &amp; Compensation Settings</span>
+              </div>
+              <span style="font-size: 11px; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 12px; font-weight: 700;">Enrolled in Field Worker Module</span>
+            </div>
+            <div style="font-size: 11.5px; color: #166534; margin-bottom: 12px; line-height: 1.4;">
+              This employee is enrolled as an active Field Worker with real-time GPS telemetry, client visit tracking, detour anomaly AI detection, and automated travel reimbursement.
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+              <div>
+                <label class="form-label" style="font-size: 11.5px; color: #14532d; font-weight: 600;">Assigned Territory / Zone</label>
+                <input type="text" class="form-input" id="inputTerritoryZone" name="territory_zone" placeholder="e.g. Coimbatore North, Metro Area">
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11.5px; color: #14532d; font-weight: 600;">Per-Visit Incentive (₹)</label>
+                <input type="number" step="0.01" min="0" class="form-input" id="inputVisitIncentive" name="per_visit_incentive" placeholder="e.g. 150.00">
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11.5px; color: #14532d; font-weight: 600;">KM Allowance Rate (₹/KM)</label>
+                <input type="number" step="0.01" min="0" class="form-input" id="inputKmAllowance" name="km_allowance_rate" placeholder="e.g. 4.50">
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 3: Salary Structure -->
+          <div class="form-group">
+            <label class="form-label">Salary Basis / Type<span class="required">*</span></label>
+            <select class="form-input" id="inputSalaryType" name="salary_type" required>
+              <option value="hourly">Hourly-Based</option>
+              <option value="daily" selected>Day-Based</option>
+              <option value="half_day">Half-Day-Based</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Day Salary</label>
+            <input type="number" step="0.01" min="0" class="form-input" id="inputDaySalary" name="day_salary" placeholder="Amount (e.g. 800)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Half Day Salary</label>
+            <input type="number" step="0.01" min="0" class="form-input" id="inputHalfDaySalary" name="half_day_salary" placeholder="Amount (e.g. 400)">
+          </div>
+
+          <!-- Row 4: Hourly & Personal Dates -->
+          <div class="form-group">
+            <label class="form-label">Hourly Salary</label>
+            <input type="number" step="0.01" min="0" class="form-input" id="inputHourlySalary" name="hourly_salary" placeholder="Rate in Decimals (e.g. 150.50)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date of Birth</label>
+            <input type="date" class="form-input" id="inputDob" name="date_of_birth" placeholder="mm/dd/yyyy">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Joining Date</label>
+            <input type="date" class="form-input" id="inputJoiningDate" name="joining_date" placeholder="mm/dd/yyyy">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Emergency Contact</label>
+            <input type="text" class="form-input" id="inputEmergency" name="emergency_contact" placeholder="Number">
+          </div>
+
+          <!-- Row 5: Shift Details -->
+          <div class="form-group">
+            <label class="form-label">Shift Start</label>
+            <input type="text" class="form-input" id="inputShiftStart" name="shift_start" placeholder="09:00 AM" value="09:00 AM">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shift End</label>
+            <input type="text" class="form-input" id="inputShiftEnd" name="shift_end" placeholder="06:00 PM" value="06:00 PM">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shift Hours</label>
+            <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="e.g. 09:00 or 00:00" value="09:00">
+          </div>
+
+          <!-- Row 6: Identity & Banking -->
+          <div class="form-group">
+            <label class="form-label">Aadhar Number</label>
+            <input type="text" class="form-input" id="inputAadhar" name="aadhar_number" placeholder="Number">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Account Holder Name</label>
+            <input type="text" class="form-input" id="inputAccountHolder" name="account_holder_name" placeholder="Account Holder Name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Account Number</label>
+            <input type="text" class="form-input" id="inputAccountNumber" name="account_number" placeholder="Account Number">
+          </div>
+
+          <!-- Row 7: Banking & UPI -->
+          <div class="form-group">
+            <label class="form-label">IFSC Code</label>
+            <input type="text" class="form-input" id="inputIfsc" name="ifsc_code" placeholder="IFSC Code">
+          </div>
+          <div class="form-group">
+            <label class="form-label">UPI Number</label>
+            <input type="text" class="form-input" id="inputUpi" name="upi_number" placeholder="UPI Number">
+          </div>
+
+          <!-- Row 7: Register Face & Photo -->
+          <div class="form-group" style="grid-column: span 3;">
+            <label class="form-label">Register Face & Photo</label>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <input type="file" class="form-input form-file-input" id="inputPhoto" name="photo" accept="image/*" style="flex: 1; min-width: 160px;">
+              <button type="button" id="btnCaptureface" class="btn-submit" style="padding: 7px 14px; font-size: 12px; white-space: nowrap; background-color: #3d6078;">📷 Capture Face</button>
+            </div>
+            <div id="captureStatus" style="font-size: 12px; color: #198754; font-weight: 700; margin-top: 6px;"></div>
+            <div id="currentPhotoPreview" style="display: none; margin-top: 8px; align-items: center; gap: 12px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+              <img id="editPhotoThumb" src="" alt="Profile Photo" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #3d6078;">
+              <span id="editPhotoNote" style="font-size: 11px; color: #475569; font-weight: 500;">Profile photo attached. Leave file input empty to keep this photo, or capture/upload a new one to replace.</span>
+            </div>
+          </div>
+
+          <!-- Row 8: Employee Documents -->
+          <div class="form-group" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <div>
+                <label class="form-label" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Employee Documents</label>
+                <div style="font-size: 11px; color: #64748b; font-weight: 500; margin-top: 2px;">
+                  Attach identity proofs, certificates, and employment documents (PDF, DOCX, JPG, PNG, etc.)
+                </div>
+              </div>
+              <button type="button" id="btnAddDocRowTop" class="btn-submit" style="padding: 5px 12px; font-size: 11px; background-color: #3d6078; display: inline-flex; align-items: center; gap: 4px;">
+                <span>+ Add Document</span>
+              </button>
+            </div>
+            <div id="employeeDocsContainer" style="display: flex; flex-direction: column; gap: 8px;">
+              <!-- Dynamic document rows rendered via JavaScript -->
+            </div>
+          </div>
+
+          <!-- Row: Attendance & Geofencing Calculation -->
+          <div class="form-group" id="sectionAttendanceGeofencingCriteria" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <label class="form-label" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Attendance &amp; Geofencing Criteria</label>
+              <span style="font-size: 11px; color: #64748b; font-weight: 500;">Geofence distance validation policy</span>
+            </div>
+            <div style="background: #f8fafc; padding: 12px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
+              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; user-select: none; margin: 0;">
+                <input type="checkbox" id="inputCalculateProperEntries" name="calculate_proper_entries" value="true" checked style="accent-color: #3d6078; width: 17px; height: 17px; margin-top: 2px; cursor: pointer;">
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; color: #1e293b;">
+                    Calculate Proper Entries (Geofence Radius Check)
+                  </div>
+                  <div style="font-size: 11px; color: #64748b; margin-top: 2px; line-height: 1.4;">
+                    When checked (default), punches outside the company geofence radius are flagged as Improper. Uncheck this to exempt this employee from distance checks (all attendance punches will be recorded as Proper).
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Row 9: Employee Permissions -->
+          <div class="form-group" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <label class="form-label" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Employee Permissions</label>
+              <span style="font-size: 11px; color: #64748b; font-weight: 500;">Select sections visible in employee portal</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; background: #f8fafc; padding: 12px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="permPunchAttendance" name="perm_punch_attendance" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
+                <span>Punch Attendance</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="permAttendanceHistory" name="perm_attendance_history" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
+                <span>Attendance History</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="permMonthlyPayslip" name="perm_monthly_payslip" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
+                <span>Monthly Payslip</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="permEmployeeCredentials" name="perm_employee_credentials" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
+                <span>Employee Credentials</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="permLeavePermission" name="perm_leave_permission" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
+                <span>Leave &amp; Permissions</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer modal-footer-left" style="display: flex; gap: 8px;">
+        <button type="submit" class="btn-submit" id="btnSubmitForm">Submit</button>
+        <button type="button" class="btn-reset" id="btnCancelEntryModal" style="background-color: #64748b; color: #ffffff;">Cancel</button>
+        <button type="button" class="btn-reset" id="btnResetForm" style="background-color: #e2e8f0; color: #475569;">Reset</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL: Face Camera Registration (Overlay) ================= -->
+<div class="modal-overlay face-camera-modal-overlay" id="faceCameraModal">
+  <div class="modal-box modal-box-camera">
+    <div class="modal-header" style="background-color: #3d6078; color: #ffffff; padding: 12px 18px;">
+      <div class="modal-header-title" style="color: #ffffff; font-size: 14px;">📷 Capture Employee Face</div>
+      <button type="button" class="modal-close-btn" id="closeCameraModal" style="color: #ffffff;">&times;</button>
+    </div>
+    <div class="modal-body" style="padding: 16px; text-align: center;">
+      <div class="camera-stream-box">
+        <video id="faceRegVideo" autoplay playsinline></video>
+        <div class="face-camera-reticle"></div>
+        <canvas id="faceRegCanvas" style="display: none;"></canvas>
+      </div>
+      <div class="face-guidelines-pills">
+        <span>🚫 No hands covering face</span>
+        <span>👁️ Both eyes visible</span>
+        <span>💡 Good lighting</span>
+      </div>
+      <div id="cameraStatusMsg" class="camera-status-msg"></div>
+      <div class="camera-modal-actions">
+        <button type="button" id="btnTakeSnapshot" class="btn-submit btn-snapshot">Capture Snapshot</button>
+        <button type="button" id="btnCancelCapture" class="btn-reset">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL 2: View Employee Detail ================= -->
+<div class="modal-overlay" id="viewModal">
+  <div class="modal-box modal-box-large">
+    <div class="modal-header">
+      <div class="modal-header-title">EMPLOYEE DETAIL</div>
+      <button class="modal-close-btn" id="closeViewModal">&times;</button>
+    </div>
+    
+    <div class="modal-body" id="printSection">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px;">
+        <div class="view-emp-heading" style="margin-bottom: 0;">EMPLOYEE DETAILS</div>
+        <div id="viewEmpPhotoHeader" style="display: flex; align-items: center; gap: 10px;">
+          <!-- Populated dynamically with employee photo preview -->
+        </div>
+      </div>
+      
+      <table class="info-table">
+        <thead>
+          <tr>
+            <th>INFORMATION</th>
+            <th>INFORMATION VALUE</th>
+          </tr>
+        </thead>
+        <tbody id="viewInfoTableBody">
+          <!-- Populated dynamically -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-footer modal-footer-right">
+      <button type="button" class="btn-print" id="btnPrintDetail">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        Print
+      </button>
+      <button type="button" class="btn-pdf" id="btnDownloadPdf">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL 3: Photo Preview ================= -->
+<div class="modal-overlay" id="photoModal">
+  <div class="modal-box" style="max-width: 450px;">
+    <div class="modal-header">
+      <div class="modal-header-title" id="photoModalTitle">Employee Photo</div>
+      <button class="modal-close-btn" id="closePhotoModal">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center;">
+      <img id="photoModalImg" src="" alt="Employee Photo" class="photo-preview-img">
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.ACTIVE_BRANCH_ID = "{{ active_branch_id or '' }}";
+  window.COMPANY_CALCULATE_PROPER_ENTRIES = {{ 'true' if company_calculate_proper_entries else 'false' }};
+</script>
+<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261106_v8"></script>
+{% endblock %}
