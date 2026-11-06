@@ -190,14 +190,14 @@
             <div class="email-input-wrapper" style="position: relative; display: flex; align-items: center; width: 100%;">
               <input type="email" class="form-input" id="inputEmail" name="email_id" placeholder="Email ID (e.g. employee@company.com)" style="padding-right: 68px; width: 100%; box-sizing: border-box;" required>
               <!-- Sliding Toggle Switch -->
-              <div class="email-toggle-container" id="emailToggleContainer" title="Toggle email requirement (ON = Required, OFF = Optional/Disabled)"
-                   style="position: absolute; right: 7px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; z-index: 2;">
+              <label class="email-toggle-container" id="emailToggleContainer" title="Toggle email requirement (ON = Required, OFF = Optional/Disabled)"
+                     style="position: absolute; right: 7px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; z-index: 5; margin: 0;">
                 <span class="email-toggle-state-text" id="emailToggleStateText" style="font-size: 10px; font-weight: 700; color: #10b981; letter-spacing: 0.5px; transition: color 0.2s;">ON</span>
-                <label class="email-switch" title="Toggle Email Requirement">
+                <span class="email-switch" title="Toggle Email Requirement">
                   <input type="checkbox" id="toggleEmailSwitch" checked>
                   <span class="email-slider" id="emailSlider"></span>
-                </label>
-              </div>
+                </span>
+              </label>
             </div>
             <input type="hidden" id="inputNoEmail" name="no_email" value="0">
           </div>
@@ -522,5 +522,5 @@
   window.ACTIVE_BRANCH_ID = "{{ active_branch_id or '' }}";
   window.COMPANY_CALCULATE_PROPER_ENTRIES = {{ 'true' if company_calculate_proper_entries else 'false' }};
 </script>
-<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261106_v7"></script>
+<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261106_v8"></script>
 {% endblock %}

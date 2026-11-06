@@ -601,7 +601,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (turnedOff) {
       if (noEmailInput) noEmailInput.value = '1';
-      if (toggleSwitch) toggleSwitch.checked = false;
+      if (toggleSwitch && toggleSwitch.checked) toggleSwitch.checked = false;
       if (stateText) {
         stateText.textContent = 'OFF';
         stateText.style.color = '#94a3b8';
@@ -623,7 +623,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     } else {
       if (noEmailInput) noEmailInput.value = '0';
-      if (toggleSwitch) toggleSwitch.checked = true;
+      if (toggleSwitch && !toggleSwitch.checked) toggleSwitch.checked = true;
       if (stateText) {
         stateText.textContent = 'ON';
         stateText.style.color = '#10b981';
@@ -671,19 +671,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  const emailToggleContainer = document.getElementById('emailToggleContainer');
-  if (emailToggleContainer) {
-    emailToggleContainer.addEventListener('click', function (e) {
-      if (e.target.tagName !== 'INPUT') {
-        const sw = document.getElementById('toggleEmailSwitch');
-        if (sw) {
-          sw.checked = !sw.checked;
-          const event = new Event('change');
-          sw.dispatchEvent(event);
-        }
-      }
-    });
-  }
+// Native label handles single click change cleanly
 
   function openAddEntryModal() {
     setEmailTurnedOff(false);
