@@ -589,7 +589,92 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  function setEmailTurnedOff(turnedOff) {
+    const emailInput = document.getElementById('inputEmail');
+    const noEmailInput = document.getElementById('inputNoEmail');
+    const btnToggle = document.getElementById('btnToggleNoEmail');
+    const marker = document.getElementById('emailRequiredMarker');
+
+    if (!emailInput || !btnToggle) return;
+
+    if (turnedOff) {
+      if (noEmailInput) noEmailInput.value = '1';
+      emailInput.disabled = true;
+      emailInput.required = false;
+      emailInput.value = '';
+      emailInput.placeholder = 'No Email ID (Turned Off)';
+      emailInput.style.backgroundColor = '#f1f5f9';
+      emailInput.style.color = '#94a3b8';
+      emailInput.style.cursor = 'not-allowed';
+      emailInput.style.borderColor = '#e2e8f0';
+
+      if (marker) {
+        marker.textContent = ' (Turned Off)';
+        marker.className = 'email-off-marker';
+        marker.style.color = '#94a3b8';
+        marker.style.fontWeight = 'normal';
+        marker.style.fontSize = '11px';
+      }
+
+      btnToggle.classList.add('is-turned-off');
+      btnToggle.style.backgroundColor = '#fef2f2';
+      btnToggle.style.borderColor = '#fca5a5';
+      btnToggle.style.color = '#dc2626';
+      btnToggle.setAttribute('title', 'Email is turned off (click to re-enable)');
+      btnToggle.innerHTML = '<span class="toggle-icon">✓</span> <span class="toggle-text">No Email (Active)</span>';
+    } else {
+      if (noEmailInput) noEmailInput.value = '0';
+      emailInput.disabled = false;
+      emailInput.required = true;
+      emailInput.placeholder = 'Email ID (e.g. employee@company.com)';
+      emailInput.style.backgroundColor = '#ffffff';
+      emailInput.style.color = '';
+      emailInput.style.cursor = '';
+      emailInput.style.borderColor = '';
+
+      if (marker) {
+        marker.textContent = '*';
+        marker.className = 'required';
+        marker.style.color = '#ef4444';
+        marker.style.fontWeight = 'bold';
+        marker.style.fontSize = '';
+      }
+
+      btnToggle.classList.remove('is-turned-off');
+      btnToggle.style.backgroundColor = '#f8fafc';
+      btnToggle.style.borderColor = '#cbd5e1';
+      btnToggle.style.color = '#64748b';
+      btnToggle.setAttribute('title', 'Click to turn off email requirement for this employee');
+      btnToggle.innerHTML = '<span class="toggle-icon">🚫</span> <span class="toggle-text">No Email</span>';
+    }
+  }
+
+  const btnToggleNoEmail = document.getElementById('btnToggleNoEmail');
+  if (btnToggleNoEmail) {
+    btnToggleNoEmail.addEventListener('click', function (e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const noEmailInput = document.getElementById('inputNoEmail');
+      const isCurrentlyOff = noEmailInput && noEmailInput.value === '1';
+      const newState = !isCurrentlyOff;
+      setEmailTurnedOff(newState);
+      if (window.ArgusVoice) {
+        if (newState) {
+          window.ArgusVoice.speakDual({
+            english: 'Email requirement turned off for this employee.',
+            tamil: 'இந்த ஊழியருக்கு மின்னஞ்சல் தேவையில்லை என அமைக்கப்பட்டது.'
+          }, { interrupt: true });
+        } else {
+          window.ArgusVoice.speakDual({
+            english: 'Email requirement enabled.',
+            tamil: 'மின்னஞ்சல் தேவை இயக்கப்பட்டது.'
+          }, { interrupt: true });
+        }
+      }
+    });
+  }
+
   function openAddEntryModal() {
+    setEmailTurnedOff(false);
     employeeForm.reset();
     currentCapturedBlob = null;
     capturedFaceEmbedding = null;
@@ -700,7 +785,11 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('inputHourlySalary').value = (emp.hourly_salary !== undefined && emp.hourly_salary !== null) ? emp.hourly_salary : '';
       document.getElementById('inputDaySalary').value = (emp.day_salary !== undefined && emp.day_salary !== null) ? emp.day_salary : '';
       document.getElementById('inputHalfDaySalary').value = (emp.half_day_salary !== undefined && emp.half_day_salary !== null) ? emp.half_day_salary : '';
-      document.getElementById('inputEmail').value = emp.email_id || '';
+      const hasEmail = Boolean(emp.email_id && String(emp.email_id).trim() !== '');
+      setEmailTurnedOff(!hasEmail);
+      if (hasEmail) {
+        document.getElementById('inputEmail').value = emp.email_id;
+      }
       document.getElementById('inputAadhar').value = emp.aadhar_number || '';
       document.getElementById('inputEmergency').value = emp.emergency_contact || '';
       const inDob = document.getElementById('inputDob');
@@ -793,6 +882,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnResetForm) {
     btnResetForm.addEventListener('click', function () {
       employeeForm.reset();
+      setEmailTurnedOff(false);
       const inStatus = document.getElementById('inputStatus');
       if (inStatus) inStatus.value = 'Active';
       const inEmpType = document.getElementById('inputEmployeeType');
@@ -1019,17 +1109,21 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const emailInput = document.getElementById('inputEmail');
-      const emailVal = emailInput ? emailInput.value.trim() : '';
-      if (!emailVal) {
-        alert('Email ID is required.');
-        if (emailInput) emailInput.focus();
-        return;
-      }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(emailVal)) {
-        alert('Please enter a valid email address (e.g. employee@company.com).');
-        if (emailInput) emailInput.focus();
-        return;
+      const isEmailTurnedOff = document.getElementById('inputNoEmail') && document.getElementById('inputNoEmail').value === '1';
+      let emailVal = '';
+      if (!isEmailTurnedOff) {
+        emailVal = emailInput ? emailInput.value.trim() : '';
+        if (!emailVal) {
+          alert('Email ID is required.');
+          if (emailInput) emailInput.focus();
+          return;
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(emailVal)) {
+          alert('Please enter a valid email address (e.g. employee@company.com).');
+          if (emailInput) emailInput.focus();
+          return;
+        }
       }
 
       const empId = document.getElementById('formEmployeeId').value.trim();
@@ -1051,6 +1145,13 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const formData = new FormData(employeeForm);
+      if (isEmailTurnedOff) {
+        formData.set('email_id', '');
+        formData.set('no_email', 'true');
+      } else {
+        formData.set('email_id', emailVal);
+        formData.set('no_email', 'false');
+      }
 
       // Explicitly serialize employee type and field worker settings
       const inSubmitEmpType = document.getElementById('inputEmployeeType');
@@ -1272,7 +1373,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ['DAY SALARY', emp.day_salary],
         ['HALF DAY SALARY', emp.half_day_salary],
         ['MOBILE NUMBER', emp.mobile_number],
-        ['EMAIL ID', emp.email_id],
+        ['EMAIL ID', emp.email_id ? emp.email_id : 'Not Applicable (No Email)'],
         ['AADHAR NUMBER', emp.aadhar_number],
         ['EMERGENCY CONTACT', emp.emergency_contact],
         ['DATE OF BIRTH', emp.date_of_birth || emp.dob || '-'],

@@ -3164,10 +3164,13 @@ def api_create_employee():
         if photo_data_url:
             data['photo_data'] = photo_data_url
 
+        no_email = str(data.get('no_email') or '').strip().lower() in ['true', '1', 'yes']
         if not data.get('employee_name'):
             return jsonify({'error': 'Employee name is required'}), 400
-        if not (data.get('email_id') or '').strip():
+        if not no_email and not (data.get('email_id') or '').strip():
             return jsonify({'error': 'Email ID is required'}), 400
+        if no_email:
+            data['email_id'] = ''
 
         # Normalize employee type / field worker flag
         emp_type = str(data.get('employee_type') or '').strip().lower()
@@ -3221,8 +3224,11 @@ def api_update_employee(emp_id):
         else:
             data = request.form.to_dict() or {}
             
-        if 'email_id' in data and not (data.get('email_id') or '').strip():
+        no_email = str(data.get('no_email') or '').strip().lower() in ['true', '1', 'yes']
+        if not no_email and 'email_id' in data and not (data.get('email_id') or '').strip():
             return jsonify({'error': 'Email ID is required'}), 400
+        if no_email:
+            data['email_id'] = ''
 
         # Normalize employee type / field worker flag
         emp_type = str(data.get('employee_type') or '').strip().lower()

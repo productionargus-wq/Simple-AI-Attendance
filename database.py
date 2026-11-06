@@ -1575,8 +1575,9 @@ def create_employee(data, company_id=None):
     emp_name = str(data.get('employee_name') or '').strip()
     if not emp_name:
         raise ValueError('Employee name is required.')
-    email_id = str(data.get('email_id') or '').strip()
-    if not email_id:
+    no_email = str(data.get('no_email') or '').strip().lower() in ['true', '1', 'yes']
+    email_id = str(data.get('email_id') or '').strip() if not no_email else ''
+    if not no_email and not email_id:
         raise ValueError('Email ID is required.')
 
     emp_id = str(data.get('id') or '').strip()
@@ -1584,19 +1585,20 @@ def create_employee(data, company_id=None):
         emp_id = generate_employee_id()
     assigned_company_id = str(company_id or data.get('company_id') or 'ARGUS_MASTER')
 
-    # Deduplication check: prevent duplicate employee creation from rapid multi-clicks
-    existing_emp = db.employees.find_one({
-        'company_id': assigned_company_id,
-        'email_id': email_id
-    })
-    if existing_emp:
-        created_at = existing_emp.get('created_at')
-        try:
-            if created_at and (get_ist_now() - created_at).total_seconds() < 10:
-                return existing_emp.get('id')
-        except Exception:
-            pass
-        raise ValueError(f"An employee with email '{email_id}' is already registered in this organization.")
+    # Deduplication check: prevent duplicate employee creation from rapid multi-clicks (only when email is provided)
+    if email_id:
+        existing_emp = db.employees.find_one({
+            'company_id': assigned_company_id,
+            'email_id': email_id
+        })
+        if existing_emp:
+            created_at = existing_emp.get('created_at')
+            try:
+                if created_at and (get_ist_now() - created_at).total_seconds() < 10:
+                    return existing_emp.get('id')
+            except Exception:
+                pass
+            raise ValueError(f"An employee with email '{email_id}' is already registered in this organization.")
 
     # Normalize status: default to 'Active'
     raw_status = str(data.get('status') or 'Active').strip().capitalize()
@@ -1657,7 +1659,8 @@ def create_employee(data, company_id=None):
         'hourly_salary': h_sal,
         'day_salary': d_sal,
         'half_day_salary': hd_sal,
-        'email_id': data.get('email_id', '').strip(),
+        'email_id': email_id,
+        'no_email': no_email,
         'aadhar_number': data.get('aadhar_number', '').strip(),
         'emergency_contact': data.get('emergency_contact', '').strip(),
         'date_of_birth': str(data.get('date_of_birth') or data.get('dob') or '').strip(),
@@ -1723,7 +1726,10 @@ def update_employee(emp_id, data, company_id=None):
     f = build_id_filter(emp_id)
     if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         f = {'$and': [f, {'company_id': str(company_id)}]}
-    if 'email_id' in data and not str(data.get('email_id') or '').strip():
+    no_email = str(data.get('no_email') or '').strip().lower() in ['true', '1', 'yes']
+    if no_email:
+        data['email_id'] = ''
+    elif 'email_id' in data and not str(data.get('email_id') or '').strip():
         raise ValueError('Email ID is required.')
 
     upd = {'updated_at': get_ist_now()}
@@ -1737,6 +1743,11 @@ def update_employee(emp_id, data, company_id=None):
     for key in text_fields:
         if key in data:
             upd[key] = str(data[key]).strip() if data[key] is not None else ''
+    if no_email:
+        upd['email_id'] = ''
+        upd['no_email'] = True
+    elif 'email_id' in data:
+        upd['no_email'] = False
 
     if 'employee_type' in data and data['employee_type'] is not None:
         upd['is_field_worker'] = str(data['employee_type']).strip().lower() in ['field_worker', 'field', 'fw']

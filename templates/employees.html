@@ -185,9 +185,18 @@
             <label class="form-label">Mobile Number<span class="required">*</span></label>
             <input type="text" class="form-input" id="inputMobile" name="mobile_number" placeholder="Number" required>
           </div>
-          <div class="form-group">
-            <label class="form-label">Email ID<span class="required">*</span></label>
+          <div class="form-group" id="groupEmailField">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
+              <label class="form-label" style="margin-bottom: 0;">Email ID <span id="emailRequiredMarker" class="required">*</span></label>
+              <button type="button" id="btnToggleNoEmail" class="btn-toggle-no-email" 
+                      title="Click to turn off email requirement for this employee"
+                      style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; color: #64748b; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s ease; user-select: none;">
+                <span class="toggle-icon">🚫</span>
+                <span class="toggle-text">No Email</span>
+              </button>
+            </div>
             <input type="email" class="form-input" id="inputEmail" name="email_id" placeholder="Email ID (e.g. employee@company.com)" required>
+            <input type="hidden" id="inputNoEmail" name="no_email" value="0">
           </div>
           <div class="form-group">
             <label class="form-label">Employee Status<span class="required">*</span></label>
@@ -510,5 +519,5 @@
   window.ACTIVE_BRANCH_ID = "{{ active_branch_id or '' }}";
   window.COMPANY_CALCULATE_PROPER_ENTRIES = {{ 'true' if company_calculate_proper_entries else 'false' }};
 </script>
-<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261028_criteriav1"></script>
+<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261106_v5"></script>
 {% endblock %}

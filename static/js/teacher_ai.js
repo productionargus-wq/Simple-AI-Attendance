@@ -153,37 +153,37 @@
     'stat-timeout-emp': {
       title: 'On Timeout / Timeout Badge',
       category: 'Attendance Metric',
-      text: 'a. Explanation: Identifies check-in attendance sessions that remained open and unclosed long past the normal shift conclusion without a departure punch.\nb. Rule / criteria: In our application, an entry is marked "On Timeout" when the elapsed time from punch-in exceeds 15 consecutive hours without a checkout punch. It is automatically flagged for administrative review and stops accumulating working hours to prevent unintended overtime salary calculation.',
+      text: 'Identifies check-in attendance sessions that remained open and unclosed long past the normal shift conclusion without a departure punch.\nIn our application: In our application, an entry is marked "On Timeout" when the elapsed time from punch-in exceeds 15 consecutive hours without a checkout punch. It is automatically flagged for administrative review and stops accumulating working hours to prevent unintended overtime salary calculation.',
       tip: 'Admins can reconcile timeouts from Live Report or Attendance Report tabs.'
     },
     'stat-total-emp': {
       title: 'Total Active Employees',
       category: 'Workforce KPI',
-      text: 'a. Explanation: The complete count of registered personnel currently employed in this company who are scheduled to work.\nb. Rule / criteria: Evaluates all records in the employees registry where status is "Active". Employees tagged as "Terminated" or "Inactive" are excluded from this count and do not count toward your subscription quota.',
+      text: 'The complete count of registered personnel currently employed in this company who are scheduled to work.\nIn our application: Evaluates all records in the employees registry where status is "Active". Employees tagged as "Terminated" or "Inactive" are excluded from this count and do not count toward your subscription quota.',
       tip: 'Click to open Employee Directory.'
     },
     'stat-present-emp': {
       title: 'Present Employees Today',
       category: 'Workforce KPI',
-      text: 'a. Explanation: The verified count of employees who have clocked into work today through biometric facial recognition, mobile GPS check-in, or manual entry.\nb. Rule / criteria: Condition: Any registered employee who has at least one attendance punch matching today\'s calendar date (entry_date = today).',
+      text: 'The verified count of employees who have clocked into work today through biometric facial recognition, mobile GPS check-in, or manual entry.\nIn our application: Condition: Any registered employee who has at least one attendance punch matching today\'s calendar date (entry_date = today).',
       tip: 'Real-time count auto-updates with each facial scan.'
     },
     'stat-absent-emp': {
       title: 'Absent Employees Today',
       category: 'Workforce KPI',
-      text: 'a. Explanation: Active employees scheduled to work today who have neither checked in nor submitted an authorized leave request.\nb. Rule / criteria: Formula: Total Active Employees - (Present Employees Today + Approved Leaves Today). Unexcused absences are flagged for operations shift coverage.',
+      text: 'Active employees scheduled to work today who have neither checked in nor submitted an authorized leave request.\nIn our application: Formula: Total Active Employees - (Present Employees Today + Approved Leaves Today). Unexcused absences are flagged for operations shift coverage.',
       tip: 'Employees on approved leave are excluded from the absent count.'
     },
     'stat-present-pct': {
       title: 'Attendance Percentage Rate',
       category: 'Workforce KPI',
-      text: 'a. Explanation: The proportional attendance capacity of your total workforce operating on duty today.\nb. Rule / criteria: Formula: (Present Today ÷ Total Active Employees) × 100. A rate >= 90% reflects optimal production efficiency; below 75% triggers an operational staffing warning.',
+      text: 'The proportional attendance capacity of your total workforce operating on duty today.\nIn our application: Formula: (Present Today ÷ Total Active Employees) × 100. A rate >= 90% reflects optimal production efficiency; below 75% triggers an operational staffing warning.',
       tip: 'Target 90%+ for steady factory and office throughput.'
     },
     'stat-on-leave': {
       title: 'On Leave Badge',
       category: 'Attendance Metric',
-      text: 'a. Explanation: Personnel who are officially excused from work today under an authorized company leave of absence.\nb. Rule / criteria: Verified against the leave database where request_type is "Leave", status is "Approved", and today\'s date falls within [from_date, to_date]. Does not penalize punctuality.',
+      text: 'Personnel who are officially excused from work today under an authorized company leave of absence.\nIn our application: Verified against the leave database where request_type is "Leave", status is "Approved", and today\'s date falls within [from_date, to_date]. Does not penalize punctuality.',
       tip: 'Manage leave requests from the Leaves tab.'
     },
 
@@ -191,19 +191,19 @@
     'concept-day-salary': {
       title: 'Day Salary (Daily Wage Basis)',
       category: 'Compensation Policy',
-      text: 'a. Explanation: Fixed daily wage rate credited to an employee upon successfully completing their full daily operational work shift.\nb. Rule / criteria: In our application, when worked minutes >= full shift target duration (e.g. 8 or 9 hours), the employee earns 100% of the Day Salary. If worked duration is >= half-shift target (e.g. 4 hours), half-day rate is credited. Total Daily Basic Salary = (Full Days × Day Salary) + (Half Days × Half Salary).',
+      text: 'Fixed daily wage rate credited to an employee upon successfully completing their full daily operational work shift.\nIn our application: In our application, when worked minutes >= full shift target duration (e.g. 8 or 9 hours), the employee earns 100% of the Day Salary. If worked duration is >= half-shift target (e.g. 4 hours), half-day rate is credited. Total Daily Basic Salary = (Full Days × Day Salary) + (Half Days × Half Salary).',
       tip: 'Configured in the employee profile modal under Salary Type: Daily.'
     },
     'concept-half-day-salary': {
       title: 'Half Day Salary (Half-Day Basis)',
       category: 'Compensation Policy',
-      text: 'a. Explanation: Compensation credited when an employee works at least half of their standard shift or operates on half-day units.\nb. Rule / criteria: In our application, an attendance record is classified as Half-Day when worked duration is >= 4 hours and < 8 hours. Basic Salary is computed in half-day blocks: (Total Half Units × Half Day Salary) + Prorated Partial Minutes.',
+      text: 'Compensation credited when an employee works at least half of their standard shift or operates on half-day units.\nIn our application: In our application, an attendance record is classified as Half-Day when worked duration is >= 4 hours and < 8 hours. Basic Salary is computed in half-day blocks: (Total Half Units × Half Day Salary) + Prorated Partial Minutes.',
       tip: 'Employees leaving early with permission are evaluated under this rate.'
     },
     'concept-hourly-salary': {
       title: 'Hourly Salary (Hour-Based Basis)',
       category: 'Compensation Policy',
-      text: 'a. Explanation: Precision wage calculation directly proportional to the exact number of elapsed working hours and minutes recorded.\nb. Rule / criteria: In our application: Basic Salary = (Total Worked Minutes ÷ 60.0) × Hourly Salary Rate. Every minute between punch-in and punch-out is compensated precisely at the hourly rate quotient.',
+      text: 'Precision wage calculation directly proportional to the exact number of elapsed working hours and minutes recorded.\nIn our application: In our application: Basic Salary = (Total Worked Minutes ÷ 60.0) × Hourly Salary Rate. Every minute between punch-in and punch-out is compensated precisely at the hourly rate quotient.',
       tip: 'Ideal for part-time, temporary, or machine-operator shift rosters.'
     },
 
@@ -211,43 +211,43 @@
     'concept-manual-entry': {
       title: 'Manual Attendance Entry',
       category: 'Attendance Policy',
-      text: 'a. Explanation: Administrative override tool allowing managers to insert past, missed, or adjusted attendance punches without camera facial recognition.\nb. Rule / criteria: Criteria & When to Use: Used when the biometric terminal is offline, power outage, off-site client deployment without mobile app, or backdated reconciliation. When logged, sets working salary or hours directly and is distinctly flagged as "Manual Entry" so biometric audit trails remain intact.',
+      text: 'Administrative override tool allowing managers to insert past, missed, or adjusted attendance punches without camera facial recognition.\nIn our application: Criteria & When to Use: Used when the biometric terminal is offline, power outage, off-site client deployment without mobile app, or backdated reconciliation. When logged, sets working salary or hours directly and is distinctly flagged as "Manual Entry" so biometric audit trails remain intact.',
       tip: 'Manual entries are permanently audited under Manual Entries tab.'
     },
     'concept-live-entries': {
       title: 'Live Entries',
       category: 'Attendance Policy',
-      text: 'a. Explanation: Real-time active shift check-ins currently in progress on the company premises for today.\nb. Rule / criteria: Criteria in our application: Punch-in timestamp is recorded today, punch-out is null (empty), and elapsed duration is <= 15 hours. Indicates the staff member is currently on duty.',
+      text: 'Real-time active shift check-ins currently in progress on the company premises for today.\nIn our application: Criteria in our application: Punch-in timestamp is recorded today, punch-out is null (empty), and elapsed duration is <= 15 hours. Indicates the staff member is currently on duty.',
       tip: 'Monitors real-time employee presence across all office branches.'
     },
     'concept-timeout-entries': {
       title: 'Timeout Entries',
       category: 'Attendance Policy',
-      text: 'a. Explanation: Attendance sessions where an employee clocked in but did not register a departure punch at shift conclusion.\nb. Rule / criteria: Criteria in our application: Elapsed time from clock-in > 15 consecutive hours without checkout. Automatically held for administrator review to prevent unintended overtime wage accrual.',
+      text: 'Attendance sessions where an employee clocked in but did not register a departure punch at shift conclusion.\nIn our application: Criteria in our application: Elapsed time from clock-in > 15 consecutive hours without checkout. Automatically held for administrator review to prevent unintended overtime wage accrual.',
       tip: 'Reconcile timeout entries daily before generating monthly payroll.'
     },
     'concept-proper-entries': {
       title: 'Proper Entries (Geofence Verified)',
       category: 'Geofencing Policy',
-      text: 'a. Explanation: High-trust biometric attendance punches recorded strictly within the authorized physical perimeter of your office or factory.\nb. Rule / criteria: Criteria in our application: Punch GPS Coordinates Distance <= Company Geofence Radius (default: 200 meters from office coordinates). Marked in green with verified badge.',
+      text: 'High-trust biometric attendance punches recorded strictly within the authorized physical perimeter of your office or factory.\nIn our application: Criteria in our application: Punch GPS Coordinates Distance <= Company Geofence Radius (default: 200 meters from office coordinates). Marked in green with verified badge.',
       tip: 'Ensures employees are physically on premises when clocking in.'
     },
     'concept-improper-entries': {
       title: 'Improper Entries (Outside Geofence)',
       category: 'Geofencing Policy',
-      text: 'a. Explanation: Attendance punches recorded outside the designated company premises perimeter (e.g. from home, transit, or outside allowed radius).\nb. Rule / criteria: Criteria in our application: Punch GPS Coordinates Distance > Company Geofence Radius. Flagged in orange/red with exact distance in meters for administrative inspection.',
+      text: 'Attendance punches recorded outside the designated company premises perimeter (e.g. from home, transit, or outside allowed radius).\nIn our application: Criteria in our application: Punch GPS Coordinates Distance > Company Geofence Radius. Flagged in orange/red with exact distance in meters for administrative inspection.',
       tip: 'Remote workers can be exempted via "Calculate Proper Entries" toggle.'
     },
     'concept-all-entries': {
       title: 'All Entries Feed',
       category: 'Attendance Report',
-      text: 'a. Explanation: The master, unfiltered unified log displaying every punch recorded across the company.\nb. Rule / criteria: Combines all Proper Entries, Improper Entries, and Manual Entries in chronological sequence without filtering.',
+      text: 'The master, unfiltered unified log displaying every punch recorded across the company.\nIn our application: Combines all Proper Entries, Improper Entries, and Manual Entries in chronological sequence without filtering.',
       tip: 'Use date and branch filters to audit comprehensive punch trails.'
     },
     'concept-compact-view': {
       title: 'Compact Consolidated View',
       category: 'Attendance Report',
-      text: 'a. Explanation: High-density daily summary view consolidating multiple punches per employee into a single clean row per date.\nb. Rule / criteria: Aggregates first punch-in, last punch-out, net daily minutes worked, daily basic wage, and status. Differentiates from raw logs by providing executive-level daily totals.',
+      text: 'High-density daily summary view consolidating multiple punches per employee into a single clean row per date.\nIn our application: Aggregates first punch-in, last punch-out, net daily minutes worked, daily basic wage, and status. Differentiates from raw logs by providing executive-level daily totals.',
       tip: 'Recommended view for rapid end-of-month attendance audits.'
     },
 
@@ -255,31 +255,31 @@
     'concept-earnings': {
       title: 'Earnings / Total Earnings Calculation',
       category: 'Payroll Formula',
-      text: 'a. Explanation: The gross monetary compensation earned by an employee during the pay period before deductions.\nb. Rule / criteria: In our application: Total Earnings = Basic Salary + Regular Allowance + Incentive + Petrol/Travel Allowance + Verified Customer Visits Incentive + Other Earnings.\n• Basic Salary is computed from attendance records based on the employee\'s salary type (Daily, Half-Day, or Hourly).\n• Allowances and Incentives come from payments logged with status "Allowance" or "Incentive".\n• Petrol Allowance is computed as Total GPS KM × Per-KM Rate.\n• Verified Client Visits add Verified Visits × Per-Visit Incentive.',
+      text: 'The gross monetary compensation earned by an employee during the pay period before deductions.\nIn our application: In our application: Total Earnings = Basic Salary + Regular Allowance + Incentive + Petrol/Travel Allowance + Verified Customer Visits Incentive + Other Earnings.\n• Basic Salary is computed from attendance records based on the employee\'s salary type (Daily, Half-Day, or Hourly).\n• Allowances and Incentives come from payments logged with status "Allowance" or "Incentive".\n• Petrol Allowance is computed as Total GPS KM × Per-KM Rate.\n• Verified Client Visits add Verified Visits × Per-Visit Incentive.',
       tip: 'All earnings breakdown items are certified on official monthly payslips.'
     },
     'concept-deductions': {
       title: 'Deductions / Total Deductions Calculation',
       category: 'Payroll Formula',
-      text: 'a. Explanation: The sum of all financial withholdings, repayments, and prior disbursements deducted from gross earnings.\nb. Rule / criteria: In our application: Total Deductions = Paid Salary + Advance Repayment + Advance Cash Deductions + Other Deductions.\n• Final Net Pay = max(0, Total Earnings - Total Deductions).\n• Advance Repayment recovers borrowed employee loans logged in the payment ledger.\n• Paid Salary accounts for interim salary advances already disbursed.',
+      text: 'The sum of all financial withholdings, repayments, and prior disbursements deducted from gross earnings.\nIn our application: In our application: Total Deductions = Paid Salary + Advance Repayment + Advance Cash Deductions + Other Deductions.\n• Final Net Pay = max(0, Total Earnings - Total Deductions).\n• Advance Repayment recovers borrowed employee loans logged in the payment ledger.\n• Paid Salary accounts for interim salary advances already disbursed.',
       tip: 'Deductions can never exceed gross earnings (Net pay floored at ₹0.00).'
     },
     'concept-basic-salary': {
       title: 'Basic Salary Calculation',
       category: 'Payroll Formula',
-      text: 'a. Explanation: The base guaranteed compensation earned from verified shifts worked during the calendar month.\nb. Rule / criteria: Computed based on employee\'s Salary Type:\n• Daily Basis: (Worked Full Days × Day Salary) + (Half Days × Half Salary)\n• Hourly Basis: (Total Worked Minutes ÷ 60.0) × Hourly Salary\n• Half-Day Basis: (Total Half Units × Half Salary) + Prorated Partial Minutes.',
+      text: 'The base guaranteed compensation earned from verified shifts worked during the calendar month.\nIn our application: Computed based on employee\'s Salary Type:\n• Daily Basis: (Worked Full Days × Day Salary) + (Half Days × Half Salary)\n• Hourly Basis: (Total Worked Minutes ÷ 60.0) × Hourly Salary\n• Half-Day Basis: (Total Half Units × Half Salary) + Prorated Partial Minutes.',
       tip: 'Overtime hours beyond full shift target can accrue overtime credits.'
     },
     'concept-net-salary': {
       title: 'Net Salary Payable',
       category: 'Payroll Formula',
-      text: 'a. Explanation: The final certified take-home wage disbursed to the employee.\nb. Rule / criteria: Formula: max(0, Total Gross Earnings - Total Deductions). This exact figure is printed on the authorized monthly salary slip and voucher.',
+      text: 'The final certified take-home wage disbursed to the employee.\nIn our application: Formula: max(0, Total Gross Earnings - Total Deductions). This exact figure is printed on the authorized monthly salary slip and voucher.',
       tip: 'Export payslips with authorized seal and signature from Monthly Payslip tab.'
     },
     'concept-advance-repayment': {
       title: 'Advance Repayment',
       category: 'Financial Ledger',
-      text: 'a. Explanation: Payment entry crediting funds back to the company against an outstanding advance loan.\nb. Rule / criteria: In our application, logged in Payment Entry with status "Advance Repayment". Directly reduces the employee\'s outstanding loan balance in the Advance & Balance statement.',
+      text: 'Payment entry crediting funds back to the company against an outstanding advance loan.\nIn our application: In our application, logged in Payment Entry with status "Advance Repayment". Directly reduces the employee\'s outstanding loan balance in the Advance & Balance statement.',
       tip: 'Supports Cash, UPI, and Bank Transfer disbursement modes.'
     },
 
@@ -287,73 +287,73 @@
     'nav-dashboard': {
       title: 'Dashboard Overview',
       category: 'Navigation Tab',
-      text: 'a. Explanation: Central command screen providing real-time headcount, attendance KPIs, and trend telemetry.\nb. Rule / criteria: Aggregates active employee counts, present headcounts, absent rates, and timeout entries for today.',
+      text: 'Central command screen providing real-time headcount, attendance KPIs, and trend telemetry.\nIn our application: Aggregates active employee counts, present headcounts, absent rates, and timeout entries for today.',
       tip: 'Click any KPI stat card to drill down into detailed attendance lists.'
     },
     'nav-employee-details': {
       title: 'Employee Registry & Directory',
       category: 'Navigation Tab',
-      text: 'a. Explanation: Directory for managing full employee profiles, 128-d biometric facial embeddings, and salary terms.\nb. Rule / criteria: Only active employees in this registry can punch biometric attendance and count toward company quotas.',
+      text: 'Directory for managing full employee profiles, 128-d biometric facial embeddings, and salary terms.\nIn our application: Only active employees in this registry can punch biometric attendance and count toward company quotas.',
       tip: 'Use "+ Add Employee" to enroll new staff with zero-image biometric storage.'
     },
     'nav-live-report': {
       title: 'Live Check-In & Timeout Monitor',
       category: 'Navigation Tab',
-      text: 'a. Explanation: Monitors real-time on-duty facial check-in sessions and flags open shifts exceeding 15 hours.\nb. Rule / criteria: Entries with elapsed time > 15 hours without checkout punch are auto-transferred to Timeout review.',
+      text: 'Monitors real-time on-duty facial check-in sessions and flags open shifts exceeding 15 hours.\nIn our application: Entries with elapsed time > 15 hours without checkout punch are auto-transferred to Timeout review.',
       tip: 'Entries are automatically synchronized with GPS proximity distance.'
     },
     'nav-attendance-report': {
       title: 'Attendance Report Central',
       category: 'Navigation Tab',
-      text: 'a. Explanation: Historical attendance registry categorized into Proper, Improper, Manual, and Compact views.\nb. Rule / criteria: Allows managers to recalculate hours, filter by date ranges, and export formatted spreadsheets.',
+      text: 'Historical attendance registry categorized into Proper, Improper, Manual, and Compact views.\nIn our application: Allows managers to recalculate hours, filter by date ranges, and export formatted spreadsheets.',
       tip: 'Use the 🔄 Update button to recalculate attendance and working hours on-the-fly.'
     },
     'nav-manual-entry': {
       title: 'Manual Attendance Entry',
       category: 'Navigation Tab',
-      text: 'a. Explanation: Administrative tool allowing managers to log or adjust attendance punches without camera biometrics.\nb. Rule / criteria: Used when biometric terminal is offline or for backdated reconciliation. Flagged under Manual Entries.',
+      text: 'Administrative tool allowing managers to log or adjust attendance punches without camera biometrics.\nIn our application: Used when biometric terminal is offline or for backdated reconciliation. Flagged under Manual Entries.',
       tip: 'Manual entries calculate salary based on entered hours and status.'
     },
     'nav-payment-entry': {
       title: 'Payment & Wage Management',
       category: 'Navigation Tab',
-      text: 'a. Explanation: Disburse employee salaries, record advance repayments, and track payment transactions.\nb. Rule / criteria: Supports Advance Repayment, Salary, Incentive, Allowance, and Bonus disbursement statuses.',
+      text: 'Disburse employee salaries, record advance repayments, and track payment transactions.\nIn our application: Supports Advance Repayment, Salary, Incentive, Allowance, and Bonus disbursement statuses.',
       tip: 'Linked directly with the Advance Management and Balance Report tabs.'
     },
     'nav-advance-management': {
       title: 'Advance & Loan Management',
       category: 'Navigation Tab',
-      text: 'a. Explanation: Record employee salary advances, track repayment balances, and deduct installments during payroll.\nb. Rule / criteria: Unsettled advance balances are tracked continuously until cleared by repayments or salary deductions.',
+      text: 'Record employee salary advances, track repayment balances, and deduct installments during payroll.\nIn our application: Unsettled advance balances are tracked continuously until cleared by repayments or salary deductions.',
       tip: 'Remaining balances sync with monthly salary slips.'
     },
     'nav-balance-report': {
       title: 'Employee Balance Statement',
       category: 'Navigation Tab',
-      text: 'a. Explanation: Consolidated financial report showing gross earnings, total advances, repayments, and net balance.\nb. Rule / criteria: Formula: Outstanding Balance = Total Advances Issued - Total Advance Repayments.',
+      text: 'Consolidated financial report showing gross earnings, total advances, repayments, and net balance.\nIn our application: Formula: Outstanding Balance = Total Advances Issued - Total Advance Repayments.',
       tip: 'Audit all employee loan balances from this statement.'
     },
     'nav-monthly-payslip': {
       title: 'Monthly Certified Payslip',
       category: 'Navigation Tab',
-      text: 'a. Explanation: Generates official Argus corporate salary slips with earnings and deductions breakdown.\nb. Rule / criteria: Computes Net Pay = max(0, Total Earnings - Total Deductions) with company seal and authorized signature.',
+      text: 'Generates official Argus corporate salary slips with earnings and deductions breakdown.\nIn our application: Computes Net Pay = max(0, Total Earnings - Total Deductions) with company seal and authorized signature.',
       tip: 'Select employee, year, and month to preview and print payslips.'
     },
     'nav-salary-report': {
       title: 'Monthly Consolidated Salary Report',
       category: 'Navigation Tab',
-      text: 'a. Explanation: Detailed multi-column payroll sheet calculating working days, overtime, allowances, deductions, and net pay.\nb. Rule / criteria: Aggregates full attendance and payment data across the entire workforce for the selected month.',
+      text: 'Detailed multi-column payroll sheet calculating working days, overtime, allowances, deductions, and net pay.\nIn our application: Aggregates full attendance and payment data across the entire workforce for the selected month.',
       tip: 'Export to Excel for accounting and bookkeeping.'
     },
     'nav-company-profile': {
       title: 'Company Profile & Geofence Settings',
       category: 'Navigation Tab',
-      text: 'a. Explanation: Configure company legal branding, office address, GPS geofence coordinates, and shift hours.\nb. Rule / criteria: Geofence radius defines the physical perimeter for validating Proper vs Improper punches.',
+      text: 'Configure company legal branding, office address, GPS geofence coordinates, and shift hours.\nIn our application: Geofence radius defines the physical perimeter for validating Proper vs Improper punches.',
       tip: 'Use Detect Location to automatically set your office coordinates.'
     },
     'nav-manage-companies': {
       title: 'Multi-Tenant Company Management',
       category: 'Super Admin Portal',
-      text: 'a. Explanation: System Admin command center to register client companies, allocate employee quotas, and manage credentials.\nb. Rule / criteria: Available exclusively to System Administrators with super_admin privileges.',
+      text: 'System Admin command center to register client companies, allocate employee quotas, and manage credentials.\nIn our application: Available exclusively to System Administrators with super_admin privileges.',
       tip: 'Control tenant quotas, branch modules, and billing status.'
     }
   };
@@ -851,17 +851,17 @@
 
       const tagName = el.tagName.toUpperCase();
       let category = 'Operational Control';
-      let text = `a. Explanation: Configured interface control for managing ${labelText} in this module.\nb. Rule / criteria: Verified according to active tenant business rules and role authorization permissions.`;
+      let text = `Configured interface control for managing ${labelText} in this module. Verified according to active tenant business rules and role authorization permissions.`;
 
       if (tagName === 'BUTTON') {
         category = 'Action Trigger';
-        text = `a. Explanation: Interactive command button to execute the ${labelText} operation.\nb. Rule / criteria: Triggers the designated server action or workflow modal when clicked by an authorized manager.`;
+        text = `Interactive command button to execute the ${labelText} operation. Triggers the designated server action or workflow modal when clicked by an authorized manager.`;
       } else if (tagName === 'TH') {
         category = 'Report Column';
-        text = `a. Explanation: Displays verified tabular data metrics for ${labelText}.\nb. Rule / criteria: In our application, this column reflects data queried directly from the tenant database filtered by selected date and branch parameters.`;
+        text = `Displays verified tabular data metrics for ${labelText}. In our application, this column reflects data queried directly from the tenant database filtered by selected date and branch parameters.`;
       } else if (tagName === 'INPUT' || tagName === 'SELECT' || tagName === 'TEXTAREA') {
         category = 'Form Configuration';
-        text = `a. Explanation: Configurable parameters field for ${labelText}.\nb. Rule / criteria: Input is validated for required formats, numeric boundaries, and tenant isolation before saving.`;
+        text = `Configurable parameters field for ${labelText}. In our application, input is validated for required formats, numeric boundaries, and tenant isolation before saving.`;
       }
 
       return {
