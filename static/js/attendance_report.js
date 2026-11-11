@@ -88,6 +88,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Populate employee dropdowns (reuse server-rendered options; fallback to lightweight names endpoint)
   async function loadEmployeeNames() {
+    // If simple dropdown is empty but filter dropdown was server-rendered, copy options instantly without fetch
+    if (simpleEmployeeSelect && simpleEmployeeSelect.options.length <= 1 && employeeFilterInput && employeeFilterInput.tagName === 'SELECT' && employeeFilterInput.options.length > 1) {
+      simpleEmployeeSelect.innerHTML = '<option value="All Employees">All Employees</option>';
+      for (let i = 0; i < employeeFilterInput.options.length; i++) {
+        const val = employeeFilterInput.options[i].value;
+        if (val && val !== 'All') {
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = employeeFilterInput.options[i].textContent;
+          simpleEmployeeSelect.appendChild(opt);
+        }
+      }
+    }
+
     const needSimple = simpleEmployeeSelect && simpleEmployeeSelect.options.length <= 1;
     const needFilter = employeeFilterInput && employeeFilterInput.tagName === 'SELECT' && employeeFilterInput.options.length <= 1;
     if (!needSimple && !needFilter) return;
@@ -179,6 +193,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Load Standard Table Data (All / Proper / Improper / Manual)
   async function loadStandardTable() {
+    if (document.hidden) return;
     if (window.renderTableLoading && standardTableBody) {
       window.renderTableLoading(standardTableBody, "Loading attendance records...", (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? 13 : 12);
     }
@@ -284,6 +299,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Load Simple Table Data
   async function loadSimpleTable() {
+    if (document.hidden) return;
     if (window.renderTableLoading && simpleTableBody) {
       window.renderTableLoading(simpleTableBody, "Loading compact attendance overview...", 6);
     }
@@ -632,6 +648,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (standardTableBody) standardTableBody.addEventListener('click', handleAttendanceDelete);
   if (simpleTableBody) simpleTableBody.addEventListener('click', handleAttendanceDelete);
+
+  // Auto-resume data loading when user switches back to this tab
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      if (currentView === 'compact' || currentView === 'simple') {
+        loadSimpleTable();
+      } else {
+        loadStandardTable();
+      }
+    }
+  });
 
   // Init
   loadEmployeeNames();

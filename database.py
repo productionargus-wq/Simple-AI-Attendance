@@ -2495,17 +2495,19 @@ def get_dashboard_stats(company_id=None, branch_id=None):
 
 # ----------------- LIVE & TIMEOUT ENTRIES ----------------- #
 
-_sync_live_last_ts = {}
+_live_sync_last_called = {}
+_sync_live_last_ts = _live_sync_last_called
 _sync_live_lock = threading.Lock()
 _SYNC_LIVE_COOLDOWN_SEC = 45.0
 
 def invalidate_live_sync_cache(company_id=None):
     with _sync_live_lock:
         if company_id:
-            _sync_live_last_ts.pop(str(company_id), None)
-            _sync_live_last_ts.pop('ALL', None)
+            _live_sync_last_called.pop(str(company_id), None)
+            _live_sync_last_called.pop(company_id, None)
+            _live_sync_last_called.pop('ALL', None)
         else:
-            _sync_live_last_ts.clear()
+            _live_sync_last_called.clear()
 
 def process_company_timeout_entries(company_id=None):
     """
@@ -2765,6 +2767,7 @@ def sync_live_and_timeout_entries(company_id=None, force=False):
             for d in existing_live_docs
         }
 
+        addr_cache = {}
         for rep in open_reps:
             cid = str(rep.get('company_id', 'ARGUS_MASTER'))
             emp_name = rep.get('employee_name')
@@ -2791,7 +2794,9 @@ def sync_live_and_timeout_entries(company_id=None, force=False):
             except Exception:
                 dist_num = 0.0
                 
-            entry_loc = rep.get('entry_location') or get_company_full_address(cid)
+            if cid not in addr_cache:
+                addr_cache[cid] = get_company_full_address(cid)
+            entry_loc = rep.get('entry_location') or addr_cache[cid]
             formatted_dist = rep.get('entry_distance') if (rep.get('entry_distance') and 'OFFICE' in str(rep.get('entry_distance'))) else format_office_distance(dist_num)
             
             # Ensure in db.live_entries
@@ -2842,7 +2847,13 @@ def sync_live_and_timeout_entries(company_id=None, force=False):
         print(f"Warning in sync_live_and_timeout_entries: {e}")
 
 def get_live_report_entries(tab='live', start_date=None, end_date=None, search=None, page=1, limit=10, company_id=None, branch_id=None):
-    sync_live_and_timeout_entries(company_id=company_id)
+    cid_key = str(company_id) if (company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']) else 'ALL'
+    if time.time() - _live_sync_last_called.get(cid_key, 0) > 45:
+        sync_live_and_timeout_entries(company_id=company_id)
+        _live_sync_last_called[cid_key] = time.time()
+        if company_id:
+            _live_sync_last_called[str(company_id)] = _live_sync_last_called[cid_key]
+            _live_sync_last_called[company_id] = _live_sync_last_called[cid_key]
     db = get_db()
     query = {}
     
@@ -6612,7 +6623,10 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None, br
         if bid_key not in bal_by_emp_id:
             bal_by_emp_id[bid_key] = b_doc
 
+    # Fetch company leave policy once at top
     policy_cache = {}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', '']:
+        policy_cache[str(company_id)] = get_company_leave_policy(company_id)
     missing_bals = []
     custom_updates = []
     results = []
@@ -8275,7 +8289,7 @@ def evaluate_field_worker_anomaly(emp_name, lat, lng, address, nearest_target_na
             pass
 
     if api_key:
-        candidate_models = ['gemini-2.0-flash', 'gemini-1.5-flash']
+        candidate_models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite']
         prompt = (
             f"You are an AI corporate field operations auditor monitoring mobile sales & service agents in real-time.\n"
             f"Analyze this field telemetry anomaly:\n"
@@ -9098,7 +9112,7 @@ def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_
             pass
 
     if api_key:
-        candidate_models = ['gemini-2.0-flash', 'gemini-1.5-flash']
+        candidate_models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite']
         prompt = (
             "You are an expert Indian Tamil linguist and speech-to-text intelligence AI specialized in "
             "verbatim conversation transcription of Indian Tamil (ta-IN) as spoken in Tamil Nadu, India (including Chennai, Coimbatore, Madurai, Salem dialects and Tanglish).\n\n"
@@ -9188,7 +9202,7 @@ def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_
                             "response_mime_type": "application/json"
                         }
                     }
-                    resp = requests.post(rest_url, json=payload, timeout=20)
+                    resp = requests.post(rest_url, json=payload, timeout=8)
                     if resp.status_code == 200:
                         resp_data = resp.json()
                         candidates = resp_data.get('candidates', [])

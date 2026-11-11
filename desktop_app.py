@@ -19,7 +19,6 @@ import threading
 import urllib.request
 import urllib.error
 import webview
-from waitress import serve
 
 # Configure stdout and stderr for UTF-8 and safe character replacement on Windows
 if sys.stdout is not None:
@@ -61,6 +60,7 @@ def find_available_port(default_port=5000):
 def start_wsgi_server(app, host, port):
     """Starts Waitress production WSGI server in background."""
     try:
+        from waitress import serve
         serve(app, host=host, port=port, threads=8, _quiet=True)
     except Exception as e:
         print(f"[Waitress] Server error: {e}")
@@ -155,24 +155,7 @@ def main():
         confirm_close=False
     )
 
-    # 6. Background connectivity monitor:
-    # If starting in offline mode, background thread detects when internet returns
-    def monitor_connectivity():
-        time.sleep(10)
-        while True:
-            try:
-                current_url = window.get_current_url()
-                if current_url and '127.0.0.1' in current_url:
-                    if check_cloud_online(timeout=2.0):
-                        print("[Network] Internet connection restored! Cloud server is available.")
-            except Exception:
-                pass
-            time.sleep(20)
-
-    monitor_thread = threading.Thread(target=monitor_connectivity, daemon=True)
-    monitor_thread.start()
-
-    # 7. Launch PyWebView with Windows Edge Chromium (WebView2)
+    # 6. Launch PyWebView with Windows Edge Chromium (WebView2)
     # private_mode=False ensures cookie persistence across app launches
     webview.start(gui='edgechromium', debug=False, private_mode=False)
 

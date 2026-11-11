@@ -4,7 +4,7 @@
  * Features:
  * 1. 0ms Perceived Latency via Hover & Touch Pre-fetching
  * 2. In-Memory Cache with Stale-While-Revalidate (SWR)
- * 3. Idle Pre-loading of popular tabs (requestIdleCallback)
+ * 3. On-Demand Hover & Touch Pre-fetching (Idle auto-prefetch disabled to reduce DB load)
  * 4. DOMContentLoaded polyfill for dynamic page scripts
  * 5. Native View Transitions cross-fade animations
  * 6. Browser History (pushState & popstate) with zero tab reloading

@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Load entries from server
   async function loadEntries() {
+    if (document.hidden) return;
     if (window.renderTableLoading && tableBody) {
       window.renderTableLoading(tableBody, "Loading manual entry logs...", 10);
     }
@@ -517,6 +518,13 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initial load
   loadEmployees();
   loadEntries();
+
+  // Auto-resume data loading when user switches back to this tab
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      loadEntries();
+    }
+  });
 
   // Real-time synchronization with Co-Worker AI
   window.addEventListener('argus:manual-entry-updated', function () {

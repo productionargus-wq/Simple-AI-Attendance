@@ -614,12 +614,27 @@ def check_user_can_delete_entries():
             return True
     return False
 
+# Cache for inject_delete_permissions to avoid 3-5 DB round-trips on every request
+_delete_perms_cache = {}
+_delete_perms_lock = threading.Lock()
+
 @app.context_processor
 def inject_delete_permissions():
     """Injects delete permissions, system admin status, support access, pending leave count, and dynamic company logo into all templates with sub-millisecond cached lookups."""
-    role = session.get('role')
+    company_id = session.get('company_id')
+    user_role = session.get('role')
+    cache_key = (company_id, user_role)
+    now = time.time()
+
+    with _delete_perms_lock:
+        if cache_key in _delete_perms_cache:
+            ts, cached_val = _delete_perms_cache[cache_key]
+            if now - ts < 30:
+                return cached_val
+
+    role = user_role
     is_super = role == 'super_admin'
-    target_comp_id = session.get('company_id') or ('ARGUS_MASTER' if is_super else None)
+    target_comp_id = company_id or ('ARGUS_MASTER' if is_super else None)
 
     # 1. Single cached company lookup (takes <0.1ms from in-memory TTL cache)
     comp_doc = database.get_company_by_id(target_comp_id, include_counts=False) if target_comp_id else None
@@ -671,7 +686,7 @@ def inject_delete_permissions():
             has_custom_logo = True
 
     if not has_custom_logo:
-        logo_url = url_for('static', filename='images/default_profile.svg')
+        logo_url = url_for('static', filename='images/default_profile.svg', v='20261111_v2')
 
     # 4. Resolve company modules from cached comp_doc
     if is_super:
@@ -712,7 +727,7 @@ def inject_delete_permissions():
         except Exception:
             system_admin_companies = [{'id': 'ARGUS_MASTER', 'company_name': 'System Administration'}]
 
-    return {
+    perms_context = {
         'is_system_admin': is_super,
         'system_admin_companies': system_admin_companies,
         'active_company_id': active_comp_id,
@@ -729,6 +744,11 @@ def inject_delete_permissions():
         'active_branch_id': active_bid,
         'active_branch_name': active_bname or ''
     }
+
+    with _delete_perms_lock:
+        _delete_perms_cache[cache_key] = (now, perms_context)
+
+    return perms_context
 
 import traceback
 from werkzeug.exceptions import HTTPException
@@ -3739,13 +3759,30 @@ def api_voice_tamil_tts():
     cache_path = os.path.join(TTS_CACHE_DIR, f"{cache_hash}.mp3")
 
     if not os.path.exists(cache_path):
-        try:
-            from gtts import gTTS
-            tts = gTTS(text=text, lang=clean_lang, slow=False)
-            tts.save(cache_path)
-        except Exception as e:
-            print("gTTS generation error:", e)
-            return jsonify({'error': 'TTS synthesis failed', 'details': str(e)}), 500
+        synth_err = [None]
+        def _do_synth():
+            try:
+                from gtts import gTTS
+                tts = gTTS(text=text, lang=clean_lang, slow=False)
+                tts.save(cache_path)
+            except Exception as e:
+                synth_err[0] = e
+
+        synth_thread = threading.Thread(target=_do_synth, daemon=True)
+        synth_thread.start()
+        synth_thread.join(timeout=10.0)
+
+        if synth_thread.is_alive():
+            if os.path.exists(cache_path):
+                try:
+                    os.remove(cache_path)
+                except Exception:
+                    pass
+            return jsonify({'error': 'TTS synthesis timed out after 10 seconds'}), 503
+
+        if synth_err[0] is not None:
+            print("gTTS generation error:", synth_err[0])
+            return jsonify({'error': 'TTS synthesis failed', 'details': str(synth_err[0])}), 500
 
     return send_file(
         cache_path,
@@ -6506,8 +6543,9 @@ def api_teacher_ai_explain():
                     "contents": [{"parts": [{"text": prompt}]}],
                     "generationConfig": {"temperature": 0.2, "maxOutputTokens": 200}
                 }
-                req_headers = {'Content-Type': 'application/json'}
-                resp = requests.post(url, headers=req_headers, json=payload, timeout=4)
+                headers = {"Content-Type": "application/json"}
+                req_headers = headers
+                resp = requests.post(url, headers=headers, json=payload, timeout=4)
                 if resp.status_code == 200:
                     res_json = resp.json()
                     candidates = res_json.get('candidates', [])

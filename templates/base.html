@@ -10,21 +10,21 @@
 
   <title>{{ session.get('company_name') or 'Argus CNC™' }} - Argus Attendance Intelligence v2.0.0</title>
 
-  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261111_v2">
 
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261007_white">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261111_v2">
 
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261007_white">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261111_v2">
 
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261106_spin_v3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261111_v2">
 
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/live_captions.css') }}?v=20261106_spin_v3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/live_captions.css') }}?v=20261111_v2">
 
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/teacher_ai.css') }}?v=20261106_spin_v3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/teacher_ai.css') }}?v=20261111_v2">
 
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/coworker_ai.css') }}?v=20261106_spin_v3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/coworker_ai.css') }}?v=20261111_v2">
 
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/advisor_ai.css') }}?v=20261106_spin_v3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/advisor_ai.css') }}?v=20261111_v2">
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer data-layout-script="true"></script>
 
@@ -402,7 +402,7 @@
 
         {% if has_company_logo and current_company_logo_url %}
 
-          <img src="{{ current_company_logo_url }}" alt="Company Logo" class="top-nav-logo-img" onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/default_profile.svg') }}';">
+          <img src="{{ current_company_logo_url }}" alt="Company Logo" class="top-nav-logo-img" onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/default_profile.svg') }}?v=20261111_v2';">
 
         {% else %}
 
@@ -442,7 +442,7 @@
 
           <div class="sidebar-logo-circle">
 
-            <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="Argus" class="sidebar-logo-img">
+            <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}?v=20261111_v2" alt="Argus" class="sidebar-logo-img">
 
           </div>
 
@@ -692,7 +692,7 @@
 
           <div class="argus-logo-spinner" style="--spinner-size: 64px;">
 
-            <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}?v=20261111_v1" alt="Argus">
+            <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}?v=20261111_v2" alt="Argus">
 
           </div>
 
@@ -744,9 +744,9 @@
 
 
 
-  <script src="{{ url_for('static', filename='js/main.js') }}?v=20261106_spin_v3" defer data-layout-script="true"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}?v=20261111_v2" defer data-layout-script="true"></script>
 
-  <script src="{{ url_for('static', filename='js/spa_router.js') }}?v=20261106_spin_v3" data-layout-script="true"></script>
+  <script src="{{ url_for('static', filename='js/spa_router.js') }}?v=20261111_v2" data-layout-script="true"></script>
 
   <script data-layout-script="true">
 
@@ -1088,37 +1088,37 @@
 
   <!-- ARGUS Live Closed Captions Engine (Universal Subtitles) -->
 
-  <script src="{{ url_for('static', filename='js/live_captions.js') }}?v=20261106_spin_v3" data-layout-script="true"></script>
+  <script src="{{ url_for('static', filename='js/live_captions.js') }}?v=20261111_v2" data-layout-script="true"></script>
 
 
 
   <!-- Global ARGUS AI Voice Assistant Engine -->
 
-  <script src="{{ url_for('static', filename='js/voice_assistant.js') }}?v=20261106_spin_v3" data-layout-script="true"></script>
+  <script src="{{ url_for('static', filename='js/voice_assistant.js') }}?v=20261111_v2" data-layout-script="true"></script>
 
 
 
   <!-- ARGUS Teacher AI Engine (Agent 1) -->
 
-  <script src="{{ url_for('static', filename='js/teacher_ai.js') }}?v=20261106_spin_v3" data-layout-script="true"></script>
+  <script src="{{ url_for('static', filename='js/teacher_ai.js') }}?v=20261111_v2" data-layout-script="true"></script>
 
 
 
   <!-- ARGUS Co-Worker AI Engine (Agent 2) -->
 
-  <script src="{{ url_for('static', filename='js/coworker_ai.js') }}?v=20261106_spin_v3" data-layout-script="true"></script>
+  <script src="{{ url_for('static', filename='js/coworker_ai.js') }}?v=20261111_v2" data-layout-script="true"></script>
 
 
 
   <!-- ARGUS Advisor AI Engine (Agent 3) -->
 
-  <script src="{{ url_for('static', filename='js/advisor_ai.js') }}?v=20261106_spin_v3" data-layout-script="true"></script>
+  <script src="{{ url_for('static', filename='js/advisor_ai.js') }}?v=20261111_v2" data-layout-script="true"></script>
 
 
 
   <!-- Universal Table Column Sorter (All Tabs) -->
 
-  <script src="{{ url_for('static', filename='js/universal_table_sort.js') }}?v=20261106_spin_v3"></script>
+  <script src="{{ url_for('static', filename='js/universal_table_sort.js') }}?v=20261111_v2"></script>
 
 
 

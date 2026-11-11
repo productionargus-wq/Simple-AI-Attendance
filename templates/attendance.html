@@ -2598,10 +2598,23 @@
       }
     }
 
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        window._detectionPaused = true;
+      } else {
+        window._detectionPaused = false;
+      }
+    });
+
     let lastDetectionTs = 0;
     async function runDetectionLoop() {
       if (!isCameraRunning) {
         isDetectionRunning = false;
+        return;
+      }
+
+      if (window._detectionPaused) {
+        animFrameId = requestAnimationFrame(runDetectionLoop);
         return;
       }
 
