@@ -236,7 +236,7 @@
       title: 'Improper Entries (Outside Geofence)',
       category: 'Geofencing Policy',
       text: 'Attendance punches recorded outside the designated company premises perimeter (e.g. from home, transit, or outside allowed radius).\nIn our application: Criteria in our application: Punch GPS Coordinates Distance > Company Geofence Radius. Flagged in orange/red with exact distance in meters for administrative inspection.',
-      tip: 'Remote workers can be exempted via "Calculate Proper Entries" toggle.'
+      tip: 'Remote workers can be exempted via the "Apply Geofence Validation" / "Geofence Validation" setting.'
     },
     'concept-all-entries': {
       title: 'All Entries Feed',

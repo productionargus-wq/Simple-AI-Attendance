@@ -691,8 +691,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (viewCompanyProperEntriesBadge) {
           const isProperActive = (comp.calculate_proper_entries !== false);
           viewCompanyProperEntriesBadge.innerHTML = isProperActive
-            ? `<span class="status-pill status-active" style="background-color: #e8f5e9; color: #166534; border: 1px solid #86efac;">✓ Enabled (Geofence Enforced)</span>`
-            : `<span class="status-pill" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;">✕ Disabled (All Punches Marked Proper)</span>`;
+            ? `<span class="status-pill status-active" style="background-color: #e8f5e9; color: #166534; border: 1px solid #86efac;">✓ Enabled – Validate Employee Location</span>`
+            : `<span class="status-pill" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;">✕ Disabled – Allow All Locations</span>`;
         }
 
         const viewCompanyModulesBadges = document.getElementById('viewCompanyModulesBadges');

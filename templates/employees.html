@@ -746,13 +746,13 @@
 
                   <div style="font-size: 12.5px; font-weight: 700; color: #1e293b;">
 
-                    Calculate Proper Entries (Geofence Radius Check)
+                    Apply Geofence Validation
 
                   </div>
 
                   <div style="font-size: 11px; color: #64748b; margin-top: 2px; line-height: 1.4;">
 
-                    When checked (default), punches outside the company geofence radius are flagged as Improper. Uncheck this to exempt this employee from distance checks (all attendance punches will be recorded as Proper).
+                    When enabled, attendance within the geofence radius is marked as Proper; attendance outside the radius is marked as Improper. When disabled, all attendance entries are marked as Proper without distance validation.
 
                   </div>
 
@@ -1046,7 +1046,7 @@
 
 </script>
 
-<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261106_spin_v3"></script>
+<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261111_v2"></script>
 
 {% endblock %}
 

@@ -1363,9 +1363,9 @@ document.addEventListener('DOMContentLoaded', function () {
         ['DESIGNATION', emp.designation],
         ['STATUS', (emp.status === 'Inactive') ? '<span class="status-pill status-inactive">Inactive</span>' : '<span class="status-pill status-active">Active</span>'],
         ...(emp.company_calculate_proper_entries === false ? [
-          ['PROPER ENTRY CALCULATION', '<span class="status-pill" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;">🏢 Company Exempt (Always Proper)</span>']
+          ['GEOFENCE VALIDATION', '<span class="status-pill" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;">🏢 Company Disabled – Allow All Locations</span>']
         ] : [
-          ['PROPER ENTRY CALCULATION', (emp.calculate_proper_entries !== false) ? '<span class="status-pill status-active" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;">✓ Active (Geofence Enforced)</span>' : '<span class="status-pill" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;">✕ Exempt (Always Proper)</span>']
+          ['GEOFENCE VALIDATION', (emp.calculate_proper_entries !== false) ? '<span class="status-pill status-active" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;">✓ Enabled – Validate Employee Location</span>' : '<span class="status-pill" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;">✕ Disabled – Allow All Locations</span>']
         ]),
         ['EMPLOYEE TYPE', emp.is_field_worker ? '<span class="status-pill" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;font-weight:700;">🏃 Field Worker (GPS Tracked)</span>' : '<span class="status-pill status-blue">🏢 Standard Employee (Office / In-House)</span>'],
         ...(emp.is_field_worker ? [
