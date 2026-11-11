@@ -3640,13 +3640,15 @@ def api_add_live_entry():
     user_lng = data.get('longitude') or data.get('user_lng')
     entry_loc = data.get('entry_location') or data.get('live_address')
 
+    raw_dist = data.get('entry_distance')
+    parsed_dist = float(raw_dist) if raw_dist not in [None, '', '-', '----'] else None
     inserted_id = database.add_live_entry(
         employee_id=employee_id,
         employee_name=employee_name,
         entry_time=data.get('entry_time'),
         site_name=data.get('site_name', 'OFFICE'),
         entry_location=entry_loc,
-        entry_distance=float(data.get('entry_distance', 0.0)),
+        entry_distance=parsed_dist,
         is_timeout=int(data.get('is_timeout', 0)),
         user_lat=user_lat,
         user_lng=user_lng,
@@ -3691,7 +3693,13 @@ def api_export_excel():
     for r in result.get('data', []):
         time_val = (r.get('exit_time') if entry_type == 'timeout' and r.get('exit_time') else r.get('entry_time', '')) or '----'
         loc_val = (r.get('exit_location') if entry_type == 'timeout' and r.get('exit_location') else r.get('entry_location', '')) or '----'
-        dist_val = (r.get('exit_distance') if entry_type == 'timeout' and r.get('exit_distance') and r.get('exit_distance') != '----' else (r.get('formatted_distance') or (f"OFFICE DISTANCE {r.get('entry_distance', 0)}M" if r.get('entry_distance') is not None else '----')))
+        raw_ed = r.get('entry_distance')
+        ed_valid = (raw_ed is not None and str(raw_ed).strip() not in ['', '-', '----', 'None', 'null'])
+        dist_val = (
+            r.get('exit_distance')
+            if entry_type == 'timeout' and r.get('exit_distance') and r.get('exit_distance') != '----'
+            else (r.get('formatted_distance') or (database.format_office_distance(raw_ed) if ed_valid else '----'))
+        ) or '----'
         status_val = (r.get('exit_status') if entry_type == 'timeout' else r.get('entry_status')) or '-'
         rows.append([
             r.get('employee_name', ''),
@@ -4060,9 +4068,9 @@ def api_face_recognize():
 
             user_lat = request.form.get('latitude') or data_dict.get('latitude')
             user_lng = request.form.get('longitude') or data_dict.get('longitude')
-            if str(user_lat).strip().lower() in ['undefined', 'null', '', 'none']:
+            if str(user_lat).strip().lower() in ['undefined', 'null', '', 'none', 'nan']:
                 user_lat = None
-            if str(user_lng).strip().lower() in ['undefined', 'null', '', 'none']:
+            if str(user_lng).strip().lower() in ['undefined', 'null', '', 'none', 'nan']:
                 user_lng = None
             client_time = request.form.get('client_time') or data_dict.get('client_time')
             live_address = request.form.get('live_address') or request.form.get('location') or data_dict.get('live_address') or data_dict.get('location')
@@ -4150,24 +4158,25 @@ def api_face_recognize():
                     result['is_field_worker'] = True
                     try:
                         c_office = database.get_company_by_id(emp_comp_id) or {}
-                        f_lat = parse_coordinate_to_float(user_lat, c_office.get('latitude', 11.0298))
-                        f_lng = parse_coordinate_to_float(user_lng, c_office.get('longitude', 76.9740))
+                        f_lat = database.parse_coordinate_to_float(user_lat, database.parse_coordinate_to_float(c_office.get('latitude'), None))
+                        f_lng = database.parse_coordinate_to_float(user_lng, database.parse_coordinate_to_float(c_office.get('longitude'), None))
                         f_comp = emp_comp_id or 'ARGUS_MASTER'
-                        database.record_field_location_ping({
-                            'employee_name': emp_name,
-                            'latitude': f_lat,
-                            'longitude': f_lng,
-                            'accuracy': 15,
-                            'activity_note': f"Main Gate AI Camera Punch ({result.get('punch_status', 'Verified')})",
-                            'company_id': f_comp
-                        }, company_id=f_comp)
+                        if f_lat is not None and f_lng is not None and (f_lat != 0.0 or f_lng != 0.0):
+                            database.record_field_location_ping({
+                                'employee_name': emp_name,
+                                'latitude': f_lat,
+                                'longitude': f_lng,
+                                'accuracy': 15,
+                                'activity_note': f"Main Gate AI Camera Punch ({result.get('punch_status', 'Verified')})",
+                                'company_id': f_comp
+                            }, company_id=f_comp)
                     except Exception as f_ping_err:
                         print(f"Warning: Field worker auto GPS check-in on main camera: {f_ping_err}")
             except Exception as punch_err:
                 traceback.print_exc()
                 result['live_entry_id'] = ''
                 result['punch_status'] = 'punch_in'
-                result['formatted_distance'] = 'OFFICE DISTANCE 0.0M'
+                result['formatted_distance'] = ''
                 result['live_location'] = 'Company Office'
                 result['entry_location'] = 'Company Office'
                 result['punch_time'] = client_time or datetime.now().strftime('%d %b %Y, %I:%M:%S %p')
@@ -5621,8 +5630,8 @@ def field_worker_module_page():
     active_comp = database.get_company_by_id(active_cid) or {
         'id': 'ARGUS_MASTER',
         'company_name': 'ARGUS CNC™',
-        'latitude': 11.02980,
-        'longitude': 76.97400,
+        'latitude': None,
+        'longitude': None,
         'address': 'SF NO. 515, Bharathiyar Road, Ganapathy, Coimbatore'
     }
 
@@ -5706,7 +5715,7 @@ def api_field_worker_overview():
     emp_filter = session.get('employee_name') if user_role == 'employee' else (request.args.get('employee_name') or None)
     include_salary = request.args.get('include_salary') in ['1', 'true', 'True'] or request.args.get('tab') == 'paneFieldPayroll'
 
-    comp = database.get_company_by_id(cid) or {'id': cid, 'company_name': 'ARGUS CNC™', 'latitude': 11.0298, 'longitude': 76.9740}
+    comp = database.get_company_by_id(cid) or {'id': cid, 'company_name': 'ARGUS CNC™', 'latitude': None, 'longitude': None}
     
     workers = database.get_field_workers(company_id=cid, include_all_employees=False)
     if user_role not in ['super_admin', 'company_admin'] and emp_filter:
@@ -9479,8 +9488,8 @@ def branch_management_page():
     active_comp = database.get_company_by_id(active_cid) or {
         'id': 'ARGUS_MASTER',
         'company_name': 'ARGUS CNC™',
-        'latitude': 11.02980,
-        'longitude': 76.97400,
+        'latitude': None,
+        'longitude': None,
         'address': 'SF NO. 515, Bharathiyar Road, Ganapathy, Coimbatore'
     }
 
@@ -9533,8 +9542,8 @@ def branch_kiosk_page():
     active_comp = database.get_company_by_id(active_cid) or {
         'id': 'ARGUS_MASTER',
         'company_name': 'ARGUS CNC™',
-        'latitude': 11.02980,
-        'longitude': 76.97400,
+        'latitude': None,
+        'longitude': None,
         'address': 'SF NO. 515, Bharathiyar Road, Ganapathy, Coimbatore'
     }
     branches = database.get_company_branches(active_cid, include_headcount=False)

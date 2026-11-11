@@ -149,10 +149,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     entries.forEach(entry => {
       const tr = document.createElement('tr');
-      let distStr = entry.formatted_distance;
+      let distStr = (entry.formatted_distance !== undefined && entry.formatted_distance !== null) ? String(entry.formatted_distance).trim() : '';
       if (!distStr) {
-        const dNum = parseFloat(entry.entry_distance || 0);
-        distStr = dNum >= 1000 ? `OFFICE DISTANCE ${(dNum / 1000).toFixed(2)}KM` : `OFFICE DISTANCE ${dNum.toFixed(1)}M`;
+        if (entry.entry_distance !== undefined && entry.entry_distance !== null && String(entry.entry_distance).trim() !== '' && String(entry.entry_distance).trim() !== '----' && String(entry.entry_distance).trim() !== '-') {
+          const dNum = parseFloat(entry.entry_distance);
+          if (!Number.isNaN(dNum)) {
+            distStr = dNum >= 1000 ? `OFFICE DISTANCE ${(dNum / 1000).toFixed(2)}KM` : `OFFICE DISTANCE ${dNum.toFixed(1)}M`;
+          } else {
+            distStr = String(entry.entry_distance);
+          }
+        } else {
+          distStr = '----';
+        }
       }
 
       const timeDisplay = (currentType === 'timeout' && entry.exit_time) ? entry.exit_time : (entry.entry_time || '----');

@@ -1747,6 +1747,68 @@
     let isPortalHandsFreeActive = true;
     let userLat = null;
     let userLng = null;
+    let userGpsCoords = null;
+    let portalGeoWatchId = null;
+
+    function _considerPortalGeoPos(pos) {
+      if (!pos || !pos.coords) return;
+      const lat = Number(pos.coords.latitude);
+      const lng = Number(pos.coords.longitude);
+      const acc = Number(pos.coords.accuracy);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      if (Math.abs(lat) < 0.0001 && Math.abs(lng) < 0.0001) return;
+      const validAcc = Number.isFinite(acc) ? acc : 99999;
+      if (validAcc > 2000) return;
+
+      const candidate = { latitude: lat, longitude: lng, accuracy: validAcc, timestamp: Date.now() };
+      if (!userGpsCoords || (Date.now() - userGpsCoords.timestamp > 45000) || validAcc <= userGpsCoords.accuracy + 25) {
+        userGpsCoords = candidate;
+        userLat = lat;
+        userLng = lng;
+      }
+    }
+
+    function getPortalUserLocation() {
+      if (userGpsCoords && (Date.now() - userGpsCoords.timestamp < 45000) && userGpsCoords.accuracy <= 150) {
+        return Promise.resolve(userGpsCoords);
+      }
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          resolve(userGpsCoords || null);
+          return;
+        }
+        let settled = false;
+        const finish = (val) => {
+          if (!settled) {
+            settled = true;
+            resolve(val);
+          }
+        };
+        const waitMs = (userGpsCoords && (Date.now() - userGpsCoords.timestamp < 180000)) ? 900 : 2500;
+        const timer = setTimeout(() => {
+          const validCached = (userGpsCoords && (Date.now() - userGpsCoords.timestamp < 300000)) ? userGpsCoords : null;
+          finish(validCached);
+        }, waitMs);
+
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            clearTimeout(timer);
+            _considerPortalGeoPos(pos);
+            finish(userGpsCoords || null);
+          },
+          (err) => {
+            clearTimeout(timer);
+            if (err && err.code === 1) {
+              finish(null);
+              return;
+            }
+            const validCached = (userGpsCoords && (Date.now() - userGpsCoords.timestamp < 300000)) ? userGpsCoords : null;
+            finish(validCached);
+          },
+          { enableHighAccuracy: true, timeout: waitMs, maximumAge: 0 }
+        );
+      });
+    }
     let isPortalPunching = false;
     let portalCooldownUntil = 0;
     let portalSensitivityMode = 'normal'; // 'normal' | 'high'
@@ -2183,18 +2245,28 @@
     }
 
     if (video && btnPunch) {
-      // Detect user coordinates with progressive fallback
+      // Continuously refine high-accuracy user coordinates (ignores coarse cell/IP > 2000m)
       if (navigator.geolocation) {
+        if (portalGeoWatchId === null && typeof navigator.geolocation.watchPosition === 'function') {
+          try {
+            portalGeoWatchId = navigator.geolocation.watchPosition(
+              _considerPortalGeoPos,
+              () => {},
+              { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
+          } catch (e) {}
+        }
         navigator.geolocation.getCurrentPosition(
-          (pos) => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; },
+          _considerPortalGeoPos,
           (err) => {
+            if (err && err.code === 1) return;
             navigator.geolocation.getCurrentPosition(
-              (pos2) => { userLat = pos2.coords.latitude; userLng = pos2.coords.longitude; },
+              _considerPortalGeoPos,
               (err2) => { console.warn('Geolocation fallback notice:', err2.message); },
-              { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
+              { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
             );
           },
-          { enableHighAccuracy: true, timeout: 6000, maximumAge: 180000 }
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
         );
       }
 
@@ -2393,13 +2465,17 @@
         const secStr = String(now.getSeconds()).padStart(2, '0');
         const clientTime12 = `${d}/${m}/${y} ${hStr}:${minStr}:${secStr} ${ampm}`;
 
+        const gpsCoords = await getPortalUserLocation();
         const formData = new FormData();
         formData.append('photo', blob1, 'punch_frame.jpg');
         if (blob2) {
           formData.append('burst_photo', blob2, 'burst_frame.jpg');
         }
         formData.append('client_time', clientTime12);
-        if (userLat && userLng) {
+        if (gpsCoords && gpsCoords.latitude != null && gpsCoords.longitude != null) {
+          formData.append('latitude', gpsCoords.latitude);
+          formData.append('longitude', gpsCoords.longitude);
+        } else if (userLat != null && userLng != null) {
           formData.append('latitude', userLat);
           formData.append('longitude', userLng);
         }
@@ -2446,7 +2522,9 @@
             }
 
             const conf = data.confidence ? `${data.confidence}% Match` : '98.5% Match';
-            const distInfo = data.formatted_distance ? `${data.formatted_distance}` : 'On-Site Office Geofence Verified';
+            const rawDistStr = (data.formatted_distance || '').trim();
+            const distInfo = (rawDistStr && rawDistStr !== '----' && rawDistStr !== '-') ? rawDistStr : '';
+            const hasPortalLocBadge = Boolean(distInfo || data.live_location);
             const workingHoursHtml = (data.working_hours && !isAlreadyPunched) ? `
               <div class="punch-grid-item">
                 <span class="punch-grid-label">Working Hours:</span>
@@ -2491,7 +2569,9 @@
                       ${workingHoursHtml}
                     </div>
                     ${noticeHtml}
+                    ${hasPortalLocBadge ? `
                     <div class="punch-geo-badge" style="display: flex; flex-direction: column; gap: 3px; align-items: flex-start; text-align: left;">
+                      ${distInfo ? `
                       <div style="display: flex; align-items: center; gap: 5px;">
                         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
@@ -2499,8 +2579,10 @@
                         </svg>
                         <span>${escapeHtml(distInfo)}</span>
                       </div>
-                      ${data.live_location ? `<div style="font-size: 11px; color: #475569; padding-left: 18px; line-height: 1.3;">📍 <strong>Location:</strong> ${escapeHtml(data.live_location)}</div>` : ''}
+                      ` : ''}
+                      ${data.live_location ? `<div style="font-size: 11px; color: #475569; padding-left: ${distInfo ? '18px' : '0px'}; line-height: 1.3;">📍 <strong>Location:</strong> ${escapeHtml(data.live_location)}</div>` : ''}
                     </div>
+                    ` : ''}
                   </div>
                 </div>
               `;
@@ -2706,7 +2788,7 @@
             row.innerHTML = `
               <td style="font-weight: 700; white-space: nowrap;">${r.entry_time || '-'}</td>
               <td class="col-location" data-col="entry_location" title="${r.entry_location || ''}" style="min-width: 200px; max-width: 300px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">${r.entry_location && r.entry_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : ''}${r.entry_location || '-'}</td>
-              <td style="white-space: nowrap;">${r.entry_distance || '0m'}</td>
+              <td style="white-space: nowrap;">${r.entry_distance || '----'}</td>
               <td style="text-align: center; white-space: nowrap;">${renderAttStatusPill(r.entry_status)}</td>
               <td style="white-space: nowrap;">${r.exit_time || '----'}</td>
               <td style="white-space: nowrap;">${r.exit_distance || '----'}</td>

@@ -203,8 +203,8 @@ def format_time_12h(time_val):
 
 def format_distance_str(dist_val):
     """Normalizes raw distance values into human-readable e.g. '420 m' or '2.68 km'."""
-    if not dist_val or dist_val in ['-', 'None', '']:
-        return '0 m'
+    if dist_val is None or str(dist_val).strip() in ['-', '----', 'None', 'null', '']:
+        return '----'
     s = str(dist_val).strip()
     if s.upper().startswith('OFFICE DISTANCE '):
         s = s[16:].strip()

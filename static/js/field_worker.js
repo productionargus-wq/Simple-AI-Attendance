@@ -1189,7 +1189,9 @@
       }
       const liveEl = document.getElementById('fieldLiveMap');
       if (liveEl && typeof L !== 'undefined') {
-        liveMap = L.map('fieldLiveMap').setView([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG], 13);
+        const viewLat = (INITIAL_COMPANY_LAT != null && !Number.isNaN(Number(INITIAL_COMPANY_LAT))) ? Number(INITIAL_COMPANY_LAT) : 11.0168;
+        const viewLng = (INITIAL_COMPANY_LNG != null && !Number.isNaN(Number(INITIAL_COMPANY_LNG))) ? Number(INITIAL_COMPANY_LNG) : 76.9558;
+        liveMap = L.map('fieldLiveMap').setView([viewLat, viewLng], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
           attribution: '&copy; OpenStreetMap'
@@ -1210,13 +1212,15 @@
       }
       const assignEl = document.getElementById('assignPickerMap');
       if (assignEl && typeof L !== 'undefined') {
-        assignMap = L.map('assignPickerMap').setView([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG], 13);
+        const viewLat = (INITIAL_COMPANY_LAT != null && !Number.isNaN(Number(INITIAL_COMPANY_LAT))) ? Number(INITIAL_COMPANY_LAT) : 11.0168;
+        const viewLng = (INITIAL_COMPANY_LNG != null && !Number.isNaN(Number(INITIAL_COMPANY_LNG))) ? Number(INITIAL_COMPANY_LNG) : 76.9558;
+        assignMap = L.map('assignPickerMap').setView([viewLat, viewLng], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(assignMap);
 
         const latInput = document.getElementById('asgnLat');
         const lngInput = document.getElementById('asgnLng');
-        const defaultLat = latInput ? (parseFloat(latInput.value) || INITIAL_COMPANY_LAT) : INITIAL_COMPANY_LAT;
-        const defaultLng = lngInput ? (parseFloat(lngInput.value) || INITIAL_COMPANY_LNG) : INITIAL_COMPANY_LNG;
+        const defaultLat = (latInput && latInput.value && !Number.isNaN(parseFloat(latInput.value))) ? parseFloat(latInput.value) : viewLat;
+        const defaultLng = (lngInput && lngInput.value && !Number.isNaN(parseFloat(lngInput.value))) ? parseFloat(lngInput.value) : viewLng;
         assignMarker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(assignMap);
         const radInput = document.getElementById('asgnRadius');
         assignCircle = L.circle([defaultLat, defaultLng], {
@@ -1251,15 +1255,17 @@
       liveMapLayerGroup.clearLayers();
       const bounds = [];
 
-      const hqMarker = L.circleMarker([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG], {
-        radius: 9,
-        color: '#1d4ed8',
-        fillColor: '#3b82f6',
-        fillOpacity: 0.9,
-        weight: 3
-      }).bindPopup(`<b>Company HQ: ${INITIAL_COMPANY_NAME}</b>`);
-      liveMapLayerGroup.addLayer(hqMarker);
-      bounds.push([INITIAL_COMPANY_LAT, INITIAL_COMPANY_LNG]);
+      if (INITIAL_COMPANY_LAT != null && INITIAL_COMPANY_LNG != null && !Number.isNaN(Number(INITIAL_COMPANY_LAT)) && !Number.isNaN(Number(INITIAL_COMPANY_LNG))) {
+        const hqMarker = L.circleMarker([Number(INITIAL_COMPANY_LAT), Number(INITIAL_COMPANY_LNG)], {
+          radius: 9,
+          color: '#1d4ed8',
+          fillColor: '#3b82f6',
+          fillOpacity: 0.9,
+          weight: 3
+        }).bindPopup(`<b>Company HQ: ${INITIAL_COMPANY_NAME}</b>`);
+        liveMapLayerGroup.addLayer(hqMarker);
+        bounds.push([Number(INITIAL_COMPANY_LAT), Number(INITIAL_COMPANY_LNG)]);
+      }
 
       (ASSIGNMENTS_DATA || []).forEach(a => {
         if (!a.target_lat || !a.target_lng) return;
@@ -2513,17 +2519,23 @@
     }
 
     let fwLastCoords = null;
-    async function getDeviceCurrentPosition(maxWaitMs = 800) {
-      if (fwLastCoords && (Date.now() - fwLastCoords.ts < 180000)) {
+    async function getDeviceCurrentPosition(maxWaitMs = 2200) {
+      if (fwLastCoords && (Date.now() - fwLastCoords.ts < 45000) && (fwLastCoords.coords.accuracy || 9999) <= 150) {
         return fwLastCoords.coords;
       }
       const fallbackCoords = () => {
-        if (fwLastCoords) return fwLastCoords.coords;
+        if (fwLastCoords && (Date.now() - fwLastCoords.ts < 180000)) return fwLastCoords.coords;
         const latEl = document.getElementById('pingLat');
         const lngEl = document.getElementById('pingLng');
-        const lat = latEl ? (parseFloat(latEl.value) || INITIAL_COMPANY_LAT) : INITIAL_COMPANY_LAT;
-        const lng = lngEl ? (parseFloat(lngEl.value) || INITIAL_COMPANY_LNG) : INITIAL_COMPANY_LNG;
-        return { lat, lng, accuracy: 50 };
+        const pLat = (latEl && latEl.value) ? parseFloat(latEl.value) : NaN;
+        const pLng = (lngEl && lngEl.value) ? parseFloat(lngEl.value) : NaN;
+        if (Number.isFinite(pLat) && Number.isFinite(pLng)) {
+          return { lat: pLat, lng: pLng, accuracy: 50 };
+        }
+        if (INITIAL_COMPANY_LAT != null && INITIAL_COMPANY_LNG != null && Number.isFinite(Number(INITIAL_COMPANY_LAT)) && Number.isFinite(Number(INITIAL_COMPANY_LNG))) {
+          return { lat: Number(INITIAL_COMPANY_LAT), lng: Number(INITIAL_COMPANY_LNG), accuracy: 50 };
+        }
+        return { lat: null, lng: null, accuracy: null };
       };
       if (!navigator.geolocation) {
         return fallbackCoords();
@@ -2531,12 +2543,17 @@
       const geoPromise = new Promise((resolve) => {
         navigator.geolocation.getCurrentPosition(
           pos => {
-            const c = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy || 10 };
-            fwLastCoords = { coords: c, ts: Date.now() };
-            resolve(c);
+            const acc = Number(pos.coords.accuracy || 99999);
+            if (acc <= 2000) {
+              const c = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: acc };
+              fwLastCoords = { coords: c, ts: Date.now() };
+              resolve(c);
+            } else {
+              resolve(fallbackCoords());
+            }
           },
           () => resolve(fallbackCoords()),
-          { enableHighAccuracy: true, timeout: 4000, maximumAge: 180000 }
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
         );
       });
       return Promise.race([
@@ -2556,8 +2573,23 @@
       const note = noteEl ? noteEl.value : 'Live Device GPS Check-In';
       const latEl = document.getElementById('pingLat');
       const lngEl = document.getElementById('pingLng');
-      const fallbackLat = latEl ? (parseFloat(latEl.value) || INITIAL_COMPANY_LAT) : INITIAL_COMPANY_LAT;
-      const fallbackLng = lngEl ? (parseFloat(lngEl.value) || INITIAL_COMPANY_LNG) : INITIAL_COMPANY_LNG;
+      const pLatNum = latEl && latEl.value ? parseFloat(latEl.value) : NaN;
+      const pLngNum = lngEl && lngEl.value ? parseFloat(lngEl.value) : NaN;
+      const fallbackLat = Number.isFinite(pLatNum) ? pLatNum : ((INITIAL_COMPANY_LAT != null && Number.isFinite(Number(INITIAL_COMPANY_LAT))) ? Number(INITIAL_COMPANY_LAT) : null);
+      const fallbackLng = Number.isFinite(pLngNum) ? pLngNum : ((INITIAL_COMPANY_LNG != null && Number.isFinite(Number(INITIAL_COMPANY_LNG))) ? Number(INITIAL_COMPANY_LNG) : null);
+
+      const sendFallbackOrWarn = (msg) => {
+        if (fallbackLat == null || fallbackLng == null) {
+          showToast('Enable device GPS or configure coordinates before sending ping.', true);
+          return;
+        }
+        sendLocationPingPayload({
+          employee_name: empName,
+          latitude: fallbackLat,
+          longitude: fallbackLng,
+          activity_note: msg
+        });
+      };
 
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -2572,23 +2604,11 @@
               activity_note: note || 'Live Device GPS Check-In'
             });
           },
-          () => {
-            sendLocationPingPayload({
-              employee_name: empName,
-              latitude: fallbackLat,
-              longitude: fallbackLng,
-              activity_note: note || 'Manual Coordinates Check-In'
-            });
-          },
-          { enableHighAccuracy: true, timeout: 5000 }
+          () => sendFallbackOrWarn(note || 'Manual Coordinates Check-In'),
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
         );
       } else {
-        sendLocationPingPayload({
-          employee_name: empName,
-          latitude: fallbackLat,
-          longitude: fallbackLng,
-          activity_note: note || 'GPS Check-In'
-        });
+        sendFallbackOrWarn(note || 'GPS Check-In');
       }
     }
 
@@ -3306,7 +3326,11 @@
           const desig = data.designation || 'Field Executive';
           const punchTime = data.punch_time || `${hoursStr}:${minutes}:${seconds} ${ampm}`;
           const conf = data.confidence ? `${data.confidence}% Match` : '98.5% Match';
-          const distInfo = data.formatted_distance ? `${data.formatted_distance}` : `GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+          const rawDistStr = (data.formatted_distance || '').trim();
+          const distInfo = (rawDistStr && rawDistStr !== '----' && rawDistStr !== '-')
+            ? rawDistStr
+            : ((lat != null && lng != null) ? `GPS (${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)})` : '');
+          const hasGeoBadge = Boolean(distInfo || data.live_location);
 
           if (punchContainer) {
             punchContainer.innerHTML = `
@@ -3344,10 +3368,12 @@
                       </div>
                     ` : ''}
                   </div>
-                  <div class="punch-geo-badge">
-                    <i class="fa-solid fa-location-dot"></i>
-                    <span>${escapeHtml(distInfo)}</span>
+                  ${hasGeoBadge ? `
+                  <div class="punch-geo-badge" style="display:flex; flex-direction:column; gap:3px; align-items:flex-start; text-align:left;">
+                    ${distInfo ? `<div><i class="fa-solid fa-location-dot"></i> <span>${escapeHtml(distInfo)}</span></div>` : ''}
+                    ${data.live_location ? `<div style="font-size:11px; color:#475569;">📍 <strong>Location:</strong> ${escapeHtml(data.live_location)}</div>` : ''}
                   </div>
+                  ` : ''}
                 </div>
               </div>
             `;
@@ -3355,14 +3381,16 @@
             punchContainer.style.opacity = '1';
           }
 
-          // Send telemetry ping to update fleet monitor
-          await sendLocationPingPayload({
-            employee_name: empName,
-            latitude: lat,
-            longitude: lng,
-            accuracy: coords.accuracy || 10,
-            activity_note: `AI Face Attendance Punch (${data.punch_status || 'Verified'})`
-          });
+          // Send telemetry ping to update fleet monitor when valid GPS exists
+          if (lat != null && lng != null) {
+            await sendLocationPingPayload({
+              employee_name: empName,
+              latitude: lat,
+              longitude: lng,
+              accuracy: coords.accuracy || 10,
+              activity_note: `AI Face Attendance Punch (${data.punch_status || 'Verified'})`
+            });
+          }
           await refreshOverviewState();
 
         } else {
@@ -3542,8 +3570,12 @@
       formData.append('lead_status', document.getElementById('visitLeadStatus').value || 'Interested');
       formData.append('order_amount', parseFloat(document.getElementById('visitOrderAmount').value) || 0);
       formData.append('follow_up_date', document.getElementById('visitFollowUpDate').value || '');
-      formData.append('latitude', (document.getElementById('visitLat') ? parseFloat(document.getElementById('visitLat').value) : null) || INITIAL_COMPANY_LAT);
-      formData.append('longitude', (document.getElementById('visitLng') ? parseFloat(document.getElementById('visitLng').value) : null) || INITIAL_COMPANY_LNG);
+      const vLatEl = document.getElementById('visitLat');
+      const vLngEl = document.getElementById('visitLng');
+      const vLatVal = (vLatEl && vLatEl.value) ? parseFloat(vLatEl.value) : INITIAL_COMPANY_LAT;
+      const vLngVal = (vLngEl && vLngEl.value) ? parseFloat(vLngEl.value) : INITIAL_COMPANY_LNG;
+      if (vLatVal != null && Number.isFinite(Number(vLatVal))) formData.append('latitude', vLatVal);
+      if (vLngVal != null && Number.isFinite(Number(vLngVal))) formData.append('longitude', vLngVal);
       formData.append('remarks', document.getElementById('visitRemarks').value || '');
 
       if (WEB_RECORDED_AUDIO_BLOB) {

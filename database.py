@@ -400,14 +400,14 @@ def parse_coordinate_value(val):
     return val_str
 
 def parse_coordinate_to_float(val, default_val=None):
-    """Safely extracts a float value from any coordinate for distance calculation."""
+    """Safely extracts a finite float value from any coordinate for distance calculation."""
+    import math
     if val is None:
         return default_val
     parsed = parse_coordinate_value(val)
-    if isinstance(parsed, (int, float)):
-        return float(parsed)
     try:
-        return float(str(parsed).strip())
+        num = float(parsed) if isinstance(parsed, (int, float)) else float(str(parsed).strip())
+        return num if math.isfinite(num) else default_val
     except Exception:
         return default_val
 
@@ -815,11 +815,21 @@ def update_company(comp_id, data):
 
     if not upd.get('address'):
         comp_cur = db.company_admin.find_one(build_id_filter(comp_id))
-        c_lat = upd.get('latitude', comp_cur.get('latitude') if comp_cur else None)
-        c_lng = upd.get('longitude', comp_cur.get('longitude') if comp_cur else None)
-        if c_lat is not None and c_lng is not None and not (comp_cur and comp_cur.get('address')):
-            resolved = reverse_geocode_coordinates(c_lat, c_lng)
-            if resolved:
+        old_lat = comp_cur.get('latitude') if comp_cur else None
+        old_lng = comp_cur.get('longitude') if comp_cur else None
+        c_lat = upd['latitude'] if 'latitude' in upd else old_lat
+        c_lng = upd['longitude'] if 'longitude' in upd else old_lng
+        coords_changed = (
+            ('latitude' in upd and upd['latitude'] != old_lat) or
+            ('longitude' in upd and upd['longitude'] != old_lng)
+        )
+        has_existing_addr = bool(comp_cur and comp_cur.get('address'))
+        if c_lat is not None and c_lng is not None and (coords_changed or not has_existing_addr):
+            resolved = reverse_geocode_coordinates(c_lat, c_lng, timeout=3.0, allow_network=True)
+            if resolved and not str(resolved).startswith('GPS: '):
+                upd['address'] = resolved
+                upd['location'] = resolved
+            elif resolved and not has_existing_addr:
                 upd['address'] = resolved
                 upd['location'] = resolved
     if 'coordinates_locked_at' in data:
@@ -1174,8 +1184,8 @@ def get_company_reports_summary():
             'gstin': c.get('gstin', ''),
             'email': c.get('email', ''),
             'phone': c.get('phone', ''),
-            'latitude': c.get('latitude', 11.02980),
-            'longitude': c.get('longitude', 76.97400),
+            'latitude': c.get('latitude'),
+            'longitude': c.get('longitude'),
             'status': c.get('status', 'Active'),
             'employee_count': emp_cnt,
             'active_today': active_today,
@@ -1267,12 +1277,13 @@ def validate_employee_login(email, password=None):
                     'message': 'Your company account has been deactivated. Please contact System Administrator.'
                 }
             emp['company_name'] = comp.get('company_name') if comp else 'Client Company'
-            emp['company_lat'] = comp.get('latitude') if comp else 11.02980
-            emp['company_lng'] = comp.get('longitude') if comp else 76.97400
+            emp['company_lat'] = comp.get('latitude') if comp else None
+            emp['company_lng'] = comp.get('longitude') if comp else None
     else:
-        emp['company_name'] = 'ARGUS CNC™'
-        emp['company_lat'] = 11.02980
-        emp['company_lng'] = 76.97400
+        master_c = get_company_by_id('ARGUS_MASTER', include_counts=False)
+        emp['company_name'] = (master_c.get('company_name') if master_c else None) or 'ARGUS CNC™'
+        emp['company_lat'] = master_c.get('latitude') if master_c else None
+        emp['company_lng'] = master_c.get('longitude') if master_c else None
 
     emp_st = str(emp.get('status', 'Active')).strip().capitalize()
     if emp_st == 'Inactive':
@@ -2695,7 +2706,8 @@ def process_company_timeout_entries(company_id=None):
 
                 entry_t = active_live.get('entry_time', entry_time_str) if active_live else entry_time_str
                 entry_l = active_live.get('entry_location', rep.get('entry_location', 'OFFICE')) if active_live else rep.get('entry_location', 'OFFICE')
-                entry_d = active_live.get('entry_distance', 0.0) if active_live else 0.0
+                raw_ed = active_live.get('entry_distance') if active_live else None
+                entry_d = raw_ed if raw_ed is not None else rep.get('entry_distance', '----')
 
                 db.timeout_entries.insert_one({
                     'company_id': str(cid),
@@ -2780,24 +2792,27 @@ def sync_live_and_timeout_entries(company_id=None, force=False):
             if session_key in existing_live_keys:
                 continue
 
-            # Parse distance
-            dist_num = 0.0
-            try:
-                d_val = rep.get('entry_distance', 0.0)
-                if isinstance(d_val, (int, float)):
-                    dist_num = float(d_val)
-                else:
-                    d_str = str(d_val).upper().replace('OFFICE DISTANCE', '').replace('KM', '').replace('M', '').strip()
-                    dist_num = float(d_str)
-                    if 'KM' in str(d_val).upper():
-                        dist_num *= 1000.0
-            except Exception:
-                dist_num = 0.0
+            # Parse distance only if explicitly recorded (preserve None/'----' when geofence unconfigured)
+            raw_d = rep.get('entry_distance')
+            dist_num = None
+            formatted_dist = ''
+            if raw_d is not None and str(raw_d).strip() not in ['', '-', '----', 'None', 'null']:
+                try:
+                    if isinstance(raw_d, (int, float)):
+                        dist_num = float(raw_d)
+                    else:
+                        d_str = str(raw_d).upper().replace('OFFICE DISTANCE', '').replace('KM', '').replace('M', '').strip()
+                        dist_num = float(d_str)
+                        if 'KM' in str(raw_d).upper():
+                            dist_num *= 1000.0
+                    formatted_dist = str(raw_d) if 'OFFICE' in str(raw_d) else format_office_distance(dist_num)
+                except Exception:
+                    dist_num = None
+                    formatted_dist = ''
                 
             if cid not in addr_cache:
                 addr_cache[cid] = get_company_full_address(cid)
             entry_loc = rep.get('entry_location') or addr_cache[cid]
-            formatted_dist = rep.get('entry_distance') if (rep.get('entry_distance') and 'OFFICE' in str(rep.get('entry_distance'))) else format_office_distance(dist_num)
             
             # Ensure in db.live_entries
             db.live_entries.update_one(
@@ -2989,11 +3004,15 @@ def sync_geofence_entry_types():
         db = get_db()
         comp_radii = {}
         comp_proper_flags = {}
-        for c in db.company_admin.find({}, {'id': 1, 'geofence_radius': 1, 'radius_meters': 1, 'calculate_proper_entries': 1}):
+        comp_has_coords = {}
+        for c in db.company_admin.find({}, {'id': 1, 'latitude': 1, 'longitude': 1, 'geofence_radius': 1, 'radius_meters': 1, 'calculate_proper_entries': 1}):
             cid = c.get('id')
             if cid:
                 comp_radii[cid] = float(c.get('geofence_radius') or c.get('radius_meters') or GEOFENCE_RADIUS_METERS)
                 comp_proper_flags[cid] = c.get('calculate_proper_entries', True)
+                c_lat = parse_coordinate_to_float(c.get('latitude'), None)
+                c_lng = parse_coordinate_to_float(c.get('longitude'), None)
+                comp_has_coords[cid] = (c_lat is not None and c_lng is not None)
 
         emp_proper_flags = {}
         for emp in db.employees.find({}, {'id': 1, 'calculate_proper_entries': 1}):
@@ -3014,8 +3033,9 @@ def sync_geofence_entry_types():
 
             e_id = str(doc.get('employee_id') or '')
             c_enabled = comp_proper_flags.get(c_id, True)
+            c_coords = comp_has_coords.get(c_id, False)
             e_enabled = emp_proper_flags.get(e_id, True)
-            should_calc_proper = bool(c_enabled and e_enabled)
+            should_calc_proper = bool(c_enabled and e_enabled and c_coords)
             if not should_calc_proper:
                 target_type = 'proper'
             else:
@@ -3032,14 +3052,16 @@ def sync_geofence_entry_types():
 
 # Note: sync_live_and_timeout_entries is defined above with full session-aware auto-timeout & live-sync logic.
 
-def calculate_distance_meters(lat1, lon1, lat2=OFFICE_LAT, lon2=OFFICE_LNG):
-    """Calculate distance in meters between two GPS coordinates using Haversine formula."""
+def calculate_distance_meters(lat1, lon1, lat2=None, lon2=None):
+    """Calculate distance in meters between two GPS coordinates using Haversine formula. Returns None if any coordinate is missing."""
     import math
     try:
-        lat1 = parse_coordinate_to_float(lat1, OFFICE_LAT)
-        lon1 = parse_coordinate_to_float(lon1, OFFICE_LNG)
-        lat2 = parse_coordinate_to_float(lat2, OFFICE_LAT)
-        lon2 = parse_coordinate_to_float(lon2, OFFICE_LNG)
+        lat1 = parse_coordinate_to_float(lat1, None)
+        lon1 = parse_coordinate_to_float(lon1, None)
+        lat2 = parse_coordinate_to_float(lat2, None)
+        lon2 = parse_coordinate_to_float(lon2, None)
+        if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+            return None
         r = 6371000.0  # Earth radius in meters
         phi1 = math.radians(lat1)
         phi2 = math.radians(lat2)
@@ -3051,26 +3073,29 @@ def calculate_distance_meters(lat1, lon1, lat2=OFFICE_LAT, lon2=OFFICE_LNG):
         c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
         return r * c
     except Exception:
-        return 0.0
+        return None
 
 def calculate_haversine_distance(lat1, lon1, lat2, lon2):
     """Calculate distance in kilometers between two GPS coordinates using Haversine formula."""
     try:
-        return calculate_distance_meters(lat1, lon1, lat2, lon2) / 1000.0
+        d = calculate_distance_meters(lat1, lon1, lat2, lon2)
+        return (d / 1000.0) if d is not None else 0.0
     except Exception:
         return 0.0
 
 def format_office_distance(meters):
-    """Format distance into human-readable office distance string."""
+    """Format distance into human-readable office distance string, or empty string when unconfigured."""
+    if meters is None or str(meters).strip() in ['', '-', '----', 'None', 'null']:
+        return ''
     try:
-        meters = float(meters)
-        if meters < 1000:
-            return f"OFFICE DISTANCE {meters:.1f}M"
+        val = float(meters)
+        if val < 1000:
+            return f"OFFICE DISTANCE {val:.1f}M"
         else:
-            km = meters / 1000.0
+            km = val / 1000.0
             return f"OFFICE DISTANCE {km:.2f}KM"
     except Exception:
-        return "OFFICE DISTANCE 0.0M"
+        return ''
 
 def get_company_full_address(company_id):
     """Returns the registered full address string for a company using cached company metadata (non-blocking)."""
@@ -3180,17 +3205,25 @@ _GEOCODE_LOCK = threading.Lock()
 
 
 def _get_cached_geocode(lat, lng):
-    """Returns a cached street address for (lat, lng) if already resolved, else None."""
+    """Returns a cached street address for (lat, lng) or immediate ~15m neighbor if already resolved, else None."""
     if lat is None or lng is None:
         return None
     try:
         flat = float(str(lat).strip())
         flng = float(str(lng).strip())
-        cache_key = f"{flat:.4f},{flng:.4f}"
+        exact_key = f"{flat:.4f},{flng:.4f}"
         with _GEOCODE_LOCK:
-            val = _REVERSE_GEOCODE_CACHE.get(cache_key)
-        if val and not str(val).startswith('GPS: '):
-            return val
+            val = _REVERSE_GEOCODE_CACHE.get(exact_key)
+            if val and not str(val).startswith('GPS: '):
+                return val
+            for d_lat in (-0.0001, 0.0, 0.0001):
+                for d_lng in (-0.0001, 0.0, 0.0001):
+                    if d_lat == 0.0 and d_lng == 0.0:
+                        continue
+                    nb_key = f"{(flat + d_lat):.4f},{(flng + d_lng):.4f}"
+                    nb_val = _REVERSE_GEOCODE_CACHE.get(nb_key)
+                    if nb_val and not str(nb_val).startswith('GPS: '):
+                        return nb_val
     except Exception:
         pass
     return None
@@ -3203,7 +3236,7 @@ def _async_backfill_punch_geocode(updates, lat, lng):
 
     def _worker():
         try:
-            addr = reverse_geocode_coordinates(lat, lng, timeout=2.0, allow_network=True)
+            addr = reverse_geocode_coordinates(lat, lng, timeout=2.5, allow_network=True)
             if not addr or addr.startswith('GPS: '):
                 return
             db = get_db()
@@ -3222,6 +3255,8 @@ def _async_backfill_punch_geocode(updates, lat, lng):
 
 
 def _cache_reverse_geocode(cache_key, value):
+    if not value or str(value).startswith('GPS: '):
+        return
     with _GEOCODE_LOCK:
         if len(_REVERSE_GEOCODE_CACHE) >= 2000:
             _REVERSE_GEOCODE_CACHE.pop(next(iter(_REVERSE_GEOCODE_CACHE)), None)
@@ -3231,7 +3266,7 @@ def _cache_reverse_geocode(cache_key, value):
 def reverse_geocode_coordinates(lat, lng, timeout=2.0, allow_network=True):
     """
     Reverse-geocodes GPS (lat, lng) to the exact real-time physical address where employee punched.
-    Uses thread-safe bounded in-memory cache, OpenStreetMap Nominatim, and BigDataCloud fallback.
+    Uses thread-safe bounded in-memory cache, OpenStreetMap Nominatim, Photon (OSM), and BigDataCloud fallback.
     When allow_network=False, returns cached address or formatted GPS coordinates immediately without network I/O.
     """
     if lat is None or lng is None:
@@ -3245,9 +3280,9 @@ def reverse_geocode_coordinates(lat, lng, timeout=2.0, allow_network=True):
             return None
 
         cache_key = f"{flat:.4f},{flng:.4f}"
-        with _GEOCODE_LOCK:
-            if cache_key in _REVERSE_GEOCODE_CACHE:
-                return _REVERSE_GEOCODE_CACHE[cache_key]
+        cached = _get_cached_geocode(flat, flng)
+        if cached:
+            return cached
 
         coord_loc = f"GPS: {flat:.5f}, {flng:.5f}"
         if not allow_network:
@@ -3271,7 +3306,28 @@ def reverse_geocode_coordinates(lat, lng, timeout=2.0, allow_network=True):
         except Exception:
             pass
 
-        # 2. BigDataCloud Fallback
+        # 2. Photon (OSM-based street-level reverse geocoder; immune to Nominatim shared-IP 429 limits)
+        try:
+            photon_url = f"https://photon.komoot.io/reverse?lat={flat}&lon={flng}"
+            req = urllib.request.Request(photon_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                feats = data.get('features') or []
+                if feats:
+                    props = feats[0].get('properties') or {}
+                    p_parts = []
+                    for field in ['name', 'street', 'district', 'locality', 'city', 'county', 'state', 'postcode', 'country']:
+                        v = str(props.get(field) or '').strip()
+                        if v and v not in p_parts:
+                            p_parts.append(v)
+                    if p_parts:
+                        resolved = ", ".join(p_parts)
+                        _cache_reverse_geocode(cache_key, resolved)
+                        return resolved
+        except Exception:
+            pass
+
+        # 3. BigDataCloud Fallback (avoid poisoning cache with imprecise 1-word city names if street resolution missed transiently)
         try:
             bdc_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={flat}&longitude={flng}&localityLanguage=en"
             req = urllib.request.Request(bdc_url, headers=headers)
@@ -3284,34 +3340,36 @@ def reverse_geocode_coordinates(lat, lng, timeout=2.0, allow_network=True):
                         parts.append(v)
                 if parts:
                     resolved = ", ".join(parts)
-                    _cache_reverse_geocode(cache_key, resolved)
+                    if len(parts) >= 3:
+                        _cache_reverse_geocode(cache_key, resolved)
                     return resolved
         except Exception:
             pass
 
-        # 3. Formatted GPS coordinates fallback
-        _cache_reverse_geocode(cache_key, coord_loc)
+        # 4. Formatted GPS coordinates fallback (never cache failures)
         return coord_loc
     except Exception:
         return None
 
-def calculate_realistic_proximity(user_lat, user_lng, office_lat=OFFICE_LAT, office_lng=OFFICE_LNG):
-    """Calculate distance in meters between user GPS coordinates and target office coordinates using precise Haversine formula."""
-    if user_lat is None or user_lng is None:
-        return 0.0
+def calculate_realistic_proximity(user_lat, user_lng, office_lat=None, office_lng=None):
+    """Calculate distance in meters between user GPS coordinates and target office coordinates. Returns None if either pair is missing."""
+    if user_lat is None or user_lng is None or office_lat is None or office_lng is None:
+        return None
     try:
         ulat = parse_coordinate_to_float(user_lat, None)
         ulng = parse_coordinate_to_float(user_lng, None)
-        olat = parse_coordinate_to_float(office_lat, OFFICE_LAT)
-        olng = parse_coordinate_to_float(office_lng, OFFICE_LNG)
+        olat = parse_coordinate_to_float(office_lat, None)
+        olng = parse_coordinate_to_float(office_lng, None)
         if ulat is None or ulng is None or olat is None or olng is None:
-            return 0.0
+            return None
         d = calculate_distance_meters(ulat, ulng, olat, olng)
+        if d is None:
+            return None
         return round(max(0.0, d), 1)
     except Exception:
-        return 0.0
+        return None
 
-def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=None, entry_distance=0.0, is_timeout=0, user_lat=None, user_lng=None, company_id='ARGUS_MASTER', target_lat=None, target_lng=None, live_address=None, branch_id=None, branch_name=None):
+def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFICE', entry_location=None, entry_distance=None, is_timeout=0, user_lat=None, user_lng=None, company_id='ARGUS_MASTER', target_lat=None, target_lng=None, live_address=None, branch_id=None, branch_name=None):
     db = get_db()
     if not entry_time:
         entry_time = get_ist_now().strftime('%d/%m/%Y %I:%M:%S %p')
@@ -3322,16 +3380,20 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
     if not resolved_location:
         resolved_location = get_company_full_address(company_id)
 
-    calculated_meters = float(entry_distance or 0.0)
-    if calculated_meters > 0.0:
-        pass
-    elif user_lat is not None and user_lng is not None:
+    calculated_meters = None
+    if entry_distance is not None:
+        try:
+            calculated_meters = float(entry_distance)
+        except (ValueError, TypeError):
+            calculated_meters = None
+    elif user_lat is not None and user_lng is not None and target_lat is not None and target_lng is not None:
         try:
             calculated_meters = calculate_realistic_proximity(user_lat, user_lng, office_lat=target_lat, office_lng=target_lng)
         except Exception:
-            calculated_meters = 0.0
-    elif calculated_meters == 0.0:
-        calculated_meters = calculate_realistic_proximity(None, None, office_lat=target_lat, office_lng=target_lng)
+            calculated_meters = None
+
+    formatted_dist = format_office_distance(calculated_meters) if calculated_meters is not None else ''
+    entry_dist_db = round(calculated_meters, 2) if calculated_meters is not None else None
 
     comp_key = str(company_id or 'ARGUS_MASTER')
     doc = {
@@ -3343,8 +3405,8 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
         'entry_time': entry_time,
         'site_name': site_name,
         'entry_location': resolved_location,
-        'entry_distance': round(calculated_meters, 2),
-        'formatted_distance': format_office_distance(calculated_meters),
+        'entry_distance': entry_dist_db,
+        'formatted_distance': formatted_dist,
         'user_lat': user_lat,
         'user_lng': user_lng,
         'is_timeout': int(is_timeout),
@@ -3359,12 +3421,12 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     """
     Punch In / Punch Out Attendance Lifecycle Engine with Multi-Tenant Geolocation Support:
     1. Records Live Entry in db.live_entries with real-time location address and company_id in 12-hour format (IST).
-    2. Resolves company office coordinates and calculates proximity distance.
+    2. Resolves company/branch office coordinates ONLY when configured (never falls back to hardcoded defaults).
     3. Handles Punch In & Punch Out lifecycle storing the exact live location address where punched.
     """
-    if user_lat is not None and str(user_lat).strip().lower() in ['undefined', 'null', '', 'none']:
+    if user_lat is not None and str(user_lat).strip().lower() in ['undefined', 'null', '', 'none', 'nan']:
         user_lat = None
-    if user_lng is not None and str(user_lng).strip().lower() in ['undefined', 'null', '', 'none']:
+    if user_lng is not None and str(user_lng).strip().lower() in ['undefined', 'null', '', 'none', 'nan']:
         user_lng = None
 
     db = get_db()
@@ -3381,15 +3443,18 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
 
     comp_id = str(company_id or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
 
-    # Determine office coordinates and full address using cached company metadata
-    target_lat = OFFICE_LAT
-    target_lng = OFFICE_LNG
+    # Determine office coordinates and full address using cached company metadata (NO hardcoded coordinate fallback)
+    target_lat = None
+    target_lng = None
     loc_str = get_company_full_address(comp_id)
     company_geofence_radius = GEOFENCE_RADIUS_METERS
     comp = get_company_by_id(comp_id, include_counts=False)
     if comp:
-        target_lat = parse_coordinate_to_float(comp.get('latitude'), OFFICE_LAT)
-        target_lng = parse_coordinate_to_float(comp.get('longitude'), OFFICE_LNG)
+        c_lat = parse_coordinate_to_float(comp.get('latitude'), None)
+        c_lng = parse_coordinate_to_float(comp.get('longitude'), None)
+        if c_lat is not None and c_lng is not None:
+            target_lat = c_lat
+            target_lng = c_lng
         if comp.get('address'):
             loc_str = comp.get('address')
         company_geofence_radius = float(comp.get('geofence_radius') or comp.get('radius_meters') or GEOFENCE_RADIUS_METERS)
@@ -3401,19 +3466,27 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         branch = get_branch_by_id(active_branch_id, company_id=comp_id)
         if branch:
             active_branch_name = branch.get('branch_name')
-            if branch.get('latitude') is not None and branch.get('longitude') is not None:
-                target_lat = parse_coordinate_to_float(branch.get('latitude'), target_lat)
-                target_lng = parse_coordinate_to_float(branch.get('longitude'), target_lng)
+            b_lat = parse_coordinate_to_float(branch.get('latitude'), None)
+            b_lng = parse_coordinate_to_float(branch.get('longitude'), None)
+            if b_lat is not None and b_lng is not None:
+                target_lat = b_lat
+                target_lng = b_lng
             if branch.get('address'):
                 loc_str = branch.get('address')
             if branch.get('geofence_radius'):
                 company_geofence_radius = float(branch.get('geofence_radius'))
 
-    # Calculate proximity distance
-    dist_meters = calculate_realistic_proximity(user_lat, user_lng, target_lat, target_lng)
-    formatted_dist = format_office_distance(dist_meters)
+    has_office_coords = (target_lat is not None and target_lng is not None)
 
-    # Resolve real-time live location address without blocking on HTTP geocoding
+    # Calculate proximity distance ONLY when office coordinates are configured AND valid device GPS was supplied
+    dist_meters = None
+    formatted_dist = ''
+    if has_office_coords and user_lat is not None and user_lng is not None:
+        dist_meters = calculate_realistic_proximity(user_lat, user_lng, target_lat, target_lng)
+        if dist_meters is not None:
+            formatted_dist = format_office_distance(dist_meters)
+
+    # Resolve real-time live location address consistently across laptop & mobile devices
     live_loc_str = (live_address.strip() if live_address and str(live_address).strip() else None)
     needs_geocode_backfill = False
     if not live_loc_str and user_lat is not None and user_lng is not None:
@@ -3422,10 +3495,10 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             live_loc_str = cached_loc
         else:
             try:
-                live_loc_str = reverse_geocode_coordinates(user_lat, user_lng, allow_network=False)
+                live_loc_str = reverse_geocode_coordinates(user_lat, user_lng, timeout=1.5, allow_network=True)
             except Exception:
                 live_loc_str = None
-            if live_loc_str and live_loc_str.startswith('GPS: '):
+            if not live_loc_str or str(live_loc_str).startswith('GPS: '):
                 needs_geocode_backfill = True
     if not live_loc_str:
         live_loc_str = loc_str
@@ -3462,15 +3535,17 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             user_lat=user_lat,
             user_lng=user_lng,
             company_id=comp_id,
+            target_lat=target_lat,
+            target_lng=target_lng,
             live_address=live_loc_str,
             branch_id=active_branch_id,
             branch_name=active_branch_name
         )
 
-        # Geofencing threshold: Dynamic per company (defaults to 200m)
+        # Geofencing threshold: Dynamic per company (defaults to 200m). Unconfigured coords => always Proper
         comp_proper_enabled = comp.get('calculate_proper_entries', True) if comp else True
         emp_proper_enabled = emp.get('calculate_proper_entries', True) if emp else True
-        should_calculate_proper = bool(comp_proper_enabled and emp_proper_enabled)
+        should_calculate_proper = bool(comp_proper_enabled and emp_proper_enabled and has_office_coords and dist_meters is not None)
         if not should_calculate_proper:
             punch_in_entry_type = 'proper'
         else:
@@ -3483,7 +3558,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'employee_name': employee_name,
             'date': today_date,
             'entry_time': now_time_12,
-            'entry_distance': formatted_dist,
+            'entry_distance': formatted_dist if formatted_dist else '----',
             'entry_location': live_loc_str,
             'entry_lat': user_lat,
             'entry_lng': user_lng,
@@ -3643,17 +3718,18 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         # Determine final entry_type: Proper only if BOTH punch-in and punch-out are within company_geofence_radius
         comp_proper_enabled = comp.get('calculate_proper_entries', True) if comp else True
         emp_proper_enabled = emp.get('calculate_proper_entries', True) if emp else True
-        should_calculate_proper = bool(comp_proper_enabled and emp_proper_enabled)
+        should_calculate_proper = bool(comp_proper_enabled and emp_proper_enabled and has_office_coords and dist_meters is not None)
         if not should_calculate_proper:
-            final_entry_type = 'proper'
+            final_entry_type = existing_rep.get('entry_type', 'proper') if (has_office_coords and comp_proper_enabled and emp_proper_enabled) else 'proper'
         else:
             in_entry_type = existing_rep.get('entry_type', 'proper')
             out_is_proper = (dist_meters <= company_geofence_radius)
             final_entry_type = 'proper' if (in_entry_type == 'proper' and out_is_proper) else 'improper'
 
+        exit_dist_str = formatted_dist if formatted_dist else '----'
         upd_data = {
             'exit_time': now_time_12,
-            'exit_distance': formatted_dist,
+            'exit_distance': exit_dist_str,
             'exit_location': live_loc_str,
             'exit_lat': user_lat,
             'exit_lng': user_lng,
@@ -3679,7 +3755,8 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         
         entry_time_val = active_live.get('entry_time', entry_time_str) if active_live else entry_time_str
         entry_loc_val = active_live.get('entry_location', existing_rep.get('entry_location', live_loc_str)) if active_live else existing_rep.get('entry_location', live_loc_str)
-        entry_dist_val = active_live.get('entry_distance', existing_rep.get('entry_distance', dist_meters)) if active_live else existing_rep.get('entry_distance', dist_meters)
+        raw_entry_d = active_live.get('entry_distance') if (active_live and active_live.get('entry_distance') is not None) else existing_rep.get('entry_distance', '----')
+        entry_dist_val = raw_entry_d if raw_entry_d is not None else '----'
 
         # 2. Store in timeout_entries
         timeout_doc = {
@@ -3693,7 +3770,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'entry_location': entry_loc_val,
             'exit_location': live_loc_str,
             'entry_distance': entry_dist_val,
-            'exit_distance': formatted_dist,
+            'exit_distance': exit_dist_str,
             'formatted_distance': formatted_dist,
             'entry_lat': existing_rep.get('entry_lat'),
             'entry_lng': existing_rep.get('entry_lng'),
@@ -7899,11 +7976,20 @@ def create_field_assignment(data, company_id=None):
 
     now_ist = get_ist_now()
     assignment_id = str(data.get('id') or f"FA-{int(time.time() * 1000)}")
-    target_lat = round(safe_float(data.get('target_lat') if data.get('target_lat') is not None else data.get('target_latitude'), 11.0168), 6)
-    target_lng = round(safe_float(data.get('target_lng') if data.get('target_lng') is not None else data.get('target_longitude'), 76.9558), 6)
+    raw_tlat = data.get('target_lat') if data.get('target_lat') is not None else data.get('target_latitude')
+    raw_tlng = data.get('target_lng') if data.get('target_lng') is not None else data.get('target_longitude')
+    tlat_f = parse_coordinate_to_float(raw_tlat, None)
+    tlng_f = parse_coordinate_to_float(raw_tlng, None)
+    if tlat_f is None or tlng_f is None:
+        comp_t = get_company_by_id(assigned_company_id, include_counts=False)
+        if comp_t:
+            tlat_f = parse_coordinate_to_float(comp_t.get('latitude'), None)
+            tlng_f = parse_coordinate_to_float(comp_t.get('longitude'), None)
+    target_lat = round(tlat_f, 6) if tlat_f is not None else None
+    target_lng = round(tlng_f, 6) if tlng_f is not None else None
     geofence_radius = max(30.0, round(safe_float(data.get('geofence_radius'), 150.0), 1))
     target_address = str(data.get('target_address') or '').strip()
-    if not target_address and target_lat and target_lng:
+    if not target_address and target_lat is not None and target_lng is not None:
         try:
             target_address = reverse_geocode_coordinates(target_lat, target_lng)
         except Exception:
@@ -8881,10 +8967,17 @@ def create_field_customer_visit(data, company_id=None):
         emp_doc = db.employees.find_one({'employee_name': emp_name})
         assigned_company_id = str(emp_doc.get('company_id') if emp_doc else 'ARGUS_MASTER')
 
-    lat = round(safe_float(data.get('latitude'), 11.0168), 6)
-    lng = round(safe_float(data.get('longitude'), 76.9558), 6)
+    vlat_f = parse_coordinate_to_float(data.get('latitude'), None)
+    vlng_f = parse_coordinate_to_float(data.get('longitude'), None)
+    if vlat_f is None or vlng_f is None:
+        comp_v = get_company_by_id(assigned_company_id, include_counts=False)
+        if comp_v:
+            vlat_f = parse_coordinate_to_float(comp_v.get('latitude'), None)
+            vlng_f = parse_coordinate_to_float(comp_v.get('longitude'), None)
+    lat = round(vlat_f, 6) if vlat_f is not None else None
+    lng = round(vlng_f, 6) if vlng_f is not None else None
     address = str(data.get('address') or '').strip()
-    if not address and lat and lng:
+    if not address and lat is not None and lng is not None:
         try:
             address = reverse_geocode_coordinates(lat, lng)
         except Exception:
@@ -8928,7 +9021,7 @@ def create_field_customer_visit(data, company_id=None):
                 is_location_verified = True
 
     # If no assignment existed today or if client explicitly verified GPS at customer shop
-    if not assignments and lat != 0.0 and lng != 0.0:
+    if not assignments and lat is not None and lng is not None and (lat != 0.0 or lng != 0.0):
         is_location_verified = True
         matched_target_name = f"Direct Field Visit ({customer_name})"
         distance_from_target_m = 0.0

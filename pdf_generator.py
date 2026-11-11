@@ -465,7 +465,9 @@ def generate_live_report_pdf(title, entries, company_info=None):
     for row in entries:
         t_val = row.get('exit_time') if is_timeout_pdf and row.get('exit_time') else row.get('entry_time', '')
         l_val = row.get('exit_location') if is_timeout_pdf and row.get('exit_location') else row.get('entry_location', '')
-        d_val = row.get('exit_distance') if is_timeout_pdf and row.get('exit_distance') and row.get('exit_distance') != '----' else (row.get('formatted_distance') or str(row.get('entry_distance', '0')))
+        raw_ed = row.get('entry_distance')
+        ed_fallback = str(raw_ed) if (raw_ed is not None and str(raw_ed).strip() not in ['', 'None', 'null']) else '----'
+        d_val = row.get('exit_distance') if is_timeout_pdf and row.get('exit_distance') and row.get('exit_distance') != '----' else (row.get('formatted_distance') or ed_fallback)
         s_val = (row.get('exit_status') if is_timeout_pdf else row.get('entry_status')) or '-'
         table_data.append([
             Paragraph(str(row.get('employee_name', '')), cell_style),

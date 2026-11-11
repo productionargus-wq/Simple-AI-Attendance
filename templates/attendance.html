@@ -2800,30 +2800,66 @@
       });
     }
 
-    // Helper: Geolocation pre-warming & robust retrieval
+    // Helper: High-accuracy Geolocation watcher & precision-guarded retrieval
     let prewarmedCoords = null;
-    function warmUpGeolocation() {
+    let geoWatchId = null;
+
+    function _considerGeoPosition(pos) {
+      if (!pos || !pos.coords) return;
+      const lat = Number(pos.coords.latitude);
+      const lng = Number(pos.coords.longitude);
+      const acc = Number(pos.coords.accuracy);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      if (Math.abs(lat) < 0.0001 && Math.abs(lng) < 0.0001) return;
+      const validAcc = Number.isFinite(acc) ? acc : 99999;
+      // Ignore coarse macro cell-tower / carrier-IP locations (> 2000m accuracy)
+      if (validAcc > 2000) return;
+
+      const candidate = { latitude: lat, longitude: lng, accuracy: validAcc, timestamp: Date.now() };
+      if (!prewarmedCoords) {
+        prewarmedCoords = candidate;
+        return;
+      }
+      const ageMs = Date.now() - prewarmedCoords.timestamp;
+      if (ageMs > 45000 || validAcc <= prewarmedCoords.accuracy + 25) {
+        prewarmedCoords = candidate;
+      }
+    }
+
+    function startGeoWatcher() {
       if (!navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          prewarmedCoords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, timestamp: Date.now() };
-        },
-        () => {
-          navigator.geolocation.getCurrentPosition(
-            (fallbackPos) => {
-              prewarmedCoords = { latitude: fallbackPos.coords.latitude, longitude: fallbackPos.coords.longitude, timestamp: Date.now() };
-            },
+      if (geoWatchId === null && typeof navigator.geolocation.watchPosition === 'function') {
+        try {
+          geoWatchId = navigator.geolocation.watchPosition(
+            _considerGeoPosition,
             () => {},
-            { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+          );
+        } catch (e) {}
+      }
+      navigator.geolocation.getCurrentPosition(
+        _considerGeoPosition,
+        (err) => {
+          if (err && err.code === 1) return; // Permission denied
+          navigator.geolocation.getCurrentPosition(
+            _considerGeoPosition,
+            () => {},
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
           );
         },
-        { enableHighAccuracy: true, timeout: 6000, maximumAge: 180000 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );
     }
-    warmUpGeolocation();
+    startGeoWatcher();
+    window.addEventListener('beforeunload', () => {
+      if (geoWatchId !== null && navigator.geolocation) {
+        try { navigator.geolocation.clearWatch(geoWatchId); } catch (e) {}
+        geoWatchId = null;
+      }
+    });
 
     function getUserLocation() {
-      if (prewarmedCoords && (Date.now() - prewarmedCoords.timestamp < 300000)) {
+      if (prewarmedCoords && (Date.now() - prewarmedCoords.timestamp < 45000) && prewarmedCoords.accuracy <= 150) {
         return Promise.resolve(prewarmedCoords);
       }
       return new Promise((resolve) => {
@@ -2831,27 +2867,35 @@
           resolve(prewarmedCoords || null);
           return;
         }
+        let settled = false;
+        const finish = (val) => {
+          if (!settled) {
+            settled = true;
+            resolve(val);
+          }
+        };
+        const waitMs = (prewarmedCoords && (Date.now() - prewarmedCoords.timestamp < 180000)) ? 900 : 2500;
+        const timer = setTimeout(() => {
+          const validCached = (prewarmedCoords && (Date.now() - prewarmedCoords.timestamp < 300000)) ? prewarmedCoords : null;
+          finish(validCached);
+        }, waitMs);
+
         navigator.geolocation.getCurrentPosition(
           (pos) => {
-            const c = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, timestamp: Date.now() };
-            prewarmedCoords = c;
-            resolve(c);
+            clearTimeout(timer);
+            _considerGeoPosition(pos);
+            finish(prewarmedCoords || null);
           },
           (err) => {
-            navigator.geolocation.getCurrentPosition(
-              (fallbackPos) => {
-                const fc = { latitude: fallbackPos.coords.latitude, longitude: fallbackPos.coords.longitude, timestamp: Date.now() };
-                prewarmedCoords = fc;
-                resolve(fc);
-              },
-              (fallbackErr) => {
-                console.log('Location retrieval skipped / GPS unavailable:', fallbackErr.message);
-                resolve(prewarmedCoords || null);
-              },
-              { enableHighAccuracy: false, timeout: 4000, maximumAge: 600000 }
-            );
+            clearTimeout(timer);
+            if (err && err.code === 1) {
+              finish(null);
+              return;
+            }
+            const validCached = (prewarmedCoords && (Date.now() - prewarmedCoords.timestamp < 300000)) ? prewarmedCoords : null;
+            finish(validCached);
           },
-          { enableHighAccuracy: true, timeout: 5000, maximumAge: 180000 }
+          { enableHighAccuracy: true, timeout: waitMs, maximumAge: 0 }
         );
       });
     }
@@ -2905,10 +2949,7 @@
       }
 
       try {
-        const coords = await Promise.race([
-          getUserLocation(),
-          new Promise(r => setTimeout(() => r(prewarmedCoords || null), 800))
-        ]);
+        const coords = await getUserLocation();
 
         // Dual-Frame Burst Capture (Frame 1 at t=0, Frame 2 at t=200ms)
         canvas.width = video.videoWidth || 640;
@@ -2996,7 +3037,9 @@
                 }
 
                 const conf = data.confidence ? `${data.confidence}% Match` : '98.5% Match';
-                const distInfo = data.formatted_distance ? `${data.formatted_distance}` : 'On-Site Office Geofence Verified';
+                const rawDistStr = (data.formatted_distance || '').trim();
+                const distInfo = (rawDistStr && rawDistStr !== '----' && rawDistStr !== '-') ? rawDistStr : '';
+                const hasLocationBadge = Boolean(distInfo || data.live_location);
                 const workingHoursHtml = (data.working_hours && !isAlreadyPunched) ? `
                   <div class="punch-grid-item">
                     <span class="punch-grid-label">Working Hours:</span>
@@ -3040,7 +3083,9 @@
                         ${workingHoursHtml}
                       </div>
                       ${noticeHtml}
+                      ${hasLocationBadge ? `
                       <div class="punch-geo-badge" style="display: flex; flex-direction: column; gap: 3px; align-items: flex-start; text-align: left;">
+                        ${distInfo ? `
                         <div style="display: flex; align-items: center; gap: 5px;">
                           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
@@ -3048,8 +3093,10 @@
                           </svg>
                           <span>${escapeHtml(distInfo)}</span>
                         </div>
-                        ${data.live_location ? `<div style="font-size: 11px; color: #475569; padding-left: 18px; line-height: 1.3;">📍 <strong>Location:</strong> ${escapeHtml(data.live_location)}</div>` : ''}
+                        ` : ''}
+                        ${data.live_location ? `<div style="font-size: 11px; color: #475569; padding-left: ${distInfo ? '18px' : '0px'}; line-height: 1.3;">📍 <strong>Location:</strong> ${escapeHtml(data.live_location)}</div>` : ''}
                       </div>
+                      ` : ''}
                     </div>
                   </div>
                 `;

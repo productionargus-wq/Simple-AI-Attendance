@@ -701,11 +701,11 @@
                 <div class="fw-form-grid-2">
                   <div class="fw-field">
                     <label class="fw-label">Live Latitude</label>
-                    <input type="number" step="0.000001" id="pingLat" class="fw-input" value="{{ active_company.latitude or 11.02980 }}">
+                    <input type="number" step="0.000001" id="pingLat" class="fw-input" value="{{ active_company.latitude if active_company.latitude is not none else '' }}" placeholder="Auto-capture GPS">
                   </div>
                   <div class="fw-field">
                     <label class="fw-label">Live Longitude</label>
-                    <input type="number" step="0.000001" id="pingLng" class="fw-input" value="{{ active_company.longitude or 76.97400 }}">
+                    <input type="number" step="0.000001" id="pingLng" class="fw-input" value="{{ active_company.longitude if active_company.longitude is not none else '' }}" placeholder="Auto-capture GPS">
                   </div>
                 </div>
 
@@ -1694,11 +1694,11 @@
                   <div class="fw-form-grid-3" style="margin-top:auto;">
                     <div class="fw-field">
                       <label class="fw-label">Target Latitude *</label>
-                      <input type="number" step="0.000001" id="asgnLat" class="fw-input" value="{{ active_company.latitude or 11.02980 }}" required oninput="syncAssignMapFromInputs()">
+                      <input type="number" step="0.000001" id="asgnLat" class="fw-input" value="{{ active_company.latitude if active_company.latitude is not none else '' }}" placeholder="Click map or enter lat" required oninput="syncAssignMapFromInputs()">
                     </div>
                     <div class="fw-field">
                       <label class="fw-label">Target Longitude *</label>
-                      <input type="number" step="0.000001" id="asgnLng" class="fw-input" value="{{ active_company.longitude or 76.97400 }}" required oninput="syncAssignMapFromInputs()">
+                      <input type="number" step="0.000001" id="asgnLng" class="fw-input" value="{{ active_company.longitude if active_company.longitude is not none else '' }}" placeholder="Click map or enter lng" required oninput="syncAssignMapFromInputs()">
                     </div>
                     <div class="fw-field">
                       <label class="fw-label">Geofence Radius (m)</label>
@@ -1849,7 +1849,7 @@
                   </div>
                 </div>
                 <span class="badge-onsite">
-                  <i class="fa-solid fa-location-dot"></i> GPS Ready ({{ active_company.latitude or 11.0298 }}, {{ active_company.longitude or 76.9740 }})
+                  <i class="fa-solid fa-location-dot"></i> {% if active_company.latitude is not none and active_company.longitude is not none %}GPS Ready ({{ active_company.latitude }}, {{ active_company.longitude }}){% else %}Device GPS Ready{% endif %}
                 </span>
               </div>
               <div class="fw-card-body" style="padding: 16px;">
@@ -2527,11 +2527,11 @@
                     <div class="fw-form-grid-2">
                       <div class="fw-field">
                         <label class="fw-label" style="font-size:11px;">Latitude *</label>
-                        <input type="number" step="0.000001" id="visitLat" class="fw-input" value="{{ active_company.latitude or 11.02980 }}" required placeholder="e.g. 11.029800" style="background:#ffffff;">
+                        <input type="number" step="0.000001" id="visitLat" class="fw-input" value="{{ active_company.latitude if active_company.latitude is not none else '' }}" required placeholder="Use Get Current Location" style="background:#ffffff;">
                       </div>
                       <div class="fw-field">
                         <label class="fw-label" style="font-size:11px;">Longitude *</label>
-                        <input type="number" step="0.000001" id="visitLng" class="fw-input" value="{{ active_company.longitude or 76.97400 }}" required placeholder="e.g. 76.974000" style="background:#ffffff;">
+                        <input type="number" step="0.000001" id="visitLng" class="fw-input" value="{{ active_company.longitude if active_company.longitude is not none else '' }}" required placeholder="Use Get Current Location" style="background:#ffffff;">
                       </div>
                     </div>
 
@@ -5586,8 +5586,8 @@
     if (typeof L !== 'undefined' && L.Icon && L.Icon.Default) {
       L.Icon.Default.imagePath = '/static/vendor/leaflet/images/';
     }
-    const INITIAL_COMPANY_LAT = Number("{{ active_company.latitude or 11.02980 }}");
-    const INITIAL_COMPANY_LNG = Number("{{ active_company.longitude or 76.97400 }}");
+    const INITIAL_COMPANY_LAT = {{ active_company.latitude if active_company.latitude is not none else 'null' }};
+    const INITIAL_COMPANY_LNG = {{ active_company.longitude if active_company.longitude is not none else 'null' }};
     const INITIAL_COMPANY_NAME = {{ (active_company.company_name or 'ARGUS CNC™')|tojson }};
     const ACTIVE_COMPANY_ID = {{ (active_company_id or '')|tojson }};
     const CURRENT_USER_ROLE = {{ (user_role or 'super_admin')|tojson }};
@@ -5605,7 +5605,7 @@
     let FW_LEAVE_BALANCES_DATA = {{ (fw_leave_balances or [])|tojson }};
     const INITIAL_MONTH_YEAR = {{ (month_year or '')|tojson }};
   </script>
-  <script src="{{ url_for('static', filename='js/field_worker.js') }}?v=20261111_v1"></script>
+  <script src="{{ url_for('static', filename='js/field_worker.js') }}?v=20261111_v2"></script>
 
   <!-- Floating Tooltip for Desktop Mini-Sidebar -->
   <div id="sidebarMiniTooltip" class="sidebar-mini-tooltip"></div>
