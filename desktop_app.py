@@ -97,29 +97,14 @@ def main():
     # Mark execution as running inside the desktop application wrapper
     os.environ['ARGUS_DESKTOP'] = '1'
 
-    # Lazy import Flask app for local server fallback
-    from app import app
-
-    host = '127.0.0.1'
-    local_port = find_available_port(5000)
-    local_server_url = f"http://{host}:{local_port}/"
-
     print("================================================================")
     print("ARGUS CNC - ARGUS ATTENDANCE INTELLIGENCE V2.0.0")
     print("Checking Cloud Server Connectivity...")
     print(f"Cloud URL: {CLOUD_URL}")
     print("================================================================")
 
-    # 1. Start local WSGI server as a background standby daemon thread
-    server_thread = threading.Thread(
-        target=start_wsgi_server,
-        args=(app, host, local_port),
-        daemon=True
-    )
-    server_thread.start()
-
-    # 2. Check if the production cloud is reachable
-    cloud_is_online = check_cloud_online(timeout=3.0)
+    # Check cloud reachability before importing Flask/OpenCV or launching standby local server
+    cloud_is_online = check_cloud_online(timeout=2.5)
 
     if cloud_is_online:
         target_url = CLOUD_URL
@@ -127,11 +112,21 @@ def main():
         print("[OK] Production Cloud Server is ONLINE. Connecting to live cloud...")
         print("  All latest web changes and features will reflect in real-time.")
     else:
+        # Lazy import Flask app only when offline fallback is required
+        from app import app
+        host = '127.0.0.1'
+        local_port = find_available_port(5000)
+        local_server_url = f"http://{host}:{local_port}/"
+        server_thread = threading.Thread(
+            target=start_wsgi_server,
+            args=(app, host, local_port),
+            daemon=True
+        )
+        server_thread.start()
         target_url = local_server_url
         window_title = 'Argus Attendance Intelligence (Offline Mode - Local Fallback)'
         print("[WARN] Notice: Cloud server is unreachable or device is offline.")
         print(f"[OK] Falling back to local offline server at: {local_server_url}")
-        # Wait until local server responds before displaying window
         wait_for_server_ready(local_server_url)
 
     # 3. Configure PyWebView settings

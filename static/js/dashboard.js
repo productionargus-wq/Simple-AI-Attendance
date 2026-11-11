@@ -544,11 +544,15 @@ document.addEventListener('DOMContentLoaded', function () {
   initDashboardVoice();
   window.addEventListener('page:loaded', initDashboardVoice);
 
-  // Live Auto Polling every 25 seconds
+  // Live Auto Polling every 25 seconds (pauses when browser tab is hidden)
   if (window.dashboardPollTimer) {
     clearInterval(window.dashboardPollTimer);
   }
-  window.dashboardPollTimer = setInterval(fetchDynamicStats, 25000);
+  window.dashboardPollTimer = setInterval(function () {
+    if (!document.hidden) {
+      fetchDynamicStats();
+    }
+  }, 25000);
 
   // Clean up timer when navigating away via SPA router
   window.addEventListener('page:beforeunload', function () {

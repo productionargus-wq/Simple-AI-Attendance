@@ -86,26 +86,31 @@ document.addEventListener('DOMContentLoaded', function () {
     'compact': btnCompactView
   };
 
-  // Populate employee dropdowns
+  // Populate employee dropdowns (reuse server-rendered options; fallback to lightweight names endpoint)
   async function loadEmployeeNames() {
+    const needSimple = simpleEmployeeSelect && simpleEmployeeSelect.options.length <= 1;
+    const needFilter = employeeFilterInput && employeeFilterInput.tagName === 'SELECT' && employeeFilterInput.options.length <= 1;
+    if (!needSimple && !needFilter) return;
+
     try {
-      const res = await fetch('/api/employees?limit=1000');
+      const res = await fetch('/api/employees/names');
       const data = await res.json();
-      if (simpleEmployeeSelect && data.data) {
+      const names = data.names || (data.data || []).map(emp => emp.employee_name);
+      if (needSimple) {
         simpleEmployeeSelect.innerHTML = '<option value="All Employees">All Employees</option>';
-        data.data.forEach(emp => {
+        names.forEach(name => {
           const opt = document.createElement('option');
-          opt.value = emp.employee_name;
-          opt.textContent = emp.employee_name;
+          opt.value = name;
+          opt.textContent = name;
           simpleEmployeeSelect.appendChild(opt);
         });
       }
-      if (employeeFilterInput && data.data && employeeFilterInput.tagName === 'SELECT' && employeeFilterInput.options.length <= 1) {
+      if (needFilter) {
         employeeFilterInput.innerHTML = '<option value="All">All</option>';
-        data.data.forEach(emp => {
+        names.forEach(name => {
           const opt = document.createElement('option');
-          opt.value = emp.employee_name;
-          opt.textContent = emp.employee_name;
+          opt.value = name;
+          opt.textContent = name;
           employeeFilterInput.appendChild(opt);
         });
       }

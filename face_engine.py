@@ -74,7 +74,59 @@ SFACE_URL = "https://github.com/opencv/opencv_zoo/raw/main/models/face_recogniti
 
 _detector = None
 _recognizer = None
+_haar_cascade = None
 _detector_size = (320, 240)
+_matrix_cache = {}
+_matrix_cache_lock = threading.Lock()
+
+
+def _get_haar_cascade():
+    """Returns cached OpenCV frontal face Haar cascade without reloading XML from disk."""
+    global _haar_cascade
+    if _haar_cascade is not None:
+        return _haar_cascade
+    if cv2 is None:
+        return None
+    with _init_lock:
+        if _haar_cascade is None:
+            try:
+                cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+                if os.path.exists(cascade_path):
+                    clf = cv2.CascadeClassifier(cascade_path)
+                    if not clf.empty():
+                        _haar_cascade = clf
+            except Exception:
+                _haar_cascade = None
+    return _haar_cascade
+
+
+def _decode_image(image_bytes_or_path):
+    """Decodes an image from file path, ndarray, or raw image bytes into BGR ndarray."""
+    if cv2 is None or np is None or image_bytes_or_path is None:
+        return None
+    try:
+        if isinstance(image_bytes_or_path, str):
+            return cv2.imread(image_bytes_or_path)
+        if isinstance(image_bytes_or_path, np.ndarray) and image_bytes_or_path.ndim >= 2:
+            return image_bytes_or_path
+        nparr = image_bytes_or_path if isinstance(image_bytes_or_path, np.ndarray) else np.frombuffer(image_bytes_or_path, np.uint8)
+        return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    except Exception:
+        return None
+
+
+def _downscale_image(img, max_dim=640):
+    """Downscales img so max(height, width) <= max_dim while preserving aspect ratio."""
+    if img is None or cv2 is None:
+        return img
+    h, w = img.shape[:2]
+    cur_max = max(h, w)
+    if cur_max > max_dim:
+        scale = float(max_dim) / float(cur_max)
+        new_w = max(1, int(w * scale))
+        new_h = max(1, int(h * scale))
+        return cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    return img
 
 
 def ensure_models_available():
@@ -262,12 +314,11 @@ def detect_face_deep(img):
 
         # Pass 4: Robust Haar Cascade Fallback with CLAHE
         try:
-            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-            if os.path.exists(cascade_path):
+            face_cascade = _get_haar_cascade()
+            if face_cascade is not None:
                 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
                 enhanced_gray = clahe.apply(gray)
-                face_cascade = cv2.CascadeClassifier(cascade_path)
                 faces = face_cascade.detectMultiScale(
                     enhanced_gray,
                     scaleFactor=1.1,
@@ -295,6 +346,64 @@ def detect_face_deep(img):
         return None
 
 
+def _extract_sface_embedding(img, face):
+    """Extracts L2-normalized 128-d SFace vector from an already-detected (img, face) pair."""
+    recognizer = get_recognizer()
+    if face is not None and recognizer is not None:
+        try:
+            face_arr = np.array(face, dtype=np.float32, copy=False)
+            aligned_face = recognizer.alignCrop(img, face_arr)
+            if aligned_face is not None and getattr(aligned_face, 'size', 0) > 0:
+                raw_feature = recognizer.feature(aligned_face)
+                norm = np.linalg.norm(raw_feature)
+                normalized_feat = (raw_feature / norm) if norm > 0 else raw_feature
+                return normalized_feat.flatten().tolist()
+        except Exception as align_err:
+            print(f"YuNet/SFace alignment fallback notice: {align_err}")
+    return None
+
+
+def _extract_haar_dct_embedding(img):
+    """Fallback Haar + multi-region DCT embedding when SFace/YuNet is unavailable."""
+    face_cascade = _get_haar_cascade()
+    if face_cascade is None or cv2 is None or np is None:
+        return None
+    try:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced_gray = clahe.apply(gray)
+        with acquire_detector_lock(timeout=5.0) as acquired:
+            if not acquired:
+                return None
+            faces = face_cascade.detectMultiScale(
+                enhanced_gray,
+                scaleFactor=1.1,
+                minNeighbors=3,
+                minSize=(40, 40)
+            )
+        if len(faces) > 0:
+            x, y, fw, fh = max(faces, key=lambda b: b[2] * b[3])
+            face_roi = enhanced_gray[y:y+fh, x:x+fw]
+            face_resized = cv2.resize(face_roi, (112, 112))
+            float_face = np.float32(face_resized) / 255.0
+            dct_face = cv2.dct(float_face)
+            flat_features = dct_face[:12, :11].flatten()[:128]
+            norm = np.linalg.norm(flat_features)
+            embedding = (flat_features / norm) if norm > 0 else flat_features
+            return embedding.tolist()
+    except Exception as e:
+        print(f"Haar DCT fallback error: {e}")
+    return None
+
+
+def _extract_embedding_from_img_and_face(img, face):
+    """Extracts 128-d embedding using an already-detected face first, falling back to Haar+DCT."""
+    emb = _extract_sface_embedding(img, face)
+    if emb is not None:
+        return emb
+    return _extract_haar_dct_embedding(img)
+
+
 def extract_face_embedding_from_image(image_bytes_or_path):
     """
     Extracts a 128-dimensional deep feature vector from face using YuNet + SFace.
@@ -305,82 +414,14 @@ def extract_face_embedding_from_image(image_bytes_or_path):
         return None
 
     try:
-        # Load image
-        if isinstance(image_bytes_or_path, str):
-            img = cv2.imread(image_bytes_or_path)
-        elif isinstance(image_bytes_or_path, np.ndarray) and image_bytes_or_path.ndim >= 2:
-            img = image_bytes_or_path
-        else:
-            nparr = image_bytes_or_path if isinstance(image_bytes_or_path, np.ndarray) else np.frombuffer(image_bytes_or_path, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
+        img = _decode_image(image_bytes_or_path)
         if img is None:
             return None
 
-        # Auto-downscale large images to max 640px to ensure lightning-fast detection (<250ms)
-        h, w = img.shape[:2]
-        max_dim = max(h, w)
-        if max_dim > 640:
-            scale = 640.0 / float(max_dim)
-            new_w = max(1, int(w * scale))
-            new_h = max(1, int(h * scale))
-            img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
-
-        recognizer = get_recognizer()
-
-        # Step 1: Deep learning detection & alignment
+        # Auto-downscale large images to max 640px to ensure lightning-fast detection
+        img = _downscale_image(img, max_dim=640)
         face = detect_face_deep(img)
-
-        if face is not None and recognizer is not None:
-            try:
-                # SFace inference is stateless C++ and thread-safe - no lock needed
-                face_arr = np.array(face, dtype=np.float32, copy=False)
-                aligned_face = recognizer.alignCrop(img, face_arr)
-                if aligned_face is not None and getattr(aligned_face, 'size', 0) > 0:
-                    raw_feature = recognizer.feature(aligned_face)
-
-                    # L2 normalize
-                    norm = np.linalg.norm(raw_feature)
-                    if norm > 0:
-                        normalized_feat = raw_feature / norm
-                    else:
-                        normalized_feat = raw_feature
-                    return normalized_feat.flatten().tolist()
-            except Exception as align_err:
-                print(f"YuNet/SFace alignment fallback notice: {align_err}")
-
-        # Step 2: Haar Cascade fallback if DNN is unavailable or fails
-        cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-        if os.path.exists(cascade_path):
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            enhanced_gray = clahe.apply(gray)
-            face_cascade = cv2.CascadeClassifier(cascade_path)
-            faces = face_cascade.detectMultiScale(
-                enhanced_gray,
-                scaleFactor=1.1,
-                minNeighbors=3,
-                minSize=(40, 40)
-            )
-
-            if len(faces) > 0:
-                # Pick largest face
-                x, y, w, h = max(faces, key=lambda b: b[2] * b[3])
-                face_roi = enhanced_gray[y:y+h, x:x+w]
-                face_resized = cv2.resize(face_roi, (112, 112))
-
-                # Multi-region DCT descriptor
-                float_face = np.float32(face_resized) / 255.0
-                dct_face = cv2.dct(float_face)
-                flat_features = dct_face[:12, :11].flatten()[:128]
-                norm = np.linalg.norm(flat_features)
-                if norm > 0:
-                    embedding = flat_features / norm
-                else:
-                    embedding = flat_features
-                return embedding.tolist()
-
-        return None
+        return _extract_embedding_from_img_and_face(img, face)
     except Exception as e:
         print(f"Face embedding extraction error: {e}")
         return None
@@ -409,14 +450,7 @@ def validate_registration_face_quality(image_bytes_or_path):
         }
 
     try:
-        if isinstance(image_bytes_or_path, str):
-            img = cv2.imread(image_bytes_or_path)
-        elif isinstance(image_bytes_or_path, np.ndarray) and image_bytes_or_path.ndim >= 2:
-            img = image_bytes_or_path
-        else:
-            nparr = image_bytes_or_path if isinstance(image_bytes_or_path, np.ndarray) else np.frombuffer(image_bytes_or_path, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
+        img = _decode_image(image_bytes_or_path)
         if img is None:
             return {
                 'valid': False,
@@ -427,6 +461,8 @@ def validate_registration_face_quality(image_bytes_or_path):
                 'advice': 'Upload a valid JPG or PNG photo.'
             }
 
+        # Cap registration image resolution at 800px so multi-megapixel uploads validate rapidly
+        img = _downscale_image(img, max_dim=800)
         img_h, img_w = img.shape[:2]
         img_area = float(img_h * img_w)
 
@@ -454,12 +490,15 @@ def validate_registration_face_quality(image_bytes_or_path):
 
         # Robust Haar Cascade fallback if DNN detector misses face
         if not faces:
-            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-            if os.path.exists(cascade_path):
+            face_cascade = _get_haar_cascade()
+            if face_cascade is not None:
                 try:
                     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                    face_cascade = cv2.CascadeClassifier(cascade_path)
-                    h_faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(30, 30))
+                    with acquire_detector_lock(timeout=5.0) as acquired:
+                        if acquired:
+                            h_faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(30, 30))
+                        else:
+                            h_faces = ()
                     if len(h_faces) > 0:
                         faces = []
                         for hf in h_faces:
@@ -688,8 +727,10 @@ def validate_registration_face_quality(image_bytes_or_path):
                     'metrics': {'symmetry_ratio': round(symmetry_ratio, 2)}
                 }
 
-        # 7. Extract 128-d SFace Biometrics
-        embedding = extract_face_embedding_from_image(img)
+        # 7. Extract 128-d SFace Biometrics reusing already-detected face
+        embedding = _extract_embedding_from_img_and_face(_downscale_image(img, max_dim=640) if max(img_h, img_w) > 640 else img, None) if len(face) < 14 else _extract_embedding_from_img_and_face(img, face)
+        if not embedding:
+            embedding = extract_face_embedding_from_image(img)
         if not embedding:
             return {
                 'valid': False,
@@ -747,7 +788,7 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
        blue-shifted backlight, device bezels)
     2. 2D Printed Photos on Paper (flat texture, low depth-of-field, paper borders)
     3. Static 2D presentation attacks (zero temporal micro-movement between burst frames)
-    
+
     Returns:
         tuple: (is_live: bool, confidence: float, reason: str)
     """
@@ -757,29 +798,25 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
     if isinstance(img, (bytes, bytearray)):
         if np is None or cv2 is None:
             return True, 1.0, "OK"
-        try:
-            nparr = np.frombuffer(img, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        except Exception as dec_err:
-            print(f"Error decoding image in verify_liveness: {dec_err}")
+        img = _decode_image(img)
+        if img is None:
             return True, 0.5, "Bypass on decode error"
 
     if isinstance(burst_img, (bytes, bytearray)):
         if np is not None and cv2 is not None:
-            try:
-                b_arr = np.frombuffer(burst_img, np.uint8)
-                burst_img = cv2.imdecode(b_arr, cv2.IMREAD_COLOR)
-            except Exception:
-                burst_img = None
+            burst_img = _decode_image(burst_img)
+        else:
+            burst_img = None
 
     if img is None or cv2 is None or np is None:
         return True, 1.0, "OK"
 
     try:
-        h, w = img.shape[:2]
         if face is None:
+            img = _downscale_image(img, max_dim=640)
             face = detect_face_deep(img)
 
+        h, w = img.shape[:2]
         if face is None:
             return None, 0.0, "No face detected in camera frame"
 
@@ -848,7 +885,7 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
         dist_center = np.sqrt((x_grid - 64)**2 + (y_grid - 64)**2)
         hf_mask = (dist_center >= 25) & (dist_center <= 55)
         hf_vals = mag_spec[hf_mask]
-        
+
         fft_peak_ratio = 0.0
         if len(hf_vals) > 0:
             mean_hf = np.mean(hf_vals)
@@ -873,6 +910,7 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
         # --- Test 7: Dual-Frame Burst Micro-Movement Verification ---
         if burst_img is not None:
             try:
+                burst_img = _downscale_image(burst_img, max_dim=640)
                 burst_face = detect_face_deep(burst_img)
                 if burst_face is not None:
                     bfx = max(0, int(burst_face[0]))
@@ -894,6 +932,53 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
     except Exception as e:
         print(f"Anti-spoofing verification error: {e}")
         return True, 0.5, "Bypass on error"
+
+
+def analyze_face_and_liveness(file_bytes, burst_bytes=None):
+    """
+    Single-pass biometric pipeline: decodes image once, runs YuNet detection once,
+    verifies anti-spoofing liveness, and extracts SFace 128-d embedding reusing the same detection.
+    """
+    if cv2 is None or np is None:
+        return {'face_detected': False, 'is_live': True, 'confidence': 1.0, 'reason': 'OK', 'embedding': None}
+
+    img = _decode_image(file_bytes)
+    if img is None:
+        return {'face_detected': False, 'is_live': None, 'confidence': 0.0, 'reason': 'Could not decode image', 'embedding': None}
+
+    img = _downscale_image(img, max_dim=640)
+    face = detect_face_deep(img)
+    if face is None:
+        return {
+            'face_detected': False,
+            'is_live': None,
+            'confidence': 0.0,
+            'reason': 'No face detected in camera frame',
+            'embedding': None
+        }
+
+    burst_img = _decode_image(burst_bytes) if burst_bytes else None
+    if burst_img is not None:
+        burst_img = _downscale_image(burst_img, max_dim=640)
+
+    is_live, confidence, reason = verify_liveness_anti_spoofing(img, face=face, burst_img=burst_img)
+    if is_live is False:
+        return {
+            'face_detected': True,
+            'is_live': False,
+            'confidence': float(confidence),
+            'reason': str(reason),
+            'embedding': None
+        }
+
+    embedding = _extract_embedding_from_img_and_face(img, face)
+    return {
+        'face_detected': bool(embedding is not None),
+        'is_live': bool(is_live) if is_live is not None else True,
+        'confidence': float(confidence),
+        'reason': str(reason),
+        'embedding': embedding
+    }
 
 
 def cosine_similarity(vec_a, vec_b):
@@ -931,9 +1016,65 @@ def calculate_confidence_percentage(similarity_score):
         return float(round(min(99.9, max(70.0, mapped)), 1))
 
 
+def _get_cached_embedding_matrix(company_id=None):
+    """
+    Returns (emp_ids, emp_names, norm_matrix, dim, extra_entries) for fast vectorized cosine search.
+    Automatically refreshes whenever database.get_face_embeddings_version() increments.
+    """
+    cache_key = str(company_id) if company_id and str(company_id) != 'ALL' else 'ALL'
+    cur_ver = database.get_face_embeddings_version()
+
+    with _matrix_cache_lock:
+        entry = _matrix_cache.get(cache_key)
+        if entry and entry[0] == cur_ver:
+            return entry[1]
+
+    stored_embeddings = database.get_all_face_embeddings(company_id=company_id)
+    if not stored_embeddings or np is None:
+        payload = ([], [], None, 0, stored_embeddings or [])
+        with _matrix_cache_lock:
+            _matrix_cache[cache_key] = (cur_ver, payload)
+        return payload
+
+    emp_ids = []
+    emp_names = []
+    rows = []
+    extras = []
+    target_dim = None
+
+    for emp in stored_embeddings:
+        emb = emp.get('embedding')
+        if not emb:
+            continue
+        try:
+            vec = np.asarray(emb, dtype=np.float32)
+            if vec.ndim != 1 or vec.size == 0:
+                continue
+            v_norm = float(np.linalg.norm(vec))
+            if v_norm <= 0.0:
+                continue
+            vec = vec / v_norm
+            if target_dim is None:
+                target_dim = int(vec.size)
+            if int(vec.size) == target_dim:
+                emp_ids.append(str(emp['id']))
+                emp_names.append(str(emp['employee_name']))
+                rows.append(vec)
+            else:
+                extras.append(emp)
+        except Exception:
+            continue
+
+    mat = np.vstack(rows).astype(np.float32, copy=False) if rows else None
+    payload = (emp_ids, emp_names, mat, target_dim or 0, extras)
+    with _matrix_cache_lock:
+        _matrix_cache[cache_key] = (cur_ver, payload)
+    return payload
+
+
 def recognize_face(query_embedding, company_id=None):
     """
-    Compares query embedding with registered employee embeddings in the database.
+    Compares query embedding with registered employee embeddings using a cached L2-normalized NumPy matrix.
     If company_id is provided, compares only within that company.
     Returns best match if similarity >= RECOGNITION_THRESHOLD.
     """
@@ -945,30 +1086,50 @@ def recognize_face(query_embedding, company_id=None):
         }
 
     try:
-        stored_embeddings = database.get_all_face_embeddings(company_id=company_id)
-        if not stored_embeddings:
+        emp_ids, emp_names, matrix, dim, extras = _get_cached_embedding_matrix(company_id=company_id)
+        if matrix is None and not extras:
             return {
                 'matched': False,
                 'confidence': 0.0,
                 'message': 'No registered face biometrics found in database. Please enroll employee face photo in the Admin Portal.'
             }
 
-        best_match = None
+        best_id = None
+        best_name = None
         highest_score = -1.0
 
-        for emp in stored_embeddings:
+        if np is not None and matrix is not None and len(emp_ids) > 0:
+            q_vec = np.asarray(query_embedding, dtype=np.float32)
+            q_norm = float(np.linalg.norm(q_vec))
+            if q_norm > 0.0 and q_vec.ndim == 1 and int(q_vec.size) == dim:
+                q_unit = q_vec / q_norm
+                scores = matrix @ q_unit
+                best_idx = int(np.argmax(scores))
+                highest_score = float(scores[best_idx])
+                best_id = emp_ids[best_idx]
+                best_name = emp_names[best_idx]
+            else:
+                for i, row in enumerate(matrix):
+                    score = cosine_similarity(query_embedding, row.tolist())
+                    if score > highest_score:
+                        highest_score = float(score)
+                        best_id = emp_ids[i]
+                        best_name = emp_names[i]
+
+        for emp in extras:
             score = cosine_similarity(query_embedding, emp.get('embedding', []))
             if score > highest_score:
                 highest_score = float(score)
-                best_match = emp
+                best_id = str(emp['id'])
+                best_name = str(emp['employee_name'])
 
         confidence_pct = float(calculate_confidence_percentage(highest_score))
 
-        if highest_score >= RECOGNITION_THRESHOLD and best_match:
+        if highest_score >= RECOGNITION_THRESHOLD and best_id is not None:
             return {
                 'matched': True,
-                'employee_id': str(best_match['id']),
-                'employee_name': str(best_match['employee_name']),
+                'employee_id': best_id,
+                'employee_name': best_name,
                 'confidence': float(confidence_pct),
                 'raw_score': float(round(highest_score, 4))
             }
@@ -996,7 +1157,10 @@ def auto_sync_stored_employee_embeddings():
     """
     try:
         db = database.get_db()
-        employees = db.employees.find({'photo_filename': {'$ne': '', '$exists': True}})
+        employees = db.employees.find(
+            {'photo_filename': {'$ne': '', '$exists': True}},
+            {'_id': 1, 'embedding_model': 1, 'photo_filename': 1}
+        )
         updated_count = 0
         for emp in employees:
             if emp.get('embedding_model') == 'sface_v1':
@@ -1017,6 +1181,7 @@ def auto_sync_stored_employee_embeddings():
                     )
                     updated_count += 1
         if updated_count > 0:
+            database.invalidate_face_embeddings_cache()
             print(f"Face Engine: Upgraded {updated_count} employee embeddings to Deep SFace model.")
     except Exception as e:
         print(f"Auto-sync employee embeddings note: {e}")

@@ -1,4 +1,5 @@
 import os
+import socket
 import time
 import threading
 from datetime import datetime, timedelta
@@ -8,6 +9,7 @@ import email_service
 
 _scheduler_thread = None
 _scheduler_lock = threading.Lock()
+_SCHEDULER_INSTANCE_ID = f"{socket.gethostname()}:{os.getpid()}"
 
 def get_yesterday_ist():
     """Returns yesterday's date string in YYYY-MM-DD format (IST)."""
@@ -986,6 +988,30 @@ def dispatch_all_monthly_reports(target_month=None, force=False):
 
 # ----------------- BACKGROUND SCHEDULER DAEMON ----------------- #
 
+def _try_acquire_scheduler_lease(lease_ttl=90.0):
+    """Acquires or renews a MongoDB lease so only one worker dispatches scheduled reports."""
+    try:
+        from pymongo import ReturnDocument
+        db = database.get_db()
+        now_ts = time.time()
+        doc = db.scheduler_leases.find_one_and_update(
+            {
+                '_id': 'report_scheduler_leader',
+                '$or': [
+                    {'owner': _SCHEDULER_INSTANCE_ID},
+                    {'expires_at': {'$lt': now_ts}},
+                    {'expires_at': {'$exists': False}}
+                ]
+            },
+            {'$set': {'owner': _SCHEDULER_INSTANCE_ID, 'expires_at': now_ts + lease_ttl}},
+            upsert=True,
+            return_document=ReturnDocument.AFTER
+        )
+        return bool(doc and doc.get('owner') == _SCHEDULER_INSTANCE_ID)
+    except Exception:
+        return False
+
+
 def check_and_dispatch_scheduled_reports():
     """
     Evaluates each company's individual email schedule and dispatches reports
@@ -995,6 +1021,8 @@ def check_and_dispatch_scheduled_reports():
     Built-in idempotency ensures no duplicate dispatches even across server reboots.
     """
     try:
+        if not _try_acquire_scheduler_lease():
+            return
         db = database.get_db()
         now = database.get_ist_now()
         cur_time_str = now.strftime('%H:%M')
@@ -1002,11 +1030,14 @@ def check_and_dispatch_scheduled_reports():
         yesterday = get_yesterday_ist()
         prev_month = get_previous_month_ist()
 
-        # Query active companies that have automatic reports enabled
-        companies = list(db.company_admin.find({
-            'auto_email_reports': {'$ne': False},
-            'status': {'$nin': ['Deactive', 'Inactive']}
-        }))
+        # Query active companies that have automatic reports enabled (lightweight projection)
+        companies = list(db.company_admin.find(
+            {
+                'auto_email_reports': {'$ne': False},
+                'status': {'$nin': ['Deactive', 'Inactive']}
+            },
+            {'id': 1, 'company_name': 1, 'email': 1, 'daily_report_time': 1, 'monthly_report_day': 1}
+        ))
 
         for comp in companies:
             c_id = comp.get('id')
@@ -1041,7 +1072,8 @@ def check_and_dispatch_scheduled_reports():
 def _scheduler_worker():
     """Worker loop that runs scheduled jobs in background."""
     print("[Scheduler Daemon] Started background dynamic report scheduler worker.")
-    
+    time.sleep(5)
+
     while True:
         try:
             check_and_dispatch_scheduled_reports()

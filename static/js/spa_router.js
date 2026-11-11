@@ -403,7 +403,7 @@
       isNavigating = false;
       finishProgress();
       if (window.hideCentralTabLoader) {
-        setTimeout(() => window.hideCentralTabLoader(), 120);
+        window.hideCentralTabLoader();
       }
     }
   }
@@ -464,25 +464,9 @@
     navigateTo(window.location.href, false);
   });
 
-  // 12. Idle Pre-loading: Only pre-load primary routes after browser is fully settled
-  function preloadCommonTabs() {
-    // Only pre-load the 2 most likely next tabs, spaced well apart
-    const commonTabs = ['/live-report', '/employee-details'];
-    const idleRunner = window.requestIdleCallback || ((cb) => setTimeout(cb, 2500));
-
-    idleRunner(() => {
-      commonTabs.forEach((tab, index) => {
-        setTimeout(() => {
-          prefetch(tab);
-        }, 800 + (index * 1200));
-      });
-    });
-  }
-
-  // 13. Initialize on boot
+  // 12. Initialize on boot (hover/touch prefetch remains active without eager background hits)
   document.addEventListener('DOMContentLoaded', () => {
     initProgressBar();
-    setTimeout(preloadCommonTabs, 3000);
   });
 
   // Expose global methods

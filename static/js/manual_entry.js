@@ -43,17 +43,19 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnPdf = document.getElementById('btnPdfTable');
   const btnPrint = document.getElementById('btnPrintTable');
 
-  // Load employee names for modal dropdown
+  // Load employee names for modal dropdown (reuse server-rendered options; fallback to lightweight names endpoint)
   async function loadEmployees() {
+    if (empNameSelect && empNameSelect.options.length > 1) return;
     try {
-      const res = await fetch('/api/employees?limit=1000');
+      const res = await fetch('/api/employees/names');
       const data = await res.json();
-      if (empNameSelect && data.data && data.data.length > 0) {
+      const names = data.names || (data.data || []).map(e => e.employee_name);
+      if (empNameSelect && names.length > 0) {
         empNameSelect.innerHTML = '<option value="" disabled selected>Select</option>';
-        data.data.forEach(e => {
+        names.forEach(name => {
           const opt = document.createElement('option');
-          opt.value = e.employee_name;
-          opt.textContent = e.employee_name;
+          opt.value = name;
+          opt.textContent = name;
           empNameSelect.appendChild(opt);
         });
       }

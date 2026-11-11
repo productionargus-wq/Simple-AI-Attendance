@@ -305,7 +305,7 @@ window.hideSavingPopup = function () {
 // ==========================================================================
 // Argus Branded Logo Spinner & Central Tab-Switching Helpers
 // ==========================================================================
-const ARGUS_LOGO_SRC = '/static/images/argus_triangle_logo.png';
+const ARGUS_LOGO_SRC = '/static/images/argus_triangle_logo.png?v=20261111_v1';
 
 window.showCentralTabLoader = function (text = 'Loading records...') {
   const loader = document.getElementById('appCentralTabLoader');

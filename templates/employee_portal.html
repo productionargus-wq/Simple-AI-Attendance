@@ -7,10 +7,10 @@
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261007_white">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261007_white">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261111_v1">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/live_captions.css') }}?v=20261105_v1">
   <script src="{{ url_for('static', filename='js/live_captions.js') }}?v=20261105_v1"></script>
-  <script src="{{ url_for('static', filename='vendor/mediapipe/face_mesh.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/mediapipe/face_mesh.js') }}?v=20261111_v1" defer></script>
   <script src="{{ url_for('static', filename='js/voice_assistant.js') }}?v=20261023_v1"></script>
   <style>
     /* Ensure page is fully scrollable and not locked by global style.css */
@@ -2120,7 +2120,7 @@
 
       try {
         portalFaceMesh = new FaceMesh({
-          locateFile: (file) => '/static/vendor/mediapipe/' + file
+          locateFile: (file) => '/static/vendor/mediapipe/' + file + '?v=20261111_v1'
         });
         portalFaceMesh.setOptions({
           maxNumFaces: 1,
@@ -2136,6 +2136,7 @@
       }
     }
 
+    let lastPortalDetectionTs = 0;
     async function runPortalDetectionLoop() {
       if (!cameraActive) {
         isPortalDetecting = false;
@@ -2149,8 +2150,9 @@
         updatePortalBlinkHUD(0, `Punch recorded ✔ Ready in ${remainSec}s`, true);
       }
 
-      // Primary: MediaPipe FaceMesh
-      if (portalFaceMeshReady && video && video.readyState >= 2 && !isPortalPunching && !isPortalProcessingFrame) {
+      // Throttle MediaPipe FaceMesh to ~10 FPS to avoid blocking UI thread
+      if (now - lastPortalDetectionTs >= 100 && portalFaceMeshReady && video && video.readyState >= 2 && !isPortalPunching && !isPortalProcessingFrame) {
+        lastPortalDetectionTs = now;
         isPortalProcessingFrame = true;
         try {
           await portalFaceMesh.send({ image: video });

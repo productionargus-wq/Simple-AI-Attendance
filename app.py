@@ -43,7 +43,7 @@ import database
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '').strip()
 
-# Thread-safe in-memory store for desktop Google OAuth sessions
+# Thread-safe in-memory + MongoDB-backed store for desktop Google OAuth sessions
 DESKTOP_AUTH_SESSIONS = {}
 DESKTOP_AUTH_LOCK = threading.Lock()
 
@@ -58,6 +58,54 @@ def cleanup_desktop_auth_sessions():
         expired = [k for k, v in DESKTOP_AUTH_SESSIONS.items() if now - v.get('created_at', now) > 600]
         for k in expired:
             DESKTOP_AUTH_SESSIONS.pop(k, None)
+    try:
+        db = database.get_db()
+        db.desktop_auth_sessions.delete_many({'expires_at': {'$lt': now}})
+    except Exception:
+        pass
+
+def _save_desktop_auth_session(auth_id, payload):
+    doc = dict(payload)
+    doc.setdefault('created_at', time.time())
+    with DESKTOP_AUTH_LOCK:
+        DESKTOP_AUTH_SESSIONS[auth_id] = doc
+    try:
+        db = database.get_db()
+        db.desktop_auth_sessions.update_one(
+            {'auth_id': auth_id},
+            {'$set': {'auth_id': auth_id, **doc, 'expires_at': time.time() + 600}},
+            upsert=True
+        )
+    except Exception:
+        pass
+
+def _get_desktop_auth_session(auth_id):
+    with DESKTOP_AUTH_LOCK:
+        sess = DESKTOP_AUTH_SESSIONS.get(auth_id)
+    if sess is not None:
+        return sess
+    try:
+        db = database.get_db()
+        doc = db.desktop_auth_sessions.find_one({'auth_id': auth_id, 'expires_at': {'$gte': time.time()}}, {'_id': 0})
+        if doc:
+            with DESKTOP_AUTH_LOCK:
+                DESKTOP_AUTH_SESSIONS[auth_id] = doc
+            return doc
+    except Exception:
+        pass
+    return None
+
+def _pop_desktop_auth_session(auth_id):
+    with DESKTOP_AUTH_LOCK:
+        sess = DESKTOP_AUTH_SESSIONS.pop(auth_id, None)
+    try:
+        db = database.get_db()
+        db_doc = db.desktop_auth_sessions.find_one_and_delete({'auth_id': auth_id}, projection={'_id': 0})
+        if sess is None and db_doc:
+            sess = db_doc
+    except Exception:
+        pass
+    return sess
 
 try:
     import pdf_generator
@@ -244,7 +292,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 app.config['SESSION_COOKIE_NAME'] = 'argus_session'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_REFRESH_EACH_REQUEST'] = True
+app.config['SESSION_REFRESH_EACH_REQUEST'] = False
 app.session_interface = PersistentSessionInterface()
 
 @app.route('/health')
@@ -313,18 +361,15 @@ def _background_startup():
     try:
         fe = get_face_engine()
         if fe:
+            fe.ensure_models_available()
+            fe.get_detector(320, 240)
+            fe.get_recognizer()
             fe.auto_sync_stored_employee_embeddings()
     except Exception as e:
-        print(f"Warning: background face sync error: {e}")
+        print(f"Warning: background face warmup/sync error: {e}")
 
 try:
     database.init_db()
-    # Pre-warm face recognition models synchronously before accepting requests
-    fe = get_face_engine()
-    if fe:
-        fe.ensure_models_available()
-        fe.get_detector(320, 240)
-        fe.get_recognizer()
     threading.Thread(target=_background_startup, daemon=True, name="FaceSyncStartup").start()
     import report_scheduler
     report_scheduler.start_scheduler()
@@ -751,33 +796,46 @@ def handle_exception(e):
         }), 500
     return f"<h1>Server Error</h1><pre>{err}</pre>", 500
 
+_COMPRESSIBLE_MIMETYPES = {
+    'text/html', 'text/css', 'text/plain', 'text/javascript',
+    'application/javascript', 'application/x-javascript',
+    'application/json', 'image/svg+xml', 'application/wasm'
+}
+
 @app.after_request
 def add_performance_headers(response):
     if request.path.startswith('/static/'):
         if request.args.get('v'):
             response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        elif request.path.startswith(('/static/vendor/', '/static/images/', '/static/models/')):
+            response.headers['Cache-Control'] = 'public, max-age=86400'
         else:
             response.headers['Cache-Control'] = 'no-cache, must-revalidate'
     elif response.status_code == 200 and request.method == 'GET' and not request.path.startswith('/api/'):
         response.headers['Cache-Control'] = 'no-cache, must-revalidate'
 
     accept_encoding = request.headers.get('Accept-Encoding', '')
+    is_vendor_bundle = request.path.startswith('/static/vendor/') and request.path.endswith(('.wasm', '.data', '.binarypb', '.tflite'))
     if (
         'gzip' in accept_encoding.lower()
         and response.status_code == 200
-        and not response.direct_passthrough
-        and response.mimetype in ['text/html', 'text/css', 'application/javascript', 'application/json', 'image/svg+xml']
+        and not response.headers.get('Content-Encoding')
+        and (response.mimetype in _COMPRESSIBLE_MIMETYPES or is_vendor_bundle)
     ):
         try:
+            if response.direct_passthrough:
+                response.direct_passthrough = False
             data = response.get_data()
             if len(data) > 1024:
                 gzip_buffer = io.BytesIO()
                 with gzip.GzipFile(mode='wb', fileobj=gzip_buffer, compresslevel=6) as gz:
                     gz.write(data)
-                response.set_data(gzip_buffer.getvalue())
-                response.headers['Content-Encoding'] = 'gzip'
-                response.headers['Content-Length'] = len(response.get_data())
-                response.headers['Vary'] = 'Accept-Encoding'
+                compressed = gzip_buffer.getvalue()
+                if len(compressed) < len(data):
+                    response.set_data(compressed)
+                    response.headers['Content-Encoding'] = 'gzip'
+                    response.headers['Content-Length'] = len(compressed)
+                    response.headers['Vary'] = 'Accept-Encoding'
         except Exception:
             pass
     return response
@@ -1114,15 +1172,14 @@ def google_login():
         desktop_auth_id = secrets.token_urlsafe(32)
         state_param = f"{raw_state}__d_{desktop_auth_id}"
         cleanup_desktop_auth_sessions()
-        with DESKTOP_AUTH_LOCK:
-            DESKTOP_AUTH_SESSIONS[desktop_auth_id] = {
-                'status': 'pending',
-                'created_at': time.time(),
-                'login_type': login_type,
-                'oauth_next': next_url,
-                'raw_state': raw_state,
-                'redirect_uri': redirect_uri
-            }
+        _save_desktop_auth_session(desktop_auth_id, {
+            'status': 'pending',
+            'created_at': time.time(),
+            'login_type': login_type,
+            'oauth_next': next_url,
+            'raw_state': raw_state,
+            'redirect_uri': redirect_uri
+        })
 
     params = {
         'client_id': GOOGLE_CLIENT_ID,
@@ -1179,8 +1236,7 @@ def google_callback():
 
         if desktop_auth_id:
             cleanup_desktop_auth_sessions()
-            with DESKTOP_AUTH_LOCK:
-                desktop_sess = DESKTOP_AUTH_SESSIONS.get(desktop_auth_id)
+            desktop_sess = _get_desktop_auth_session(desktop_auth_id)
 
             if desktop_sess:
                 login_type = desktop_sess.get('login_type', 'admin')
@@ -1190,12 +1246,11 @@ def google_callback():
 
     def render_oauth_error(msg):
         if desktop_auth_id:
-            with DESKTOP_AUTH_LOCK:
-                DESKTOP_AUTH_SESSIONS[desktop_auth_id] = {
-                    'status': 'error',
-                    'message': msg,
-                    'created_at': time.time()
-                }
+            _save_desktop_auth_session(desktop_auth_id, {
+                'status': 'error',
+                'message': msg,
+                'created_at': time.time()
+            })
         if oauth_next == '/field-worker':
             return render_template('field_worker_login.html', error=msg, selected_role='field_worker' if login_type == 'employee' else 'company_admin')
         if login_type == 'company':
@@ -1256,15 +1311,14 @@ def google_callback():
     # Helper login session finalizers
     def _do_admin_login(adm_user):
         if desktop_auth_id:
-            with DESKTOP_AUTH_LOCK:
-                DESKTOP_AUTH_SESSIONS[desktop_auth_id] = {
-                    'status': 'success',
-                    'role': 'super_admin',
-                    'user_data': adm_user,
-                    'redirect_target': oauth_next if oauth_next == '/field-worker' else url_for('dashboard'),
-                    'google_email': google_email,
-                    'created_at': time.time()
-                }
+            _save_desktop_auth_session(desktop_auth_id, {
+                'status': 'success',
+                'role': 'super_admin',
+                'user_data': database.clean_doc(adm_user),
+                'redirect_target': oauth_next if oauth_next == '/field-worker' else url_for('dashboard'),
+                'google_email': google_email,
+                'created_at': time.time()
+            })
             return render_template('desktop_oauth_browser_success.html', email=google_email)
         session.clear()
         session.permanent = True
@@ -1279,15 +1333,14 @@ def google_callback():
 
     def _do_company_login(comp):
         if desktop_auth_id:
-            with DESKTOP_AUTH_LOCK:
-                DESKTOP_AUTH_SESSIONS[desktop_auth_id] = {
-                    'status': 'success',
-                    'role': 'company_admin',
-                    'user_data': comp,
-                    'redirect_target': oauth_next if oauth_next == '/field-worker' else url_for('dashboard'),
-                    'google_email': google_email,
-                    'created_at': time.time()
-                }
+            _save_desktop_auth_session(desktop_auth_id, {
+                'status': 'success',
+                'role': 'company_admin',
+                'user_data': database.clean_doc(comp),
+                'redirect_target': oauth_next if oauth_next == '/field-worker' else url_for('dashboard'),
+                'google_email': google_email,
+                'created_at': time.time()
+            })
             return render_template('desktop_oauth_browser_success.html', email=google_email)
         session.clear()
         session.permanent = True
@@ -1302,15 +1355,14 @@ def google_callback():
 
     def _do_employee_login(emp):
         if desktop_auth_id:
-            with DESKTOP_AUTH_LOCK:
-                DESKTOP_AUTH_SESSIONS[desktop_auth_id] = {
-                    'status': 'success',
-                    'role': 'employee',
-                    'user_data': emp,
-                    'redirect_target': oauth_next if oauth_next == '/field-worker' else url_for('employee_portal'),
-                    'google_email': google_email,
-                    'created_at': time.time()
-                }
+            _save_desktop_auth_session(desktop_auth_id, {
+                'status': 'success',
+                'role': 'employee',
+                'user_data': database.clean_doc(emp),
+                'redirect_target': oauth_next if oauth_next == '/field-worker' else url_for('employee_portal'),
+                'google_email': google_email,
+                'created_at': time.time()
+            })
             return render_template('desktop_oauth_browser_success.html', email=google_email)
         session.clear()
         session.permanent = True
@@ -1412,8 +1464,7 @@ def google_desktop_check():
         return jsonify({'status': 'error', 'message': 'Missing auth_id'}), 400
 
     cleanup_desktop_auth_sessions()
-    with DESKTOP_AUTH_LOCK:
-        sess = DESKTOP_AUTH_SESSIONS.get(auth_id)
+    sess = _get_desktop_auth_session(auth_id)
 
     if not sess:
         return jsonify({'status': 'pending'})
@@ -1431,8 +1482,7 @@ def google_desktop_claim():
         return redirect(url_for('login'))
 
     cleanup_desktop_auth_sessions()
-    with DESKTOP_AUTH_LOCK:
-        sess = DESKTOP_AUTH_SESSIONS.pop(auth_id, None)
+    sess = _pop_desktop_auth_session(auth_id)
 
     if not sess or sess.get('status') != 'success':
         flash('Desktop authentication expired or was not completed. Please try again.', 'error')
@@ -1707,7 +1757,7 @@ def dashboard():
     active_branch = None
     if comp_id:
         try:
-            branches = database.get_company_branches(comp_id)
+            branches = database.get_company_branches(comp_id, include_headcount=False)
             if active_bid:
                 if str(active_bid).strip().upper() in ['HOME', 'HQ', 'MAIN', 'UNASSIGNED']:
                     active_bid = 'HOME'
@@ -1853,7 +1903,7 @@ def employee_details():
     company_calculate_proper_entries = True
     if comp_id:
         try:
-            branches = database.get_company_branches(comp_id)
+            branches = database.get_company_branches(comp_id, include_headcount=False)
             comp = database.get_company_by_id(comp_id)
             if comp and comp.get('calculate_proper_entries') is False:
                 company_calculate_proper_entries = False
@@ -1901,16 +1951,13 @@ def balance_report():
 @app.route('/payslip-preview')
 @login_required
 def monthly_payslip():
-    comp_id = get_current_company_id()
-    employees_res = database.get_all_employees(company_id=comp_id, branch_id=get_current_branch_id(), limit=1000)
-    employees = [e['employee_name'] for e in employees_res['data']]
+    employees = database.get_employee_names_cached(company_id=get_current_company_id(), branch_id=get_current_branch_id())
     return render_template('monthly_payslip.html', active_tab='PAYSLIP PREVIEW', employees=employees)
 
 @app.route('/salary-report')
 @login_required
 def salary_report():
-    employees_res = database.get_all_employees(company_id=get_current_company_id(), branch_id=get_current_branch_id(), limit=1000)
-    employees = [e['employee_name'] for e in employees_res['data']]
+    employees = database.get_employee_names_cached(company_id=get_current_company_id(), branch_id=get_current_branch_id())
     return render_template('salary_report.html', active_tab='SALARY REPORT', employees=employees)
 
 # ----------------- COMPANY MANAGEMENT API (SUPER ADMIN ONLY) ----------------- #
@@ -3010,18 +3057,44 @@ def api_dashboard_stats():
     stats = database.get_dashboard_stats(company_id=get_current_company_id(), branch_id=get_current_branch_id())
     return jsonify(stats)
 
+@app.route('/api/employees/names', methods=['GET'])
+@login_required
+def api_get_employee_names():
+    comp_id = get_current_company_id()
+    branch_id = request.args.get('branch_id') or get_current_branch_id()
+    names = database.get_employee_names_cached(company_id=comp_id, branch_id=branch_id)
+    return jsonify({
+        'success': True,
+        'employees': names,
+        'names': names,
+        'data': [{'employee_name': n} for n in names],
+        'total': len(names)
+    })
+
 @app.route('/api/employees', methods=['GET'])
 @login_required
 def api_get_employees():
+    comp_id = get_current_company_id()
+    branch_id = request.args.get('branch_id') or get_current_branch_id()
+    fields = request.args.get('fields', '').strip().lower()
+    if fields == 'names':
+        names = database.get_employee_names_cached(company_id=comp_id, branch_id=branch_id)
+        return jsonify({
+            'data': [{'employee_name': n} for n in names],
+            'names': names,
+            'total': len(names),
+            'page': 1,
+            'limit': len(names)
+        })
+
     search = request.args.get('search', '').strip()
     sort_col = request.args.get('sort_col', 'id')
     sort_dir = request.args.get('sort_dir', 'desc')
     page = int(request.args.get('page', 1))
     limit = int(request.args.get('limit', 10))
     status = request.args.get('status', '').strip()
-    
-    comp_id = get_current_company_id()
-    branch_id = request.args.get('branch_id') or get_current_branch_id()
+    include_photo_data = request.args.get('lite', '').strip().lower() not in ('1', 'true')
+
     result = database.get_all_employees(
         company_id=comp_id,
         search=search,
@@ -3030,12 +3103,11 @@ def api_get_employees():
         page=page,
         limit=limit,
         status=status,
-        branch_id=branch_id
+        branch_id=branch_id,
+        include_photo_data=include_photo_data
     )
     if isinstance(result, dict):
-        comp = None
-        if comp_id:
-            comp = database.get_company_by_id(comp_id)
+        comp = database.get_company_by_id(comp_id) if comp_id else None
         result['company_calculate_proper_entries'] = (comp.get('calculate_proper_entries') is not False) if comp else True
     return jsonify(result)
 
@@ -3391,7 +3463,7 @@ def api_employees_export_excel():
     status = request.args.get('status', '').strip()
     comp_id = get_current_company_id()
     branch_id = request.args.get('branch_id') or get_current_branch_id()
-    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status, branch_id=branch_id)
+    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status, branch_id=branch_id, include_photo_data=False)
     
     headers = ['SL NO', 'EMPLOYEE ID', 'EMPLOYEE NAME', 'STATUS', 'SALARY BASIS', 'HOURLY SALARY', 'DAY SALARY', 'HALF DAY SALARY', 'MOBILE NUMBER', 'SHIFT HOURS', 'BANK NAME', 'ACCOUNT NUMBER', 'DATE OF JOINING']
     rows = []
@@ -3424,7 +3496,7 @@ def api_employees_export_pdf():
     status = request.args.get('status', '').strip()
     comp_id = get_current_company_id()
     branch_id = request.args.get('branch_id') or get_current_branch_id()
-    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status, branch_id=branch_id)
+    result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status, branch_id=branch_id, include_photo_data=False)
     company_info = get_current_company_info()
     pdf_buffer = pdf_generator.generate_employees_pdf(result['data'], company_info=company_info)
     filename = "employee_directory.pdf"
@@ -3874,32 +3946,47 @@ def api_face_recognize():
                 'confidence': 0.0,
                 'message': 'Face recognition engine is initializing or unavailable. Please try again in a few moments.'
             }), 200
-        
-        # Presentation Attack Detection (Anti-Spoofing: detect phone screens, 2D photos, tablets, static attacks)
-        try:
-            if hasattr(engine, 'verify_liveness_from_bytes'):
-                is_live, liveness_conf, spoof_reason = engine.verify_liveness_from_bytes(file_bytes, burst_bytes=burst_file_bytes)
-            elif hasattr(engine, 'verify_liveness_anti_spoofing'):
-                is_live, liveness_conf, spoof_reason = engine.verify_liveness_anti_spoofing(file_bytes, burst_img=burst_file_bytes)
-            else:
-                is_live, liveness_conf, spoof_reason = True, 1.0, "OK"
 
-            # Strictly trigger anti-spoofing alert ONLY for confirmed presentation attacks (screens, glass glare, moire, static 2D prints)
-            if is_live is False and spoof_reason and "No face detected" not in spoof_reason:
-                return jsonify({
-                    'matched': False,
-                    'confidence': 0.0,
-                    'spoof_detected': True,
-                    'message': f"Anti-Spoofing Alert: {spoof_reason}. Please face the camera live."
-                }), 200
-        except Exception as pad_err:
-            print(f"Warning: PAD verification notice: {pad_err}")
-        
-        try:
-            query_embedding = engine.extract_face_embedding_from_image(file_bytes)
-        except Exception as fe_err:
-            traceback.print_exc()
-            query_embedding = None
+        # Single-pass biometric verification: decodes & runs YuNet detection once for PAD + SFace
+        query_embedding = None
+        if hasattr(engine, 'analyze_face_and_liveness'):
+            try:
+                analysis = engine.analyze_face_and_liveness(file_bytes, burst_bytes=burst_file_bytes)
+                if analysis.get('is_live') is False and analysis.get('reason') and 'No face detected' not in str(analysis.get('reason')):
+                    return jsonify({
+                        'matched': False,
+                        'confidence': 0.0,
+                        'spoof_detected': True,
+                        'message': f"Anti-Spoofing Alert: {analysis['reason']}. Please face the camera live."
+                    }), 200
+                query_embedding = analysis.get('embedding')
+            except Exception as pad_err:
+                print(f"Warning: single-pass face/PAD notice: {pad_err}")
+                query_embedding = None
+        else:
+            try:
+                if hasattr(engine, 'verify_liveness_from_bytes'):
+                    is_live, _, spoof_reason = engine.verify_liveness_from_bytes(file_bytes, burst_bytes=burst_file_bytes)
+                elif hasattr(engine, 'verify_liveness_anti_spoofing'):
+                    is_live, _, spoof_reason = engine.verify_liveness_anti_spoofing(file_bytes, burst_img=burst_file_bytes)
+                else:
+                    is_live, spoof_reason = True, "OK"
+
+                if is_live is False and spoof_reason and "No face detected" not in spoof_reason:
+                    return jsonify({
+                        'matched': False,
+                        'confidence': 0.0,
+                        'spoof_detected': True,
+                        'message': f"Anti-Spoofing Alert: {spoof_reason}. Please face the camera live."
+                    }), 200
+            except Exception as pad_err:
+                print(f"Warning: PAD verification notice: {pad_err}")
+
+            try:
+                query_embedding = engine.extract_face_embedding_from_image(file_bytes)
+            except Exception:
+                traceback.print_exc()
+                query_embedding = None
 
         if not query_embedding:
             return jsonify({
@@ -3908,8 +3995,18 @@ def api_face_recognize():
                 'message': 'No face detected in camera frame. Please face the camera directly in good lighting.'
             }), 200
 
-        # If marked from employee portal, scope search to employee's company
-        portal_company_id = session.get('company_id') if session.get('employee_logged_in') else None
+        # Scope recognition to explicit company_id (kiosk/field-worker/admin) or logged-in employee/company_admin session
+        portal_company_id = (
+            request.form.get('company_id')
+            or data_dict.get('company_id')
+            or request.args.get('company_id')
+            or ''
+        ).strip()
+        if portal_company_id in ('ALL', 'None', 'null', ''):
+            portal_company_id = None
+        if not portal_company_id and (session.get('employee_logged_in') or session.get('role') == 'company_admin'):
+            portal_company_id = session.get('company_id')
+
         try:
             result = engine.recognize_face(query_embedding, company_id=portal_company_id)
         except Exception as rf_err:
@@ -3919,24 +4016,27 @@ def api_face_recognize():
                 'confidence': 0.0,
                 'message': 'Face recognition matching error. Please try again.'
             }
-        
+
         if result.get('matched'):
             emp_id = result['employee_id']
             emp_name = result['employee_name']
-            
-            user_lat = request.form.get('latitude')
-            user_lng = request.form.get('longitude')
+
+            user_lat = request.form.get('latitude') or data_dict.get('latitude')
+            user_lng = request.form.get('longitude') or data_dict.get('longitude')
             if str(user_lat).strip().lower() in ['undefined', 'null', '', 'none']:
                 user_lat = None
             if str(user_lng).strip().lower() in ['undefined', 'null', '', 'none']:
                 user_lng = None
-            client_time = request.form.get('client_time')
-            live_address = request.form.get('live_address') or request.form.get('location')
-            
-            # Enrich with employee details for dynamic punch card
-            db = database.get_db()
-            emp_doc = db.employees.find_one(database.build_id_filter(emp_id)) or db.employees.find_one({'employee_name': emp_name})
-            
+            client_time = request.form.get('client_time') or data_dict.get('client_time')
+            live_address = request.form.get('live_address') or request.form.get('location') or data_dict.get('live_address') or data_dict.get('location')
+
+            # Fetch lightweight employee metadata without photo/embedding blobs
+            emp_doc = database.get_employee_summary_by_id(emp_id)
+            if not emp_doc:
+                db = database.get_db()
+                raw_emp = db.employees.find_one({'employee_name': emp_name}, {'photo_data': 0, 'face_embedding': 0, 'documents': 0})
+                emp_doc = database.clean_doc(raw_emp) if raw_emp else None
+
             # Check company deactivation
             emp_comp_id = (emp_doc.get('company_id') if emp_doc else None) or portal_company_id
             if emp_comp_id and str(emp_comp_id).strip() not in ['ALL', 'ARGUS_MASTER']:
@@ -3961,12 +4061,12 @@ def api_face_recognize():
                 }), 403
 
             if emp_doc:
-                # Dynamic company name lookup
+                # Dynamic company name lookup using cached company metadata
                 c_name = emp_doc.get('company_name')
                 c_id = emp_doc.get('company_id')
                 if not c_name or c_name == 'ARGUS CNC™':
                     if c_id and c_id != 'ARGUS_MASTER':
-                        c_doc = db.company_admin.find_one({'id': str(c_id)})
+                        c_doc = database.get_company_by_id(str(c_id), include_counts=False)
                         if c_doc and c_doc.get('company_name'):
                             c_name = c_doc['company_name']
                 result['employee_code'] = emp_doc.get('employee_id') or emp_doc.get('id') or emp_id
@@ -5491,24 +5591,25 @@ def field_worker_module_page():
 
     emp_scope = logged_in_emp_name if user_role == 'employee' else None
 
-    # Only load field workers for the active company; exclude standard employees
-    if user_role in ['super_admin', 'company_admin']:
-        field_workers = database.get_field_workers(company_id=active_cid, include_all_employees=False)
-    else:
-        field_workers = database.get_field_workers(company_id=active_cid, include_all_employees=False)
-        if emp_scope:
-            field_workers = [w for w in field_workers if w.get('employee_name') == emp_scope]
+    field_workers = database.get_field_workers(company_id=active_cid, include_all_employees=False)
+    if user_role not in ['super_admin', 'company_admin'] and emp_scope:
+        field_workers = [w for w in field_workers if w.get('employee_name') == emp_scope]
     all_employees = field_workers
 
-    branches = database.get_company_branches(active_cid)
+    branches = database.get_company_branches(active_cid, include_headcount=False)
     assignments = database.get_field_assignments(company_id=active_cid, employee_name=emp_scope, date_str=today_str)
     tracking = database.get_field_live_tracking(company_id=active_cid, date_str=today_str, employee_name=emp_scope)
     visits = database.get_field_customer_visits(company_id=active_cid, employee_name=emp_scope)
     # Defer Tab 6 payroll calculation on initial page load: user lands on Tab 1
     salary_reports = []
 
-    # Field Worker Dashboard & Leave stats
-    dashboard_stats = database.get_field_worker_dashboard_stats(company_id=active_cid, date_str=today_str)
+    # Field Worker Dashboard & Leave stats (reuse loaded workers & tracking logs to avoid duplicate DB scans)
+    dashboard_stats = database.get_field_worker_dashboard_stats(
+        company_id=active_cid,
+        date_str=today_str,
+        preloaded_workers=field_workers if user_role in ['super_admin', 'company_admin'] else None,
+        preloaded_tracking=tracking if user_role in ['super_admin', 'company_admin'] else None
+    )
     fw_pending_leaves = database.get_pending_field_worker_leave_requests_count(active_cid)
     fw_emp_id = session.get('employee_id') if user_role == 'employee' else None
 
@@ -5570,21 +5671,24 @@ def api_field_worker_overview():
 
     comp = database.get_company_by_id(cid) or {'id': cid, 'company_name': 'ARGUS CNC™', 'latitude': 11.0298, 'longitude': 76.9740}
     
-    if user_role in ['super_admin', 'company_admin']:
-        workers = database.get_field_workers(company_id=cid, include_all_employees=False)
-    else:
-        workers = database.get_field_workers(company_id=cid, include_all_employees=False)
-        if emp_filter:
-            workers = [w for w in workers if w.get('employee_name') == emp_filter]
+    workers = database.get_field_workers(company_id=cid, include_all_employees=False)
+    if user_role not in ['super_admin', 'company_admin'] and emp_filter:
+        workers = [w for w in workers if w.get('employee_name') == emp_filter]
     all_emps = workers
 
-    branches = database.get_company_branches(cid)
+    branches = database.get_company_branches(cid, include_headcount=False)
     assignments = database.get_field_assignments(company_id=cid, employee_name=emp_filter, date_str=date_str)
     tracking = database.get_field_live_tracking(company_id=cid, date_str=date_str, employee_name=emp_filter)
     visits = database.get_field_customer_visits(company_id=cid, employee_name=emp_filter)
     salary_reports = database.get_field_worker_salary_report(company_id=cid, month_year=month_year, employee_name=emp_filter) if include_salary else []
 
-    dashboard_stats = database.get_field_worker_dashboard_stats(company_id=cid, date_str=date_str)
+    can_reuse_preloaded = not emp_filter
+    dashboard_stats = database.get_field_worker_dashboard_stats(
+        company_id=cid,
+        date_str=date_str,
+        preloaded_workers=workers if can_reuse_preloaded else None,
+        preloaded_tracking=tracking if can_reuse_preloaded else None
+    )
     fw_emp_id = session.get('employee_id') if user_role == 'employee' else None
     include_leaves = request.args.get('include_leaves') in ['1', 'true', 'True'] or request.args.get('tab') == 'paneFieldLeaves'
     if include_leaves:
@@ -6402,7 +6506,8 @@ def api_teacher_ai_explain():
                     "contents": [{"parts": [{"text": prompt}]}],
                     "generationConfig": {"temperature": 0.2, "maxOutputTokens": 200}
                 }
-                resp = requests.post(url, headers=headers, json=payload, timeout=4)
+                req_headers = {'Content-Type': 'application/json'}
+                resp = requests.post(url, headers=req_headers, json=payload, timeout=4)
                 if resp.status_code == 200:
                     res_json = resp.json()
                     candidates = res_json.get('candidates', [])
@@ -7370,11 +7475,11 @@ def api_coworker_ai_chat():
                 emp_name = emp_doc.get('employee_name')
                 adv_f = {'employee_name': emp_name}
                 if cid and cid != 'ARGUS_MASTER': adv_f['company_id'] = cid
-                total_adv = sum(float(a.get('amount') or 0.0) for a in db.advances.find(adv_f))
+                total_adv = sum(float(a.get('amount') or 0.0) for a in db.advances.find(adv_f, {'amount': 1}))
 
                 pay_f = {'employee_name': emp_name}
                 if cid and cid != 'ARGUS_MASTER': pay_f['company_id'] = cid
-                payments = list(db.payments.find(pay_f))
+                payments = list(db.payments.find(pay_f, {'amount': 1, 'status': 1}))
                 total_repaid = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
                 total_other = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' not in str(p.get('status') or '').lower())
                 net_bal = max(0.0, total_adv - total_repaid)
@@ -7393,8 +7498,8 @@ def api_coworker_ai_chat():
                 })
             else:
                 adv_f = {'company_id': cid} if cid != 'ARGUS_MASTER' else {}
-                tot_c_adv = sum(float(a.get('amount') or 0.0) for a in db.advances.find(adv_f))
-                tot_c_rep = sum(float(p.get('amount') or 0.0) for p in db.payments.find(adv_f) if 'repayment' in str(p.get('status') or '').lower())
+                tot_c_adv = sum(float(a.get('amount') or 0.0) for a in db.advances.find(adv_f, {'amount': 1}))
+                tot_c_rep = sum(float(p.get('amount') or 0.0) for p in db.payments.find(adv_f, {'amount': 1, 'status': 1}) if 'repayment' in str(p.get('status') or '').lower())
                 net_c_bal = max(0.0, tot_c_adv - tot_c_rep)
                 return jsonify({
                     'success': True,
@@ -7909,12 +8014,6 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
     except Exception:
         cid_val = str(cid or 'ARGUS_MASTER')
 
-    emp_filter = {'status': {'$ne': 'Terminated'}}
-    if cid_val and cid_val != 'ARGUS_MASTER':
-        emp_filter['$or'] = [{'company_id': cid_val}, {'company_id': {'$in': [None, '', 'ARGUS_MASTER']}}]
-    employees = list(db.employees.find(emp_filter))
-    total_staff = len(employees)
-
     att_summary = database.get_today_attendance_summary(company_id=cid_val)
     total_staff = att_summary['total_staff']
     present_count = att_summary['present_count']
@@ -7922,8 +8021,8 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
     present_pct = att_summary['present_percentage']
 
     adv_f = {'company_id': cid_val} if cid_val != 'ARGUS_MASTER' else {}
-    advances = list(db.advances.find(adv_f))
-    payments = list(db.payments.find(adv_f))
+    advances = list(db.advances.find(adv_f, {'amount': 1, 'employee_name': 1}))
+    payments = list(db.payments.find(adv_f, {'amount': 1, 'status': 1, 'employee_name': 1}))
     tot_adv = sum(float(a.get('amount') or 0.0) for a in advances)
     tot_rep = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
     net_adv_liability = max(0.0, tot_adv - tot_rep)
@@ -7933,13 +8032,13 @@ def compute_advisor_flaws(cid=None, user_lang='en'):
         '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]
     })
 
-    late_records = list(db.attendance.find({**adv_f, 'date': today_str, 'status': 'Late'}))
+    late_records = list(db.attendance.find({**adv_f, 'date': today_str, 'status': 'Late'}, {'employee_name': 1}))
     late_count = len(late_records)
 
-    manual_entries = list(db.manual_entries.find({
-        **adv_f,
-        '$or': [{'entry_date': today_str}, {'date': today_str}]
-    }))
+    manual_entries = list(db.manual_entries.find(
+        {**adv_f, '$or': [{'entry_date': today_str}, {'date': today_str}]},
+        {'_id': 1}
+    ))
     manual_count = len(manual_entries)
 
     punc_score = 95.0
@@ -8134,20 +8233,14 @@ def api_advisor_ai_briefing():
                 'date': today_str
             })
 
-        emp_filter = {'status': {'$ne': 'Terminated'}}
-        if cid and cid != 'ARGUS_MASTER':
-            emp_filter['$or'] = [{'company_id': cid}, {'company_id': {'$in': [None, '', 'ARGUS_MASTER']}}]
-        employees = list(db.employees.find(emp_filter))
-        total_staff = len(employees)
-
         att_summary = database.get_today_attendance_summary(company_id=cid)
         total_staff = att_summary['total_staff']
         present_count = att_summary['present_count']
         absent_count = att_summary['absent_count']
 
         adv_f = {'company_id': cid} if cid != 'ARGUS_MASTER' else {}
-        advances = list(db.advances.find(adv_f))
-        payments = list(db.payments.find(adv_f))
+        advances = list(db.advances.find(adv_f, {'amount': 1}))
+        payments = list(db.payments.find(adv_f, {'amount': 1, 'status': 1}))
         total_advances = sum(float(a.get('amount') or 0.0) for a in advances)
         total_repaid = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
         net_advance_liability = max(0.0, total_advances - total_repaid)
@@ -8216,7 +8309,7 @@ def api_advisor_ai_consult():
         # -------------------------------------------------------------
         if user_query:
             matched_company = None
-            for c in db.company_admin.find():
+            for c in db.company_admin.find({}, {'company_name': 1, 'id': 1, 'employee_limit': 1}):
                 cname = str(c.get('company_name') or '').strip()
                 cid_str = str(c.get('id') or '').strip()
                 if cname and (cname.lower() in query_lower or (cid_str and cid_str.lower() in query_lower)):
@@ -8233,8 +8326,8 @@ def api_advisor_ai_consult():
                 mc_abs = mc_att.get('absent_count', 0)
                 mc_pct = mc_att.get('present_percentage', 0.0)
 
-                mc_adv = sum(float(a.get('amount') or 0.0) for a in db.advances.find({'company_id': mc_id}))
-                mc_rep = sum(float(p.get('amount') or 0.0) for p in db.payments.find({'company_id': mc_id}) if 'repayment' in str(p.get('status') or '').lower())
+                mc_adv = sum(float(a.get('amount') or 0.0) for a in db.advances.find({'company_id': mc_id}, {'amount': 1}))
+                mc_rep = sum(float(p.get('amount') or 0.0) for p in db.payments.find({'company_id': mc_id}, {'amount': 1, 'status': 1}) if 'repayment' in str(p.get('status') or '').lower())
                 mc_net_adv = max(0.0, mc_adv - mc_rep)
 
                 mc_timeouts = db.timeout_entries.count_documents({
@@ -8295,9 +8388,9 @@ def api_advisor_ai_consult():
         # -------------------------------------------------------------
         if is_advance_audit:
             if is_super:
-                companies = list(db.company_admin.find())
-                all_adv = list(db.advances.find())
-                all_pay = list(db.payments.find())
+                companies = list(db.company_admin.find({}, {'company_name': 1, 'id': 1}))
+                all_adv = list(db.advances.find({}, {'amount': 1, 'company_id': 1}))
+                all_pay = list(db.payments.find({}, {'amount': 1, 'status': 1, 'company_id': 1}))
                 fleet_adv = sum(float(a.get('amount') or 0.0) for a in all_adv)
                 fleet_rep = sum(float(p.get('amount') or 0.0) for p in all_pay if 'repayment' in str(p.get('status') or '').lower())
                 fleet_net_adv = max(0.0, fleet_adv - fleet_rep)
@@ -8330,8 +8423,8 @@ def api_advisor_ai_consult():
                 )
             else:
                 adv_f = {'company_id': cid} if cid != 'ARGUS_MASTER' else {}
-                advances = list(db.advances.find(adv_f))
-                payments = list(db.payments.find(adv_f))
+                advances = list(db.advances.find(adv_f, {'amount': 1, 'employee_name': 1}))
+                payments = list(db.payments.find(adv_f, {'amount': 1, 'status': 1, 'employee_name': 1}))
                 tot_adv = sum(float(a.get('amount') or 0.0) for a in advances)
                 tot_rep = sum(float(p.get('amount') or 0.0) for p in payments if 'repayment' in str(p.get('status') or '').lower())
                 net_adv_liability = max(0.0, tot_adv - tot_rep)
@@ -9406,7 +9499,7 @@ def branch_kiosk_page():
         'longitude': 76.97400,
         'address': 'SF NO. 515, Bharathiyar Road, Ganapathy, Coimbatore'
     }
-    branches = database.get_company_branches(active_cid)
+    branches = database.get_company_branches(active_cid, include_headcount=False)
     return render_template(
         'attendance.html',
         is_branch_kiosk=True,
@@ -9425,7 +9518,7 @@ def api_get_branches():
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
 
     active_cid = _resolve_field_company_id(request.args.get('company_id'))
-    branches = database.get_company_branches(active_cid)
+    branches = database.get_company_branches(active_cid, include_headcount=False)
     return jsonify({'success': True, 'company_id': active_cid, 'branches': branches})
 
 

@@ -45,7 +45,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="{{ url_for('static', filename='vendor/mediapipe/face_mesh.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/mediapipe/face_mesh.js') }}?v=20261111_v1" defer></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/live_captions.css') }}?v=20261105_v1">
   <script src="{{ url_for('static', filename='js/live_captions.js') }}?v=20261105_v1"></script>
   <style>
@@ -2579,7 +2579,7 @@
       try {
         faceMesh = new FaceMesh({
           locateFile: (file) => {
-            return '/static/vendor/mediapipe/' + file;
+            return '/static/vendor/mediapipe/' + file + '?v=20261111_v1';
           }
         });
 
@@ -2598,6 +2598,7 @@
       }
     }
 
+    let lastDetectionTs = 0;
     async function runDetectionLoop() {
       if (!isCameraRunning) {
         isDetectionRunning = false;
@@ -2612,8 +2613,9 @@
         updateBlinkHUD(0, `Punch recorded ✔ Ready in ${remainSec}s`, true);
       }
 
-      // Primary Engine: MediaPipe FaceMesh
-      if (faceMeshReady && video && video.readyState >= 2 && !isProcessingPunch && !isProcessingFrame) {
+      // Throttle MediaPipe FaceMesh inference to ~10 FPS to keep UI smooth and CPU light
+      if (now - lastDetectionTs >= 100 && faceMeshReady && video && video.readyState >= 2 && !isProcessingPunch && !isProcessingFrame) {
+        lastDetectionTs = now;
         isProcessingFrame = true;
         try {
           await faceMesh.send({ image: video });
@@ -2890,7 +2892,10 @@
       }
 
       try {
-        const coords = await getUserLocation();
+        const coords = await Promise.race([
+          getUserLocation(),
+          new Promise(r => setTimeout(() => r(prewarmedCoords || null), 800))
+        ]);
 
         // Dual-Frame Burst Capture (Frame 1 at t=0, Frame 2 at t=200ms)
         canvas.width = video.videoWidth || 640;

@@ -6,6 +6,7 @@ import re
 import calendar
 import secrets
 import sys
+import threading
 from datetime import datetime, date, time as dt_time, timedelta, timezone
 import requests
 from dotenv import load_dotenv
@@ -188,139 +189,164 @@ def migrate_existing_data_to_master():
     except Exception as e:
         print(f"Warning during tenant data migration: {e}")
 
+def _ensure_indexes_safe(db):
+    """Creates MongoDB indexes individually so a duplicate key on one collection never aborts others."""
+    index_specs = [
+        (db.company_admin, [("id", ASCENDING)], {'unique': True}),
+        (db.company_admin, [("email", ASCENDING)], {'unique': True}),
+        (db.company_admin, [("company_name", ASCENDING)], {}),
+        (db.employees, [("id", ASCENDING)], {'unique': True}),
+        (db.employees, [("company_id", ASCENDING), ("employee_name", ASCENDING)], {}),
+        (db.employees, [("email_id", ASCENDING)], {}),
+        (db.attendance_reports, [("company_id", ASCENDING), ("date", DESCENDING)], {}),
+        (db.attendance_reports, [("company_id", ASCENDING), ("entry_type", ASCENDING), ("employee_name", ASCENDING)], {}),
+        (db.live_entries, [("company_id", ASCENDING), ("entry_time", DESCENDING)], {}),
+        (db.timeout_entries, [("company_id", ASCENDING), ("exit_time", DESCENDING), ("created_at", DESCENDING)], {}),
+        (db.timeout_entries, [("company_id", ASCENDING), ("employee_name", ASCENDING)], {}),
+        (db.attendance, [("company_id", ASCENDING), ("date", DESCENDING)], {}),
+        (db.manual_entries, [("company_id", ASCENDING), ("entry_date", DESCENDING)], {}),
+        (db.payments, [("company_id", ASCENDING), ("payment_date", DESCENDING), ("reason", ASCENDING)], {}),
+        (db.advances, [("company_id", ASCENDING), ("advance_date", DESCENDING)], {}),
+        (db.salary_reports, [("company_id", ASCENDING), ("pay_period", DESCENDING), ("employee_name", ASCENDING)], {}),
+        (db.leave_requests, [("company_id", ASCENDING), ("status", ASCENDING), ("created_at", DESCENDING)], {}),
+        (db.company_branches, [("company_id", ASCENDING), ("status", ASCENDING)], {}),
+        (db.company_branches, [("id", ASCENDING)], {'unique': True}),
+        (db.company_branches, [("branch_name", ASCENDING)], {}),
+        (db.support_tickets, [("company_id", ASCENDING), ("status", ASCENDING)], {}),
+        (db.support_tickets, [("status", ASCENDING)], {}),
+        (db.employees, [("company_id", ASCENDING), ("branch_id", ASCENDING)], {}),
+        (db.employees, [("branch_id", ASCENDING)], {}),
+        (db.employees, [("status", ASCENDING)], {}),
+        (db.attendance_reports, [("company_id", ASCENDING), ("branch_id", ASCENDING), ("date", DESCENDING)], {}),
+        (db.field_assignments, [("company_id", ASCENDING), ("assigned_date", DESCENDING), ("employee_name", ASCENDING)], {}),
+        (db.field_location_logs, [("company_id", ASCENDING), ("date", DESCENDING), ("employee_name", ASCENDING), ("created_at", DESCENDING)], {}),
+        (db.field_customer_visits, [("company_id", ASCENDING), ("visit_date", DESCENDING), ("employee_name", ASCENDING)], {}),
+        (db.user_sessions, [("token", ASCENDING)], {'unique': True}),
+        (db.leave_balances, [("employee_id", ASCENDING), ("year", ASCENDING)], {}),
+        (db.system_settings, [("key", ASCENDING)], {}),
+        (db.attendance_reports, [("exit_time", ASCENDING), ("company_id", ASCENDING)], {}),
+        (db.live_entries, [("company_id", ASCENDING), ("created_at", DESCENDING)], {}),
+        (db.timeout_entries, [("company_id", ASCENDING), ("created_at", DESCENDING)], {}),
+    ]
+    for coll, keys, kwargs in index_specs:
+        try:
+            coll.create_index(keys, **kwargs)
+        except Exception as e:
+            print(f"Warning creating index on {coll.name}: {e}")
+
+
 def init_db():
     db = get_db()
-    
-    # Create indexes for high-speed queries
-    try:
-        # Multi-Tenant Company Admin Index
-        db.company_admin.create_index([("id", ASCENDING)], unique=True)
-        db.company_admin.create_index([("email", ASCENDING)], unique=True)
-        db.company_admin.create_index([("company_name", ASCENDING)])
-        
-        # Operational Indexes with company_id
-        db.employees.create_index([("id", ASCENDING)], unique=True)
-        db.employees.create_index([("company_id", ASCENDING), ("employee_name", ASCENDING)])
-        db.employees.create_index([("email_id", ASCENDING)])
-        db.attendance_reports.create_index([("company_id", ASCENDING), ("date", DESCENDING)])
-        db.attendance_reports.create_index([("company_id", ASCENDING), ("entry_type", ASCENDING), ("employee_name", ASCENDING)])
-        db.live_entries.create_index([("company_id", ASCENDING), ("entry_time", DESCENDING)])
-        db.timeout_entries.create_index([("company_id", ASCENDING), ("exit_time", DESCENDING), ("created_at", DESCENDING)])
-        db.timeout_entries.create_index([("company_id", ASCENDING), ("employee_name", ASCENDING)])
-        db.attendance.create_index([("company_id", ASCENDING), ("date", DESCENDING)])
-        db.manual_entries.create_index([("company_id", ASCENDING), ("entry_date", DESCENDING)])
-        db.payments.create_index([("company_id", ASCENDING), ("payment_date", DESCENDING), ("reason", ASCENDING)])
-        db.advances.create_index([("company_id", ASCENDING), ("advance_date", DESCENDING)])
-        db.salary_reports.create_index([("company_id", ASCENDING), ("pay_period", DESCENDING), ("employee_name", ASCENDING)])
-        db.leave_requests.create_index([("company_id", ASCENDING), ("status", ASCENDING), ("created_at", DESCENDING)])
-        # Multi-Branch & Support Tickets Performance Indexes
-        db.company_branches.create_index([("company_id", ASCENDING), ("status", ASCENDING)])
-        db.company_branches.create_index([("id", ASCENDING)], unique=True)
-        db.company_branches.create_index([("branch_name", ASCENDING)])
-        db.support_tickets.create_index([("company_id", ASCENDING), ("status", ASCENDING)])
-        db.support_tickets.create_index([("status", ASCENDING)])
-        db.employees.create_index([("company_id", ASCENDING), ("branch_id", ASCENDING)])
-        db.employees.create_index([("branch_id", ASCENDING)])
-        db.employees.create_index([("status", ASCENDING)])
-        db.attendance_reports.create_index([("company_id", ASCENDING), ("branch_id", ASCENDING), ("date", DESCENDING)])
-        # Field Worker Module Indexes
-        db.field_assignments.create_index([("company_id", ASCENDING), ("assigned_date", DESCENDING), ("employee_name", ASCENDING)])
-        db.field_location_logs.create_index([("company_id", ASCENDING), ("date", DESCENDING), ("employee_name", ASCENDING), ("created_at", DESCENDING)])
-        db.field_customer_visits.create_index([("company_id", ASCENDING), ("visit_date", DESCENDING), ("employee_name", ASCENDING)])
-    except Exception as e:
-        print(f"Warning creating MongoDB indexes: {e}")
 
-    if db.admin_users.count_documents({}) == 0:
-        db.admin_users.insert_one({
-            'username': 'Admin',
-            'email': 'technologiesargus@gmail.com',
-            'password': '76543',
-            'role': 'super_admin',
-            'company_id': 'ARGUS_MASTER',
-            'company_name': 'ARGUS CNC™'
-        })
-    else:
-        db.admin_users.update_many(
-            {},
-            {'$set': {
+    # Fast cold-boot path: only seed synchronously on an empty brand-new database
+    has_admin = None
+    try:
+        has_admin = db.admin_users.find_one({}, {'_id': 1})
+    except Exception:
+        has_admin = None
+
+    if has_admin is None:
+        try:
+            db.admin_users.insert_one({
+                'username': 'Admin',
                 'email': 'technologiesargus@gmail.com',
+                'password': '76543',
                 'role': 'super_admin',
                 'company_id': 'ARGUS_MASTER',
                 'company_name': 'ARGUS CNC™'
-            }}
-        )
-
-    # Backfill default password_raw if not present
-    db.admin_users.update_many(
-        {'password_raw': {'$exists': False}},
-        {'$set': {'password_raw': '76543'}}
-    )
-
-    # Automatically backfill legacy records with company_id: ARGUS_MASTER
-    migrate_existing_data_to_master()
-
-    # Ensure master company profile exists in company_admin
-    existing_argus = db.company_admin.find_one({'email': 'technologiesargus@gmail.com'})
-    if existing_argus:
-        db.company_admin.update_one(
-            {'_id': existing_argus['_id']},
-            {'$set': {
-                'id': 'ARGUS_MASTER',
-                'company_name': 'ARGUS CNC™',
-                'address': existing_argus.get('address') or 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'
-            }}
-        )
-    elif not db.company_admin.find_one({'id': 'ARGUS_MASTER'}):
-        try:
-            db.company_admin.insert_one({
-                'id': 'ARGUS_MASTER',
-                'company_name': 'ARGUS CNC™',
-                'gstin': '33AABCA0000A1Z5',
-                'email': 'technologiesargus@gmail.com',
-                'phone': '+91 98765 43210',
-                'address': 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006',
-                'latitude': 11.02980,
-                'longitude': 76.97400,
-                'status': 'Active',
-                'employee_limit': 1000,
-                'branch_limit': 100,
-                'shift_hours': '08:00',
-                'auto_email_reports': True,
-                'created_at': datetime.now(),
-                'updated_at': datetime.now()
             })
+        except Exception:
+            pass
+
+    def _async_startup_sync():
+        try:
+            _ensure_indexes_safe(db)
+        except Exception as e:
+            print(f"Index initialization notice: {e}")
+
+        try:
+            db.admin_users.update_many(
+                {},
+                {'$set': {
+                    'email': 'technologiesargus@gmail.com',
+                    'role': 'super_admin',
+                    'company_id': 'ARGUS_MASTER',
+                    'company_name': 'ARGUS CNC™'
+                }}
+            )
+            db.admin_users.update_many(
+                {'password_raw': {'$exists': False}},
+                {'$set': {'password_raw': '76543'}}
+            )
+        except Exception as e:
+            print(f"Admin bootstrap notice: {e}")
+
+        try:
+            migrate_existing_data_to_master()
+        except Exception as e:
+            print(f"Master migration notice: {e}")
+
+        try:
+            existing_argus = db.company_admin.find_one({'email': 'technologiesargus@gmail.com'}, {'_id': 1, 'address': 1})
+            if existing_argus:
+                db.company_admin.update_one(
+                    {'_id': existing_argus['_id']},
+                    {'$set': {
+                        'id': 'ARGUS_MASTER',
+                        'company_name': 'ARGUS CNC™',
+                        'address': existing_argus.get('address') or 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'
+                    }}
+                )
+            elif not db.company_admin.find_one({'id': 'ARGUS_MASTER'}, {'_id': 1}):
+                db.company_admin.insert_one({
+                    'id': 'ARGUS_MASTER',
+                    'company_name': 'ARGUS CNC™',
+                    'gstin': '33AABCA0000A1Z5',
+                    'email': 'technologiesargus@gmail.com',
+                    'phone': '+91 98765 43210',
+                    'address': 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006',
+                    'latitude': 11.02980,
+                    'longitude': 76.97400,
+                    'status': 'Active',
+                    'employee_limit': 1000,
+                    'branch_limit': 100,
+                    'shift_hours': '08:00',
+                    'auto_email_reports': True,
+                    'created_at': datetime.now(),
+                    'updated_at': datetime.now()
+                })
         except Exception as e:
             print(f"Master company seeding notice: {e}")
 
-    # Ensure master company has at least one default branch for System Admin view
-    try:
-        if db.company_branches.count_documents({'company_id': 'ARGUS_MASTER'}) == 0:
-            db.company_branches.insert_one({
-                'id': f"branch_{int(time.time() * 1000)}",
-                'company_id': 'ARGUS_MASTER',
-                'branch_name': 'Coimbatore',
-                'branch_code': 'ARG-CBE',
-                'district': 'Coimbatore',
-                'address': 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy, Coimbatore - 641 006',
-                'latitude': 11.02980,
-                'longitude': 76.97400,
-                'geofence_radius': 150.0,
-                'status': 'Active',
-                'created_at': datetime.now(),
-                'updated_at': datetime.now()
-            })
-    except Exception as e:
-        print(f"Master branch seeding notice: {e}")
+        try:
+            if db.company_branches.find_one({'company_id': 'ARGUS_MASTER'}, {'_id': 1}) is None:
+                db.company_branches.insert_one({
+                    'id': f"branch_{int(time.time() * 1000)}",
+                    'company_id': 'ARGUS_MASTER',
+                    'branch_name': 'Coimbatore',
+                    'branch_code': 'ARG-CBE',
+                    'district': 'Coimbatore',
+                    'address': 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy, Coimbatore - 641 006',
+                    'latitude': 11.02980,
+                    'longitude': 76.97400,
+                    'geofence_radius': 150.0,
+                    'status': 'Active',
+                    'created_at': datetime.now(),
+                    'updated_at': datetime.now()
+                })
+        except Exception as e:
+            print(f"Master branch seeding notice: {e}")
 
-    try:
-        sync_geofence_entry_types()
-    except Exception as e:
-        print(f"Geofence sync notice: {e}")
+        try:
+            sync_geofence_entry_types()
+        except Exception as e:
+            print(f"Geofence sync notice: {e}")
+        try:
+            sync_live_and_timeout_entries()
+        except Exception as e:
+            print(f"Live and timeout entries sync notice: {e}")
 
-    try:
-        sync_live_and_timeout_entries()
-    except Exception as e:
-        print(f"Live and timeout entries sync notice: {e}")
+    threading.Thread(target=_async_startup_sync, daemon=True, name="DBStartupSync").start()
 
 # ----------------- UNIVERSAL COORDINATE PARSERS ----------------- #
 
@@ -1425,7 +1451,7 @@ def generate_employee_id():
     import secrets
     return f"{int(time.time() * 1000)}{secrets.randbelow(100):02d}"
 
-def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc', page=1, limit=10, status=None, branch_id=None, exclude_field_workers=True):
+def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc', page=1, limit=10, status=None, branch_id=None, exclude_field_workers=True, include_photo_data=True, include_heavy_fields=False, fields=None):
     db = get_db()
     # Build tenant and branch scoped employee query
     query = get_branch_employee_query(branch_id, company_id, exclude_field_workers=exclude_field_workers)
@@ -1456,35 +1482,80 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc'
             query = {'$and': [query, search_filter]}
         else:
             query = search_filter
-    
-    total = db.employees.count_documents(query)
+
+    names_only = (fields == 'names')
+    projection = None
+    if names_only:
+        projection = {'id': 1, 'employee_name': 1, 'status': 1, 'branch_id': 1, 'company_id': 1}
+    elif not include_heavy_fields:
+        projection = {'face_embedding': 0, 'documents': 0}
+        if not include_photo_data:
+            projection['photo_data'] = 0
+
     sort_direction = ASCENDING if sort_dir.lower() == 'asc' else DESCENDING
-    
+
     # Ensure newest records appear at the top
+    if names_only:
+        cursor = db.employees.find(query, projection).sort('employee_name', ASCENDING)
+        if limit and limit > 0:
+            cursor = cursor.skip((page - 1) * limit).limit(limit)
+        employees = []
+        for doc in cursor:
+            c = clean_doc(doc)
+            c['status'] = 'Inactive' if str(c.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
+            employees.append(c)
+        return {
+            'total': len(employees),
+            'page': page,
+            'limit': limit,
+            'data': employees
+        }
+
+    total = db.employees.count_documents(query)
     if sort_col in ['id', 'created_at', '']:
-        cursor = db.employees.find(query).sort([('created_at', sort_direction), ('id', sort_direction), ('_id', sort_direction)])
+        cursor = db.employees.find(query, projection).sort([('created_at', sort_direction), ('id', sort_direction), ('_id', sort_direction)])
     else:
-        cursor = db.employees.find(query).sort([(sort_col, sort_direction), ('created_at', DESCENDING), ('id', DESCENDING)])
+        cursor = db.employees.find(query, projection).sort([(sort_col, sort_direction), ('created_at', DESCENDING), ('id', DESCENDING)])
     if limit and limit > 0:
         cursor = cursor.skip((page - 1) * limit).limit(limit)
-        
+
     employees = []
     for doc in cursor:
         c = clean_doc(doc)
         c['status'] = 'Inactive' if str(c.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
         employees.append(c)
 
-    # Compute company active quota summary stats
+    # Compute company active quota summary stats via single aggregation
     base_comp_query = get_branch_employee_query(branch_id, company_id, exclude_field_workers=exclude_field_workers)
-    active_cond = {'$and': [base_comp_query, {'status': {'$ne': 'Inactive'}}]} if base_comp_query else {'status': {'$ne': 'Inactive'}}
-    inactive_cond = {'$and': [base_comp_query, {'status': 'Inactive'}]} if base_comp_query else {'status': 'Inactive'}
-    active_count = db.employees.count_documents(active_cond)
-    inactive_count = db.employees.count_documents(inactive_cond)
-    total_preserved = db.employees.count_documents(base_comp_query)
+    active_count = 0
+    inactive_count = 0
+    total_preserved = 0
+    try:
+        agg_pipe = []
+        if base_comp_query:
+            agg_pipe.append({'$match': base_comp_query})
+        agg_pipe.append({
+            '$group': {
+                '_id': None,
+                'total_preserved': {'$sum': 1},
+                'inactive_count': {'$sum': {'$cond': [{'$eq': ['$status', 'Inactive']}, 1, 0]}}
+            }
+        })
+        agg_res = list(db.employees.aggregate(agg_pipe))
+        if agg_res:
+            total_preserved = int(agg_res[0].get('total_preserved', 0))
+            inactive_count = int(agg_res[0].get('inactive_count', 0))
+            active_count = max(0, total_preserved - inactive_count)
+    except Exception:
+        active_cond = {'$and': [base_comp_query, {'status': {'$ne': 'Inactive'}}]} if base_comp_query else {'status': {'$ne': 'Inactive'}}
+        inactive_cond = {'$and': [base_comp_query, {'status': 'Inactive'}]} if base_comp_query else {'status': 'Inactive'}
+        active_count = db.employees.count_documents(active_cond)
+        inactive_count = db.employees.count_documents(inactive_cond)
+        total_preserved = db.employees.count_documents(base_comp_query)
 
     employee_limit = 50
     if company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
-        comp = db.company_admin.find_one(build_id_filter(company_id))
+        comp = get_company_by_id(company_id)
         if comp:
             try:
                 employee_limit = int(comp.get('employee_limit') or comp.get('employee_count') or 50)
@@ -1501,6 +1572,15 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc'
         'total_preserved': total_preserved,
         'employee_limit': employee_limit
     }
+
+def get_employee_summary_by_id(emp_id, company_id=None):
+    """Lightweight employee lookup excluding Base64 photo_data, face_embedding, and documents."""
+    db = get_db()
+    f = build_id_filter(emp_id)
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    doc = db.employees.find_one(f, {'photo_data': 0, 'face_embedding': 0, 'documents': 0})
+    return clean_doc(doc) if doc else None
 
 def get_employee_by_id(emp_id, company_id=None):
     db = get_db()
@@ -1719,6 +1799,7 @@ def create_employee(data, company_id=None):
     db.employees.insert_one(doc)
     invalidate_dashboard_cache(assigned_company_id)
     invalidate_branch_emp_cache(assigned_company_id)
+    invalidate_face_embeddings_cache(assigned_company_id)
     return emp_id
 
 def update_employee(emp_id, data, company_id=None):
@@ -1892,6 +1973,7 @@ def update_employee(emp_id, data, company_id=None):
             db.users.update_many(u_filter, {'$set': u_upd})
     invalidate_dashboard_cache(company_id)
     invalidate_branch_emp_cache(company_id)
+    invalidate_face_embeddings_cache(company_id)
     return True
 
 def delete_employee(emp_id, company_id=None):
@@ -1902,14 +1984,42 @@ def delete_employee(emp_id, company_id=None):
     db.employees.delete_one(f)
     invalidate_dashboard_cache(company_id)
     invalidate_branch_emp_cache(company_id)
+    invalidate_face_embeddings_cache(company_id)
     return True
 
+_face_embeddings_cache = {}
+_face_embeddings_cache_ttl = 60.0  # seconds
+_face_embeddings_cache_lock = threading.Lock()
+_face_embeddings_version = 1
+
+def get_face_embeddings_version():
+    return _face_embeddings_version
+
+def invalidate_face_embeddings_cache(company_id=None):
+    global _face_embeddings_version
+    with _face_embeddings_cache_lock:
+        _face_embeddings_version += 1
+        if company_id:
+            _face_embeddings_cache.pop(str(company_id), None)
+            _face_embeddings_cache.pop('ALL', None)
+            _face_embeddings_cache.pop('ARGUS_MASTER', None)
+        else:
+            _face_embeddings_cache.clear()
+
 def get_all_face_embeddings(company_id=None):
+    key = str(company_id) if (company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']) else 'ALL'
+    now_ts = time.time()
+    with _face_embeddings_cache_lock:
+        cached = _face_embeddings_cache.get(key)
+        if cached and (now_ts - cached[0] < _face_embeddings_cache_ttl):
+            return cached[1]
+
     db = get_db()
     q = {'face_embedding': {'$nin': ['', 'null', None], '$exists': True}}
-    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
-        q['company_id'] = str(company_id)
-    employees = db.employees.find(q)
+    if key != 'ALL':
+        q['company_id'] = key
+    # Explicit projection: NEVER fetch photo_data Base64 blobs or documents during face matching
+    employees = db.employees.find(q, {'_id': 1, 'id': 1, 'employee_name': 1, 'company_id': 1, 'face_embedding': 1})
     results = []
     for emp in employees:
         embedding_data = emp.get('face_embedding', '')
@@ -1925,12 +2035,15 @@ def get_all_face_embeddings(company_id=None):
                     })
             except Exception:
                 pass
+    with _face_embeddings_cache_lock:
+        _face_embeddings_cache[key] = (now_ts, results)
     return results
 
 def save_face_embedding(emp_id, embedding):
     db = get_db()
     embedding_str = json.dumps(embedding) if isinstance(embedding, list) else embedding
     db.employees.update_one(build_id_filter(emp_id), {'$set': {'face_embedding': embedding_str, 'updated_at': datetime.now()}})
+    invalidate_face_embeddings_cache()
     return True
 
 # ----------------- DYNAMIC DASHBOARD STATS ----------------- #
@@ -2120,10 +2233,10 @@ def get_dashboard_stats(company_id=None, branch_id=None):
         l_filter['entry_time'] = {'$regex': today_slash}
         timeout_filter = {**t_filter, '$or': [{'entry_time': {'$regex': today_slash}}, {'exit_time': {'$regex': today_slash}}]}
 
-    att_docs = {a['employee_name']: a for a in db.attendance.find(p_filter)}
-    ar_docs = {a['employee_name']: a for a in db.attendance_reports.find(ar_today_filter)}
-    live_docs = {l['employee_name']: l for l in db.live_entries.find(l_filter)}
-    timeout_today = {t['employee_name']: t for t in db.timeout_entries.find(timeout_filter)}
+    att_docs = {a['employee_name']: a for a in db.attendance.find(p_filter, {'employee_name': 1, 'in_time': 1, 'out_time': 1, 'entry_time': 1, 'exit_time': 1, 'working_hours': 1, 'total_hours': 1}) if a.get('employee_name')}
+    ar_docs = {a['employee_name']: a for a in db.attendance_reports.find(ar_today_filter, {'employee_name': 1, 'entry_time': 1, 'exit_time': 1, 'working_hours': 1}) if a.get('employee_name')}
+    live_docs = {l['employee_name']: l for l in db.live_entries.find(l_filter, {'employee_name': 1, 'entry_time': 1, 'exit_time': 1, 'total_hours': 1, 'is_timeout': 1}) if l.get('employee_name')}
+    timeout_today = {t['employee_name']: t for t in db.timeout_entries.find(timeout_filter, {'employee_name': 1}) if t.get('employee_name')}
     combined_present = set(att_docs.keys()).union(set(ar_docs.keys())).union(set(live_docs.keys())).union(set(timeout_today.keys()))
     all_active_reg_names = set(e.get('employee_name') for e in db.employees.find({**t_filter, 'status': {'$ne': 'Inactive'}}, {'employee_name': 1}) if e.get('employee_name'))
     combined_present = combined_present.intersection(all_active_reg_names)
@@ -2164,7 +2277,7 @@ def get_dashboard_stats(company_id=None, branch_id=None):
         if dt in day_map and a.get('employee_name'):
             day_map[dt]['present'].add(a['employee_name'])
 
-    slash_pattern = "|".join([d.replace('/', '\\/') for d in day_slashes])
+    slash_pattern = "^(?:" + "|".join([d.replace('/', '\\/') for d in day_slashes]) + ")"
     live_7d = list(db.live_entries.find({**record_base, 'entry_time': {'$regex': slash_pattern}}, {'employee_name': 1, 'entry_time': 1, 'is_timeout': 1}))
     for l in live_7d:
         et = l.get('entry_time', '')
@@ -2226,7 +2339,7 @@ def get_dashboard_stats(company_id=None, branch_id=None):
             except Exception:
                 pass
 
-    year_live = list(db.live_entries.find({**record_base, 'entry_time': {'$regex': f"/{curr_year}"}}, {'entry_time': 1, 'is_timeout': 1}))
+    year_live = list(db.live_entries.find({**record_base, 'is_timeout': 1, 'entry_time': {'$regex': f"/{curr_year}"}}, {'entry_time': 1, 'is_timeout': 1}))
     for l in year_live:
         et = l.get('entry_time', '')
         sp = et.split('/')
@@ -2382,6 +2495,18 @@ def get_dashboard_stats(company_id=None, branch_id=None):
 
 # ----------------- LIVE & TIMEOUT ENTRIES ----------------- #
 
+_sync_live_last_ts = {}
+_sync_live_lock = threading.Lock()
+_SYNC_LIVE_COOLDOWN_SEC = 45.0
+
+def invalidate_live_sync_cache(company_id=None):
+    with _sync_live_lock:
+        if company_id:
+            _sync_live_last_ts.pop(str(company_id), None)
+            _sync_live_last_ts.pop('ALL', None)
+        else:
+            _sync_live_last_ts.clear()
+
 def process_company_timeout_entries(company_id=None):
     """
     Checks for employees who punched in and forgot to punch out.
@@ -2395,23 +2520,43 @@ def process_company_timeout_entries(company_id=None):
     if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         rep_query['company_id'] = str(company_id)
         
-    pending_reps = list(db.attendance_reports.find(rep_query))
+    pending_reps = list(db.attendance_reports.find(rep_query, {
+        '_id': 1, 'company_id': 1, 'employee_id': 1, 'employee_name': 1,
+        'entry_time': 1, 'entry_location': 1, 'entry_type': 1, 'created_at': 1
+    }))
     if not pending_reps:
         return 0
         
+    # Batch pre-load company shift hours and employee shift/salary configs (eliminates N+1 queries)
     company_shifts = {}
+    cids_needed = list({str(r.get('company_id', 'ARGUS_MASTER')) for r in pending_reps})
+    for cid_k in cids_needed:
+        comp_cached = get_company_by_id(cid_k, include_counts=False)
+        company_shifts[cid_k] = comp_cached.get('shift_hours', '08:00') if comp_cached else '08:00'
+
+    emp_names_needed = list({r.get('employee_name', '') for r in pending_reps if r.get('employee_name')})
+    emp_map = {}
+    if emp_names_needed:
+        emp_q = {'employee_name': {'$in': emp_names_needed}}
+        if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+            emp_q['company_id'] = str(company_id)
+        for emp_d in db.employees.find(emp_q, {
+            'company_id': 1, 'employee_name': 1, 'shift_hours': 1, 'shift_start': 1, 'shift_end': 1,
+            'salary_type': 1, 'hourly_salary': 1, 'day_salary': 1, 'half_day_salary': 1
+        }):
+            ename_k = emp_d.get('employee_name')
+            cid_k = str(emp_d.get('company_id', 'ARGUS_MASTER'))
+            if ename_k:
+                emp_map[(cid_k, ename_k)] = emp_d
+                emp_map.setdefault(ename_k, emp_d)
+
     auto_count = 0
     
     for rep in pending_reps:
         cid = str(rep.get('company_id', 'ARGUS_MASTER'))
         emp_name = rep.get('employee_name', '')
         
-        # Determine shift duration: prioritize employee shift, fallback to company shift
-        if cid not in company_shifts:
-            comp = db.company_admin.find_one({'id': cid})
-            company_shifts[cid] = comp.get('shift_hours', '08:00') if comp else '08:00'
-            
-        emp = db.employees.find_one({'employee_name': emp_name}) if emp_name else None
+        emp = emp_map.get((cid, emp_name)) or emp_map.get(emp_name)
         emp_shift = emp.get('shift_hours') if emp else None
         shift_str = emp_shift if emp_shift is not None and str(emp_shift).strip() != '' else company_shifts.get(cid, '08:00')
         
@@ -2539,12 +2684,12 @@ def process_company_timeout_entries(company_id=None):
                 'employee_name': emp_name,
                 'exit_time': auto_exit_str
             }
-            if not db.timeout_entries.find_one(timeout_filter):
+            if not db.timeout_entries.find_one(timeout_filter, {'_id': 1}):
                 active_live = db.live_entries.find_one({
                     'company_id': str(cid),
                     'employee_name': emp_name,
                     'entry_time': entry_time_str
-                })
+                }, {'entry_time': 1, 'entry_location': 1, 'entry_distance': 1})
 
                 entry_t = active_live.get('entry_time', entry_time_str) if active_live else entry_time_str
                 entry_l = active_live.get('entry_location', rep.get('entry_location', 'OFFICE')) if active_live else rep.get('entry_location', 'OFFICE')
@@ -2578,14 +2723,20 @@ def process_company_timeout_entries(company_id=None):
             
     return auto_count
 
-def sync_live_and_timeout_entries(company_id=None):
+def sync_live_and_timeout_entries(company_id=None, force=False):
     """
     Ensures db.live_entries contains ALL active punched-in employees currently on duty (exit_time == '----').
-    1. First runs process_company_timeout_entries to auto punch-out sessions that passed shift duration.
-    2. Synchronizes active uncompleted reports (exit_time == '----') into db.live_entries.
-    3. Purges stale entries from db.live_entries whose session has been punched out or timed out.
-    4. Removes any erroneously created timeout_entries that match an actively open session.
+    Uses a short per-company cooldown to avoid repeated full scans on rapid tab switches/prefetches.
     """
+    cache_k = str(company_id) if (company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']) else 'ALL'
+    now_ts = time.time()
+    if not force:
+        with _sync_live_lock:
+            last_ts = _sync_live_last_ts.get(cache_k, 0.0)
+            if now_ts - last_ts < _SYNC_LIVE_COOLDOWN_SEC:
+                return
+            _sync_live_last_ts[cache_k] = now_ts
+
     try:
         db = get_db()
         now = get_ist_now()
@@ -2598,9 +2749,22 @@ def sync_live_and_timeout_entries(company_id=None):
         if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
             rep_query['company_id'] = str(company_id)
             
-        open_reps = list(db.attendance_reports.find(rep_query))
+        open_reps = list(db.attendance_reports.find(rep_query, {
+            'company_id': 1, 'employee_id': 1, 'employee_name': 1, 'entry_time': 1,
+            'entry_distance': 1, 'entry_location': 1, 'entry_lat': 1, 'entry_lng': 1, 'created_at': 1
+        }))
         open_session_keys = set()
         
+        # Preload existing live keys in 1 query to avoid redundant upserts/deletes when nothing changed
+        live_query = {}
+        if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+            live_query['company_id'] = str(company_id)
+        existing_live_docs = list(db.live_entries.find(live_query, {'_id': 1, 'company_id': 1, 'employee_name': 1, 'entry_time': 1}))
+        existing_live_keys = {
+            (str(d.get('company_id', 'ARGUS_MASTER')), d.get('employee_name'), d.get('entry_time'))
+            for d in existing_live_docs
+        }
+
         for rep in open_reps:
             cid = str(rep.get('company_id', 'ARGUS_MASTER'))
             emp_name = rep.get('employee_name')
@@ -2610,7 +2774,9 @@ def sync_live_and_timeout_entries(company_id=None):
                 
             session_key = (cid, emp_name, entry_t)
             open_session_keys.add(session_key)
-            
+            if session_key in existing_live_keys:
+                continue
+
             # Parse distance
             dist_num = 0.0
             try:
@@ -2661,19 +2827,16 @@ def sync_live_and_timeout_entries(company_id=None):
                 'entry_time': entry_t
             })
             
-        # 3. Clean up any entries in live_entries that are no longer open in attendance_reports
-        live_query = {}
-        if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
-            live_query['company_id'] = str(company_id)
-            
-        for live_doc in list(db.live_entries.find(live_query)):
+        # 3. Clean up any entries in live_entries that are no longer open in attendance_reports (batch delete)
+        stale_ids = []
+        for live_doc in existing_live_docs:
             cid = str(live_doc.get('company_id', 'ARGUS_MASTER'))
             emp_name = live_doc.get('employee_name')
             entry_t = live_doc.get('entry_time')
-            
-            # If not in open_session_keys, this session is no longer active!
             if (cid, emp_name, entry_t) not in open_session_keys:
-                db.live_entries.delete_one({'_id': live_doc['_id']})
+                stale_ids.append(live_doc['_id'])
+        if stale_ids:
+            db.live_entries.delete_many({'_id': {'$in': stale_ids}})
                 
     except Exception as e:
         print(f"Warning in sync_live_and_timeout_entries: {e}")
@@ -2688,9 +2851,7 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     if b_id:
-        b_emp_q = get_branch_employee_query(b_id, company_id)
-        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
-        b_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        b_names, _ = get_cached_branch_names_and_ids(b_id, company_id)
         branch_cond = get_branch_record_condition(b_id, b_names)
         if branch_cond:
             query.setdefault('$and', []).append(branch_cond)
@@ -2752,20 +2913,23 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
         cursor = cursor.skip((page - 1) * limit).limit(limit)
         
     data = []
+    addr_cache = {}
     for doc in cursor:
         c = clean_doc(doc)
         cid = c.get('company_id') or company_id
-        full_addr = get_company_full_address(cid)
+        if cid not in addr_cache:
+            addr_cache[cid] = get_company_full_address(cid)
+        full_addr = addr_cache[cid]
         if not c.get('entry_location') or str(c.get('entry_location')).strip() in ['OFFICE', '----', '']:
             if c.get('user_lat') and c.get('user_lng'):
-                c['entry_location'] = reverse_geocode_coordinates(c['user_lat'], c['user_lng']) or full_addr
+                c['entry_location'] = reverse_geocode_coordinates(c['user_lat'], c['user_lng'], allow_network=False) or full_addr
             else:
                 c['entry_location'] = full_addr
             
         if c.get('exit_location') and str(c.get('exit_location')).strip() not in ['----', '-', '']:
             if str(c.get('exit_location')).strip() == 'OFFICE':
                 if c.get('exit_lat') and c.get('exit_lng'):
-                    c['exit_location'] = reverse_geocode_coordinates(c['exit_lat'], c['exit_lng']) or full_addr
+                    c['exit_location'] = reverse_geocode_coordinates(c['exit_lat'], c['exit_lng'], allow_network=False) or full_addr
                 else:
                     c['exit_location'] = full_addr
 
@@ -2898,17 +3062,13 @@ def format_office_distance(meters):
         return "OFFICE DISTANCE 0.0M"
 
 def get_company_full_address(company_id):
-    """Returns the registered full address string for a company, auto-resolving coordinates if needed."""
-    db = get_db()
-    if not company_id or str(company_id).strip() in ['ARGUS_MASTER', 'ALL', '']:
-        comp = db.company_admin.find_one({'id': 'ARGUS_MASTER'})
+    """Returns the registered full address string for a company using cached company metadata (non-blocking)."""
+    comp_key = str(company_id).strip() if company_id and str(company_id).strip() not in ['ALL', ''] else 'ARGUS_MASTER'
+    comp = get_company_by_id(comp_key, include_counts=False)
+    if comp_key == 'ARGUS_MASTER':
         if comp and (comp.get('address') or comp.get('location')):
             return (comp.get('address') or comp.get('location')).strip()
         return OFFICE_LOCATION_STR
-
-    comp = db.company_admin.find_one({'id': str(company_id)})
-    if not comp:
-        comp = db.company_admin.find_one(build_id_filter(company_id))
 
     if comp:
         addr = (comp.get('address') or comp.get('location') or '').strip()
@@ -2916,17 +3076,31 @@ def get_company_full_address(company_id):
         if addr and addr not in [OFFICE_LOCATION_STR, '----', '']:
             return addr
 
-        # Auto-resolve from company registered coordinates if available
+        # Check in-memory geocode cache without blocking request handlers on external HTTP
         lat = comp.get('latitude')
         lng = comp.get('longitude')
         if lat is not None and lng is not None:
-            resolved = reverse_geocode_coordinates(lat, lng)
-            if resolved:
+            resolved = reverse_geocode_coordinates(lat, lng, allow_network=False)
+            if resolved and not resolved.startswith('GPS: '):
                 try:
-                    db.company_admin.update_one({'_id': comp['_id']}, {'$set': {'address': resolved, 'location': resolved}})
+                    db = get_db()
+                    db.company_admin.update_one({'id': comp.get('id')}, {'$set': {'address': resolved, 'location': resolved}})
+                    invalidate_company_cache(comp_key)
                 except Exception:
                     pass
                 return resolved
+
+            # Trigger non-blocking background geocode lookup to populate DB/cache for future requests
+            def _resolve_company_addr_bg(cid, raw_lat, raw_lng):
+                try:
+                    bg_addr = reverse_geocode_coordinates(raw_lat, raw_lng, timeout=2.0, allow_network=True)
+                    if bg_addr and not bg_addr.startswith('GPS: '):
+                        get_db().company_admin.update_one({'id': str(cid)}, {'$set': {'address': bg_addr, 'location': bg_addr}})
+                        invalidate_company_cache(cid)
+                except Exception:
+                    pass
+
+            threading.Thread(target=_resolve_company_addr_bg, args=(comp.get('id') or comp_key, lat, lng), daemon=True).start()
 
         c_name = (comp.get('company_name') or '').strip()
         if c_name:
@@ -2990,13 +3164,64 @@ def delete_live_report_entry(entry_id, entry_type='live', company_id=None):
         
     return deleted
 
-_GEOCODE_CACHE = {}
+_REVERSE_GEOCODE_CACHE = {}
+_GEOCODE_LOCK = threading.Lock()
 
-def reverse_geocode_coordinates(lat, lng, timeout=3.5):
+
+def _get_cached_geocode(lat, lng):
+    """Returns a cached street address for (lat, lng) if already resolved, else None."""
+    if lat is None or lng is None:
+        return None
+    try:
+        flat = float(str(lat).strip())
+        flng = float(str(lng).strip())
+        cache_key = f"{flat:.4f},{flng:.4f}"
+        with _GEOCODE_LOCK:
+            val = _REVERSE_GEOCODE_CACHE.get(cache_key)
+        if val and not str(val).startswith('GPS: '):
+            return val
+    except Exception:
+        pass
+    return None
+
+
+def _async_backfill_punch_geocode(updates, lat, lng):
+    """Resolves reverse geocode in a background daemon thread and updates saved records."""
+    if not updates or lat is None or lng is None:
+        return
+
+    def _worker():
+        try:
+            addr = reverse_geocode_coordinates(lat, lng, timeout=2.0, allow_network=True)
+            if not addr or addr.startswith('GPS: '):
+                return
+            db = get_db()
+            for coll_name, doc_id, field_name in updates:
+                if not doc_id:
+                    continue
+                try:
+                    oid = ObjectId(doc_id) if not isinstance(doc_id, ObjectId) else doc_id
+                    db[coll_name].update_one({'_id': oid}, {'$set': {field_name: addr}})
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    threading.Thread(target=_worker, name='GeocodeBackfill', daemon=True).start()
+
+
+def _cache_reverse_geocode(cache_key, value):
+    with _GEOCODE_LOCK:
+        if len(_REVERSE_GEOCODE_CACHE) >= 2000:
+            _REVERSE_GEOCODE_CACHE.pop(next(iter(_REVERSE_GEOCODE_CACHE)), None)
+        _REVERSE_GEOCODE_CACHE[cache_key] = value
+
+
+def reverse_geocode_coordinates(lat, lng, timeout=2.0, allow_network=True):
     """
     Reverse-geocodes GPS (lat, lng) to the exact real-time physical address where employee punched.
-    Uses in-memory cache, OpenStreetMap Nominatim, and BigDataCloud fallback.
-    Returns the real-time physical address string or None if unresolvable.
+    Uses thread-safe bounded in-memory cache, OpenStreetMap Nominatim, and BigDataCloud fallback.
+    When allow_network=False, returns cached address or formatted GPS coordinates immediately without network I/O.
     """
     if lat is None or lng is None:
         return None
@@ -3007,13 +3232,18 @@ def reverse_geocode_coordinates(lat, lng, timeout=3.5):
             return None
         if not (-90.0 <= flat <= 90.0 and -180.0 <= flng <= 180.0):
             return None
-            
+
         cache_key = f"{flat:.4f},{flng:.4f}"
-        if cache_key in _GEOCODE_CACHE:
-            return _GEOCODE_CACHE[cache_key]
-            
+        with _GEOCODE_LOCK:
+            if cache_key in _REVERSE_GEOCODE_CACHE:
+                return _REVERSE_GEOCODE_CACHE[cache_key]
+
+        coord_loc = f"GPS: {flat:.5f}, {flng:.5f}"
+        if not allow_network:
+            return coord_loc
+
         headers = {'User-Agent': 'ArgusAttendanceApp/2.1 (contact@argusattendance.com)'}
-        
+
         # 1. OpenStreetMap Nominatim (Detailed address)
         import urllib.request
         import json
@@ -3025,7 +3255,7 @@ def reverse_geocode_coordinates(lat, lng, timeout=3.5):
                 display_name = data.get('display_name')
                 if display_name and len(display_name.strip()) > 3:
                     resolved = display_name.strip()
-                    _GEOCODE_CACHE[cache_key] = resolved
+                    _cache_reverse_geocode(cache_key, resolved)
                     return resolved
         except Exception:
             pass
@@ -3043,14 +3273,13 @@ def reverse_geocode_coordinates(lat, lng, timeout=3.5):
                         parts.append(v)
                 if parts:
                     resolved = ", ".join(parts)
-                    _GEOCODE_CACHE[cache_key] = resolved
+                    _cache_reverse_geocode(cache_key, resolved)
                     return resolved
         except Exception:
             pass
 
         # 3. Formatted GPS coordinates fallback
-        coord_loc = f"GPS: {flat:.5f}, {flng:.5f}"
-        _GEOCODE_CACHE[cache_key] = coord_loc
+        _cache_reverse_geocode(cache_key, coord_loc)
         return coord_loc
     except Exception:
         return None
@@ -3075,13 +3304,13 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
     db = get_db()
     if not entry_time:
         entry_time = get_ist_now().strftime('%d/%m/%Y %I:%M:%S %p')
-        
+
     resolved_location = entry_location or live_address
     if not resolved_location and user_lat is not None and user_lng is not None:
-        resolved_location = reverse_geocode_coordinates(user_lat, user_lng)
+        resolved_location = reverse_geocode_coordinates(user_lat, user_lng, allow_network=False)
     if not resolved_location:
         resolved_location = get_company_full_address(company_id)
-        
+
     calculated_meters = float(entry_distance or 0.0)
     if calculated_meters > 0.0:
         pass
@@ -3092,9 +3321,10 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
             calculated_meters = 0.0
     elif calculated_meters == 0.0:
         calculated_meters = calculate_realistic_proximity(None, None, office_lat=target_lat, office_lng=target_lng)
-            
+
+    comp_key = str(company_id or 'ARGUS_MASTER')
     doc = {
-        'company_id': str(company_id or 'ARGUS_MASTER'),
+        'company_id': comp_key,
         'branch_id': str(branch_id) if branch_id else None,
         'branch_name': str(branch_name) if branch_name else None,
         'employee_id': str(employee_id),
@@ -3110,7 +3340,8 @@ def add_live_entry(employee_id, employee_name, entry_time=None, site_name='OFFIC
         'created_at': get_ist_now().isoformat()
     }
     result = db.live_entries.insert_one(doc)
-    invalidate_dashboard_cache(doc.get('company_id'))
+    invalidate_live_sync_cache(comp_key)
+    invalidate_dashboard_cache(comp_key)
     return str(result.inserted_id)
 
 def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=None, company_id=None, client_time=None, live_address=None, branch_id=None):
@@ -3130,41 +3361,33 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     now_time_12 = client_time.strip() if client_time and client_time.strip() else now.strftime('%d/%m/%Y %I:%M:%S %p')
     today_date = now.strftime('%Y-%m-%d')
     today_slash = now.strftime('%d/%m/%Y')
-    
-    # Get employee details for hourly/day rate, shift, and company_id
-    emp = db.employees.find_one(build_id_filter(employee_id))
+
+    # Get employee details excluding heavy binary/embedding blobs
+    emp_proj = {'photo_data': 0, 'face_embedding': 0, 'documents': 0}
+    emp = db.employees.find_one(build_id_filter(employee_id), emp_proj)
     if not emp:
-        emp = db.employees.find_one({'employee_name': employee_name})
-        
+        emp = db.employees.find_one({'employee_name': employee_name}, emp_proj)
+
     comp_id = str(company_id or (emp.get('company_id') if emp else None) or 'ARGUS_MASTER')
-    
-    # Determine office coordinates and full address for this company
+
+    # Determine office coordinates and full address using cached company metadata
     target_lat = OFFICE_LAT
     target_lng = OFFICE_LNG
     loc_str = get_company_full_address(comp_id)
     company_geofence_radius = GEOFENCE_RADIUS_METERS
-    if comp_id != 'ARGUS_MASTER':
-        comp = db.company_admin.find_one({'id': comp_id})
-        if comp:
-            target_lat = parse_coordinate_to_float(comp.get('latitude'), OFFICE_LAT)
-            target_lng = parse_coordinate_to_float(comp.get('longitude'), OFFICE_LNG)
-            if comp.get('address'):
-                loc_str = comp.get('address')
-            company_geofence_radius = float(comp.get('geofence_radius') or comp.get('radius_meters') or GEOFENCE_RADIUS_METERS)
-    else:
-        comp = db.company_admin.find_one({'id': 'ARGUS_MASTER'})
-        if comp:
-            target_lat = parse_coordinate_to_float(comp.get('latitude'), OFFICE_LAT)
-            target_lng = parse_coordinate_to_float(comp.get('longitude'), OFFICE_LNG)
-            if comp.get('address'):
-                loc_str = comp.get('address')
-            company_geofence_radius = float(comp.get('geofence_radius') or comp.get('radius_meters') or GEOFENCE_RADIUS_METERS)
+    comp = get_company_by_id(comp_id, include_counts=False)
+    if comp:
+        target_lat = parse_coordinate_to_float(comp.get('latitude'), OFFICE_LAT)
+        target_lng = parse_coordinate_to_float(comp.get('longitude'), OFFICE_LNG)
+        if comp.get('address'):
+            loc_str = comp.get('address')
+        company_geofence_radius = float(comp.get('geofence_radius') or comp.get('radius_meters') or GEOFENCE_RADIUS_METERS)
 
-    # Branch-specific geofencing and tagging override
+    # Branch-specific geofencing and tagging override (cached)
     active_branch_id = str(branch_id).strip() if branch_id and str(branch_id).strip() not in ['None', 'null', '', 'ALL'] else (emp.get('branch_id') if emp else None)
     active_branch_name = None
     if active_branch_id:
-        branch = db.company_branches.find_one({'id': str(active_branch_id)})
+        branch = get_branch_by_id(active_branch_id, company_id=comp_id)
         if branch:
             active_branch_name = branch.get('branch_name')
             if branch.get('latitude') is not None and branch.get('longitude') is not None:
@@ -3174,18 +3397,25 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
                 loc_str = branch.get('address')
             if branch.get('geofence_radius'):
                 company_geofence_radius = float(branch.get('geofence_radius'))
-            
+
     # Calculate proximity distance
     dist_meters = calculate_realistic_proximity(user_lat, user_lng, target_lat, target_lng)
     formatted_dist = format_office_distance(dist_meters)
 
-    # Resolve exact real-time live location address where employee punched
+    # Resolve real-time live location address without blocking on HTTP geocoding
     live_loc_str = (live_address.strip() if live_address and str(live_address).strip() else None)
+    needs_geocode_backfill = False
     if not live_loc_str and user_lat is not None and user_lng is not None:
-        try:
-            live_loc_str = reverse_geocode_coordinates(user_lat, user_lng)
-        except Exception:
-            live_loc_str = None
+        cached_loc = _get_cached_geocode(user_lat, user_lng)
+        if cached_loc:
+            live_loc_str = cached_loc
+        else:
+            try:
+                live_loc_str = reverse_geocode_coordinates(user_lat, user_lng, allow_network=False)
+            except Exception:
+                live_loc_str = None
+            if live_loc_str and live_loc_str.startswith('GPS: '):
+                needs_geocode_backfill = True
     if not live_loc_str:
         live_loc_str = loc_str
     
@@ -3257,14 +3487,21 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'entry_type': punch_in_entry_type,
             'created_at': now.isoformat()
         }
-        db.attendance_reports.insert_one(rep_doc)
-        
+        rep_res = db.attendance_reports.insert_one(rep_doc)
+
         # Upsert in db.attendance for dashboard present stat
         db.attendance.update_one(
             {'company_id': comp_id, 'employee_name': employee_name, 'date': today_date},
             {'$set': {'company_id': comp_id, 'employee_name': employee_name, 'date': today_date, 'status': 'Present', 'updated_at': now}},
             upsert=True
         )
+        invalidate_live_sync_cache(comp_id)
+        invalidate_dashboard_cache(comp_id)
+        if needs_geocode_backfill and user_lat is not None and user_lng is not None:
+            _async_backfill_punch_geocode([
+                ('live_entries', live_id, 'entry_location'),
+                ('attendance_reports', rep_res.inserted_id, 'entry_location')
+            ], user_lat, user_lng)
         return {'status': 'punch_in', 'live_id': live_id, 'formatted_dist': formatted_dist, 'live_location': live_loc_str}
         
     else:
@@ -3469,7 +3706,13 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             {'$set': {'company_id': comp_id, 'working_hours': working_hours_str, 'status': 'Present', 'updated_at': now}},
             upsert=True
         )
+        invalidate_live_sync_cache(comp_id)
         invalidate_dashboard_cache(comp_id)
+        if needs_geocode_backfill and user_lat is not None and user_lng is not None:
+            _async_backfill_punch_geocode([
+                ('timeout_entries', timeout_res.inserted_id, 'exit_location'),
+                ('attendance_reports', existing_rep['_id'], 'exit_location')
+            ], user_lat, user_lng)
         return {'status': 'punch_out', 'live_id': timeout_id, 'formatted_dist': formatted_dist, 'working_hours': working_hours_str, 'live_location': live_loc_str}
 
 # ----------------- ATTENDANCE REPORTS ----------------- #
@@ -3724,27 +3967,31 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         ]
 
     # For Proper and Improper reports: query attendance_reports collection
+    att_rep_proj = {'photo_data': 0, 'face_embedding': 0, 'documents': 0}
     if report_type in ['proper', 'improper']:
         total = db.attendance_reports.count_documents(query)
-        cursor = db.attendance_reports.find(query).sort([("date", DESCENDING), ("created_at", DESCENDING), ("_id", DESCENDING)])
+        cursor = db.attendance_reports.find(query, att_rep_proj).sort([("date", DESCENDING), ("created_at", DESCENDING), ("_id", DESCENDING)])
         if limit and limit > 0:
             cursor = cursor.skip((page - 1) * limit).limit(limit)
-            
+
+        addr_cache = {}
         data = []
         for doc in cursor:
             c = clean_doc(doc)
             cid = c.get('company_id') or company_id
-            full_addr = get_company_full_address(cid)
+            if cid not in addr_cache:
+                addr_cache[cid] = get_company_full_address(cid)
+            full_addr = addr_cache[cid]
             if not c.get('entry_location') or str(c.get('entry_location')).strip() in ['OFFICE', '----', '']:
                 if c.get('entry_lat') and c.get('entry_lng'):
-                    c['entry_location'] = reverse_geocode_coordinates(c['entry_lat'], c['entry_lng']) or full_addr
+                    c['entry_location'] = reverse_geocode_coordinates(c['entry_lat'], c['entry_lng'], allow_network=False) or full_addr
                 else:
                     c['entry_location'] = full_addr
 
             if c.get('exit_location') and str(c.get('exit_location')).strip() not in ['----', '-', '']:
                 if str(c.get('exit_location')).strip() == 'OFFICE':
                     if c.get('exit_lat') and c.get('exit_lng'):
-                        c['exit_location'] = reverse_geocode_coordinates(c['exit_lat'], c['exit_lng']) or full_addr
+                        c['exit_location'] = reverse_geocode_coordinates(c['exit_lat'], c['exit_lng'], allow_network=False) or full_addr
                     else:
                         c['exit_location'] = full_addr
 
@@ -3771,21 +4018,24 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
 
     # For 'all' report_type: merge attendance_reports AND manual_entries
     combined = []
-    
-    for doc in db.attendance_reports.find(query):
+    addr_cache = {}
+
+    for doc in db.attendance_reports.find(query, att_rep_proj):
         c = clean_doc(doc)
         cid = c.get('company_id') or company_id
-        full_addr = get_company_full_address(cid)
+        if cid not in addr_cache:
+            addr_cache[cid] = get_company_full_address(cid)
+        full_addr = addr_cache[cid]
         if not c.get('entry_location') or str(c.get('entry_location')).strip() in ['OFFICE', '----', '']:
             if c.get('entry_lat') and c.get('entry_lng'):
-                c['entry_location'] = reverse_geocode_coordinates(c['entry_lat'], c['entry_lng']) or full_addr
+                c['entry_location'] = reverse_geocode_coordinates(c['entry_lat'], c['entry_lng'], allow_network=False) or full_addr
             else:
                 c['entry_location'] = full_addr
 
         if c.get('exit_location') and str(c.get('exit_location')).strip() not in ['----', '-', '']:
             if str(c.get('exit_location')).strip() == 'OFFICE':
                 if c.get('exit_lat') and c.get('exit_lng'):
-                    c['exit_location'] = reverse_geocode_coordinates(c['exit_lat'], c['exit_lng']) or full_addr
+                    c['exit_location'] = reverse_geocode_coordinates(c['exit_lat'], c['exit_lng'], allow_network=False) or full_addr
                 else:
                     c['exit_location'] = full_addr
 
@@ -3822,7 +4072,7 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         reg = {'$regex': re.escape(search), '$options': 'i'}
         m_query['$or'] = [{'employee_name': reg}, {'entry_date': reg}, {'status': reg}]
 
-    for doc in db.manual_entries.find(m_query):
+    for doc in db.manual_entries.find(m_query, {'photo_data': 0}):
         c = clean_doc(doc)
         m_status = c.get('status', 'Proper')
         m_reason = (c.get('reason') or '').strip()
@@ -3863,7 +4113,7 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         reg = {'$regex': re.escape(search), '$options': 'i'}
         l_query['$or'] = [{'employee_name': reg}, {'leave_type': reg}, {'reason': reg}]
 
-    for doc in db.leave_requests.find(l_query):
+    for doc in db.leave_requests.find(l_query, {'attachments': 0}):
         c = clean_doc(doc)
         l_type = c.get('leave_type', 'Casual Leave (CL)')
         l_reason = (c.get('reason') or '').strip()
@@ -3930,18 +4180,15 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
     e_iso = extract_iso_date(end_date) if end_date else ''
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+    emp_filter = get_branch_employee_query(b_id, company_id)
+    emp_docs = list(db.employees.find(emp_filter, {'photo_data': 0, 'face_embedding': 0, 'documents': 0}))
+    emp_map = {e.get('employee_name'): clean_doc(e) for e in emp_docs if e.get('employee_name')}
+
     branch_names = set()
     branch_cond = None
     if b_id:
-        b_emp_q = get_branch_employee_query(b_id, company_id)
-        b_emps = list(db.employees.find(b_emp_q, {'employee_name': 1}))
-        branch_names = set(e.get('employee_name') for e in b_emps if e.get('employee_name'))
+        branch_names = set(emp_map.keys())
         branch_cond = get_branch_record_condition(b_id, branch_names)
-
-    # Pre-fetch employees in company for rate configurations
-    emp_filter = get_branch_employee_query(b_id, company_id)
-    emp_docs = list(db.employees.find(emp_filter))
-    emp_map = {e.get('employee_name'): clean_doc(e) for e in emp_docs if e.get('employee_name')}
 
     def calc_salary(emp_name, hours_str):
         emp_info = emp_map.get(emp_name)
@@ -6144,6 +6391,123 @@ def save_employee_custom_leaves(emp_id, custom_leaves_list, company_id=None, yea
         'custom_leaves': final_balance_leaves
     }
 
+def _fmt_leave_num(v):
+    if isinstance(v, float) and v.is_integer():
+        return int(v)
+    return v
+
+
+def _build_new_leave_balance_doc(emp_id, comp_id, year, emp, pol):
+    """Constructs initial annual leave balance document for an employee."""
+    quota = emp.get('leave_quota') if emp else None
+    if quota and isinstance(quota, dict):
+        cl_tot = quota.get('casual_leave_annual', quota.get('casual_leave', pol['casual_leave_annual']))
+        sl_tot = quota.get('sick_leave_annual', quota.get('sick_leave', pol['sick_leave_annual']))
+        el_tot = quota.get('earned_leave_annual', quota.get('earned_leave', pol['earned_leave_annual']))
+        ph_tot = quota.get('permission_hours_monthly', quota.get('permission_hours', pol['permission_hours_monthly']))
+    else:
+        cl_tot = pol['casual_leave_annual']
+        sl_tot = pol['sick_leave_annual']
+        el_tot = pol['earned_leave_annual']
+        ph_tot = pol['permission_hours_monthly']
+
+    now_ts = get_ist_now()
+    return {
+        'company_id': str(comp_id or 'DEFAULT'),
+        'employee_id': str(emp_id),
+        'year': int(year),
+        'casual_leave': {'total': cl_tot, 'used': 0, 'available': cl_tot},
+        'sick_leave': {'total': sl_tot, 'used': 0, 'available': sl_tot},
+        'earned_leave': {'total': el_tot, 'used': 0, 'available': el_tot},
+        'permission_hours': {'total': ph_tot, 'used': 0.0, 'available': ph_tot},
+        'compensatory_off': {'total': 6, 'used': 0, 'available': 6},
+        'created_at': now_ts,
+        'updated_at': now_ts
+    }
+
+
+def _extract_custom_leaves(emp):
+    if not emp or not emp.get('custom_leaves'):
+        return []
+    return [
+        {
+            'name': pl.get('name'),
+            'total': pl.get('total', 0),
+            'used': 0,
+            'available': pl.get('total', 0),
+            'unit': pl.get('unit', 'Days')
+        }
+        for pl in emp['custom_leaves']
+    ]
+
+
+def _enrich_leave_balance_doc(bal_doc, emp=None):
+    """Formats a leave_balances Mongo document with flattened compatibility keys."""
+    bal = clean_doc(bal_doc)
+    cl = bal.get('casual_leave', {})
+    sl = bal.get('sick_leave', {})
+    el = bal.get('earned_leave', {})
+    ph = bal.get('permission_hours', {})
+
+    bal['casual_leave_available'] = _fmt_leave_num(cl.get('available', 0))
+    bal['casual_leave_avail'] = bal['casual_leave_available']
+    bal['casual_leave_total'] = _fmt_leave_num(cl.get('total', 12))
+    bal['casual_leave_used'] = _fmt_leave_num(cl.get('used', 0))
+    bal['sick_leave_available'] = _fmt_leave_num(sl.get('available', 0))
+    bal['sick_leave_avail'] = bal['sick_leave_available']
+    bal['sick_leave_total'] = _fmt_leave_num(sl.get('total', 12))
+    bal['sick_leave_used'] = _fmt_leave_num(sl.get('used', 0))
+    bal['earned_leave_available'] = _fmt_leave_num(el.get('available', 0))
+    bal['earned_leave_avail'] = bal['earned_leave_available']
+    bal['earned_leave_total'] = _fmt_leave_num(el.get('total', 18))
+    bal['earned_leave_used'] = _fmt_leave_num(el.get('used', 0))
+    bal['permission_hours_available'] = _fmt_leave_num(ph.get('available', 16.0))
+    bal['permission_hours_avail'] = bal['permission_hours_available']
+    bal['permission_hours_total'] = _fmt_leave_num(ph.get('total', 16.0))
+    bal['permission_hours_used'] = _fmt_leave_num(ph.get('used', 0.0))
+
+    c_leaves = bal.get('custom_leaves')
+    if not c_leaves:
+        c_leaves = _extract_custom_leaves(emp)
+
+    if c_leaves and isinstance(c_leaves, list):
+        perm_custom = next(
+            (item for item in c_leaves if str(item.get('name', '')).strip().lower() == 'permission'
+             or str(item.get('unit', '')).strip().lower() in ['hours', 'hrs']),
+            None
+        )
+        if perm_custom:
+            p_tot = perm_custom.get('total', 0.0)
+            p_used = perm_custom.get('used', 0.0)
+            p_avail = perm_custom.get('available', max(0.0, float(p_tot) - float(p_used)))
+            bal['permission_hours_total'] = _fmt_leave_num(p_tot)
+            bal['permission_hours_used'] = _fmt_leave_num(p_used)
+            bal['permission_hours_available'] = _fmt_leave_num(p_avail)
+            bal['permission_hours_avail'] = bal['permission_hours_available']
+        else:
+            bal['permission_hours_total'] = 0
+            bal['permission_hours_used'] = 0
+            bal['permission_hours_available'] = 0
+            bal['permission_hours_avail'] = 0
+
+        for prefix, keyword in (('casual_leave', 'casual'), ('sick_leave', 'sick'), ('earned_leave', 'earned')):
+            matched = next((item for item in c_leaves if keyword in str(item.get('name', '')).strip().lower()), None)
+            if matched:
+                avail_val = _fmt_leave_num(matched.get('available', 0))
+                bal[f'{prefix}_total'] = _fmt_leave_num(matched.get('total', 0))
+                bal[f'{prefix}_used'] = _fmt_leave_num(matched.get('used', 0))
+                bal[f'{prefix}_available'] = avail_val
+                bal[f'{prefix}_avail'] = avail_val
+            else:
+                bal[f'{prefix}_total'] = 0
+                bal[f'{prefix}_used'] = 0
+                bal[f'{prefix}_available'] = 0
+                bal[f'{prefix}_avail'] = 0
+
+    bal['custom_leaves'] = c_leaves or []
+    return bal
+
+
 def get_employee_leave_balance(emp_id, company_id=None, year=None):
     """
     Retrieves or initializes the employee's leave balance document for the given year.
@@ -6154,7 +6518,7 @@ def get_employee_leave_balance(emp_id, company_id=None, year=None):
     db = get_db()
     if year is None:
         year = get_ist_now().year
-    
+
     bal = db.leave_balances.find_one({
         '$or': [
             {'employee_id': str(emp_id)},
@@ -6162,152 +6526,39 @@ def get_employee_leave_balance(emp_id, company_id=None, year=None):
         ],
         'year': int(year)
     })
-    
+
+    emp = None
     if not bal:
-        # Initialize new balance using employee quota or company policy
-        emp = db.employees.find_one(build_id_filter(emp_id))
+        emp = db.employees.find_one(build_id_filter(emp_id), {'company_id': 1, 'leave_quota': 1, 'custom_leaves': 1})
         comp_id = company_id or (emp.get('company_id') if emp else None)
         pol = get_company_leave_policy(comp_id)
-
-        quota = emp.get('leave_quota') if emp else None
-        if quota and isinstance(quota, dict):
-            cl_tot = quota.get('casual_leave_annual', quota.get('casual_leave', pol['casual_leave_annual']))
-            sl_tot = quota.get('sick_leave_annual', quota.get('sick_leave', pol['sick_leave_annual']))
-            el_tot = quota.get('earned_leave_annual', quota.get('earned_leave', pol['earned_leave_annual']))
-            ph_tot = quota.get('permission_hours_monthly', quota.get('permission_hours', pol['permission_hours_monthly']))
-        else:
-            cl_tot = pol['casual_leave_annual']
-            sl_tot = pol['sick_leave_annual']
-            el_tot = pol['earned_leave_annual']
-            ph_tot = pol['permission_hours_monthly']
-
-        new_bal = {
-            'company_id': str(comp_id or 'DEFAULT'),
-            'employee_id': str(emp_id),
-            'year': int(year),
-            'casual_leave': {'total': cl_tot, 'used': 0, 'available': cl_tot},
-            'sick_leave': {'total': sl_tot, 'used': 0, 'available': sl_tot},
-            'earned_leave': {'total': el_tot, 'used': 0, 'available': el_tot},
-            'permission_hours': {'total': ph_tot, 'used': 0.0, 'available': ph_tot},
-            'compensatory_off': {'total': 6, 'used': 0, 'available': 6},
-            'created_at': get_ist_now(),
-            'updated_at': get_ist_now()
-        }
+        new_bal = _build_new_leave_balance_doc(emp_id, comp_id, year, emp, pol)
         res = db.leave_balances.insert_one(new_bal)
         new_bal['_id'] = res.inserted_id
         bal = new_bal
 
-    bal = clean_doc(bal)
-    cl = bal.get('casual_leave', {})
-    sl = bal.get('sick_leave', {})
-    el = bal.get('earned_leave', {})
-    ph = bal.get('permission_hours', {})
+    raw_oid = bal.get('_id')
+    had_custom = bool(bal.get('custom_leaves'))
+    if not had_custom and emp is None:
+        emp = db.employees.find_one(build_id_filter(emp_id), {'custom_leaves': 1})
 
-    def _fmt_val(v):
-        if isinstance(v, float) and v.is_integer():
-            return int(v)
-        return v
-
-    bal['casual_leave_available'] = _fmt_val(cl.get('available', 0))
-    bal['casual_leave_avail'] = bal['casual_leave_available']
-    bal['casual_leave_total'] = _fmt_val(cl.get('total', 12))
-    bal['casual_leave_used'] = _fmt_val(cl.get('used', 0))
-    bal['sick_leave_available'] = _fmt_val(sl.get('available', 0))
-    bal['sick_leave_avail'] = bal['sick_leave_available']
-    bal['sick_leave_total'] = _fmt_val(sl.get('total', 12))
-    bal['sick_leave_used'] = _fmt_val(sl.get('used', 0))
-    bal['earned_leave_available'] = _fmt_val(el.get('available', 0))
-    bal['earned_leave_avail'] = bal['earned_leave_available']
-    bal['earned_leave_total'] = _fmt_val(el.get('total', 18))
-    bal['earned_leave_used'] = _fmt_val(el.get('used', 0))
-    bal['permission_hours_available'] = _fmt_val(ph.get('available', 16.0))
-    bal['permission_hours_avail'] = bal['permission_hours_available']
-    bal['permission_hours_total'] = _fmt_val(ph.get('total', 16.0))
-    bal['permission_hours_used'] = _fmt_val(ph.get('used', 0.0))
-
-    # Format custom leaves if present
-    c_leaves = bal.get('custom_leaves')
-    if not c_leaves:
-        emp = db.employees.find_one(build_id_filter(emp_id))
-        if emp and emp.get('custom_leaves'):
-            c_leaves = []
-            for pl in emp['custom_leaves']:
-                tot = pl.get('total', 0)
-                c_leaves.append({
-                    'name': pl.get('name'),
-                    'total': tot,
-                    'used': 0,
-                    'available': tot,
-                    'unit': pl.get('unit', 'Days')
-                })
-            bal['custom_leaves'] = c_leaves
-            db.leave_balances.update_one({'_id': bal['_id']}, {'$set': {'custom_leaves': c_leaves}})
-
-    if c_leaves and isinstance(c_leaves, list) and len(c_leaves) > 0:
-        # Check custom permission hours
-        perm_custom = next((item for item in c_leaves if str(item.get('name', '')).strip().lower() == 'permission' or str(item.get('unit', '')).strip().lower() in ['hours', 'hrs']), None)
-        if perm_custom:
-            p_tot = perm_custom.get('total', 0.0)
-            p_used = perm_custom.get('used', 0.0)
-            p_avail = perm_custom.get('available', max(0.0, float(p_tot) - float(p_used)))
-            bal['permission_hours_total'] = _fmt_val(p_tot)
-            bal['permission_hours_used'] = _fmt_val(p_used)
-            bal['permission_hours_available'] = _fmt_val(p_avail)
-            bal['permission_hours_avail'] = bal['permission_hours_available']
-        else:
-            bal['permission_hours_total'] = 0
-            bal['permission_hours_used'] = 0
-            bal['permission_hours_available'] = 0
-            bal['permission_hours_avail'] = 0
-
-        # Check standard day-based leave types in custom_leaves
-        cl_custom = next((item for item in c_leaves if 'casual' in str(item.get('name', '')).strip().lower()), None)
-        if cl_custom:
-            bal['casual_leave_total'] = _fmt_val(cl_custom.get('total', 0))
-            bal['casual_leave_used'] = _fmt_val(cl_custom.get('used', 0))
-            bal['casual_leave_available'] = _fmt_val(cl_custom.get('available', 0))
-            bal['casual_leave_avail'] = bal['casual_leave_available']
-        else:
-            bal['casual_leave_total'] = 0
-            bal['casual_leave_used'] = 0
-            bal['casual_leave_available'] = 0
-            bal['casual_leave_avail'] = 0
-
-        sl_custom = next((item for item in c_leaves if 'sick' in str(item.get('name', '')).strip().lower()), None)
-        if sl_custom:
-            bal['sick_leave_total'] = _fmt_val(sl_custom.get('total', 0))
-            bal['sick_leave_used'] = _fmt_val(sl_custom.get('used', 0))
-            bal['sick_leave_available'] = _fmt_val(sl_custom.get('available', 0))
-            bal['sick_leave_avail'] = bal['sick_leave_available']
-        else:
-            bal['sick_leave_total'] = 0
-            bal['sick_leave_used'] = 0
-            bal['sick_leave_available'] = 0
-            bal['sick_leave_avail'] = 0
-
-        el_custom = next((item for item in c_leaves if 'earned' in str(item.get('name', '')).strip().lower()), None)
-        if el_custom:
-            bal['earned_leave_total'] = _fmt_val(el_custom.get('total', 0))
-            bal['earned_leave_used'] = _fmt_val(el_custom.get('used', 0))
-            bal['earned_leave_available'] = _fmt_val(el_custom.get('available', 0))
-            bal['earned_leave_avail'] = bal['earned_leave_available']
-        else:
-            bal['earned_leave_total'] = 0
-            bal['earned_leave_used'] = 0
-            bal['earned_leave_available'] = 0
-            bal['earned_leave_avail'] = 0
-
-    bal['custom_leaves'] = c_leaves or []
-    return bal
+    enriched = _enrich_leave_balance_doc(bal, emp=emp)
+    if not had_custom and enriched.get('custom_leaves') and raw_oid is not None:
+        try:
+            db.leave_balances.update_one({'_id': raw_oid}, {'$set': {'custom_leaves': enriched['custom_leaves']}})
+        except Exception:
+            pass
+    return enriched
 
 def get_all_employees_leave_balances(company_id=None, year=None, search=None, branch_id=None, for_field_workers=False):
     """
-    Returns list of all employees in company along with their leave balances.
+    Returns list of all employees in company along with their leave balances using batch DB queries.
     Matches Image 4's Employee Leave Balance table.
     """
     db = get_db()
     if year is None:
         year = get_ist_now().year
+    year_int = int(year)
 
     if for_field_workers:
         e_query = {
@@ -6326,49 +6577,79 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None, br
                 e_query['branch_id'] = clean_bid
     else:
         e_query = get_branch_employee_query(branch_id, company_id, exclude_field_workers=True)
-    
-    employees = list(db.employees.find(e_query).sort('employee_name', ASCENDING))
-    results = []
 
-    for idx, emp in enumerate(employees):
+    emp_proj = {
+        '_id': 1, 'id': 1, 'employee_id': 1, 'emp_id': 1, 'employee_name': 1,
+        'department': 1, 'designation': 1, 'branch_name': 1, 'branch': 1,
+        'is_field_worker': 1, 'employee_type': 1, 'mobile_number': 1,
+        'company_id': 1, 'leave_quota': 1, 'custom_leaves': 1
+    }
+    employees = list(db.employees.find(e_query, emp_proj).sort('employee_name', ASCENDING))
+
+    filtered_emps = []
+    candidate_ids = []
+    seen_cand = set()
+    s_low = str(search).lower().strip() if search else ''
+    for emp in employees:
         emp_id = str(emp.get('id') or emp.get('_id'))
         emp_code = str(emp.get('id') or emp.get('employee_id') or emp.get('emp_id') or emp_id)
         emp_name = str(emp.get('employee_name') or '')
         dept = str(emp.get('department') or 'General')
+        if s_low and not (s_low in emp_name.lower() or s_low in emp_code.lower() or s_low in dept.lower() or s_low in emp_id.lower()):
+            continue
+        filtered_emps.append((emp, emp_id, emp_code, emp_name, dept))
+        for val in (emp_id, int(emp_id) if emp_id.isdigit() else None):
+            if val is not None and val not in seen_cand:
+                seen_cand.add(val)
+                candidate_ids.append(val)
 
-        if search:
-            s_low = str(search).lower().strip()
-            if not (s_low in emp_name.lower() or s_low in emp_code.lower() or s_low in dept.lower() or s_low in emp_id.lower()):
-                continue
+    if not filtered_emps:
+        return []
 
-        bal = get_employee_leave_balance(emp_id, company_id=emp.get('company_id'), year=year)
-        
+    bal_by_emp_id = {}
+    for b_doc in db.leave_balances.find({'employee_id': {'$in': candidate_ids}, 'year': year_int}):
+        bid_key = str(b_doc.get('employee_id'))
+        if bid_key not in bal_by_emp_id:
+            bal_by_emp_id[bid_key] = b_doc
+
+    policy_cache = {}
+    missing_bals = []
+    custom_updates = []
+    results = []
+
+    for emp, emp_id, emp_code, emp_name, dept in filtered_emps:
+        b_doc = bal_by_emp_id.get(emp_id)
+        if not b_doc:
+            cid = emp.get('company_id') or company_id
+            ckey = str(cid or 'DEFAULT')
+            if ckey not in policy_cache:
+                policy_cache[ckey] = get_company_leave_policy(cid)
+            b_doc = _build_new_leave_balance_doc(emp_id, cid, year_int, emp, policy_cache[ckey])
+            c_extracted = _extract_custom_leaves(emp)
+            if c_extracted:
+                b_doc['custom_leaves'] = c_extracted
+            missing_bals.append(b_doc)
+            bal_by_emp_id[emp_id] = b_doc
+        elif not b_doc.get('custom_leaves') and emp.get('custom_leaves'):
+            c_extracted = _extract_custom_leaves(emp)
+            b_doc['custom_leaves'] = c_extracted
+            if b_doc.get('_id') is not None:
+                custom_updates.append((b_doc['_id'], c_extracted))
+
+        bal = _enrich_leave_balance_doc(b_doc, emp=emp)
         cl = bal.get('casual_leave', {})
         sl = bal.get('sick_leave', {})
         el = bal.get('earned_leave', {})
         perm = bal.get('permission_hours', {})
 
-        cl_avail = cl.get('available', 0)
-        if isinstance(cl_avail, float) and cl_avail.is_integer():
-            cl_avail = int(cl_avail)
+        cl_avail = _fmt_leave_num(cl.get('available', 0))
         cl_tot = cl.get('total', 12)
-
-        sl_avail = sl.get('available', 0)
-        if isinstance(sl_avail, float) and sl_avail.is_integer():
-            sl_avail = int(sl_avail)
+        sl_avail = _fmt_leave_num(sl.get('available', 0))
         sl_tot = sl.get('total', 12)
-
-        el_avail = el.get('available', 0)
-        if isinstance(el_avail, float) and el_avail.is_integer():
-            el_avail = int(el_avail)
+        el_avail = _fmt_leave_num(el.get('available', 0))
         el_tot = el.get('total', 18)
-
-        ph_avail = perm.get('available', 16.0)
-        if isinstance(ph_avail, float) and ph_avail.is_integer():
-            ph_avail = int(ph_avail)
-        ph_tot = perm.get('total', 16.0)
-        if isinstance(ph_tot, float) and ph_tot.is_integer():
-            ph_tot = int(ph_tot)
+        ph_avail = _fmt_leave_num(perm.get('available', 16.0))
+        ph_tot = _fmt_leave_num(perm.get('total', 16.0))
 
         results.append({
             'sl_no': len(results) + 1,
@@ -6405,6 +6686,18 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None, br
             'leave_quota': emp.get('leave_quota'),
             'custom_leaves': bal.get('custom_leaves') or emp.get('custom_leaves') or []
         })
+
+    if missing_bals:
+        try:
+            db.leave_balances.insert_many(missing_bals)
+        except Exception:
+            pass
+    if custom_updates:
+        for oid, c_leaves in custom_updates:
+            try:
+                db.leave_balances.update_one({'_id': oid}, {'$set': {'custom_leaves': c_leaves}})
+            except Exception:
+                pass
 
     return results
 
@@ -6841,13 +7134,38 @@ def get_admin_leave_stats(company_id=None, branch_id=None, for_field_workers=Fal
 
     today_str = get_ist_now().strftime('%Y-%m-%d')
 
-    pending_count = db.leave_requests.count_documents({**query, 'status': 'Pending'})
-    approved_today = db.leave_requests.count_documents({
-        **query,
-        'status': 'Approved',
-        'reviewed_at': {'$regex': f"^{today_str}"}
-    })
-    rejected_count = db.leave_requests.count_documents({**query, 'status': 'Rejected'})
+    pending_count = 0
+    approved_today = 0
+    rejected_count = 0
+    try:
+        agg_stats = list(db.leave_requests.aggregate([
+            {'$match': query},
+            {'$group': {
+                '_id': None,
+                'pending': {'$sum': {'$cond': [{'$eq': ['$status', 'Pending']}, 1, 0]}},
+                'approved_today': {'$sum': {'$cond': [
+                    {'$and': [
+                        {'$eq': ['$status', 'Approved']},
+                        {'$gte': ['$reviewed_at', today_str]},
+                        {'$lte': ['$reviewed_at', today_str + '\uffff']}
+                    ]},
+                    1, 0
+                ]}},
+                'rejected': {'$sum': {'$cond': [{'$eq': ['$status', 'Rejected']}, 1, 0]}}
+            }}
+        ]))
+        if agg_stats:
+            pending_count = int(agg_stats[0].get('pending', 0))
+            approved_today = int(agg_stats[0].get('approved_today', 0))
+            rejected_count = int(agg_stats[0].get('rejected', 0))
+    except Exception:
+        pending_count = db.leave_requests.count_documents({**query, 'status': 'Pending'})
+        approved_today = db.leave_requests.count_documents({
+            **query,
+            'status': 'Approved',
+            'reviewed_at': {'$regex': f"^{today_str}"}
+        })
+        rejected_count = db.leave_requests.count_documents({**query, 'status': 'Rejected'})
 
     all_bals = get_all_employees_leave_balances(company_id=company_id, branch_id=b_id, for_field_workers=for_field_workers)
     low_balance_count = sum(1 for b in all_bals if b.get('is_low_balance'))
@@ -7879,9 +8197,9 @@ def search_field_destinations(query, company_id=None):
 
 
 
-def evaluate_field_worker_anomaly(emp_name, lat, lng, address, nearest_target_name, detour_distance_m, dwell_minutes, activity_note='', company_id=None):
+def evaluate_field_worker_anomaly(emp_name, lat, lng, address, nearest_target_name, detour_distance_m, dwell_minutes, activity_note='', company_id=None, use_ai=True):
     """
-    Evaluates a field worker GPS anomaly using Google Gemini 1.5 Flash (if API key configured)
+    Evaluates a field worker GPS anomaly using Google Gemini Flash (if use_ai=True and API key configured)
     with a deterministic Heuristic AI Expert System fallback.
     Returns structured incident assessment dict.
     """
@@ -7922,7 +8240,7 @@ def evaluate_field_worker_anomaly(emp_name, lat, lng, address, nearest_target_na
             anomaly_category = "Minor Course Deviation"
 
     est_delay = dwell_mins + int(detour_km * 3) + 10
-    clean_addr = address if address and 'Lat:' not in address else 'Unassigned Location'
+    clean_addr = address if address and 'Lat:' not in address and not str(address).startswith('GPS: ') else 'Unassigned Location'
     summary_text = f"Worker {emp_name} deviated {detour_km} km off-route from '{nearest_target_name}' and has been stationary at {clean_addr} for {dwell_mins} minutes during active duty."
 
     if severity == "HIGH":
@@ -7942,7 +8260,10 @@ def evaluate_field_worker_anomaly(emp_name, lat, lng, address, nearest_target_na
         'model_used': 'Argus AI Heuristic Rules Engine'
     }
 
-    # Attempt Google Gemini 1.5 Flash if API Key is configured in environment or settings
+    if not use_ai:
+        return heuristic_result
+
+    # Attempt Google Gemini Flash if API Key is configured in environment or settings
     api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
     if not api_key:
         try:
@@ -7954,7 +8275,7 @@ def evaluate_field_worker_anomaly(emp_name, lat, lng, address, nearest_target_na
             pass
 
     if api_key:
-        candidate_models = ['gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest']
+        candidate_models = ['gemini-2.0-flash', 'gemini-1.5-flash']
         prompt = (
             f"You are an AI corporate field operations auditor monitoring mobile sales & service agents in real-time.\n"
             f"Analyze this field telemetry anomaly:\n"
@@ -8001,7 +8322,7 @@ def evaluate_field_worker_anomaly(emp_name, lat, lng, address, nearest_target_na
                         "contents": [{"parts": [{"text": prompt}]}],
                         "generationConfig": {"response_mime_type": "application/json"}
                     }
-                    r = requests.post(rest_url, json=payload, timeout=20)
+                    r = requests.post(rest_url, json=payload, timeout=8)
                     if r.status_code == 200:
                         candidates = r.json().get('candidates', [])
                         if candidates and 'content' in candidates[0]:
@@ -8183,7 +8504,7 @@ def record_field_location_ping(data, company_id=None):
 
     assigned_company_id = str(company_id or data.get('company_id') or '').strip()
     if not assigned_company_id or assigned_company_id == 'ALL':
-        emp_doc = db.employees.find_one({'employee_name': emp_name})
+        emp_doc = db.employees.find_one({'employee_name': emp_name}, {'company_id': 1})
         assigned_company_id = str(emp_doc.get('company_id') if emp_doc else 'ARGUS_MASTER')
 
     lat = round(safe_float(data.get('latitude'), 0.0), 6)
@@ -8191,13 +8512,14 @@ def record_field_location_ping(data, company_id=None):
     if lat == 0.0 and lng == 0.0:
         raise ValueError("Valid GPS coordinates (latitude, longitude) are required.")
 
+    needs_geocode_backfill = False
     address = str(data.get('address') or '').strip()
     if not address or 'Lat:' in address:
-        try:
-            resolved_addr = reverse_geocode_coordinates(lat, lng)
-            if resolved_addr:
-                address = resolved_addr
-        except Exception:
+        cached_addr = _get_cached_geocode(lat, lng)
+        if cached_addr:
+            address = cached_addr
+        else:
+            needs_geocode_backfill = True
             if not address:
                 address = f"Lat: {lat}, Lng: {lng}"
 
@@ -8299,8 +8621,10 @@ def record_field_location_ping(data, company_id=None):
     if tracking_status == 'off_route_detour' and dwell_minutes == 0:
         dwell_minutes = 28 if explicit_mode == 'off_route_detour' else 15
 
-    # Autonomous AI Anomaly Pipeline
+    # Autonomous AI Anomaly Pipeline (Instant Heuristic evaluation on hot path, async Gemini enrichment)
     ai_incident = None
+    detour_m_val = min_distance_m if min_distance_m is not None else 2500.0
+    act_note_val = str(data.get('activity_note') or '')
     if tracking_status == 'off_route_detour' or (min_distance_m is not None and min_distance_m >= 1800.0):
         tracking_status = 'off_route_detour'
         ai_eval = evaluate_field_worker_anomaly(
@@ -8309,10 +8633,11 @@ def record_field_location_ping(data, company_id=None):
             lng=lng,
             address=address,
             nearest_target_name=nearest_target_name,
-            detour_distance_m=min_distance_m if min_distance_m is not None else 2500.0,
+            detour_distance_m=detour_m_val,
             dwell_minutes=dwell_minutes,
-            activity_note=str(data.get('activity_note') or ''),
-            company_id=assigned_company_id
+            activity_note=act_note_val,
+            company_id=assigned_company_id,
+            use_ai=False
         )
         ai_incident = save_field_ai_incident({
             'company_id': assigned_company_id,
@@ -8331,7 +8656,7 @@ def record_field_location_ping(data, company_id=None):
             'estimated_delay_mins': ai_eval.get('estimated_delay_mins', 30),
             'action_recommendation': ai_eval.get('action_recommendation', ''),
             'is_unauthorized_detour': ai_eval.get('is_unauthorized_detour', True),
-            'model_used': ai_eval.get('model_used', 'Argus AI Reasoning Engine')
+            'model_used': ai_eval.get('model_used', 'Argus AI Heuristic Rules Engine')
         })
 
     status_labels = {
@@ -8367,6 +8692,58 @@ def record_field_location_ping(data, company_id=None):
         'created_at': now_ist
     }
     db.field_location_logs.insert_one(ping_doc)
+
+    if needs_geocode_backfill or ai_incident:
+        def _async_enrich_field_ping(ping_id, inc_doc, p_lat, p_lng, cur_addr, cur_emp, cur_target, cur_detour_m, cur_dwell, cur_note, cur_cid):
+            try:
+                t_db = get_db()
+                eff_addr = cur_addr
+                if needs_geocode_backfill:
+                    resolved = reverse_geocode_coordinates(p_lat, p_lng, timeout=2.0, allow_network=True)
+                    if resolved and not str(resolved).startswith('GPS: '):
+                        eff_addr = resolved
+                        t_db.field_location_logs.update_one({'id': ping_id}, {'$set': {'address': resolved}})
+                        if inc_doc and inc_doc.get('id'):
+                            t_db.field_ai_incidents.update_one({'id': inc_doc['id']}, {'$set': {'address': resolved}})
+                if inc_doc and inc_doc.get('id'):
+                    ai_upd = evaluate_field_worker_anomaly(
+                        emp_name=cur_emp,
+                        lat=p_lat,
+                        lng=p_lng,
+                        address=eff_addr,
+                        nearest_target_name=cur_target,
+                        detour_distance_m=cur_detour_m,
+                        dwell_minutes=cur_dwell,
+                        activity_note=cur_note,
+                        company_id=cur_cid,
+                        use_ai=True
+                    )
+                    if ai_upd and str(ai_upd.get('model_used', '')).startswith('Google Gemini'):
+                        inc_set = {
+                            'severity': ai_upd.get('severity', inc_doc.get('severity', 'HIGH')),
+                            'anomaly_type': ai_upd.get('anomaly_type', inc_doc.get('anomaly_type', 'Off-Route Detour')),
+                            'summary': ai_upd.get('summary', inc_doc.get('summary', '')),
+                            'estimated_delay_mins': ai_upd.get('estimated_delay_mins', inc_doc.get('estimated_delay_mins', 30)),
+                            'action_recommendation': ai_upd.get('action_recommendation', inc_doc.get('action_recommendation', '')),
+                            'is_unauthorized_detour': ai_upd.get('is_unauthorized_detour', True),
+                            'model_used': ai_upd.get('model_used'),
+                            'updated_at': get_ist_now()
+                        }
+                        t_db.field_ai_incidents.update_one({'id': inc_doc['id']}, {'$set': inc_set})
+                        t_db.field_location_logs.update_one(
+                            {'id': ping_id},
+                            {'$set': {f'ai_incident.{k}': v for k, v in inc_set.items()}}
+                        )
+            except Exception:
+                pass
+
+        threading.Thread(
+            target=_async_enrich_field_ping,
+            args=(ping_doc['id'], ai_incident, lat, lng, address, emp_name, nearest_target_name, detour_m_val, dwell_minutes, act_note_val, assigned_company_id),
+            name='FieldPingEnrich',
+            daemon=True
+        ).start()
+
     return clean_doc(ping_doc)
 
 
@@ -8386,10 +8763,18 @@ def get_field_live_tracking(company_id=None, date_str=None, employee_name=None):
 
     logs = [clean_doc(d) for d in db.field_location_logs.find(q).sort('created_at', ASCENDING)]
 
-    # Fetch AI incidents for today
+    # Fetch AI incidents for today (reuse to compute summary when full list loaded)
     incidents_today = get_field_ai_incidents(company_id=company_id, date_str=target_date, employee_name=employee_name)
     active_incidents = [i for i in incidents_today if i.get('status') in ['Active', 'Acknowledged']]
-    incidents_summary = get_field_ai_incidents_summary(company_id=company_id, date_str=target_date)
+    if not employee_name and len(incidents_today) < 50:
+        incidents_summary = {
+            'total': len(incidents_today),
+            'active': len(active_incidents),
+            'high_severity': sum(1 for i in active_incidents if i.get('severity') == 'HIGH'),
+            'resolved': sum(1 for i in incidents_today if i.get('status') == 'Resolved')
+        }
+    else:
+        incidents_summary = get_field_ai_incidents_summary(company_id=company_id, date_str=target_date)
 
     active_by_worker = {}
     for inc in active_incidents:
@@ -8713,7 +9098,7 @@ def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_
             pass
 
     if api_key:
-        candidate_models = ['gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest']
+        candidate_models = ['gemini-2.0-flash', 'gemini-1.5-flash']
         prompt = (
             "You are an expert Indian Tamil linguist and speech-to-text intelligence AI specialized in "
             "verbatim conversation transcription of Indian Tamil (ta-IN) as spoken in Tamil Nadu, India (including Chennai, Coimbatore, Madurai, Salem dialects and Tanglish).\n\n"
@@ -8803,7 +9188,7 @@ def process_visit_audio_with_gemini(audio_path, mime_type='audio/mp4', language_
                             "response_mime_type": "application/json"
                         }
                     }
-                    resp = requests.post(rest_url, json=payload, timeout=60)
+                    resp = requests.post(rest_url, json=payload, timeout=20)
                     if resp.status_code == 200:
                         resp_data = resp.json()
                         candidates = resp_data.get('candidates', [])
@@ -9202,17 +9587,18 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
     return reports
 
 
-def get_field_worker_dashboard_stats(company_id=None, date_str=None):
+def get_field_worker_dashboard_stats(company_id=None, date_str=None, preloaded_workers=None, preloaded_tracking=None):
     """
     Computes real-time operational dashboard stats for the Field Worker module.
     Includes Present, Absent, On-Site, In-Transit, On Leave, Leads, Detour Alerts, and KM.
+    Accepts optional preloaded_workers and preloaded_tracking to avoid duplicate DB queries.
     """
     db = get_db()
     cid = str(company_id) if company_id and company_id != 'ALL' else 'ARGUS_MASTER'
     if not date_str:
         date_str = get_ist_now().strftime('%Y-%m-%d')
 
-    workers = get_field_workers(company_id=cid, include_all_employees=False)
+    workers = list(preloaded_workers) if preloaded_workers is not None else get_field_workers(company_id=cid, include_all_employees=False)
     total_workers = len(workers)
 
     # 1. Fetch today's approved leaves for field workers
@@ -9225,14 +9611,18 @@ def get_field_worker_dashboard_stats(company_id=None, date_str=None):
     }
     if cid != 'ARGUS_MASTER':
         approved_leave_q['company_id'] = cid
-    leave_docs = list(db.leave_requests.find(approved_leave_q))
+    leave_docs = list(db.leave_requests.find(approved_leave_q, {'attachments': 0}))
     on_leave_workers = {l.get('employee_name'): l for l in leave_docs if l.get('employee_name')}
 
-    # 2. Fetch today's telemetry & check-in logs
-    log_q = {'date': date_str}
-    if cid != 'ARGUS_MASTER':
-        log_q['company_id'] = cid
-    all_logs = list(db.field_location_logs.find(log_q).sort('timestamp', ASCENDING))
+    # 2. Reuse preloaded tracking logs or fetch today's telemetry logs
+    use_preloaded_tracking = (preloaded_tracking is not None and preloaded_tracking.get('date') == date_str)
+    if use_preloaded_tracking:
+        all_logs = list(reversed(preloaded_tracking.get('logs') or []))
+    else:
+        log_q = {'date': date_str}
+        if cid != 'ARGUS_MASTER':
+            log_q['company_id'] = cid
+        all_logs = list(db.field_location_logs.find(log_q).sort('timestamp', ASCENDING))
 
     # Group logs by worker
     worker_logs = {}
@@ -9247,7 +9637,7 @@ def get_field_worker_dashboard_stats(company_id=None, date_str=None):
     if cid != 'ARGUS_MASTER':
         att_rep_q['company_id'] = cid
         att_col_q['company_id'] = cid
-    today_att_reports = {r.get('employee_name'): r for r in db.attendance_reports.find(att_rep_q) if r.get('employee_name')}
+    today_att_reports = {r.get('employee_name'): r for r in db.attendance_reports.find(att_rep_q, {'photo_data': 0, 'face_embedding': 0, 'documents': 0}) if r.get('employee_name')}
     today_attendance = {a.get('employee_name'): a for a in db.attendance.find(att_col_q) if a.get('employee_name')}
 
     # 3. Fetch today's customer visits (leads)
@@ -9263,11 +9653,14 @@ def get_field_worker_dashboard_stats(company_id=None, date_str=None):
             worker_visits.setdefault(emp, []).append(v)
         total_orders_val += safe_float(v.get('order_amount', v.get('deal_value', 0.0)))
 
-    # 4. Fetch unresolved AI Detour incidents
-    inc_q = {'date': date_str, 'status': {'$in': ['Open', 'open', 'Active', 'active']}}
-    if cid != 'ARGUS_MASTER':
-        inc_q['company_id'] = cid
-    active_incidents = list(db.field_ai_incidents.find(inc_q))
+    # 4. Reuse preloaded AI incidents when full day list available, else fetch unresolved
+    if use_preloaded_tracking and isinstance(preloaded_tracking.get('ai_incidents'), list) and len(preloaded_tracking['ai_incidents']) < 50:
+        active_incidents = [i for i in preloaded_tracking['ai_incidents'] if i.get('status') in ('Open', 'open', 'Active', 'active')]
+    else:
+        inc_q = {'date': date_str, 'status': {'$in': ['Open', 'open', 'Active', 'active']}}
+        if cid != 'ARGUS_MASTER':
+            inc_q['company_id'] = cid
+        active_incidents = list(db.field_ai_incidents.find(inc_q))
     incident_workers = set(i.get('employee_name') for i in active_incidents if i.get('employee_name'))
 
     # Compute status per worker
@@ -9505,16 +9898,23 @@ def get_company_modules(comp_id):
 
 
 _company_branches_cache = {}
+_branch_by_id_cache = {}
 _company_branches_cache_ttl = 60  # seconds
 
 def invalidate_company_branches_cache(company_id=None):
-    global _company_branches_cache
+    global _company_branches_cache, _branch_by_id_cache
     if company_id:
-        _company_branches_cache.pop(str(company_id), None)
+        cid_str = str(company_id)
+        _company_branches_cache.pop(cid_str, None)
         _company_branches_cache.pop('ALL', None)
         _company_branches_cache.pop('ARGUS_MASTER', None)
+        _branch_by_id_cache = {
+            k: v for k, v in _branch_by_id_cache.items()
+            if k[1] not in (cid_str, 'ANY', 'ALL')
+        }
     else:
         _company_branches_cache.clear()
+        _branch_by_id_cache.clear()
 
 def get_company_branches(company_id, status=None, include_headcount=True):
     """
@@ -9567,15 +9967,42 @@ def get_company_branches(company_id, status=None, include_headcount=True):
 
 
 def get_branch_by_id(branch_id, company_id=None):
-    """Returns single branch document by ID."""
+    """Returns single branch document by ID using in-memory caches before querying MongoDB."""
     if not branch_id:
         return None
+    bid_str = str(branch_id)
+    cid_key = str(company_id) if company_id and str(company_id) != 'ALL' else 'ANY'
+    now_ts = time.time()
+
+    cached_entry = _branch_by_id_cache.get((bid_str, cid_key))
+    if cached_entry and (now_ts - cached_entry[0] < _company_branches_cache_ttl):
+        return dict(cached_entry[1]) if cached_entry[1] is not None else None
+
+    # Populate from cached company branches list if available (zero DB queries on repeat lookups)
+    if cid_key != 'ANY':
+        branches = get_company_branches(cid_key, include_headcount=False)
+        for br in branches:
+            if str(br.get('id') or '') == bid_str:
+                _branch_by_id_cache[(bid_str, cid_key)] = (now_ts, dict(br))
+                return dict(br)
+    else:
+        for _, (ts, b_list) in list(_company_branches_cache.items()):
+            if now_ts - ts < _company_branches_cache_ttl:
+                for br in b_list:
+                    if str(br.get('id') or '') == bid_str:
+                        _branch_by_id_cache[(bid_str, cid_key)] = (now_ts, dict(br))
+                        return dict(br)
+
     db = get_db()
-    query = {'id': str(branch_id)}
-    if company_id and str(company_id) != 'ALL':
-        query['company_id'] = str(company_id)
+    query = {'id': bid_str}
+    if cid_key != 'ANY':
+        query['company_id'] = cid_key
     b = db.company_branches.find_one(query)
-    return clean_doc(b)
+    res = clean_doc(b) if b else None
+    if res:
+        res.pop('_id', None)
+    _branch_by_id_cache[(bid_str, cid_key)] = (now_ts, dict(res) if res is not None else None)
+    return res
 
 
 def create_company_branch(data, company_id):
