@@ -2884,9 +2884,9 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
         
     target_coll = db.timeout_entries if tab == 'timeout' else db.live_entries
 
-    if not start_date and not end_date:
-        def_start, _, _, _ = get_default_two_month_range()
-        start_date = def_start
+    s_iso, e_iso, range_ok = resolve_date_filter_range(start_date, end_date, use_default_two_months=True)
+    if not range_ok:
+        return {'total': 0, 'page': page, 'limit': limit, 'data': []}
 
     # Pre-load employee shift hours for dynamic status computation
     emp_shifts = {}
@@ -2910,28 +2910,8 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
             {'exit_time': reg}
         ]
         
-    if start_date:
-        s_date = start_date.strip()
-        parts = s_date.split('-')
-        d_slash = f"{parts[2]}/{parts[1]}/{parts[0]}" if len(parts) == 3 else s_date
-        query.setdefault('$and', []).append({
-            '$or': [
-                {'created_at': {'$gte': s_date}},
-                {'entry_time': {'$regex': f"^{re.escape(d_slash)}"}},
-                {'exit_time': {'$regex': f"^{re.escape(d_slash)}"}}
-            ]
-        })
-    if end_date:
-        e_date = end_date.strip()
-        parts = e_date.split('-')
-        d_slash_e = f"{parts[2]}/{parts[1]}/{parts[0]}" if len(parts) == 3 else e_date
-        query.setdefault('$and', []).append({
-            '$or': [
-                {'created_at': {'$lte': e_date + 'T23:59:59'}},
-                {'entry_time': {'$regex': f"^{re.escape(d_slash_e)}"}},
-                {'exit_time': {'$regex': f"^{re.escape(d_slash_e)}"}}
-            ]
-        })
+    for cond in build_live_date_conditions(s_iso, e_iso):
+        query.setdefault('$and', []).append(cond)
         
     total = target_coll.count_documents(query)
     cursor = target_coll.find(query).sort([("created_at", DESCENDING), ("_id", DESCENDING)])
@@ -3894,6 +3874,216 @@ def compute_entry_exit_status(entry_time_str, exit_time_str, shift_start='09:00 
 
     return entry_status, exit_status
 
+def normalize_iso_date(val):
+    """Parse a date/datetime value into canonical 'YYYY-MM-DD', or '' if unparseable."""
+    if not val:
+        return ''
+    if isinstance(val, (datetime, date)):
+        return val.strftime('%Y-%m-%d')
+    s = str(val).strip()
+    if not s or s in ['----', '-', 'None', 'null']:
+        return ''
+    m_iso = re.match(r'^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:\b|T|\s|$)', s)
+    if m_iso:
+        try:
+            y, m, d = int(m_iso.group(1)), int(m_iso.group(2)), int(m_iso.group(3))
+            return datetime(y, m, d).strftime('%Y-%m-%d')
+        except ValueError:
+            return ''
+    m_dmy = re.match(r'^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\b|\s|$)', s)
+    if m_dmy:
+        try:
+            d, m, y = int(m_dmy.group(1)), int(m_dmy.group(2)), int(m_dmy.group(3))
+            return datetime(y, m, d).strftime('%Y-%m-%d')
+        except ValueError:
+            return ''
+    return ''
+
+
+def resolve_date_filter_range(start_date=None, end_date=None, use_default_two_months=True):
+    """Normalize optional start/end dates into (s_iso, e_iso, is_valid_range)."""
+    raw_s = str(start_date).strip() if start_date else ''
+    raw_e = str(end_date).strip() if end_date else ''
+    if use_default_two_months and not raw_s and not raw_e:
+        def_start, _, _, _ = get_default_two_month_range()
+        raw_s = def_start
+    s_iso = normalize_iso_date(raw_s)
+    e_iso = normalize_iso_date(raw_e)
+    if (raw_s and not s_iso) or (raw_e and not e_iso) or (s_iso and e_iso and s_iso > e_iso):
+        return '', '', False
+    return s_iso, e_iso, True
+
+
+def apply_iso_field_date_filter(query, field, s_iso='', e_iso=''):
+    """Apply an ISO YYYY-MM-DD range filter on query[field] while excluding empty/malformed values."""
+    if not s_iso and not e_iso:
+        return
+    cond = {'$regex': r'^\d{4}-\d{2}-\d{2}'}
+    if s_iso:
+        cond['$gte'] = s_iso
+    if e_iso:
+        cond['$lte'] = e_iso
+    query[field] = cond
+
+
+def _dmy_regex_for_iso_range(s_iso='', e_iso=''):
+    """Build a MongoDB regex matching 'DD/MM/YYYY...' or 'DD-MM-YYYY...' inside [s_iso, e_iso]."""
+    try:
+        s_dt = datetime.strptime(s_iso, '%Y-%m-%d').date() if s_iso else None
+        e_dt = datetime.strptime(e_iso, '%Y-%m-%d').date() if e_iso else None
+    except ValueError:
+        return r'^$a'
+    if not s_dt and not e_dt:
+        return r'^'
+    if s_dt and e_dt and s_dt > e_dt:
+        return r'^$a'
+
+    if s_dt and e_dt and (e_dt - s_dt).days <= 120:
+        days = []
+        cur = s_dt
+        while cur <= e_dt:
+            days.append(cur.strftime(r'%d[-/]%m[-/]%Y'))
+            cur += timedelta(days=1)
+        return rf"^(?:{'|'.join(days)})(?:\s|$)"
+
+    def days_pat(y, m, d1, d2):
+        max_d = calendar.monthrange(y, m)[1]
+        hi = min(d2, max_d)
+        if d1 > hi:
+            return None
+        return '(?:' + '|'.join(f'{d:02d}' for d in range(d1, hi + 1)) + ')'
+
+    def months_pat(m1, m2):
+        if m1 > m2:
+            return None
+        return '(?:' + '|'.join(f'{m:02d}' for m in range(m1, m2 + 1)) + ')'
+
+    def years_pat(y1, y2):
+        if y1 > y2:
+            return None
+        return '(?:' + '|'.join(f'{y:04d}' for y in range(y1, y2 + 1)) + ')'
+
+    alts = []
+    if s_dt and not e_dt:
+        sy, sm, sd = s_dt.year, s_dt.month, s_dt.day
+        dp = days_pat(sy, sm, sd, 31)
+        if dp:
+            alts.append(rf"{dp}[-/]{sm:02d}[-/]{sy:04d}")
+        mp = months_pat(sm + 1, 12)
+        if mp:
+            alts.append(rf"\d{{2}}[-/]{mp}[-/]{sy:04d}")
+        yp = years_pat(sy + 1, 2099)
+        if yp:
+            alts.append(rf"\d{{2}}[-/]\d{{2}}[-/]{yp}")
+    elif e_dt and not s_dt:
+        ey, em, ed = e_dt.year, e_dt.month, e_dt.day
+        yp = years_pat(1970, ey - 1)
+        if yp:
+            alts.append(rf"\d{{2}}[-/]\d{{2}}[-/]{yp}")
+        mp = months_pat(1, em - 1)
+        if mp:
+            alts.append(rf"\d{{2}}[-/]{mp}[-/]{ey:04d}")
+        dp = days_pat(ey, em, 1, ed)
+        if dp:
+            alts.append(rf"{dp}[-/]{em:02d}[-/]{ey:04d}")
+    else:
+        sy, sm, sd = s_dt.year, s_dt.month, s_dt.day
+        ey, em, ed = e_dt.year, e_dt.month, e_dt.day
+        dp_s = days_pat(sy, sm, sd, 31)
+        if dp_s:
+            alts.append(rf"{dp_s}[-/]{sm:02d}[-/]{sy:04d}")
+        if sy == ey:
+            mp = months_pat(sm + 1, em - 1)
+            if mp:
+                alts.append(rf"\d{{2}}[-/]{mp}[-/]{sy:04d}")
+        else:
+            mp_s = months_pat(sm + 1, 12)
+            if mp_s:
+                alts.append(rf"\d{{2}}[-/]{mp_s}[-/]{sy:04d}")
+            yp = years_pat(sy + 1, ey - 1)
+            if yp:
+                alts.append(rf"\d{{2}}[-/]\d{{2}}[-/]{yp}")
+            mp_e = months_pat(1, em - 1)
+            if mp_e:
+                alts.append(rf"\d{{2}}[-/]{mp_e}[-/]{ey:04d}")
+        dp_e = days_pat(ey, em, 1, ed)
+        if dp_e:
+            alts.append(rf"{dp_e}[-/]{em:02d}[-/]{ey:04d}")
+
+    return rf"^(?:{'|'.join(alts)})(?:\s|$)" if alts else r'^$a'
+
+
+def build_attendance_date_conditions(s_iso='', e_iso=''):
+    """Build MongoDB $and conditions filtering attendance_reports without DMY-vs-ISO string bugs."""
+    if not s_iso and not e_iso:
+        return []
+    if s_iso and e_iso and s_iso > e_iso:
+        return [{'_id': None}]
+
+    date_cond = {'$regex': r'^\d{4}-\d{2}-\d{2}'}
+    if s_iso:
+        date_cond['$gte'] = s_iso
+    if e_iso:
+        date_cond['$lte'] = e_iso
+
+    no_date_cond = {'$or': [
+        {'date': {'$exists': False}},
+        {'date': None},
+        {'date': ''},
+        {'date': {'$not': {'$regex': r'^\d{4}-\d{2}-\d{2}'}}}
+    ]}
+    dmy_regex = _dmy_regex_for_iso_range(s_iso, e_iso)
+    cat_cond = {}
+    if s_iso:
+        cat_cond['$gte'] = s_iso
+    if e_iso:
+        cat_cond['$lte'] = e_iso + 'T23:59:59'
+    no_entry_time = {'$or': [{'entry_time': {'$exists': False}}, {'entry_time': None}, {'entry_time': ''}]}
+    legacy_branches = [{'entry_time': {'$regex': dmy_regex}}, {'entry_time': date_cond}]
+    if cat_cond:
+        legacy_branches.append({'$and': [no_entry_time, {'created_at': cat_cond}]})
+
+    return [{
+        '$or': [
+            {'date': date_cond},
+            {'$and': [no_date_cond, {'$or': legacy_branches}]}
+        ]
+    }]
+
+
+def build_live_date_conditions(s_iso='', e_iso=''):
+    """Build MongoDB $and conditions filtering live/timeout entries strictly by punch-in entry_time date."""
+    if not s_iso and not e_iso:
+        return []
+    if s_iso and e_iso and s_iso > e_iso:
+        return [{'_id': None}]
+
+    dmy_regex = _dmy_regex_for_iso_range(s_iso, e_iso)
+    date_cond = {'$regex': r'^\d{4}-\d{2}-\d{2}'}
+    if s_iso:
+        date_cond['$gte'] = s_iso
+    if e_iso:
+        date_cond['$lte'] = e_iso
+
+    cat_cond = {}
+    if s_iso:
+        cat_cond['$gte'] = s_iso
+    if e_iso:
+        cat_cond['$lte'] = e_iso + 'T23:59:59'
+
+    no_entry_time = {'$or': [{'entry_time': {'$exists': False}}, {'entry_time': None}, {'entry_time': ''}]}
+    no_date = {'$or': [{'date': {'$exists': False}}, {'date': None}, {'date': ''}]}
+
+    return [{
+        '$or': [
+            {'entry_time': {'$regex': dmy_regex}},
+            {'entry_time': date_cond},
+            {'$and': [no_entry_time, {'date': date_cond}]},
+            {'$and': [no_entry_time, no_date, {'created_at': cat_cond}]}
+        ]
+    }]
+
+
 def extract_sort_timestamp(row):
     if not row:
         return '1970-01-01 00:00:00'
@@ -3933,9 +4123,11 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
     db = get_db()
     fw_names = get_field_worker_names(company_id) if exclude_field_workers else set()
 
-    if not start_date and not end_date:
-        def_start, _, _, _ = get_default_two_month_range()
-        start_date = def_start
+    s_iso, e_iso, range_ok = resolve_date_filter_range(start_date, end_date, use_default_two_months=True)
+    if not range_ok:
+        return {'total': 0, 'page': page, 'limit': limit, 'data': []}
+    start_date = s_iso
+    end_date = e_iso
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     b_names = set()
@@ -3965,10 +4157,7 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
             m_query['employee_name'] = employee
         elif fw_names:
             m_query['employee_name'] = {'$nin': list(fw_names)}
-        if start_date:
-            m_query.setdefault('entry_date', {})['$gte'] = start_date.strip()
-        if end_date:
-            m_query.setdefault('entry_date', {})['$lte'] = end_date.strip()
+        apply_iso_field_date_filter(m_query, 'entry_date', s_iso, e_iso)
         if search:
             reg = {'$regex': re.escape(search), '$options': 'i'}
             m_query['$or'] = [{'employee_name': reg}, {'entry_date': reg}, {'status': reg}]
@@ -4025,24 +4214,8 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
     elif fw_names:
         query['employee_name'] = {'$nin': list(fw_names)}
         
-    if start_date:
-        s_date = start_date.strip()
-        query.setdefault('$and', []).append({
-            '$or': [
-                {'date': {'$gte': s_date}},
-                {'created_at': {'$gte': s_date}},
-                {'entry_time': {'$gte': s_date}}
-            ]
-        })
-    if end_date:
-        e_date = end_date.strip()
-        query.setdefault('$and', []).append({
-            '$or': [
-                {'date': {'$lte': e_date}},
-                {'created_at': {'$lte': e_date + 'T23:59:59'}},
-                {'entry_time': {'$lte': e_date + ' 23:59:59'}}
-            ]
-        })
+    for cond in build_attendance_date_conditions(s_iso, e_iso):
+        query.setdefault('$and', []).append(cond)
         
     if search:
         reg = {'$regex': re.escape(search), '$options': 'i'}
@@ -4152,10 +4325,7 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         m_query.setdefault('$and', []).append(branch_cond)
     if employee and employee != 'All':
         m_query['employee_name'] = employee
-    if start_date:
-        m_query.setdefault('entry_date', {})['$gte'] = start_date.strip()
-    if end_date:
-        m_query.setdefault('entry_date', {})['$lte'] = end_date.strip()
+    apply_iso_field_date_filter(m_query, 'entry_date', s_iso, e_iso)
     if search:
         reg = {'$regex': re.escape(search), '$options': 'i'}
         m_query['$or'] = [{'employee_name': reg}, {'entry_date': reg}, {'status': reg}]
@@ -4260,12 +4430,9 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
             return f"{m2.group(3)}-{m2.group(2)}-{m2.group(1)}"
         return ''
 
-    if not start_date and not end_date:
-        def_start, _, _, _ = get_default_two_month_range()
-        start_date = def_start
-
-    s_iso = extract_iso_date(start_date) if start_date else ''
-    e_iso = extract_iso_date(end_date) if end_date else ''
+    s_iso, e_iso, range_ok = resolve_date_filter_range(start_date, end_date, use_default_two_months=True)
+    if not range_ok:
+        return {'data': [], 'total_working_hours': '00:00', 'total_working_salary': '0.00'}
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     emp_filter = get_branch_employee_query(b_id, company_id)
@@ -4339,13 +4506,17 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
         rep_query['employee_name'] = clean_emp
     elif fw_names:
         rep_query.setdefault('employee_name', {})['$nin'] = list(fw_names)
+    for cond in build_attendance_date_conditions(s_iso, e_iso):
+        rep_query.setdefault('$and', []).append(cond)
 
     for doc in db.attendance_reports.find(rep_query):
         r = clean_doc(doc)
-        rec_date = extract_iso_date(r.get('date') or r.get('entry_time') or r.get('created_at'))
-        if s_iso and rec_date and rec_date < s_iso:
+        rec_date = normalize_iso_date(r.get('date') or r.get('entry_time') or r.get('created_at'))
+        if (s_iso or e_iso) and not rec_date:
             continue
-        if e_iso and rec_date and rec_date > e_iso:
+        if s_iso and rec_date < s_iso:
+            continue
+        if e_iso and rec_date > e_iso:
             continue
 
         emp_name = r.get('employee_name', '')
@@ -4402,13 +4573,16 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
         m_query['employee_name'] = clean_emp
     elif fw_names:
         m_query.setdefault('employee_name', {})['$nin'] = list(fw_names)
+    apply_iso_field_date_filter(m_query, 'entry_date', s_iso, e_iso)
 
     for doc in db.manual_entries.find(m_query):
         m = clean_doc(doc)
-        rec_date = extract_iso_date(m.get('entry_date') or m.get('submitted_at') or m.get('created_at'))
-        if s_iso and rec_date and rec_date < s_iso:
+        rec_date = normalize_iso_date(m.get('entry_date') or m.get('submitted_at') or m.get('created_at'))
+        if (s_iso or e_iso) and not rec_date:
             continue
-        if e_iso and rec_date and rec_date > e_iso:
+        if s_iso and rec_date < s_iso:
+            continue
+        if e_iso and rec_date > e_iso:
             continue
 
         emp_name = m.get('employee_name', '')
@@ -4519,10 +4693,10 @@ def get_manual_entries(from_date=None, to_date=None, status='All', search=None, 
         if branch_cond:
             query.setdefault('$and', []).append(branch_cond)
         
-    if from_date:
-        query['entry_date'] = {'$gte': from_date}
-    if to_date:
-        query.setdefault('entry_date', {})['$lte'] = to_date
+    s_iso, e_iso, range_ok = resolve_date_filter_range(from_date, to_date, use_default_two_months=False)
+    if not range_ok:
+        return {'total': 0, 'page': page, 'limit': limit, 'data': []}
+    apply_iso_field_date_filter(query, 'entry_date', s_iso, e_iso)
         
     if status and status != 'All':
         query['status'] = status

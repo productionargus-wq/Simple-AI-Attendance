@@ -7,6 +7,16 @@ document.addEventListener('DOMContentLoaded', function () {
   let startDate = '';
   let endDate = '';
   let employeeName = 'All';
+  let standardAbortCtrl = null;
+  let simpleAbortCtrl = null;
+
+  function syncFilterInputs() {
+    if (startDateInput) startDate = startDateInput.value.trim();
+    if (endDateInput) endDate = endDateInput.value.trim();
+    if (employeeFilterInput && employeeFilterInput.value.trim()) {
+      employeeName = employeeFilterInput.value.trim();
+    }
+  }
 
   // Check URL query parameters
   const urlParams = new URLSearchParams(window.location.search);
@@ -194,6 +204,11 @@ document.addEventListener('DOMContentLoaded', function () {
   // Load Standard Table Data (All / Proper / Improper / Manual)
   async function loadStandardTable() {
     if (document.hidden) return;
+    syncFilterInputs();
+    if (standardAbortCtrl) standardAbortCtrl.abort();
+    standardAbortCtrl = new AbortController();
+    const { signal } = standardAbortCtrl;
+
     if (window.renderTableLoading && standardTableBody) {
       window.renderTableLoading(standardTableBody, "Loading attendance records...", (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? 13 : 12);
     }
@@ -208,12 +223,16 @@ document.addEventListener('DOMContentLoaded', function () {
         limit: currentLimit
       });
 
-      const res = await fetch(`/api/attendance-reports?${params.toString()}`);
+      const res = await fetch(`/api/attendance-reports?${params.toString()}`, {
+        signal,
+        cache: 'no-store'
+      });
       const data = await res.json();
 
       renderStandardRows(data.data);
       updatePagination(data.total, data.page, data.limit);
     } catch (err) {
+      if (err && err.name === 'AbortError') return;
       console.error('Failed to load attendance report:', err);
     }
   }
@@ -300,6 +319,10 @@ document.addEventListener('DOMContentLoaded', function () {
   // Load Simple Table Data
   async function loadSimpleTable() {
     if (document.hidden) return;
+    if (simpleAbortCtrl) simpleAbortCtrl.abort();
+    simpleAbortCtrl = new AbortController();
+    const { signal } = simpleAbortCtrl;
+
     if (window.renderTableLoading && simpleTableBody) {
       window.renderTableLoading(simpleTableBody, "Loading compact attendance overview...", 6);
     }
@@ -313,13 +336,17 @@ document.addEventListener('DOMContentLoaded', function () {
         end_date: curEnd
       });
 
-      const res = await fetch(`/api/attendance-reports/simple?${params.toString()}`);
+      const res = await fetch(`/api/attendance-reports/simple?${params.toString()}`, {
+        signal,
+        cache: 'no-store'
+      });
       const data = await res.json();
 
       renderSimpleRows(data.data);
       if (totalHoursVal) totalHoursVal.textContent = data.total_working_hours || '00:00';
       if (totalSalaryVal) totalSalaryVal.textContent = data.total_working_salary || '0.00';
     } catch (err) {
+      if (err && err.name === 'AbortError') return;
       console.error('Failed to load simple table:', err);
     }
   }
@@ -412,9 +439,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Filter Bar Events
   if (btnFilter) {
     btnFilter.addEventListener('click', function () {
-      startDate = startDateInput.value.trim();
-      endDate = endDateInput.value.trim();
-      employeeName = employeeFilterInput.value.trim();
+      syncFilterInputs();
       currentPage = 1;
       if (currentView === 'simple' || currentView === 'compact') {
         loadSimpleTable();
@@ -423,6 +448,16 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
+  [startDateInput, endDateInput].forEach((inputEl) => {
+    if (inputEl) {
+      inputEl.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && btnFilter) {
+          e.preventDefault();
+          btnFilter.click();
+        }
+      });
+    }
+  });
 
   if (btnClear) {
     btnClear.addEventListener('click', function () {
@@ -535,6 +570,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Excel
   if (btnExcel) {
     btnExcel.addEventListener('click', function () {
+      syncFilterInputs();
       window.location.href = `/api/attendance-reports/export/excel?type=${currentView}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&employee=${encodeURIComponent(employeeName)}`;
     });
   }
@@ -551,6 +587,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // PDF
   if (btnPdf) {
     btnPdf.addEventListener('click', function () {
+      syncFilterInputs();
       window.location.href = `/api/attendance-reports/export/pdf?type=${currentView}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&employee=${encodeURIComponent(employeeName)}`;
     });
   }
@@ -649,8 +686,12 @@ document.addEventListener('DOMContentLoaded', function () {
   if (standardTableBody) standardTableBody.addEventListener('click', handleAttendanceDelete);
   if (simpleTableBody) simpleTableBody.addEventListener('click', handleAttendanceDelete);
 
-  // Auto-resume data loading when user switches back to this tab
-  document.addEventListener('visibilitychange', () => {
+  // Auto-resume data loading when user switches back to this tab (self-cleans after SPA navigation)
+  function handleVisibilityChange() {
+    if (!standardTableContainer || !standardTableContainer.isConnected) {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      return;
+    }
     if (!document.hidden) {
       if (currentView === 'compact' || currentView === 'simple') {
         loadSimpleTable();
@@ -658,7 +699,8 @@ document.addEventListener('DOMContentLoaded', function () {
         loadStandardTable();
       }
     }
-  });
+  }
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 
   // Init
   loadEmployeeNames();
