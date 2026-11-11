@@ -724,6 +724,60 @@
 
 
 
+          <!-- Row: Overtime Calculation Criteria -->
+
+          <div class="form-group" id="sectionOvertimeCriteria" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
+
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+
+              <label class="form-label" for="inputCalculateOvertime" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Overtime Calculation</label>
+
+              <span id="overtimeToggleBadge" style="font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">OFF — Shift Hours Only</span>
+
+            </div>
+
+            <div style="background: #f8fafc; padding: 12px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
+
+              <label for="inputCalculateOvertime" style="display: flex; align-items: center; justify-content: space-between; gap: 14px; cursor: pointer; user-select: none; margin: 0;">
+
+                <div>
+
+                  <div style="font-size: 12.5px; font-weight: 700; color: #1e293b;">
+
+                    Calculate Overtime Past Shift Hours
+
+                  </div>
+
+                  <div id="overtimeToggleDesc" style="font-size: 11px; color: #64748b; margin-top: 2px; line-height: 1.4;">
+
+                    When enabled, this employee will not be auto timed-out at Shift End; extra hours worked past Shift Hours are calculated as Overtime in Payslip &amp; Salary Report. When disabled, payable hours stop at Shift Hours.
+
+                  </div>
+
+                </div>
+
+                <span style="display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;">
+
+                  <span id="overtimeStateText" style="font-size: 11px; font-weight: 800; color: #64748b; min-width: 24px; text-align: right;">OFF</span>
+
+                  <span class="email-switch overtime-switch">
+
+                    <input type="checkbox" id="inputCalculateOvertime" name="calculate_overtime" value="true" switch aria-describedby="overtimeToggleDesc">
+
+                    <span class="email-slider"></span>
+
+                  </span>
+
+                </span>
+
+              </label>
+
+            </div>
+
+          </div>
+
+
+
           <!-- Row: Attendance & Geofencing Calculation -->
 
           <div class="form-group" id="sectionAttendanceGeofencingCriteria" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
@@ -1046,7 +1100,7 @@
 
 </script>
 
-<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261111_v2"></script>
+<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261111_ot_v1"></script>
 
 {% endblock %}
 

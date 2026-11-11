@@ -1632,6 +1632,24 @@ def safe_float(val, default=0.0):
     except (ValueError, TypeError):
         return default
 
+
+def parse_bool_flag(val, default=False):
+    """Normalize boolean or string truthy/falsy flags safely."""
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return val
+    s = str(val).strip().lower()
+    if not s:
+        return default
+    return s in ['true', '1', 'yes', 'on']
+
+
+def format_minutes_hhmm(total_mins):
+    """Format non-negative integer minutes as HH:MM."""
+    mins = max(0, int(round(total_mins or 0)))
+    return f"{mins // 60:02d}:{mins % 60:02d}"
+
 def parse_shift_hours_to_minutes(shift_str, default_minutes=480):
     """
     Parses shift_hours string (e.g. '08:00', '8', '00:00', '0') into minutes.
@@ -1660,6 +1678,95 @@ def parse_shift_hours_to_minutes(shift_str, default_minutes=480):
             return int(round(val * 60))
     except Exception:
         return default_minutes
+
+
+def compute_shift_and_overtime_metrics(working_minutes, shift_target_minutes, salary_type,
+                                       hourly_rate=0.0, day_rate=0.0, half_rate=0.0,
+                                       calculate_overtime=False):
+    """
+    Compute (regular_salary, overtime_salary, total_salary, overtime_minutes, overtime_hours, day_credit_type)
+    for a daily/session duration.
+    - shift_target_minutes == 0: flexible hourly mode (all worked minutes paid at hourly_rate, 0 OT).
+    - calculate_overtime == False: payable shift duration stops at shift_target_minutes.
+    - calculate_overtime == True: extra minutes beyond shift_target_minutes earn OT at effective hourly rate.
+    """
+    w_mins = max(0, int(working_minutes or 0))
+    s_mins = max(0, int(shift_target_minutes or 0))
+    st = str(salary_type or 'hourly').strip().lower()
+    hr = float(hourly_rate or 0.0)
+    dr = float(day_rate or 0.0)
+    hd = float(half_rate or 0.0)
+    ot_enabled = bool(calculate_overtime)
+
+    if w_mins <= 0:
+        return {
+            'regular_salary': 0.0,
+            'overtime_salary': 0.0,
+            'total_salary': 0.0,
+            'overtime_minutes': 0,
+            'overtime_hours': '00:00',
+            'day_credit_type': 'Pending' if s_mins == 0 else 'Partial'
+        }
+
+    if s_mins == 0:
+        reg = round((w_mins / 60.0) * hr, 2)
+        return {
+            'regular_salary': reg,
+            'overtime_salary': 0.0,
+            'total_salary': reg,
+            'overtime_minutes': 0,
+            'overtime_hours': '00:00',
+            'day_credit_type': 'Hourly'
+        }
+
+    half_shift = max(1, s_mins // 2)
+    effective_half = hd if hd > 0 else (dr / 2.0 if dr > 0 else (hr * (s_mins / 120.0)))
+    full_ref_rate = (effective_half * 2.0) if st == 'half_day' else (dr if st == 'daily' else (hr * (s_mins / 60.0)))
+    effective_ot_hr = hr if hr > 0 else (full_ref_rate / (s_mins / 60.0) if (full_ref_rate > 0 and s_mins > 0) else 0.0)
+
+    reg_mins = min(w_mins, s_mins)
+    ot_mins = max(0, w_mins - s_mins) if (ot_enabled and w_mins > s_mins) else 0
+    ot_sal = round((ot_mins / 60.0) * effective_ot_hr, 2) if ot_mins > 0 else 0.0
+
+    if st == 'hourly':
+        reg_sal = round((reg_mins / 60.0) * hr, 2)
+        credit = 'Full Day' if w_mins >= s_mins else ('Half Day' if w_mins >= half_shift else 'Partial')
+        tot_sal = round(reg_sal + ot_sal, 2)
+    elif st == 'daily':
+        if w_mins >= s_mins:
+            reg_sal = float(int(round(dr)))
+            credit = 'Full Day'
+        elif w_mins >= half_shift:
+            reg_sal = float(int(round(effective_half)))
+            credit = 'Half Day'
+        else:
+            reg_sal = float(int(round((w_mins / 60.0) * effective_ot_hr)))
+            credit = 'Partial'
+        tot_sal = round(reg_sal + ot_sal, 2)
+    elif st == 'half_day':
+        if w_mins >= s_mins:
+            reg_sal = float(int(round(effective_half * 2.0)))
+            credit = 'Full Day (2x Half)'
+        elif w_mins >= half_shift:
+            reg_sal = float(int(round(effective_half)))
+            credit = 'Half Day'
+        else:
+            reg_sal = float(int(round((w_mins / float(half_shift)) * effective_half)))
+            credit = 'Partial'
+        tot_sal = round(reg_sal + ot_sal, 2)
+    else:
+        reg_sal = round((reg_mins / 60.0) * hr, 2)
+        credit = 'Full Day' if w_mins >= s_mins else 'Partial'
+        tot_sal = round(reg_sal + ot_sal, 2)
+
+    return {
+        'regular_salary': reg_sal,
+        'overtime_salary': ot_sal,
+        'total_salary': tot_sal,
+        'overtime_minutes': ot_mins,
+        'overtime_hours': format_minutes_hhmm(ot_mins),
+        'day_credit_type': credit
+    }
 
 def create_employee(data, company_id=None):
     db = get_db()
@@ -1788,7 +1895,8 @@ def create_employee(data, company_id=None):
         'petrol_unit_km': safe_float(data.get('petrol_unit_km'), 1.0) if data.get('petrol_unit_km') is not None else 1.0,
         'petrol_rate_inr': safe_float(data.get('petrol_rate_inr')) if data.get('petrol_rate_inr') not in [None, ''] else None,
         'has_custom_petrol_rate': bool(data.get('has_custom_petrol_rate') or (safe_float(data.get('petrol_rate_inr', 0)) > 0)),
-        'calculate_proper_entries': bool(data.get('calculate_proper_entries', True) if isinstance(data.get('calculate_proper_entries'), bool) else str(data.get('calculate_proper_entries', 'true')).strip().lower() in ['true', '1', 'yes', 'on']),
+        'calculate_proper_entries': parse_bool_flag(data.get('calculate_proper_entries'), default=True),
+        'calculate_overtime': parse_bool_flag(data.get('calculate_overtime'), default=False),
         'allowed_tabs': list(data.get('allowed_tabs')) if isinstance(data.get('allowed_tabs'), list) else None,
         'branch_id': None,
         'branch_name': None,
@@ -1915,8 +2023,9 @@ def update_employee(emp_id, data, company_id=None):
     if 'permissions' in data and isinstance(data['permissions'], dict):
         upd['permissions'] = data['permissions']
     if 'calculate_proper_entries' in data:
-        _ecpe = data['calculate_proper_entries']
-        upd['calculate_proper_entries'] = bool(_ecpe if isinstance(_ecpe, bool) else str(_ecpe).strip().lower() in ['true', '1', 'yes', 'on'])
+        upd['calculate_proper_entries'] = parse_bool_flag(data['calculate_proper_entries'], default=True)
+    if 'calculate_overtime' in data:
+        upd['calculate_overtime'] = parse_bool_flag(data['calculate_overtime'], default=False)
     if 'allowed_tabs' in data:
         upd['allowed_tabs'] = list(data['allowed_tabs']) if isinstance(data['allowed_tabs'], list) else []
     if 'documents' in data and isinstance(data['documents'], list):
@@ -2555,7 +2664,7 @@ def process_company_timeout_entries(company_id=None):
             emp_q['company_id'] = str(company_id)
         for emp_d in db.employees.find(emp_q, {
             'company_id': 1, 'employee_name': 1, 'shift_hours': 1, 'shift_start': 1, 'shift_end': 1,
-            'salary_type': 1, 'hourly_salary': 1, 'day_salary': 1, 'half_day_salary': 1
+            'salary_type': 1, 'hourly_salary': 1, 'day_salary': 1, 'half_day_salary': 1, 'calculate_overtime': 1
         }):
             ename_k = emp_d.get('employee_name')
             cid_k = str(emp_d.get('company_id', 'ARGUS_MASTER'))
@@ -2570,6 +2679,9 @@ def process_company_timeout_entries(company_id=None):
         emp_name = rep.get('employee_name', '')
         
         emp = emp_map.get((cid, emp_name)) or emp_map.get(emp_name)
+        if emp and parse_bool_flag(emp.get('calculate_overtime'), default=False):
+            # Overtime-enabled employees stay active in live entries until manual punch-out.
+            continue
         emp_shift = emp.get('shift_hours') if emp else None
         shift_str = emp_shift if emp_shift is not None and str(emp_shift).strip() != '' else company_shifts.get(cid, '08:00')
         
@@ -3488,18 +3600,25 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     day_rate = float(emp.get('day_salary', 0.0)) if emp else (hourly_rate * 8.0)
     half_rate = float(emp.get('half_day_salary', 0.0)) if emp else (day_rate / 2.0)
     shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
+    calculate_overtime = parse_bool_flag(emp.get('calculate_overtime'), default=False) if emp else False
     
-    # Check if there is already an attendance report entry today
-    report_filter = {
-        'company_id': comp_id,
-        'employee_name': employee_name,
-        '$or': [
-            {'date': today_date},
-            {'entry_time': {'$regex': f'^{today_slash}'}}
-        ]
-    }
-    
-    existing_rep = db.attendance_reports.find_one(report_filter, sort=[('created_at', DESCENDING)])
+    # Check if there is already an attendance report entry today (or an open unclosed overtime punch)
+    existing_rep = None
+    if calculate_overtime:
+        existing_rep = db.attendance_reports.find_one(
+            {'company_id': comp_id, 'employee_name': employee_name, 'exit_time': '----'},
+            sort=[('created_at', DESCENDING)]
+        )
+    if not existing_rep:
+        report_filter = {
+            'company_id': comp_id,
+            'employee_name': employee_name,
+            '$or': [
+                {'date': today_date},
+                {'entry_time': {'$regex': f'^{today_slash}'}}
+            ]
+        }
+        existing_rep = db.attendance_reports.find_one(report_filter, sort=[('created_at', DESCENDING)])
     
     if not existing_rep or (existing_rep.get('exit_time') and existing_rep.get('exit_time') != '----'):
         # PUNCH IN:
@@ -3649,51 +3768,18 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
                 v_m = abs_vm % 60
                 shift_variance_str = f"-{v_h:02d}:{v_m:02d}"
             
-        # Calculate Working Salary accurately based on employee salary_type
-        half_shift_target = max(1, shift_target_minutes // 2)
-        computed_salary = 0
-        day_credit_type = 'Full Day'
-
-        if shift_target_minutes == 0 or salary_type == 'hourly':
-            computed_salary = round((working_minutes / 60.0) * hourly_rate, 2)
-            if shift_target_minutes == 0:
-                day_credit_type = 'Hourly' if working_minutes > 0 else 'Pending'
-            elif working_minutes >= shift_target_minutes:
-                day_credit_type = 'Full Day'
-            elif working_minutes >= half_shift_target:
-                day_credit_type = 'Half Day'
-            else:
-                day_credit_type = 'Partial'
-
-        elif salary_type == 'daily':
-            # Day-Based Employee:
-            # Full Day if worked >= shift_target_minutes (strict, no grace)
-            if working_minutes >= shift_target_minutes:
-                computed_salary = int(round(day_rate))
-                day_credit_type = 'Full Day'
-            # Half Day if worked >= half_shift_target (strict, no grace)
-            elif working_minutes >= half_shift_target:
-                effective_half = half_rate if half_rate > 0 else (day_rate / 2.0)
-                computed_salary = int(round(effective_half))
-                day_credit_type = 'Half Day'
-            else:
-                effective_hourly = hourly_rate if hourly_rate > 0 else (day_rate / (shift_target_minutes / 60.0))
-                computed_salary = int(round((working_minutes / 60.0) * effective_hourly))
-                day_credit_type = 'Partial'
-
-        elif salary_type == 'half_day':
-            effective_half = half_rate if half_rate > 0 else (day_rate / 2.0 if day_rate > 0 else (hourly_rate * 4.0))
-            if working_minutes >= shift_target_minutes:
-                computed_salary = int(round(effective_half * 2.0))
-                day_credit_type = 'Full Day (2x Half)'
-            elif working_minutes >= half_shift_target:
-                computed_salary = int(round(effective_half))
-                day_credit_type = 'Half Day'
-            else:
-                computed_salary = int(round((working_minutes / float(half_shift_target)) * effective_half))
-                day_credit_type = 'Partial'
-        else:
-            computed_salary = round((working_minutes / 60.0) * hourly_rate, 2)
+        # Calculate Working Salary & Overtime accurately based on employee salary_type and calculate_overtime
+        ot_metrics = compute_shift_and_overtime_metrics(
+            working_minutes,
+            shift_target_minutes,
+            salary_type,
+            hourly_rate=hourly_rate,
+            day_rate=day_rate,
+            half_rate=half_rate,
+            calculate_overtime=calculate_overtime
+        )
+        computed_salary = ot_metrics['total_salary']
+        day_credit_type = ot_metrics['day_credit_type']
             
         # Determine final entry_type: Proper only if BOTH punch-in and punch-out are within company_geofence_radius
         comp_proper_enabled = comp.get('calculate_proper_entries', True) if comp else True
@@ -3717,6 +3803,11 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'shift_variance': shift_variance_str,
             'salary_type': salary_type,
             'day_credit_type': day_credit_type,
+            'calculate_overtime': calculate_overtime,
+            'overtime_minutes': ot_metrics['overtime_minutes'],
+            'overtime_hours': ot_metrics['overtime_hours'],
+            'overtime_salary': ot_metrics['overtime_salary'],
+            'regular_salary': ot_metrics['regular_salary'],
             'working_salary': computed_salary,
             'entry_type': final_entry_type,
             'updated_at': now.isoformat()
@@ -4453,8 +4544,6 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
         hr_rate = float(emp_info.get('hourly_salary') or 0.0)
         d_rate = float(emp_info.get('day_salary') or 0.0)
         h_rate = float(emp_info.get('half_day_salary') or 0.0)
-        if hr_rate <= 0 and d_rate > 0:
-            hr_rate = d_rate / 8.0
 
         shift_str = emp_info.get('shift_hours', '08:00')
         shift_mins = parse_shift_hours_to_minutes(shift_str, default_minutes=480)
@@ -4471,27 +4560,13 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
         if tot_mins <= 0:
             return 0.0
 
-        if shift_mins == 0 or stype == 'hourly':
-            return round((tot_mins / 60.0) * hr_rate, 2)
-        elif stype == 'daily':
-            if tot_mins >= shift_mins:
-                return round(d_rate, 2)
-            elif tot_mins >= half_shift:
-                eff_h = h_rate if h_rate > 0 else (d_rate / 2.0)
-                return round(eff_h, 2)
-            else:
-                eff_hr = hr_rate if hr_rate > 0 else (d_rate / (shift_mins / 60.0))
-                return round((tot_mins / 60.0) * eff_hr, 2)
-        elif stype == 'half_day':
-            eff_h = h_rate if h_rate > 0 else (d_rate / 2.0 if d_rate > 0 else hr_rate * 4.0)
-            if tot_mins >= shift_mins:
-                return round(eff_h * 2.0, 2)
-            elif tot_mins >= half_shift:
-                return round(eff_h, 2)
-            else:
-                return round((tot_mins / float(half_shift)) * eff_h, 2)
-        else:
-            return round((tot_mins / 60.0) * hr_rate, 2)
+        calc_ot = parse_bool_flag(emp_info.get('calculate_overtime'), default=False)
+        metrics = compute_shift_and_overtime_metrics(
+            tot_mins, shift_mins, stype,
+            hourly_rate=hr_rate, day_rate=d_rate, half_rate=h_rate,
+            calculate_overtime=calc_ot
+        )
+        return metrics['total_salary']
 
     data = []
 
@@ -4540,11 +4615,11 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
             w_sal = 0.0
             status_label = r.get('status') or 'Proper'
         else:
-            raw_sal = r.get('working_salary')
-            if raw_sal is not None and float(raw_sal) > 0:
-                w_sal = float(raw_sal)
-            else:
+            if emp_info:
                 w_sal = calc_salary(emp_name, wh)
+            else:
+                raw_sal = r.get('working_salary')
+                w_sal = float(raw_sal) if (raw_sal is not None and float(raw_sal) > 0) else 0.0
             status_label = r.get('status') or 'Proper'
 
         data.append({
@@ -5429,56 +5504,810 @@ def get_balance_report(employee=None, search=None, page=1, limit=10, company_id=
         }
     }
 
-# ----------------- SALARY REPORTS ----------------- #
+# ----------------- SHARED PAYROLL & DYNAMIC SALARY REPORTS ----------------- #
+
+def _parse_year_month(month_str):
+    """Parse 'YYYY-MM' into (year, month) ints or return None if invalid."""
+    if not month_str:
+        return None
+    s = str(month_str).strip()
+    m = re.match(r'^(\d{4})-(\d{1,2})$', s)
+    if not m:
+        return None
+    yr, mo = int(m.group(1)), int(m.group(2))
+    if not (1970 <= yr <= 2099 and 1 <= mo <= 12):
+        return None
+    return yr, mo
+
+
+def _enumerate_salary_months(start_month=None, end_month=None, max_months=24):
+    """
+    Resolve start_month / end_month inputs into:
+    (months_desc_list, resolved_start_str, resolved_end_str, is_valid_range).
+    Defaults to the current IST month when both inputs are omitted.
+    """
+    cur_month = get_ist_now().strftime('%Y-%m')
+    raw_s = str(start_month).strip() if start_month else ''
+    raw_e = str(end_month).strip() if end_month else ''
+
+    if not raw_s and not raw_e:
+        return [cur_month], cur_month, cur_month, True
+
+    p_s = _parse_year_month(raw_s) if raw_s else None
+    p_e = _parse_year_month(raw_e) if raw_e else None
+    if (raw_s and not p_s) or (raw_e and not p_e):
+        return [], '', '', False
+
+    if p_s and not p_e:
+        s_iso = f"{p_s[0]:04d}-{p_s[1]:02d}"
+        e_iso = cur_month if s_iso <= cur_month else s_iso
+    elif p_e and not p_s:
+        e_iso = f"{p_e[0]:04d}-{p_e[1]:02d}"
+        s_iso = e_iso
+    else:
+        s_iso = f"{p_s[0]:04d}-{p_s[1]:02d}"
+        e_iso = f"{p_e[0]:04d}-{p_e[1]:02d}"
+
+    if s_iso > e_iso:
+        return [], '', '', False
+
+    sy, sm = _parse_year_month(s_iso)
+    ey, em = _parse_year_month(e_iso)
+    months = []
+    cur_y, cur_m = ey, em
+    while (cur_y, cur_m) >= (sy, sm) and len(months) < max_months:
+        months.append(f"{cur_y:04d}-{cur_m:02d}")
+        cur_m -= 1
+        if cur_m == 0:
+            cur_m = 12
+            cur_y -= 1
+    return months, s_iso, e_iso, True
+
+
+def _compute_employee_monthly_salary_payload(
+    emp, employee_name, month_year, assigned_company_id, comp_doc=None,
+    resolved_branch_name='HOME', branch_address='', records=None,
+    manual_entries=None, payments=None, adv_doc=None,
+    approved_leaves=None, approved_perms=None,
+    travel_logs=None, petrol_cfg=None, visits=None,
+    include_heavy_media=True
+):
+    """
+    Compute complete monthly payroll metrics (working days, working hours, overtime hours/pay,
+    earnings, deductions, leaves, permissions, net pay) for one employee and month.
+    Shared by Payslip Preview/PDF and Dynamic Salary Report.
+    """
+    records = records or []
+    manual_entries = manual_entries or []
+    payments = payments or []
+    approved_leaves = approved_leaves or []
+    approved_perms = approved_perms or []
+    travel_logs = travel_logs or []
+    visits = visits or []
+
+    try:
+        parts = month_year.split('-')
+        yr, mo = int(parts[0]), int(parts[1])
+        total_days = calendar.monthrange(yr, mo)[1]
+    except Exception:
+        total_days = 30
+
+    emp_id = emp.get('id', '') if emp else ''
+    designation = emp.get('designation', '') if emp else ''
+    phone = emp.get('mobile_number', '') if emp else ''
+    salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
+    hours_salary = float(emp.get('hourly_salary', 0.0)) if emp else 0.0
+    day_salary = float(emp.get('day_salary', 0.0)) if emp else 0.0
+    half_salary = float(emp.get('half_day_salary', 0.0)) if emp else 0.0
+    calculate_overtime = parse_bool_flag(emp.get('calculate_overtime'), default=False) if emp else False
+
+    company_name = 'ARGUS CNC™'
+    company_address = 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'
+    comp_email = 'technologiesargus@gmail.com'
+    comp_phone = '+91 98765 43210'
+    comp_gstin = '33AHZPG5373L2ZN'
+    comp_logo = ''
+    comp_logo_data = ''
+
+    if comp_doc:
+        company_name = comp_doc.get('company_name') or company_name
+        comp_email = comp_doc.get('email') or comp_email
+        comp_phone = comp_doc.get('phone') or comp_phone
+        comp_gstin = comp_doc.get('gstin') or comp_doc.get('company_gstin') or comp_gstin
+        loc = comp_doc.get('address') or comp_doc.get('location') or ''
+        if loc:
+            company_address = loc
+        else:
+            lat = comp_doc.get('latitude')
+            lng = comp_doc.get('longitude')
+            if lat and lng:
+                company_address = f"Location: Lat {lat}, Lng {lng}"
+        if include_heavy_media:
+            comp_logo = str(comp_doc.get('logo') or comp_doc.get('company_logo') or '')
+            comp_logo_data = str(comp_doc.get('logo_data') or '')
+
+    if branch_address:
+        company_address = branch_address
+    if resolved_branch_name:
+        suffix = f" - {resolved_branch_name.upper()}"
+        if not company_name.upper().endswith(suffix.upper()):
+            company_name = f"{company_name}{suffix}"
+
+    shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
+    shift_target_minutes = parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
+    half_shift_target = max(1, shift_target_minutes // 2)
+
+    daily_minutes = {}
+    daily_manual_salary = {}
+
+    for rec in records:
+        if rec.get('entry_type') == 'improper':
+            continue
+        exit_t_val = str(rec.get('exit_time') or '').strip()
+        if exit_t_val in ['', '----', '-']:
+            continue
+        is_auto_timeout = bool(
+            rec.get('is_timeout')
+            or 'AUTO TIMEOUT' in str(rec.get('exit_distance', '')).upper()
+            or 'AUTO PUNCH-OUT' in str(rec.get('exit_location', '')).upper()
+        )
+        if shift_target_minutes == 0 and is_auto_timeout:
+            continue
+        d_val = normalize_iso_date(rec.get('date') or rec.get('entry_time') or rec.get('created_at'))
+        if not d_val or d_val[:7] != month_year:
+            continue
+
+        wh = rec.get('working_hours', '00:00')
+        mins = 0
+        if wh and ':' in str(wh):
+            try:
+                h, m = str(wh).split(':')[:2]
+                mins = int(h) * 60 + int(m)
+            except Exception:
+                mins = 0
+        elif wh:
+            try:
+                mins = int(float(wh) * 60)
+            except Exception:
+                mins = 0
+        daily_minutes[d_val] = daily_minutes.get(d_val, 0) + mins
+
+    valid_manual_entries = []
+    for m_entry in manual_entries:
+        st_raw = str(m_entry.get('status', '')).strip().lower()
+        if 'improper' in st_raw:
+            continue
+        ed = normalize_iso_date(m_entry.get('entry_date') or m_entry.get('submitted_at') or m_entry.get('created_at'))
+        if not ed or ed[:7] != month_year:
+            continue
+        valid_manual_entries.append(m_entry)
+
+        hrs_str = m_entry.get('hours', '00:00')
+        mins = 0
+        if hrs_str:
+            clean_hrs = str(hrs_str).replace('-', '').strip()
+            if ':' in clean_hrs:
+                try:
+                    parts = clean_hrs.split(':')
+                    mins = abs(int(parts[0])) * 60 + abs(int(parts[1]))
+                except Exception:
+                    mins = 0
+        if shift_target_minutes > 0:
+            if 'full' in st_raw:
+                mins = max(mins, shift_target_minutes)
+            elif 'half' in st_raw:
+                mins = max(mins, half_shift_target)
+        entry_type = str(m_entry.get('entry_type', 'Add')).strip()
+        is_sub = entry_type.lower() == 'sub' or float(m_entry.get('working_salary', 0.0)) < 0
+        msal = abs(float(m_entry.get('working_salary', 0.0)))
+
+        daily_minutes[ed] = daily_minutes.get(ed, 0) + (-mins if is_sub else mins)
+        daily_manual_salary[ed] = daily_manual_salary.get(ed, 0.0) + (-msal if is_sub else msal)
+
+    net_daily_minutes = {d: max(0, m) for d, m in daily_minutes.items()}
+    positive_days = {d: m for d, m in net_daily_minutes.items() if m > 0 or daily_manual_salary.get(d, 0.0) > 0}
+    total_minutes = max(0, sum(daily_minutes.values()))
+    working_days = len(positive_days)
+    working_hours = format_minutes_hhmm(total_minutes)
+
+    regular_billable_minutes = 0
+    total_overtime_minutes = 0
+    for d, mins in net_daily_minutes.items():
+        if mins <= 0:
+            continue
+        if shift_target_minutes == 0:
+            regular_billable_minutes += mins
+        else:
+            regular_billable_minutes += min(mins, shift_target_minutes)
+            if calculate_overtime and mins > shift_target_minutes:
+                total_overtime_minutes += (mins - shift_target_minutes)
+
+    neg_manual_mins = sum(m for m in daily_minutes.values() if m < 0)
+    regular_billable_minutes = max(0, regular_billable_minutes + neg_manual_mins)
+    overtime_hours = format_minutes_hhmm(total_overtime_minutes)
+
+    full_days = 0
+    half_days = 0
+    partial_days = 0
+    partial_minutes = 0
+    total_half_units = 0
+    ref_half_mins = 240
+
+    if shift_target_minutes == 0:
+        for d, mins in net_daily_minutes.items():
+            if mins > 0:
+                partial_days += 1
+                partial_minutes += mins
+    elif salary_type == 'half_day':
+        ref_half_mins = 240 if shift_target_minutes >= 480 else (shift_target_minutes if shift_target_minutes <= 300 else 240)
+        ref_full_mins = ref_half_mins * 2
+        for d, mins in net_daily_minutes.items():
+            if mins >= ref_full_mins:
+                full_days += 1
+            elif mins >= ref_half_mins:
+                half_days += 1
+            elif mins > 0:
+                partial_days += 1
+                partial_minutes += mins
+        total_half_units = (full_days * 2) + half_days
+    else:
+        for d, mins in net_daily_minutes.items():
+            if mins >= shift_target_minutes:
+                full_days += 1
+            elif mins >= half_shift_target:
+                half_days += 1
+            elif mins > 0:
+                partial_days += 1
+                partial_minutes += mins
+
+    effective_half = half_salary if half_salary > 0 else (day_salary / 2.0 if day_salary > 0 else (hours_salary * 4.0 if shift_target_minutes > 0 else 0.0))
+    if hours_salary > 0:
+        effective_hour = hours_salary
+    elif salary_type == 'half_day' and effective_half > 0 and shift_target_minutes > 0:
+        effective_hour = (effective_half * 2.0) / (shift_target_minutes / 60.0)
+    elif day_salary > 0 and shift_target_minutes > 0:
+        effective_hour = day_salary / (shift_target_minutes / 60.0)
+    else:
+        effective_hour = 0.0
+
+    manual_salary_sum = sum(daily_manual_salary.values())
+    has_punch_records = any(
+        rec.get('entry_type') != 'improper'
+        and str(rec.get('exit_time') or '').strip() not in ['', '----', '-']
+        for rec in records
+    )
+
+    overtime_pay = 0.0
+    if not has_punch_records and valid_manual_entries:
+        manual_net = sum(float(m.get('working_salary', 0.0)) for m in manual_entries)
+        basic_salary = max(0.0, round(manual_net, 2))
+        total_overtime_minutes = 0
+        overtime_hours = '00:00'
+    elif shift_target_minutes == 0 or salary_type == 'hourly':
+        basic_salary = round((regular_billable_minutes / 60.0) * hours_salary, 2)
+        unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
+        unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
+        basic_salary = max(0.0, round(basic_salary + unapplied_deductions + unapplied_additions, 2))
+        if calculate_overtime and total_overtime_minutes > 0 and shift_target_minutes > 0:
+            overtime_pay = round((total_overtime_minutes / 60.0) * effective_hour, 2)
+    elif salary_type == 'daily':
+        non_half_days = max(0, working_days - half_days)
+        basic_salary = round((non_half_days * day_salary) + (half_days * effective_half), 2)
+        unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
+        unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
+        basic_salary = max(0.0, round(basic_salary + unapplied_deductions + unapplied_additions, 2))
+        if calculate_overtime and total_overtime_minutes > 0 and shift_target_minutes > 0:
+            overtime_pay = round((total_overtime_minutes / 60.0) * effective_hour, 2)
+    elif salary_type == 'half_day':
+        total_half_units = (full_days * 2) + half_days
+        target_half_div = ref_half_mins if ref_half_mins > 0 else 240
+        part_sal = (partial_minutes / float(target_half_div)) * effective_half
+        basic_salary = round((total_half_units * effective_half) + part_sal, 2)
+        unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
+        unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
+        basic_salary = max(0.0, round(basic_salary + unapplied_deductions + unapplied_additions, 2))
+        if calculate_overtime and total_overtime_minutes > 0 and shift_target_minutes > 0:
+            overtime_pay = round((total_overtime_minutes / 60.0) * effective_hour, 2)
+    else:
+        if hours_salary > 0:
+            basic_salary = round((regular_billable_minutes / 60.0) * hours_salary, 2)
+            if calculate_overtime and total_overtime_minutes > 0 and shift_target_minutes > 0:
+                overtime_pay = round((total_overtime_minutes / 60.0) * hours_salary, 2)
+        elif day_salary > 0:
+            basic_salary = round((full_days * day_salary) + (half_days * effective_half), 2)
+            if calculate_overtime and total_overtime_minutes > 0 and shift_target_minutes > 0:
+                overtime_pay = round((total_overtime_minutes / 60.0) * effective_hour, 2)
+        else:
+            basic_salary = max(0.0, manual_salary_sum)
+
+    if basic_salary == 0.0 and manual_salary_sum > 0.0:
+        basic_salary = manual_salary_sum
+
+    allowance = 0.0
+    incentive = 0.0
+    other_earnings = 0.0
+    petrol_allowance_paid = 0.0
+    advance_payment_deduction = 0.0
+    advance_repayment = 0.0
+    paid_salary = 0.0
+    other_deductions = 0.0
+
+    for p in payments:
+        p_amt = float(p.get('amount', 0.0))
+        reason = (p.get('status') or p.get('reason') or '').strip()
+        r_low = reason.lower()
+        if r_low == 'incentive':
+            incentive += p_amt
+        elif r_low == 'allowance':
+            allowance += p_amt
+        elif 'advance repayment' in r_low or r_low == 'repayment':
+            advance_repayment += p_amt
+        elif 'advance' in r_low:
+            advance_payment_deduction += p_amt
+        elif r_low in ['salary', 'paid salary']:
+            paid_salary += p_amt
+        elif 'deduction' in r_low:
+            other_deductions += p_amt
+        elif 'petrol' in r_low or 'diesel' in r_low or 'fuel' in r_low:
+            petrol_allowance_paid += p_amt
+        elif 'earning' in r_low or 'bonus' in r_low:
+            other_earnings += p_amt
+        else:
+            other_earnings += p_amt
+
+    if advance_repayment == 0.0 and adv_doc:
+        advance_repayment = float(adv_doc.get('repayment_amount', 0.0))
+
+    auto_petrol_allowance = 0.0
+    if travel_logs:
+        total_km = round(sum(safe_float(lg.get('step_km', 0.0)) for lg in travel_logs), 2)
+        worker_unit = safe_float(emp.get('petrol_unit_km', 0.0)) if emp else 0.0
+        worker_amt = safe_float(emp.get('petrol_rate_inr', 0.0)) if emp else 0.0
+        worker_has_custom = bool(emp and (emp.get('has_custom_petrol_rate') or (worker_amt > 0)))
+        if worker_has_custom and worker_unit > 0 and worker_amt > 0:
+            km_rate = round(worker_amt / worker_unit, 2)
+        else:
+            km_rate = safe_float((petrol_cfg or {}).get('per_km_rate', 10.0), 10.0)
+        auto_petrol_allowance = round(total_km * km_rate, 2)
+
+    petrol_allowance_deduction = petrol_allowance_paid if petrol_allowance_paid > 0 else 0.0
+    petrol_allowance_earnings = auto_petrol_allowance
+
+    verified_visits = 0
+    verified_visits_incentive = 0.0
+    if visits:
+        verified_visits = sum(1 for v in visits if v.get('is_location_verified', True))
+        per_visit_rate = round(safe_float(emp.get('per_visit_incentive', 0.0)), 2) if emp else 0.0
+        if verified_visits > 0 and per_visit_rate > 0:
+            verified_visits_incentive = round(verified_visits * per_visit_rate, 2)
+
+    total_deduction = round(paid_salary + advance_repayment + advance_payment_deduction + other_deductions + petrol_allowance_deduction, 2)
+    leave_days = max(0, total_days - working_days)
+
+    try:
+        y, m = int(month_year.split('-')[0]), int(month_year.split('-')[1])
+        month_start = date(y, m, 1)
+        month_end = date(y, m, calendar.monthrange(y, m)[1])
+    except Exception:
+        month_start = month_end = None
+
+    paid_leave_days = 0.0
+    paid_leave_half_days = 0
+    paid_leave_details = []
+    for lv in approved_leaves:
+        try:
+            fd = datetime.strptime(lv.get('from_date', ''), '%Y-%m-%d').date()
+            td = datetime.strptime(lv.get('to_date', lv.get('from_date', '')), '%Y-%m-%d').date()
+        except Exception:
+            continue
+        session = lv.get('session', 'Full Day')
+        leave_type = lv.get('leave_type', 'Casual Leave (CL)')
+        if session == 'Half Day':
+            if month_start and month_end and month_start <= fd <= month_end:
+                d_str = fd.strftime('%Y-%m-%d')
+                if daily_minutes.get(d_str, 0) < shift_target_minutes:
+                    paid_leave_days += 0.5
+                    paid_leave_half_days += 1
+                    paid_leave_details.append({'date': d_str, 'type': leave_type, 'days': 0.5, 'session': 'Half Day'})
+        else:
+            current = max(fd, month_start) if month_start else fd
+            end_lv = min(td, month_end) if month_end else td
+            while current <= end_lv:
+                d_str = current.strftime('%Y-%m-%d')
+                if daily_minutes.get(d_str, 0) == 0:
+                    paid_leave_days += 1.0
+                    paid_leave_details.append({'date': d_str, 'type': leave_type, 'days': 1.0, 'session': 'Full Day'})
+                current += timedelta(days=1)
+
+    permission_hours_used = 0.0
+    permission_details = []
+    for pm in approved_perms:
+        dur = float(pm.get('duration_hours', pm.get('hours_count', 0)))
+        permission_hours_used += dur
+        permission_details.append({
+            'date': pm.get('date') or pm.get('from_date', ''),
+            'hours': dur,
+            'type': pm.get('permission_type', 'Short Leave')
+        })
+
+    paid_leave_salary = 0.0
+    if paid_leave_days > 0 and shift_target_minutes > 0:
+        if salary_type == 'daily':
+            paid_leave_salary = round((paid_leave_days * day_salary), 2)
+        elif salary_type == 'half_day':
+            paid_leave_salary = round((paid_leave_days * 2 * effective_half), 2)
+        elif salary_type == 'hourly':
+            paid_leave_salary = round((paid_leave_days * shift_target_minutes / 60.0) * hours_salary, 2)
+        else:
+            if day_salary > 0:
+                paid_leave_salary = round((paid_leave_days * day_salary), 2)
+            elif hours_salary > 0:
+                paid_leave_salary = round((paid_leave_days * shift_target_minutes / 60.0) * hours_salary, 2)
+        basic_salary = round(basic_salary + paid_leave_salary, 2)
+
+    out_basic = round(basic_salary, 2) if salary_type == 'hourly' else int(round(basic_salary))
+    out_overtime = round(overtime_pay, 2) if salary_type == 'hourly' else int(round(overtime_pay))
+    out_allowance = int(round(allowance))
+    out_incentive = int(round(incentive))
+    out_other_earn = int(round(other_earnings))
+    raw_tot_earn = out_basic + out_overtime + out_allowance + out_incentive + petrol_allowance_earnings + out_other_earn + verified_visits_incentive
+    out_tot_earn = round(raw_tot_earn, 2) if salary_type == 'hourly' else int(round(raw_tot_earn))
+    raw_net_pay = max(0.0, float(out_tot_earn) - float(total_deduction))
+    out_net_pay = round(raw_net_pay, 2) if salary_type == 'hourly' else int(round(raw_net_pay))
+    absent_days_lop = max(0, leave_days - paid_leave_days)
+    net_pay_in_words = number_to_words(out_net_pay)
+
+    basis_labels = {'hourly': 'Hourly-Based', 'daily': 'Day-Based', 'half_day': 'Half-Day-Based'}
+    salary_basis_label = basis_labels.get(salary_type, 'Day-Based')
+    if salary_type == 'half_day':
+        working_days_breakdown = f"{half_days} Half Days" if full_days == 0 else f"{total_half_units} Half Days ({full_days} Full, {half_days} Half)"
+    else:
+        working_days_breakdown = f"{working_days} ({full_days} Full, {half_days} Half)" if (full_days > 0 or half_days > 0) else str(working_days)
+
+    rep_hours_salary = round(hours_salary, 2) if salary_type == 'hourly' else 0
+    rep_day_salary = int(round(day_salary)) if salary_type == 'daily' else 0
+    rep_half_salary = int(round(half_salary)) if salary_type in ['daily', 'half_day'] else 0
+
+    emp_photo = str(emp.get('photo') or emp.get('photo_filename', '') if emp else '') if include_heavy_media else ''
+    emp_photo_data = str(emp.get('photo_data', '') if emp else '') if include_heavy_media else ''
+    emp_photo_url = (emp_photo_data or (f"/uploads/{emp_photo}" if emp_photo else '')) if include_heavy_media else ''
+    comp_logo_url = (comp_logo_data or (f"/uploads/{comp_logo}" if comp_logo else '')) if include_heavy_media else ''
+
+    return {
+        'company_id': assigned_company_id,
+        'company_name': company_name,
+        'company_address': company_address,
+        'company_email': comp_email,
+        'company_phone': comp_phone,
+        'company_gstin': comp_gstin,
+        'employee_name': employee_name,
+        'employee_id': emp_id,
+        'designation': designation,
+        'phone_number': phone,
+        'shift_hours': str(shift_hours_str or '08:00'),
+        'calculate_overtime': calculate_overtime,
+        'bank_name': str(emp.get('bank_name', '') if emp else ''),
+        'account_number': str(emp.get('account_number', '') if emp else ''),
+        'salary_type': salary_type,
+        'salary_basis': salary_basis_label,
+        'salary_basis_label': salary_basis_label,
+        'full_days': full_days,
+        'half_days': half_days,
+        'partial_days': partial_days,
+        'working_days_breakdown': working_days_breakdown,
+        'pay_period': month_year,
+        'year_month': month_year,
+        'hours_salary': rep_hours_salary,
+        'day_salary': rep_day_salary,
+        'half_day_salary': rep_half_salary,
+        'working_days': working_days,
+        'leave_days': leave_days,
+        'total_days': total_days,
+        'total_days_of_month': total_days,
+        'total_working_hours': working_hours,
+        'working_hours': working_hours,
+        'overtime_minutes': total_overtime_minutes,
+        'overtime_hours': overtime_hours,
+        'overtime_pay': out_overtime,
+        'basic_salary': out_basic,
+        'allowance': out_allowance,
+        'incentive': out_incentive,
+        'verified_visits': verified_visits,
+        'verified_visits_incentive': round(verified_visits_incentive, 2),
+        'visit_incentive_pay': round(verified_visits_incentive, 2),
+        'petrol_allowance': round(petrol_allowance_earnings, 2),
+        'petrol_allowance_earnings': round(petrol_allowance_earnings, 2),
+        'petrol_allowance_paid': round(petrol_allowance_paid, 2),
+        'petrol_allowance_deduction': round(petrol_allowance_deduction, 2),
+        'advance_payment_deduction': round(advance_payment_deduction, 2),
+        'other_earnings': out_other_earn,
+        'total_earnings': out_tot_earn,
+        'paid_salary': int(round(paid_salary)),
+        'advance_repayment': int(round(advance_repayment)),
+        'other_deductions': int(round(other_deductions)),
+        'total_deduction': int(round(total_deduction)),
+        'total_deductions': int(round(total_deduction)),
+        'net_pay': out_net_pay,
+        'net_pay_in_words': net_pay_in_words,
+        'email_id': str(emp.get('email_id') or emp.get('email', '') if emp else ''),
+        'department': str(emp.get('department', '') or 'General' if emp else 'General'),
+        'employee_photo': emp_photo,
+        'employee_photo_data': emp_photo_data,
+        'employee_photo_url': emp_photo_url,
+        'company_logo': comp_logo,
+        'company_logo_data': comp_logo_data,
+        'company_logo_url': comp_logo_url,
+        'paid_leave_days': paid_leave_days,
+        'paid_leave_half_days': paid_leave_half_days,
+        'paid_leave_salary': round(paid_leave_salary, 2) if salary_type == 'hourly' else int(round(paid_leave_salary)),
+        'paid_leave_details': paid_leave_details,
+        'absent_days_lop': absent_days_lop,
+        'permission_hours_used': permission_hours_used,
+        'permission_details': permission_details,
+        'leave_breakdown': f"{int(paid_leave_days)} Paid, {int(absent_days_lop)} LOP" if (paid_leave_days > 0 or absent_days_lop > 0) else f"{leave_days} Leave",
+    }
+
 
 def get_salary_reports(start_month=None, end_month=None, search=None, page=1, limit=10, company_id=None, branch_id=None, exclude_field_workers=True):
+    """
+    Dynamically compute live monthly payroll rows for all matching employees across the resolved month(s)
+    directly from live attendance, overtime, manual adjustments, approved leaves, payments, and advances.
+    """
     db = get_db()
-    query = {}
-    
-    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
-        query['company_id'] = str(company_id)
-
-    if exclude_field_workers:
-        fw_names = get_field_worker_names(company_id)
-        if fw_names:
-            query.setdefault('employee_name', {})['$nin'] = list(fw_names)
-        query.setdefault('$and', []).append({'is_field_worker': {'$ne': True}})
+    months_list, s_iso, e_iso, range_ok = _enumerate_salary_months(start_month, end_month)
+    if not range_ok or not months_list:
+        return {'total': 0, 'page': page, 'limit': limit, 'data': [], 'start_month': s_iso, 'end_month': e_iso}
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
-    if b_id:
-        b_names, _ = get_cached_branch_names_and_ids(b_id, company_id)
-        branch_cond = get_branch_record_condition(b_id, b_names)
-        if branch_cond:
-            query.setdefault('$and', []).append(branch_cond)
-        
-    if not start_month and not end_month:
-        _, _, def_start_month, _ = get_default_two_month_range()
-        start_month = def_start_month
+    emp_q = get_branch_employee_query(b_id, company_id, exclude_field_workers=exclude_field_workers)
+    emp_docs = list(db.employees.find(emp_q, {'photo_data': 0, 'face_embedding': 0, 'documents': 0}))
+    if not emp_docs:
+        return {'total': 0, 'page': page, 'limit': limit, 'data': [], 'start_month': s_iso, 'end_month': e_iso}
 
-    if start_month:
-        query['pay_period'] = {'$gte': start_month}
-    if end_month:
-        query.setdefault('pay_period', {})['$lte'] = end_month
-        
-    if search:
-        reg = {'$regex': re.escape(search), '$options': 'i'}
-        query['$or'] = [
-            {'employee_name': reg},
-            {'pay_period': reg},
-            {'working_hours': reg}
+    emp_names = []
+    emp_names_seen = set()
+    for ed in emp_docs:
+        ename = str(ed.get('employee_name') or '').strip()
+        if ename and ename not in emp_names_seen:
+            emp_names_seen.add(ename)
+            emp_names.append(ename)
+
+    comp_scope = str(company_id).strip() if (company_id and str(company_id).strip() not in ['ALL', 'ARGUS_MASTER']) else None
+    att_or = []
+    man_or = []
+    pay_or = []
+    for m_str in months_list:
+        y_str, mo_str = m_str.split('-')
+        m_slash = f"/{mo_str}/{y_str}"
+        m_hyph = f"-{mo_str}-{y_str}"
+        att_or.extend([{'date': {'$regex': f'^{m_str}'}}, {'entry_time': {'$regex': m_slash}}, {'entry_time': {'$regex': f'^{m_str}'}}])
+        man_or.extend([{'entry_date': {'$regex': f'^{m_str}'}}, {'submitted_at': {'$regex': m_hyph}}, {'submitted_at': {'$regex': f'^{m_str}'}}])
+        pay_or.extend([{'payment_date': {'$regex': f'^{m_str}'}}, {'timestamp': {'$regex': m_hyph}}, {'timestamp': {'$regex': f'^{m_str}'}}])
+
+    base_att_q = {'employee_name': {'$in': emp_names}, 'entry_type': {'$ne': 'improper'}, '$or': att_or}
+    if comp_scope:
+        base_att_q['company_id'] = comp_scope
+    att_rows = list(db.attendance_reports.find(base_att_q))
+
+    base_man_q = {'employee_name': {'$in': emp_names}, '$or': man_or}
+    if comp_scope:
+        base_man_q['company_id'] = comp_scope
+    man_rows = list(db.manual_entries.find(base_man_q))
+
+    base_pay_q = {'employee_name': {'$in': emp_names}, '$or': pay_or}
+    if comp_scope:
+        base_pay_q['company_id'] = comp_scope
+    pay_rows = list(db.payments.find(base_pay_q))
+
+    adv_q = {'employee_name': {'$in': emp_names}}
+    if comp_scope:
+        adv_q['company_id'] = comp_scope
+    adv_by_emp = {}
+    for ad in db.advances.find(adv_q):
+        aname = str(ad.get('employee_name') or '').strip()
+        if aname and aname not in adv_by_emp:
+            adv_by_emp[aname] = ad
+
+    sy, sm = _parse_year_month(months_list[-1])
+    ey, em = _parse_year_month(months_list[0])
+    range_start_str = f"{sy:04d}-{sm:02d}-01"
+    range_end_str = f"{ey:04d}-{em:02d}-{calendar.monthrange(ey, em)[1]:02d}"
+
+    lv_q = {
+        'employee_name': {'$in': emp_names},
+        'status': 'Approved',
+        '$or': [
+            {'request_type': 'Leave', 'from_date': {'$lte': range_end_str}, 'to_date': {'$gte': range_start_str}},
+            {'request_type': 'Leave', 'from_date': {'$lte': range_end_str}, 'to_date': {'$exists': False}},
+            {'request_type': 'Permission', 'from_date': {'$gte': range_start_str, '$lte': range_end_str}},
+            {'request_type': 'Permission', 'date': {'$gte': range_start_str, '$lte': range_end_str}}
         ]
-        
-    total = db.salary_reports.count_documents(query)
-    cursor = db.salary_reports.find(query).sort([("pay_period", DESCENDING), ("created_at", DESCENDING), ("id", DESCENDING), ("_id", DESCENDING)])
+    }
+    if comp_scope:
+        lv_q['company_id'] = comp_scope
+    lv_rows = list(db.leave_requests.find(lv_q))
+
+    has_fw = any(bool(e.get('is_field_worker')) for e in emp_docs)
+    logs_by_key = {}
+    visits_by_key = {}
+    petrol_cfg_cache = {}
+    if has_fw:
+        fw_names = [str(e.get('employee_name') or '').strip() for e in emp_docs if e.get('is_field_worker') and e.get('employee_name')]
+        m_regex = f"^({'|'.join(re.escape(m) for m in months_list)})"
+        log_q = {'employee_name': {'$in': fw_names}, 'date': {'$regex': m_regex}}
+        if comp_scope:
+            log_q['company_id'] = comp_scope
+        for lg in db.field_location_logs.find(log_q):
+            l_mo = str(lg.get('date') or '')[:7]
+            if l_mo in months_list:
+                logs_by_key.setdefault((str(lg.get('employee_name') or '').strip(), l_mo), []).append(lg)
+        vis_q = {'employee_name': {'$in': fw_names}, 'visit_date': {'$regex': m_regex}}
+        if comp_scope:
+            vis_q['company_id'] = comp_scope
+        for vs in db.field_customer_visits.find(vis_q):
+            v_mo = str(vs.get('visit_date') or '')[:7]
+            if v_mo in months_list:
+                visits_by_key.setdefault((str(vs.get('employee_name') or '').strip(), v_mo), []).append(vs)
+
+    # Preload company & branch names once to avoid N+1 lookups
+    comp_cache = {}
+    for cid_k in {str(e.get('company_id') or 'ARGUS_MASTER') for e in emp_docs} | ({comp_scope} if comp_scope else set()):
+        comp_cache[cid_k] = get_company_by_id(cid_k, include_counts=False)
+    branch_cache = {}
+    for bid_k in {str(e.get('branch_id')) for e in emp_docs if e.get('branch_id') and not is_home_branch_id(e.get('branch_id'))}:
+        branch_cache[bid_k] = db.company_branches.find_one({'id': bid_k}, {'branch_name': 1, 'location': 1})
+    active_b_obj = db.company_branches.find_one({'id': b_id}, {'branch_name': 1, 'location': 1}) if (b_id and not is_home_branch_id(b_id)) else None
+
+    # Bucket records cleanly by (emp_name, month_year) and track active/historical names per month
+    att_by_em = {}
+    active_in_month = {}
+    for rec in att_rows:
+        ename = str(rec.get('employee_name') or '').strip()
+        d_iso = normalize_iso_date(rec.get('date') or rec.get('entry_time') or rec.get('created_at'))
+        mo_k = d_iso[:7] if d_iso else ''
+        if ename and mo_k in months_list:
+            k = (ename, mo_k)
+            att_by_em.setdefault(k, []).append(rec)
+            active_in_month.setdefault(mo_k, set()).add(ename)
+
+    man_by_em = {}
+    for m_rec in man_rows:
+        ename = str(m_rec.get('employee_name') or '').strip()
+        d_iso = normalize_iso_date(m_rec.get('entry_date') or m_rec.get('submitted_at') or m_rec.get('created_at'))
+        mo_k = d_iso[:7] if d_iso else ''
+        if ename and mo_k in months_list:
+            k = (ename, mo_k)
+            man_by_em.setdefault(k, []).append(m_rec)
+            active_in_month.setdefault(mo_k, set()).add(ename)
+
+    pay_by_em = {}
+    for p_rec in pay_rows:
+        ename = str(p_rec.get('employee_name') or '').strip()
+        d_iso = normalize_iso_date(p_rec.get('payment_date') or p_rec.get('timestamp') or p_rec.get('created_at'))
+        mo_k = d_iso[:7] if d_iso else ''
+        if ename and mo_k in months_list:
+            k = (ename, mo_k)
+            pay_by_em.setdefault(k, []).append(p_rec)
+            active_in_month.setdefault(mo_k, set()).add(ename)
+
+    lv_by_emp = {}
+    pm_by_em = {}
+    for l_rec in lv_rows:
+        ename = str(l_rec.get('employee_name') or '').strip()
+        if not ename:
+            continue
+        if l_rec.get('request_type') == 'Leave':
+            lv_by_emp.setdefault(ename, []).append(l_rec)
+        elif l_rec.get('request_type') == 'Permission':
+            p_iso = normalize_iso_date(l_rec.get('date') or l_rec.get('from_date'))
+            mo_k = p_iso[:7] if p_iso else ''
+            if mo_k in months_list:
+                pm_by_em.setdefault((ename, mo_k), []).append(l_rec)
+
+    search_low = search.strip().lower() if search and str(search).strip() else ''
+    rows = []
+    for mo_k in months_list:
+        mo_active_names = active_in_month.get(mo_k, set())
+        for emp_d in emp_docs:
+            ename = str(emp_d.get('employee_name') or '').strip()
+            if not ename:
+                continue
+            is_inactive = (str(emp_d.get('status', 'Active')).strip().capitalize() == 'Inactive')
+            if is_inactive and ename not in mo_active_names:
+                continue
+
+            cid_e = str(emp_d.get('company_id') or company_id or 'ARGUS_MASTER')
+            comp_doc = comp_cache.get(cid_e) or comp_cache.get('ARGUS_MASTER')
+
+            if b_id:
+                res_b_name = 'HOME' if is_home_branch_id(b_id) else (active_b_obj.get('branch_name') if active_b_obj else b_id)
+                b_addr = active_b_obj.get('location', '') if active_b_obj else ''
+            else:
+                e_bid = emp_d.get('branch_id')
+                if e_bid and not is_home_branch_id(e_bid):
+                    b_obj = branch_cache.get(str(e_bid))
+                    res_b_name = b_obj.get('branch_name') if b_obj else (emp_d.get('branch_name') or e_bid)
+                    b_addr = b_obj.get('location', '') if b_obj else ''
+                else:
+                    res_b_name = 'HOME'
+                    b_addr = ''
+
+            if has_fw and cid_e not in petrol_cfg_cache:
+                petrol_cfg_cache[cid_e] = get_company_petrol_allowance_config(cid_e)
+
+            k = (ename, mo_k)
+            payload = _compute_employee_monthly_salary_payload(
+                emp=emp_d,
+                employee_name=ename,
+                month_year=mo_k,
+                assigned_company_id=cid_e,
+                comp_doc=comp_doc,
+                resolved_branch_name=res_b_name,
+                branch_address=b_addr,
+                records=att_by_em.get(k, []),
+                manual_entries=man_by_em.get(k, []),
+                payments=pay_by_em.get(k, []),
+                adv_doc=adv_by_emp.get(ename),
+                approved_leaves=lv_by_emp.get(ename, []),
+                approved_perms=pm_by_em.get(k, []),
+                travel_logs=logs_by_key.get(k, []) if emp_d.get('is_field_worker') else [],
+                petrol_cfg=petrol_cfg_cache.get(cid_e) if emp_d.get('is_field_worker') else None,
+                visits=visits_by_key.get(k, []) if emp_d.get('is_field_worker') else [],
+                include_heavy_media=False
+            )
+
+            other_earn_total = round(
+                float(payload.get('other_earnings', 0))
+                + float(payload.get('petrol_allowance_earnings', 0))
+                + float(payload.get('verified_visits_incentive', 0)),
+                2
+            )
+            row = {
+                'id': emp_d.get('id'),
+                'company_id': payload['company_id'],
+                'employee_name': ename,
+                'pay_period': mo_k,
+                'salary_type': payload['salary_type'],
+                'calculate_overtime': payload['calculate_overtime'],
+                'working_days': payload['working_days'],
+                'working_hours': payload['working_hours'],
+                'overtime_hours': payload['overtime_hours'],
+                'overtime_minutes': payload['overtime_minutes'],
+                'overtime_pay': payload['overtime_pay'],
+                'allowance': payload['allowance'],
+                'incentive': payload['incentive'],
+                'other_earnings': other_earn_total,
+                'basic_earnings': payload['basic_salary'],
+                'total_earnings': payload['total_earnings'],
+                'paid_salary': payload['paid_salary'],
+                'advance_repayment': payload['advance_repayment'],
+                'other_deductions': payload['other_deductions'],
+                'total_deductions': payload['total_deductions'],
+                'net_salary': payload['net_pay']
+            }
+            if search_low:
+                haystack = f"{row['employee_name']} {row['pay_period']} {row['working_hours']} {row['overtime_hours']}".lower()
+                if search_low not in haystack:
+                    continue
+            rows.append(row)
+
+    rows.sort(key=lambda r: (r['pay_period'], -float(r['net_salary']), r['employee_name'].lower()), reverse=False)
+    rows.sort(key=lambda r: r['pay_period'], reverse=True)
+
+    total = len(rows)
     if limit and limit > 0:
-        cursor = cursor.skip((page - 1) * limit).limit(limit)
-        
-    data = [clean_doc(doc) for doc in cursor]
+        start_idx = max(0, (int(page) - 1) * int(limit))
+        paged_rows = rows[start_idx:start_idx + int(limit)]
+    else:
+        paged_rows = rows
+
     return {
         'total': total,
         'page': page,
         'limit': limit,
-        'data': data
+        'start_month': s_iso,
+        'end_month': e_iso,
+        'data': paged_rows
     }
 
 # ----------------- PAYSLIP HELPER & NUMBER TO WORDS ----------------- #
@@ -5590,6 +6419,8 @@ def save_generated_salary_report(p, company_id=None):
         'pay_period': p.get('year_month', ''),
         'working_days': int(p.get('working_days', 0)),
         'working_hours': p.get('total_working_hours', '00:00'),
+        'overtime_hours': p.get('overtime_hours', '00:00'),
+        'overtime_pay': float(p.get('overtime_pay', 0)),
         'allowance': float(p.get('allowance', 0)),
         'incentive': float(p.get('incentive', 0)),
         'other_earnings': float(p.get('other_earnings', 0)),
@@ -5620,74 +6451,25 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
         emp = db.employees.find_one({'employee_name': {'$regex': f"^{re.escape(str(employee_name).strip())}$", '$options': 'i'}, 'company_id': str(company_id)})
     if not emp:
         emp = db.employees.find_one({'employee_name': {'$regex': f"^{re.escape(str(employee_name).strip())}$", '$options': 'i'}})
-    
-    try:
-        parts = month_year.split('-')
-        yr = int(parts[0])
-        mo = int(parts[1])
-        if mo in [1, 3, 5, 7, 8, 10, 12]:
-            total_days = 31
-        elif mo in [4, 6, 9, 11]:
-            total_days = 30
-        else:
-            total_days = 29 if (yr % 4 == 0 and (yr % 100 != 0 or yr % 400 == 0)) else 28
-    except Exception:
-        total_days = 30
-        
-    emp_id = emp.get('id', '') if emp else ''
-    designation = emp.get('designation', '') if emp else ''
-    phone = emp.get('mobile_number', '') if emp else ''
-    salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
-    hours_salary = float(emp.get('hourly_salary', 0.0)) if emp else 0.0
-    day_salary = float(emp.get('day_salary', 0.0)) if emp else 0.0
-    half_salary = float(emp.get('half_day_salary', 0.0)) if emp else 0.0
 
-    # Dynamically resolve respective company based on employee's company assignment
+    query_emp_name = emp.get('employee_name', employee_name) if emp else employee_name
     emp_comp_id = str((emp.get('company_id') if (emp and emp.get('company_id')) else None) or company_id or 'ARGUS_MASTER')
     assigned_company_id = emp_comp_id
     emp_comp_name = emp.get('company_name') if emp else None
 
     comp_doc = None
     if emp_comp_id and emp_comp_id != 'ARGUS_MASTER':
-        comp_doc = db.company_admin.find_one({'id': emp_comp_id})
-        if not comp_doc:
-            comp_doc = db.company_admin.find_one(build_id_filter(emp_comp_id))
+        comp_doc = db.company_admin.find_one({'id': emp_comp_id}) or db.company_admin.find_one(build_id_filter(emp_comp_id))
     if not comp_doc and emp_comp_name:
         comp_doc = db.company_admin.find_one({'company_name': emp_comp_name})
     if not comp_doc and company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
-        comp_doc = db.company_admin.find_one({'id': str(company_id)})
-        if not comp_doc:
-            comp_doc = db.company_admin.find_one(build_id_filter(company_id))
+        comp_doc = db.company_admin.find_one({'id': str(company_id)}) or db.company_admin.find_one(build_id_filter(company_id))
     if not comp_doc:
         comp_doc = db.company_admin.find_one({'id': 'ARGUS_MASTER'})
 
-    company_name = 'ARGUS CNC™'
-    company_address = 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'
-    comp_email = 'technologiesargus@gmail.com'
-    comp_phone = '+91 98765 43210'
-    comp_gstin = '33AHZPG5373L2ZN'
-    comp_logo = ''
-    comp_logo_data = ''
-
-    if comp_doc:
-        company_name = comp_doc.get('company_name') or company_name
-        comp_email = comp_doc.get('email') or comp_email
-        comp_phone = comp_doc.get('phone') or comp_phone
-        comp_gstin = comp_doc.get('gstin') or comp_doc.get('company_gstin') or comp_gstin
-        loc = comp_doc.get('address') or comp_doc.get('location') or ''
-        if loc:
-            company_address = loc
-        else:
-            lat = comp_doc.get('latitude')
-            lng = comp_doc.get('longitude')
-            if lat and lng:
-                company_address = f"Location: Lat {lat}, Lng {lng}"
-        comp_logo = str(comp_doc.get('logo') or comp_doc.get('company_logo') or '')
-        comp_logo_data = str(comp_doc.get('logo_data') or '')
-
     active_b = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
-    
     resolved_branch_name = None
+    branch_address = ''
     if active_b:
         if is_home_branch_id(active_b):
             resolved_branch_name = 'HOME'
@@ -5697,39 +6479,25 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
                 b_obj = db.company_branches.find_one({'id': active_b, 'company_id': str(company_id)})
             if b_obj:
                 resolved_branch_name = b_obj.get('branch_name')
-                if b_obj.get('location'):
-                    company_address = b_obj.get('location')
+                branch_address = b_obj.get('location') or ''
             else:
                 resolved_branch_name = active_b
-    else:
-        # Fall back to employee's assigned branch
-        if emp:
-            emp_bid = emp.get('branch_id')
-            if emp_bid and not is_home_branch_id(emp_bid):
-                b_obj = db.company_branches.find_one({'id': emp_bid})
-                if b_obj:
-                    resolved_branch_name = b_obj.get('branch_name')
-                    if b_obj.get('location'):
-                        company_address = b_obj.get('location')
-                else:
-                    resolved_branch_name = emp.get('branch_name') or emp_bid
+    elif emp:
+        emp_bid = emp.get('branch_id')
+        if emp_bid and not is_home_branch_id(emp_bid):
+            b_obj = db.company_branches.find_one({'id': emp_bid})
+            if b_obj:
+                resolved_branch_name = b_obj.get('branch_name')
+                branch_address = b_obj.get('location') or ''
             else:
-                resolved_branch_name = 'HOME'
+                resolved_branch_name = emp.get('branch_name') or emp_bid
         else:
             resolved_branch_name = 'HOME'
+    else:
+        resolved_branch_name = 'HOME'
 
-    if resolved_branch_name:
-        suffix = f" - {resolved_branch_name.upper()}"
-        if not company_name.upper().endswith(suffix.upper()):
-            company_name = f"{company_name}{suffix}"
-
-    shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
-    shift_target_minutes = parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
-    half_shift_target = max(1, shift_target_minutes // 2)
-    
-    # 1. Query attendance & attendance_reports for this employee & month (Only Proper entries)
     att_query = {
-        'employee_name': employee_name,
+        'employee_name': query_emp_name,
         'entry_type': {'$ne': 'improper'},
         '$or': [
             {'date': {'$regex': f'^{month_year}'}},
@@ -5744,45 +6512,10 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
         att_query['$or'].append({'created_at': {'$regex': m_slash}})
     except Exception:
         pass
+    records = list(db.attendance_reports.find(att_query)) or list(db.attendance.find(att_query))
 
-    records = list(db.attendance_reports.find(att_query))
-    if not records:
-        records = list(db.attendance.find(att_query))
-
-    daily_minutes = {}
-    daily_manual_salary = {}
-
-    for rec in records:
-        if rec.get('entry_type') == 'improper':
-            continue
-        exit_t_val = str(rec.get('exit_time') or '').strip()
-        if exit_t_val in ['', '----', '-']:
-            continue
-        is_auto_timeout = bool(rec.get('is_timeout') or 'AUTO TIMEOUT' in str(rec.get('exit_distance', '')).upper() or 'AUTO PUNCH-OUT' in str(rec.get('exit_location', '')).upper())
-        if shift_target_minutes == 0 and is_auto_timeout:
-            continue
-        d_val = rec.get('date') or (rec.get('entry_time', '').split(' ')[0] if rec.get('entry_time') else '')
-        if not d_val:
-            continue
-
-        wh = rec.get('working_hours', '00:00')
-        mins = 0
-        if wh and ':' in wh:
-            try:
-                h, m = wh.split(':')[:2]
-                mins = int(h) * 60 + int(m)
-            except Exception:
-                pass
-        elif rec.get('working_hours'):
-            try:
-                mins = int(float(rec.get('working_hours')) * 60)
-            except Exception:
-                pass
-        daily_minutes[d_val] = daily_minutes.get(d_val, 0) + mins
-
-    # 2. Query manual_entries for this employee & month
     manual_query = {
-        'employee_name': employee_name,
+        'employee_name': query_emp_name,
         '$or': [
             {'entry_date': {'$regex': f'^{month_year}'}},
             {'submitted_at': {'$regex': f'^{month_year}'}}
@@ -5790,135 +6523,13 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
     }
     try:
         parts = month_year.split('-')
-        m_hyphen = f"-{parts[1]}-{parts[0]}"
-        manual_query['$or'].append({'submitted_at': {'$regex': m_hyphen}})
+        manual_query['$or'].append({'submitted_at': {'$regex': f"-{parts[1]}-{parts[0]}"}})
     except Exception:
         pass
-
     manual_entries = list(db.manual_entries.find(manual_query))
 
-    for m_entry in manual_entries:
-        st = str(m_entry.get('status', '')).strip().lower()
-        if 'improper' in st:
-            continue
-        ed = m_entry.get('entry_date') or (m_entry.get('submitted_at', '').split(' ')[0] if m_entry.get('submitted_at') else '')
-        if not ed:
-            continue
-            
-        hrs_str = m_entry.get('hours', '00:00')
-        mins = 0
-        if hrs_str:
-            clean_hrs = str(hrs_str).replace('-', '').strip()
-            if ':' in clean_hrs:
-                try:
-                    parts = clean_hrs.split(':')
-                    h = abs(int(parts[0]))
-                    m = abs(int(parts[1]))
-                    mins = h * 60 + m
-                except Exception:
-                    mins = 0
-        st = str(m_entry.get('status', '')).lower()
-        if shift_target_minutes > 0:
-            if 'full' in st:
-                mins = max(mins, shift_target_minutes)
-            elif 'half' in st:
-                mins = max(mins, half_shift_target)
-        entry_type = str(m_entry.get('entry_type', 'Add')).strip()
-        is_sub = entry_type.lower() == 'sub' or float(m_entry.get('working_salary', 0.0)) < 0
-        msal = abs(float(m_entry.get('working_salary', 0.0)))
-
-        delta_mins = -mins if is_sub else mins
-        delta_sal = -msal if is_sub else msal
-
-        daily_minutes[ed] = daily_minutes.get(ed, 0) + delta_mins
-        daily_manual_salary[ed] = daily_manual_salary.get(ed, 0.0) + delta_sal
-
-    net_daily_minutes = {d: max(0, m) for d, m in daily_minutes.items()}
-    positive_days = {d: m for d, m in net_daily_minutes.items() if m > 0 or daily_manual_salary.get(d, 0.0) > 0}
-    total_minutes = max(0, sum(daily_minutes.values()))
-    working_days = len(positive_days)
-    tot_hrs = total_minutes // 60
-    tot_mins = total_minutes % 60
-    working_hours = f"{tot_hrs:02d}:{tot_mins:02d}"
-
-    full_days = 0
-    half_days = 0
-    partial_days = 0
-    partial_minutes = 0
-    total_half_units = 0
-
-    if shift_target_minutes == 0:
-        for d, mins in net_daily_minutes.items():
-            if mins > 0:
-                partial_days += 1
-                partial_minutes += mins
-    elif salary_type == 'half_day':
-        # Standard half-day target is 4 hours (240 mins) or half of shift
-        ref_half_mins = 240 if shift_target_minutes >= 480 else (shift_target_minutes if shift_target_minutes <= 300 else 240)
-        ref_full_mins = ref_half_mins * 2
-        for d, mins in net_daily_minutes.items():
-            if mins >= ref_full_mins:
-                full_days += 1
-            elif mins >= ref_half_mins:
-                half_days += 1
-            elif mins > 0:
-                partial_days += 1
-                partial_minutes += mins
-        total_half_units = (full_days * 2) + half_days
-    else:
-        for d, mins in net_daily_minutes.items():
-            if mins >= shift_target_minutes:
-                full_days += 1
-            elif mins >= half_shift_target:
-                half_days += 1
-            elif mins > 0:
-                partial_days += 1
-                partial_minutes += mins
-
-    effective_half = half_salary if half_salary > 0 else (day_salary / 2.0 if day_salary > 0 else (hours_salary * 4.0 if shift_target_minutes > 0 else 0.0))
-    effective_hour = hours_salary if hours_salary > 0 else (day_salary / (shift_target_minutes / 60.0) if (day_salary > 0 and shift_target_minutes > 0) else 0.0)
-    manual_salary_sum = sum(daily_manual_salary.values())
-
-    # Calculate basic salary accurately based on salary_type and presence of records vs manual_entries
-    if not records and manual_entries:
-        # Solely driven by manual entries: basic salary is exact net sum of manual entries' working salary
-        manual_net = sum(float(m.get('working_salary', 0.0)) for m in manual_entries)
-        basic_salary = max(0.0, round(manual_net, 2))
-    elif shift_target_minutes == 0 or salary_type == 'hourly':
-        basic_salary = round((total_minutes / 60.0) * hours_salary, 2)
-        unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
-        unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
-        basic_salary = max(0.0, round(basic_salary + unapplied_deductions + unapplied_additions, 2))
-    elif salary_type == 'daily':
-        # Day-Based workers: every worked day (except designated half-days) is credited at full day_salary
-        non_half_days = max(0, working_days - half_days)
-        basic_salary = round((non_half_days * day_salary) + (half_days * effective_half), 2)
-        # Deduct unapplied manual deductions (e.g. deductions logged on days without biometric punches)
-        unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
-        unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
-        basic_salary = max(0.0, round(basic_salary + unapplied_deductions + unapplied_additions, 2))
-    elif salary_type == 'half_day':
-        total_half_units = (full_days * 2) + half_days
-        target_half_div = ref_half_mins if 'ref_half_mins' in locals() and ref_half_mins > 0 else 240
-        part_sal = (partial_minutes / float(target_half_div)) * effective_half
-        basic_salary = round((total_half_units * effective_half) + part_sal, 2)
-        unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
-        unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
-        basic_salary = max(0.0, round(basic_salary + unapplied_deductions + unapplied_additions, 2))
-    else:
-        if hours_salary > 0:
-            basic_salary = round((total_minutes / 60.0) * hours_salary, 2)
-        elif day_salary > 0:
-            basic_salary = round((full_days * day_salary) + (half_days * effective_half), 2)
-        else:
-            basic_salary = max(0.0, manual_salary_sum)
-
-    if basic_salary == 0.0 and manual_salary_sum > 0.0:
-        basic_salary = manual_salary_sum
-
-    # 3. Query payments collection for this employee & month (Incentive, Allowance, Advances, Bonus)
     payment_query = {
-        'employee_name': employee_name,
+        'employee_name': query_emp_name,
         '$or': [
             {'payment_date': {'$regex': f'^{month_year}'}},
             {'timestamp': {'$regex': f'^{month_year}'}}
@@ -5926,119 +6537,35 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
     }
     try:
         parts = month_year.split('-')
-        m_hyphen = f"-{parts[1]}-{parts[0]}"
-        payment_query['$or'].append({'timestamp': {'$regex': m_hyphen}})
+        payment_query['$or'].append({'timestamp': {'$regex': f"-{parts[1]}-{parts[0]}"}})
     except Exception:
         pass
-
     payments = list(db.payments.find(payment_query))
-    allowance = 0.0
-    incentive = 0.0
-    other_earnings = 0.0
-    petrol_allowance_paid = 0.0
-    advance_payment_deduction = 0.0
-    advance_repayment = 0.0
-    paid_salary = 0.0
-    other_deductions = 0.0
+    adv_doc = db.advances.find_one({'employee_name': query_emp_name})
 
-    # Categorize strictly according to payment status
-    for p in payments:
-        p_amt = float(p.get('amount', 0.0))
-        reason = (p.get('status') or p.get('reason') or '').strip()
-        r_low = reason.lower()
-        if r_low == 'incentive':
-            incentive += p_amt
-        elif r_low == 'allowance':
-            allowance += p_amt
-        elif 'advance repayment' in r_low or r_low == 'repayment':
-            advance_repayment += p_amt
-        elif 'advance' in r_low:
-            advance_payment_deduction += p_amt
-        elif r_low in ['salary', 'paid salary']:
-            paid_salary += p_amt
-        elif 'deduction' in r_low:
-            other_deductions += p_amt
-        elif 'petrol' in r_low or 'diesel' in r_low or 'fuel' in r_low:
-            petrol_allowance_paid += p_amt
-        elif 'earning' in r_low or 'bonus' in r_low:
-            other_earnings += p_amt
-        else:
-            other_earnings += p_amt
-
-    # If no advance repayment logged in payments for this month, check advances collection
-    if advance_repayment == 0.0:
-        adv_doc = db.advances.find_one({'employee_name': employee_name})
-        if adv_doc:
-            advance_repayment = float(adv_doc.get('repayment_amount', 0.0))
-
-    # Auto petrol allowance from travel logs (if field worker)
-    auto_petrol_allowance = 0.0
+    travel_logs = []
+    petrol_cfg = None
+    visits = []
     try:
-        log_q = {
-            'employee_name': employee_name,
-            'date': {'$regex': f'^{re.escape(month_year)}'}
-        }
+        log_q = {'employee_name': query_emp_name, 'date': {'$regex': f'^{re.escape(month_year)}'}}
         if assigned_company_id and assigned_company_id not in ['ALL', 'ARGUS_MASTER']:
             log_q['company_id'] = str(assigned_company_id)
-        logs = list(db.field_location_logs.find(log_q))
-        if logs:
-            total_km = round(sum(safe_float(lg.get('step_km', 0.0)) for lg in logs), 2)
-            # Worker-specific Petrol/Diesel rate takes precedence; fallback to company default
-            worker_unit = safe_float(emp.get('petrol_unit_km', 0.0)) if emp else 0.0
-            worker_amt = safe_float(emp.get('petrol_rate_inr', 0.0)) if emp else 0.0
-            worker_has_custom = bool(emp and (emp.get('has_custom_petrol_rate') or (worker_amt > 0)))
-            if worker_has_custom and worker_unit > 0 and worker_amt > 0:
-                km_rate = round(worker_amt / worker_unit, 2)
-            else:
-                petrol_cfg = get_company_petrol_allowance_config(assigned_company_id)
-                km_rate = safe_float(petrol_cfg.get('per_km_rate', 10.0), 10.0)
-            auto_petrol_allowance = round(total_km * km_rate, 2)
+        travel_logs = list(db.field_location_logs.find(log_q))
+        if travel_logs:
+            petrol_cfg = get_company_petrol_allowance_config(assigned_company_id)
     except Exception:
-        auto_petrol_allowance = 0.0
+        travel_logs = []
 
-    # User Requirement 4 & 5:
-    # If admin entered a payment entry for petrol/diesel allowance:
-    #   Placed in DEDUCTIONS as 'petrol_allowance_deduction'
-    #   If travel distance earned auto_petrol_allowance > 0, it appears in EARNINGS.
-    # If admin did NOT enter a payment entry for petrol:
-    #   The calculated petrol allowance appears in EARNINGS.
-    if petrol_allowance_paid > 0:
-        petrol_allowance_deduction = petrol_allowance_paid
-        petrol_allowance_earnings = auto_petrol_allowance
-    else:
-        petrol_allowance_deduction = 0.0
-        petrol_allowance_earnings = auto_petrol_allowance
-
-    petrol_allowance = petrol_allowance_earnings
-
-    # Dynamic Verified Visits Incentives (Requirement 3)
-    verified_visits = 0
-    verified_visits_incentive = 0.0
     try:
-        visit_q = {
-            'employee_name': employee_name,
-            'visit_date': {'$regex': f'^{re.escape(month_year)}'}
-        }
+        visit_q = {'employee_name': query_emp_name, 'visit_date': {'$regex': f'^{re.escape(month_year)}'}}
         if assigned_company_id and assigned_company_id not in ['ALL', 'ARGUS_MASTER']:
             visit_q['company_id'] = str(assigned_company_id)
         visits = list(db.field_customer_visits.find(visit_q))
-        verified_visits = sum(1 for v in visits if v.get('is_location_verified', True))
-        per_visit_rate = round(safe_float(emp.get('per_visit_incentive', 0.0)), 2) if emp else 0.0
-        if verified_visits > 0 and per_visit_rate > 0:
-            verified_visits_incentive = round(verified_visits * per_visit_rate, 2)
     except Exception:
-        verified_visits = 0
-        verified_visits_incentive = 0.0
+        visits = []
 
-    total_earnings = round(basic_salary + allowance + incentive + petrol_allowance_earnings + other_earnings + verified_visits_incentive, 2)
-    total_deduction = round(paid_salary + advance_repayment + advance_payment_deduction + other_deductions + petrol_allowance_deduction, 2)
-    net_pay = max(0.0, round(total_earnings - total_deduction, 2))
-        
-    leave_days = max(0, total_days - working_days)
-    
-    # 4. Query approved leave requests for this employee & month
     approved_leave_query = {
-        'employee_name': employee_name,
+        'employee_name': query_emp_name,
         'request_type': 'Leave',
         'status': 'Approved',
         '$or': [
@@ -6046,55 +6573,8 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
             {'to_date': {'$regex': f'^{month_year}'}}
         ]
     }
-    if assigned_company_id and assigned_company_id not in ['ALL', 'ARGUS_MASTER']:
-        approved_leave_query['company_id'] = str(assigned_company_id)
-
-    approved_leaves = list(db.leave_requests.find(approved_leave_query))
-
-    try:
-        y, m = int(month_year.split('-')[0]), int(month_year.split('-')[1])
-        month_start = date(y, m, 1)
-        month_end = date(y, m, calendar.monthrange(y, m)[1])
-    except:
-        month_start = month_end = None
-
-    paid_leave_days = 0.0
-    paid_leave_half_days = 0
-    paid_leave_details = []  # list of {'date': ..., 'type': ..., 'days': ...}
-
-    for lv in approved_leaves:
-        try:
-            fd = datetime.strptime(lv.get('from_date', ''), '%Y-%m-%d').date()
-            td = datetime.strptime(lv.get('to_date', lv.get('from_date', '')), '%Y-%m-%d').date()
-        except:
-            continue
-        
-        session = lv.get('session', 'Full Day')
-        leave_type = lv.get('leave_type', 'Casual Leave (CL)')
-        
-        if session == 'Half Day':
-            # Half day leave = 0.5 day
-            if month_start and month_end and month_start <= fd <= month_end:
-                d_str = fd.strftime('%Y-%m-%d')
-                # Only count if employee didn't already work a full day
-                if daily_minutes.get(d_str, 0) < shift_target_minutes:
-                    paid_leave_days += 0.5
-                    paid_leave_half_days += 1
-                    paid_leave_details.append({'date': d_str, 'type': leave_type, 'days': 0.5, 'session': 'Half Day'})
-        else:
-            # Full day - iterate each date in the range
-            current = max(fd, month_start) if month_start else fd
-            end = min(td, month_end) if month_end else td
-            while current <= end:
-                d_str = current.strftime('%Y-%m-%d')
-                # Only count as paid leave if employee did NOT punch in that day
-                if daily_minutes.get(d_str, 0) == 0:
-                    paid_leave_days += 1.0
-                    paid_leave_details.append({'date': d_str, 'type': leave_type, 'days': 1.0, 'session': 'Full Day'})
-                current += timedelta(days=1)
-
     approved_perm_query = {
-        'employee_name': employee_name,
+        'employee_name': query_emp_name,
         'request_type': 'Permission',
         'status': 'Approved',
         '$or': [
@@ -6103,129 +6583,31 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
         ]
     }
     if assigned_company_id and assigned_company_id not in ['ALL', 'ARGUS_MASTER']:
+        approved_leave_query['company_id'] = str(assigned_company_id)
         approved_perm_query['company_id'] = str(assigned_company_id)
 
+    approved_leaves = list(db.leave_requests.find(approved_leave_query))
     approved_perms = list(db.leave_requests.find(approved_perm_query))
-    permission_hours_used = 0.0
-    permission_details = []
-    for pm in approved_perms:
-        dur = float(pm.get('duration_hours', pm.get('hours_count', 0)))
-        permission_hours_used += dur
-        permission_details.append({
-            'date': pm.get('date') or pm.get('from_date', ''),
-            'hours': dur,
-            'type': pm.get('permission_type', 'Short Leave')
-        })
 
-    paid_leave_salary = 0.0
-    if paid_leave_days > 0 and shift_target_minutes > 0:
-        if salary_type == 'daily':
-            paid_leave_salary = round((paid_leave_days * day_salary), 2)
-        elif salary_type == 'half_day':
-            paid_leave_salary = round((paid_leave_days * 2 * effective_half), 2)  # each day = 2 half-day units
-        elif salary_type == 'hourly':
-            paid_leave_salary = round((paid_leave_days * shift_target_minutes / 60.0) * hours_salary, 2)
-        else:
-            if day_salary > 0:
-                paid_leave_salary = round((paid_leave_days * day_salary), 2)
-            elif hours_salary > 0:
-                paid_leave_salary = round((paid_leave_days * shift_target_minutes / 60.0) * hours_salary, 2)
-        basic_salary = round(basic_salary + paid_leave_salary, 2)
-
-    total_earnings = round(basic_salary + allowance + incentive + petrol_allowance_earnings + other_earnings + verified_visits_incentive, 2)
-    net_pay = max(0.0, round(total_earnings - total_deduction, 2))
-    absent_days_lop = max(0, leave_days - paid_leave_days)
-
-    net_pay_in_words = number_to_words(net_pay)
-    
-    basis_labels = {
-        'hourly': 'Hourly-Based',
-        'daily': 'Day-Based',
-        'half_day': 'Half-Day-Based'
-    }
-    salary_basis_label = basis_labels.get(salary_type, 'Day-Based')
-    if salary_type == 'half_day':
-        if full_days == 0:
-            working_days_breakdown = f"{half_days} Half Days"
-        else:
-            working_days_breakdown = f"{total_half_units} Half Days ({full_days} Full, {half_days} Half)"
-    else:
-        working_days_breakdown = f"{working_days} ({full_days} Full, {half_days} Half)" if (full_days > 0 or half_days > 0) else str(working_days)
-
-    # Format rate reporting on payslips: only report rates applicable to the employee's basis
-    rep_hours_salary = round(hours_salary, 2) if salary_type == 'hourly' else 0
-    rep_day_salary = int(round(day_salary)) if salary_type == 'daily' else 0
-    rep_half_salary = int(round(half_salary)) if salary_type in ['daily', 'half_day'] else 0
-
-    return {
-        'company_id': assigned_company_id,
-        'company_name': company_name,
-        'company_address': company_address,
-        'company_email': comp_email,
-        'company_phone': comp_phone,
-        'company_gstin': comp_gstin,
-        'employee_name': employee_name,
-        'employee_id': emp_id,
-        'designation': designation,
-        'phone_number': phone,
-        'shift_hours': str(shift_hours_str or '08:00'),
-        'bank_name': str(emp.get('bank_name', '') if emp else ''),
-        'account_number': str(emp.get('account_number', '') if emp else ''),
-        'salary_type': salary_type,
-        'salary_basis': salary_basis_label,
-        'salary_basis_label': salary_basis_label,
-        'full_days': full_days,
-        'half_days': half_days,
-        'partial_days': partial_days,
-        'working_days_breakdown': working_days_breakdown,
-        'pay_period': month_year,
-        'year_month': month_year,
-        'hours_salary': rep_hours_salary,
-        'day_salary': rep_day_salary,
-        'half_day_salary': rep_half_salary,
-        'working_days': working_days,
-        'leave_days': leave_days,
-        'total_days': total_days,
-        'total_days_of_month': total_days,
-        'total_working_hours': working_hours,
-        'working_hours': working_hours,
-        'basic_salary': round(basic_salary, 2) if salary_type == 'hourly' else int(round(basic_salary)),
-        'allowance': int(round(allowance)),
-        'incentive': int(round(incentive)),
-        'verified_visits': verified_visits,
-        'verified_visits_incentive': round(verified_visits_incentive, 2),
-        'visit_incentive_pay': round(verified_visits_incentive, 2),
-        'petrol_allowance': round(petrol_allowance_earnings, 2),
-        'petrol_allowance_earnings': round(petrol_allowance_earnings, 2),
-        'petrol_allowance_paid': round(petrol_allowance_paid, 2),
-        'petrol_allowance_deduction': round(petrol_allowance_deduction, 2),
-        'advance_payment_deduction': round(advance_payment_deduction, 2),
-        'other_earnings': int(round(other_earnings)),
-        'total_earnings': round(total_earnings, 2) if salary_type == 'hourly' else int(round(total_earnings)),
-        'paid_salary': int(round(paid_salary)),
-        'advance_repayment': int(round(advance_repayment)),
-        'other_deductions': int(round(other_deductions)),
-        'total_deduction': int(round(total_deduction)),
-        'total_deductions': int(round(total_deduction)),
-        'net_pay': round(net_pay, 2) if salary_type == 'hourly' else int(round(net_pay)),
-        'net_pay_in_words': net_pay_in_words,
-        'email_id': str(emp.get('email_id') or emp.get('email', '') if emp else ''),
-        'department': str(emp.get('department', '') or 'General' if emp else 'General'),
-        'employee_photo': str(emp.get('photo') or emp.get('photo_filename', '') if emp else ''),
-        'employee_photo_data': str(emp.get('photo_data', '') if emp else ''),
-        'employee_photo_url': (emp.get('photo_data') if (emp and emp.get('photo_data')) else (f"/uploads/{emp.get('photo') or emp.get('photo_filename')}" if emp and (emp.get('photo') or emp.get('photo_filename')) else '')) if emp else '',
-        'company_logo': comp_logo,
-        'company_logo_data': comp_logo_data,
-        'company_logo_url': comp_logo_data if comp_logo_data else (f"/uploads/{comp_logo}" if comp_logo else ''),
-        'paid_leave_days': paid_leave_days,
-        'paid_leave_half_days': paid_leave_half_days,
-        'paid_leave_salary': round(paid_leave_salary, 2) if salary_type == 'hourly' else int(round(paid_leave_salary)),
-        'paid_leave_details': paid_leave_details,
-        'absent_days_lop': absent_days_lop,
-        'permission_hours_used': permission_hours_used,
-        'permission_details': permission_details,
-        'leave_breakdown': f"{int(paid_leave_days)} Paid, {int(absent_days_lop)} LOP" if (paid_leave_days > 0 or absent_days_lop > 0) else f"{leave_days} Leave",
-    }
+    return _compute_employee_monthly_salary_payload(
+        emp=emp,
+        employee_name=employee_name,
+        month_year=month_year,
+        assigned_company_id=assigned_company_id,
+        comp_doc=comp_doc,
+        resolved_branch_name=resolved_branch_name,
+        branch_address=branch_address,
+        records=records,
+        manual_entries=manual_entries,
+        payments=payments,
+        adv_doc=adv_doc,
+        approved_leaves=approved_leaves,
+        approved_perms=approved_perms,
+        travel_logs=travel_logs,
+        petrol_cfg=petrol_cfg,
+        visits=visits,
+        include_heavy_media=True
+    )
 
 
 # ==============================================================================

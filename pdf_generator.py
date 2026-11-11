@@ -1184,6 +1184,10 @@ def _extract_payslip_fields(p):
         bank_display = "—"
 
     basic_sal = Number_format(p.get('basic_salary', 0))
+    ot_hrs = str(p.get('overtime_hours') or '00:00')
+    ot_mins = int(p.get('overtime_minutes', 0) or 0)
+    ot_pay = Number_format(p.get('overtime_pay', 0))
+    ot_lbl = f"Overtime ({ot_hrs} hrs)" if ot_mins > 0 else "Overtime"
     allowance = Number_format(p.get('allowance', 0))
     incentive = Number_format(p.get('incentive', 0))
     verified_visits = int(p.get('verified_visits', 0) or 0)
@@ -1229,6 +1233,9 @@ def _extract_payslip_fields(p):
         'bank_display': bank_display,
         'bank_name': bank_name,
         'basic_sal': basic_sal,
+        'ot_pay': ot_pay,
+        'ot_hrs': ot_hrs,
+        'ot_lbl': ot_lbl,
         'allowance': allowance,
         'incentive': incentive,
         'verified_visits': verified_visits,
@@ -1397,8 +1404,9 @@ def _build_payslip_modern_executive(p, template_id, palette):
     earn_ded_data = [
         [Paragraph("EARNINGS", hdr_style), "", Paragraph("DEDUCTIONS", hdr_style), ""],
         [Paragraph("Basic Salary", cell_lbl_style), Paragraph(f"Rs. {f['basic_sal']}", cell_val_style), Paragraph("Paid Salary", cell_lbl_style), Paragraph(f"Rs. {f['paid_sal']}", cell_val_style)],
-        [Paragraph("Allowance", cell_lbl_style), Paragraph(f"Rs. {f['allowance']}", cell_val_style), Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {f['adv_repay']}", cell_val_style)],
-        [Paragraph("Incentive", cell_lbl_style), Paragraph(f"Rs. {f['incentive']}", cell_val_style), Paragraph("Other Deductions", cell_lbl_style), Paragraph(f"Rs. {f['other_ded']}", cell_val_style)],
+        [Paragraph(f['ot_lbl'], cell_lbl_style), Paragraph(f"Rs. {f['ot_pay']}", cell_val_style), Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {f['adv_repay']}", cell_val_style)],
+        [Paragraph("Allowance", cell_lbl_style), Paragraph(f"Rs. {f['allowance']}", cell_val_style), Paragraph("Other Deductions", cell_lbl_style), Paragraph(f"Rs. {f['other_ded']}", cell_val_style)],
+        [Paragraph("Incentive", cell_lbl_style), Paragraph(f"Rs. {f['incentive']}", cell_val_style), Paragraph("", cell_lbl_style), Paragraph("", cell_val_style)],
         [
             Paragraph("Petrol/Diesel Allowance" if f['petrol_earn_val'] > 0 else ("Other Earnings" if float(f.get('other_earn', 0) or 0) > 0 else ""), cell_lbl_style),
             Paragraph(f"Rs. {f['petrol_earn']}" if f['petrol_earn_val'] > 0 else (f"Rs. {f['other_earn']}" if float(f.get('other_earn', 0) or 0) > 0 else ""), cell_val_style),
@@ -1413,11 +1421,11 @@ def _build_payslip_modern_executive(p, template_id, palette):
         ('SPAN', (2, 0), (3, 0)),
         ('BACKGROUND', (0, 0), (1, 0), palette['primary']),
         ('BACKGROUND', (2, 0), (3, 0), palette['primary']),
-        ('BACKGROUND', (0, 5), (1, 5), palette['tint']),
-        ('BACKGROUND', (2, 5), (3, 5), palette['tint']),
+        ('BACKGROUND', (0, 6), (1, 6), palette['tint']),
+        ('BACKGROUND', (2, 6), (3, 6), palette['tint']),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LINEBELOW', (0, 1), (1, 4), 0.5, colors.HexColor('#f1f5f9')),
-        ('LINEBELOW', (2, 1), (3, 4), 0.5, colors.HexColor('#f1f5f9')),
+        ('LINEBELOW', (0, 1), (1, 5), 0.5, colors.HexColor('#f1f5f9')),
+        ('LINEBELOW', (2, 1), (3, 5), 0.5, colors.HexColor('#f1f5f9')),
         ('TOPPADDING', (0, 0), (-1, -1), 5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -1628,8 +1636,9 @@ def _build_payslip_premium_executive(p, palette):
     earn_ded_data = [
         [Paragraph("EARNINGS", hdr_style), "", Paragraph("DEDUCTIONS", hdr_style), ""],
         [Paragraph("Basic Salary", cell_lbl_style), Paragraph(f"Rs. {f['basic_sal']}", cell_val_style), Paragraph("Paid Salary", cell_lbl_style), Paragraph(f"Rs. {f['paid_sal']}", cell_val_style)],
-        [Paragraph("Allowance", cell_lbl_style), Paragraph(f"Rs. {f['allowance']}", cell_val_style), Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {f['adv_repay']}", cell_val_style)],
-        [Paragraph("Incentive", cell_lbl_style), Paragraph(f"Rs. {f['incentive']}", cell_val_style), Paragraph("Other Deductions", cell_lbl_style), Paragraph(f"Rs. {f['other_ded']}", cell_val_style)],
+        [Paragraph(f['ot_lbl'], cell_lbl_style), Paragraph(f"Rs. {f['ot_pay']}", cell_val_style), Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {f['adv_repay']}", cell_val_style)],
+        [Paragraph("Allowance", cell_lbl_style), Paragraph(f"Rs. {f['allowance']}", cell_val_style), Paragraph("Other Deductions", cell_lbl_style), Paragraph(f"Rs. {f['other_ded']}", cell_val_style)],
+        [Paragraph("Incentive", cell_lbl_style), Paragraph(f"Rs. {f['incentive']}", cell_val_style), Paragraph("", cell_lbl_style), Paragraph("", cell_val_style)],
         [
             Paragraph("Petrol/Diesel Allowance" if f['petrol_earn_val'] > 0 else ("Other Earnings" if float(f.get('other_earn', 0) or 0) > 0 else ""), cell_lbl_style),
             Paragraph(f"Rs. {f['petrol_earn']}" if f['petrol_earn_val'] > 0 else (f"Rs. {f['other_earn']}" if float(f.get('other_earn', 0) or 0) > 0 else ""), cell_val_style),
@@ -1647,11 +1656,11 @@ def _build_payslip_premium_executive(p, palette):
         ('SPAN', (2, 0), (3, 0)),
         ('BACKGROUND', (0, 0), (1, 0), palette['primary']),
         ('BACKGROUND', (2, 0), (3, 0), colors.HexColor('#1a2936')),
-        ('BACKGROUND', (0, 5), (1, 5), colors.HexColor('#e0f2f1')),
-        ('BACKGROUND', (2, 5), (3, 5), colors.HexColor('#f1f5f9')),
+        ('BACKGROUND', (0, 6), (1, 6), colors.HexColor('#e0f2f1')),
+        ('BACKGROUND', (2, 6), (3, 6), colors.HexColor('#f1f5f9')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LINEBELOW', (0, 1), (1, 4), 0.5, colors.HexColor('#f1f5f9')),
-        ('LINEBELOW', (2, 1), (3, 4), 0.5, colors.HexColor('#f1f5f9')),
+        ('LINEBELOW', (0, 1), (1, 5), 0.5, colors.HexColor('#f1f5f9')),
+        ('LINEBELOW', (2, 1), (3, 5), 0.5, colors.HexColor('#f1f5f9')),
         ('TOPPADDING', (0, 0), (-1, -1), 5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -1776,8 +1785,9 @@ def _build_payslip_classic_grid(p, palette):
     earn_ded_data = [
         [Paragraph("EARNINGS", hdr_txt_style), "", Paragraph("DEDUCTION", hdr_txt_style), ""],
         [Paragraph("Basic Salary", t4_cell_l), Paragraph(f"Rs. {f['basic_sal']}", t4_cell_v), Paragraph("Paid Salary", t4_cell_l), Paragraph(f"Rs. {f['paid_sal']}", t4_cell_v)],
-        [Paragraph("Allowance", t4_cell_l), Paragraph(f"Rs. {f['allowance']}", t4_cell_v), Paragraph("Advance Repayment", t4_cell_l), Paragraph(f"Rs. {f['adv_repay']}", t4_cell_v)],
-        [Paragraph("Incentive", t4_cell_l), Paragraph(f"Rs. {f['incentive']}", t4_cell_v), Paragraph("Other Deductions", t4_cell_l), Paragraph(f"Rs. {f['other_ded']}", t4_cell_v)],
+        [Paragraph(f['ot_lbl'], t4_cell_l), Paragraph(f"Rs. {f['ot_pay']}", t4_cell_v), Paragraph("Advance Repayment", t4_cell_l), Paragraph(f"Rs. {f['adv_repay']}", t4_cell_v)],
+        [Paragraph("Allowance", t4_cell_l), Paragraph(f"Rs. {f['allowance']}", t4_cell_v), Paragraph("Other Deductions", t4_cell_l), Paragraph(f"Rs. {f['other_ded']}", t4_cell_v)],
+        [Paragraph("Incentive", t4_cell_l), Paragraph(f"Rs. {f['incentive']}", t4_cell_v), Paragraph("", t4_cell_l), Paragraph("", t4_cell_v)],
         [Paragraph("Others Earnings", t4_cell_l), Paragraph(f"Rs. {f['other_earn']}", t4_cell_v), Paragraph("", t4_cell_l), Paragraph("", t4_cell_v)],
         [Paragraph("TOTAL EARNINGS", t4_tot_l), Paragraph(f"Rs. {f['tot_earn']}", t4_tot_v), Paragraph("TOTAL DEDUCTIONS", t4_tot_l), Paragraph(f"Rs. {f['tot_ded']}", t4_tot_v)]
     ]
@@ -1787,7 +1797,7 @@ def _build_payslip_classic_grid(p, palette):
         ('SPAN', (2, 0), (3, 0)),
         ('BACKGROUND', (0, 0), (1, 0), palette['primary']),
         ('BACKGROUND', (2, 0), (3, 0), palette['primary']),
-        ('BACKGROUND', (0, 5), (-1, 5), colors.HexColor('#f8fafc')),
+        ('BACKGROUND', (0, 6), (-1, 6), colors.HexColor('#f8fafc')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#767676')),
         ('TOPPADDING', (0, 0), (-1, -1), 3.5),
@@ -1941,6 +1951,7 @@ def _build_payslip_minimalist_card(p, palette):
         [Paragraph("EARNINGS", chdr_s), ""],
         [Paragraph("Particulars", csub_s), Paragraph("Amount", csub_r)],
         [Paragraph("Basic Salary", cr_l), Paragraph(f"Rs. {f['basic_sal']}", cr_r)],
+        [Paragraph(f['ot_lbl'], cr_l), Paragraph(f"Rs. {f['ot_pay']}", cr_r)],
         [Paragraph("Allowance", cr_l), Paragraph(f"Rs. {f['allowance']}", cr_r)],
         [Paragraph("Incentive", cr_l), Paragraph(f"Rs. {f['incentive']}", cr_r)],
         [Paragraph("Others Earnings", cr_l), Paragraph(f"Rs. {f['other_earn']}", cr_r)],
@@ -1952,9 +1963,9 @@ def _build_payslip_minimalist_card(p, palette):
         ('SPAN', (0, 0), (1, 0)),
         ('BACKGROUND', (0, 0), (1, 0), palette['primary']),
         ('BACKGROUND', (0, 1), (1, 1), colors.HexColor('#f1f5f9')),
-        ('BACKGROUND', (0, 6), (1, 6), palette['light_badge']),
+        ('BACKGROUND', (0, 7), (1, 7), palette['light_badge']),
         ('BOX', (0, 0), (-1, -1), 0.5, palette['border']),
-        ('LINEBELOW', (0, 2), (1, 5), 0.5, colors.HexColor('#f1f5f9')),
+        ('LINEBELOW', (0, 2), (1, 6), 0.5, colors.HexColor('#f1f5f9')),
         ('TOPPADDING', (0, 0), (-1, -1), 3.5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -1968,6 +1979,7 @@ def _build_payslip_minimalist_card(p, palette):
         [Paragraph("Advance Repayment", cr_l), Paragraph(f"Rs. {f['adv_repay']}", cr_r)],
         [Paragraph("Other Deductions", cr_l), Paragraph(f"Rs. {f['other_ded']}", cr_r)],
         [Paragraph("", cr_l), Paragraph("", cr_r)],
+        [Paragraph("", cr_l), Paragraph("", cr_r)],
         [Paragraph("TOTAL DEDUCTIONS", ParagraphStyle('Tot5DL', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=palette['primary'])),
          Paragraph(f"Rs. {f['tot_ded']}", ParagraphStyle('Tot5DR', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_RIGHT, textColor=palette['primary']))]
     ]
@@ -1976,9 +1988,9 @@ def _build_payslip_minimalist_card(p, palette):
         ('SPAN', (0, 0), (1, 0)),
         ('BACKGROUND', (0, 0), (1, 0), palette['primary']),
         ('BACKGROUND', (0, 1), (1, 1), colors.HexColor('#f1f5f9')),
-        ('BACKGROUND', (0, 6), (1, 6), palette['light_badge']),
+        ('BACKGROUND', (0, 7), (1, 7), palette['light_badge']),
         ('BOX', (0, 0), (-1, -1), 0.5, palette['border']),
-        ('LINEBELOW', (0, 2), (1, 5), 0.5, colors.HexColor('#f1f5f9')),
+        ('LINEBELOW', (0, 2), (1, 6), 0.5, colors.HexColor('#f1f5f9')),
         ('TOPPADDING', (0, 0), (-1, -1), 3.5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -2153,6 +2165,7 @@ def _build_payslip_professional_elegant(p, palette):
         [Paragraph("EARNINGS", chdr_s), ""],
         [Paragraph("Particulars", csub_s), Paragraph("Amount", csub_r)],
         [Paragraph("Basic Salary", cr_l), Paragraph(f"Rs. {f['basic_sal']}", cr_r)],
+        [Paragraph(f['ot_lbl'], cr_l), Paragraph(f"Rs. {f['ot_pay']}", cr_r)],
         [Paragraph("Allowance", cr_l), Paragraph(f"Rs. {f['allowance']}", cr_r)],
         [Paragraph("Incentive", cr_l), Paragraph(f"Rs. {f['incentive']}", cr_r)],
         [Paragraph("Others Earnings", cr_l), Paragraph(f"Rs. {f['other_earn']}", cr_r)],
@@ -2164,9 +2177,9 @@ def _build_payslip_professional_elegant(p, palette):
         ('SPAN', (0, 0), (1, 0)),
         ('BACKGROUND', (0, 0), (1, 0), palette['primary']),
         ('BACKGROUND', (0, 1), (1, 1), colors.HexColor('#f1f5f9')),
-        ('BACKGROUND', (0, 6), (1, 6), palette['light_badge']),
+        ('BACKGROUND', (0, 7), (1, 7), palette['light_badge']),
         ('BOX', (0, 0), (-1, -1), 0.5, palette['border']),
-        ('LINEBELOW', (0, 2), (1, 5), 0.5, colors.HexColor('#f1f5f9')),
+        ('LINEBELOW', (0, 2), (1, 6), 0.5, colors.HexColor('#f1f5f9')),
         ('TOPPADDING', (0, 0), (-1, -1), 3.5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -2180,6 +2193,7 @@ def _build_payslip_professional_elegant(p, palette):
         [Paragraph("Advance Repayment", cr_l), Paragraph(f"Rs. {f['adv_repay']}", cr_r)],
         [Paragraph("Other Deductions", cr_l), Paragraph(f"Rs. {f['other_ded']}", cr_r)],
         [Paragraph("", cr_l), Paragraph("", cr_r)],
+        [Paragraph("", cr_l), Paragraph("", cr_r)],
         [Paragraph("TOTAL DEDUCTIONS", ParagraphStyle('Tot6DL', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=palette['primary'])),
          Paragraph(f"Rs. {f['tot_ded']}", ParagraphStyle('Tot6DR', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_RIGHT, textColor=palette['primary']))]
     ]
@@ -2188,9 +2202,9 @@ def _build_payslip_professional_elegant(p, palette):
         ('SPAN', (0, 0), (1, 0)),
         ('BACKGROUND', (0, 0), (1, 0), palette['primary']),
         ('BACKGROUND', (0, 1), (1, 1), colors.HexColor('#f1f5f9')),
-        ('BACKGROUND', (0, 6), (1, 6), palette['light_badge']),
+        ('BACKGROUND', (0, 7), (1, 7), palette['light_badge']),
         ('BOX', (0, 0), (-1, -1), 0.5, palette['border']),
-        ('LINEBELOW', (0, 2), (1, 5), 0.5, colors.HexColor('#f1f5f9')),
+        ('LINEBELOW', (0, 2), (1, 6), 0.5, colors.HexColor('#f1f5f9')),
         ('TOPPADDING', (0, 0), (-1, -1), 3.5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
@@ -2429,6 +2443,7 @@ def _build_payslip_template_7(p, palette):
         [Paragraph("<font size='7' color='#ffffff'><b>🪙 &nbsp;EARNINGS</b></font>", ParagraphStyle('EH7', fontName='Helvetica-Bold', leading=9, alignment=TA_CENTER)), ""],
         [Paragraph("<font size='6.5' color='#475569'><b>Particulars</b></font>", ParagraphStyle('EPart', fontName='Helvetica-Bold', leading=8)), Paragraph("<font size='6.5' color='#475569'><b>Amount</b></font>", ParagraphStyle('EAmt', fontName='Helvetica-Bold', leading=8, alignment=TA_RIGHT))],
         [Paragraph("Basic Salary", lbl_s7), Paragraph(f"Rs. {f['basic_sal']}", val_sb7)],
+        [Paragraph(f['ot_lbl'], lbl_s7), Paragraph(f"Rs. {f['ot_pay']}", val_sb7)],
         [Paragraph("Allowance", lbl_s7), Paragraph(f"Rs. {f['allowance']}", val_sb7)],
         [Paragraph("Incentive", lbl_s7), Paragraph(f"Rs. {f['incentive']}", val_sb7)],
         [Paragraph("Others Earnings", lbl_s7), Paragraph(f"Rs. {f['other_earn']}", val_sb7)],
@@ -2456,6 +2471,7 @@ def _build_payslip_template_7(p, palette):
         [Paragraph("Paid Salary", lbl_s7), Paragraph(f"Rs. {f['paid_sal']}", val_sb7)],
         [Paragraph("Advance Repayment", lbl_s7), Paragraph(f"Rs. {f['adv_repay']}", val_sb7)],
         [Paragraph("Other Deductions", lbl_s7), Paragraph(f"Rs. {f['other_ded']}", val_sb7)],
+        [Paragraph("", lbl_s7), Paragraph("", val_sb7)],
         [Paragraph("", lbl_s7), Paragraph("", val_sb7)],
         [Paragraph("<b>TOTAL DEDUCTIONS</b>", ParagraphStyle('DTotL', fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=ded_hdr_color)), Paragraph(f"<b>Rs. {f['tot_ded']}</b>", ParagraphStyle('DTotR', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_RIGHT, textColor=ded_hdr_color))]
     ]
@@ -2691,6 +2707,7 @@ def _build_payslip_template_8(p, palette):
         [Paragraph("<font size='7' color='#ffffff'><b>🪙 &nbsp;EARNINGS</b></font>", ParagraphStyle('EH8', fontName='Helvetica-Bold', leading=9, alignment=TA_CENTER)), ""],
         [Paragraph("<font size='6.5' color='#475569'><b>Particulars</b></font>", ParagraphStyle('EPart8', fontName='Helvetica-Bold', leading=8)), Paragraph("<font size='6.5' color='#475569'><b>Amount</b></font>", ParagraphStyle('EAmt8', fontName='Helvetica-Bold', leading=8, alignment=TA_RIGHT))],
         [Paragraph("Basic Salary", lbl_s8), Paragraph(f"Rs. {f['basic_sal']}", val_sb8)],
+        [Paragraph(f['ot_lbl'], lbl_s8), Paragraph(f"Rs. {f['ot_pay']}", val_sb8)],
         [Paragraph("Allowance", lbl_s8), Paragraph(f"Rs. {f['allowance']}", val_sb8)],
         [Paragraph("Incentive", lbl_s8), Paragraph(f"Rs. {f['incentive']}", val_sb8)],
         [Paragraph("Others Earnings", lbl_s8), Paragraph(f"Rs. {f['other_earn']}", val_sb8)],
@@ -2705,6 +2722,7 @@ def _build_payslip_template_8(p, palette):
         ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#f8fafc')),
         ('BACKGROUND', (0, 4), (-1, 4), colors.white),
         ('BACKGROUND', (0, 5), (-1, 5), colors.HexColor('#f8fafc')),
+        ('BACKGROUND', (0, 6), (-1, 6), colors.white),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#dbeafe')),
         ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#bfdbfe')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -2723,6 +2741,7 @@ def _build_payslip_template_8(p, palette):
         [Paragraph("Advance Repayment", lbl_s8), Paragraph(f"Rs. {f['adv_repay']}", val_sb8)],
         [Paragraph("Other Deductions", lbl_s8), Paragraph(f"Rs. {f['other_ded']}", val_sb8)],
         [Paragraph("", lbl_s8), Paragraph("", val_sb8)],
+        [Paragraph("", lbl_s8), Paragraph("", val_sb8)],
         [Paragraph("<b>TOTAL DEDUCTIONS</b>", ParagraphStyle('DTotL8', fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=ded_hdr8)), Paragraph(f"<b>Rs. {f['tot_ded']}</b>", ParagraphStyle('DTotR8', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_RIGHT, textColor=ded_hdr8))]
     ]
     t_right8 = Table(ded_rows8, colWidths=[175, 90])
@@ -2734,6 +2753,7 @@ def _build_payslip_template_8(p, palette):
         ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#faf5ff')),
         ('BACKGROUND', (0, 4), (-1, 4), colors.white),
         ('BACKGROUND', (0, 5), (-1, 5), colors.HexColor('#faf5ff')),
+        ('BACKGROUND', (0, 6), (-1, 6), colors.white),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f3e8ff')),
         ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e9d5ff')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -2900,6 +2920,7 @@ def generate_salary_report_pdf(data, company_info=None):
             Paragraph("PAY PERIOD", header_style),
             Paragraph("WORKING DAYS", header_style),
             Paragraph("WORKING HOURS", header_style),
+            Paragraph("OVERTIME", header_style),
             Paragraph("ALLOWANCE", header_style),
             Paragraph("INCENTIVE", header_style),
             Paragraph("OTHER EARNINGS", header_style),
@@ -2914,11 +2935,17 @@ def generate_salary_report_pdf(data, company_info=None):
     ]
     
     for r in data:
+        ot_mins = int(r.get('overtime_minutes', 0) or 0)
+        ot_hrs = str(r.get('overtime_hours') or '00:00')
+        ot_pay_txt = f"Rs. {int(round(float(r.get('overtime_pay', 0))))}"
+        if ot_mins > 0:
+            ot_pay_txt = f"{ot_pay_txt}<br/><font size='5.5' color='#2563eb'>({ot_hrs} hrs)</font>"
         table_data.append([
             Paragraph(str(r.get('employee_name', '')), cell_style),
             Paragraph(str(r.get('pay_period', '')), cell_style),
             Paragraph(str(r.get('working_days', '')), cell_style),
             Paragraph(str(r.get('working_hours', '')), cell_style),
+            Paragraph(ot_pay_txt, cell_style),
             Paragraph(f"Rs. {int(float(r.get('allowance', 0)))}", cell_style),
             Paragraph(f"Rs. {int(float(r.get('incentive', 0)))}", cell_style),
             Paragraph(f"Rs. {int(float(r.get('other_earnings', 0)))}", cell_style),
@@ -2931,12 +2958,12 @@ def generate_salary_report_pdf(data, company_info=None):
             Paragraph(f"Rs. {int(float(r.get('net_salary', 0)))}", net_cell_style),
         ])
         
-    col_widths = [75, 45, 42, 45, 45, 45, 50, 48, 52, 45, 52, 52, 52, 50]
+    col_widths = [72, 42, 38, 42, 48, 42, 42, 46, 46, 48, 42, 48, 48, 48, 48]
     t = Table(table_data, colWidths=col_widths)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EDF1F5')),
-        ('BACKGROUND', (8, 1), (8, -1), colors.HexColor('#e8f5e9')),
-        ('BACKGROUND', (13, 1), (13, -1), colors.HexColor('#e3f2fd')),
+        ('BACKGROUND', (9, 1), (9, -1), colors.HexColor('#e8f5e9')),
+        ('BACKGROUND', (14, 1), (14, -1), colors.HexColor('#e3f2fd')),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),

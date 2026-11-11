@@ -1255,6 +1255,7 @@
           <div style="font-size: 11px; font-weight: 700; color: #64748b;">EARNINGS BREAKDOWN</div>
           <div style="margin-top: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
             <div style="display: flex; justify-content: space-between;"><span>Basic Salary:</span> <strong id="psBasic">₹0</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>Overtime <span id="psOvertimeHrs" style="font-size: 11px; color: #64748b;"></span>:</span> <strong id="psOvertime">₹0</strong></div>
             <div style="display: flex; justify-content: space-between;"><span>Allowances:</span> <strong id="psAllowance">₹0</strong></div>
             <div style="display: flex; justify-content: space-between;"><span>Incentives:</span> <strong id="psIncentive">₹0</strong></div>
             <div style="display: flex; justify-content: space-between; border-top: 1px solid #eee; padding-top: 4px; font-weight: 800; color: #198754;">
@@ -2832,6 +2833,10 @@
 
           const elB = document.getElementById('psBasic');
           if (elB) elB.textContent = `₹${Number(basic).toLocaleString()}`;
+          const elOt = document.getElementById('psOvertime');
+          if (elOt) elOt.textContent = `₹${Number(p.overtime_pay || 0).toLocaleString()}`;
+          const elOtH = document.getElementById('psOvertimeHrs');
+          if (elOtH) elOtH.textContent = (p.overtime_minutes > 0 && p.overtime_hours) ? `(${p.overtime_hours} hrs)` : '';
           const elA = document.getElementById('psAllowance');
           if (elA) elA.textContent = `₹${Number(p.allowance || 0).toLocaleString()}`;
           const elI = document.getElementById('psIncentive');

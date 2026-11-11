@@ -4920,17 +4920,21 @@ def api_get_salary_reports():
 def api_salary_reports_export_excel():
     start_month = request.args.get('start_month', '').strip()
     end_month = request.args.get('end_month', '').strip()
+    search = request.args.get('search', '').strip()
+    branch_id = request.args.get('branch_id') or get_current_branch_id()
     
     result = database.get_salary_reports(
         start_month=start_month,
         end_month=end_month,
+        search=search,
         limit=10000,
         company_id=get_current_company_id(),
-        branch_id=get_current_branch_id()
+        branch_id=branch_id
     )
     
     headers = [
         'EMPLOYEE NAME', 'PAY PERIOD', 'WORKING DAYS', 'WORKING HOURS',
+        'OVERTIME HOURS', 'OVERTIME PAY',
         'ALLOWANCE', 'INCENTIVE', 'OTHER EARNINGS', 'BASIC EARNINGS',
         'TOTAL EARNINGS', 'PAID SALARY', 'ADVANCE REPAYMENT', 'OTHER DEDUCTIONS',
         'TOTAL DEDUCTIONS', 'NET SALARY'
@@ -4939,10 +4943,11 @@ def api_salary_reports_export_excel():
     for r in result['data']:
         rows.append([
             r.get('employee_name', ''), r.get('pay_period', ''), r.get('working_days', ''), r.get('working_hours', ''),
+            r.get('overtime_hours', '00:00'), round(float(r.get('overtime_pay', 0)), 2),
             int(float(r.get('allowance', 0))), int(float(r.get('incentive', 0))), int(float(r.get('other_earnings', 0))),
-            int(float(r.get('basic_earnings', 0))), int(float(r.get('total_earnings', 0))), int(float(r.get('paid_salary', 0))),
+            round(float(r.get('basic_earnings', 0)), 2), round(float(r.get('total_earnings', 0)), 2), int(float(r.get('paid_salary', 0))),
             int(float(r.get('advance_repayment', 0))), int(float(r.get('other_deductions', 0))), int(float(r.get('total_deductions', 0))),
-            int(float(r.get('net_salary', 0)))
+            round(float(r.get('net_salary', 0)), 2)
         ])
         
     fmt = 'csv' if request.path.endswith('/csv') else 'excel'
@@ -4953,13 +4958,16 @@ def api_salary_reports_export_excel():
 def api_salary_reports_export_pdf():
     start_month = request.args.get('start_month', '').strip()
     end_month = request.args.get('end_month', '').strip()
+    search = request.args.get('search', '').strip()
+    branch_id = request.args.get('branch_id') or get_current_branch_id()
     
     result = database.get_salary_reports(
         start_month=start_month,
         end_month=end_month,
+        search=search,
         limit=10000,
         company_id=get_current_company_id(),
-        branch_id=get_current_branch_id()
+        branch_id=branch_id
     )
     company_info = get_current_company_info()
     pdf_buffer = pdf_generator.generate_salary_report_pdf(result['data'], company_info=company_info)

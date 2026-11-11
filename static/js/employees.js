@@ -677,6 +677,38 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  function syncOvertimeToggleUI(enabled) {
+    const chk = document.getElementById('inputCalculateOvertime');
+    const stateText = document.getElementById('overtimeStateText');
+    const badge = document.getElementById('overtimeToggleBadge');
+    const isOn = Boolean(enabled);
+    if (chk) chk.checked = isOn;
+    if (stateText) {
+      stateText.textContent = isOn ? 'ON' : 'OFF';
+      stateText.style.color = isOn ? '#2563eb' : '#64748b';
+    }
+    if (badge) {
+      if (isOn) {
+        badge.textContent = 'ON — Overtime Enabled (No Auto-Timeout)';
+        badge.style.background = '#eff6ff';
+        badge.style.color = '#1d4ed8';
+        badge.style.borderColor = '#bfdbfe';
+      } else {
+        badge.textContent = 'OFF — Shift Hours Only';
+        badge.style.background = '#f1f5f9';
+        badge.style.color = '#475569';
+        badge.style.borderColor = '#cbd5e1';
+      }
+    }
+  }
+
+  const inputCalcOvertimeEl = document.getElementById('inputCalculateOvertime');
+  if (inputCalcOvertimeEl) {
+    inputCalcOvertimeEl.addEventListener('change', function () {
+      syncOvertimeToggleUI(this.checked);
+    });
+  }
+
 // Native label handles single click change cleanly
 
   function openAddEntryModal() {
@@ -729,6 +761,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Reset Calculate Proper Entries to checked and update visibility
+    syncOvertimeToggleUI(false);
     const inCalcProper = document.getElementById('inputCalculateProperEntries');
     if (inCalcProper) inCalcProper.checked = true;
     updateGeofencingSectionVisibility(window.COMPANY_CALCULATE_PROPER_ENTRIES);
@@ -814,7 +847,8 @@ document.addEventListener('DOMContentLoaded', function () {
       const captureStatusEl = document.getElementById('captureStatus');
       if (captureStatusEl) captureStatusEl.textContent = '';
 
-      // Populate Calculate Proper Entries & update visibility based on company setting
+      // Populate Overtime & Calculate Proper Entries toggles
+      syncOvertimeToggleUI(Boolean(emp.calculate_overtime));
       const inEditCalcProper = document.getElementById('inputCalculateProperEntries');
       if (inEditCalcProper) inEditCalcProper.checked = (emp.calculate_proper_entries !== false);
       const compProperEnabled = (emp.company_calculate_proper_entries !== undefined)
@@ -906,6 +940,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (pCred) pCred.checked = true;
       const pLeave = document.getElementById('permLeavePermission');
       if (pLeave) pLeave.checked = true;
+      syncOvertimeToggleUI(false);
       renderEmployeeDocuments([]);
     });
   }
@@ -1187,6 +1222,9 @@ document.addEventListener('DOMContentLoaded', function () {
         formData.set('calculate_proper_entries', inCalcProperSubmit ? (inCalcProperSubmit.checked ? 'true' : 'false') : 'true');
       }
 
+      const inCalcOvertimeSubmit = document.getElementById('inputCalculateOvertime');
+      formData.set('calculate_overtime', (inCalcOvertimeSubmit && inCalcOvertimeSubmit.checked) ? 'true' : 'false');
+
       // Explicitly serialize employee portal permissions
       const permPunch = document.getElementById('permPunchAttendance');
       const permHist = document.getElementById('permAttendanceHistory');
@@ -1391,6 +1429,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ['SHIFT HOURS', emp.shift_hours || '09:00'],
         ['SHIFT START', emp.shift_start || '09:00 AM'],
         ['SHIFT END', emp.shift_end || '06:00 PM'],
+        ['OVERTIME CALCULATION', emp.calculate_overtime ? 'Enabled (Calculates Past Shift Hours — No Auto-Timeout)' : 'Disabled (Shift Hours Only)'],
         ['RECORD CREATED AT', formattedCreated]
       ];
 
