@@ -283,27 +283,6 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
     emp_map = {e.get('employee_name'): e for e in emp_docs if e.get('employee_name')}
 
     def calculate_employee_working_salary(emp_info, working_hours_str, punch_doc=None):
-        if punch_doc:
-            for k in ['working_salary', 'salary_earned', 'salary']:
-                if punch_doc.get(k) is not None:
-                    try:
-                        return float(punch_doc[k])
-                    except (ValueError, TypeError):
-                        pass
-        if not emp_info:
-            return 0.0
-        is_ns = database.is_no_shift_employee(emp_info)
-        stype = 'hourly' if is_ns else str(emp_info.get('salary_type') or 'hourly').strip().lower()
-        hr_rate = float(emp_info.get('hourly_salary') or 0.0)
-        d_rate = 0.0 if is_ns else float(emp_info.get('day_salary') or 0.0)
-        h_rate = 0.0 if is_ns else float(emp_info.get('half_day_salary') or 0.0)
-        if not is_ns and hr_rate <= 0 and d_rate > 0:
-            hr_rate = d_rate / 8.0
-
-        shift_str = emp_info.get('shift_hours', '08:00') or '08:00'
-        shift_mins = 0 if is_ns else database.parse_shift_hours_to_minutes(shift_str, default_minutes=480)
-        half_shift = max(1, shift_mins // 2)
-
         tot_mins = 0
         try:
             parts = str(working_hours_str or '').split(':')
@@ -312,30 +291,38 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
         except Exception:
             tot_mins = 0
 
+        if not emp_info:
+            if punch_doc:
+                for k in ['working_salary', 'salary_earned', 'salary']:
+                    if punch_doc.get(k) is not None:
+                        try:
+                            return float(punch_doc[k])
+                        except (ValueError, TypeError):
+                            pass
+            return 0.0
+
         if tot_mins <= 0:
             return 0.0
 
-        if is_ns or shift_mins == 0 or stype == 'hourly':
-            return round((tot_mins / 60.0) * hr_rate, 2)
-        elif stype == 'daily':
-            if tot_mins >= shift_mins:
-                return round(d_rate, 2)
-            elif tot_mins >= half_shift:
-                eff_h = h_rate if h_rate > 0 else (d_rate / 2.0)
-                return round(eff_h, 2)
-            else:
-                eff_hr = hr_rate if hr_rate > 0 else (d_rate / (shift_mins / 60.0))
-                return round((tot_mins / 60.0) * eff_hr, 2)
-        elif stype == 'half_day':
-            eff_h = h_rate if h_rate > 0 else (d_rate / 2.0 if d_rate > 0 else hr_rate * 4.0)
-            if tot_mins >= shift_mins:
-                return round(eff_h * 2.0, 2)
-            elif tot_mins >= half_shift:
-                return round(eff_h, 2)
-            else:
-                return round((tot_mins / float(half_shift)) * eff_h, 2)
-        else:
-            return round((tot_mins / 60.0) * hr_rate, 2)
+        is_ns = database.is_no_shift_employee(emp_info)
+        stype = 'hourly' if is_ns else str(emp_info.get('salary_type') or 'hourly').strip().lower()
+        hr_rate = float(emp_info.get('hourly_salary') or 0.0)
+        d_rate = 0.0 if is_ns else float(emp_info.get('day_salary') or 0.0)
+        h_rate = 0.0 if is_ns else float(emp_info.get('half_day_salary') or 0.0)
+        shift_str = emp_info.get('shift_hours', '08:00') or '08:00'
+        shift_mins = 0 if is_ns else database.parse_shift_hours_to_minutes(shift_str, default_minutes=480)
+        calc_ot = False if is_ns else database.parse_bool_flag(emp_info.get('calculate_overtime'), default=False)
+
+        metrics = database.compute_shift_and_overtime_metrics(
+            tot_mins,
+            shift_mins,
+            stype,
+            hourly_rate=hr_rate,
+            day_rate=d_rate,
+            half_rate=h_rate,
+            calculate_overtime=calc_ot
+        )
+        return metrics['total_salary']
 
     # 1. Attendance punches (Proper & Improper)
     punch_query = {

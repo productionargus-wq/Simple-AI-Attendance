@@ -1799,35 +1799,36 @@ def compute_shift_and_overtime_metrics(working_minutes, shift_target_minutes, sa
     ot_sal = round((ot_mins / 60.0) * effective_ot_hr, 2) if ot_mins > 0 else 0.0
 
     if st == 'hourly':
-        reg_sal = round((reg_mins / 60.0) * hr, 2)
-        credit = 'Full Day' if w_mins >= s_mins else ('Half Day' if w_mins >= half_shift else 'Partial')
-        tot_sal = round(reg_sal + ot_sal, 2)
-    elif st == 'daily':
-        if w_mins >= s_mins:
-            reg_sal = float(int(round(dr)))
-            credit = 'Full Day'
-        elif w_mins >= half_shift:
-            reg_sal = float(int(round(effective_half)))
-            credit = 'Half Day'
+        if ot_enabled:
+            reg_sal = round((reg_mins / 60.0) * hr, 2)
+            tot_sal = round(reg_sal + ot_sal, 2)
         else:
-            reg_sal = float(int(round((w_mins / 60.0) * effective_ot_hr)))
-            credit = 'Partial'
+            reg_sal = round((w_mins / 60.0) * hr, 2)
+            tot_sal = reg_sal
+        credit = 'Full Day' if w_mins >= s_mins else ('Half Day' if w_mins >= half_shift else 'Partial')
+    elif st == 'daily':
+        reg_sal = round(dr, 2)
+        credit = 'Full Day'
         tot_sal = round(reg_sal + ot_sal, 2)
     elif st == 'half_day':
         if w_mins >= s_mins:
-            reg_sal = float(int(round(effective_half * 2.0)))
+            reg_sal = round(effective_half * 2.0, 2)
             credit = 'Full Day (2x Half)'
         elif w_mins >= half_shift:
-            reg_sal = float(int(round(effective_half)))
+            reg_sal = round(effective_half, 2)
             credit = 'Half Day'
         else:
-            reg_sal = float(int(round((w_mins / float(half_shift)) * effective_half)))
+            reg_sal = round((w_mins / float(half_shift)) * effective_half, 2)
             credit = 'Partial'
         tot_sal = round(reg_sal + ot_sal, 2)
     else:
-        reg_sal = round((reg_mins / 60.0) * hr, 2)
+        if ot_enabled:
+            reg_sal = round((reg_mins / 60.0) * hr, 2)
+            tot_sal = round(reg_sal + ot_sal, 2)
+        else:
+            reg_sal = round((w_mins / 60.0) * hr, 2)
+            tot_sal = reg_sal
         credit = 'Full Day' if w_mins >= s_mins else 'Partial'
-        tot_sal = round(reg_sal + ot_sal, 2)
 
     return {
         'regular_salary': reg_sal,
@@ -4432,18 +4433,55 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
         b_names, _ = get_cached_branch_names_and_ids(b_id, company_id)
         branch_cond = get_branch_record_condition(b_id, b_names)
 
-    # Pre-load employee shift hours for dynamic status computation
+    # Pre-load employee shift hours and salary rates for live status & salary computation
     emp_shifts = {}
     emp_q = get_branch_employee_query(b_id, company_id, exclude_field_workers=exclude_field_workers)
-    for emp_d in db.employees.find(emp_q, {'employee_name': 1, 'no_shift': 1, 'shift_start': 1, 'shift_end': 1, 'shift_hours': 1}):
+    for emp_d in db.employees.find(emp_q, {
+        'employee_name': 1, 'no_shift': 1, 'shift_start': 1, 'shift_end': 1, 'shift_hours': 1,
+        'salary_type': 1, 'hourly_salary': 1, 'day_salary': 1, 'half_day_salary': 1, 'calculate_overtime': 1
+    }):
         if emp_d.get('employee_name'):
             is_ns = is_no_shift_employee(emp_d)
             emp_shifts[emp_d['employee_name']] = {
                 'no_shift': is_ns,
                 'start': '-' if is_ns else (emp_d.get('shift_start', '09:00 AM') or '09:00 AM'),
                 'end': '-' if is_ns else (emp_d.get('shift_end', '06:00 PM') or '06:00 PM'),
-                'shift_mins': 0 if is_ns else parse_shift_hours_to_minutes(emp_d.get('shift_hours', '08:00'), default_minutes=480)
+                'shift_mins': 0 if is_ns else parse_shift_hours_to_minutes(emp_d.get('shift_hours', '08:00'), default_minutes=480),
+                'salary_type': 'hourly' if is_ns else str(emp_d.get('salary_type') or 'hourly').strip().lower(),
+                'hourly_salary': float(emp_d.get('hourly_salary') or 0.0),
+                'day_salary': 0.0 if is_ns else float(emp_d.get('day_salary') or 0.0),
+                'half_day_salary': 0.0 if is_ns else float(emp_d.get('half_day_salary') or 0.0),
+                'calculate_overtime': False if is_ns else parse_bool_flag(emp_d.get('calculate_overtime'), default=False),
+                'has_rate_cfg': True
             }
+
+    def _resolve_live_punch_salary(rec, s_cfg):
+        if str(rec.get('entry_type', '')).strip().lower() == 'improper':
+            return 0.0
+        exit_val = str(rec.get('exit_time') or '').strip()
+        if exit_val in ['', '----', '-']:
+            return 0.0
+        wh_val = str(rec.get('working_hours') or '00:00').strip()
+        tot_mins = 0
+        if ':' in wh_val:
+            try:
+                p0, p1 = wh_val.split(':')[:2]
+                tot_mins = int(p0) * 60 + int(p1)
+            except Exception:
+                tot_mins = 0
+        if tot_mins <= 0:
+            return 0.0
+        if s_cfg and s_cfg.get('has_rate_cfg'):
+            return compute_shift_and_overtime_metrics(
+                tot_mins,
+                s_cfg.get('shift_mins', 480),
+                s_cfg.get('salary_type', 'hourly'),
+                hourly_rate=s_cfg.get('hourly_salary', 0.0),
+                day_rate=s_cfg.get('day_salary', 0.0),
+                half_rate=s_cfg.get('half_day_salary', 0.0),
+                calculate_overtime=s_cfg.get('calculate_overtime', False)
+            )['total_salary']
+        return float(rec.get('working_salary') or 0.0)
 
     if report_type == 'manual':
         m_query = {}
@@ -4562,8 +4600,10 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
                 c['working_hours'] = '00:00'
                 c['working_salary'] = 0.0
                 c['shift_variance'] = '-' if is_ns else '----'
-            elif is_ns:
-                c['shift_variance'] = '-'
+            else:
+                if is_ns:
+                    c['shift_variance'] = '-'
+                c['working_salary'] = _resolve_live_punch_salary(c, s_cfg)
             e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False, shift_mins=s_mins, no_shift=is_ns)
             c['entry_status'] = e_status
             if is_auto_timeout:
@@ -4609,8 +4649,10 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
             c['working_hours'] = '00:00'
             c['working_salary'] = 0.0
             c['shift_variance'] = '-' if is_ns else '----'
-        elif is_ns:
-            c['shift_variance'] = '-'
+        else:
+            if is_ns:
+                c['shift_variance'] = '-'
+            c['working_salary'] = _resolve_live_punch_salary(c, s_cfg)
         e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False, shift_mins=s_mins, no_shift=is_ns)
         c['entry_status'] = e_status
         if is_auto_timeout:
@@ -5025,6 +5067,42 @@ def get_manual_entry_by_id(entry_id, company_id=None):
     doc = db.manual_entries.find_one(f)
     return clean_doc(doc)
 
+def _calculate_manual_entry_salary(hours_str, mode, status, raw_salary, salary_type, shift_target_minutes, half_shift_target, hourly_rate, day_rate, half_rate):
+    """Computes working_salary consistently for manual attendance entries and updates."""
+    if mode in ['Salary', 'Amount'] or (raw_salary is not None and str(raw_salary).strip() != ''):
+        try:
+            return round(float(raw_salary or 0.0), 2)
+        except (ValueError, TypeError):
+            return 0.0
+    if (mode == 'Full Day' or status == 'Full Day') and shift_target_minutes > 0:
+        return round(day_rate if day_rate > 0 else (hourly_rate * (shift_target_minutes / 60.0)), 2)
+    if (mode == 'Half Day' or status == 'Half Day') and shift_target_minutes > 0:
+        return round(half_rate if half_rate > 0 else (day_rate / 2.0 if day_rate > 0 else (hourly_rate * (half_shift_target / 60.0))), 2)
+
+    parts = str(hours_str or '').split(':')
+    total_mins = 0
+    if len(parts) >= 2:
+        try:
+            total_mins = int(parts[0]) * 60 + int(parts[1])
+        except ValueError:
+            total_mins = 0
+    if total_mins <= 0:
+        return 0.0
+
+    if shift_target_minutes == 0 or salary_type == 'hourly':
+        return round((total_mins / 60.0) * hourly_rate, 2)
+    if salary_type == 'daily':
+        return round(day_rate, 2)
+    if salary_type == 'half_day':
+        effective_half = half_rate if half_rate > 0 else (day_rate / 2.0)
+        if total_mins >= shift_target_minutes:
+            return round(effective_half * 2.0, 2)
+        if total_mins >= half_shift_target:
+            return round(effective_half, 2)
+        return round((total_mins / float(half_shift_target)) * effective_half, 2)
+    return round((total_mins / 60.0) * hourly_rate, 2)
+
+
 def create_manual_entry(data, company_id=None):
     db = get_db()
     emp_name = data.get('employee_name', '')
@@ -5052,47 +5130,11 @@ def create_manual_entry(data, company_id=None):
     shift_target_minutes = 0 if is_no_shift else parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
     half_shift_target = max(1, shift_target_minutes // 2)
 
-    working_salary = 0.0
-    raw_salary = data.get('working_salary')
-    if mode in ['Salary', 'Amount'] or (raw_salary is not None and str(raw_salary).strip() != ''):
-        try:
-            working_salary = float(raw_salary or 0.0)
-        except (ValueError, TypeError):
-            working_salary = 0.0
-    elif (mode == 'Full Day' or status == 'Full Day') and shift_target_minutes > 0:
-        working_salary = day_rate if day_rate > 0 else (hourly_rate * (shift_target_minutes / 60.0))
-    elif (mode == 'Half Day' or status == 'Half Day') and shift_target_minutes > 0:
-        working_salary = half_rate if half_rate > 0 else (day_rate / 2.0 if day_rate > 0 else (hourly_rate * (half_shift_target / 60.0)))
-    else:
-        parts = hours_str.split(':')
-        total_mins = 0
-        if len(parts) >= 2:
-            try:
-                hrs = int(parts[0])
-                mins = int(parts[1])
-                total_mins = hrs * 60 + mins
-            except ValueError:
-                total_mins = 0
-        if shift_target_minutes == 0 or salary_type == 'hourly':
-            working_salary = round((total_mins / 60.0) * hourly_rate, 2)
-        elif salary_type == 'daily':
-            if total_mins >= shift_target_minutes:
-                working_salary = day_rate
-            elif total_mins >= half_shift_target:
-                working_salary = half_rate if half_rate > 0 else (day_rate / 2.0)
-            else:
-                effective_hour = hourly_rate if hourly_rate > 0 else (day_rate / (shift_target_minutes / 60.0))
-                working_salary = round((total_mins / 60.0) * effective_hour, 2)
-        elif salary_type == 'half_day':
-            effective_half = half_rate if half_rate > 0 else (day_rate / 2.0)
-            if total_mins >= shift_target_minutes:
-                working_salary = effective_half * 2.0
-            elif total_mins >= half_shift_target:
-                working_salary = effective_half
-            else:
-                working_salary = round((total_mins / float(half_shift_target)) * effective_half, 2)
-        else:
-            working_salary = round((total_mins / 60.0) * hourly_rate, 2)
+    working_salary = _calculate_manual_entry_salary(
+        hours_str, mode, status, data.get('working_salary'),
+        salary_type, shift_target_minutes, half_shift_target,
+        hourly_rate, day_rate, half_rate
+    )
         
     entry_type = str(data.get('entry_type', 'Add')).strip()
     if entry_type.lower() == 'sub':
@@ -5157,47 +5199,11 @@ def update_manual_entry(entry_id, data):
     mode = data.get('mode', 'Hours')
     status = data.get('status', 'Proper')
     
-    working_salary = 0.0
-    raw_salary = data.get('working_salary')
-    if mode in ['Salary', 'Amount'] or (raw_salary is not None and str(raw_salary).strip() != ''):
-        try:
-            working_salary = float(raw_salary or 0.0)
-        except (ValueError, TypeError):
-            working_salary = 0.0
-    elif (mode == 'Full Day' or status == 'Full Day') and shift_target_minutes > 0:
-        working_salary = day_rate if day_rate > 0 else (hourly_rate * (shift_target_minutes / 60.0))
-    elif (mode == 'Half Day' or status == 'Half Day') and shift_target_minutes > 0:
-        working_salary = half_rate if half_rate > 0 else (day_rate / 2.0 if day_rate > 0 else (hourly_rate * (half_shift_target / 60.0)))
-    else:
-        parts = hours_str.split(':')
-        total_mins = 0
-        if len(parts) >= 2:
-            try:
-                hrs = int(parts[0])
-                mins = int(parts[1])
-                total_mins = hrs * 60 + mins
-            except ValueError:
-                total_mins = 0
-        if shift_target_minutes == 0 or salary_type == 'hourly':
-            working_salary = round((total_mins / 60.0) * hourly_rate, 2)
-        elif salary_type == 'daily':
-            if total_mins >= shift_target_minutes:
-                working_salary = day_rate
-            elif total_mins >= half_shift_target:
-                working_salary = half_rate if half_rate > 0 else (day_rate / 2.0)
-            else:
-                effective_hour = hourly_rate if hourly_rate > 0 else (day_rate / (shift_target_minutes / 60.0))
-                working_salary = round((total_mins / 60.0) * effective_hour, 2)
-        elif salary_type == 'half_day':
-            effective_half = half_rate if half_rate > 0 else (day_rate / 2.0)
-            if total_mins >= shift_target_minutes:
-                working_salary = effective_half * 2.0
-            elif total_mins >= half_shift_target:
-                working_salary = effective_half
-            else:
-                working_salary = round((total_mins / float(half_shift_target)) * effective_half, 2)
-        else:
-            working_salary = round((total_mins / 60.0) * hourly_rate, 2)
+    working_salary = _calculate_manual_entry_salary(
+        hours_str, mode, status, data.get('working_salary'),
+        salary_type, shift_target_minutes, half_shift_target,
+        hourly_rate, day_rate, half_rate
+    )
         
     entry_type = str(data.get('entry_type', 'Add')).strip()
     if entry_type.lower() == 'sub':
@@ -5896,6 +5902,14 @@ def _compute_employee_monthly_salary_payload(
         daily_minutes[d_val] = daily_minutes.get(d_val, 0) + mins
 
     valid_manual_entries = []
+    explicit_half_manual_dates = set()
+    punch_dates = {
+        normalize_iso_date(rec.get('date') or rec.get('entry_time') or rec.get('created_at'))
+        for rec in records
+        if rec.get('entry_type') != 'improper'
+        and str(rec.get('exit_time') or '').strip() not in ['', '----', '-']
+    }
+    manual_amount_only_sum = 0.0
     for m_entry in manual_entries:
         st_raw = str(m_entry.get('status', '')).strip().lower()
         if 'improper' in st_raw:
@@ -5906,6 +5920,7 @@ def _compute_employee_monthly_salary_payload(
         valid_manual_entries.append(m_entry)
 
         hrs_str = m_entry.get('hours', '00:00')
+        mode_l = str(m_entry.get('mode') or '').strip().lower()
         mins = 0
         if hrs_str:
             clean_hrs = str(hrs_str).replace('-', '').strip()
@@ -5916,37 +5931,44 @@ def _compute_employee_monthly_salary_payload(
                 except Exception:
                     mins = 0
         if shift_target_minutes > 0:
-            if 'full' in st_raw:
+            if 'full' in st_raw or mode_l == 'full day':
                 mins = max(mins, shift_target_minutes)
-            elif 'half' in st_raw:
+            elif 'half' in st_raw or mode_l == 'half day':
                 mins = max(mins, half_shift_target)
         entry_type = str(m_entry.get('entry_type', 'Add')).strip()
         is_sub = entry_type.lower() == 'sub' or float(m_entry.get('working_salary', 0.0)) < 0
         msal = abs(float(m_entry.get('working_salary', 0.0)))
+        signed_sal = (-msal if is_sub else msal)
+
+        if mins == 0 or mode_l in ('salary', 'amount'):
+            manual_amount_only_sum += signed_sal
+            continue
+
+        if not is_sub and ('half' in st_raw or mode_l == 'half day') and ed not in punch_dates:
+            explicit_half_manual_dates.add(ed)
 
         daily_minutes[ed] = daily_minutes.get(ed, 0) + (-mins if is_sub else mins)
-        daily_manual_salary[ed] = daily_manual_salary.get(ed, 0.0) + (-msal if is_sub else msal)
+        daily_manual_salary[ed] = daily_manual_salary.get(ed, 0.0) + signed_sal
 
     net_daily_minutes = {d: max(0, m) for d, m in daily_minutes.items()}
-    positive_days = {d: m for d, m in net_daily_minutes.items() if m > 0 or daily_manual_salary.get(d, 0.0) > 0}
+    positive_days = {d: m for d, m in net_daily_minutes.items() if m > 0}
     total_minutes = max(0, sum(daily_minutes.values()))
     working_days = len(positive_days)
     working_hours = format_minutes_hhmm(total_minutes)
 
     regular_billable_minutes = 0
     total_overtime_minutes = 0
-    for d, mins in net_daily_minutes.items():
-        if mins <= 0:
-            continue
-        if shift_target_minutes == 0:
-            regular_billable_minutes += mins
-        else:
+    if shift_target_minutes == 0 or not calculate_overtime:
+        regular_billable_minutes = total_minutes
+    else:
+        for d, mins in net_daily_minutes.items():
+            if mins <= 0:
+                continue
             regular_billable_minutes += min(mins, shift_target_minutes)
-            if calculate_overtime and mins > shift_target_minutes:
+            if mins > shift_target_minutes:
                 total_overtime_minutes += (mins - shift_target_minutes)
-
-    neg_manual_mins = sum(m for m in daily_minutes.values() if m < 0)
-    regular_billable_minutes = max(0, regular_billable_minutes + neg_manual_mins)
+        neg_manual_mins = sum(m for m in daily_minutes.values() if m < 0)
+        regular_billable_minutes = max(0, regular_billable_minutes + neg_manual_mins)
     overtime_hours = format_minutes_hhmm(total_overtime_minutes)
 
     full_days = 0
@@ -5961,6 +5983,9 @@ def _compute_employee_monthly_salary_payload(
             if mins > 0:
                 partial_days += 1
                 partial_minutes += mins
+    elif salary_type == 'daily':
+        half_days = sum(1 for d in positive_days if d in explicit_half_manual_dates)
+        full_days = max(0, working_days - half_days)
     elif salary_type == 'half_day':
         ref_half_mins = 240 if shift_target_minutes >= 480 else (shift_target_minutes if shift_target_minutes <= 300 else 240)
         ref_full_mins = ref_half_mins * 2
@@ -5993,7 +6018,7 @@ def _compute_employee_monthly_salary_payload(
     else:
         effective_hour = 0.0
 
-    manual_salary_sum = sum(daily_manual_salary.values())
+    manual_salary_sum = sum(daily_manual_salary.values()) + manual_amount_only_sum
     has_punch_records = any(
         rec.get('entry_type') != 'improper'
         and str(rec.get('exit_time') or '').strip() not in ['', '----', '-']
@@ -6001,24 +6026,20 @@ def _compute_employee_monthly_salary_payload(
     )
 
     overtime_pay = 0.0
-    if not has_punch_records and valid_manual_entries:
-        manual_net = sum(float(m.get('working_salary', 0.0)) for m in manual_entries)
-        basic_salary = max(0.0, round(manual_net, 2))
+    if not has_punch_records and valid_manual_entries and working_days == 0:
+        basic_salary = max(0.0, round(manual_amount_only_sum, 2))
         total_overtime_minutes = 0
         overtime_hours = '00:00'
     elif shift_target_minutes == 0 or salary_type == 'hourly':
         basic_salary = round((regular_billable_minutes / 60.0) * hours_salary, 2)
-        unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
-        unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
-        basic_salary = max(0.0, round(basic_salary + unapplied_deductions + unapplied_additions, 2))
+        unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0) if total_minutes == 0 else 0.0
+        basic_salary = max(0.0, round(basic_salary + manual_amount_only_sum + unapplied_deductions, 2))
         if calculate_overtime and total_overtime_minutes > 0 and shift_target_minutes > 0:
             overtime_pay = round((total_overtime_minutes / 60.0) * effective_hour, 2)
     elif salary_type == 'daily':
-        non_half_days = max(0, working_days - half_days)
-        basic_salary = round((non_half_days * day_salary) + (half_days * effective_half), 2)
+        basic_salary = round((full_days * day_salary) + (half_days * effective_half), 2)
         unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
-        unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
-        basic_salary = max(0.0, round(basic_salary + unapplied_deductions + unapplied_additions, 2))
+        basic_salary = max(0.0, round(basic_salary + manual_amount_only_sum + unapplied_deductions, 2))
         if calculate_overtime and total_overtime_minutes > 0 and shift_target_minutes > 0:
             overtime_pay = round((total_overtime_minutes / 60.0) * effective_hour, 2)
     elif salary_type == 'half_day':
@@ -6027,8 +6048,7 @@ def _compute_employee_monthly_salary_payload(
         part_sal = (partial_minutes / float(target_half_div)) * effective_half
         basic_salary = round((total_half_units * effective_half) + part_sal, 2)
         unapplied_deductions = sum(m for d, m in daily_manual_salary.items() if m < 0 and daily_minutes.get(d, 0) < 0)
-        unapplied_additions = sum(m for d, m in daily_manual_salary.items() if m > 0 and daily_minutes.get(d, 0) == 0)
-        basic_salary = max(0.0, round(basic_salary + unapplied_deductions + unapplied_additions, 2))
+        basic_salary = max(0.0, round(basic_salary + manual_amount_only_sum + unapplied_deductions, 2))
         if calculate_overtime and total_overtime_minutes > 0 and shift_target_minutes > 0:
             overtime_pay = round((total_overtime_minutes / 60.0) * effective_hour, 2)
     else:
@@ -6037,14 +6057,14 @@ def _compute_employee_monthly_salary_payload(
             if calculate_overtime and total_overtime_minutes > 0 and shift_target_minutes > 0:
                 overtime_pay = round((total_overtime_minutes / 60.0) * hours_salary, 2)
         elif day_salary > 0:
-            basic_salary = round((full_days * day_salary) + (half_days * effective_half), 2)
+            basic_salary = round((working_days * day_salary), 2)
             if calculate_overtime and total_overtime_minutes > 0 and shift_target_minutes > 0:
                 overtime_pay = round((total_overtime_minutes / 60.0) * effective_hour, 2)
         else:
-            basic_salary = max(0.0, manual_salary_sum)
+            basic_salary = max(0.0, round(manual_salary_sum, 2))
 
-    if basic_salary == 0.0 and manual_salary_sum > 0.0:
-        basic_salary = manual_salary_sum
+    if basic_salary == 0.0 and manual_salary_sum > 0.0 and working_days == 0:
+        basic_salary = round(manual_salary_sum, 2)
 
     allowance = 0.0
     incentive = 0.0
