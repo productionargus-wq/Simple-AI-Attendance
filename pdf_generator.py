@@ -199,6 +199,11 @@ def generate_employee_pdf(emp):
         except Exception:
             created_str = str(raw_created)
 
+    is_no_shift = bool(emp.get('no_shift')) or str(emp.get('shift_hours') or '').strip() == '-'
+    shift_hrs_disp = "-" if is_no_shift else str(emp.get('shift_hours', '') or '-')
+    shift_start_disp = "-" if is_no_shift else str(emp.get('shift_start') or '09:00 AM')
+    shift_end_disp = "-" if is_no_shift else str(emp.get('shift_end') or '06:00 PM')
+
     # Fields table
     fields = [
         ("ID", str(emp.get('id', ''))),
@@ -219,9 +224,9 @@ def generate_employee_pdf(emp):
         ("BANK NAME", str(emp.get('bank_name', ''))),
         ("ACCOUNT NUMBER", str(emp.get('account_number', ''))),
         ("IFSC CODE", str(emp.get('ifsc_code', ''))),
-        ("SHIFT HOURS", str(emp.get('shift_hours', ''))),
-        ("SHIFT START", str(emp.get('shift_start') or '09:00 AM')),
-        ("SHIFT END", str(emp.get('shift_end') or '06:00 PM')),
+        ("SHIFT HOURS", shift_hrs_disp),
+        ("SHIFT START", shift_start_disp),
+        ("SHIFT END", shift_end_disp),
         ("RECORD CREATED AT", created_str)
     ]
     
@@ -304,6 +309,8 @@ def generate_employees_pdf(employees, company_info=None):
             st = str(emp.get('salary_type', 'hourly')).lower()
             st_label = 'Hourly' if st == 'hourly' else ('Day-Based' if st == 'daily' else 'Half-Day')
             emp_status = 'Inactive' if str(emp.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
+            is_ns = bool(emp.get('no_shift')) or str(emp.get('shift_hours') or '').strip() == '-'
+            shift_disp = "-" if is_ns else str(emp.get('shift_hours', '08:00') or '08:00')
             table_data.append([
                 Paragraph(str(idx), cell_style),
                 Paragraph(str(emp.get('id', '')), cell_style),
@@ -311,7 +318,7 @@ def generate_employees_pdf(employees, company_info=None):
                 Paragraph(emp_status, cell_style),
                 Paragraph(st_label, cell_style),
                 Paragraph(str(emp.get('mobile_number', '') or '-'), cell_style),
-                Paragraph(str(emp.get('shift_hours', '08:00')), cell_style),
+                Paragraph(shift_disp, cell_style),
                 Paragraph(str(emp.get('bank_name', '') or '-'), cell_style),
                 Paragraph(str(emp.get('account_number', '') or '-'), cell_style),
                 Paragraph(str(emp.get('joining_date', '') or emp.get('date_of_joining', '') or '-'), cell_style)
@@ -1162,7 +1169,8 @@ def _extract_payslip_fields(p):
         rate_lbl = "DAY SALARY"
         rate_val = f"Rs. {Number_format(p.get('day_salary', 0))}"
 
-    shift_h = str(p.get('shift_hours') or '08:00')
+    is_no_shift = bool(p.get('no_shift')) or str(p.get('shift_hours') or '').strip() == '-'
+    shift_h = "-" if is_no_shift else str(p.get('shift_hours') or '08:00')
     working_days = str(p.get('working_days_breakdown') or f"{p.get('working_days', 0)} Days")
     tot_work_h = str(p.get('total_working_hours') or p.get('working_hours') or '00:00')
     tot_days = p.get('total_days_of_month', p.get('total_days', 30))
@@ -1187,7 +1195,8 @@ def _extract_payslip_fields(p):
     ot_hrs = str(p.get('overtime_hours') or '00:00')
     ot_mins = int(p.get('overtime_minutes', 0) or 0)
     ot_pay = Number_format(p.get('overtime_pay', 0))
-    ot_lbl = f"Overtime ({ot_hrs} hrs)" if ot_mins > 0 else "Overtime"
+    ot_lbl = "Overtime" if is_no_shift else (f"Overtime ({ot_hrs} hrs)" if ot_mins > 0 else "Overtime")
+    ot_disp = "-" if is_no_shift else f"Rs. {ot_pay}"
     allowance = Number_format(p.get('allowance', 0))
     incentive = Number_format(p.get('incentive', 0))
     verified_visits = int(p.get('verified_visits', 0) or 0)
@@ -1234,6 +1243,7 @@ def _extract_payslip_fields(p):
         'bank_name': bank_name,
         'basic_sal': basic_sal,
         'ot_pay': ot_pay,
+        'ot_disp': ot_disp,
         'ot_hrs': ot_hrs,
         'ot_lbl': ot_lbl,
         'allowance': allowance,
@@ -1404,7 +1414,7 @@ def _build_payslip_modern_executive(p, template_id, palette):
     earn_ded_data = [
         [Paragraph("EARNINGS", hdr_style), "", Paragraph("DEDUCTIONS", hdr_style), ""],
         [Paragraph("Basic Salary", cell_lbl_style), Paragraph(f"Rs. {f['basic_sal']}", cell_val_style), Paragraph("Paid Salary", cell_lbl_style), Paragraph(f"Rs. {f['paid_sal']}", cell_val_style)],
-        [Paragraph(f['ot_lbl'], cell_lbl_style), Paragraph(f"Rs. {f['ot_pay']}", cell_val_style), Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {f['adv_repay']}", cell_val_style)],
+        [Paragraph(f['ot_lbl'], cell_lbl_style), Paragraph(f['ot_disp'], cell_val_style), Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {f['adv_repay']}", cell_val_style)],
         [Paragraph("Allowance", cell_lbl_style), Paragraph(f"Rs. {f['allowance']}", cell_val_style), Paragraph("Other Deductions", cell_lbl_style), Paragraph(f"Rs. {f['other_ded']}", cell_val_style)],
         [Paragraph("Incentive", cell_lbl_style), Paragraph(f"Rs. {f['incentive']}", cell_val_style), Paragraph("", cell_lbl_style), Paragraph("", cell_val_style)],
         [
@@ -1636,7 +1646,7 @@ def _build_payslip_premium_executive(p, palette):
     earn_ded_data = [
         [Paragraph("EARNINGS", hdr_style), "", Paragraph("DEDUCTIONS", hdr_style), ""],
         [Paragraph("Basic Salary", cell_lbl_style), Paragraph(f"Rs. {f['basic_sal']}", cell_val_style), Paragraph("Paid Salary", cell_lbl_style), Paragraph(f"Rs. {f['paid_sal']}", cell_val_style)],
-        [Paragraph(f['ot_lbl'], cell_lbl_style), Paragraph(f"Rs. {f['ot_pay']}", cell_val_style), Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {f['adv_repay']}", cell_val_style)],
+        [Paragraph(f['ot_lbl'], cell_lbl_style), Paragraph(f['ot_disp'], cell_val_style), Paragraph("Advance Repayment", cell_lbl_style), Paragraph(f"Rs. {f['adv_repay']}", cell_val_style)],
         [Paragraph("Allowance", cell_lbl_style), Paragraph(f"Rs. {f['allowance']}", cell_val_style), Paragraph("Other Deductions", cell_lbl_style), Paragraph(f"Rs. {f['other_ded']}", cell_val_style)],
         [Paragraph("Incentive", cell_lbl_style), Paragraph(f"Rs. {f['incentive']}", cell_val_style), Paragraph("", cell_lbl_style), Paragraph("", cell_val_style)],
         [
@@ -1785,7 +1795,7 @@ def _build_payslip_classic_grid(p, palette):
     earn_ded_data = [
         [Paragraph("EARNINGS", hdr_txt_style), "", Paragraph("DEDUCTION", hdr_txt_style), ""],
         [Paragraph("Basic Salary", t4_cell_l), Paragraph(f"Rs. {f['basic_sal']}", t4_cell_v), Paragraph("Paid Salary", t4_cell_l), Paragraph(f"Rs. {f['paid_sal']}", t4_cell_v)],
-        [Paragraph(f['ot_lbl'], t4_cell_l), Paragraph(f"Rs. {f['ot_pay']}", t4_cell_v), Paragraph("Advance Repayment", t4_cell_l), Paragraph(f"Rs. {f['adv_repay']}", t4_cell_v)],
+        [Paragraph(f['ot_lbl'], t4_cell_l), Paragraph(f['ot_disp'], t4_cell_v), Paragraph("Advance Repayment", t4_cell_l), Paragraph(f"Rs. {f['adv_repay']}", t4_cell_v)],
         [Paragraph("Allowance", t4_cell_l), Paragraph(f"Rs. {f['allowance']}", t4_cell_v), Paragraph("Other Deductions", t4_cell_l), Paragraph(f"Rs. {f['other_ded']}", t4_cell_v)],
         [Paragraph("Incentive", t4_cell_l), Paragraph(f"Rs. {f['incentive']}", t4_cell_v), Paragraph("", t4_cell_l), Paragraph("", t4_cell_v)],
         [Paragraph("Others Earnings", t4_cell_l), Paragraph(f"Rs. {f['other_earn']}", t4_cell_v), Paragraph("", t4_cell_l), Paragraph("", t4_cell_v)],
@@ -1951,7 +1961,7 @@ def _build_payslip_minimalist_card(p, palette):
         [Paragraph("EARNINGS", chdr_s), ""],
         [Paragraph("Particulars", csub_s), Paragraph("Amount", csub_r)],
         [Paragraph("Basic Salary", cr_l), Paragraph(f"Rs. {f['basic_sal']}", cr_r)],
-        [Paragraph(f['ot_lbl'], cr_l), Paragraph(f"Rs. {f['ot_pay']}", cr_r)],
+        [Paragraph(f['ot_lbl'], cr_l), Paragraph(f['ot_disp'], cr_r)],
         [Paragraph("Allowance", cr_l), Paragraph(f"Rs. {f['allowance']}", cr_r)],
         [Paragraph("Incentive", cr_l), Paragraph(f"Rs. {f['incentive']}", cr_r)],
         [Paragraph("Others Earnings", cr_l), Paragraph(f"Rs. {f['other_earn']}", cr_r)],
@@ -2165,7 +2175,7 @@ def _build_payslip_professional_elegant(p, palette):
         [Paragraph("EARNINGS", chdr_s), ""],
         [Paragraph("Particulars", csub_s), Paragraph("Amount", csub_r)],
         [Paragraph("Basic Salary", cr_l), Paragraph(f"Rs. {f['basic_sal']}", cr_r)],
-        [Paragraph(f['ot_lbl'], cr_l), Paragraph(f"Rs. {f['ot_pay']}", cr_r)],
+        [Paragraph(f['ot_lbl'], cr_l), Paragraph(f['ot_disp'], cr_r)],
         [Paragraph("Allowance", cr_l), Paragraph(f"Rs. {f['allowance']}", cr_r)],
         [Paragraph("Incentive", cr_l), Paragraph(f"Rs. {f['incentive']}", cr_r)],
         [Paragraph("Others Earnings", cr_l), Paragraph(f"Rs. {f['other_earn']}", cr_r)],
@@ -2443,7 +2453,7 @@ def _build_payslip_template_7(p, palette):
         [Paragraph("<font size='7' color='#ffffff'><b>🪙 &nbsp;EARNINGS</b></font>", ParagraphStyle('EH7', fontName='Helvetica-Bold', leading=9, alignment=TA_CENTER)), ""],
         [Paragraph("<font size='6.5' color='#475569'><b>Particulars</b></font>", ParagraphStyle('EPart', fontName='Helvetica-Bold', leading=8)), Paragraph("<font size='6.5' color='#475569'><b>Amount</b></font>", ParagraphStyle('EAmt', fontName='Helvetica-Bold', leading=8, alignment=TA_RIGHT))],
         [Paragraph("Basic Salary", lbl_s7), Paragraph(f"Rs. {f['basic_sal']}", val_sb7)],
-        [Paragraph(f['ot_lbl'], lbl_s7), Paragraph(f"Rs. {f['ot_pay']}", val_sb7)],
+        [Paragraph(f['ot_lbl'], lbl_s7), Paragraph(f['ot_disp'], val_sb7)],
         [Paragraph("Allowance", lbl_s7), Paragraph(f"Rs. {f['allowance']}", val_sb7)],
         [Paragraph("Incentive", lbl_s7), Paragraph(f"Rs. {f['incentive']}", val_sb7)],
         [Paragraph("Others Earnings", lbl_s7), Paragraph(f"Rs. {f['other_earn']}", val_sb7)],
@@ -2707,7 +2717,7 @@ def _build_payslip_template_8(p, palette):
         [Paragraph("<font size='7' color='#ffffff'><b>🪙 &nbsp;EARNINGS</b></font>", ParagraphStyle('EH8', fontName='Helvetica-Bold', leading=9, alignment=TA_CENTER)), ""],
         [Paragraph("<font size='6.5' color='#475569'><b>Particulars</b></font>", ParagraphStyle('EPart8', fontName='Helvetica-Bold', leading=8)), Paragraph("<font size='6.5' color='#475569'><b>Amount</b></font>", ParagraphStyle('EAmt8', fontName='Helvetica-Bold', leading=8, alignment=TA_RIGHT))],
         [Paragraph("Basic Salary", lbl_s8), Paragraph(f"Rs. {f['basic_sal']}", val_sb8)],
-        [Paragraph(f['ot_lbl'], lbl_s8), Paragraph(f"Rs. {f['ot_pay']}", val_sb8)],
+        [Paragraph(f['ot_lbl'], lbl_s8), Paragraph(f['ot_disp'], val_sb8)],
         [Paragraph("Allowance", lbl_s8), Paragraph(f"Rs. {f['allowance']}", val_sb8)],
         [Paragraph("Incentive", lbl_s8), Paragraph(f"Rs. {f['incentive']}", val_sb8)],
         [Paragraph("Others Earnings", lbl_s8), Paragraph(f"Rs. {f['other_earn']}", val_sb8)],
@@ -2935,11 +2945,14 @@ def generate_salary_report_pdf(data, company_info=None):
     ]
     
     for r in data:
-        ot_mins = int(r.get('overtime_minutes', 0) or 0)
-        ot_hrs = str(r.get('overtime_hours') or '00:00')
-        ot_pay_txt = f"Rs. {int(round(float(r.get('overtime_pay', 0))))}"
-        if ot_mins > 0:
-            ot_pay_txt = f"{ot_pay_txt}<br/><font size='5.5' color='#2563eb'>({ot_hrs} hrs)</font>"
+        if r.get('no_shift'):
+            ot_pay_txt = "-"
+        else:
+            ot_mins = int(r.get('overtime_minutes', 0) or 0)
+            ot_hrs = str(r.get('overtime_hours') or '00:00')
+            ot_pay_txt = f"Rs. {int(round(float(r.get('overtime_pay', 0))))}"
+            if ot_mins > 0:
+                ot_pay_txt = f"{ot_pay_txt}<br/><font size='5.5' color='#2563eb'>({ot_hrs} hrs)</font>"
         table_data.append([
             Paragraph(str(r.get('employee_name', '')), cell_style),
             Paragraph(str(r.get('pay_period', '')), cell_style),
@@ -3550,6 +3563,8 @@ def generate_field_worker_payslip_pdf(data, company_info=None):
     val_style = ParagraphStyle('FWVal', parent=styles['Normal'], fontName='Helvetica', fontSize=8.5, textColor=colors.HexColor('#0f172a'))
     sec_hdr = ParagraphStyle('FWSec', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9.5, textColor=colors.white)
 
+    is_fw_ns = bool(data.get('no_shift')) or str(data.get('shift_hours') or '').strip() == '-'
+    fw_shift_disp = "-" if is_fw_ns else f"{data.get('shift_hours', '08:00')} hrs"
     # Employee & Field Profile Table
     info_rows = [
         [
@@ -3561,7 +3576,7 @@ def generate_field_worker_payslip_pdf(data, company_info=None):
             Paragraph("Designation:", lbl_style), Paragraph(str(data.get('designation', 'Field Executive')), val_style)
         ],
         [
-            Paragraph("Salary Type / Shift:", lbl_style), Paragraph(f"{str(data.get('salary_type', 'daily')).upper()} ({data.get('shift_hours', '08:00')} hrs)", val_style),
+            Paragraph("Salary Type / Shift:", lbl_style), Paragraph(f"{str(data.get('salary_type', 'daily')).upper()} ({fw_shift_disp})", val_style),
             Paragraph("Working Days / Hours:", lbl_style), Paragraph(f"{data.get('working_days', 0)} Days ({data.get('total_hours', '00:00')} hrs)", val_style)
         ],
         [

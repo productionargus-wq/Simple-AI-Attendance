@@ -3164,7 +3164,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 4. Rate & Metric Cards
     const st = (p.salary_type || 'daily').toLowerCase();
-    const shiftH = p.shift_hours || '08:00';
+    const isNoShift = Boolean(p.no_shift || String(p.shift_hours || '').trim() === '-');
+    const shiftH = isNoShift ? '-' : (p.shift_hours || '08:00');
     const bankName = p.bank_name || 'SBI';
 
     let rateLbl = 'DAY SALARY';
@@ -3194,8 +3195,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 5. Earnings & Deductions Tables
     setAllText('.ps-basic-sal', formatCurrency(p.basic_salary));
-    setAllText('.ps-overtime', formatCurrency(p.overtime_pay || 0));
-    const otHrsBadge = (p.overtime_minutes > 0 && p.overtime_hours) ? `(${p.overtime_hours} hrs)` : '';
+    setAllText('.ps-overtime', isNoShift ? '-' : formatCurrency(p.overtime_pay || 0));
+    const otHrsBadge = (!isNoShift && p.overtime_minutes > 0 && p.overtime_hours) ? `(${p.overtime_hours} hrs)` : '';
     setAllText('.ps-overtime-hrs', otHrsBadge);
     setAllText('.ps-allowance', formatCurrency(p.allowance));
     setAllText('.ps-incentive', formatCurrency(p.incentive));
@@ -3281,7 +3282,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const dBasic = document.getElementById('dispBasicSalary');
     if (dBasic) dBasic.innerText = formatCurrency(p.basic_salary);
     const dOt = document.getElementById('dispOvertimePay');
-    if (dOt) dOt.innerText = formatCurrency(p.overtime_pay || 0);
+    if (dOt) dOt.innerText = isNoShift ? '-' : formatCurrency(p.overtime_pay || 0);
     const dAllow = document.getElementById('dispAllowance');
     if (dAllow) dAllow.innerText = formatCurrency(p.allowance);
     const dInc = document.getElementById('dispIncentive');

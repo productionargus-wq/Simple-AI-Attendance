@@ -292,22 +292,16 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
                         pass
         if not emp_info:
             return 0.0
-        stype = str(emp_info.get('salary_type') or 'hourly').strip().lower()
+        is_ns = database.is_no_shift_employee(emp_info)
+        stype = 'hourly' if is_ns else str(emp_info.get('salary_type') or 'hourly').strip().lower()
         hr_rate = float(emp_info.get('hourly_salary') or 0.0)
-        d_rate = float(emp_info.get('day_salary') or 0.0)
-        h_rate = float(emp_info.get('half_day_salary') or 0.0)
-        if hr_rate <= 0 and d_rate > 0:
+        d_rate = 0.0 if is_ns else float(emp_info.get('day_salary') or 0.0)
+        h_rate = 0.0 if is_ns else float(emp_info.get('half_day_salary') or 0.0)
+        if not is_ns and hr_rate <= 0 and d_rate > 0:
             hr_rate = d_rate / 8.0
 
         shift_str = emp_info.get('shift_hours', '08:00') or '08:00'
-        shift_mins = 480
-        try:
-            sp = str(shift_str).split(':')
-            shift_mins = int(sp[0]) * 60 + int(sp[1])
-        except Exception:
-            shift_mins = 480
-        if shift_mins <= 0:
-            shift_mins = 480
+        shift_mins = 0 if is_ns else database.parse_shift_hours_to_minutes(shift_str, default_minutes=480)
         half_shift = max(1, shift_mins // 2)
 
         tot_mins = 0
@@ -321,7 +315,7 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
         if tot_mins <= 0:
             return 0.0
 
-        if stype == 'hourly':
+        if is_ns or shift_mins == 0 or stype == 'hourly':
             return round((tot_mins / 60.0) * hr_rate, 2)
         elif stype == 'daily':
             if tot_mins >= shift_mins:
@@ -635,7 +629,7 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
         if ename not in present_names and ename not in approved_leave_names:
             dept = e.get('department') or '-'
             desig = e.get('designation') or '-'
-            shift_time = e.get('shift_time') or e.get('shift_hours') or '09:00 AM - 06:00 PM'
+            shift_time = '-' if database.is_no_shift_employee(e) else (e.get('shift_time') or e.get('shift_hours') or '09:00 AM - 06:00 PM')
             absent_entries.append({
                 'employee_name': ename,
                 'department': dept,

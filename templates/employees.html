@@ -516,7 +516,7 @@
 
           <div class="form-group">
 
-            <label class="form-label">Salary Basis / Type<span class="required">*</span></label>
+            <label class="form-label" for="inputSalaryType">Salary Basis / Type<span class="required">*</span></label>
 
             <select class="form-input" id="inputSalaryType" name="salary_type" required>
 
@@ -527,6 +527,10 @@
               <option value="half_day">Half-Day-Based</option>
 
             </select>
+
+            <div id="salaryBasisNoShiftNote" style="display: none; font-size: 10.5px; color: #0f766e; font-weight: 600; margin-top: 4px;">
+              Locked to Hourly-Based (Punch Hours Only)
+            </div>
 
           </div>
 
@@ -586,9 +590,61 @@
 
           <!-- Row 5: Shift Details -->
 
+          <div class="form-group" id="sectionNoShiftToggle" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 4px;">
+
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+
+              <label class="form-label" for="toggleNoShiftSwitch" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Shift Schedule Policy</label>
+
+              <span id="noShiftBadge" role="status" aria-live="polite" style="font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">OFF — Standard Shift Active</span>
+
+            </div>
+
+            <div style="background: #f8fafc; padding: 11px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
+
+              <label for="toggleNoShiftSwitch" style="display: flex; align-items: center; justify-content: space-between; gap: 14px; cursor: pointer; user-select: none; margin: 0;">
+
+                <div>
+
+                  <div style="font-size: 12.5px; font-weight: 700; color: #1e293b;">
+
+                    No Fixed Shift (Punch Hours Only)
+
+                  </div>
+
+                  <div id="noShiftToggleDesc" style="font-size: 11px; color: #64748b; margin-top: 2px; line-height: 1.4;">
+
+                    When enabled, Shift Start, Shift End, and Shift Hours display &quot;-&quot; and salary is calculated strictly from attendance punch records and punch hours using Hourly Salary.
+
+                  </div>
+
+                </div>
+
+                <span style="display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;">
+
+                  <span id="noShiftStateText" style="font-size: 11px; font-weight: 800; color: #64748b; min-width: 24px; text-align: right;">OFF</span>
+
+                  <span class="email-switch no-shift-switch" title="Toggle No Fixed Shift (Punch Hours Only)">
+
+                    <input type="checkbox" id="toggleNoShiftSwitch" switch aria-describedby="noShiftToggleDesc">
+
+                    <span class="email-slider"></span>
+
+                  </span>
+
+                </span>
+
+              </label>
+
+            </div>
+
+            <input type="hidden" id="inputNoShift" name="no_shift" value="0">
+
+          </div>
+
           <div class="form-group">
 
-            <label class="form-label">Shift Start</label>
+            <label class="form-label" for="inputShiftStart">Shift Start</label>
 
             <input type="text" class="form-input" id="inputShiftStart" name="shift_start" placeholder="09:00 AM" value="09:00 AM">
 
@@ -596,7 +652,7 @@
 
           <div class="form-group">
 
-            <label class="form-label">Shift End</label>
+            <label class="form-label" for="inputShiftEnd">Shift End</label>
 
             <input type="text" class="form-input" id="inputShiftEnd" name="shift_end" placeholder="06:00 PM" value="06:00 PM">
 
@@ -604,7 +660,7 @@
 
           <div class="form-group">
 
-            <label class="form-label">Shift Hours</label>
+            <label class="form-label" for="inputShiftHours">Shift Hours</label>
 
             <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="e.g. 09:00 or 00:00" value="09:00">
 
@@ -1100,7 +1156,7 @@
 
 </script>
 
-<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261111_ot_v1"></script>
+<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261112_noshift_v1"></script>
 
 {% endblock %}
 

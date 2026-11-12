@@ -310,10 +310,14 @@ document.addEventListener('DOMContentLoaded', function () {
       const payPeriodSafe = escapeHtml(r.pay_period || '');
       const empAttrSafe = escapeAttr(r.employee_name || '');
       const periodAttrSafe = escapeAttr(r.pay_period || '');
+      const isNoShift = Boolean(r.no_shift || String(r.shift_hours || '').trim() === '-');
       const otMinsVal = Number(r.overtime_minutes || 0);
       const otHrsSafe = escapeHtml(r.overtime_hours || '00:00');
       const otDisplayVal = fmtMoney(r.overtime_pay || 0);
       const otSubHtml = otMinsVal > 0 ? `<div style="font-size: 10.5px; color: #2563eb; font-weight: 600;">${otHrsSafe} hrs</div>` : `<div style="font-size: 10px; color: #94a3b8;">00:00 hrs</div>`;
+      const otCellHtml = isNoShift
+        ? `<td style="white-space: nowrap; color: #64748b; font-weight: 600;">-</td>`
+        : `<td style="white-space: nowrap;"><div style="font-weight: 700; color: ${otMinsVal > 0 ? '#1d4ed8' : '#475569'};">₹ ${otDisplayVal}</div>${otSubHtml}</td>`;
 
       rowsHtml += `
         <tr>
@@ -321,7 +325,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <td>${payPeriodSafe}</td>
           <td>${r.working_days}</td>
           <td>${r.working_hours}</td>
-          <td style="white-space: nowrap;"><div style="font-weight: 700; color: ${otMinsVal > 0 ? '#1d4ed8' : '#475569'};">₹ ${otDisplayVal}</div>${otSubHtml}</td>
+          ${otCellHtml}
           <td>₹ ${fmtMoney(r.allowance)}</td>
           <td>₹ ${fmtMoney(r.incentive)}</td>
           <td>₹ ${fmtMoney(r.other_earnings)}</td>

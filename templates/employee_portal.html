@@ -964,7 +964,7 @@
         {% endif %}
       </div>
       <div><strong>Mobile:</strong> {{ employee.mobile_number if employee else '-' }}</div>
-      <div><strong>Shift Hours:</strong> {{ employee.shift_hours if employee else '09:00' }}</div>
+      <div><strong>Shift Hours:</strong> {{ '-' if (employee and (employee.no_shift or employee.shift_hours == '-')) else (employee.shift_hours if employee else '09:00') }}</div>
       <div><strong>Company:</strong> {{ company.company_name if company else 'Argus CNC™' }}</div>
     </div>
 
@@ -2833,10 +2833,11 @@
 
           const elB = document.getElementById('psBasic');
           if (elB) elB.textContent = `₹${Number(basic).toLocaleString()}`;
+          const isNoShift = Boolean(p.no_shift || String(p.shift_hours || '').trim() === '-');
           const elOt = document.getElementById('psOvertime');
-          if (elOt) elOt.textContent = `₹${Number(p.overtime_pay || 0).toLocaleString()}`;
+          if (elOt) elOt.textContent = isNoShift ? '-' : `₹${Number(p.overtime_pay || 0).toLocaleString()}`;
           const elOtH = document.getElementById('psOvertimeHrs');
-          if (elOtH) elOtH.textContent = (p.overtime_minutes > 0 && p.overtime_hours) ? `(${p.overtime_hours} hrs)` : '';
+          if (elOtH) elOtH.textContent = (!isNoShift && p.overtime_minutes > 0 && p.overtime_hours) ? `(${p.overtime_hours} hrs)` : '';
           const elA = document.getElementById('psAllowance');
           if (elA) elA.textContent = `₹${Number(p.allowance || 0).toLocaleString()}`;
           const elI = document.getElementById('psIncentive');

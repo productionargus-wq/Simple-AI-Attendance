@@ -1534,6 +1534,11 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc'
     for doc in cursor:
         c = clean_doc(doc)
         c['status'] = 'Inactive' if str(c.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
+        c['no_shift'] = is_no_shift_employee(c)
+        if c['no_shift']:
+            c['shift_hours'] = '-'
+            c['shift_start'] = '-'
+            c['shift_end'] = '-'
         employees.append(c)
 
     # Compute company active quota summary stats via single aggregation
@@ -1602,6 +1607,11 @@ def get_employee_by_id(emp_id, company_id=None):
     cleaned = clean_doc(doc)
     if cleaned:
         cleaned['status'] = 'Inactive' if str(cleaned.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
+        cleaned['no_shift'] = is_no_shift_employee(cleaned)
+        if cleaned['no_shift']:
+            cleaned['shift_hours'] = '-'
+            cleaned['shift_start'] = '-'
+            cleaned['shift_end'] = '-'
         if not cleaned.get('permissions'):
             cleaned['permissions'] = {
                 'punch_attendance': True,
@@ -1650,11 +1660,20 @@ def format_minutes_hhmm(total_mins):
     mins = max(0, int(round(total_mins or 0)))
     return f"{mins // 60:02d}:{mins % 60:02d}"
 
+def is_no_shift_employee(emp):
+    """Returns True when an employee has no fixed shift schedule (punch-hours only)."""
+    if not emp or not isinstance(emp, dict):
+        return False
+    if parse_bool_flag(emp.get('no_shift'), default=False):
+        return True
+    sh = str(emp.get('shift_hours') or '').strip().lower()
+    return sh in ['-', '--', '----', 'n/a', 'na']
+
 def parse_shift_hours_to_minutes(shift_str, default_minutes=480):
     """
-    Parses shift_hours string (e.g. '08:00', '8', '00:00', '0') into minutes.
-    - If shift_str is explicitly zero ('0', '00:00', '0:00', '00', '0.0', '0.00', 0),
-      returns 0 (flexible / zero-shift employee).
+    Parses shift_hours string (e.g. '08:00', '8', '00:00', '0', '-') into minutes.
+    - If shift_str is explicitly zero or dash ('0', '00:00', '-', 'N/A', etc.),
+      returns 0 (flexible / no-shift employee).
     - If shift_str is None or empty string, returns default_minutes (e.g., 480).
     """
     if shift_str is None:
@@ -1662,7 +1681,7 @@ def parse_shift_hours_to_minutes(shift_str, default_minutes=480):
     s = str(shift_str).strip()
     if not s:
         return default_minutes
-    if s in ['0', '00', '0:0', '0:00', '00:0', '00:00', '0.0', '0.00', '00.00']:
+    if s.lower() in ['0', '00', '0:0', '0:00', '00:0', '00:00', '0.0', '0.00', '00.00', '-', '--', '----', 'n/a', 'na']:
         return 0
     try:
         if ':' in s:
@@ -1821,29 +1840,45 @@ def create_employee(data, company_id=None):
                     f"Active employee registration limit reached: Company '{comp_name}' allows a maximum of {limit} active employees ({current_count}/{limit} currently active). Please mark existing employees as Inactive or contact System Admin to increase the employee limit."
                 )
 
+    no_shift = parse_bool_flag(data.get('no_shift'), default=False)
     raw_st = str(data.get('salary_type') or 'daily').strip().lower()
-    salary_type = raw_st if raw_st in ['hourly', 'daily', 'half_day'] else 'daily'
-    shift_val_str = str(data.get('shift_hours') or '').strip()
-    shift_mins_emp = parse_shift_hours_to_minutes(shift_val_str, default_minutes=480)
-    if shift_mins_emp == 0:
-        shift_val_str = '00:00'
-
-    if salary_type == 'hourly':
+    salary_type = 'hourly' if no_shift else (raw_st if raw_st in ['hourly', 'daily', 'half_day'] else 'daily')
+    if no_shift:
+        shift_val_str = '-'
+        shift_start_str = '-'
+        shift_end_str = '-'
+        shift_mins_emp = 0
         h_sal = round(safe_float(data.get('hourly_salary')), 2)
-        if shift_mins_emp == 0:
-            d_sal = 0.0
-            hd_sal = 0.0
-        else:
-            d_sal = round(safe_float(data.get('day_salary')), 2)
-            hd_sal = round(safe_float(data.get('half_day_salary')), 2)
+        d_sal = 0.0
+        hd_sal = 0.0
     else:
-        h_sal = 0.0
+        shift_val_str = str(data.get('shift_hours') or '').strip()
+        shift_mins_emp = parse_shift_hours_to_minutes(shift_val_str, default_minutes=480)
         if shift_mins_emp == 0:
-            d_sal = 0
-            hd_sal = 0
+            shift_val_str = '00:00'
+        shift_start_str = str(data.get('shift_start') or '09:00 AM').strip()
+        shift_end_str = str(data.get('shift_end') or '06:00 PM').strip()
+        if shift_start_str in ['-', '--', '----', '']:
+            shift_start_str = '09:00 AM'
+        if shift_end_str in ['-', '--', '----', '']:
+            shift_end_str = '06:00 PM'
+
+        if salary_type == 'hourly':
+            h_sal = round(safe_float(data.get('hourly_salary')), 2)
+            if shift_mins_emp == 0:
+                d_sal = 0.0
+                hd_sal = 0.0
+            else:
+                d_sal = round(safe_float(data.get('day_salary')), 2)
+                hd_sal = round(safe_float(data.get('half_day_salary')), 2)
         else:
-            d_sal = int(round(safe_float(data.get('day_salary'))))
-            hd_sal = int(round(safe_float(data.get('half_day_salary'))))
+            h_sal = 0.0
+            if shift_mins_emp == 0:
+                d_sal = 0
+                hd_sal = 0
+            else:
+                d_sal = int(round(safe_float(data.get('day_salary'))))
+                hd_sal = int(round(safe_float(data.get('half_day_salary'))))
     
     doc = {
         'id': emp_id,
@@ -1859,6 +1894,7 @@ def create_employee(data, company_id=None):
         'half_day_salary': hd_sal,
         'email_id': email_id,
         'no_email': no_email,
+        'no_shift': no_shift,
         'aadhar_number': data.get('aadhar_number', '').strip(),
         'emergency_contact': data.get('emergency_contact', '').strip(),
         'date_of_birth': str(data.get('date_of_birth') or data.get('dob') or '').strip(),
@@ -1869,8 +1905,8 @@ def create_employee(data, company_id=None):
         'account_number': data.get('account_number', '').strip(),
         'ifsc_code': data.get('ifsc_code', '').strip(),
         'shift_hours': shift_val_str,
-        'shift_start': str(data.get('shift_start') or '09:00 AM').strip(),
-        'shift_end': str(data.get('shift_end') or '06:00 PM').strip(),
+        'shift_start': shift_start_str,
+        'shift_end': shift_end_str,
         'photo': str(data.get('photo') or data.get('photo_filename') or '').strip(),
         'photo_filename': str(data.get('photo_filename') or data.get('photo') or '').strip(),
         'photo_data': str(data.get('photo_data') or '').strip(),
@@ -1896,7 +1932,7 @@ def create_employee(data, company_id=None):
         'petrol_rate_inr': safe_float(data.get('petrol_rate_inr')) if data.get('petrol_rate_inr') not in [None, ''] else None,
         'has_custom_petrol_rate': bool(data.get('has_custom_petrol_rate') or (safe_float(data.get('petrol_rate_inr', 0)) > 0)),
         'calculate_proper_entries': parse_bool_flag(data.get('calculate_proper_entries'), default=True),
-        'calculate_overtime': parse_bool_flag(data.get('calculate_overtime'), default=False),
+        'calculate_overtime': False if no_shift else parse_bool_flag(data.get('calculate_overtime'), default=False),
         'allowed_tabs': list(data.get('allowed_tabs')) if isinstance(data.get('allowed_tabs'), list) else None,
         'branch_id': None,
         'branch_name': None,
@@ -1981,34 +2017,58 @@ def update_employee(emp_id, data, company_id=None):
             upd['salary_type'] = st
 
     existing_emp = db.employees.find_one(f) if f else None
-    effective_st = upd.get('salary_type') or (existing_emp.get('salary_type') if existing_emp else 'daily')
-    effective_shift_str = upd.get('shift_hours') if 'shift_hours' in upd else (existing_emp.get('shift_hours') if existing_emp else '08:00')
-    effective_shift_mins = parse_shift_hours_to_minutes(effective_shift_str, default_minutes=480)
-    if effective_shift_mins == 0 and 'shift_hours' in upd:
-        upd['shift_hours'] = '00:00'
+    has_no_shift_param = ('no_shift' in data and data['no_shift'] is not None)
+    effective_no_shift = parse_bool_flag(data.get('no_shift'), default=False) if has_no_shift_param else is_no_shift_employee(existing_emp)
 
-    if effective_st == 'hourly':
+    if effective_no_shift:
+        upd['no_shift'] = True
+        upd['salary_type'] = 'hourly'
+        upd['shift_hours'] = '-'
+        upd['shift_start'] = '-'
+        upd['shift_end'] = '-'
+        upd['day_salary'] = 0.0
+        upd['half_day_salary'] = 0.0
+        upd['calculate_overtime'] = False
         if 'hourly_salary' in data:
             upd['hourly_salary'] = round(safe_float(data['hourly_salary']), 2)
-        if effective_shift_mins == 0:
-            upd['day_salary'] = 0.0
-            upd['half_day_salary'] = 0.0
-        else:
-            if 'day_salary' in data:
-                upd['day_salary'] = round(safe_float(data['day_salary']), 2)
-            if 'half_day_salary' in data:
-                upd['half_day_salary'] = round(safe_float(data['half_day_salary']), 2)
     else:
-        if 'hourly_salary' in data:
-            upd['hourly_salary'] = 0.0
-        if effective_shift_mins == 0:
-            upd['day_salary'] = 0
-            upd['half_day_salary'] = 0
+        if has_no_shift_param:
+            upd['no_shift'] = False
+            if upd.get('shift_hours', '') in ['-', '--', '----', 'N/A', 'n/a', '']:
+                upd['shift_hours'] = '08:00'
+            if upd.get('shift_start', '') in ['-', '--', '----', 'N/A', 'n/a', '']:
+                upd['shift_start'] = '09:00 AM'
+            if upd.get('shift_end', '') in ['-', '--', '----', 'N/A', 'n/a', '']:
+                upd['shift_end'] = '06:00 PM'
+
+        effective_st = upd.get('salary_type') or (existing_emp.get('salary_type') if existing_emp else 'daily')
+        effective_shift_str = upd.get('shift_hours') if 'shift_hours' in upd else (existing_emp.get('shift_hours') if existing_emp else '08:00')
+        effective_shift_mins = parse_shift_hours_to_minutes(effective_shift_str, default_minutes=480)
+        if effective_shift_mins == 0 and 'shift_hours' in upd:
+            upd['shift_hours'] = '00:00'
+
+        if effective_st == 'hourly':
+            if 'hourly_salary' in data:
+                upd['hourly_salary'] = round(safe_float(data['hourly_salary']), 2)
+            if effective_shift_mins == 0:
+                upd['day_salary'] = 0.0
+                upd['half_day_salary'] = 0.0
+            else:
+                if 'day_salary' in data:
+                    upd['day_salary'] = round(safe_float(data['day_salary']), 2)
+                if 'half_day_salary' in data:
+                    upd['half_day_salary'] = round(safe_float(data['half_day_salary']), 2)
         else:
-            if 'day_salary' in data:
-                upd['day_salary'] = int(round(safe_float(data['day_salary'])))
-            if 'half_day_salary' in data:
-                upd['half_day_salary'] = int(round(safe_float(data['half_day_salary'])))
+            if 'hourly_salary' in data:
+                upd['hourly_salary'] = 0.0
+            if effective_shift_mins == 0:
+                upd['day_salary'] = 0
+                upd['half_day_salary'] = 0
+            else:
+                if 'day_salary' in data:
+                    upd['day_salary'] = int(round(safe_float(data['day_salary'])))
+                if 'half_day_salary' in data:
+                    upd['half_day_salary'] = int(round(safe_float(data['half_day_salary'])))
 
     photo_val = data.get('photo') or data.get('photo_filename')
     if photo_val:
@@ -2025,7 +2085,7 @@ def update_employee(emp_id, data, company_id=None):
     if 'calculate_proper_entries' in data:
         upd['calculate_proper_entries'] = parse_bool_flag(data['calculate_proper_entries'], default=True)
     if 'calculate_overtime' in data:
-        upd['calculate_overtime'] = parse_bool_flag(data['calculate_overtime'], default=False)
+        upd['calculate_overtime'] = False if effective_no_shift else parse_bool_flag(data['calculate_overtime'], default=False)
     if 'allowed_tabs' in data:
         upd['allowed_tabs'] = list(data['allowed_tabs']) if isinstance(data['allowed_tabs'], list) else []
     if 'documents' in data and isinstance(data['documents'], list):
@@ -2086,7 +2146,7 @@ def update_employee(emp_id, data, company_id=None):
     if emp_doc_syn:
         u_filter = {'$or': [{'employee_id': emp_id}, {'username': emp_doc_syn.get('employee_name')}]}
         u_upd = {}
-        for k in ['is_field_worker', 'department', 'designation', 'salary_type', 'shift_hours', 'day_salary', 'hourly_salary', 'half_day_salary', 'per_visit_incentive', 'km_allowance_rate', 'petrol_unit_km', 'petrol_rate_inr', 'has_custom_petrol_rate', 'branch_id', 'branch_name', 'territory_zone', 'allowed_tabs']:
+        for k in ['is_field_worker', 'department', 'designation', 'salary_type', 'no_shift', 'shift_hours', 'shift_start', 'shift_end', 'day_salary', 'hourly_salary', 'half_day_salary', 'per_visit_incentive', 'km_allowance_rate', 'petrol_unit_km', 'petrol_rate_inr', 'has_custom_petrol_rate', 'branch_id', 'branch_name', 'territory_zone', 'allowed_tabs']:
             if k in upd:
                 u_upd[k] = upd[k]
         if u_upd:
@@ -2663,7 +2723,7 @@ def process_company_timeout_entries(company_id=None):
         if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
             emp_q['company_id'] = str(company_id)
         for emp_d in db.employees.find(emp_q, {
-            'company_id': 1, 'employee_name': 1, 'shift_hours': 1, 'shift_start': 1, 'shift_end': 1,
+            'company_id': 1, 'employee_name': 1, 'no_shift': 1, 'shift_hours': 1, 'shift_start': 1, 'shift_end': 1,
             'salary_type': 1, 'hourly_salary': 1, 'day_salary': 1, 'half_day_salary': 1, 'calculate_overtime': 1
         }):
             ename_k = emp_d.get('employee_name')
@@ -2679,8 +2739,8 @@ def process_company_timeout_entries(company_id=None):
         emp_name = rep.get('employee_name', '')
         
         emp = emp_map.get((cid, emp_name)) or emp_map.get(emp_name)
-        if emp and parse_bool_flag(emp.get('calculate_overtime'), default=False):
-            # Overtime-enabled employees stay active in live entries until manual punch-out.
+        if emp and (is_no_shift_employee(emp) or parse_bool_flag(emp.get('calculate_overtime'), default=False)):
+            # No-shift and overtime-enabled employees stay active in live entries until manual punch-out.
             continue
         emp_shift = emp.get('shift_hours') if emp else None
         shift_str = emp_shift if emp_shift is not None and str(emp_shift).strip() != '' else company_shifts.get(cid, '08:00')
@@ -3003,12 +3063,14 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
     # Pre-load employee shift hours for dynamic status computation
     emp_shifts = {}
     emp_q = get_branch_employee_query(b_id, company_id)
-    for emp_d in db.employees.find(emp_q, {'employee_name': 1, 'shift_start': 1, 'shift_end': 1, 'shift_hours': 1}):
+    for emp_d in db.employees.find(emp_q, {'employee_name': 1, 'no_shift': 1, 'shift_start': 1, 'shift_end': 1, 'shift_hours': 1}):
         if emp_d.get('employee_name'):
+            is_ns = is_no_shift_employee(emp_d)
             emp_shifts[emp_d['employee_name']] = {
-                'start': emp_d.get('shift_start', '09:00 AM') or '09:00 AM',
-                'end': emp_d.get('shift_end', '06:00 PM') or '06:00 PM',
-                'shift_mins': parse_shift_hours_to_minutes(emp_d.get('shift_hours', '08:00'), default_minutes=480)
+                'no_shift': is_ns,
+                'start': '-' if is_ns else (emp_d.get('shift_start', '09:00 AM') or '09:00 AM'),
+                'end': '-' if is_ns else (emp_d.get('shift_end', '06:00 PM') or '06:00 PM'),
+                'shift_mins': 0 if is_ns else parse_shift_hours_to_minutes(emp_d.get('shift_hours', '08:00'), default_minutes=480)
             }
 
     if search:
@@ -3051,10 +3113,13 @@ def get_live_report_entries(tab='live', start_date=None, end_date=None, search=N
                 else:
                     c['exit_location'] = full_addr
 
-        s_cfg = emp_shifts.get(c.get('employee_name', ''), {'start': '09:00 AM', 'end': '06:00 PM', 'shift_mins': 480})
-        e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False, shift_mins=s_cfg.get('shift_mins', 480))
+        s_cfg = emp_shifts.get(c.get('employee_name', ''), {'no_shift': False, 'start': '09:00 AM', 'end': '06:00 PM', 'shift_mins': 480})
+        e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False, shift_mins=s_cfg.get('shift_mins', 480), no_shift=s_cfg.get('no_shift', False))
         c['entry_status'] = e_status
-        if tab == 'timeout' or c.get('is_timeout') or 'AUTO TIMEOUT' in str(c.get('exit_distance', '')).upper() or 'AUTO PUNCH-OUT' in str(c.get('exit_location', '')).upper():
+        is_explicit_auto_timeout = ('AUTO TIMEOUT' in str(c.get('exit_distance', '')).upper() or 'AUTO PUNCH-OUT' in str(c.get('exit_location', '')).upper())
+        if s_cfg.get('no_shift', False) and not is_explicit_auto_timeout:
+            c['exit_status'] = x_status
+        elif tab == 'timeout' or c.get('is_timeout') or is_explicit_auto_timeout:
             c['exit_status'] = 'Auto Timeout'
         else:
             c['exit_status'] = x_status
@@ -3595,16 +3660,17 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     if not live_loc_str:
         live_loc_str = loc_str
     
-    salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
+    is_no_shift = is_no_shift_employee(emp)
+    salary_type = 'hourly' if is_no_shift else (str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly')
     hourly_rate = float(emp.get('hourly_salary', 0.0)) if emp else 100.0
-    day_rate = float(emp.get('day_salary', 0.0)) if emp else (hourly_rate * 8.0)
-    half_rate = float(emp.get('half_day_salary', 0.0)) if emp else (day_rate / 2.0)
-    shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
-    calculate_overtime = parse_bool_flag(emp.get('calculate_overtime'), default=False) if emp else False
+    day_rate = 0.0 if is_no_shift else (float(emp.get('day_salary', 0.0)) if emp else (hourly_rate * 8.0))
+    half_rate = 0.0 if is_no_shift else (float(emp.get('half_day_salary', 0.0)) if emp else (day_rate / 2.0))
+    shift_hours_str = '-' if is_no_shift else (emp.get('shift_hours', '08:00') if emp else '08:00')
+    calculate_overtime = False if is_no_shift else (parse_bool_flag(emp.get('calculate_overtime'), default=False) if emp else False)
     
-    # Check if there is already an attendance report entry today (or an open unclosed overtime punch)
+    # Check if there is already an attendance report entry today (or an open unclosed overtime / no-shift punch)
     existing_rep = None
-    if calculate_overtime:
+    if calculate_overtime or is_no_shift:
         existing_rep = db.attendance_reports.find_one(
             {'company_id': comp_id, 'employee_name': employee_name, 'exit_time': '----'},
             sort=[('created_at', DESCENDING)]
@@ -3665,7 +3731,7 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'exit_distance': '----',
             'exit_location': '----',
             'working_hours': '00:00',
-            'shift_variance': '----',
+            'shift_variance': '-' if is_no_shift else '----',
             'salary_type': salary_type,
             'day_credit_type': 'Pending',
             'working_salary': 0,
@@ -3753,8 +3819,10 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         working_hours_str = f"{w_hrs:02d}:{w_mins:02d}"
         
         # Calculate Shift Variance
-        shift_target_minutes = parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
-        if shift_target_minutes == 0:
+        shift_target_minutes = 0 if is_no_shift else parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
+        if is_no_shift:
+            shift_variance_str = "-"
+        elif shift_target_minutes == 0:
             shift_variance_str = "00:00"
         else:
             variance_minutes = working_minutes - shift_target_minutes
@@ -3876,15 +3944,14 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
 
 # ----------------- ATTENDANCE REPORTS ----------------- #
 
-def compute_entry_exit_status(entry_time_str, exit_time_str, shift_start='09:00 AM', shift_end='06:00 PM', is_manual=False, shift_mins=480):
+def compute_entry_exit_status(entry_time_str, exit_time_str, shift_start='09:00 AM', shift_end='06:00 PM', is_manual=False, shift_mins=480, no_shift=False):
     """
     Computes precise ENTRY STATUS and EXIT STATUS strings:
-    - If manual entry: returns ('-', '-')
-    - If shift_mins == 0 (flex-time / 0 shift hours): returns ('On Time', 'On Time') when punched in/out
+    - If manual entry or no-shift employee (or shift_mins == 0): returns ('-', '-')
     - Entry Status: 'Late by X minutes', 'Late by X hr Y mins', 'Early by X minutes', or 'On Time'
     - Exit Status: 'Early by X minutes', 'Early by X hr Y mins', 'Overtime by X minutes', 'On Time', or '-' (if working/pending)
     """
-    if is_manual:
+    if is_manual or no_shift or shift_mins == 0:
         return '-', '-'
 
     def parse_time_to_minutes(t_str):
@@ -3904,11 +3971,6 @@ def compute_entry_exit_status(entry_time_str, exit_time_str, shift_start='09:00 
 
     entry_mins = parse_time_to_minutes(entry_time_str)
     exit_mins = parse_time_to_minutes(exit_time_str)
-
-    if shift_mins == 0:
-        entry_status = "On Time" if entry_mins is not None else "-"
-        exit_status = "On Time" if exit_mins is not None else "-"
-        return entry_status, exit_status
 
     start_mins = parse_time_to_minutes(shift_start)
     if start_mins is None:
@@ -4230,12 +4292,14 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
     # Pre-load employee shift hours for dynamic status computation
     emp_shifts = {}
     emp_q = get_branch_employee_query(b_id, company_id, exclude_field_workers=exclude_field_workers)
-    for emp_d in db.employees.find(emp_q, {'employee_name': 1, 'shift_start': 1, 'shift_end': 1, 'shift_hours': 1}):
+    for emp_d in db.employees.find(emp_q, {'employee_name': 1, 'no_shift': 1, 'shift_start': 1, 'shift_end': 1, 'shift_hours': 1}):
         if emp_d.get('employee_name'):
+            is_ns = is_no_shift_employee(emp_d)
             emp_shifts[emp_d['employee_name']] = {
-                'start': emp_d.get('shift_start', '09:00 AM') or '09:00 AM',
-                'end': emp_d.get('shift_end', '06:00 PM') or '06:00 PM',
-                'shift_mins': parse_shift_hours_to_minutes(emp_d.get('shift_hours', '08:00'), default_minutes=480)
+                'no_shift': is_ns,
+                'start': '-' if is_ns else (emp_d.get('shift_start', '09:00 AM') or '09:00 AM'),
+                'end': '-' if is_ns else (emp_d.get('shift_end', '06:00 PM') or '06:00 PM'),
+                'shift_mins': 0 if is_ns else parse_shift_hours_to_minutes(emp_d.get('shift_hours', '08:00'), default_minutes=480)
             }
 
     if report_type == 'manual':
@@ -4347,14 +4411,17 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
                     else:
                         c['exit_location'] = full_addr
 
-            s_cfg = emp_shifts.get(c.get('employee_name', ''), {'start': '09:00 AM', 'end': '06:00 PM', 'shift_mins': 480})
+            s_cfg = emp_shifts.get(c.get('employee_name', ''), {'no_shift': False, 'start': '09:00 AM', 'end': '06:00 PM', 'shift_mins': 480})
             s_mins = s_cfg.get('shift_mins', 480)
+            is_ns = s_cfg.get('no_shift', False)
             is_auto_timeout = bool(c.get('is_timeout') or 'AUTO TIMEOUT' in str(c.get('exit_distance', '')).upper() or 'AUTO PUNCH-OUT' in str(c.get('exit_location', '')).upper())
             if s_mins == 0 and (is_auto_timeout or str(c.get('exit_time') or '').strip() in ['----', '-', '']):
                 c['working_hours'] = '00:00'
                 c['working_salary'] = 0.0
-                c['shift_variance'] = '----'
-            e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False, shift_mins=s_mins)
+                c['shift_variance'] = '-' if is_ns else '----'
+            elif is_ns:
+                c['shift_variance'] = '-'
+            e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False, shift_mins=s_mins, no_shift=is_ns)
             c['entry_status'] = e_status
             if is_auto_timeout:
                 c['exit_status'] = 'Auto Timeout'
@@ -4391,14 +4458,17 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
                 else:
                     c['exit_location'] = full_addr
 
-        s_cfg = emp_shifts.get(c.get('employee_name', ''), {'start': '09:00 AM', 'end': '06:00 PM', 'shift_mins': 480})
+        s_cfg = emp_shifts.get(c.get('employee_name', ''), {'no_shift': False, 'start': '09:00 AM', 'end': '06:00 PM', 'shift_mins': 480})
         s_mins = s_cfg.get('shift_mins', 480)
+        is_ns = s_cfg.get('no_shift', False)
         is_auto_timeout = bool(c.get('is_timeout') or 'AUTO TIMEOUT' in str(c.get('exit_distance', '')).upper() or 'AUTO PUNCH-OUT' in str(c.get('exit_location', '')).upper())
         if s_mins == 0 and (is_auto_timeout or str(c.get('exit_time') or '').strip() in ['----', '-', '']):
             c['working_hours'] = '00:00'
             c['working_salary'] = 0.0
-            c['shift_variance'] = '----'
-        e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False, shift_mins=s_mins)
+            c['shift_variance'] = '-' if is_ns else '----'
+        elif is_ns:
+            c['shift_variance'] = '-'
+        e_status, x_status = compute_entry_exit_status(c.get('entry_time'), c.get('exit_time'), s_cfg['start'], s_cfg['end'], is_manual=False, shift_mins=s_mins, no_shift=is_ns)
         c['entry_status'] = e_status
         if is_auto_timeout:
             c['exit_status'] = 'Auto Timeout'
@@ -4540,13 +4610,14 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
         emp_info = emp_map.get(emp_name)
         if not emp_info:
             return 0.0
-        stype = str(emp_info.get('salary_type') or 'hourly').lower()
+        is_ns = is_no_shift_employee(emp_info)
+        stype = 'hourly' if is_ns else str(emp_info.get('salary_type') or 'hourly').lower()
         hr_rate = float(emp_info.get('hourly_salary') or 0.0)
-        d_rate = float(emp_info.get('day_salary') or 0.0)
-        h_rate = float(emp_info.get('half_day_salary') or 0.0)
+        d_rate = 0.0 if is_ns else float(emp_info.get('day_salary') or 0.0)
+        h_rate = 0.0 if is_ns else float(emp_info.get('half_day_salary') or 0.0)
 
         shift_str = emp_info.get('shift_hours', '08:00')
-        shift_mins = parse_shift_hours_to_minutes(shift_str, default_minutes=480)
+        shift_mins = 0 if is_ns else parse_shift_hours_to_minutes(shift_str, default_minutes=480)
         half_shift = max(1, shift_mins // 2)
 
         tot_mins = 0
@@ -4560,7 +4631,7 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
         if tot_mins <= 0:
             return 0.0
 
-        calc_ot = parse_bool_flag(emp_info.get('calculate_overtime'), default=False)
+        calc_ot = False if is_ns else parse_bool_flag(emp_info.get('calculate_overtime'), default=False)
         metrics = compute_shift_and_overtime_metrics(
             tot_mins, shift_mins, stype,
             hourly_rate=hr_rate, day_rate=d_rate, half_rate=h_rate,
@@ -4602,16 +4673,20 @@ def get_attendance_simple_table(employee='All', start_date=None, end_date=None, 
         is_improper = (str(r.get('entry_type', '')).lower() == 'improper')
 
         emp_info = emp_map.get(emp_name)
-        emp_shift_mins = parse_shift_hours_to_minutes(emp_info.get('shift_hours', '08:00') if emp_info else '08:00', default_minutes=480)
+        is_ns = is_no_shift_employee(emp_info)
+        emp_shift_mins = 0 if is_ns else parse_shift_hours_to_minutes(emp_info.get('shift_hours', '08:00') if emp_info else '08:00', default_minutes=480)
         is_auto_timeout = bool(r.get('is_timeout') or 'AUTO TIMEOUT' in str(r.get('exit_distance', '')).upper() or 'AUTO PUNCH-OUT' in str(r.get('exit_location', '')).upper())
         is_incomplete = (str(exit_t).strip() in ['----', '-', ''])
+
+        if is_ns:
+            sv = '-'
 
         if is_improper:
             w_sal = 0.0
             status_label = 'Improper'
         elif is_incomplete or (emp_shift_mins == 0 and is_auto_timeout):
             wh = '00:00'
-            sv = '----'
+            sv = '-' if is_ns else '----'
             w_sal = 0.0
             status_label = r.get('status') or 'Proper'
         else:
@@ -4811,9 +4886,10 @@ def create_manual_entry(data, company_id=None):
     db = get_db()
     emp_name = data.get('employee_name', '')
     emp = db.employees.find_one({'employee_name': emp_name})
-    hourly_rate = float(emp['hourly_salary'] if emp and 'hourly_salary' in emp else 1.0)
-    day_rate = float(emp['day_salary'] if emp and 'day_salary' in emp else 0.0)
-    half_rate = float(emp['half_day_salary'] if emp and 'half_day_salary' in emp else 0.0)
+    is_no_shift = is_no_shift_employee(emp)
+    hourly_rate = safe_float(emp.get('hourly_salary'), 0.0) if emp else 1.0
+    day_rate = 0.0 if is_no_shift else safe_float(emp.get('day_salary'), 0.0)
+    half_rate = 0.0 if is_no_shift else safe_float(emp.get('half_day_salary'), 0.0)
     emp_id = emp['id'] if emp and 'id' in emp else 'EMP_' + str(int(time.time()))
     emp_cid = emp.get('company_id') if emp else None
     if company_id and str(company_id) != 'ARGUS_MASTER':
@@ -4828,9 +4904,9 @@ def create_manual_entry(data, company_id=None):
     hours_str = data.get('hours', '00:00')
     mode = data.get('mode', 'Hours')
     status = data.get('status', 'Proper')
-    salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
-    shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
-    shift_target_minutes = parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
+    salary_type = 'hourly' if is_no_shift else (str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly')
+    shift_hours_str = '-' if is_no_shift else (emp.get('shift_hours', '08:00') if emp else '08:00')
+    shift_target_minutes = 0 if is_no_shift else parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
     half_shift_target = max(1, shift_target_minutes // 2)
 
     working_salary = 0.0
@@ -4925,12 +5001,13 @@ def update_manual_entry(entry_id, data):
     db = get_db()
     emp_name = data.get('employee_name', '')
     emp = db.employees.find_one({'employee_name': emp_name})
-    hourly_rate = float(emp['hourly_salary'] if emp and 'hourly_salary' in emp else 1.0)
-    day_rate = float(emp['day_salary'] if emp and 'day_salary' in emp else 0.0)
-    half_rate = float(emp['half_day_salary'] if emp and 'half_day_salary' in emp else 0.0)
-    salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
-    shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
-    shift_target_minutes = parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
+    is_no_shift = is_no_shift_employee(emp)
+    hourly_rate = safe_float(emp.get('hourly_salary'), 0.0) if emp else 1.0
+    day_rate = 0.0 if is_no_shift else safe_float(emp.get('day_salary'), 0.0)
+    half_rate = 0.0 if is_no_shift else safe_float(emp.get('half_day_salary'), 0.0)
+    salary_type = 'hourly' if is_no_shift else (str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly')
+    shift_hours_str = '-' if is_no_shift else (emp.get('shift_hours', '08:00') if emp else '08:00')
+    shift_target_minutes = 0 if is_no_shift else parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
     half_shift_target = max(1, shift_target_minutes // 2)
 
     hours_str = data.get('hours', '00:00')
@@ -5595,11 +5672,12 @@ def _compute_employee_monthly_salary_payload(
     emp_id = emp.get('id', '') if emp else ''
     designation = emp.get('designation', '') if emp else ''
     phone = emp.get('mobile_number', '') if emp else ''
-    salary_type = str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly'
+    is_no_shift = is_no_shift_employee(emp)
+    salary_type = 'hourly' if is_no_shift else (str(emp.get('salary_type') or 'hourly').strip().lower() if emp else 'hourly')
     hours_salary = float(emp.get('hourly_salary', 0.0)) if emp else 0.0
-    day_salary = float(emp.get('day_salary', 0.0)) if emp else 0.0
-    half_salary = float(emp.get('half_day_salary', 0.0)) if emp else 0.0
-    calculate_overtime = parse_bool_flag(emp.get('calculate_overtime'), default=False) if emp else False
+    day_salary = 0.0 if is_no_shift else (float(emp.get('day_salary', 0.0)) if emp else 0.0)
+    half_salary = 0.0 if is_no_shift else (float(emp.get('half_day_salary', 0.0)) if emp else 0.0)
+    calculate_overtime = False if is_no_shift else (parse_bool_flag(emp.get('calculate_overtime'), default=False) if emp else False)
 
     company_name = 'ARGUS CNC™'
     company_address = 'SF NO. 515, Bharathiyar Road, Maniyakaranpalayam, Ganapathy (PO), Coimbatore - 641 006'
@@ -5633,8 +5711,10 @@ def _compute_employee_monthly_salary_payload(
         if not company_name.upper().endswith(suffix.upper()):
             company_name = f"{company_name}{suffix}"
 
-    shift_hours_str = emp.get('shift_hours', '08:00') if emp else '08:00'
-    shift_target_minutes = parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
+    shift_hours_str = '-' if is_no_shift else (emp.get('shift_hours', '08:00') if emp else '08:00')
+    shift_start_str = '-' if is_no_shift else (str(emp.get('shift_start') or '09:00 AM').strip() if emp else '09:00 AM')
+    shift_end_str = '-' if is_no_shift else (str(emp.get('shift_end') or '06:00 PM').strip() if emp else '06:00 PM')
+    shift_target_minutes = 0 if is_no_shift else parse_shift_hours_to_minutes(shift_hours_str, default_minutes=480)
     half_shift_target = max(1, shift_target_minutes // 2)
 
     daily_minutes = {}
@@ -5984,7 +6064,10 @@ def _compute_employee_monthly_salary_payload(
         'employee_id': emp_id,
         'designation': designation,
         'phone_number': phone,
-        'shift_hours': str(shift_hours_str or '08:00'),
+        'no_shift': is_no_shift,
+        'shift_hours': '-' if is_no_shift else str(shift_hours_str or '08:00'),
+        'shift_start': shift_start_str,
+        'shift_end': shift_end_str,
         'calculate_overtime': calculate_overtime,
         'bank_name': str(emp.get('bank_name', '') if emp else ''),
         'account_number': str(emp.get('account_number', '') if emp else ''),
@@ -6268,6 +6351,10 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
                 'employee_name': ename,
                 'pay_period': mo_k,
                 'salary_type': payload['salary_type'],
+                'no_shift': payload['no_shift'],
+                'shift_hours': payload['shift_hours'],
+                'shift_start': payload['shift_start'],
+                'shift_end': payload['shift_end'],
                 'calculate_overtime': payload['calculate_overtime'],
                 'working_days': payload['working_days'],
                 'working_hours': payload['working_hours'],
@@ -6419,6 +6506,8 @@ def save_generated_salary_report(p, company_id=None):
         'pay_period': p.get('year_month', ''),
         'working_days': int(p.get('working_days', 0)),
         'working_hours': p.get('total_working_hours', '00:00'),
+        'no_shift': bool(p.get('no_shift', False)),
+        'shift_hours': p.get('shift_hours', '08:00'),
         'overtime_hours': p.get('overtime_hours', '00:00'),
         'overtime_pay': float(p.get('overtime_pay', 0)),
         'allowance': float(p.get('allowance', 0)),
@@ -8504,6 +8593,11 @@ def get_field_workers(company_id=None, include_all_employees=False):
             or str(emp.get('employee_type') or '').lower() in ['field_worker', 'field', 'fw']
         )
         emp['is_field_worker'] = is_fw
+        emp['no_shift'] = is_no_shift_employee(emp)
+        if emp['no_shift']:
+            emp['shift_hours'] = '-'
+            emp['shift_start'] = '-'
+            emp['shift_end'] = '-'
         emp['branch_id'] = emp.get('branch_id')
         emp['branch_name'] = emp.get('branch_name') or emp.get('branch') or 'Home Branch (Head Office)'
         emp['territory_zone'] = str(emp.get('territory_zone') or emp.get('branch_name') or emp.get('branch') or 'Home Branch')
@@ -10206,8 +10300,9 @@ def get_field_worker_salary_report(company_id=None, month_year=None, employee_na
             'status': w.get('status', 'Active'),
             'month_year': target_month,
             'pay_period': payslip.get('pay_period', target_month),
-            'salary_type': w.get('salary_type', 'daily'),
-            'shift_hours': w.get('shift_hours', '08:00'),
+            'no_shift': is_no_shift_employee(w),
+            'salary_type': 'hourly' if is_no_shift_employee(w) else w.get('salary_type', 'daily'),
+            'shift_hours': '-' if is_no_shift_employee(w) else w.get('shift_hours', '08:00'),
             'working_days': payslip.get('working_days', 0),
             'total_hours': payslip.get('total_working_hours') or payslip.get('working_hours') or payslip.get('total_hours', '00:00'),
             'total_working_hours': payslip.get('total_working_hours') or payslip.get('working_hours') or '00:00',

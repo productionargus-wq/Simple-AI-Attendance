@@ -3264,6 +3264,17 @@ def api_create_employee():
         if no_email:
             data['email_id'] = ''
 
+        no_shift = str(data.get('no_shift') or '').strip().lower() in ['true', '1', 'yes', 'on']
+        data['no_shift'] = no_shift
+        if no_shift:
+            data['salary_type'] = 'hourly'
+            data['shift_hours'] = '-'
+            data['shift_start'] = '-'
+            data['shift_end'] = '-'
+            data['day_salary'] = '0'
+            data['half_day_salary'] = '0'
+            data['calculate_overtime'] = 'false'
+
         # Normalize employee type / field worker flag
         emp_type = str(data.get('employee_type') or '').strip().lower()
         if emp_type:
@@ -3321,6 +3332,18 @@ def api_update_employee(emp_id):
             return jsonify({'error': 'Email ID is required'}), 400
         if no_email:
             data['email_id'] = ''
+
+        if 'no_shift' in data:
+            no_shift = str(data.get('no_shift') or '').strip().lower() in ['true', '1', 'yes', 'on']
+            data['no_shift'] = no_shift
+            if no_shift:
+                data['salary_type'] = 'hourly'
+                data['shift_hours'] = '-'
+                data['shift_start'] = '-'
+                data['shift_end'] = '-'
+                data['day_salary'] = '0'
+                data['half_day_salary'] = '0'
+                data['calculate_overtime'] = 'false'
 
         # Normalize employee type / field worker flag
         emp_type = str(data.get('employee_type') or '').strip().lower()
@@ -3501,7 +3524,7 @@ def api_employees_export_excel():
             emp.get('day_salary', 0),
             emp.get('half_day_salary', 0),
             emp.get('mobile_number', ''),
-            emp.get('shift_hours', '08:00'),
+            '-' if database.is_no_shift_employee(emp) else (emp.get('shift_hours', '08:00') or '08:00'),
             emp.get('bank_name', ''),
             emp.get('account_number', ''),
             emp.get('joining_date', '') or emp.get('date_of_joining', '')
@@ -4118,7 +4141,8 @@ def api_face_recognize():
                 result['designation'] = emp_doc.get('designation', '') or 'Staff'
                 result['department'] = emp_doc.get('department', '') or 'General'
                 result['company_name'] = c_name or 'ARGUS CNC™'
-                result['shift_hours'] = emp_doc.get('shift_hours', '08:00')
+                result['no_shift'] = database.is_no_shift_employee(emp_doc)
+                result['shift_hours'] = '-' if result['no_shift'] else (emp_doc.get('shift_hours', '08:00') or '08:00')
             else:
                 result['employee_code'] = emp_id
                 result['designation'] = 'Staff'
@@ -4941,9 +4965,10 @@ def api_salary_reports_export_excel():
     ]
     rows = []
     for r in result['data']:
+        is_ns = bool(r.get('no_shift'))
         rows.append([
             r.get('employee_name', ''), r.get('pay_period', ''), r.get('working_days', ''), r.get('working_hours', ''),
-            r.get('overtime_hours', '00:00'), round(float(r.get('overtime_pay', 0)), 2),
+            '-' if is_ns else r.get('overtime_hours', '00:00'), '-' if is_ns else round(float(r.get('overtime_pay', 0)), 2),
             int(float(r.get('allowance', 0))), int(float(r.get('incentive', 0))), int(float(r.get('other_earnings', 0))),
             round(float(r.get('basic_earnings', 0)), 2), round(float(r.get('total_earnings', 0)), 2), int(float(r.get('paid_salary', 0))),
             int(float(r.get('advance_repayment', 0))), int(float(r.get('other_deductions', 0))), int(float(r.get('total_deductions', 0))),

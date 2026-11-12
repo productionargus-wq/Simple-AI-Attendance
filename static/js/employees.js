@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <td style="font-weight: 600; white-space: nowrap;">₹${Number(emp.half_day_salary || 0).toFixed(0)}</td>
         <td style="white-space: nowrap;">${escapeHtml(emp.mobile_number || '')}</td>
         <td style="white-space: nowrap;">${escapeHtml(emp.email_id || '')}</td>
-        <td style="white-space: nowrap;">${escapeHtml(emp.shift_hours || '-')}</td>
+        <td style="white-space: nowrap;">${emp.no_shift ? '-' : escapeHtml(emp.shift_hours || '-')}</td>
         <td style="text-align: center; white-space: nowrap;">
           <div class="table-actions">
             <button class="btn-action-icon btn-action-view" onclick="viewEmployee('${emp.id}')" title="View Details">
@@ -244,14 +244,18 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
             <div class="emp-grid-pill">
               <span class="emp-grid-pill-label">Shift Hours</span>
-              <span class="emp-grid-pill-val">${escapeHtml(emp.shift_hours || '09:00')}</span>
+              <span class="emp-grid-pill-val">${emp.no_shift ? '-' : escapeHtml(emp.shift_hours || '09:00')}</span>
             </div>
           </div>
-          ${emp.shift_start || emp.shift_end ? `
+          ${emp.no_shift ? `
+          <div class="emp-grid-contact-row" style="margin-bottom: 2px;">
+            <svg class="emp-grid-contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span class="emp-grid-contact-text" style="font-size: 11px;">-</span>
+          </div>` : (emp.shift_start || emp.shift_end ? `
           <div class="emp-grid-contact-row" style="margin-bottom: 2px;">
             <svg class="emp-grid-contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
             <span class="emp-grid-contact-text" style="font-size: 11px;">${escapeHtml(emp.shift_start || '09:00 AM')} - ${escapeHtml(emp.shift_end || '06:00 PM')}</span>
-          </div>` : ''}
+          </div>` : '')}
           <div class="emp-grid-contact-row">
             <svg class="emp-grid-contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
             <span class="emp-grid-contact-text">${escapeHtml(emp.mobile_number || '-')}</span>
@@ -677,12 +681,227 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  let prevShiftSnapshot = {
+    shiftStart: '09:00 AM',
+    shiftEnd: '06:00 PM',
+    shiftHours: '09:00',
+    salaryType: 'daily',
+    daySalary: '',
+    halfDaySalary: '',
+    calcOvertime: false
+  };
+
+  function isNoShiftMode() {
+    const noShiftInput = document.getElementById('inputNoShift');
+    return Boolean(noShiftInput && noShiftInput.value === '1');
+  }
+
+  function applyInputDisabledStyle(el, disabled) {
+    if (!el) return;
+    el.disabled = Boolean(disabled);
+    if (disabled) {
+      el.style.backgroundColor = '#f1f5f9';
+      el.style.color = '#94a3b8';
+      el.style.cursor = 'not-allowed';
+      el.style.borderColor = '#e2e8f0';
+    } else {
+      el.style.backgroundColor = '#ffffff';
+      el.style.color = '';
+      el.style.cursor = '';
+      el.style.borderColor = '';
+    }
+  }
+
+  function setNoShiftMode(enabled, opts = {}) {
+    const isOn = Boolean(enabled);
+    const noShiftInput = document.getElementById('inputNoShift');
+    const toggleSwitch = document.getElementById('toggleNoShiftSwitch');
+    const stateText = document.getElementById('noShiftStateText');
+    const badge = document.getElementById('noShiftBadge');
+    const inStart = document.getElementById('inputShiftStart');
+    const inEnd = document.getElementById('inputShiftEnd');
+    const inHours = document.getElementById('inputShiftHours');
+    const selSalaryType = document.getElementById('inputSalaryType');
+    const salNote = document.getElementById('salaryBasisNoShiftNote');
+    const inDaySal = document.getElementById('inputDaySalary');
+    const inHalfSal = document.getElementById('inputHalfDaySalary');
+    const inHrSal = document.getElementById('inputHourlySalary');
+    const chkOt = document.getElementById('inputCalculateOvertime');
+    const otState = document.getElementById('overtimeStateText');
+    const otBadge = document.getElementById('overtimeToggleBadge');
+
+    if (isOn) {
+      if (!opts.skipSnapshot) {
+        if (inStart && inStart.value && inStart.value !== '-') prevShiftSnapshot.shiftStart = inStart.value;
+        if (inEnd && inEnd.value && inEnd.value !== '-') prevShiftSnapshot.shiftEnd = inEnd.value;
+        if (inHours && inHours.value && inHours.value !== '-') prevShiftSnapshot.shiftHours = inHours.value;
+        if (selSalaryType && !selSalaryType.disabled && selSalaryType.value) prevShiftSnapshot.salaryType = selSalaryType.value;
+        if (inDaySal && !inDaySal.disabled) prevShiftSnapshot.daySalary = inDaySal.value;
+        if (inHalfSal && !inHalfSal.disabled) prevShiftSnapshot.halfDaySalary = inHalfSal.value;
+        if (chkOt && !chkOt.disabled) prevShiftSnapshot.calcOvertime = Boolean(chkOt.checked);
+      }
+
+      if (noShiftInput) noShiftInput.value = '1';
+      if (toggleSwitch) toggleSwitch.checked = true;
+      if (stateText) {
+        stateText.textContent = 'ON';
+        stateText.style.color = '#0f766e';
+      }
+      if (badge) {
+        badge.textContent = 'ON — Punch Hours Only (No Shift)';
+        badge.style.background = '#f0fdfa';
+        badge.style.color = '#0f766e';
+        badge.style.borderColor = '#99f6e4';
+      }
+
+      [inStart, inEnd, inHours].forEach(el => {
+        if (!el) return;
+        el.value = '-';
+        applyInputDisabledStyle(el, true);
+      });
+
+      if (selSalaryType) {
+        selSalaryType.value = 'hourly';
+        applyInputDisabledStyle(selSalaryType, true);
+      }
+      if (salNote) salNote.style.display = 'block';
+
+      if (inDaySal) {
+        inDaySal.value = '0';
+        applyInputDisabledStyle(inDaySal, true);
+      }
+      if (inHalfSal) {
+        inHalfSal.value = '0';
+        applyInputDisabledStyle(inHalfSal, true);
+      }
+      if (inHrSal) {
+        inHrSal.step = '0.01';
+        inHrSal.placeholder = 'Rate in Decimals (e.g. 150.50)';
+        applyInputDisabledStyle(inHrSal, false);
+      }
+
+      if (chkOt) {
+        chkOt.checked = false;
+        chkOt.disabled = true;
+      }
+      if (otState) {
+        otState.textContent = 'N/A';
+        otState.style.color = '#94a3b8';
+      }
+      if (otBadge) {
+        otBadge.textContent = 'N/A — Punch Hours Only (No Fixed Shift)';
+        otBadge.style.background = '#f1f5f9';
+        otBadge.style.color = '#64748b';
+        otBadge.style.borderColor = '#cbd5e1';
+      }
+    } else {
+      if (noShiftInput) noShiftInput.value = '0';
+      if (toggleSwitch) toggleSwitch.checked = false;
+      if (stateText) {
+        stateText.textContent = 'OFF';
+        stateText.style.color = '#64748b';
+      }
+      if (badge) {
+        badge.textContent = 'OFF — Standard Shift Active';
+        badge.style.background = '#f1f5f9';
+        badge.style.color = '#475569';
+        badge.style.borderColor = '#cbd5e1';
+      }
+
+      [
+        [inStart, prevShiftSnapshot.shiftStart || '09:00 AM'],
+        [inEnd, prevShiftSnapshot.shiftEnd || '06:00 PM'],
+        [inHours, prevShiftSnapshot.shiftHours || '09:00']
+      ].forEach(([el, fallback]) => {
+        if (!el) return;
+        applyInputDisabledStyle(el, false);
+        if (!opts.preserveCurrent && (el.value === '-' || el.value.trim() === '')) {
+          el.value = fallback;
+        }
+      });
+
+      if (selSalaryType) {
+        applyInputDisabledStyle(selSalaryType, false);
+        if (!opts.preserveCurrent && prevShiftSnapshot.salaryType) {
+          selSalaryType.value = prevShiftSnapshot.salaryType;
+        }
+      }
+      if (salNote) salNote.style.display = 'none';
+
+      if (inDaySal) {
+        applyInputDisabledStyle(inDaySal, false);
+        if (!opts.preserveCurrent && (inDaySal.value === '0' || inDaySal.value === '') && prevShiftSnapshot.daySalary) {
+          inDaySal.value = prevShiftSnapshot.daySalary;
+        }
+      }
+      if (inHalfSal) {
+        applyInputDisabledStyle(inHalfSal, false);
+        if (!opts.preserveCurrent && (inHalfSal.value === '0' || inHalfSal.value === '') && prevShiftSnapshot.halfDaySalary) {
+          inHalfSal.value = prevShiftSnapshot.halfDaySalary;
+        }
+      }
+      if (chkOt) {
+        chkOt.disabled = false;
+        if (!opts.preserveCurrent) {
+          syncOvertimeToggleUI(Boolean(prevShiftSnapshot.calcOvertime));
+        } else {
+          syncOvertimeToggleUI(Boolean(chkOt.checked));
+        }
+      }
+    }
+  }
+
+  const toggleNoShiftSwitch = document.getElementById('toggleNoShiftSwitch');
+  if (toggleNoShiftSwitch) {
+    toggleNoShiftSwitch.addEventListener('change', function () {
+      const enabled = Boolean(this.checked);
+      setNoShiftMode(enabled);
+      if (enabled) {
+        const inHrSal = document.getElementById('inputHourlySalary');
+        if (inHrSal) inHrSal.focus();
+      }
+      if (window.ArgusVoice) {
+        if (enabled) {
+          window.ArgusVoice.speakDual({
+            english: 'No fixed shift mode enabled. Salary will be calculated from attendance punch hours.',
+            tamil: 'நிலையான ஷிப்ட் நேரம் இல்லை என அமைக்கப்பட்டது. வருகை நேரத்தின் அடிப்படையில் சம்பளம் கணக்கிடப்படும்.'
+          }, { interrupt: true });
+        } else {
+          window.ArgusVoice.speakDual({
+            english: 'Standard shift schedule enabled.',
+            tamil: 'வழக்கமான ஷிப்ட் நேரம் இயக்கப்பட்டது.'
+          }, { interrupt: true });
+        }
+      }
+    });
+  }
+
   function syncOvertimeToggleUI(enabled) {
     const chk = document.getElementById('inputCalculateOvertime');
     const stateText = document.getElementById('overtimeStateText');
     const badge = document.getElementById('overtimeToggleBadge');
+    if (isNoShiftMode()) {
+      if (chk) {
+        chk.checked = false;
+        chk.disabled = true;
+      }
+      if (stateText) {
+        stateText.textContent = 'N/A';
+        stateText.style.color = '#94a3b8';
+      }
+      if (badge) {
+        badge.textContent = 'N/A — Punch Hours Only (No Fixed Shift)';
+        badge.style.background = '#f1f5f9';
+        badge.style.color = '#64748b';
+        badge.style.borderColor = '#cbd5e1';
+      }
+      return;
+    }
     const isOn = Boolean(enabled);
-    if (chk) chk.checked = isOn;
+    if (chk) {
+      chk.disabled = false;
+      chk.checked = isOn;
+    }
     if (stateText) {
       stateText.textContent = isOn ? 'ON' : 'OFF';
       stateText.style.color = isOn ? '#2563eb' : '#64748b';
@@ -714,6 +933,16 @@ document.addEventListener('DOMContentLoaded', function () {
   function openAddEntryModal() {
     setEmailTurnedOff(false);
     employeeForm.reset();
+    prevShiftSnapshot = {
+      shiftStart: '09:00 AM',
+      shiftEnd: '06:00 PM',
+      shiftHours: '09:00',
+      salaryType: 'daily',
+      daySalary: '',
+      halfDaySalary: '',
+      calcOvertime: false
+    };
+    setNoShiftMode(false);
     currentCapturedBlob = null;
     capturedFaceEmbedding = null;
     capturedPhotoData = null;
@@ -839,11 +1068,26 @@ document.addEventListener('DOMContentLoaded', function () {
       if (document.getElementById('inputBankName')) document.getElementById('inputBankName').value = emp.bank_name || '';
       document.getElementById('inputAccountNumber').value = emp.account_number || '';
       document.getElementById('inputIfsc').value = emp.ifsc_code || '';
-      document.getElementById('inputShiftHours').value = (emp.shift_hours !== undefined && emp.shift_hours !== null && String(emp.shift_hours).trim() !== '') ? emp.shift_hours : '09:00';
-      const inStart = document.getElementById('inputShiftStart');
-      const inEnd = document.getElementById('inputShiftEnd');
-      if (inStart) inStart.value = emp.shift_start || '09:00 AM';
-      if (inEnd) inEnd.value = emp.shift_end || '06:00 PM';
+      const isEmpNoShift = Boolean(emp.no_shift || String(emp.shift_hours || '').trim() === '-');
+      prevShiftSnapshot = {
+        shiftStart: (!isEmpNoShift && emp.shift_start && emp.shift_start !== '-') ? emp.shift_start : '09:00 AM',
+        shiftEnd: (!isEmpNoShift && emp.shift_end && emp.shift_end !== '-') ? emp.shift_end : '06:00 PM',
+        shiftHours: (!isEmpNoShift && emp.shift_hours && emp.shift_hours !== '-') ? emp.shift_hours : '09:00',
+        salaryType: isEmpNoShift ? 'hourly' : (emp.salary_type || 'hourly'),
+        daySalary: (emp.day_salary !== undefined && emp.day_salary !== null) ? String(emp.day_salary) : '',
+        halfDaySalary: (emp.half_day_salary !== undefined && emp.half_day_salary !== null) ? String(emp.half_day_salary) : '',
+        calcOvertime: Boolean(emp.calculate_overtime)
+      };
+      if (isEmpNoShift) {
+        setNoShiftMode(true, { skipSnapshot: true });
+      } else {
+        document.getElementById('inputShiftHours').value = (emp.shift_hours !== undefined && emp.shift_hours !== null && String(emp.shift_hours).trim() !== '') ? emp.shift_hours : '09:00';
+        const inStart = document.getElementById('inputShiftStart');
+        const inEnd = document.getElementById('inputShiftEnd');
+        if (inStart) inStart.value = emp.shift_start || '09:00 AM';
+        if (inEnd) inEnd.value = emp.shift_end || '06:00 PM';
+        setNoShiftMode(false, { preserveCurrent: true });
+      }
       const captureStatusEl = document.getElementById('captureStatus');
       if (captureStatusEl) captureStatusEl.textContent = '';
 
@@ -923,6 +1167,16 @@ document.addEventListener('DOMContentLoaded', function () {
     btnResetForm.addEventListener('click', function () {
       employeeForm.reset();
       setEmailTurnedOff(false);
+      prevShiftSnapshot = {
+        shiftStart: '09:00 AM',
+        shiftEnd: '06:00 PM',
+        shiftHours: '09:00',
+        salaryType: 'daily',
+        daySalary: '',
+        halfDaySalary: '',
+        calcOvertime: false
+      };
+      setNoShiftMode(false);
       const inStatus = document.getElementById('inputStatus');
       if (inStatus) inStatus.value = 'Active';
       const inEmpType = document.getElementById('inputEmployeeType');
@@ -1002,6 +1256,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // When Hourly changes
   function onHourlyInput() {
+    if (isNoShiftMode()) return;
     const hourly = parseFloat(inputHourly.value) || 0;
     if (hourly <= 0) return;
     const dur = getShiftDuration();
@@ -1124,13 +1379,23 @@ document.addEventListener('DOMContentLoaded', function () {
         return false;
       }
 
+      const isNoShiftSubmit = isNoShiftMode();
       // Ensure salary rates are calculated even if user only entered one
+      const rawHourlyStr = inputHourly ? inputHourly.value.trim() : '';
       const hourlyVal = inputHourly ? (parseFloat(inputHourly.value) || 0) : 0;
       const dayVal = inputDay ? (parseFloat(inputDay.value) || 0) : 0;
       const halfVal = inputHalfDay ? (parseFloat(inputHalfDay.value) || 0) : 0;
       const dur = getShiftDuration();
 
-      if (dur === 0) {
+      if (isNoShiftSubmit) {
+        if (!rawHourlyStr) {
+          alert('Hourly Salary is required when No Fixed Shift (Punch Hours Only) is enabled.');
+          if (inputHourly) inputHourly.focus();
+          return;
+        }
+        if (inputDay) inputDay.value = '0';
+        if (inputHalfDay) inputHalfDay.value = '0';
+      } else if (dur === 0) {
         if (inputDay) inputDay.value = '0';
         if (inputHalfDay) inputHalfDay.value = '0';
         if (inputHourly && !inputHourly.value) inputHourly.value = '0.00';
@@ -1223,7 +1488,20 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const inCalcOvertimeSubmit = document.getElementById('inputCalculateOvertime');
-      formData.set('calculate_overtime', (inCalcOvertimeSubmit && inCalcOvertimeSubmit.checked) ? 'true' : 'false');
+      formData.set('calculate_overtime', (!isNoShiftSubmit && inCalcOvertimeSubmit && inCalcOvertimeSubmit.checked) ? 'true' : 'false');
+
+      if (isNoShiftSubmit) {
+        formData.set('no_shift', 'true');
+        formData.set('salary_type', 'hourly');
+        formData.set('shift_start', '-');
+        formData.set('shift_end', '-');
+        formData.set('shift_hours', '-');
+        formData.set('day_salary', '0');
+        formData.set('half_day_salary', '0');
+        formData.set('hourly_salary', inputHourly ? (inputHourly.value || '0') : '0');
+      } else {
+        formData.set('no_shift', 'false');
+      }
 
       // Explicitly serialize employee portal permissions
       const permPunch = document.getElementById('permPunchAttendance');
@@ -1426,10 +1704,10 @@ document.addEventListener('DOMContentLoaded', function () {
         ['UPI NUMBER', emp.upi_number],
         ['ACCOUNT NUMBER', emp.account_number],
         ['IFSC CODE', emp.ifsc_code],
-        ['SHIFT HOURS', emp.shift_hours || '09:00'],
-        ['SHIFT START', emp.shift_start || '09:00 AM'],
-        ['SHIFT END', emp.shift_end || '06:00 PM'],
-        ['OVERTIME CALCULATION', emp.calculate_overtime ? 'Enabled (Calculates Past Shift Hours — No Auto-Timeout)' : 'Disabled (Shift Hours Only)'],
+        ['SHIFT HOURS', emp.no_shift ? '-' : (emp.shift_hours || '09:00')],
+        ['SHIFT START', emp.no_shift ? '-' : (emp.shift_start || '09:00 AM')],
+        ['SHIFT END', emp.no_shift ? '-' : (emp.shift_end || '06:00 PM')],
+        ['OVERTIME CALCULATION', emp.no_shift ? 'Not Applicable (No Fixed Shift — Punch Hours Only)' : (emp.calculate_overtime ? 'Enabled (Calculates Past Shift Hours — No Auto-Timeout)' : 'Disabled (Shift Hours Only)')],
         ['RECORD CREATED AT', formattedCreated]
       ];
 

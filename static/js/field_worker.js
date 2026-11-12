@@ -1786,7 +1786,7 @@
           <td><span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> ${w.branch_name || 'Home Branch (Head Office)'}</span></td>
           <td>
             <span class="badge-blue">${salBasis}</span>
-            <span class="fw-cell-sub" style="margin-left:4px;">Shift: ${w.shift_hours || '08:00'}h</span>
+            <span class="fw-cell-sub" style="margin-left:4px;">Shift: ${(w.no_shift || w.shift_hours === '-') ? '-' : escapeHtml(w.shift_hours || '08:00') + 'h'}</span>
           </td>
           <td style="font-weight:700; color:#0f172a;">${baseRateFormatted}</td>
           <td style="font-weight:700; color:#15803d;">₹${Number(w.per_visit_incentive || 0).toFixed(2)} / visit</td>
@@ -1883,7 +1883,8 @@
             const wBranchName = escapeHtml(w.branch_name || 'Home Branch (Head Office)');
             const wZone = escapeHtml(w.branch_name || w.territory_zone || 'Home Branch');
             const wSalType = escapeHtml(w.salary_type || 'daily');
-            const wShiftHrs = escapeHtml(w.shift_hours || '08:00');
+            const wIsNoShift = Boolean(w.no_shift || String(w.shift_hours || '').trim() === '-');
+            const wShiftHrs = wIsNoShift ? '-' : escapeHtml(w.shift_hours || '08:00');
             const wDaySal = (w.day_salary !== undefined && w.day_salary !== null) ? w.day_salary : 600;
             const wHrSal = (w.hourly_salary !== undefined && w.hourly_salary !== null) ? w.hourly_salary : 100;
             const wVisitInc = (w.per_visit_incentive !== undefined && w.per_visit_incentive !== null) ? w.per_visit_incentive : 75;
@@ -1904,6 +1905,7 @@
               data-branchname="${wBranchName}"
               data-zone="${wZone}"
               data-saltype="${wSalType}"
+              data-noshift="${wIsNoShift ? 'true' : 'false'}"
               data-shifthrs="${wShiftHrs}"
               data-daysal="${wDaySal}"
               data-hrsal="${wHrSal}"
@@ -2408,7 +2410,7 @@
           </td>
           <td>
             <span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> ${r.branch_name || r.territory_zone || 'Home Branch (Head Office)'}</span>
-            <div class="fw-cell-sub">${(r.salary_type || '').toUpperCase()} (${r.shift_hours}h)</div>
+            <div class="fw-cell-sub">${(r.salary_type || '').toUpperCase()} (${(r.no_shift || r.shift_hours === '-') ? '-' : escapeHtml(r.shift_hours || '08:00') + 'h'})</div>
           </td>
           <td>
             <div class="fw-cell-title">${r.working_days} Days</div>
@@ -2628,6 +2630,38 @@
       }
     }
 
+    function syncFwNoShiftUI(enabled) {
+      const isOn = Boolean(enabled);
+      const chk = document.getElementById('fwRegNoShift');
+      const shiftEl = document.getElementById('fwRegShiftHours');
+      const salEl = document.getElementById('fwRegSalaryType');
+      if (chk) chk.checked = isOn;
+      if (shiftEl) {
+        shiftEl.disabled = isOn;
+        if (isOn) {
+          if (shiftEl.value && shiftEl.value !== '-') shiftEl.dataset.prevShift = shiftEl.value;
+          shiftEl.value = '-';
+          shiftEl.style.backgroundColor = '#f1f5f9';
+          shiftEl.style.color = '#94a3b8';
+        } else {
+          shiftEl.value = (shiftEl.value === '-' || !shiftEl.value) ? (shiftEl.dataset.prevShift || '08:00') : shiftEl.value;
+          shiftEl.style.backgroundColor = '';
+          shiftEl.style.color = '';
+        }
+      }
+      if (salEl) {
+        if (isOn) {
+          salEl.value = 'hourly';
+          salEl.disabled = true;
+          salEl.style.backgroundColor = '#f1f5f9';
+        } else {
+          salEl.disabled = false;
+          salEl.style.backgroundColor = '';
+        }
+      }
+    }
+    window.syncFwNoShiftUI = syncFwNoShiftUI;
+
     function populateExistingEmployeeForField(sel) {
       const opt = sel.options[sel.selectedIndex];
       if (!opt || !opt.value) {
@@ -2642,6 +2676,7 @@
         if (document.getElementById('fwRegPetrolRateInr')) document.getElementById('fwRegPetrolRateInr').value = '';
         if (document.getElementById('fwRegKmRate')) document.getElementById('fwRegKmRate').value = '';
         if (typeof updateWorkerPetrolRatePreview === 'function') updateWorkerPetrolRatePreview();
+        syncFwNoShiftUI(false);
         setFieldWorkerPermissionCheckboxes(null);
         return;
       }
@@ -2652,9 +2687,11 @@
       document.getElementById('fwRegDesig').value = opt.dataset.desig || 'Field Executive';
       const branchSel = document.getElementById('fwRegBranchId');
       if (branchSel) branchSel.value = opt.dataset.branchid || 'HOME';
-      document.getElementById('fwRegSalaryType').value = opt.dataset.saltype || 'daily';
-      document.getElementById('fwRegShiftHours').value = opt.dataset.shifthrs || '08:00';
-      const salType = opt.dataset.saltype || 'daily';
+      const isOptNoShift = (opt.dataset.noshift === 'true' || opt.dataset.shifthrs === '-');
+      document.getElementById('fwRegSalaryType').value = isOptNoShift ? 'hourly' : (opt.dataset.saltype || 'daily');
+      document.getElementById('fwRegShiftHours').value = isOptNoShift ? '-' : (opt.dataset.shifthrs || '08:00');
+      syncFwNoShiftUI(isOptNoShift);
+      const salType = isOptNoShift ? 'hourly' : (opt.dataset.saltype || 'daily');
       document.getElementById('fwRegBaseRate').value = salType === 'hourly' ? (opt.dataset.hrsal || 100) : (opt.dataset.daysal || 600);
       document.getElementById('fwRegVisitIncentive').value = opt.dataset.visitinc || 75;
       const unitKmEl = document.getElementById('fwRegPetrolUnitKm');
@@ -2679,7 +2716,8 @@
     // Dynamic Worker Registration (AJAX, Zero Reload)
     async function submitFieldWorkerRegistration(e) {
       e.preventDefault();
-      const salType = document.getElementById('fwRegSalaryType').value;
+      const isFwNoShift = Boolean(document.getElementById('fwRegNoShift')?.checked);
+      const salType = isFwNoShift ? 'hourly' : document.getElementById('fwRegSalaryType').value;
       const baseRate = parseFloat(document.getElementById('fwRegBaseRate').value) || 0;
       const branchSel = document.getElementById('fwRegBranchId');
       const branchId = branchSel ? branchSel.value : 'HOME';
@@ -2703,7 +2741,10 @@
         branch: branchName,
         territory_zone: branchName,
         salary_type: salType,
-        shift_hours: document.getElementById('fwRegShiftHours').value,
+        no_shift: isFwNoShift,
+        shift_hours: isFwNoShift ? '-' : document.getElementById('fwRegShiftHours').value,
+        shift_start: isFwNoShift ? '-' : undefined,
+        shift_end: isFwNoShift ? '-' : undefined,
         day_salary: salType === 'daily' ? baseRate : 0,
         hourly_salary: salType === 'hourly' ? baseRate : 0,
         half_day_salary: salType === 'half_day' ? baseRate : Math.round(baseRate / 2),
@@ -5986,7 +6027,7 @@
       setAllText('.ps-rate-lbl', rateLbl);
       setAllText('.ps-rate-val', rateVal);
 
-      setAllText('.ps-shift-hours', p.shift_hours || '08:00');
+      setAllText('.ps-shift-hours', (p.no_shift || p.shift_hours === '-') ? '-' : (p.shift_hours || '08:00'));
       setAllText('.ps-working-days', `${p.working_days || 0} Days`);
       setAllText('.ps-working-hours', p.total_working_hours || '00:00');
       setAllText('.ps-total-days', `${p.total_days || 30} Days (${p.leave_days || 0} Leave)`);

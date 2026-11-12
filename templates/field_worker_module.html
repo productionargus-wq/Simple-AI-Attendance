@@ -932,7 +932,7 @@
                     <td><span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> {{ w.branch_name or 'Home Branch (Head Office)' }}</span></td>
                     <td>
                       <span class="badge-blue">{{ (w.salary_type or 'daily')|upper }}</span>
-                      <span class="fw-cell-sub" style="margin-left:4px;">Shift: {{ w.shift_hours or '08:00' }}h</span>
+                      <span class="fw-cell-sub" style="margin-left:4px;">Shift: {{ '-' if (w.no_shift or w.shift_hours == '-') else ((w.shift_hours or '08:00') ~ 'h') }}</span>
                     </td>
                     <td style="font-weight:700; color:#0f172a;">
                       {% if (w.salary_type or 'daily') == 'hourly' %}
@@ -1007,7 +1007,8 @@
                           data-branchname="{{ emp.branch_name or 'Home Branch (Head Office)' }}"
                           data-zone="{{ emp.branch_name or emp.territory_zone or 'Home Branch' }}"
                           data-saltype="{{ emp.salary_type }}"
-                          data-shifthrs="{{ emp.shift_hours }}"
+                          data-noshift="{{ 'true' if (emp.no_shift or emp.shift_hours == '-') else 'false' }}"
+                          data-shifthrs="{{ '-' if (emp.no_shift or emp.shift_hours == '-') else emp.shift_hours }}"
                           data-daysal="{{ emp.day_salary }}"
                           data-hrsal="{{ emp.hourly_salary }}"
                           data-visitinc="{{ emp.per_visit_incentive }}"
@@ -1114,7 +1115,13 @@
                       </div>
 
                       <div class="fw-field">
-                        <label class="fw-label">Shift Hours (00:00 = Flex)</label>
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                          <label class="fw-label" for="fwRegShiftHours" style="margin-bottom:4px;">Shift Hours (00:00 = Flex)</label>
+                          <label for="fwRegNoShift" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#0f766e; cursor:pointer; user-select:none;">
+                            <input type="checkbox" id="fwRegNoShift" onchange="syncFwNoShiftUI(this.checked)">
+                            <span>No Fixed Shift (-)</span>
+                          </label>
+                        </div>
                         <input type="text" id="fwRegShiftHours" class="fw-input" value="08:00">
                       </div>
                     </div>
@@ -1816,7 +1823,7 @@
                 <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                   <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:8px 14px; text-align:center;">
                     <div style="font-size:10px; text-transform:uppercase; color:#94a3b8; font-weight:700; letter-spacing:0.5px;">Today's Shift</div>
-                    <div style="font-size:14px; font-weight:800; color:#38bdf8;">{{ my_worker.shift_hours or '08:00' }} Hours</div>
+                    <div style="font-size:14px; font-weight:800; color:#38bdf8;">{{ '-' if (my_worker.no_shift or my_worker.shift_hours == '-') else ((my_worker.shift_hours or '08:00') ~ ' Hours') }}</div>
                   </div>
                   <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:8px 14px; text-align:center;">
                     <div style="font-size:10px; text-transform:uppercase; color:#94a3b8; font-weight:700; letter-spacing:0.5px;">Planned Visits</div>
@@ -2933,7 +2940,7 @@
                     </td>
                     <td>
                       <span class="badge-neutral"><i class="fa-solid fa-building" style="color:#0d9488;"></i> {{ r.branch_name or r.territory_zone or 'Home Branch (Head Office)' }}</span>
-                      <div class="fw-cell-sub">{{ r.salary_type|upper }} ({{ r.shift_hours }}h)</div>
+                      <div class="fw-cell-sub">{{ r.salary_type|upper }} ({{ '-' if (r.no_shift or r.shift_hours == '-') else ((r.shift_hours or '08:00') ~ 'h') }})</div>
                     </td>
                     <td>
                       <div class="fw-cell-title">{{ r.working_days }} Days</div>
@@ -5605,7 +5612,7 @@
     let FW_LEAVE_BALANCES_DATA = {{ (fw_leave_balances or [])|tojson }};
     const INITIAL_MONTH_YEAR = {{ (month_year or '')|tojson }};
   </script>
-  <script src="{{ url_for('static', filename='js/field_worker.js') }}?v=20261111_v2"></script>
+  <script src="{{ url_for('static', filename='js/field_worker.js') }}?v=20261112_noshift_v1"></script>
 
   <!-- Floating Tooltip for Desktop Mini-Sidebar -->
   <div id="sidebarMiniTooltip" class="sidebar-mini-tooltip"></div>
