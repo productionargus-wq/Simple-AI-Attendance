@@ -5060,19 +5060,28 @@ def api_export_payslip_pdf():
     employee = (request.args.get('employee_name') or request.args.get('employee') or '').strip()
     month = request.args.get('month', '').strip()
     branch_id = request.args.get('branch_id') or get_current_branch_id()
-    
+
     if not month:
         month = datetime.now().strftime("%Y-%m")
-    
-    comp_id = get_current_company_id()
-    if session.get('role') == 'super_admin':
-        comp_id = None
-    if not employee:
-        emp_res = database.get_all_employees(company_id=comp_id or 'ALL', branch_id=branch_id, limit=1)
-        if emp_res['data']:
-            employee = emp_res['data'][0]['employee_name']
-        else:
-            employee = 'Employee'
+
+    is_employee_only = bool(session.get('employee_logged_in') and session.get('role') == 'employee' and not session.get('admin_logged_in'))
+    if is_employee_only:
+        emp_id = session.get('employee_id')
+        curr_emp = database.get_employee_by_id(emp_id)
+        if curr_emp and curr_emp.get('permissions') and curr_emp['permissions'].get('monthly_payslip') is False:
+            return jsonify({'error': 'Monthly payslip view is disabled for your account.'}), 403
+        employee = (curr_emp.get('employee_name') if curr_emp else None) or session.get('employee_name') or employee
+        comp_id = (curr_emp.get('company_id') if curr_emp else None) or session.get('company_id')
+    else:
+        comp_id = get_current_company_id()
+        if session.get('role') == 'super_admin':
+            comp_id = None
+        if not employee:
+            emp_res = database.get_all_employees(company_id=comp_id or 'ALL', branch_id=branch_id, limit=1)
+            if emp_res['data']:
+                employee = emp_res['data'][0]['employee_name']
+            else:
+                employee = 'Employee'
     
     template = request.args.get('template', 'template_1').strip()
     theme = request.args.get('theme', 'navy').strip()

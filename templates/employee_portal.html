@@ -106,9 +106,9 @@
       display: flex !important;
       flex-direction: row !important;
       align-items: flex-end !important;
-      gap: 8px !important;
+      gap: 6px !important;
       flex-wrap: nowrap !important;
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: normal;
       width: auto;
       max-width: 100%;
@@ -119,23 +119,23 @@
       flex-direction: column;
       justify-content: flex-end;
       align-items: flex-start;
-      gap: 3px;
+      gap: 2px;
       flex-shrink: 0;
       white-space: nowrap;
     }
     .attendance-filter-bar .filter-group label {
-      font-size: 11px;
+      font-size: 10px !important;
       font-weight: 700;
       color: #475569;
       margin: 0;
-      line-height: 1.2;
+      line-height: 1.15;
       flex-shrink: 0;
     }
     .attendance-filter-bar .filter-group input[type="date"] {
-      width: 125px;
-      padding: 4px 6px;
-      font-size: 11px;
-      height: 32px;
+      width: 112px;
+      padding: 2px 5px !important;
+      font-size: 10.5px !important;
+      height: 30px !important;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
       background: #ffffff;
@@ -143,12 +143,13 @@
       box-sizing: border-box;
       margin: 0;
     }
-    .attendance-filter-bar button#btnFilterHistory {
+    .attendance-filter-bar button#btnFilterHistory,
+    .attendance-filter-bar button#btnClearHistoryFilter {
       flex-shrink: 0;
       width: auto !important;
-      height: 32px;
-      padding: 0 14px;
-      font-size: 11px;
+      height: 30px !important;
+      padding: 0 11px !important;
+      font-size: 11px !important;
       font-weight: 700;
       border-radius: 6px;
       white-space: nowrap;
@@ -157,6 +158,17 @@
       align-items: center;
       justify-content: center;
       align-self: flex-end !important;
+      cursor: pointer;
+    }
+    .btn-portal-clear {
+      background-color: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .btn-portal-clear:hover {
+      background-color: #e2e8f0;
+      border-color: #94a3b8;
     }
     .emp-profile-pill {
       background-color: #f1f5f9;
@@ -392,7 +404,7 @@
         align-items: flex-end !important;
         justify-content: space-between !important;
         width: 100% !important;
-        gap: 5px !important;
+        gap: 4px !important;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
@@ -407,30 +419,36 @@
         flex-direction: column !important;
         justify-content: flex-end !important;
         align-items: flex-start !important;
-        gap: 3px;
+        gap: 2px;
       }
       .attendance-filter-bar .filter-group label {
-        font-size: 10.5px;
-        line-height: 1.2;
+        font-size: 9.5px !important;
+        line-height: 1.1;
       }
       .attendance-filter-bar .filter-group input[type="date"] {
         flex: 1;
         min-width: 0;
         width: 100%;
         max-width: 100%;
-        padding: 4px 3px;
-        font-size: 10.5px;
-        height: 32px;
+        padding: 2px 3px !important;
+        font-size: 10px !important;
+        height: 28px !important;
         margin: 0;
       }
-      .attendance-filter-bar button#btnFilterHistory {
+      .attendance-filter-bar button#btnFilterHistory,
+      .attendance-filter-bar button#btnClearHistoryFilter {
         width: auto !important;
-        height: 32px;
-        padding: 0 11px;
-        font-size: 11px;
+        height: 28px !important;
+        padding: 0 8px !important;
+        font-size: 10.5px !important;
         flex-shrink: 0;
         align-self: flex-end !important;
         margin: 0;
+      }
+      #payslipMonth {
+        font-size: 12px !important;
+        height: 32px !important;
+        padding: 4px 6px !important;
       }
       #payslipContent {
         grid-template-columns: 1fr !important;
@@ -1202,16 +1220,17 @@
     <div class="portal-card">
       <div class="portal-card-header">
         <span>📋 My Attendance History</span>
-        <div id="attendanceFilterBar" class="attendance-filter-bar" style="display: flex; flex-direction: row; align-items: flex-end; gap: 6px; flex-wrap: nowrap; font-size: 11.5px; font-weight: normal;">
-          <div class="filter-group" style="display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 3px; white-space: nowrap; flex: 1 1 0; min-width: 0;">
-            <label for="historyFromDate" style="font-size: 11px; font-weight: 700; color: #475569; margin: 0; line-height: 1.2; flex-shrink: 0;">From:</label>
-            <input type="date" id="historyFromDate" class="form-input" style="padding: 4px 6px; font-size: 11px; height: 32px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; color: #1e293b; box-sizing: border-box; width: 100%; margin: 0;">
+        <div id="attendanceFilterBar" class="attendance-filter-bar">
+          <div class="filter-group" style="flex: 1 1 0; min-width: 0;">
+            <label for="historyFromDate">From:</label>
+            <input type="date" id="historyFromDate" class="form-input">
           </div>
-          <div class="filter-group" style="display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 3px; white-space: nowrap; flex: 1 1 0; min-width: 0;">
-            <label for="historyToDate" style="font-size: 11px; font-weight: 700; color: #475569; margin: 0; line-height: 1.2; flex-shrink: 0;">To:</label>
-            <input type="date" id="historyToDate" class="form-input" style="padding: 4px 6px; font-size: 11px; height: 32px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; color: #1e293b; box-sizing: border-box; width: 100%; margin: 0;">
+          <div class="filter-group" style="flex: 1 1 0; min-width: 0;">
+            <label for="historyToDate">To:</label>
+            <input type="date" id="historyToDate" class="form-input">
           </div>
-          <button id="btnFilterHistory" class="btn-portal-primary" style="flex-shrink: 0; width: auto !important; height: 32px; padding: 0 12px; font-size: 11px; font-weight: 700; border-radius: 6px; white-space: nowrap; margin: 0; display: inline-flex; align-items: center; justify-content: center; align-self: flex-end !important;">Filter</button>
+          <button type="button" id="btnFilterHistory" class="btn-portal-primary">Filter</button>
+          <button type="button" id="btnClearHistoryFilter" class="btn-portal-clear" title="Clear dates and show recent attendance">Clear</button>
         </div>
       </div>
 
@@ -1370,10 +1389,12 @@
         <span>💰 My Monthly Payslip</span>
         <div style="display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: normal; flex-wrap: wrap;">
           <input type="month" id="payslipMonth" class="form-input" style="padding: 4px 8px; font-size: 11px; width: auto;">
-          <button id="btnLoadPayslip" class="btn-portal-primary" style="padding: 5px 14px; font-size: 11px; background-color: #3d6078; width: auto;">View Payslip</button>
-          <button id="btnDownloadPayslip" class="btn-portal-primary" style="padding: 5px 14px; font-size: 11px; background-color: #ffd166; color: #111111; font-weight: 800; width: auto;">Download PDF</button>
+          <button type="button" id="btnLoadPayslip" class="btn-portal-primary" style="padding: 5px 14px; font-size: 11px; background-color: #3d6078; width: auto;">View Payslip</button>
+          <button type="button" id="btnDownloadPayslip" class="btn-portal-primary" style="padding: 5px 14px; font-size: 11px; background-color: #ffd166; color: #111111; font-weight: 800; width: auto;">Download PDF</button>
         </div>
       </div>
+
+      <div id="payslipErrorBanner" style="display: none; padding: 8px 12px; margin-bottom: 10px; border-radius: 6px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 12px; font-weight: 600;"></div>
 
       <div id="payslipContent" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; background-color: #f8fafc; padding: 16px; border-radius: 6px;">
         <div style="background-color: #ffffff; padding: 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
@@ -1404,6 +1425,28 @@
           <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.8px; opacity: 0.9;">NET TAKE-HOME SALARY</div>
           <div id="psNetSalary" style="font-size: 28px; font-weight: 900; margin-top: 6px; letter-spacing: 0.5px;">₹0</div>
           <div id="psWorkingDays" style="font-size: 11px; opacity: 0.85; margin-top: 4px;">Working Days: 0 | Hours: 00:00:00</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Employee Portal Full Payslip Preview -->
+    <div class="modal-overlay" id="modalPortalPayslipPreview" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); z-index: 9999; align-items: center; justify-content: center; padding: 14px;">
+      <div style="background: #ffffff; border-radius: 12px; width: 100%; max-width: 680px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 35px -5px rgba(0,0,0,0.3);">
+        <div style="background: #1b4975; color: #ffffff; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
+          <div>
+            <div style="font-size: 15px; font-weight: 800;">Monthly Payslip</div>
+            <div id="psModalPeriod" style="font-size: 11.5px; color: #cbd5e1;">Pay Period: --</div>
+          </div>
+          <button type="button" id="closePortalPayslipModalBtn" style="background: none; border: none; color: #ffffff; font-size: 22px; line-height: 1; cursor: pointer; padding: 0;">&times;</button>
+        </div>
+
+        <div id="psModalBody" style="padding: 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; font-size: 12.5px; color: #1e293b;">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div style="padding: 12px 16px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; flex-shrink: 0;">
+          <button type="button" id="btnModalDownloadPayslipPdf" class="btn-portal-primary" style="background-color: #ffd166; color: #111111; font-weight: 800; padding: 7px 14px; font-size: 12px;">Download PDF</button>
+          <button type="button" id="donePortalPayslipModalBtn" class="btn-portal-clear" style="padding: 7px 16px; font-size: 12px; border-radius: 6px; font-weight: 700;">Close</button>
         </div>
       </div>
     </div>
@@ -3108,6 +3151,7 @@
     const fromDateInput = document.getElementById('historyFromDate');
     const toDateInput = document.getElementById('historyToDate');
     const btnFilterHistory = document.getElementById('btnFilterHistory');
+    const btnClearHistoryFilter = document.getElementById('btnClearHistoryFilter');
 
     const today = new Date();
     const curYear = today.getFullYear();
@@ -3122,10 +3166,10 @@
         historyBody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">Loading...</td></tr>';
         try {
           const params = new URLSearchParams({
-            from_date: fromDateInput.value,
-            to_date: toDateInput.value
+            from_date: fromDateInput.value || '',
+            to_date: toDateInput.value || ''
           });
-          const res = await fetch(`/api/employee/my-attendance?${params.toString()}`);
+          const res = await fetch(`/api/employee/my-attendance?${params.toString()}`, { cache: 'no-store' });
           const data = await res.json();
 
           if (!data.data || data.data.length === 0) {
@@ -3181,6 +3225,13 @@
       if (btnFilterHistory) {
         btnFilterHistory.addEventListener('click', loadHistory);
       }
+      if (btnClearHistoryFilter) {
+        btnClearHistoryFilter.addEventListener('click', function () {
+          fromDateInput.value = '';
+          toDateInput.value = '';
+          loadHistory();
+        });
+      }
       loadHistory();
     }
 
@@ -3188,16 +3239,121 @@
     const payslipMonthInput = document.getElementById('payslipMonth');
     const btnLoadPayslip = document.getElementById('btnLoadPayslip');
     const btnDownloadPayslip = document.getElementById('btnDownloadPayslip');
+    const payslipErrorBanner = document.getElementById('payslipErrorBanner');
+    const modalPortalPayslipPreview = document.getElementById('modalPortalPayslipPreview');
+    const closePortalPayslipModalBtn = document.getElementById('closePortalPayslipModalBtn');
+    const donePortalPayslipModalBtn = document.getElementById('donePortalPayslipModalBtn');
+    const btnModalDownloadPayslipPdf = document.getElementById('btnModalDownloadPayslipPdf');
+    const psModalPeriod = document.getElementById('psModalPeriod');
+    const psModalBody = document.getElementById('psModalBody');
+    let lastLoadedPayslip = null;
+
+    function openPortalPayslipModal(p) {
+      if (!modalPortalPayslipPreview || !psModalBody || !p) return;
+      const monthVal = p.pay_period || (payslipMonthInput ? payslipMonthInput.value : '') || `${curYear}-${curMonth}`;
+      if (psModalPeriod) psModalPeriod.textContent = `Pay Period: ${monthVal}`;
+
+      const basic = p.basic_salary !== undefined ? p.basic_salary : (p.basic_earnings || 0);
+      const deduct = p.total_deduction !== undefined ? p.total_deduction : (p.total_deductions || 0);
+      const net = p.net_pay !== undefined ? p.net_pay : (p.net_salary || 0);
+      const hrs = p.total_working_hours || p.working_hours || '00:00';
+      const daysLabel = p.working_days_breakdown || `${p.working_days || 0} Days`;
+      const isNoShift = Boolean(p.no_shift || String(p.shift_hours || '').trim() === '-');
+      const fmtRs = (v) => `₹${Number(v || 0).toLocaleString()}`;
+
+      psModalBody.innerHTML = `
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px;">
+          <div style="font-weight: 800; color: #0f172a; font-size: 13.5px; margin-bottom: 6px;">${escapeHtml(p.company_name || 'Company')}</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 6px 12px; font-size: 12px; color: #334155;">
+            <div><strong>Employee:</strong> ${escapeHtml(p.employee_name || '-')}</div>
+            <div><strong>Emp ID:</strong> ${escapeHtml(p.employee_id || '-')}</div>
+            <div><strong>Basis:</strong> ${escapeHtml(p.salary_basis_label || p.salary_type || '-')}</div>
+            <div><strong>Working Days:</strong> ${escapeHtml(daysLabel)}</div>
+            <div><strong>Working Hours:</strong> ${escapeHtml(hrs)}</div>
+            <div><strong>Leave Summary:</strong> ${escapeHtml(p.leave_breakdown || ((p.leave_days || 0) + ' Leave'))}</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+          <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px;">
+            <div style="font-size: 11px; font-weight: 800; color: #0f5132; margin-bottom: 6px;">EARNINGS</div>
+            <div style="display: flex; flex-direction: column; gap: 5px; font-size: 12px;">
+              <div style="display: flex; justify-content: space-between;"><span>Basic Salary</span><strong>${fmtRs(basic)}</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span>Overtime</span><strong>${isNoShift ? '-' : fmtRs(p.overtime_pay)}</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span>Allowances</span><strong>${fmtRs(p.allowance)}</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span>Incentives</span><strong>${fmtRs(p.incentive)}</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span>Other Earnings</span><strong>${fmtRs(p.other_earnings || p.petrol_allowance || 0)}</strong></div>
+              <div style="display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 5px; font-weight: 800; color: #198754;">
+                <span>Total Earnings</span><span>${fmtRs(p.total_earnings)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px;">
+            <div style="font-size: 11px; font-weight: 800; color: #dc2626; margin-bottom: 6px;">DEDUCTIONS</div>
+            <div style="display: flex; flex-direction: column; gap: 5px; font-size: 12px;">
+              <div style="display: flex; justify-content: space-between;"><span>Paid Salary</span><strong>${fmtRs(p.paid_salary)}</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span>Advance Repayment</span><strong>${fmtRs(p.advance_repayment)}</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span>Other Deductions</span><strong>${fmtRs(p.other_deductions)}</strong></div>
+              <div style="display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 5px; font-weight: 800; color: #dc2626;">
+                <span>Total Deductions</span><span>${fmtRs(deduct)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: #198754; color: #ffffff; border-radius: 8px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div style="font-size: 11px; font-weight: 700; opacity: 0.9;">NET PAYABLE</div>
+            <div style="font-size: 11px; opacity: 0.9;">${escapeHtml(p.net_pay_in_words || '')}</div>
+          </div>
+          <div style="font-size: 22px; font-weight: 900;">${fmtRs(net)}</div>
+        </div>
+      `;
+
+      modalPortalPayslipPreview.style.display = 'flex';
+    }
+
+    function closePortalPayslipModal() {
+      if (modalPortalPayslipPreview) modalPortalPayslipPreview.style.display = 'none';
+    }
+    if (closePortalPayslipModalBtn) closePortalPayslipModalBtn.addEventListener('click', closePortalPayslipModal);
+    if (donePortalPayslipModalBtn) donePortalPayslipModalBtn.addEventListener('click', closePortalPayslipModal);
+
+    function triggerEmployeePayslipPdfDownload() {
+      const month = (payslipMonthInput ? payslipMonthInput.value : '') || `${curYear}-${curMonth}`;
+      const empParam = lastLoadedPayslip && lastLoadedPayslip.employee_name
+        ? `&employee_name=${encodeURIComponent(lastLoadedPayslip.employee_name)}`
+        : '';
+      window.open(`/api/payslip/export/pdf?month=${encodeURIComponent(month)}${empParam}`, '_blank');
+    }
+    if (btnModalDownloadPayslipPdf) {
+      btnModalDownloadPayslipPdf.addEventListener('click', triggerEmployeePayslipPdfDownload);
+    }
 
     if (payslipMonthInput) {
       payslipMonthInput.value = `${curYear}-${curMonth}`;
 
-      async function loadPayslip() {
+      async function loadPayslip(opts = {}) {
+        const openModal = Boolean(opts && opts.openModal);
         const month = payslipMonthInput.value || `${curYear}-${curMonth}`;
+        if (payslipErrorBanner) {
+          payslipErrorBanner.style.display = 'none';
+          payslipErrorBanner.textContent = '';
+        }
+        const origLabel = btnLoadPayslip ? btnLoadPayslip.textContent : 'View Payslip';
+        if (openModal && btnLoadPayslip) {
+          btnLoadPayslip.disabled = true;
+          btnLoadPayslip.textContent = 'Loading...';
+        }
         try {
-          const res = await fetch(`/api/employee/my-payslip?month=${month}`);
+          const res = await fetch(`/api/employee/my-payslip?month=${encodeURIComponent(month)}`, { cache: 'no-store' });
           const data = await res.json();
+          if (!res.ok || data.error) {
+            throw new Error(data.error || `Failed to load payslip (${res.status})`);
+          }
           const p = data.payslip || data || {};
+          lastLoadedPayslip = p;
           const basic = p.basic_salary !== undefined ? p.basic_salary : (p.basic_earnings || 0);
           const deduct = p.total_deduction !== undefined ? p.total_deduction : (p.total_deductions || 0);
           const net = p.net_pay !== undefined ? p.net_pay : (p.net_salary || 0);
@@ -3243,21 +3399,32 @@
             const permInfo = permHrs > 0 ? ` | Perm: ${permHrs}h` : '';
             elWD.textContent = `Working Days: ${daysLabel} | Hours: ${hrs}${leaveInfo}${permInfo}`;
           }
+
+          if (openModal) {
+            openPortalPayslipModal(p);
+          }
         } catch (err) {
           console.warn('Error loading payslip:', err);
+          if (payslipErrorBanner) {
+            payslipErrorBanner.textContent = err.message || 'Unable to load payslip for selected month.';
+            payslipErrorBanner.style.display = 'block';
+          }
+        } finally {
+          if (openModal && btnLoadPayslip) {
+            btnLoadPayslip.disabled = false;
+            btnLoadPayslip.textContent = origLabel;
+          }
         }
       }
 
+      payslipMonthInput.addEventListener('change', () => loadPayslip({ openModal: false }));
       if (btnLoadPayslip) {
-        btnLoadPayslip.addEventListener('click', loadPayslip);
-        loadPayslip();
+        btnLoadPayslip.addEventListener('click', () => loadPayslip({ openModal: true }));
+        loadPayslip({ openModal: false });
       }
 
       if (btnDownloadPayslip) {
-        btnDownloadPayslip.addEventListener('click', function () {
-          const month = payslipMonthInput.value || `${curYear}-${curMonth}`;
-          window.open(`/api/payslip/export/pdf?month=${month}`, '_blank');
-        });
+        btnDownloadPayslip.addEventListener('click', triggerEmployeePayslipPdfDownload);
       }
     }
 
