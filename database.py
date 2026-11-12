@@ -5144,6 +5144,7 @@ def create_manual_entry(data, company_id=None):
     entry_id = int(time.time() * 1000)
     
     reason = str(data.get('reason') or '').strip()
+    recorded_by = str(data.get('recorded_by') or '').strip()
     assigned_branch_id = data.get('branch_id') or (emp.get('branch_id') if emp else None)
     doc = {
         'id': entry_id,
@@ -5154,6 +5155,7 @@ def create_manual_entry(data, company_id=None):
         'hours': hours_str,
         'status': status,
         'reason': reason,
+        'recorded_by': recorded_by,
         'submitted_at': now_ts,
         'hourly_rate': hourly_rate,
         'day_rate': day_rate,
@@ -5224,6 +5226,8 @@ def update_manual_entry(entry_id, data):
         'salary_type': salary_type,
         'working_salary': working_salary
     }
+    if 'recorded_by' in data:
+        upd['recorded_by'] = str(data.get('recorded_by') or '').strip()
     db.manual_entries.update_one(build_id_filter(entry_id), {'$set': upd})
     return True
 
@@ -5796,11 +5800,11 @@ def _compute_employee_monthly_salary_payload(
     manual_entries=None, payments=None, adv_doc=None,
     approved_leaves=None, approved_perms=None,
     travel_logs=None, petrol_cfg=None, visits=None,
-    include_heavy_media=True
+    include_heavy_media=True, paid_holidays=None
 ):
     """
     Compute complete monthly payroll metrics (working days, working hours, overtime hours/pay,
-    earnings, deductions, leaves, permissions, net pay) for one employee and month.
+    earnings, deductions, leaves, permissions, paid holidays, net pay) for one employee and month.
     Shared by Payslip Preview/PDF and Dynamic Salary Report.
     """
     records = records or []
@@ -5810,6 +5814,8 @@ def _compute_employee_monthly_salary_payload(
     approved_perms = approved_perms or []
     travel_logs = travel_logs or []
     visits = visits or []
+    if paid_holidays is None:
+        paid_holidays = get_company_holidays(assigned_company_id, month=month_year)
 
     try:
         parts = month_year.split('-')
@@ -6134,6 +6140,22 @@ def _compute_employee_monthly_salary_payload(
     except Exception:
         month_start = month_end = None
 
+    holiday_dates_map = {}
+    for hol in (paid_holidays or []):
+        if hol.get('is_paid') is False:
+            continue
+        h_date = normalize_iso_date(hol.get('date'))
+        if not h_date or not h_date.startswith(str(month_year)):
+            continue
+        if month_start and month_end:
+            try:
+                hd = datetime.strptime(h_date, '%Y-%m-%d').date()
+                if not (month_start <= hd <= month_end):
+                    continue
+            except Exception:
+                continue
+        holiday_dates_map[h_date] = str(hol.get('holiday_name') or 'Paid Holiday').strip()
+
     paid_leave_days = 0.0
     paid_leave_half_days = 0
     paid_leave_details = []
@@ -6148,7 +6170,7 @@ def _compute_employee_monthly_salary_payload(
         if session == 'Half Day':
             if month_start and month_end and month_start <= fd <= month_end:
                 d_str = fd.strftime('%Y-%m-%d')
-                if daily_minutes.get(d_str, 0) < shift_target_minutes:
+                if d_str not in holiday_dates_map and daily_minutes.get(d_str, 0) < shift_target_minutes:
                     paid_leave_days += 0.5
                     paid_leave_half_days += 1
                     paid_leave_details.append({'date': d_str, 'type': leave_type, 'days': 0.5, 'session': 'Half Day'})
@@ -6157,10 +6179,17 @@ def _compute_employee_monthly_salary_payload(
             end_lv = min(td, month_end) if month_end else td
             while current <= end_lv:
                 d_str = current.strftime('%Y-%m-%d')
-                if daily_minutes.get(d_str, 0) == 0:
+                if d_str not in holiday_dates_map and daily_minutes.get(d_str, 0) == 0:
                     paid_leave_days += 1.0
                     paid_leave_details.append({'date': d_str, 'type': leave_type, 'days': 1.0, 'session': 'Full Day'})
                 current += timedelta(days=1)
+
+    paid_holiday_days = 0
+    paid_holiday_details = []
+    for h_date in sorted(holiday_dates_map.keys()):
+        if daily_minutes.get(h_date, 0) == 0:
+            paid_holiday_days += 1
+            paid_holiday_details.append({'date': h_date, 'holiday_name': holiday_dates_map[h_date]})
 
     permission_hours_used = 0.0
     permission_details = []
@@ -6173,20 +6202,25 @@ def _compute_employee_monthly_salary_payload(
             'type': pm.get('permission_type', 'Short Leave')
         })
 
-    paid_leave_salary = 0.0
-    if paid_leave_days > 0 and shift_target_minutes > 0:
+    def _compute_paid_non_work_days_amount(days_count):
+        if days_count <= 0 or shift_target_minutes <= 0:
+            return 0.0
         if salary_type == 'daily':
-            paid_leave_salary = round((paid_leave_days * day_salary), 2)
-        elif salary_type == 'half_day':
-            paid_leave_salary = round((paid_leave_days * 2 * effective_half), 2)
-        elif salary_type == 'hourly':
-            paid_leave_salary = round((paid_leave_days * shift_target_minutes / 60.0) * hours_salary, 2)
-        else:
-            if day_salary > 0:
-                paid_leave_salary = round((paid_leave_days * day_salary), 2)
-            elif hours_salary > 0:
-                paid_leave_salary = round((paid_leave_days * shift_target_minutes / 60.0) * hours_salary, 2)
-        basic_salary = round(basic_salary + paid_leave_salary, 2)
+            return round(days_count * day_salary, 2)
+        if salary_type == 'half_day':
+            return round(days_count * 2 * effective_half, 2)
+        if salary_type == 'hourly':
+            return round((days_count * shift_target_minutes / 60.0) * hours_salary, 2)
+        if day_salary > 0:
+            return round(days_count * day_salary, 2)
+        if hours_salary > 0:
+            return round((days_count * shift_target_minutes / 60.0) * hours_salary, 2)
+        return 0.0
+
+    paid_leave_salary = _compute_paid_non_work_days_amount(paid_leave_days)
+    paid_holiday_salary = _compute_paid_non_work_days_amount(paid_holiday_days)
+    if paid_leave_salary > 0 or paid_holiday_salary > 0:
+        basic_salary = round(basic_salary + paid_leave_salary + paid_holiday_salary, 2)
 
     out_basic = round(basic_salary, 2) if salary_type == 'hourly' else int(round(basic_salary))
     out_overtime = round(overtime_pay, 2) if salary_type == 'hourly' else int(round(overtime_pay))
@@ -6197,7 +6231,7 @@ def _compute_employee_monthly_salary_payload(
     out_tot_earn = round(raw_tot_earn, 2) if salary_type == 'hourly' else int(round(raw_tot_earn))
     raw_net_pay = max(0.0, float(out_tot_earn) - float(total_deduction))
     out_net_pay = round(raw_net_pay, 2) if salary_type == 'hourly' else int(round(raw_net_pay))
-    absent_days_lop = max(0, leave_days - paid_leave_days)
+    absent_days_lop = max(0, leave_days - paid_leave_days - paid_holiday_days)
     net_pay_in_words = number_to_words(out_net_pay)
 
     basis_labels = {'hourly': 'Hourly-Based', 'daily': 'Day-Based', 'half_day': 'Half-Day-Based'}
@@ -6287,10 +6321,17 @@ def _compute_employee_monthly_salary_payload(
         'paid_leave_half_days': paid_leave_half_days,
         'paid_leave_salary': round(paid_leave_salary, 2) if salary_type == 'hourly' else int(round(paid_leave_salary)),
         'paid_leave_details': paid_leave_details,
+        'paid_holiday_days': paid_holiday_days,
+        'paid_holiday_salary': round(paid_holiday_salary, 2) if salary_type == 'hourly' else int(round(paid_holiday_salary)),
+        'paid_holiday_details': paid_holiday_details,
         'absent_days_lop': absent_days_lop,
         'permission_hours_used': permission_hours_used,
         'permission_details': permission_details,
-        'leave_breakdown': f"{int(paid_leave_days)} Paid, {int(absent_days_lop)} LOP" if (paid_leave_days > 0 or absent_days_lop > 0) else f"{leave_days} Leave",
+        'leave_breakdown': (
+            f"{_fmt_leave_num(float(paid_leave_days))} Paid"
+            + (f", {paid_holiday_days} Holiday" if paid_holiday_days > 0 else "")
+            + f", {_fmt_leave_num(float(absent_days_lop))} LOP"
+        ) if (paid_leave_days > 0 or paid_holiday_days > 0 or absent_days_lop > 0) else f"{leave_days} Leave",
     }
 
 
@@ -6451,6 +6492,7 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
                 pm_by_em.setdefault((ename, mo_k), []).append(l_rec)
 
     search_low = search.strip().lower() if search and str(search).strip() else ''
+    holiday_cache = {}
     rows = []
     for mo_k in months_list:
         mo_active_names = active_in_month.get(mo_k, set())
@@ -6464,6 +6506,9 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
 
             cid_e = str(emp_d.get('company_id') or company_id or 'ARGUS_MASTER')
             comp_doc = comp_cache.get(cid_e) or comp_cache.get('ARGUS_MASTER')
+            hol_key = (cid_e, mo_k)
+            if hol_key not in holiday_cache:
+                holiday_cache[hol_key] = get_company_holidays(cid_e, month=mo_k)
 
             if b_id:
                 res_b_name = 'HOME' if is_home_branch_id(b_id) else (active_b_obj.get('branch_name') if active_b_obj else b_id)
@@ -6499,7 +6544,8 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
                 travel_logs=logs_by_key.get(k, []) if emp_d.get('is_field_worker') else [],
                 petrol_cfg=petrol_cfg_cache.get(cid_e) if emp_d.get('is_field_worker') else None,
                 visits=visits_by_key.get(k, []) if emp_d.get('is_field_worker') else [],
-                include_heavy_media=False
+                include_heavy_media=False,
+                paid_holidays=holiday_cache.get(hol_key, [])
             )
 
             other_earn_total = round(
@@ -6528,6 +6574,8 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
                 'incentive': payload['incentive'],
                 'other_earnings': other_earn_total,
                 'basic_earnings': payload['basic_salary'],
+                'paid_holiday_days': payload.get('paid_holiday_days', 0),
+                'paid_holiday_salary': payload.get('paid_holiday_salary', 0),
                 'total_earnings': payload['total_earnings'],
                 'paid_salary': payload['paid_salary'],
                 'advance_repayment': payload['advance_repayment'],
@@ -7154,29 +7202,8 @@ def save_employee_leave_quota(emp_id, quota_data, company_id=None, year=None):
         'quota': leave_quota
     }
 
-def save_employee_custom_leaves(emp_id, custom_leaves_list, company_id=None, year=None):
-    """
-    Saves dynamic custom leave types for a specific employee.
-    Each item has:
-      - 'name': str (e.g. 'Casual Leave', 'Sick Leave', 'Special Leave', 'Short Permission', etc.)
-      - 'total': float/int (allocated count)
-      - 'unit': str ('Days' or 'Hours', default 'Days')
-    Persists to db.employees and updates db.leave_balances.
-    """
-    db = get_db()
-    if not emp_id:
-        return {'success': False, 'error': 'Employee ID is required'}
-        
-    emp = db.employees.find_one(build_id_filter(emp_id))
-    if not emp:
-        return {'success': False, 'error': f"Employee with ID '{emp_id}' not found"}
-
-    e_id = str(emp.get('id') or emp.get('_id'))
-    comp_id = company_id or emp.get('company_id') or 'ARGUS_MASTER'
-    if year is None:
-        year = get_ist_now().year
-
-    # Process and sanitize custom leaves list
+def _normalize_custom_leaves_list(custom_leaves_list, default_source='employee'):
+    """Sanitize a list of custom leave/permission items into canonical dicts."""
     processed_leaves = []
     seen_names = set()
     for item in (custom_leaves_list or []):
@@ -7189,50 +7216,53 @@ def save_employee_custom_leaves(emp_id, custom_leaves_list, company_id=None, yea
         if norm_name in seen_names:
             continue
         seen_names.add(norm_name)
-        
+
         try:
-            total_val = float(item.get('total') or item.get('quota') or 0.0)
+            total_val = float(item.get('total') if item.get('total') is not None else (item.get('quota') or 0.0))
             if total_val.is_integer():
                 total_val = int(total_val)
         except (ValueError, TypeError):
             total_val = 0
-            
-        unit_val = str(item.get('unit') or 'Days').strip().capitalize()
-        if unit_val not in ['Days', 'Hours']:
-            unit_val = 'Days'
-            
+
+        raw_unit = str(item.get('unit') or 'Days').strip().lower()
+        unit_val = 'Hours' if ('hour' in raw_unit or raw_unit == 'hrs') else 'Days'
+        src_val = str(item.get('source') or default_source or 'employee').strip().lower()
+        if src_val not in ('overall', 'employee'):
+            src_val = default_source
+
         processed_leaves.append({
             'name': raw_name,
             'total': max(0, total_val),
-            'unit': unit_val
+            'unit': unit_val,
+            'source': src_val
         })
+    return processed_leaves
 
-    # 1. Update in db.employees
+
+def _sync_employee_balance_custom_leaves(db, emp, processed_leaves, comp_id, year):
+    """Persist processed_leaves onto emp and merge used counts into db.leave_balances."""
+    e_id = str(emp.get('id') or emp.get('_id'))
     db.employees.update_one(
-        build_id_filter(emp_id),
+        {'_id': emp['_id']},
         {'$set': {
             'custom_leaves': processed_leaves,
             'updated_at': get_ist_now()
         }}
     )
 
-    # 2. Update or insert in db.leave_balances
+    id_candidates = [e_id]
+    if str(e_id).isdigit():
+        id_candidates.append(int(e_id))
     bal = db.leave_balances.find_one({
-        '$or': [
-            {'employee_id': str(e_id)},
-            {'employee_id': int(e_id) if str(e_id).isdigit() else str(e_id)},
-            {'employee_id': str(emp_id)},
-            {'employee_id': int(emp_id) if str(emp_id).isdigit() else str(emp_id)}
-        ],
+        'employee_id': {'$in': id_candidates},
         'year': int(year)
     })
 
-    # Map previous used counts for matching leave types (case-insensitive)
     existing_used_map = {}
     if bal and 'custom_leaves' in bal:
         for ex in bal['custom_leaves']:
             if isinstance(ex, dict) and 'name' in ex:
-                existing_used_map[ex['name'].lower()] = float(ex.get('used', 0.0))
+                existing_used_map[str(ex['name']).strip().lower()] = float(ex.get('used', 0.0))
 
     if bal:
         cl_u = float(bal.get('casual_leave', {}).get('used', 0.0) if isinstance(bal.get('casual_leave'), dict) else 0.0)
@@ -7253,13 +7283,14 @@ def save_employee_custom_leaves(emp_id, custom_leaves_list, company_id=None, yea
             avail_val = int(avail_val)
         if isinstance(used_val, float) and used_val.is_integer():
             used_val = int(used_val)
-            
+
         final_balance_leaves.append({
             'name': pl['name'],
             'total': pl['total'],
             'used': used_val,
             'available': avail_val,
-            'unit': pl['unit']
+            'unit': pl['unit'],
+            'source': pl.get('source', 'employee')
         })
 
     if bal:
@@ -7281,11 +7312,310 @@ def save_employee_custom_leaves(emp_id, custom_leaves_list, company_id=None, yea
         }
         db.leave_balances.insert_one(new_bal)
 
+    return final_balance_leaves
+
+
+def save_employee_custom_leaves(emp_id, custom_leaves_list, company_id=None, year=None):
+    """
+    Saves dynamic custom leave types for a specific employee.
+    Each item has:
+      - 'name': str (e.g. 'Casual Leave', 'Sick Leave', 'Special Leave', 'Short Permission', etc.)
+      - 'total': float/int (allocated count)
+      - 'unit': str ('Days' or 'Hours', default 'Days')
+    Persists to db.employees and updates db.leave_balances.
+    """
+    db = get_db()
+    if not emp_id:
+        return {'success': False, 'error': 'Employee ID is required'}
+
+    emp = db.employees.find_one(build_id_filter(emp_id))
+    if not emp:
+        return {'success': False, 'error': f"Employee with ID '{emp_id}' not found"}
+
+    comp_id = company_id or emp.get('company_id') or 'ARGUS_MASTER'
+    if year is None:
+        year = get_ist_now().year
+
+    processed_leaves = _normalize_custom_leaves_list(custom_leaves_list, default_source='employee')
+    final_balance_leaves = _sync_employee_balance_custom_leaves(db, emp, processed_leaves, comp_id, year)
+
     return {
         'success': True,
         'message': f"Custom leaves updated successfully for {emp.get('employee_name', emp_id)}",
         'custom_leaves': final_balance_leaves
     }
+
+
+def delete_employee_custom_leaves(emp_id, leave_name=None, company_id=None, year=None):
+    """Deletes one custom leave type or resets all custom leaves for a specific employee."""
+    db = get_db()
+    if not emp_id:
+        return {'success': False, 'error': 'Employee ID is required'}
+
+    emp = db.employees.find_one(build_id_filter(emp_id))
+    if not emp:
+        return {'success': False, 'error': f"Employee with ID '{emp_id}' not found"}
+
+    comp_id = company_id or emp.get('company_id') or 'ARGUS_MASTER'
+    if year is None:
+        year = get_ist_now().year
+
+    target_name = str(leave_name or '').strip().lower()
+    if target_name:
+        existing = emp.get('custom_leaves') or []
+        remaining = [item for item in existing if str(item.get('name') or '').strip().lower() != target_name]
+    else:
+        remaining = []
+
+    final_balance_leaves = _sync_employee_balance_custom_leaves(db, emp, remaining, comp_id, year)
+    return {
+        'success': True,
+        'message': f"Removed leave configuration for {emp.get('employee_name', emp_id)}",
+        'custom_leaves': final_balance_leaves
+    }
+
+
+def _company_policy_storage_id(company_id):
+    is_global = not company_id or str(company_id).upper() in ['ALL', 'ARGUS_MASTER', 'DEFAULT', '']
+    return ('DEFAULT' if is_global else str(company_id)), is_global
+
+
+def _company_employee_filter(storage_comp_id, is_global):
+    if is_global:
+        return {}
+    opts = [{'company_id': storage_comp_id}]
+    if str(storage_comp_id).isdigit():
+        opts.append({'company_id': int(storage_comp_id)})
+    return {'$or': opts}
+
+
+def get_company_overall_leaves(company_id):
+    """Returns configured company-wide overall leaves & permissions list."""
+    db = get_db()
+    storage_comp_id, is_global = _company_policy_storage_id(company_id)
+    pol_rec = db.leave_policies.find_one({'company_id': storage_comp_id})
+    if not pol_rec and str(storage_comp_id).isdigit():
+        pol_rec = db.leave_policies.find_one({'company_id': int(storage_comp_id)})
+    if not pol_rec and is_global:
+        pol_rec = db.leave_policies.find_one({'company_id': {'$in': ['DEFAULT', 'ARGUS_MASTER', 'ALL']}})
+    if pol_rec and isinstance(pol_rec.get('overall_custom_leaves'), list):
+        return _normalize_custom_leaves_list(pol_rec['overall_custom_leaves'], default_source='overall')
+
+    comp = db.company_admin.find_one(build_id_filter(storage_comp_id)) or db.companies.find_one(build_id_filter(storage_comp_id))
+    if comp and isinstance(comp.get('overall_custom_leaves'), list):
+        return _normalize_custom_leaves_list(comp['overall_custom_leaves'], default_source='overall')
+    return []
+
+
+def _persist_company_overall_leaves_doc(db, storage_comp_id, is_global, overall_leaves):
+    update_fields = {'overall_custom_leaves': overall_leaves, 'updated_at': get_ist_now()}
+    if is_global:
+        for key in ('DEFAULT', 'ARGUS_MASTER', 'ALL'):
+            db.leave_policies.update_one({'company_id': key}, {'$set': {'company_id': key, **update_fields}}, upsert=True)
+    else:
+        db.leave_policies.update_one(
+            {'company_id': storage_comp_id},
+            {'$set': {'company_id': storage_comp_id, **update_fields}},
+            upsert=True
+        )
+        q = {'id': int(storage_comp_id)} if str(storage_comp_id).isdigit() else build_id_filter(storage_comp_id)
+        db.company_admin.update_one(q, {'$set': {'overall_custom_leaves': overall_leaves}})
+
+
+def save_company_overall_leaves(company_id, overall_leaves_list, year=None):
+    """
+    Saves company-wide overall leaves & permissions and merges them into all employees
+    in the company while preserving individual employee extra overrides and used counts.
+    """
+    db = get_db()
+    storage_comp_id, is_global = _company_policy_storage_id(company_id)
+    if year is None:
+        year = get_ist_now().year
+
+    overall_leaves = _normalize_custom_leaves_list(overall_leaves_list, default_source='overall')
+    for it in overall_leaves:
+        it['source'] = 'overall'
+
+    prev_overall = get_company_overall_leaves(company_id)
+    prev_names = {it['name'].lower() for it in prev_overall}
+    new_names = {it['name'].lower() for it in overall_leaves}
+    removed_overall_names = prev_names - new_names
+
+    _persist_company_overall_leaves_doc(db, storage_comp_id, is_global, overall_leaves)
+
+    emp_filter = _company_employee_filter(storage_comp_id, is_global)
+    employees = list(db.employees.find(emp_filter))
+    updated_count = 0
+    for emp in employees:
+        emp_cid = str(emp.get('company_id') or storage_comp_id)
+        existing_emp_leaves = emp.get('custom_leaves') or []
+        by_name = {}
+        merged = []
+
+        # Keep employee-specific leaves and updated company-wide leaves
+        for ex in existing_emp_leaves:
+            if not isinstance(ex, dict) or not ex.get('name'):
+                continue
+            n_low = str(ex['name']).strip().lower()
+            src = str(ex.get('source') or 'employee').strip().lower()
+            if n_low in removed_overall_names and src == 'overall':
+                continue
+            item_copy = {
+                'name': str(ex['name']).strip(),
+                'total': ex.get('total', 0),
+                'unit': 'Hours' if 'hour' in str(ex.get('unit') or 'Days').lower() else 'Days',
+                'source': src if src in ('overall', 'employee') else 'employee'
+            }
+            by_name[n_low] = len(merged)
+            merged.append(item_copy)
+
+        for ov in overall_leaves:
+            n_low = ov['name'].lower()
+            if n_low in by_name:
+                merged[by_name[n_low]] = dict(ov)
+            else:
+                by_name[n_low] = len(merged)
+                merged.append(dict(ov))
+
+        _sync_employee_balance_custom_leaves(db, emp, merged, emp_cid, year)
+        updated_count += 1
+
+    return {
+        'success': True,
+        'message': f"Overall company leaves saved and applied to {updated_count} employee(s).",
+        'overall_leaves': overall_leaves,
+        'employees_updated': updated_count
+    }
+
+
+def delete_company_overall_leave(company_id, leave_name, year=None):
+    """Deletes one leave/permission item from company-wide overall leaves and syncs employees."""
+    target_low = str(leave_name or '').strip().lower()
+    if not target_low:
+        return {'success': False, 'error': 'Leave name is required'}
+    current = get_company_overall_leaves(company_id)
+    remaining = [it for it in current if it['name'].lower() != target_low]
+    res = save_company_overall_leaves(company_id, remaining, year=year)
+    res['message'] = f"Removed '{leave_name}' from overall company leaves ({res.get('employees_updated', 0)} employee(s) updated)."
+    return res
+
+
+def get_company_holidays(company_id, month=None, year=None):
+    """Returns paid holidays configured for a company (optionally filtered by YYYY-MM or YYYY)."""
+    db = get_db()
+    storage_comp_id, is_global = _company_policy_storage_id(company_id)
+    if is_global:
+        q = {'company_id': {'$in': ['DEFAULT', 'ARGUS_MASTER', 'ALL']}}
+    else:
+        q = {'company_id': {'$in': [storage_comp_id] + ([int(storage_comp_id)] if storage_comp_id.isdigit() else [])}}
+
+    if month:
+        q['date'] = {'$regex': f'^{re.escape(str(month).strip())}'}
+    elif year:
+        q['date'] = {'$regex': f'^{re.escape(str(year).strip())}-'}
+
+    docs = list(db.company_holidays.find(q).sort('date', ASCENDING))
+    holidays = []
+    for d in docs:
+        c = clean_doc(d)
+        c['holiday_name'] = str(c.get('holiday_name') or 'Paid Holiday').strip()
+        c['is_paid'] = bool(c.get('is_paid', True))
+        holidays.append(c)
+    return holidays
+
+
+def save_company_holiday(company_id, holiday_data):
+    """Creates or upserts a paid holiday for a company on a specific YYYY-MM-DD date."""
+    db = get_db()
+    storage_comp_id, _ = _company_policy_storage_id(company_id)
+    h_date = normalize_iso_date(holiday_data.get('date'))
+    h_name = str(holiday_data.get('holiday_name') or holiday_data.get('name') or '').strip()
+    if not h_date:
+        return {'success': False, 'error': 'Valid holiday date (YYYY-MM-DD) is required'}
+    if not h_name:
+        return {'success': False, 'error': 'Holiday name is required'}
+
+    is_paid = parse_bool_flag(holiday_data.get('is_paid', True), default=True)
+    now_ist = get_ist_now()
+    existing = db.company_holidays.find_one({'company_id': storage_comp_id, 'date': h_date})
+    if existing:
+        h_id = str(existing.get('id') or existing.get('_id'))
+        db.company_holidays.update_one(
+            {'_id': existing['_id']},
+            {'$set': {
+                'holiday_name': h_name,
+                'is_paid': is_paid,
+                'updated_at': now_ist
+            }}
+        )
+        saved_doc = clean_doc(db.company_holidays.find_one({'_id': existing['_id']}))
+        return {'success': True, 'message': f"Updated paid holiday '{h_name}' on {h_date}.", 'holiday': saved_doc, 'id': h_id}
+
+    h_id = f"hol_{int(time.time() * 1000)}"
+    doc = {
+        'id': h_id,
+        'company_id': storage_comp_id,
+        'date': h_date,
+        'holiday_name': h_name,
+        'is_paid': is_paid,
+        'created_at': now_ist,
+        'updated_at': now_ist
+    }
+    res = db.company_holidays.insert_one(doc)
+    doc['_id'] = str(res.inserted_id)
+    return {'success': True, 'message': f"Added paid holiday '{h_name}' on {h_date}.", 'holiday': clean_doc(doc), 'id': h_id}
+
+
+def update_company_holiday(holiday_id, holiday_data, company_id=None):
+    """Updates an existing paid holiday's name or date."""
+    db = get_db()
+    if not holiday_id:
+        return {'success': False, 'error': 'Holiday ID is required'}
+    existing = db.company_holidays.find_one(build_id_filter(holiday_id))
+    if not existing:
+        return {'success': False, 'error': 'Holiday not found'}
+
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', 'DEFAULT']:
+        if str(existing.get('company_id')) != str(company_id):
+            return {'success': False, 'error': 'Unauthorized for this company holiday'}
+
+    upd = {'updated_at': get_ist_now()}
+    if holiday_data.get('holiday_name') or holiday_data.get('name'):
+        upd['holiday_name'] = str(holiday_data.get('holiday_name') or holiday_data.get('name')).strip()
+    if holiday_data.get('date'):
+        new_date = normalize_iso_date(holiday_data.get('date'))
+        if not new_date:
+            return {'success': False, 'error': 'Invalid holiday date'}
+        dup = db.company_holidays.find_one({
+            'company_id': existing.get('company_id'),
+            'date': new_date,
+            '_id': {'$ne': existing['_id']}
+        })
+        if dup:
+            return {'success': False, 'error': f"Another holiday '{dup.get('holiday_name')}' already exists on {new_date}"}
+        upd['date'] = new_date
+    if 'is_paid' in holiday_data:
+        upd['is_paid'] = parse_bool_flag(holiday_data.get('is_paid'), default=True)
+
+    db.company_holidays.update_one({'_id': existing['_id']}, {'$set': upd})
+    updated = clean_doc(db.company_holidays.find_one({'_id': existing['_id']}))
+    return {'success': True, 'message': 'Paid holiday updated successfully.', 'holiday': updated}
+
+
+def delete_company_holiday(holiday_id, company_id=None):
+    """Deletes a paid holiday record."""
+    db = get_db()
+    if not holiday_id:
+        return {'success': False, 'error': 'Holiday ID is required'}
+    existing = db.company_holidays.find_one(build_id_filter(holiday_id))
+    if not existing:
+        return {'success': False, 'error': 'Holiday not found'}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', 'DEFAULT']:
+        if str(existing.get('company_id')) != str(company_id):
+            return {'success': False, 'error': 'Unauthorized for this company holiday'}
+
+    db.company_holidays.delete_one({'_id': existing['_id']})
+    return {'success': True, 'message': f"Deleted holiday '{existing.get('holiday_name', '')}' on {existing.get('date', '')}."}
 
 def _fmt_leave_num(v):
     if isinstance(v, float) and v.is_integer():
@@ -7322,8 +7652,9 @@ def _build_new_leave_balance_doc(emp_id, comp_id, year, emp, pol):
     }
 
 
-def _extract_custom_leaves(emp):
-    if not emp or not emp.get('custom_leaves'):
+def _extract_custom_leaves(emp, overall_leaves=None):
+    source_list = (emp.get('custom_leaves') if emp else None) or overall_leaves or []
+    if not source_list:
         return []
     return [
         {
@@ -7331,9 +7662,11 @@ def _extract_custom_leaves(emp):
             'total': pl.get('total', 0),
             'used': 0,
             'available': pl.get('total', 0),
-            'unit': pl.get('unit', 'Days')
+            'unit': pl.get('unit', 'Days'),
+            'source': pl.get('source', 'overall' if (not emp or not emp.get('custom_leaves')) else 'employee')
         }
-        for pl in emp['custom_leaves']
+        for pl in source_list
+        if isinstance(pl, dict) and pl.get('name')
     ]
 
 
@@ -7434,11 +7767,19 @@ def get_employee_leave_balance(emp_id, company_id=None, year=None):
         bal = new_bal
 
     raw_oid = bal.get('_id')
-    had_custom = bool(bal.get('custom_leaves'))
+    had_custom = 'custom_leaves' in bal and bal.get('custom_leaves') is not None
     if not had_custom and emp is None:
-        emp = db.employees.find_one(build_id_filter(emp_id), {'custom_leaves': 1})
+        emp = db.employees.find_one(build_id_filter(emp_id), {'company_id': 1, 'custom_leaves': 1})
 
     enriched = _enrich_leave_balance_doc(bal, emp=emp)
+    if not had_custom and not enriched.get('custom_leaves') and (emp is None or 'custom_leaves' not in emp):
+        resolved_cid = company_id or (emp.get('company_id') if emp else None) or bal.get('company_id')
+        ov = get_company_overall_leaves(resolved_cid)
+        if ov:
+            enriched['custom_leaves'] = _extract_custom_leaves(None, overall_leaves=ov)
+            bal_with_ov = dict(bal)
+            bal_with_ov['custom_leaves'] = enriched['custom_leaves']
+            enriched = _enrich_leave_balance_doc(bal_with_ov, emp=emp)
     if not had_custom and enriched.get('custom_leaves') and raw_oid is not None:
         try:
             db.leave_balances.update_one({'_id': raw_oid}, {'$set': {'custom_leaves': enriched['custom_leaves']}})
@@ -7508,32 +7849,39 @@ def get_all_employees_leave_balances(company_id=None, year=None, search=None, br
         if bid_key not in bal_by_emp_id:
             bal_by_emp_id[bid_key] = b_doc
 
-    # Fetch company leave policy once at top
+    # Fetch company leave policy & overall custom leaves once at top
     policy_cache = {}
+    overall_cache = {}
     if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER', '']:
         policy_cache[str(company_id)] = get_company_leave_policy(company_id)
+        overall_cache[str(company_id)] = get_company_overall_leaves(company_id)
     missing_bals = []
     custom_updates = []
     results = []
 
     for emp, emp_id, emp_code, emp_name, dept in filtered_emps:
         b_doc = bal_by_emp_id.get(emp_id)
+        cid = emp.get('company_id') or company_id
+        ckey = str(cid or 'DEFAULT')
+        if ckey not in overall_cache:
+            overall_cache[ckey] = get_company_overall_leaves(cid)
         if not b_doc:
-            cid = emp.get('company_id') or company_id
-            ckey = str(cid or 'DEFAULT')
             if ckey not in policy_cache:
                 policy_cache[ckey] = get_company_leave_policy(cid)
             b_doc = _build_new_leave_balance_doc(emp_id, cid, year_int, emp, policy_cache[ckey])
-            c_extracted = _extract_custom_leaves(emp)
-            if c_extracted:
+            seed_ov = None if 'custom_leaves' in emp else overall_cache.get(ckey)
+            c_extracted = _extract_custom_leaves(emp, overall_leaves=seed_ov)
+            if c_extracted or 'custom_leaves' in emp:
                 b_doc['custom_leaves'] = c_extracted
             missing_bals.append(b_doc)
             bal_by_emp_id[emp_id] = b_doc
-        elif not b_doc.get('custom_leaves') and emp.get('custom_leaves'):
-            c_extracted = _extract_custom_leaves(emp)
-            b_doc['custom_leaves'] = c_extracted
-            if b_doc.get('_id') is not None:
-                custom_updates.append((b_doc['_id'], c_extracted))
+        elif 'custom_leaves' not in b_doc:
+            seed_ov = None if 'custom_leaves' in emp else overall_cache.get(ckey)
+            c_extracted = _extract_custom_leaves(emp, overall_leaves=seed_ov)
+            if c_extracted or 'custom_leaves' in emp:
+                b_doc['custom_leaves'] = c_extracted
+                if b_doc.get('_id') is not None:
+                    custom_updates.append((b_doc['_id'], c_extracted))
 
         bal = _enrich_leave_balance_doc(b_doc, emp=emp)
         cl = bal.get('casual_leave', {})

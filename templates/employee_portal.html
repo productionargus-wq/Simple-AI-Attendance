@@ -3121,9 +3121,10 @@
           if (elWD) {
             let leaveInfo = '';
             const paidLeave = p.paid_leave_days || 0;
+            const paidHol = p.paid_holiday_days || 0;
             const lopDays = p.absent_days_lop || 0;
             const totalLeave = p.leave_days || 0;
-            if (paidLeave > 0 || lopDays > 0) {
+            if (paidLeave > 0 || paidHol > 0 || lopDays > 0) {
               leaveInfo = ` | Leave: ${p.leave_breakdown || (paidLeave + ' Paid, ' + lopDays + ' LOP')}`;
             } else if (totalLeave > 0) {
               leaveInfo = ` | Leave: ${totalLeave}`;

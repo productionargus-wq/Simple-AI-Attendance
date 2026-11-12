@@ -3091,19 +3091,85 @@ def api_admin_save_employee_leave_quota():
         return jsonify(res), 400
     return jsonify(res)
 
-@app.route('/api/admin/leave-permission/employee-custom-leaves', methods=['POST'])
-@login_required
-def api_admin_save_employee_custom_leaves():
-    data = request.get_json(silent=True) or request.form.to_dict() or {}
-    emp_id = data.get('employee_id') or data.get('id')
-    if not emp_id:
-        return jsonify({'success': False, 'error': 'Employee ID is required'}), 400
+def _resolve_leave_admin_company_id(data=None):
     comp_id = get_current_company_id()
-    req_comp = data.get('company_id') or request.args.get('company_id')
+    req_comp = (data.get('company_id') if isinstance(data, dict) else None) or request.args.get('company_id')
     if req_comp and session.get('role') == 'super_admin':
         comp_id = req_comp
+    return comp_id
+
+
+@app.route('/api/admin/leave-permission/employee-custom-leaves', methods=['POST', 'DELETE'])
+@app.route('/api/admin/leave-permission/employee-custom-leaves/<emp_id>', methods=['DELETE'])
+@login_required
+def api_admin_save_employee_custom_leaves(emp_id=None):
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    target_emp_id = emp_id or data.get('employee_id') or data.get('id') or request.args.get('employee_id')
+    if not target_emp_id:
+        return jsonify({'success': False, 'error': 'Employee ID is required'}), 400
+    comp_id = _resolve_leave_admin_company_id(data)
+    if request.method == 'DELETE':
+        leave_name = data.get('leave_name') or data.get('name') or request.args.get('leave_name')
+        res = database.delete_employee_custom_leaves(target_emp_id, leave_name=leave_name, company_id=comp_id)
+        if not res.get('success'):
+            return jsonify(res), 400
+        return jsonify(res)
     custom_leaves = data.get('custom_leaves', [])
-    res = database.save_employee_custom_leaves(emp_id, custom_leaves, company_id=comp_id)
+    res = database.save_employee_custom_leaves(target_emp_id, custom_leaves, company_id=comp_id)
+    if not res.get('success'):
+        return jsonify(res), 400
+    return jsonify(res)
+
+
+@app.route('/api/admin/leave-permission/company-overall-leaves', methods=['GET', 'POST', 'DELETE'])
+@login_required
+def api_admin_company_overall_leaves():
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    comp_id = _resolve_leave_admin_company_id(data)
+    if request.method == 'GET':
+        items = database.get_company_overall_leaves(comp_id)
+        return jsonify({'success': True, 'overall_leaves': items})
+    if request.method == 'DELETE':
+        leave_name = data.get('leave_name') or data.get('name') or request.args.get('leave_name') or request.args.get('name')
+        res = database.delete_company_overall_leave(comp_id, leave_name)
+        if not res.get('success'):
+            return jsonify(res), 400
+        return jsonify(res)
+    items = data.get('overall_leaves', data.get('custom_leaves', []))
+    res = database.save_company_overall_leaves(comp_id, items)
+    if not res.get('success'):
+        return jsonify(res), 400
+    return jsonify(res)
+
+
+@app.route('/api/admin/leave-permission/holidays', methods=['GET', 'POST'])
+@login_required
+def api_admin_company_holidays():
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    comp_id = _resolve_leave_admin_company_id(data)
+    if request.method == 'GET':
+        month = request.args.get('month', '').strip() or None
+        year = request.args.get('year', '').strip() or None
+        holidays = database.get_company_holidays(comp_id, month=month, year=year)
+        return jsonify({'success': True, 'holidays': holidays})
+    res = database.save_company_holiday(comp_id, data)
+    if not res.get('success'):
+        return jsonify(res), 400
+    return jsonify(res)
+
+
+@app.route('/api/admin/leave-permission/holidays/<holiday_id>', methods=['PUT', 'DELETE'])
+@login_required
+def api_admin_company_holiday_item(holiday_id):
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    comp_id = _resolve_leave_admin_company_id(data)
+    scoped_cid = None if session.get('role') == 'super_admin' else comp_id
+    if request.method == 'DELETE':
+        res = database.delete_company_holiday(holiday_id, company_id=scoped_cid)
+        if not res.get('success'):
+            return jsonify(res), 400
+        return jsonify(res)
+    res = database.update_company_holiday(holiday_id, data, company_id=scoped_cid)
     if not res.get('success'):
         return jsonify(res), 400
     return jsonify(res)
@@ -3374,6 +3440,11 @@ def api_create_employee():
             data['is_field_worker'] = (emp_type == 'field_worker')
         elif 'is_field_worker' in data:
             data['is_field_worker'] = str(data['is_field_worker']).strip().lower() in ['true', '1', 'yes']
+
+        if session.get('role') != 'super_admin' and data.get('is_field_worker'):
+            comp_mods = database.get_company_modules(get_current_company_id())
+            if not comp_mods.get('field_worker'):
+                return jsonify({'error': 'Field Worker module is not enabled for this company.'}), 403
             
         data['permissions'] = extract_employee_permissions(data, default_val=True)
         
@@ -3444,6 +3515,11 @@ def api_update_employee(emp_id):
             data['is_field_worker'] = (emp_type == 'field_worker')
         elif 'is_field_worker' in data:
             data['is_field_worker'] = str(data['is_field_worker']).strip().lower() in ['true', '1', 'yes']
+
+        if session.get('role') != 'super_admin' and data.get('is_field_worker'):
+            comp_mods = database.get_company_modules(emp.get('company_id') or get_current_company_id())
+            if not comp_mods.get('field_worker'):
+                return jsonify({'error': 'Field Worker module is not enabled for this company.'}), 403
             
         face_registered = False
 
@@ -7057,6 +7133,88 @@ def api_coworker_ai_chat():
 
         parsed_action = None
 
+        def extract_manual_attendance_params(msg_text, existing=None, default_today=False):
+            p_out = dict(existing or {})
+            txt = str(msg_text or '').strip()
+            low = txt.lower()
+
+            # 1. Status (explicit "status ..." takes precedence; check "improper" before "proper")
+            explicit_st = re.search(
+                r'\bstatus\s*(?:will\s+be|is|as|:|=)?\s*(permission|improper|proper|others?|half\s*day|late|overtime)\b',
+                low
+            )
+            matched_st = explicit_st.group(1) if explicit_st else None
+            if not matched_st:
+                if 'half day' in low or re.search(r'\bhalf\b', low):
+                    matched_st = 'half day'
+                elif re.search(r'\bpermission\b', low):
+                    matched_st = 'permission'
+                elif re.search(r'\bimproper\b', low):
+                    matched_st = 'improper'
+                elif re.search(r'\b(?:as\s+other|others)\b', low):
+                    matched_st = 'others'
+                elif re.search(r'\blate\b', low):
+                    matched_st = 'late'
+                elif re.search(r'\bovertime\b', low):
+                    matched_st = 'overtime'
+                elif re.search(r'\bproper\b', low):
+                    matched_st = 'proper'
+
+            status_map = {
+                'proper': 'Proper',
+                'permission': 'Permission',
+                'improper': 'Improper',
+                'other': 'Others',
+                'others': 'Others',
+                'half day': 'Half Day',
+                'late': 'Late',
+                'overtime': 'Overtime'
+            }
+            if matched_st:
+                p_out['status'] = status_map.get(re.sub(r'\s+', ' ', matched_st).strip(), 'Proper')
+            elif not p_out.get('status'):
+                p_out['status'] = 'Proper'
+
+            # 2. Hours (match explicit hrs/hours or HH:MM without grabbing date components)
+            hr_m = re.search(r'\b(\d{1,2}(?::\d{2})?)\s*(?:hrs?|hours?)\b', low) or re.search(r'\b(\d{1,2}:\d{2})\b', low)
+            if hr_m:
+                raw_h = hr_m.group(1)
+                if ':' in raw_h:
+                    hh, mm = raw_h.split(':', 1)
+                    p_out['hours'] = f"{int(hh):02d}:{int(mm):02d}"
+                else:
+                    p_out['hours'] = f"{int(raw_h):02d}:00"
+            elif 'half' in low and not p_out.get('hours'):
+                p_out['hours'] = '04:00'
+            elif not p_out.get('hours'):
+                p_out['hours'] = '04:00' if p_out['status'] == 'Half Day' else '08:00'
+
+            # 3. Date
+            d_val = parse_date_from_text(txt, default_today=default_today and not p_out.get('date'))
+            if d_val:
+                p_out['date'] = d_val
+
+            # 4. Reason (support quoted/unquoted "reason ...", "because ...", "due to ...", "remarks ...", or "(reason)")
+            reason_val = ''
+            r_match = re.search(
+                r'(?:\breason\s*(?:is|as|:|=)?|\bbecause(?:\s+of)?|\bdue\s+to|\bremarks?\s*(?:is|as|:|=)?)\s*["\']?(.+?)["\']?(?=\s+(?:on\s+(?:today|yesterday|\d)|\bdate\b|\bstatus\b|\bwith\s+status\b|\d{1,2}(?::\d{2})?\s*(?:hrs?|hours?)\b)|$)',
+                txt,
+                re.IGNORECASE
+            )
+            if r_match:
+                reason_val = r_match.group(1).strip(" \t\r\n\"'.,;")
+            else:
+                paren_m = re.search(r'\(([^()]{2,120})\)', txt)
+                if paren_m:
+                    cand_r = paren_m.group(1).strip()
+                    if cand_r.lower() not in ('hh:mm', 'cl', 'sl', 'el') and not re.match(r'^\d{1,2}:\d{2}$', cand_r):
+                        reason_val = cand_r
+            if reason_val:
+                p_out['reason'] = reason_val
+
+            p_out['recorded_by'] = 'coworker'
+            return p_out
+
         # Check if there is an active pending multi-turn task awaiting user parameters
         if pending_task and isinstance(pending_task, dict) and pending_task.get('action'):
             p_action = pending_task.get('action')
@@ -7068,25 +7226,7 @@ def api_coworker_ai_chat():
                     cand_emp, _ = resolve_employee(user_message)
                 if cand_emp:
                     p_params['employee_name'] = cand_emp.get('employee_name')
-                
-                if 'half' in msg_lower:
-                    p_params['hours'] = '04:00'
-                    p_params['status'] = 'Half Day'
-                elif 'proper' in msg_lower:
-                    p_params['status'] = 'Proper'
-                elif 'improper' in msg_lower:
-                    p_params['status'] = 'Improper'
-                elif 'late' in msg_lower:
-                    p_params['status'] = 'Late'
-
-                hr_m = re.search(r'(\d{1,2}(?::\d{2})?)\s*(?:hrs?|hours?)?', msg_lower)
-                if hr_m and 'half' not in msg_lower:
-                    raw_h = hr_m.group(1)
-                    p_params['hours'] = f"{int(raw_h):02d}:00" if ':' not in raw_h else raw_h
-
-                date_val = parse_date_from_text(user_message, default_today=False)
-                if date_val:
-                    p_params['date'] = date_val
+                p_params = extract_manual_attendance_params(user_message, existing=p_params, default_today=False)
 
                 if p_params.get('employee_name'):
                     parsed_action = {'action': 'create_manual_attendance', 'parameters': p_params, 'reply_text': ''}
@@ -7263,23 +7403,14 @@ def api_coworker_ai_chat():
             ) and not is_nav and not any(p in msg_lower for p in ['who is present', 'who is absent', 'is present', 'present today', 'how many present', 'summary']):
                 emp_doc_found = find_employee_in_text(user_message)
                 target_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
-                hours_val = '04:00' if 'half' in msg_lower else '08:00'
-                hr_m = re.search(r'(\d{1,2}(?::\d{2})?)\s*(?:hrs?|hours?)?', msg_lower)
-                if hr_m and 'half' not in msg_lower:
-                    raw_h = hr_m.group(1)
-                    hours_val = f"{int(raw_h):02d}:00" if ':' not in raw_h else raw_h
-
-                st_val = 'Half Day' if 'half' in msg_lower else ('Improper' if 'improper' in msg_lower else ('Late' if 'late' in msg_lower else ('Overtime' if 'overtime' in msg_lower else 'Proper')))
-                date_val = parse_date_from_text(user_message, default_today=True)
+                m_params = extract_manual_attendance_params(
+                    user_message,
+                    existing={'employee_name': target_emp},
+                    default_today=True
+                )
                 parsed_action = {
                     'action': 'create_manual_attendance',
-                    'parameters': {
-                        'employee_name': target_emp,
-                        'hours': hours_val,
-                        'status': st_val,
-                        'date': date_val,
-                        'reason': 'Recorded by Co-Worker'
-                    },
+                    'parameters': m_params,
                     'reply_text': ''
                 }
 
@@ -7385,6 +7516,7 @@ def api_coworker_ai_chat():
                         f"Employees: [{emp_list_str}]\n"
                         f'User Message: "{clean_msg}"\n'
                         "Select one action: 'create_payment', 'create_advance', 'create_manual_attendance', 'apply_leave', 'download_payslip', 'check_attendance', 'check_payments', 'general_chat'.\n"
+                        "For 'create_manual_attendance', extract parameters: employee_name, date (YYYY-MM-DD), hours (HH:MM), status ('Proper'|'Permission'|'Improper'|'Others'|'Half Day'|'Late'|'Overtime'), reason (user-provided reason string or empty string if none).\n"
                         "Respond ONLY as JSON matching: { \"action\": string, \"parameters\": { ... }, \"reply_text\": string }"
                     )
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={gemini_key}"
@@ -7564,7 +7696,14 @@ def api_coworker_ai_chat():
 
             date_str = params.get('date') or parse_date_from_text(user_message, default_today=True)
             hours_str = params.get('hours') or '08:00'
-            status = params.get('status') or 'Proper'
+            status = str(params.get('status') or 'Proper').strip() or 'Proper'
+            raw_reason = str(params.get('reason') or '').strip()
+            if not raw_reason:
+                extracted_fallback = extract_manual_attendance_params(user_message, existing=params, default_today=True)
+                raw_reason = str(extracted_fallback.get('reason') or '').strip()
+                if not params.get('status') and extracted_fallback.get('status'):
+                    status = extracted_fallback['status']
+            display_reason = raw_reason if raw_reason else 'Recorded by Coworker'
             target_cid = (emp_doc.get('company_id') if emp_doc else None) or (cid if cid != 'ARGUS_MASTER' else None) or (emp_doc.get('company_id') if emp_doc else 'ARGUS_MASTER')
             target_bid = (emp_doc.get('branch_id') if emp_doc else None) or bid
             entry_payload = {
@@ -7574,7 +7713,8 @@ def api_coworker_ai_chat():
                 'hours': hours_str,
                 'mode': 'Hours',
                 'status': status,
-                'reason': params.get('reason') or 'Recorded by Co-Worker',
+                'reason': display_reason,
+                'recorded_by': 'coworker',
                 'company_id': target_cid,
                 'branch_id': target_bid
             }
@@ -7583,7 +7723,7 @@ def api_coworker_ai_chat():
 
             return jsonify({
                 'success': True,
-                'reply': f"Logged manual attendance for **{canonical_emp}** on **{date_str}** ({hours_str} hrs, **{status}**). Entry ID is **#{ins_id}**.",
+                'reply': f"Logged manual attendance for **{canonical_emp}** on **{date_str}** ({hours_str} hrs, **{status} ({display_reason})**). Entry ID is **#{ins_id}**.",
                 'task_executed': True,
                 'action': 'refresh_manual_entries',
                 'task_data': {
@@ -7592,7 +7732,8 @@ def api_coworker_ai_chat():
                         'Employee': canonical_emp,
                         'Date': date_str,
                         'Hours': hours_str,
-                        'Status': status,
+                        'Status': f"{status} ({display_reason})",
+                        'Source': 'Recorded by Coworker',
                         'Entry ID': str(ins_id)
                     },
                     'action_label': 'View Manual Entries',

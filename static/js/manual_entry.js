@@ -120,7 +120,12 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       const hoursDisplay = isSub ? `-${escapeHtml(r.hours || '')}` : escapeHtml(r.hours || '');
       const rawStatus = r.status || '';
-      const rawReason = (r.reason || '').trim();
+      const isCoworkerEntry = String(r.recorded_by || '').trim().toLowerCase() === 'coworker'
+        || /^recorded by co-?worker$/i.test(String(r.reason || '').trim());
+      let rawReason = (r.reason || '').trim();
+      if (!rawReason && isCoworkerEntry) {
+        rawReason = 'Recorded by Coworker';
+      }
       let statusDisplay = rawStatus;
       if (rawReason) {
         if (rawReason.startsWith('(') && rawReason.endsWith(')')) {
@@ -129,12 +134,15 @@ document.addEventListener('DOMContentLoaded', function () {
           statusDisplay = `${rawStatus} (${rawReason})`;
         }
       }
+      const coworkerBadgeHtml = isCoworkerEntry
+        ? ` <span style="display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 2px 7px; font-size: 10.5px; font-weight: 700; border-radius: 999px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; white-space: nowrap;" title="Entered via Co-Worker AI">🤖 Recorded by Coworker</span>`
+        : '';
 
       tr.innerHTML = `
         <td class="col-wrap sticky-col-emp" style="white-space: normal !important; word-break: break-word !important; min-width: 140px;">${escapeHtml(r.employee_name)}</td>
         <td>${escapeHtml(r.entry_date || '')}</td>
         <td>${hoursDisplay}</td>
-        <td class="col-wrap" style="white-space: normal !important; word-break: break-word !important; min-width: 120px;">${escapeHtml(statusDisplay)}</td>
+        <td class="col-wrap" style="white-space: normal !important; word-break: break-word !important; min-width: 150px;"><span>${escapeHtml(statusDisplay)}</span>${coworkerBadgeHtml}</td>
         <td>${escapeHtml(r.submitted_at || '')}</td>
         <td>${Number(r.hourly_rate || 0).toFixed(0)}</td>
         <td>${Number(r.day_rate || 0).toFixed(0)}</td>

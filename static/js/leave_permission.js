@@ -203,45 +203,88 @@ document.addEventListener('DOMContentLoaded', function () {
             ${leavesHtml}
           </td>
           <td style="padding: 10px 14px; text-align: center;">
-            <button type="button" class="btn-set-quota" 
-              data-id="${escapeHtml(empId)}" 
-              data-name="${escapeHtml(empName)}" 
-              data-comp="${escapeHtml(compId)}"
-              style="display: inline-flex; align-items: center; justify-content: center; padding: 5px 16px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background: #0284c7; color: #ffffff; border: none; cursor: pointer; transition: all 0.15s ease;">
-              Set
-            </button>
+            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+              <button type="button" class="btn-set-quota" 
+                data-id="${escapeHtml(empId)}" 
+                data-name="${escapeHtml(empName)}" 
+                data-comp="${escapeHtml(compId)}"
+                style="display: inline-flex; align-items: center; justify-content: center; padding: 5px 11px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background: #0284c7; color: #ffffff; border: none; cursor: pointer; transition: all 0.15s ease;">
+                Edit
+              </button>
+              <button type="button" class="btn-del-emp-leaves" 
+                data-id="${escapeHtml(empId)}" 
+                data-name="${escapeHtml(empName)}" 
+                data-comp="${escapeHtml(compId)}"
+                style="display: inline-flex; align-items: center; justify-content: center; padding: 5px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer; transition: all 0.15s ease;">
+                Delete
+              </button>
+            </div>
           </td>
         </tr>
       `;
     }).join('');
   }
 
-  // Handle click on "Set" button via delegation
+  // Handle click on "Edit" or "Delete" button via delegation
   if (balancesTbody) {
-    balancesTbody.addEventListener('click', function (e) {
-      const btn = e.target.closest('.btn-set-quota');
-      if (!btn) return;
-      const empId = btn.getAttribute('data-id');
-      const empName = btn.getAttribute('data-name');
-      const comp = btn.getAttribute('data-comp') || '';
+    balancesTbody.addEventListener('click', async function (e) {
+      const editBtn = e.target.closest('.btn-set-quota');
+      if (editBtn) {
+        const empId = editBtn.getAttribute('data-id');
+        const empName = editBtn.getAttribute('data-name');
+        const comp = editBtn.getAttribute('data-comp') || '';
 
-      const empData = cachedBalances.find(b => String(b.id || b.employee_id) === String(empId)) || {
-        id: empId,
-        employee_id: empId,
-        employee_name: empName,
-        company_id: comp,
-        custom_leaves: []
-      };
+        const empData = cachedBalances.find(b => String(b.id || b.employee_id) === String(empId)) || {
+          id: empId,
+          employee_id: empId,
+          employee_name: empName,
+          company_id: comp,
+          custom_leaves: []
+        };
 
-      openSetQuotaModal(empData);
+        openSetQuotaModal(empData);
+        return;
+      }
+
+      const delBtn = e.target.closest('.btn-del-emp-leaves');
+      if (delBtn) {
+        const empId = delBtn.getAttribute('data-id');
+        const empName = delBtn.getAttribute('data-name') || 'this employee';
+        const comp = delBtn.getAttribute('data-comp') || getSelectedCompanyId() || '';
+        if (!confirm(`Delete all custom leave & permission quotas configured for ${empName}?`)) return;
+        try {
+          delBtn.disabled = true;
+          const url = `/api/admin/leave-permission/employee-custom-leaves/${encodeURIComponent(empId)}${comp ? '?company_id=' + encodeURIComponent(comp) : ''}`;
+          const res = await fetch(url, { method: 'DELETE' });
+          const data = await res.json();
+          if (data.success) {
+            await loadBalances();
+          } else {
+            alert(data.error || 'Failed to delete employee leaves.');
+          }
+        } catch (err) {
+          alert('Error deleting employee leaves: ' + err.message);
+        } finally {
+          delBtn.disabled = false;
+        }
+      }
     });
   }
 
+  function buildLeaveUnitOptionsHtml(selectedUnit) {
+    const isHours = String(selectedUnit || 'Days').toLowerCase().includes('hour');
+    return `
+      <option value="Days" ${!isHours ? 'selected' : ''}>Days - Leave</option>
+      <option value="Hours" ${isHours ? 'selected' : ''}>Hours - Permission</option>
+    `;
+  }
+
   // Row builder for Custom Leave Form (Modal 2)
-  function createCustomLeaveRow(name = '', total = '', unit = 'Days') {
+  function createCustomLeaveRow(name = '', total = '', unit = 'Days', source = 'employee') {
     const row = document.createElement('div');
     row.className = 'custom-leave-row';
-    row.style.cssText = 'display: grid; grid-template-columns: 1fr 105px 95px 36px; gap: 8px; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0;';
+    row.setAttribute('data-source', source || 'employee');
+    row.style.cssText = 'display: grid; grid-template-columns: 1fr 90px 150px 108px; gap: 8px; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0;';
 
     row.innerHTML = `
       <div>
@@ -252,22 +295,39 @@ document.addEventListener('DOMContentLoaded', function () {
       </div>
       <div>
         <select class="custom-leave-unit" style="width: 100%; box-sizing: border-box; padding: 7px 6px; border-radius: 6px; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #ffffff;">
-          <option value="Days" ${unit === 'Days' ? 'selected' : ''}>Days</option>
-          <option value="Hours" ${unit === 'Hours' ? 'selected' : ''}>Hours</option>
+          ${buildLeaveUnitOptionsHtml(unit)}
         </select>
       </div>
-      <div style="text-align: center;">
-        <button type="button" class="btn-remove-leave-row" title="Remove" style="background: none; border: none; color: #ef4444; font-size: 20px; font-weight: 700; cursor: pointer; padding: 0; line-height: 1;">
-          &times;
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+        <button type="button" class="btn-edit-leave-row" title="Edit Leave Type" style="padding: 5px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; cursor: pointer;">
+          Edit
+        </button>
+        <button type="button" class="btn-remove-leave-row" title="Delete Leave Type" style="padding: 5px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer;">
+          Del
         </button>
       </div>
     `;
 
+    const editBtn = row.querySelector('.btn-edit-leave-row');
+    const nameInput = row.querySelector('.custom-leave-name');
+    if (editBtn && nameInput) {
+      editBtn.addEventListener('click', () => {
+        nameInput.focus();
+        nameInput.select();
+        row.style.borderColor = '#0284c7';
+        row.style.background = '#f0f9ff';
+      });
+    }
+
     const removeBtn = row.querySelector('.btn-remove-leave-row');
     removeBtn.addEventListener('click', () => {
       row.remove();
-      if (customLeaveRowsContainer && customLeaveRowsContainer.children.length === 0) {
-        customLeaveRowsContainer.appendChild(createCustomLeaveRow('', '', 'Days'));
+      if (customLeaveRowsContainer && customLeaveRowsContainer.querySelectorAll('.custom-leave-row').length === 0) {
+        const emptyHint = document.createElement('div');
+        emptyHint.className = 'custom-leave-empty-hint';
+        emptyHint.style.cssText = 'padding: 12px; text-align: center; color: #64748b; font-size: 12px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1;';
+        emptyHint.textContent = 'All leave items removed. Click "Save Leaves" to clear custom leaves, or "+ Add Leave Type" to add one.';
+        customLeaveRowsContainer.appendChild(emptyHint);
       }
     });
 
@@ -277,6 +337,8 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnAddLeaveTypeRow) {
     btnAddLeaveTypeRow.addEventListener('click', () => {
       if (customLeaveRowsContainer) {
+        const hint = customLeaveRowsContainer.querySelector('.custom-leave-empty-hint');
+        if (hint) hint.remove();
         const newRow = createCustomLeaveRow('', '', 'Days');
         customLeaveRowsContainer.appendChild(newRow);
         const nameInput = newRow.querySelector('.custom-leave-name');
@@ -298,11 +360,11 @@ document.addEventListener('DOMContentLoaded', function () {
       const leaves = Array.isArray(data.custom_leaves) ? data.custom_leaves : [];
       if (leaves.length > 0) {
         leaves.forEach(lv => {
-          customLeaveRowsContainer.appendChild(createCustomLeaveRow(lv.name, lv.total, lv.unit || 'Days'));
+          customLeaveRowsContainer.appendChild(createCustomLeaveRow(lv.name, lv.total, lv.unit || 'Days', lv.source || 'employee'));
         });
       } else {
         // Starter blank row
-        customLeaveRowsContainer.appendChild(createCustomLeaveRow('', '', 'Days'));
+        customLeaveRowsContainer.appendChild(createCustomLeaveRow('', '', 'Days', 'employee'));
       }
     }
 
@@ -350,8 +412,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const name = nameInput ? nameInput.value.trim() : '';
         const total = totalInput ? (parseFloat(totalInput.value) || 0) : 0;
         const unit = unitInput ? (unitInput.value || 'Days') : 'Days';
+        const source = r.getAttribute('data-source') || 'employee';
         if (name) {
-          custom_leaves.push({ name, total, unit });
+          custom_leaves.push({ name, total, unit, source });
         }
       });
 
@@ -781,6 +844,577 @@ document.addEventListener('DOMContentLoaded', function () {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  // ================= 5. COMPANY OVERALL LEAVES CONTROLLER =================
+  const btnOpenCompanyLeavesModal = document.getElementById('btnOpenCompanyLeavesModal');
+  const modalCompanyOverallLeaves = document.getElementById('modalCompanyOverallLeaves');
+  const closeCompanyLeavesModalBtn = document.getElementById('closeCompanyLeavesModalBtn');
+  const doneCompanyLeavesModalBtn = document.getElementById('doneCompanyLeavesModalBtn');
+  const companyLeavesAlertBox = document.getElementById('companyLeavesAlertBox');
+  const overallLeaveFormHeading = document.getElementById('overallLeaveFormHeading');
+  const overallLeaveEditIndex = document.getElementById('overallLeaveEditIndex');
+  const overallLeaveNameInput = document.getElementById('overallLeaveNameInput');
+  const overallLeaveTotalInput = document.getElementById('overallLeaveTotalInput');
+  const overallLeaveUnitSelect = document.getElementById('overallLeaveUnitSelect');
+  const btnAddOrUpdateOverallLeave = document.getElementById('btnAddOrUpdateOverallLeave');
+  const btnCancelOverallLeaveEdit = document.getElementById('btnCancelOverallLeaveEdit');
+  const companyOverallLeavesTbody = document.getElementById('companyOverallLeavesTbody');
+  const btnSaveAllCompanyOverallLeaves = document.getElementById('btnSaveAllCompanyOverallLeaves');
+
+  let overallLeavesState = [];
+
+  function showCompanyLeavesAlert(msg, isError = false) {
+    if (!companyLeavesAlertBox) return;
+    companyLeavesAlertBox.style.display = msg ? 'block' : 'none';
+    companyLeavesAlertBox.textContent = msg || '';
+    companyLeavesAlertBox.style.backgroundColor = isError ? '#fef2f2' : '#ecfdf5';
+    companyLeavesAlertBox.style.color = isError ? '#991b1b' : '#065f46';
+    companyLeavesAlertBox.style.border = isError ? '1px solid #fecaca' : '1px solid #a7f3d0';
+  }
+
+  function resetOverallLeaveInlineForm() {
+    if (overallLeaveEditIndex) overallLeaveEditIndex.value = '-1';
+    if (overallLeaveNameInput) overallLeaveNameInput.value = '';
+    if (overallLeaveTotalInput) overallLeaveTotalInput.value = '';
+    if (overallLeaveUnitSelect) overallLeaveUnitSelect.value = 'Days';
+    if (overallLeaveFormHeading) overallLeaveFormHeading.textContent = 'Add Overall Leave / Permission Type';
+    if (btnAddOrUpdateOverallLeave) btnAddOrUpdateOverallLeave.textContent = '+ Add';
+    if (btnCancelOverallLeaveEdit) btnCancelOverallLeaveEdit.style.display = 'none';
+  }
+
+  function renderOverallLeavesTable() {
+    if (!companyOverallLeavesTbody) return;
+    if (!overallLeavesState || overallLeavesState.length === 0) {
+      companyOverallLeavesTbody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align: center; padding: 20px; color: #64748b; font-size: 12.5px;">
+            No overall company leaves configured yet. Add a Leave or Permission above, then click "Save & Apply to All Employees".
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    companyOverallLeavesTbody.innerHTML = overallLeavesState.map((item, idx) => {
+      const unitStr = String(item.unit || 'Days').toLowerCase().includes('hour') ? 'Hours - Permission' : 'Days - Leave';
+      const badgeBg = unitStr.startsWith('Hours') ? '#fef3c7' : '#eff6ff';
+      const badgeCol = unitStr.startsWith('Hours') ? '#92400e' : '#1d4ed8';
+      return `
+        <tr style="border-bottom: 1px solid #f1f5f9;">
+          <td style="padding: 9px 12px; font-size: 12px; font-weight: 700; color: #475569;">${idx + 1}</td>
+          <td style="padding: 9px 12px; font-size: 12.5px; font-weight: 700; color: #0f172a;">${escapeHtml(item.name)}</td>
+          <td style="padding: 9px 12px; text-align: center; font-size: 12.5px; font-weight: 700; color: #0f172a;">${item.total ?? 0}</td>
+          <td style="padding: 9px 12px;">
+            <span style="display: inline-block; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; background: ${badgeBg}; color: ${badgeCol};">${unitStr}</span>
+          </td>
+          <td style="padding: 9px 12px; text-align: center;">
+            <div style="display: inline-flex; gap: 6px;">
+              <button type="button" class="btn-edit-overall-row" data-idx="${idx}" style="padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: 700; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; cursor: pointer;">Edit</button>
+              <button type="button" class="btn-del-overall-row" data-idx="${idx}" style="padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: 700; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer;">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function loadCompanyOverallLeaves() {
+    if (companyOverallLeavesTbody) {
+      companyOverallLeavesTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #64748b; font-size: 12.5px;">Loading overall leaves...</td></tr>`;
+    }
+    try {
+      const compId = getSelectedCompanyId();
+      const url = `/api/admin/leave-permission/company-overall-leaves${compId ? '?company_id=' + encodeURIComponent(compId) : ''}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      overallLeavesState = Array.isArray(data.overall_leaves) ? data.overall_leaves : [];
+      renderOverallLeavesTable();
+    } catch (err) {
+      showCompanyLeavesAlert('Failed to load overall company leaves: ' + err.message, true);
+    }
+  }
+
+  function openCompanyLeavesModal() {
+    if (!modalCompanyOverallLeaves) return;
+    showCompanyLeavesAlert('');
+    resetOverallLeaveInlineForm();
+    modalCompanyOverallLeaves.style.display = 'flex';
+    loadCompanyOverallLeaves();
+  }
+
+  function closeCompanyLeavesModal() {
+    if (modalCompanyOverallLeaves) modalCompanyOverallLeaves.style.display = 'none';
+  }
+
+  if (btnOpenCompanyLeavesModal) btnOpenCompanyLeavesModal.addEventListener('click', openCompanyLeavesModal);
+  if (closeCompanyLeavesModalBtn) closeCompanyLeavesModalBtn.addEventListener('click', closeCompanyLeavesModal);
+  if (doneCompanyLeavesModalBtn) doneCompanyLeavesModalBtn.addEventListener('click', closeCompanyLeavesModal);
+  if (btnCancelOverallLeaveEdit) btnCancelOverallLeaveEdit.addEventListener('click', resetOverallLeaveInlineForm);
+
+  if (btnAddOrUpdateOverallLeave) {
+    btnAddOrUpdateOverallLeave.addEventListener('click', () => {
+      const name = overallLeaveNameInput ? overallLeaveNameInput.value.trim() : '';
+      const totalRaw = overallLeaveTotalInput ? overallLeaveTotalInput.value.trim() : '';
+      const total = totalRaw === '' ? 0 : parseFloat(totalRaw);
+      const unit = overallLeaveUnitSelect ? (overallLeaveUnitSelect.value || 'Days') : 'Days';
+      const editIdx = overallLeaveEditIndex ? parseInt(overallLeaveEditIndex.value, 10) : -1;
+
+      if (!name) {
+        showCompanyLeavesAlert('Please enter a Leave / Permission Name.', true);
+        if (overallLeaveNameInput) overallLeaveNameInput.focus();
+        return;
+      }
+      if (isNaN(total) || total < 0) {
+        showCompanyLeavesAlert('Please enter a valid non-negative count.', true);
+        if (overallLeaveTotalInput) overallLeaveTotalInput.focus();
+        return;
+      }
+      showCompanyLeavesAlert('');
+
+      const duplicateIdx = overallLeavesState.findIndex((it, i) => i !== editIdx && String(it.name || '').trim().toLowerCase() === name.toLowerCase());
+      if (duplicateIdx >= 0) {
+        overallLeavesState[duplicateIdx] = { name, total, unit, source: 'overall' };
+      } else if (editIdx >= 0 && editIdx < overallLeavesState.length) {
+        overallLeavesState[editIdx] = { name, total, unit, source: 'overall' };
+      } else {
+        overallLeavesState.push({ name, total, unit, source: 'overall' });
+      }
+      resetOverallLeaveInlineForm();
+      renderOverallLeavesTable();
+    });
+  }
+
+  if (companyOverallLeavesTbody) {
+    companyOverallLeavesTbody.addEventListener('click', async (e) => {
+      const editBtn = e.target.closest('.btn-edit-overall-row');
+      if (editBtn) {
+        const idx = parseInt(editBtn.getAttribute('data-idx'), 10);
+        const item = overallLeavesState[idx];
+        if (!item) return;
+        if (overallLeaveEditIndex) overallLeaveEditIndex.value = String(idx);
+        if (overallLeaveNameInput) overallLeaveNameInput.value = item.name || '';
+        if (overallLeaveTotalInput) overallLeaveTotalInput.value = item.total ?? '';
+        if (overallLeaveUnitSelect) overallLeaveUnitSelect.value = String(item.unit || 'Days').toLowerCase().includes('hour') ? 'Hours' : 'Days';
+        if (overallLeaveFormHeading) overallLeaveFormHeading.textContent = `Editing: ${item.name}`;
+        if (btnAddOrUpdateOverallLeave) btnAddOrUpdateOverallLeave.textContent = 'Update Row';
+        if (btnCancelOverallLeaveEdit) btnCancelOverallLeaveEdit.style.display = 'inline-block';
+        if (overallLeaveNameInput) overallLeaveNameInput.focus();
+        return;
+      }
+
+      const delBtn = e.target.closest('.btn-del-overall-row');
+      if (delBtn) {
+        const idx = parseInt(delBtn.getAttribute('data-idx'), 10);
+        const item = overallLeavesState[idx];
+        if (!item) return;
+        if (!confirm(`Delete "${item.name}" from Company Overall Leaves and remove it from employees?`)) return;
+        overallLeavesState.splice(idx, 1);
+        resetOverallLeaveInlineForm();
+        renderOverallLeavesTable();
+        try {
+          const compId = getSelectedCompanyId();
+          const res = await fetch('/api/admin/leave-permission/company-overall-leaves', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_id: compId, leave_name: item.name })
+          });
+          const data = await res.json();
+          if (data.success) {
+            overallLeavesState = Array.isArray(data.overall_leaves) ? data.overall_leaves : overallLeavesState;
+            renderOverallLeavesTable();
+            showCompanyLeavesAlert(data.message || `Deleted "${item.name}".`);
+            await loadBalances();
+          }
+        } catch (err) {
+          showCompanyLeavesAlert('Error deleting leave: ' + err.message, true);
+        }
+      }
+    });
+  }
+
+  if (btnSaveAllCompanyOverallLeaves) {
+    btnSaveAllCompanyOverallLeaves.addEventListener('click', async () => {
+      // Auto-include any pending text typed into inline form if user forgot to click "+ Add"
+      const pendingName = overallLeaveNameInput ? overallLeaveNameInput.value.trim() : '';
+      if (pendingName && btnAddOrUpdateOverallLeave) {
+        btnAddOrUpdateOverallLeave.click();
+      }
+      const origHtml = btnSaveAllCompanyOverallLeaves.innerHTML;
+      btnSaveAllCompanyOverallLeaves.disabled = true;
+      btnSaveAllCompanyOverallLeaves.textContent = 'Applying to Employees...';
+      try {
+        const compId = getSelectedCompanyId();
+        const res = await fetch('/api/admin/leave-permission/company-overall-leaves', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ company_id: compId, overall_leaves: overallLeavesState })
+        });
+        const data = await res.json();
+        if (data.success) {
+          overallLeavesState = Array.isArray(data.overall_leaves) ? data.overall_leaves : overallLeavesState;
+          renderOverallLeavesTable();
+          showCompanyLeavesAlert(data.message || 'Overall company leaves applied to all employees!');
+          await loadBalances();
+        } else {
+          showCompanyLeavesAlert(data.error || 'Failed to save overall company leaves.', true);
+        }
+      } catch (err) {
+        showCompanyLeavesAlert('Error saving overall leaves: ' + err.message, true);
+      } finally {
+        btnSaveAllCompanyOverallLeaves.disabled = false;
+        btnSaveAllCompanyOverallLeaves.innerHTML = origHtml;
+      }
+    });
+  }
+
+  // ================= 6. PAID HOLIDAYS CALENDAR CONTROLLER =================
+  const btnOpenPaidHolidaysModal = document.getElementById('btnOpenPaidHolidaysModal');
+  const modalPaidHolidaysCalendar = document.getElementById('modalPaidHolidaysCalendar');
+  const closePaidHolidaysModalBtn = document.getElementById('closePaidHolidaysModalBtn');
+  const donePaidHolidaysModalBtn = document.getElementById('donePaidHolidaysModalBtn');
+  const paidHolidaysAlertBox = document.getElementById('paidHolidaysAlertBox');
+  const btnHolPrevMonth = document.getElementById('btnHolPrevMonth');
+  const btnHolNextMonth = document.getElementById('btnHolNextMonth');
+  const btnHolTodayMonth = document.getElementById('btnHolTodayMonth');
+  const holCalendarMonthTitle = document.getElementById('holCalendarMonthTitle');
+  const holCalendarYearSelect = document.getElementById('holCalendarYearSelect');
+  const holCalendarGrid = document.getElementById('holCalendarGrid');
+  const formPaidHoliday = document.getElementById('formPaidHoliday');
+  const paidHolidayEditId = document.getElementById('paidHolidayEditId');
+  const paidHolidayFormTitle = document.getElementById('paidHolidayFormTitle');
+  const paidHolidayDateInput = document.getElementById('paidHolidayDateInput');
+  const paidHolidayNameInput = document.getElementById('paidHolidayNameInput');
+  const btnSavePaidHoliday = document.getElementById('btnSavePaidHoliday');
+  const btnCancelPaidHolidayEdit = document.getElementById('btnCancelPaidHolidayEdit');
+  const paidHolidaysListHeading = document.getElementById('paidHolidaysListHeading');
+  const paidHolidaysTbody = document.getElementById('paidHolidaysTbody');
+
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  let holViewYear = new Date().getFullYear();
+  let holViewMonth = new Date().getMonth(); // 0-indexed
+  let cachedYearHolidays = [];
+
+  function showPaidHolidaysAlert(msg, isError = false) {
+    if (!paidHolidaysAlertBox) return;
+    paidHolidaysAlertBox.style.display = msg ? 'block' : 'none';
+    paidHolidaysAlertBox.textContent = msg || '';
+    paidHolidaysAlertBox.style.backgroundColor = isError ? '#fef2f2' : '#ecfdf5';
+    paidHolidaysAlertBox.style.color = isError ? '#991b1b' : '#065f46';
+    paidHolidaysAlertBox.style.border = isError ? '1px solid #fecaca' : '1px solid #a7f3d0';
+  }
+
+  function populateHolYearOptions(selectedYr) {
+    if (!holCalendarYearSelect) return;
+    const baseYr = new Date().getFullYear();
+    const minY = Math.min(baseYr - 2, selectedYr - 1);
+    const maxY = Math.max(baseYr + 4, selectedYr + 1);
+    let opts = '';
+    for (let y = minY; y <= maxY; y++) {
+      opts += `<option value="${y}" ${y === selectedYr ? 'selected' : ''}>${y}</option>`;
+    }
+    holCalendarYearSelect.innerHTML = opts;
+  }
+
+  function resetPaidHolidayForm(defaultDateStr = '') {
+    if (paidHolidayEditId) paidHolidayEditId.value = '';
+    if (paidHolidayDateInput) paidHolidayDateInput.value = defaultDateStr || '';
+    if (paidHolidayNameInput) paidHolidayNameInput.value = '';
+    if (paidHolidayFormTitle) paidHolidayFormTitle.textContent = 'Mark Paid Holiday';
+    if (btnSavePaidHoliday) btnSavePaidHoliday.textContent = 'Save Paid Holiday';
+    if (btnCancelPaidHolidayEdit) btnCancelPaidHolidayEdit.style.display = 'none';
+  }
+
+  function selectHolidayForEdit(hol) {
+    if (!hol) return;
+    if (paidHolidayEditId) paidHolidayEditId.value = hol.id || '';
+    if (paidHolidayDateInput) paidHolidayDateInput.value = hol.date || '';
+    if (paidHolidayNameInput) paidHolidayNameInput.value = hol.holiday_name || '';
+    if (paidHolidayFormTitle) paidHolidayFormTitle.textContent = `Edit Paid Holiday (${hol.date})`;
+    if (btnSavePaidHoliday) btnSavePaidHoliday.textContent = 'Update Paid Holiday';
+    if (btnCancelPaidHolidayEdit) btnCancelPaidHolidayEdit.style.display = 'inline-block';
+    if (paidHolidayNameInput) paidHolidayNameInput.focus();
+  }
+
+  function renderHolidaysCalendarAndTable() {
+    const mmStr = String(holViewMonth + 1).padStart(2, '0');
+    const ymPrefix = `${holViewYear}-${mmStr}`;
+    if (holCalendarMonthTitle) {
+      holCalendarMonthTitle.textContent = `${MONTH_NAMES[holViewMonth]} ${holViewYear}`;
+    }
+    if (holCalendarYearSelect) {
+      holCalendarYearSelect.value = String(holViewYear);
+    }
+    if (paidHolidaysListHeading) {
+      paidHolidaysListHeading.textContent = `Paid Holidays — ${MONTH_NAMES[holViewMonth]} ${holViewYear}`;
+    }
+
+    const holByDate = {};
+    cachedYearHolidays.forEach(h => {
+      if (h && h.date) holByDate[h.date] = h;
+    });
+
+    if (holCalendarGrid) {
+      const firstDow = new Date(holViewYear, holViewMonth, 1).getDay();
+      const daysInMonth = new Date(holViewYear, holViewMonth + 1, 0).getDate();
+      const now = new Date();
+      const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const activeSelectedIso = paidHolidayDateInput ? paidHolidayDateInput.value : '';
+
+      let cellsHtml = '';
+      for (let i = 0; i < firstDow; i++) {
+        cellsHtml += `<div style="min-height: 68px; border-radius: 8px; background: #f8fafc; opacity: 0.45;"></div>`;
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dStr = `${ymPrefix}-${String(d).padStart(2, '0')}`;
+        const dow = (firstDow + d - 1) % 7;
+        const hol = holByDate[dStr];
+        const isToday = (dStr === todayIso);
+        const isSelected = (dStr === activeSelectedIso);
+
+        const bg = hol ? '#ecfdf5' : (dow === 0 ? '#fff5f5' : '#ffffff');
+        const border = isSelected ? '2px solid #0284c7' : (hol ? '1.5px solid #34d399' : (isToday ? '1.5px solid #2563eb' : '1px solid #e2e8f0'));
+        const numColor = hol ? '#065f46' : (dow === 0 ? '#dc2626' : '#0f172a');
+
+        cellsHtml += `
+          <button type="button" class="hol-cal-day" data-date="${dStr}"
+            style="min-height: 68px; padding: 6px; border-radius: 8px; background: ${bg}; border: ${border}; text-align: left; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; transition: all 0.12s ease;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+              <span style="font-size: 12.5px; font-weight: 800; color: ${numColor};">${d}</span>
+              ${hol ? `<span style="width: 7px; height: 7px; border-radius: 50%; background: #059669;"></span>` : ''}
+            </div>
+            ${hol
+              ? `<div style="font-size: 10px; font-weight: 700; color: #047857; background: #d1fae5; padding: 2px 5px; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;" title="${escapeHtml(hol.holiday_name)}">${escapeHtml(hol.holiday_name)}</div>`
+              : `<div style="font-size: 9.5px; color: #94a3b8;">Click to set</div>`
+            }
+          </button>
+        `;
+      }
+      holCalendarGrid.innerHTML = cellsHtml;
+    }
+
+    if (paidHolidaysTbody) {
+      const monthHolidays = cachedYearHolidays.filter(h => String(h.date || '').startsWith(ymPrefix));
+      if (monthHolidays.length === 0) {
+        paidHolidaysTbody.innerHTML = `
+          <tr>
+            <td colspan="3" style="text-align: center; padding: 18px; color: #64748b; font-size: 12px;">
+              No Paid Holidays marked in ${MONTH_NAMES[holViewMonth]} ${holViewYear}. Click any date on the calendar to add one.
+            </td>
+          </tr>
+        `;
+      } else {
+        paidHolidaysTbody.innerHTML = monthHolidays.map(h => `
+          <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 8px 10px; font-size: 11.5px; font-weight: 700; color: #0f172a; white-space: nowrap;">${escapeHtml(h.date)}</td>
+            <td style="padding: 8px 10px; font-size: 12px; font-weight: 600; color: #065f46;">${escapeHtml(h.holiday_name)}</td>
+            <td style="padding: 8px 10px; text-align: center; white-space: nowrap;">
+              <button type="button" class="btn-edit-holiday" data-id="${escapeHtml(h.id)}" style="padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; cursor: pointer; margin-right: 4px;">Edit</button>
+              <button type="button" class="btn-del-holiday" data-id="${escapeHtml(h.id)}" data-name="${escapeHtml(h.holiday_name)}" style="padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer;">Del</button>
+            </td>
+          </tr>
+        `).join('');
+      }
+    }
+  }
+
+  async function loadHolidaysForYear(year) {
+    try {
+      const compId = getSelectedCompanyId();
+      const qs = new URLSearchParams({ year: String(year) });
+      if (compId) qs.set('company_id', compId);
+      const res = await fetch(`/api/admin/leave-permission/holidays?${qs.toString()}`);
+      const data = await res.json();
+      cachedYearHolidays = Array.isArray(data.holidays) ? data.holidays : [];
+      renderHolidaysCalendarAndTable();
+    } catch (err) {
+      showPaidHolidaysAlert('Failed to load paid holidays: ' + err.message, true);
+    }
+  }
+
+  function openPaidHolidaysModal() {
+    if (!modalPaidHolidaysCalendar) return;
+    const now = new Date();
+    holViewYear = now.getFullYear();
+    holViewMonth = now.getMonth();
+    populateHolYearOptions(holViewYear);
+    showPaidHolidaysAlert('');
+    resetPaidHolidayForm(`${holViewYear}-${String(holViewMonth + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
+    modalPaidHolidaysCalendar.style.display = 'flex';
+    loadHolidaysForYear(holViewYear);
+  }
+
+  function closePaidHolidaysModal() {
+    if (modalPaidHolidaysCalendar) modalPaidHolidaysCalendar.style.display = 'none';
+  }
+
+  if (btnOpenPaidHolidaysModal) btnOpenPaidHolidaysModal.addEventListener('click', openPaidHolidaysModal);
+  if (closePaidHolidaysModalBtn) closePaidHolidaysModalBtn.addEventListener('click', closePaidHolidaysModal);
+  if (donePaidHolidaysModalBtn) donePaidHolidaysModalBtn.addEventListener('click', closePaidHolidaysModal);
+  if (btnCancelPaidHolidayEdit) {
+    btnCancelPaidHolidayEdit.addEventListener('click', () => {
+      resetPaidHolidayForm(paidHolidayDateInput ? paidHolidayDateInput.value : '');
+      renderHolidaysCalendarAndTable();
+    });
+  }
+
+  if (btnHolPrevMonth) {
+    btnHolPrevMonth.addEventListener('click', () => {
+      const prevYear = holViewYear;
+      holViewMonth -= 1;
+      if (holViewMonth < 0) {
+        holViewMonth = 11;
+        holViewYear -= 1;
+      }
+      populateHolYearOptions(holViewYear);
+      if (holViewYear !== prevYear) loadHolidaysForYear(holViewYear);
+      else renderHolidaysCalendarAndTable();
+    });
+  }
+
+  if (btnHolNextMonth) {
+    btnHolNextMonth.addEventListener('click', () => {
+      const prevYear = holViewYear;
+      holViewMonth += 1;
+      if (holViewMonth > 11) {
+        holViewMonth = 0;
+        holViewYear += 1;
+      }
+      populateHolYearOptions(holViewYear);
+      if (holViewYear !== prevYear) loadHolidaysForYear(holViewYear);
+      else renderHolidaysCalendarAndTable();
+    });
+  }
+
+  if (btnHolTodayMonth) {
+    btnHolTodayMonth.addEventListener('click', () => {
+      const now = new Date();
+      const prevYear = holViewYear;
+      holViewYear = now.getFullYear();
+      holViewMonth = now.getMonth();
+      populateHolYearOptions(holViewYear);
+      if (holViewYear !== prevYear) loadHolidaysForYear(holViewYear);
+      else renderHolidaysCalendarAndTable();
+    });
+  }
+
+  if (holCalendarYearSelect) {
+    holCalendarYearSelect.addEventListener('change', () => {
+      holViewYear = parseInt(holCalendarYearSelect.value, 10) || new Date().getFullYear();
+      loadHolidaysForYear(holViewYear);
+    });
+  }
+
+  if (holCalendarGrid) {
+    holCalendarGrid.addEventListener('click', (e) => {
+      const cell = e.target.closest('.hol-cal-day');
+      if (!cell) return;
+      const dStr = cell.getAttribute('data-date');
+      const existingHol = cachedYearHolidays.find(h => h.date === dStr);
+      if (existingHol) {
+        selectHolidayForEdit(existingHol);
+      } else {
+        resetPaidHolidayForm(dStr);
+        if (paidHolidayNameInput) paidHolidayNameInput.focus();
+      }
+      renderHolidaysCalendarAndTable();
+    });
+  }
+
+  if (paidHolidaysTbody) {
+    paidHolidaysTbody.addEventListener('click', async (e) => {
+      const editBtn = e.target.closest('.btn-edit-holiday');
+      if (editBtn) {
+        const holId = editBtn.getAttribute('data-id');
+        const hol = cachedYearHolidays.find(h => String(h.id) === String(holId));
+        if (hol) {
+          selectHolidayForEdit(hol);
+          renderHolidaysCalendarAndTable();
+        }
+        return;
+      }
+
+      const delBtn = e.target.closest('.btn-del-holiday');
+      if (delBtn) {
+        const holId = delBtn.getAttribute('data-id');
+        const holName = delBtn.getAttribute('data-name') || 'this holiday';
+        if (!confirm(`Delete Paid Holiday "${holName}"?`)) return;
+        try {
+          const compId = getSelectedCompanyId();
+          const url = `/api/admin/leave-permission/holidays/${encodeURIComponent(holId)}${compId ? '?company_id=' + encodeURIComponent(compId) : ''}`;
+          const res = await fetch(url, { method: 'DELETE' });
+          const data = await res.json();
+          if (data.success) {
+            showPaidHolidaysAlert(data.message || 'Paid holiday deleted.');
+            if (paidHolidayEditId && paidHolidayEditId.value === holId) resetPaidHolidayForm('');
+            await loadHolidaysForYear(holViewYear);
+          } else {
+            showPaidHolidaysAlert(data.error || 'Failed to delete holiday.', true);
+          }
+        } catch (err) {
+          showPaidHolidaysAlert('Error deleting holiday: ' + err.message, true);
+        }
+      }
+    });
+  }
+
+  if (formPaidHoliday) {
+    formPaidHoliday.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const editId = paidHolidayEditId ? paidHolidayEditId.value.trim() : '';
+      const dateVal = paidHolidayDateInput ? paidHolidayDateInput.value.trim() : '';
+      const nameVal = paidHolidayNameInput ? paidHolidayNameInput.value.trim() : '';
+      if (!dateVal || !nameVal) {
+        showPaidHolidaysAlert('Date and Holiday Name are required.', true);
+        return;
+      }
+
+      const origText = btnSavePaidHoliday ? btnSavePaidHoliday.textContent : 'Save Paid Holiday';
+      if (btnSavePaidHoliday) {
+        btnSavePaidHoliday.disabled = true;
+        btnSavePaidHoliday.textContent = 'Saving...';
+      }
+      try {
+        const compId = getSelectedCompanyId();
+        const url = editId
+          ? `/api/admin/leave-permission/holidays/${encodeURIComponent(editId)}`
+          : '/api/admin/leave-permission/holidays';
+        const method = editId ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company_id: compId,
+            date: dateVal,
+            holiday_name: nameVal,
+            is_paid: true
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showPaidHolidaysAlert(data.message || 'Paid holiday saved!');
+          const savedYr = parseInt(dateVal.split('-')[0], 10);
+          const savedMo = parseInt(dateVal.split('-')[1], 10) - 1;
+          if (!isNaN(savedYr) && !isNaN(savedMo)) {
+            holViewYear = savedYr;
+            holViewMonth = savedMo;
+            populateHolYearOptions(holViewYear);
+          }
+          resetPaidHolidayForm(dateVal);
+          await loadHolidaysForYear(holViewYear);
+        } else {
+          showPaidHolidaysAlert(data.error || 'Failed to save paid holiday.', true);
+        }
+      } catch (err) {
+        showPaidHolidaysAlert('Error saving paid holiday: ' + err.message, true);
+      } finally {
+        if (btnSavePaidHoliday) {
+          btnSavePaidHoliday.disabled = false;
+          btnSavePaidHoliday.textContent = origText;
+        }
+      }
+    });
   }
 
   // Bind Voice Toggles and Form Guidance

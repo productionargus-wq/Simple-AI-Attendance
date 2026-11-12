@@ -1041,14 +1041,16 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inEditStatus) inEditStatus.value = (emp.status === 'Inactive') ? 'Inactive' : 'Active';
       const isFw = Boolean(emp.is_field_worker);
       const inEditEmpType = document.getElementById('inputEmployeeType');
-      if (inEditEmpType) inEditEmpType.value = isFw ? 'field_worker' : 'standard';
+      const hasFwOption = Boolean(inEditEmpType && inEditEmpType.querySelector('option[value="field_worker"]'));
+      const effectiveEmpType = (isFw && hasFwOption) ? 'field_worker' : 'standard';
+      if (inEditEmpType) inEditEmpType.value = effectiveEmpType;
       const inEditTerritory = document.getElementById('inputTerritoryZone');
       if (inEditTerritory) inEditTerritory.value = emp.territory_zone || '';
       const inEditVisitInc = document.getElementById('inputVisitIncentive');
       if (inEditVisitInc) inEditVisitInc.value = (emp.per_visit_incentive !== undefined && emp.per_visit_incentive !== null) ? emp.per_visit_incentive : '';
       const inEditKmRate = document.getElementById('inputKmAllowance');
       if (inEditKmRate) inEditKmRate.value = (emp.km_allowance_rate !== undefined && emp.km_allowance_rate !== null) ? emp.km_allowance_rate : '';
-      toggleFieldWorkerFormFields(isFw ? 'field_worker' : 'standard');
+      toggleFieldWorkerFormFields(effectiveEmpType);
       const inBranch = document.getElementById('inputBranchId');
       if (inBranch) inBranch.value = (emp.branch_id && emp.branch_id !== 'HOME') ? emp.branch_id : (inBranch.querySelector('option[value="HOME"]') ? 'HOME' : '');
       document.getElementById('inputMobile').value = emp.mobile_number || '';

@@ -803,8 +803,8 @@ if (!window.makeModalDraggable) {
       if (pendingTask && pendingTask.action === 'create_manual_attendance') {
         chipPrompts = [
           { label: '📝 8 Hrs Proper', prompt: '8 hours Proper' },
-          { label: '⏱️ 4 Hrs Half Day', prompt: '4 hours Half Day' },
-          { label: '⚠️ 8 Hrs Improper', prompt: '8 hours Improper' },
+          { label: '🕒 4 Hrs Permission', prompt: '4 hours status Permission reason Personal errand' },
+          { label: '⚠️ 8 Hrs Improper', prompt: '8 hours status Improper reason Forgot biometric punch' },
           { label: '❌ Cancel', prompt: 'Cancel' }
         ];
       } else if (pendingTask && pendingTask.action === 'create_payment') {
