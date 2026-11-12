@@ -113,102 +113,55 @@
 
   <div class="table-toolbar">
 
-    <div class="table-toolbar-left">
+    <!-- Line 2 of Mobile View (Navigation: Search + Entries Limit + View Switcher) -->
+    <div class="table-toolbar-nav">
+      <div class="search-box-wrapper">
+        <label for="companyTableSearch">Search:</label>
+        <input type="text" id="companyTableSearch" class="search-input" placeholder="Search company, GSTIN, email...">
+      </div>
 
       <div class="entries-select-wrapper">
-
-        <span>Show</span>
-
+        <span class="entries-label-show">Show</span>
         <select id="companyEntriesLimit" class="entries-select">
-
           <option value="10" selected>10</option>
-
           <option value="25">25</option>
-
           <option value="50">50</option>
-
           <option value="100">100</option>
-
         </select>
-
-        <span>entries</span>
-
+        <span class="entries-label-entries">entries</span>
       </div>
-
-
-
-      <div class="export-btn-group">
-
-        <button class="btn-export" id="btnCopyCompanies" title="Copy">Copy</button>
-
-        <button class="btn-export" id="btnCsvCompanies" title="CSV">CSV</button>
-
-        <button class="btn-export btn-excel" id="btnExcelCompanies" title="Excel">Excel</button>
-
-        <button class="btn-export btn-pdf" id="btnPdfCompanies" title="PDF">PDF</button>
-
-        <button class="btn-export" id="btnPrintCompanies" title="Print">Print</button>
-
-      </div>
-
-    </div>
-
-
-
-    <!-- Right Controls: Toggle Icons + Search Box -->
-
-    <div class="toolbar-right-controls" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto;">
 
       <div class="view-toggle-wrapper">
-
         <button type="button" class="btn-icon-view" id="btnCompanyListView" title="List View" aria-label="List View">
-
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-
             <line x1="8" y1="6" x2="21" y2="6"></line>
-
             <line x1="8" y1="12" x2="21" y2="12"></line>
-
             <line x1="8" y1="18" x2="21" y2="18"></line>
-
             <line x1="3" y1="6" x2="3.01" y2="6"></line>
-
             <line x1="3" y1="12" x2="3.01" y2="12"></line>
-
             <line x1="3" y1="18" x2="3.01" y2="18"></line>
-
           </svg>
-
         </button>
-
         <button type="button" class="btn-icon-view active" id="btnCompanyGridView" title="Grid View" aria-label="Grid View">
-
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-
             <rect x="3" y="3" width="7" height="7"></rect>
-
             <rect x="14" y="3" width="7" height="7"></rect>
-
             <rect x="14" y="14" width="7" height="7"></rect>
-
             <rect x="3" y="14" width="7" height="7"></rect>
-
           </svg>
-
         </button>
-
       </div>
+    </div>
 
-
-
-      <div class="search-box-wrapper">
-
-        <label for="companyTableSearch">Search:</label>
-
-        <input type="text" id="companyTableSearch" class="search-input" placeholder="Search company, GSTIN, email...">
-
+    <!-- Line 3 of Mobile View (Single-Row Exports) -->
+    <div class="table-toolbar-actions">
+      <div class="export-btn-group">
+        <button class="btn-export" id="btnCopyCompanies" title="Copy">Copy</button>
+        <button class="btn-export" id="btnCsvCompanies" title="CSV">CSV</button>
+        <button class="btn-export btn-excel" id="btnExcelCompanies" title="Excel">Excel</button>
+        <button class="btn-export btn-pdf" id="btnPdfCompanies" title="PDF">PDF</button>
+        <button class="btn-export" id="btnPrintCompanies" title="Print">Print</button>
       </div>
-
     </div>
 
   </div>

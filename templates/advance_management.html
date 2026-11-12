@@ -69,31 +69,31 @@
 <!-- Advance Table Card Matching Image 1 -->
 <div class="table-card">
   <div class="table-toolbar">
-    <div class="table-toolbar-left">
+    <!-- Line 2 of Mobile View (Navigation: Search + Entries Limit) -->
+    <div class="table-toolbar-nav">
+      <div class="search-box-wrapper">
+        <label for="advanceSearch">Search:</label>
+        <input type="text" id="advanceSearch" class="search-input" placeholder="Search advance entries...">
+      </div>
+
       <div class="entries-select-wrapper">
-        <span>Show</span>
+        <span class="entries-label-show">Show</span>
         <select id="advanceEntriesLimit" class="entries-select">
           <option value="10" selected>10</option>
           <option value="25">25</option>
           <option value="50">50</option>
           <option value="100">100</option>
         </select>
-        <span>entries</span>
+        <span class="entries-label-entries">entries</span>
       </div>
+    </div>
 
+    <!-- Line 3 of Mobile View (Single-Row Exports) -->
+    <div class="table-toolbar-actions">
       <div class="export-btn-group">
         <button class="btn-export btn-excel" id="btnAdvanceExcel" title="Excel">Excel</button>
         <button class="btn-export btn-pdf" id="btnAdvancePdf" title="PDF">PDF</button>
         <button class="btn-export" id="btnAdvancePrint" title="Print">Print</button>
-      </div>
-    </div>
-
-    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-
-
-      <div class="search-box-wrapper">
-        <label for="advanceSearch">Search:</label>
-        <input type="text" id="advanceSearch" class="search-input">
       </div>
     </div>
   </div>
