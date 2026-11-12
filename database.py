@@ -1357,14 +1357,15 @@ def validate_employee_login(email, password=None):
     return {'success': False, 'error': 'INVALID_PASSWORD', 'employee': emp}
 
 def set_employee_password(emp_id_or_email, plain_password):
-    """Sets a new hashed password for an employee."""
+    """Sets a new hashed password for an employee and persists password_raw."""
     db = get_db()
     if not emp_id_or_email or not plain_password:
         return False
-    hashed = hash_user_password(plain_password)
+    raw = str(plain_password).strip()
+    hashed = hash_user_password(raw)
     res = db.employees.update_one(
         {'$or': [build_id_filter(emp_id_or_email), {'email_id': str(emp_id_or_email)}]},
-        {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}}
+        {'$set': {'password': hashed, 'password_hash': hashed, 'password_raw': raw, 'password_updated_at': datetime.now()}}
     )
     return res.modified_count > 0 or res.matched_count > 0
 

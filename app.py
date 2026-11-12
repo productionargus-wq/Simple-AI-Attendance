@@ -2744,6 +2744,7 @@ def api_employee_set_credentials():
     if success:
         return jsonify({
             'success': True,
+            'saved_password': new_password,
             'message': 'Your password has been saved successfully! You can now sign in using your email and password.'
         })
     return jsonify({'success': False, 'error': 'Failed to save password. Please try again.'}), 500

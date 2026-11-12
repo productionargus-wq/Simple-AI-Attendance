@@ -160,13 +160,59 @@
     }
     .emp-profile-pill {
       background-color: #f1f5f9;
-      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
       padding: 12px 16px;
       display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 12.5px;
+      color: #334155;
+    }
+    .emp-profile-summary-row {
+      display: flex;
       flex-wrap: wrap;
-      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 18px;
+    }
+    .emp-profile-primary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 18px;
+      font-size: 13px;
+      color: #0f172a;
+    }
+    .btn-show-more-details {
+      background: #ffffff;
+      color: #1b4975;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .btn-show-more-details:hover {
+      background: #e0f2fe;
+      border-color: #0284c7;
+    }
+    .emp-extra-details {
+      display: none;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      padding-top: 8px;
+      border-top: 1px dashed #cbd5e1;
       font-size: 12px;
       color: #334155;
+    }
+    .emp-extra-details.open {
+      display: flex;
     }
     .emp-profile-pill strong {
       color: #0f172a;
@@ -202,15 +248,49 @@
       background-color: #314b5e;
     }
 
+    .portal-brand-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+    .portal-nav-title {
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0.8px;
+      color: #ffffff;
+      line-height: 1.1;
+    }
+    .portal-ver-tag {
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0.9;
+    }
+    .portal-brand-subline {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.65px;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      line-height: 1.1;
+    }
+    .portal-nav-subtitle {
+      font-size: 9.5px;
+      color: #ffd166;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+    }
+
     /* Mobile Responsiveness */
     @media (max-width: 768px) {
       .portal-nav {
         height: 54px;
-        padding: 0 12px;
+        padding: 0 10px;
         display: flex;
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
+        gap: 8px;
         position: sticky;
         top: 0;
         width: 100%;
@@ -220,17 +300,32 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        flex: 1 1 auto;
         min-width: 0;
+        overflow: hidden;
       }
       .portal-nav-left img {
-        width: 24px !important;
+        width: 22px !important;
         height: auto;
       }
       .portal-nav-title {
-        font-size: 13px !important;
-        font-weight: 800;
+        font-size: 13.5px !important;
+        font-weight: 900 !important;
+        letter-spacing: 0.6px !important;
         color: #ffffff;
         white-space: nowrap;
+        line-height: 1.05;
+      }
+      .portal-ver-tag {
+        display: none !important;
+      }
+      .portal-brand-subline {
+        font-size: 7.5px !important;
+        letter-spacing: 0.45px !important;
+        color: #cbd5e1 !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .portal-nav-subtitle {
         display: none !important;
@@ -241,8 +336,8 @@
       .portal-nav-right {
         display: flex;
         align-items: center;
-        gap: 8px;
-        min-width: 0;
+        gap: 8px !important;
+        flex-shrink: 0;
       }
       .portal-user-badge {
         display: flex;
@@ -921,7 +1016,7 @@
     }
   </style>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/teacher_ai.css') }}?v=20261106_v5">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/coworker_ai.css') }}?v=20261027_v1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/coworker_ai.css') }}?v=20261112_mobile_v2">
 </head>
 <body>
 
@@ -931,9 +1026,10 @@
       <div class="portal-logo-badge">
         <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="Argus" style="width: 22px; height: 22px; object-fit: contain;">
       </div>
-      <div>
-        <div class="portal-nav-title" style="font-size: 15px; font-weight: 900; letter-spacing: 0.8px; color: #ffffff;">ARGUS ATTENDANCE INTELLIGENCE <span style="font-size: 11px; font-weight: 600; opacity: 0.9;">v2.0.0</span></div>
-        <div class="portal-nav-subtitle" style="font-size: 10px; color: #ffd166; font-weight: 700; letter-spacing: 0.8px;">EMPLOYEE SELF-SERVICE PORTAL</div>
+      <div class="portal-brand-stack">
+        <div class="portal-nav-title">ARGUS <span class="portal-ver-tag">v2.0.0</span></div>
+        <div class="portal-brand-subline">ATTENDANCE INTELLIGENCE</div>
+        <div class="portal-nav-subtitle">EMPLOYEE SELF-SERVICE PORTAL</div>
       </div>
     </div>
 
@@ -970,20 +1066,31 @@
 
     <!-- Profile Overview -->
     <div class="emp-profile-pill">
-      <div><strong>Employee ID:</strong> {{ employee.id if employee else '-' }}</div>
-      <div><strong>Designation:</strong> {{ employee.designation if employee else '-' }}</div>
-      <div><strong>Salary Basis:</strong> 
-        {% if employee and employee.salary_type == 'daily' %}
-          <span style="color: #15803d; font-weight: 700;">Day-Based (₹{{ employee.day_salary }}/day)</span>
-        {% elif employee and employee.salary_type == 'half_day' %}
-          <span style="color: #b45309; font-weight: 700;">Half-Day-Based (₹{{ employee.half_day_salary }}/half-day)</span>
-        {% else %}
-          <span style="color: #0369a1; font-weight: 700;">Hourly-Based (₹{{ employee.hourly_salary }}/hr)</span>
-        {% endif %}
+      <div class="emp-profile-summary-row">
+        <div class="emp-profile-primary">
+          <div><strong>Name:</strong> {{ employee.employee_name if employee else '-' }}</div>
+          <div><strong>Email ID:</strong> {{ employee.email_id or session.get('employee_email') or '-' }}</div>
+        </div>
+        <button type="button" id="btnToggleMoreEmpDetails" class="btn-show-more-details" aria-expanded="false">
+          Show More Details ▾
+        </button>
       </div>
-      <div><strong>Mobile:</strong> {{ employee.mobile_number if employee else '-' }}</div>
-      <div><strong>Shift Hours:</strong> {{ '-' if (employee and (employee.no_shift or employee.shift_hours == '-')) else (employee.shift_hours if employee else '09:00') }}</div>
-      <div><strong>Company:</strong> {{ company.company_name if company else 'Argus CNC™' }}</div>
+      <div id="empExtraDetails" class="emp-extra-details">
+        <div><strong>Employee ID:</strong> {{ employee.id if employee else '-' }}</div>
+        <div><strong>Designation:</strong> {{ employee.designation if employee else '-' }}</div>
+        <div><strong>Salary Basis:</strong> 
+          {% if employee and employee.salary_type == 'daily' %}
+            <span style="color: #15803d; font-weight: 700;">Day-Based (₹{{ employee.day_salary }}/day)</span>
+          {% elif employee and employee.salary_type == 'half_day' %}
+            <span style="color: #b45309; font-weight: 700;">Half-Day-Based (₹{{ employee.half_day_salary }}/half-day)</span>
+          {% else %}
+            <span style="color: #0369a1; font-weight: 700;">Hourly-Based (₹{{ employee.hourly_salary }}/hr)</span>
+          {% endif %}
+        </div>
+        <div><strong>Mobile:</strong> {{ employee.mobile_number if employee else '-' }}</div>
+        <div><strong>Shift Hours:</strong> {{ '-' if (employee and (employee.no_shift or employee.shift_hours == '-')) else (employee.shift_hours if employee else '09:00') }}</div>
+        <div><strong>Company:</strong> {{ company.company_name if company else 'Argus CNC™' }}</div>
+      </div>
     </div>
 
     {% set emp_perms = employee.permissions if (employee and employee.permissions) else {} %}
@@ -1329,16 +1436,19 @@
           </div>
 
           <div style="margin-bottom: 20px;">
-            <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px;">
-              Password
+            <label style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px;">
+              <span>Password</span>
+              <span id="empPassStatusBadge" style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; {{ 'color: #16a34a; background: #dcfce7;' if (employee and (employee.password_raw or employee.password or employee.password_hash)) else 'color: #ea580c; background: #ffedd5;' }}">
+                {{ '✓ Password Configured' if (employee and (employee.password_raw or employee.password or employee.password_hash)) else '⚠️ Password Not Set' }}
+              </span>
             </label>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" id="employeeNewPassword" placeholder="Enter any password" required
+              <input type="text" id="employeeNewPassword" value="{{ employee.password_raw or '' }}" placeholder="Enter any password" required
                      style="width: 100%; padding: 9px 40px 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box;">
               <button type="button" id="toggleEmpPassBtn" style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: #64748b; padding: 4px; display: flex; align-items: center;" title="Show/Hide password">
                 <svg id="empEyeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
                 </svg>
               </button>
             </div>
@@ -3185,9 +3295,21 @@
       }
     };
 
+    // ===== PROFILE SHOW MORE DETAILS TOGGLE =====
+    const btnToggleMoreDetails = document.getElementById('btnToggleMoreEmpDetails');
+    const empExtraDetailsEl = document.getElementById('empExtraDetails');
+    if (btnToggleMoreDetails && empExtraDetailsEl) {
+      btnToggleMoreDetails.addEventListener('click', function () {
+        const isOpen = empExtraDetailsEl.classList.toggle('open');
+        btnToggleMoreDetails.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        btnToggleMoreDetails.textContent = isOpen ? 'Show Less Details ▴' : 'Show More Details ▾';
+      });
+    }
+
     // ===== MY CREDENTIALS PASSWORD HANDLER =====
     const empCredForm = document.getElementById('employeeCredentialsForm');
     const empPassInput = document.getElementById('employeeNewPassword');
+    const empPassStatusBadge = document.getElementById('empPassStatusBadge');
     const toggleEmpPassBtn = document.getElementById('toggleEmpPassBtn');
     const empEyeIcon = document.getElementById('empEyeIcon');
     const credAlert = document.getElementById('credentialsAlert');
@@ -3244,7 +3366,13 @@
           if (window.hideSavingPopup) window.hideSavingPopup();
           if (data.success) {
             showCredAlert(data.message || 'Password updated successfully!', 'success');
-            empPassInput.value = '';
+            empPassInput.value = data.saved_password || pwd;
+            empPassInput.type = 'text';
+            if (empPassStatusBadge) {
+              empPassStatusBadge.textContent = '✓ Password Configured';
+              empPassStatusBadge.style.color = '#16a34a';
+              empPassStatusBadge.style.background = '#dcfce7';
+            }
           } else {
             showCredAlert(data.error || 'Failed to update password.', 'danger');
           }
@@ -4202,6 +4330,6 @@
   <script src="{{ url_for('static', filename='js/teacher_ai.js') }}?v=20261111_v3"></script>
 
   <!-- ARGUS Co-Worker AI Engine (Agent 2) -->
-  <script src="{{ url_for('static', filename='js/coworker_ai.js') }}?v=20261027_v1"></script>
+  <script src="{{ url_for('static', filename='js/coworker_ai.js') }}?v=20261112_mobile_v2"></script>
 </body>
 </html>

@@ -16,13 +16,13 @@
 
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261111_v2">
 
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261112_compact_v1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261112_mobile_v2">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/live_captions.css') }}?v=20261111_v2">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/teacher_ai.css') }}?v=20261111_v2">
 
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/coworker_ai.css') }}?v=20261111_v2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/coworker_ai.css') }}?v=20261112_mobile_v2">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/advisor_ai.css') }}?v=20261111_v2">
 
@@ -201,6 +201,24 @@
         <span></span>
 
       </button>
+
+      <a href="/dashboard" class="mobile-nav-brand" title="Argus Attendance Intelligence">
+
+        <span class="mobile-nav-logo-circle">
+
+          <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}?v=20261111_v2" alt="Argus">
+
+        </span>
+
+        <span class="mobile-nav-brand-text">
+
+          <span class="mobile-brand-title">ARGUS</span>
+
+          <span class="mobile-brand-subtitle">ATTENDANCE INTELLIGENCE</span>
+
+        </span>
+
+      </a>
 
     </div>
 
@@ -1110,7 +1128,7 @@
 
   <!-- ARGUS Co-Worker AI Engine (Agent 2) -->
 
-  <script src="{{ url_for('static', filename='js/coworker_ai.js') }}?v=20261111_v2" data-layout-script="true"></script>
+  <script src="{{ url_for('static', filename='js/coworker_ai.js') }}?v=20261112_mobile_v2" data-layout-script="true"></script>
 
 
 

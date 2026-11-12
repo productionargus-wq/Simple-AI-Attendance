@@ -1169,11 +1169,40 @@ if (!window.makeModalDraggable) {
         window.argusAdvisorAI.close();
       }
       this.scrollToBottom();
+      this.syncMobileViewportHeight();
       setTimeout(() => this.textarea.focus(), 150);
+    }
+
+    syncMobileViewportHeight() {
+      if (!this.chatWindow) return;
+      if (window.innerWidth > 640) {
+        this.chatWindow.style.height = '';
+        this.chatWindow.style.top = '';
+        return;
+      }
+      if (window.visualViewport) {
+        const updateHeight = () => {
+          if (!this.isOpen || window.innerWidth > 640) return;
+          const vv = window.visualViewport;
+          this.chatWindow.style.height = `${vv.height}px`;
+          this.chatWindow.style.top = `${vv.offsetTop}px`;
+          this.scrollToBottom();
+        };
+        updateHeight();
+        if (!this._vvBound) {
+          this._vvBound = true;
+          window.visualViewport.addEventListener('resize', updateHeight);
+          window.visualViewport.addEventListener('scroll', updateHeight);
+        }
+      }
     }
 
     close() {
       this.isOpen = false;
+      if (this.chatWindow && window.innerWidth <= 640) {
+        this.chatWindow.style.height = '';
+        this.chatWindow.style.top = '';
+      }
       this.backdrop.classList.remove('active');
       this.chatWindow.classList.remove('active');
       document.body.classList.remove('coworker-modal-open');
