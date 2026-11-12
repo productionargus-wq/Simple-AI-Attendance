@@ -1333,7 +1333,7 @@
               Password
             </label>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" id="employeeNewPassword" placeholder="Enter your desired password (min 4 chars)" required
+              <input type="password" id="employeeNewPassword" placeholder="Enter any password" required
                      style="width: 100%; padding: 9px 40px 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box;">
               <button type="button" id="toggleEmpPassBtn" style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: #64748b; padding: 4px; display: flex; align-items: center;" title="Show/Hide password">
                 <svg id="empEyeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3216,8 +3216,8 @@
         if (empCredForm._isSubmitting) return false;
 
         const pwd = empPassInput.value.trim();
-        if (!pwd || pwd.length < 4) {
-          showCredAlert('Password must be at least 4 characters long.', 'danger');
+        if (!pwd) {
+          showCredAlert('Please enter a password.', 'danger');
           return;
         }
 

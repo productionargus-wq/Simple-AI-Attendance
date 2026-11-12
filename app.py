@@ -2512,8 +2512,6 @@ def api_update_company_profile():
 
         new_pass = str(data.get('password', '')).strip()
         if new_pass:
-            if len(new_pass) < 4:
-                return jsonify({'success': False, 'error': 'Password must be at least 4 characters.'}), 400
             database.set_company_password(comp_id, new_pass)
             
         return jsonify({'success': True, 'message': 'Company profile updated successfully.'})
@@ -2523,8 +2521,6 @@ def api_update_company_profile():
         
         new_pass = str(data.get('password', '')).strip()
         if new_pass:
-            if len(new_pass) < 4:
-                return jsonify({'success': False, 'error': 'Password must be at least 4 characters.'}), 400
             if target_id == 'ARGUS_MASTER':
                 database.set_admin_password(new_pass)
             else:
@@ -2739,9 +2735,10 @@ def api_employee_set_credentials():
         return jsonify({'success': False, 'error': 'Credential updates are disabled for your account.'}), 403
 
     data = request.get_json(silent=True) or request.form.to_dict()
-    new_password = str(data.get('password', '')).strip()
-    if not new_password or len(new_password) < 4:
-        return jsonify({'success': False, 'error': 'Password must be at least 4 characters long.'}), 400
+    raw_pwd = data.get('password') if data.get('password') is not None else data.get('new_password', '')
+    new_password = str(raw_pwd).strip()
+    if not new_password:
+        return jsonify({'success': False, 'error': 'Please enter a password.'}), 400
     
     success = database.set_employee_password(emp_id, new_password)
     if success:
