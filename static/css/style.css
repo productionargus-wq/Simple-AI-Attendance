@@ -3033,32 +3033,37 @@ body.drawer-open {
     padding: 6px 10px !important;
     border-radius: 8px !important;
     margin-bottom: 8px !important;
-    min-height: 38px !important;
-    max-height: 48px !important;
+    min-height: 40px !important;
+    height: auto !important;
+    max-height: none !important;
     width: 100% !important;
     box-sizing: border-box !important;
+    overflow: visible !important;
   }
 
   .banner-left {
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 6px !important;
     flex: 1 1 auto !important;
     min-width: 0 !important;
     width: auto !important;
   }
 
   .banner-icon-badge {
-    width: 28px !important;
-    height: 28px !important;
+    width: 26px !important;
+    height: 26px !important;
     border-radius: 6px !important;
     flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   .banner-icon-badge svg {
-    width: 15px !important;
-    height: 15px !important;
+    width: 14px !important;
+    height: 14px !important;
   }
 
   .banner-text-group {
@@ -3066,11 +3071,21 @@ body.drawer-open {
     flex-direction: column !important;
     min-width: 0 !important;
     overflow: hidden !important;
+    justify-content: center !important;
+  }
+
+  .banner-title-row {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+    min-width: 0 !important;
   }
 
   .banner-title,
   .content-banner-title {
-    font-size: 12px !important;
+    font-size: 12.5px !important;
     font-weight: 800 !important;
     line-height: 1.15 !important;
     margin: 0 !important;
@@ -3081,25 +3096,43 @@ body.drawer-open {
   }
 
   .banner-subtitle {
-    display: none !important; /* Hide verbose subtitle on mobile so Row 1 stays a single clean line */
+    display: none !important; /* Hide verbose subtitle on mobile so Line 1 stays a single clean line */
+  }
+
+  .quota-badge,
+  #quotaUsageBadge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    background: #f0fdf4 !important;
+    border: 1px solid #bbf7d0 !important;
+    padding: 2px 6px !important;
+    border-radius: 10px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    color: #166534 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .quota-badge .quota-label,
+  #quotaUsageBadge .quota-label {
+    display: none !important; /* Hide 'Active Quota:' text on mobile so only numbers are displayed */
   }
 
   .banner-actions {
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
+    justify-content: flex-end !important;
     gap: 6px !important;
     flex-shrink: 0 !important;
     width: auto !important;
-    max-width: 62% !important;
+    max-width: none !important;
     margin: 0 !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    scrollbar-width: none !important;
-  }
-
-  .banner-actions::-webkit-scrollbar {
-    display: none !important;
+    overflow: visible !important;
   }
 
   .banner-actions button,
@@ -3112,10 +3145,10 @@ body.drawer-open {
     flex: 0 0 auto !important;
     min-width: 0 !important;
     width: auto !important;
-    height: 28px !important;
-    min-height: 28px !important;
+    height: 30px !important;
+    min-height: 30px !important;
     padding: 3px 10px !important;
-    font-size: 11px !important;
+    font-size: 11.5px !important;
     font-weight: 700 !important;
     border-radius: 6px !important;
     white-space: nowrap !important;
@@ -3198,6 +3231,7 @@ body.drawer-open {
     order: 1 !important;
     margin: 0 !important;
     flex-shrink: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .search-box-wrapper {
@@ -3217,15 +3251,17 @@ body.drawer-open {
     flex: 1 1 auto !important;
     width: 100% !important;
     min-width: 0 !important;
-    height: 28px !important;
-    min-height: 28px !important;
-    font-size: 11.5px !important;
-    padding: 3px 8px 3px 26px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    font-size: 12px !important;
+    padding: 4px 8px 4px 28px !important;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E") !important;
     background-repeat: no-repeat !important;
     background-position: 8px center !important;
+    background-size: 13px 13px !important;
     border-radius: 6px !important;
     border: 1px solid #cbd5e1 !important;
+    background-color: #ffffff !important;
     box-sizing: border-box !important;
   }
 
@@ -3236,6 +3272,9 @@ body.drawer-open {
     gap: 0 !important;
     width: auto !important;
     margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
   }
 
   .entries-select-wrapper span,
@@ -3246,10 +3285,10 @@ body.drawer-open {
   }
 
   .entries-select-wrapper .entries-select {
-    height: 28px !important;
-    min-height: 28px !important;
-    padding: 1px 6px !important;
-    font-size: 11px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 2px 6px !important;
+    font-size: 11.5px !important;
     font-weight: 700 !important;
     color: #334155 !important;
     border: 1px solid #cbd5e1 !important;
@@ -3257,6 +3296,7 @@ body.drawer-open {
     background: #ffffff !important;
     cursor: pointer !important;
     box-sizing: border-box !important;
+    margin: 0 !important;
   }
 
   .view-toggle-wrapper {
@@ -3272,8 +3312,8 @@ body.drawer-open {
 
   .view-toggle-wrapper .btn-icon-view {
     width: 26px !important;
-    height: 24px !important;
-    min-height: 24px !important;
+    height: 26px !important;
+    min-height: 26px !important;
     padding: 0 !important;
     display: inline-flex !important;
     align-items: center !important;
@@ -3282,7 +3322,7 @@ body.drawer-open {
     border: none !important;
   }
 
-  /* LINE 3: Actions & Filters (Status Pills + Quota + Export Strip) */
+  /* LINE 3: Actions & Filters (Status Pills + Export Strip) */
   .table-toolbar-actions,
   .table-toolbar-left {
     display: flex !important;
@@ -3304,42 +3344,28 @@ body.drawer-open {
     display: none !important;
   }
 
-  .toolbar-status-quota-group {
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 5px !important;
-    flex-shrink: 0 !important;
-  }
-
   .status-filter-pills {
     display: inline-flex !important;
+    flex-direction: row !important;
     align-items: center !important;
     gap: 2px !important;
-    padding: 2px !important;
+    padding: 2px 3px !important;
     border-radius: 6px !important;
     background: #f1f5f9 !important;
     flex-shrink: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
   }
 
   .btn-status-filter {
     padding: 3px 6px !important;
-    font-size: 10px !important;
+    font-size: 10.5px !important;
     font-weight: 700 !important;
     border-radius: 4px !important;
     white-space: nowrap !important;
     line-height: 1.2 !important;
-  }
-
-  #quotaUsageBadge {
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 3px !important;
-    padding: 2px 7px !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    border-radius: 10px !important;
-    white-space: nowrap !important;
-    flex-shrink: 0 !important;
+    border: none !important;
   }
 
   .export-btn-group {
@@ -3357,8 +3383,8 @@ body.drawer-open {
     flex: 0 0 auto !important;
     min-width: 0 !important;
     width: auto !important;
-    height: 25px !important;
-    min-height: 25px !important;
+    height: 26px !important;
+    min-height: 26px !important;
     padding: 2px 6px !important;
     font-size: 10px !important;
     font-weight: 700 !important;
@@ -6372,8 +6398,8 @@ body {
 
 @media (max-width: 768px) {
   /* Prevent iOS Safari Automatic Viewport Zoom on Form Focus */
-  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-  select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search-input):not(.filter-input),
+  select:not(.entries-select):not(.filter-input),
   textarea {
     font-size: 16px !important;
   }
@@ -6382,33 +6408,6 @@ body {
   .main-content {
     padding: 12px 10px calc(80px + var(--safe-bottom)) 10px !important;
     max-width: 100vw !important;
-  }
-
-  /* Top Banner Cards */
-  .content-banner-card {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 12px !important;
-    padding: 14px 12px !important;
-  }
-
-  .banner-actions {
-    width: 100% !important;
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 8px !important;
-  }
-
-  .banner-actions button,
-  .banner-actions a,
-  .banner-actions .btn-primary-action,
-  .banner-actions .btn-secondary-action,
-  .banner-actions .btn-export {
-    flex: 1 1 calc(50% - 6px) !important;
-    min-height: 42px !important;
-    justify-content: center !important;
-    text-align: center !important;
-    font-size: 12.5px !important;
   }
 
   /* Form Grids collapse to single-column */
@@ -6435,175 +6434,45 @@ body {
     grid-column: span 1 !important;
   }
 
-  /* Export Button Groups - Single Sleek Horizontal Row on Mobile */
-  .export-btn-group {
-    display: flex !important;
-    flex-wrap: nowrap !important;
+  /* Report Filters in Table Toolbar (Attendance & Live Reports) */
+  .table-toolbar-left .filter-group {
+    display: inline-flex !important;
+    flex-direction: row !important;
     align-items: center !important;
-    gap: 5px !important;
-    width: 100% !important;
-    overflow-x: auto !important;
-    scrollbar-width: none !important;
+    gap: 4px !important;
+    flex: 0 0 auto !important;
+    margin: 0 !important;
   }
 
-  .export-btn-group::-webkit-scrollbar {
-    display: none !important;
-  }
-
-  .export-btn-group .btn-export {
-    flex: 1 1 0% !important;
-    min-width: 0 !important;
-    height: 32px !important;
-    min-height: 32px !important;
-    padding: 4px 3px !important;
+  .table-toolbar-left .filter-group label {
     font-size: 11px !important;
     font-weight: 700 !important;
-    border-radius: 7px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    color: #475569 !important;
     white-space: nowrap !important;
-    line-height: 1 !important;
-  }
-
-  /* Table Toolbars */
-  .table-toolbar {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 10px !important;
-  }
-
-  .table-toolbar-left {
-    width: 100% !important;
-    display: flex !important;
-    flex-wrap: wrap !important;
-    flex-direction: row !important;
-    align-items: stretch !important;
-    gap: 8px !important;
-  }
-
-  .table-toolbar-left > .filter-group {
-    flex: 1 1 100% !important;
-    width: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 4px !important;
+    margin: 0 !important;
   }
 
   .table-toolbar-left .filter-input,
   .table-toolbar-left select.filter-input {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    min-height: 40px !important;
-    font-size: 14px !important;
-    padding: 6px 10px !important;
-    border-radius: 6px !important;
-    box-sizing: border-box !important;
-  }
-
-  .table-toolbar-left > .btn-filter,
-  .table-toolbar-left > .btn-clear {
-    flex: 1 1 calc(50% - 4px) !important;
-    min-height: 40px !important;
-    font-size: 13px !important;
-    font-weight: 700 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  .table-toolbar-right,
-  .toolbar-right-controls {
-    width: 100% !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 8px !important;
-  }
-
-  .entries-select-wrapper {
-    width: auto !important;
-    max-width: 100% !important;
-    display: inline-flex !important;
-    justify-content: flex-start !important;
-    align-items: center !important;
-    align-self: flex-start !important;
-    gap: 6px !important;
-    background: #f8fafc !important;
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 8px !important;
-    padding: 4px 10px !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    color: #334155 !important;
-  }
-
-  .entries-select-wrapper .entries-select {
-    width: auto !important;
-    min-width: 54px !important;
     height: 28px !important;
     min-height: 28px !important;
-    font-size: 12.5px !important;
-    font-weight: 700 !important;
+    font-size: 11.5px !important;
     padding: 2px 6px !important;
     border-radius: 6px !important;
-    background: #ffffff !important;
-  }
-
-  .search-box-wrapper {
-    width: 100% !important;
-    max-width: 100% !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    margin-top: 4px !important;
-  }
-
-  .search-box-wrapper label {
-    font-size: 12px !important;
-    font-weight: 700 !important;
-    color: #475569 !important;
-    white-space: nowrap !important;
-  }
-
-  .search-box-wrapper .search-input {
-    flex: 1 1 auto !important;
-    width: 100% !important;
-    max-width: 100% !important;
+    border: 1px solid #cbd5e1 !important;
+    width: auto !important;
     min-width: 0 !important;
-    min-height: 40px !important;
-    font-size: 14px !important;
-    padding: 6px 12px !important;
+  }
+
+  .table-toolbar-left .btn-filter,
+  .table-toolbar-left .btn-clear {
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 2px 8px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
     border-radius: 6px !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Subtab Toggle Buttons & Status Pills (Mobile Touch Carousel) */
-  .tab-toggle-container,
-  .status-tabs-nav,
-  .status-filter-pills {
-    display: flex !important;
-    width: 100% !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    white-space: nowrap !important;
-    scrollbar-width: none !important;
-    padding: 4px !important;
-    gap: 4px !important;
-    border-radius: 8px !important;
-  }
-
-  .tab-toggle-container::-webkit-scrollbar,
-  .status-tabs-nav::-webkit-scrollbar,
-  .status-filter-pills::-webkit-scrollbar {
-    display: none !important;
-  }
-
-  .btn-toggle-tab,
-  .status-tab-btn,
-  .btn-status-filter {
-    flex-shrink: 0 !important;
+    flex: 0 0 auto !important;
     white-space: nowrap !important;
   }
 

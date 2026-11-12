@@ -28,7 +28,21 @@
 
     <div class="banner-text-group">
 
-      <div class="banner-title">EMPLOYEE DETAILS</div>
+      <div class="banner-title-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+
+        <div class="banner-title">EMPLOYEE DETAILS</div>
+
+        <div id="quotaUsageBadge" class="quota-badge" style="display: inline-flex; align-items: center; gap: 4px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 2px 7px; border-radius: 12px; font-size: 10.5px; font-weight: 700; color: #166534; white-space: nowrap; flex-shrink: 0;" title="Active employees vs Allocated restriction limit">
+
+          <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: #22c55e;"></span>
+
+          <span class="quota-label">Active Quota:</span>
+
+          <span id="quotaUsageText" style="font-weight: 800;">-- / --</span>
+
+        </div>
+
+      </div>
 
       <div class="banner-subtitle">Manage employee information, salary details and attendance settings</div>
 
@@ -126,20 +140,11 @@
 
     <!-- Line 3 of Mobile View (Status Filters, Quota Badge & Single-Row Exports) -->
     <div class="table-toolbar-actions">
-      <div class="toolbar-status-quota-group" style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
-        <!-- Status Filter Tabs -->
-        <div class="status-filter-pills" style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 2px 3px; border-radius: 6px; flex-shrink: 0;">
-          <button type="button" class="btn-status-filter active" data-status="All" id="filterBtnAll" style="border: none; background: #ffffff; color: #0f172a; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.06); transition: all 0.15s ease;">All <span id="countAllPill" style="font-weight: 800; color: #64748b; margin-left: 2px;">(0)</span></button>
-          <button type="button" class="btn-status-filter" data-status="Active" id="filterBtnActive" style="border: none; background: transparent; color: #166534; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; transition: all 0.15s ease;">Active <span id="countActivePill" style="font-weight: 800; color: #16a34a; margin-left: 2px;">(0)</span></button>
-          <button type="button" class="btn-status-filter" data-status="Inactive" id="filterBtnInactive" style="border: none; background: transparent; color: #991b1b; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; transition: all 0.15s ease;">Inactive <span id="countInactivePill" style="font-weight: 800; color: #dc2626; margin-left: 2px;">(0)</span></button>
-        </div>
-
-        <!-- Active Quota Badge -->
-        <div id="quotaUsageBadge" style="display: inline-flex; align-items: center; gap: 5px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; color: #166534; white-space: nowrap; flex-shrink: 0;" title="Active employees vs Allocated restriction limit">
-          <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: #22c55e;"></span>
-          <span>Active Quota:</span>
-          <span id="quotaUsageText" style="font-weight: 800;">-- / --</span>
-        </div>
+      <!-- Status Filter Tabs -->
+      <div class="status-filter-pills" style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 2px 3px; border-radius: 6px; flex-shrink: 0;">
+        <button type="button" class="btn-status-filter active" data-status="All" id="filterBtnAll" style="border: none; background: #ffffff; color: #0f172a; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.06); transition: all 0.15s ease;">All <span id="countAllPill" style="font-weight: 800; color: #64748b; margin-left: 2px;">(0)</span></button>
+        <button type="button" class="btn-status-filter" data-status="Active" id="filterBtnActive" style="border: none; background: transparent; color: #166534; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; transition: all 0.15s ease;">Active <span id="countActivePill" style="font-weight: 800; color: #16a34a; margin-left: 2px;">(0)</span></button>
+        <button type="button" class="btn-status-filter" data-status="Inactive" id="filterBtnInactive" style="border: none; background: transparent; color: #991b1b; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; transition: all 0.15s ease;">Inactive <span id="countInactivePill" style="font-weight: 800; color: #dc2626; margin-left: 2px;">(0)</span></button>
       </div>
 
       <div class="export-btn-group">
