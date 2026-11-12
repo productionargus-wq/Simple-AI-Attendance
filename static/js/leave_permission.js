@@ -284,7 +284,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const row = document.createElement('div');
     row.className = 'custom-leave-row';
     row.setAttribute('data-source', source || 'employee');
-    row.style.cssText = 'display: grid; grid-template-columns: 1fr 90px 150px 108px; gap: 8px; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0;';
 
     row.innerHTML = `
       <div>

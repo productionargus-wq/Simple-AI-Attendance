@@ -94,6 +94,9 @@
     .branch-directory-grid {
       grid-template-columns: 1fr;
     }
+    .branch-latlng-grid {
+      grid-template-columns: 1fr !important;
+    }
     #branchModal {
       padding: 0 !important;
       align-items: flex-end !important;
@@ -308,7 +311,7 @@
         <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Street Address</label>
         <textarea id="formAddress" rows="2" placeholder="Complete physical address..." style="width: 100%; padding: 8px 12px; font-size: 12.5px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; box-sizing: border-box; resize: vertical;"></textarea>
       </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div class="branch-latlng-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
         <div>
           <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Latitude</label>
           <input type="number" step="any" id="formLat" placeholder="11.0168" style="width: 100%; padding: 8px 12px; font-size: 12.5px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; box-sizing: border-box;">

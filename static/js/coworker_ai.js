@@ -35,9 +35,14 @@ if (!window.makeAgentButtonDraggable) {
       btn.style.transform = 'none';
     }
 
+    function getActiveStorageKey() {
+      return window.innerWidth <= 768 ? `${storageKey}_mobile` : storageKey;
+    }
+
     function restorePosition() {
+      const activeKey = getActiveStorageKey();
       try {
-        const saved = localStorage.getItem(storageKey);
+        const saved = localStorage.getItem(activeKey);
         if (saved) {
           const pos = JSON.parse(saved);
           if (typeof pos.left === 'number' && typeof pos.top === 'number') {
@@ -46,6 +51,16 @@ if (!window.makeAgentButtonDraggable) {
           }
         }
       } catch (e) {}
+
+      if (window.innerWidth <= 768) {
+        const rightPx = Math.round(12 + ((60 - (Number(defaultOffsetPx) || 0)) / 60) * 50);
+        btn.style.left = 'auto';
+        btn.style.top = 'auto';
+        btn.style.right = rightPx + 'px';
+        btn.style.bottom = 'calc(50px + env(safe-area-inset-bottom, 0px))';
+        btn.style.transform = 'none';
+        return;
+      }
 
       // Default slot positioned relative to horizontal center
       btn.style.left = `calc(50% + ${defaultOffsetPx}px)`;
@@ -111,7 +126,7 @@ if (!window.makeAgentButtonDraggable) {
 
         const rect = btn.getBoundingClientRect();
         try {
-          localStorage.setItem(storageKey, JSON.stringify({
+          localStorage.setItem(getActiveStorageKey(), JSON.stringify({
             left: Math.round(rect.left),
             top: Math.round(rect.top)
           }));
@@ -131,17 +146,7 @@ if (!window.makeAgentButtonDraggable) {
     }, true);
 
     setTimeout(restorePosition, 40);
-    window.addEventListener('resize', () => {
-      try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-          const pos = JSON.parse(saved);
-          if (typeof pos.left === 'number' && typeof pos.top === 'number') {
-            clampAndApply(pos.left, pos.top);
-          }
-        }
-      } catch (e) {}
-    });
+    window.addEventListener('resize', restorePosition);
   };
 }
 

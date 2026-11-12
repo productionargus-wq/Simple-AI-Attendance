@@ -4797,8 +4797,7 @@
       if (!container) return;
 
       const row = document.createElement('div');
-      row.className = 'custom-leave-row';
-      row.style.cssText = 'display: grid; grid-template-columns: 1fr 100px 90px 32px; gap: 8px; align-items: center;';
+      row.className = 'custom-leave-row fw-custom-leave-row';
       row.innerHTML = `
         <div>
           <input type="text" class="custom-leave-name" placeholder="e.g., Casual Leave, Medical Leave" value="${escapeHtml(name)}" style="width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 6px; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 600;">

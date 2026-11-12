@@ -386,23 +386,28 @@ body.coworker-modal-open .argus-ai-circle-btn {
   display: none !important;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .argus-ai-circle-btn {
-    bottom: 76px;
-    width: 44px;
-    height: 44px;
-  }
-  .argus-ai-circle-btn.teacher-ai-btn {
-    left: calc(50% - 52px);
-    transform: translateX(-50%);
-  }
-  .argus-ai-circle-btn.coworker-ai-btn {
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: calc(50px + env(safe-area-inset-bottom, 0px));
+    left: auto;
+    transform: none;
+    width: 42px;
+    height: 42px;
   }
   .argus-ai-circle-btn.advisor-ai-btn {
-    left: calc(50% + 52px);
-    transform: translateX(-50%);
+    right: 12px;
+    left: auto;
+    transform: none;
+  }
+  .argus-ai-circle-btn.coworker-ai-btn {
+    right: 62px;
+    left: auto;
+    transform: none;
+  }
+  .argus-ai-circle-btn.teacher-ai-btn {
+    right: 112px;
+    left: auto;
+    transform: none;
   }
   .teacher-ai-hud {
     width: calc(100vw - 20px);

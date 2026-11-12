@@ -958,13 +958,20 @@
 
     @media (max-width: 768px) {
       .navbar {
-        padding: 0 14px;
+        padding: 0 12px;
       }
       .nav-title {
-        font-size: 15px;
+        display: flex;
+        flex-direction: column;
+        line-height: 1.05;
+        font-size: 13.5px;
       }
       .nav-title-attendance {
-        display: none !important;
+        display: block !important;
+        font-size: 7.5px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.45px !important;
+        color: #cbd5e1 !important;
       }
       .nav-label-desktop {
         display: none !important;

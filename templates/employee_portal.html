@@ -382,9 +382,21 @@
         white-space: nowrap;
       }
       .portal-container {
-        padding: 0 10px 40px;
+        padding: 0 10px calc(90px + env(safe-area-inset-bottom, 0px));
         margin: 10px auto;
         gap: 14px;
+      }
+      .modal-leave-emp-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+      }
+      .modal-form-date-grid,
+      .modal-form-time-grid,
+      .modal-perm-grid,
+      .modal-perm-time-grid,
+      .modal-view-req-grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
       }
       .portal-card {
         padding: 14px;
@@ -1033,8 +1045,8 @@
       margin-top: 4px;
     }
   </style>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/teacher_ai.css') }}?v=20261106_v5">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/coworker_ai.css') }}?v=20261112_mobile_v2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/teacher_ai.css') }}?v=20261112_br_v1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/coworker_ai.css') }}?v=20261112_br_v1">
 </head>
 <body>
 
@@ -1533,7 +1545,7 @@
             <div id="leaveAlert" style="display: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 10px;"></div>
 
             <!-- Top Row: Employee Info (Left) & Leave Balance Box (Right) -->
-            <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 14px; margin-bottom: 12px;">
+            <div class="modal-leave-emp-grid" style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 14px; margin-bottom: 12px;">
               <div>
                 <div style="margin-bottom: 8px;">
                   <label class="form-label-leave">Employee Name</label>
@@ -1580,7 +1592,7 @@
             </div>
 
             <!-- Dates: From Date & To Date -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div class="modal-form-date-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
               <div>
                 <label class="form-label-leave">From Date <span style="color: #dc2626;">*</span></label>
                 <input type="date" class="form-input-leave" id="leaveFromDate" name="from_date" required>
@@ -1608,7 +1620,7 @@
 
             <!-- Hourly Leave Fields (Hourly-based employees) -->
             <div id="leaveSessionHourlyBased" style="display: none; margin-bottom: 12px;">
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div class="modal-form-time-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                 <div>
                   <label class="form-label-leave">From Time <span style="color: #dc2626;">*</span></label>
                   <input type="time" class="form-input-leave" id="leaveFromTime" name="leave_from_time" value="09:00">
@@ -1703,7 +1715,7 @@
             </div>
 
             <!-- Permission Type & Date -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <div class="modal-perm-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
               <div>
                 <label class="form-label-leave">Permission Type <span style="color: #dc2626;">*</span></label>
                 <select class="form-input-leave" id="permInputType" name="permission_type" required>
@@ -1720,7 +1732,7 @@
             </div>
 
             <!-- Times: From Time & To Time -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <div class="modal-perm-time-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
               <div>
                 <label class="form-label-leave">From Time <span style="color: #dc2626;">*</span></label>
                 <input type="time" class="form-input-leave" id="permFromTime" name="from_time" value="10:00" required>
@@ -1806,7 +1818,7 @@
         <div style="padding: 20px;">
           <div id="viewReqStatusBanner" style="padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; font-weight: 700;"></div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; font-size: 12px;">
+          <div class="modal-view-req-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; font-size: 12px;">
             <div>
               <div style="color: #64748b; font-size: 11px; font-weight: 600;">Request Type</div>
               <div style="font-weight: 700; color: #0f172a; margin-top: 2px;" id="viewReqType">-</div>
@@ -4494,9 +4506,9 @@
   </script>
 
   <!-- ARGUS Teacher AI Engine (Agent 1) -->
-  <script src="{{ url_for('static', filename='js/teacher_ai.js') }}?v=20261111_v3"></script>
+  <script src="{{ url_for('static', filename='js/teacher_ai.js') }}?v=20261112_br_v1"></script>
 
   <!-- ARGUS Co-Worker AI Engine (Agent 2) -->
-  <script src="{{ url_for('static', filename='js/coworker_ai.js') }}?v=20261112_mobile_v2"></script>
+  <script src="{{ url_for('static', filename='js/coworker_ai.js') }}?v=20261112_br_v1"></script>
 </body>
 </html>

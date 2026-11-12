@@ -3,6 +3,39 @@
 
 
 {% block content %}
+<style>
+  @media (max-width: 640px) {
+    .content-banner-card {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 12px !important;
+    }
+    .content-banner-card .banner-actions {
+      width: 100% !important;
+      flex-wrap: wrap !important;
+      gap: 8px !important;
+    }
+    .content-banner-card .banner-actions button {
+      flex: 1 1 auto !important;
+    }
+    .form-grid-company {
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+    }
+    .form-grid-company .form-group[style*="grid-column: span 2"] {
+      grid-column: span 1 !important;
+    }
+    .reports-stats-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 8px !important;
+    }
+  }
+  @media (max-width: 380px) {
+    .reports-stats-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+</style>
 
 <!-- Top Manage Companies Banner -->
 
@@ -36,7 +69,7 @@
 
   </div>
 
-  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px;">
+  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
 
     <button class="btn-secondary-action" id="btnOpenReportsModal">
 
@@ -876,7 +909,7 @@
 
       <div style="font-size: 13px; font-weight: 700; color: #2c3e50; margin-bottom: 8px;">Registered Tenants Breakdown</div>
 
-      <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+      <div class="table-responsive" style="max-height: 280px; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch;">
 
         <table class="employee-table">
 

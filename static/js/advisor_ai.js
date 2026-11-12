@@ -32,9 +32,14 @@
         btn.style.transform = 'none';
       }
 
+      function getActiveStorageKey() {
+        return window.innerWidth <= 768 ? `${storageKey}_mobile` : storageKey;
+      }
+
       function restorePosition() {
+        const activeKey = getActiveStorageKey();
         try {
-          const saved = localStorage.getItem(storageKey);
+          const saved = localStorage.getItem(activeKey);
           if (saved) {
             const pos = JSON.parse(saved);
             if (typeof pos.left === 'number' && typeof pos.top === 'number') {
@@ -43,6 +48,16 @@
             }
           }
         } catch (e) {}
+
+        if (window.innerWidth <= 768) {
+          const rightPx = Math.round(12 + ((60 - (Number(defaultOffsetPx) || 0)) / 60) * 50);
+          btn.style.left = 'auto';
+          btn.style.top = 'auto';
+          btn.style.right = rightPx + 'px';
+          btn.style.bottom = 'calc(50px + env(safe-area-inset-bottom, 0px))';
+          btn.style.transform = 'none';
+          return;
+        }
 
         btn.style.left = `calc(50% + ${defaultOffsetPx}px)`;
         btn.style.bottom = '24px';

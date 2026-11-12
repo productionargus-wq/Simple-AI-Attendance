@@ -1973,15 +1973,23 @@
         min-width: 0;
       }
       .export-btn-group {
-        width: 100%;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+        align-items: center !important;
       }
       .export-btn-group .btn-export {
-        flex: 1 1 calc(50% - 6px);
-        justify-content: center;
-        text-align: center;
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+        padding: 6px 2px !important;
+        font-size: 10px !important;
+        text-align: center !important;
+        justify-content: center !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
       }
 
       /* Dashboard stats 2x2 grid with 5th card full width */
@@ -3567,6 +3575,23 @@
       gap: 12px !important;
       min-height: 0 !important;
       overflow: hidden !important;
+    }
+  }
+
+  /* Custom Leave Row Responsive Grid for Field Worker Settings */
+  .fw-custom-leave-row {
+    display: grid;
+    grid-template-columns: 1fr 100px 90px 32px;
+    gap: 8px;
+    align-items: center;
+  }
+  @media (max-width: 600px) {
+    .fw-custom-leave-row {
+      grid-template-columns: 1fr 1fr 32px !important;
+      gap: 6px !important;
+    }
+    .fw-custom-leave-row > div:first-child {
+      grid-column: 1 / -1;
     }
   }
 
