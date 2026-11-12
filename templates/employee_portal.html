@@ -448,6 +448,24 @@
       background: rgba(30, 41, 59, 0.9);
     }
 
+    .blink-hud-pill.blink-warmup {
+      border-color: rgba(245, 158, 11, 0.7);
+      background: rgba(69, 26, 3, 0.92);
+      box-shadow: 0 4px 18px rgba(245, 158, 11, 0.3);
+      animation: pulseWarmup 1.5s ease-in-out infinite;
+    }
+
+    .blink-hud-pill.blink-steady {
+      border-color: #10b981;
+      background: rgba(6, 78, 59, 0.94);
+      box-shadow: 0 0 22px rgba(16, 185, 129, 0.55);
+    }
+
+    @keyframes pulseWarmup {
+      0%, 100% { opacity: 0.88; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.02); }
+    }
+
     .blink-eye-state {
       font-size: 11px;
       font-weight: 700;
@@ -925,7 +943,7 @@
     </div>
 
     <div class="portal-nav-right" style="display: flex; align-items: center; gap: 14px;">
-      <a href="/logout" class="portal-btn-logout" style="background-color: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 6px 14px; font-size: 11px; font-weight: 700; text-decoration: none;">
+      <a href="/logout" data-no-spa="true" class="portal-btn-logout" style="background-color: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 6px 14px; font-size: 11px; font-weight: 700; text-decoration: none;">
         Logout
       </a>
       <div class="portal-logo-circle" title="{{ company.company_name if company and company.company_name else (session.get('company_name') or 'Company') }}">
@@ -1744,7 +1762,7 @@
     const portalBlinkEyeState = document.getElementById('portalBlinkEyeState');
 
     let stream = null;
-    let cameraActive = true;
+    let cameraActive = false;
     let isPortalHandsFreeActive = true;
     let userLat = null;
     let userLng = null;
@@ -1842,6 +1860,9 @@
           if (portalHandsfreeIndicatorDot) portalHandsfreeIndicatorDot.style.background = '#10b981';
           if (portalBlinkHudOverlay && cameraActive) {
             portalBlinkHudOverlay.style.display = 'flex';
+            portalCurrentGuidance = null;
+            portalHasSpokenAligned = false;
+            portalHasSpokenSteadyHold = false;
             resetPortalBlinkState();
             initPortalFaceMesh();
             if (!isPortalDetecting) {
@@ -1873,6 +1894,16 @@
     let portalAnimFrameId = null;
     let portalLastMeshSeenTime = 0;
 
+    // AI Camera Warm-up & Positioning Guidance State
+    let isPortalAIModelReady = false;
+    let portalAiWarmupTimer = null;
+    let portalHasAnnouncedWarmup = false;
+    let portalCalibratedFrames = 0;
+    let portalCurrentGuidance = null;
+    let portalGuidanceStartTime = 0;
+    let portalHasSpokenAligned = false;
+    let portalHasSpokenSteadyHold = false;
+
     let portalBlinkCount = 0;
     let portalLastBlinkTime = 0;
     let portalLastVerifiedBlinkTime = 0;
@@ -1883,44 +1914,6 @@
     let portalBaselineEAR = 0.28;
     let portalBlinkResetTimer = null;
     let portalAudioCtx = null;
-
-    // High-Speed Canvas Optical Fallback Engine for Portal
-    const portalOpticalCanvas = document.createElement('canvas');
-    portalOpticalCanvas.width = 80;
-    portalOpticalCanvas.height = 40;
-    const portalOpticalCtx = portalOpticalCanvas.getContext('2d', { willReadFrequently: true });
-    let portalOpticalBaselineVariance = null;
-    let portalOpticalClosedFrames = 0;
-    let portalOpticalEyeClosed = false;
-
-    function computePortalOpticalVariance(videoEl) {
-      if (!videoEl || videoEl.readyState < 2) return null;
-      const vw = videoEl.videoWidth || 640;
-      const vh = videoEl.videoHeight || 480;
-      const sx = vw * 0.25;
-      const sy = vh * 0.26;
-      const sw = vw * 0.50;
-      const sh = vh * 0.24;
-
-      try {
-        portalOpticalCtx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, 80, 40);
-        const imgData = portalOpticalCtx.getImageData(0, 0, 80, 40);
-        const data = imgData.data;
-        const n = data.length / 4;
-        let sumL = 0;
-        let sumL2 = 0;
-        for (let i = 0; i < data.length; i += 4) {
-          const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-          sumL += lum;
-          sumL2 += lum * lum;
-        }
-        const mean = sumL / n;
-        const variance = (sumL2 / n) - (mean * mean);
-        return variance;
-      } catch (e) {
-        return null;
-      }
-    }
 
     function playPortalChime(type) {
       try {
@@ -1955,7 +1948,7 @@
       } catch (e) {}
     }
 
-    function updatePortalBlinkHUD(count, text, isCooldown = false) {
+    function updatePortalBlinkHUD(count, text, isCooldown = false, isWarmup = false, isSteady = false) {
       if (!portalBlinkHudOverlay || !portalBlinkHudPill) return;
 
       if (isCooldown) {
@@ -1967,13 +1960,31 @@
         return;
       }
 
+      if (isWarmup) {
+        portalBlinkHudPill.className = 'blink-hud-pill blink-warmup';
+        if (portalBlinkHudIcon) portalBlinkHudIcon.textContent = '⚡';
+        if (portalBlinkHudText) portalBlinkHudText.textContent = text || 'Initializing Face AI...';
+        if (portalBlinkHudDots) portalBlinkHudDots.style.display = 'none';
+        if (portalBlinkEyeState) portalBlinkEyeState.style.display = 'none';
+        return;
+      }
+
+      if (isSteady) {
+        portalBlinkHudPill.className = 'blink-hud-pill blink-steady';
+        if (portalBlinkHudIcon) portalBlinkHudIcon.textContent = '✨';
+        if (portalBlinkHudText) portalBlinkHudText.textContent = text || 'Hold steady...';
+        if (portalBlinkHudDots) portalBlinkHudDots.style.display = 'none';
+        if (portalBlinkEyeState) portalBlinkEyeState.style.display = 'inline-block';
+        return;
+      }
+
       if (portalBlinkHudDots) portalBlinkHudDots.style.display = 'inline-flex';
       if (portalBlinkEyeState) portalBlinkEyeState.style.display = 'inline-block';
 
       if (count === 0) {
         portalBlinkHudPill.className = 'blink-hud-pill';
         if (portalBlinkHudIcon) portalBlinkHudIcon.textContent = '👁️';
-        if (portalBlinkHudText) portalBlinkHudText.textContent = text || 'Blink 2 times to punch hands-free';
+        if (portalBlinkHudText) portalBlinkHudText.textContent = text || (isPortalHandsFreeActive ? 'Blink 2 times or hold steady' : '🟢 Ready for Attendance');
         if (portalBlinkDot1) portalBlinkDot1.classList.remove('active');
         if (portalBlinkDot2) portalBlinkDot2.classList.remove('active');
       } else if (count === 1) {
@@ -1995,9 +2006,8 @@
       portalBlinkCount = 0;
       portalIsEyesClosed = false;
       portalClosedFrames = 0;
-      portalOpticalClosedFrames = 0;
-      portalOpticalEyeClosed = false;
       portalPendingLivenessPunch = false;
+      portalHasSpokenSteadyHold = false;
       if (portalPendingLivenessTimer) {
         clearTimeout(portalPendingLivenessTimer);
         portalPendingLivenessTimer = null;
@@ -2007,6 +2017,27 @@
         portalBlinkResetTimer = null;
       }
       updatePortalBlinkHUD(0, message);
+    }
+
+    function portalReticlePulse() {
+      if (portalFaceReticle) {
+        portalFaceReticle.style.borderColor = '#10b981';
+        portalFaceReticle.style.boxShadow = '0 0 25px rgba(16, 185, 129, 0.7)';
+        setTimeout(() => {
+          if (portalFaceReticle) {
+            portalFaceReticle.style.borderColor = 'rgba(56, 189, 248, 0.55)';
+            portalFaceReticle.style.boxShadow = '0 0 15px rgba(56, 189, 248, 0.2)';
+          }
+        }, 1500);
+      }
+    }
+
+    function portalSpeakGuidance(content) {
+      if (!window.ArgusVoice) return;
+      if (isPortalPunching) return;
+      if (punchResult && punchResult.style.display === 'block') return;
+      if (Date.now() < portalCooldownUntil) return;
+      ArgusVoice.speakGuidance(content);
     }
 
     function handlePortalBlinkDetected(source = 'mesh') {
@@ -2054,6 +2085,7 @@
           portalBlinkEyeState.textContent = 'Verified!';
           portalBlinkEyeState.className = 'blink-eye-state eye-blink';
         }
+        portalReticlePulse();
         executePortalPunch('blink');
       }
     }
@@ -2073,6 +2105,38 @@
       return (v1Dist + v2Dist) / (2.0 * hDist);
     }
 
+    function evaluatePortalFaceGuidance(landmarks, numFaces) {
+      if (numFaces > 1) return 'multiple_faces';
+      if (!landmarks || landmarks.length === 0) return 'no_face';
+
+      const pTop = landmarks[10];
+      const pBot = landmarks[152];
+      if (pTop && pBot) {
+        const faceHeight = Math.abs(pBot.y - pTop.y);
+        if (faceHeight < 0.24) return 'too_far';
+        if (faceHeight > 0.80) return 'too_close';
+      }
+
+      const nose = landmarks[1];
+      if (nose) {
+        if (nose.x < 0.30 || nose.x > 0.70) return 'off_center';
+        if (nose.y < 0.22 || nose.y > 0.78) return 'off_center';
+      }
+
+      const cheekL = landmarks[234];
+      const cheekR = landmarks[454];
+      if (nose && cheekL && cheekR) {
+        const distL = Math.abs(nose.x - cheekL.x);
+        const distR = Math.abs(cheekR.x - nose.x);
+        if (distL > 0.005 && distR > 0.005) {
+          const ratio = distL / distR;
+          if (ratio > 2.1 || ratio < 0.48) return 'looking_away';
+        }
+      }
+
+      return 'aligned';
+    }
+
     function onPortalFaceMeshResults(results) {
       if (!cameraActive || isPortalPunching) return;
 
@@ -2084,7 +2148,6 @@
       }
 
       if (punchResult && punchResult.style.display === 'block') {
-        // Suppress blink detection while punch result card is displayed
         return;
       }
 
@@ -2097,33 +2160,142 @@
           portalBlinkEyeState.textContent = 'Detecting...';
           portalBlinkEyeState.className = 'blink-eye-state';
         }
+        portalCurrentGuidance = null;
+        portalHasSpokenAligned = false;
+        portalHasSpokenSteadyHold = false;
         if (portalBlinkCount > 0 && (now - portalLastBlinkTime > 4500)) {
           resetPortalBlinkState();
         }
         return;
       }
 
-      if (portalFaceReticle) {
-        portalFaceReticle.style.borderColor = 'rgba(16, 185, 129, 0.85)';
-        portalFaceReticle.style.boxShadow = '0 0 25px rgba(16, 185, 129, 0.65)';
-      }
-
       portalLastMeshSeenTime = now;
+      const numFaces = results.multiFaceLandmarks.length;
       const landmarks = results.multiFaceLandmarks[0];
       const leftEAR = calculateEARPortal(landmarks, LEFT_EYE_PTS);
       const rightEAR = calculateEARPortal(landmarks, RIGHT_EYE_PTS);
+
+      // AI Calibration & Warm-Up Handshake
+      if (!isPortalAIModelReady) {
+        portalCalibratedFrames++;
+        if (leftEAR !== null && rightEAR !== null) {
+          const initAvg = (leftEAR + rightEAR) / 2.0;
+          if (initAvg > 0.14 && initAvg < 0.45) {
+            portalBaselineEAR = (portalBaselineEAR === 0.28 || portalBaselineEAR === null)
+              ? initAvg
+              : (portalBaselineEAR * 0.7 + initAvg * 0.3);
+          }
+        }
+        if (portalCalibratedFrames >= 2) {
+          isPortalAIModelReady = true;
+          if (portalAiWarmupTimer) {
+            clearTimeout(portalAiWarmupTimer);
+            portalAiWarmupTimer = null;
+          }
+          updatePortalBlinkHUD(0, isPortalHandsFreeActive ? 'Blink 2 times or hold steady' : 'Camera Active — Ready to Mark');
+        } else {
+          return;
+        }
+      }
+
+      // Real-time Face Positioning Guidance & Steady-Face Auto-Punch Fallback
+      const guidance = evaluatePortalFaceGuidance(landmarks, numFaces);
+      if (guidance !== portalCurrentGuidance) {
+        portalCurrentGuidance = guidance;
+        portalGuidanceStartTime = now;
+        portalHasSpokenAligned = false;
+        portalHasSpokenSteadyHold = false;
+      } else if (now - portalGuidanceStartTime > 700) {
+        if (guidance === 'multiple_faces') {
+          portalSpeakGuidance({
+            tamil: 'தயவுசெய்து ஒருவர் மட்டுமே கேமராவின் முன் நிற்கவும்.',
+            english: 'Please ensure only one person faces the camera.'
+          });
+          if (portalFaceReticle) portalFaceReticle.style.borderColor = '#ef4444';
+          updatePortalBlinkHUD(0, '⚠️ Please face camera one person at a time');
+          return;
+        } else if (guidance === 'too_far') {
+          portalSpeakGuidance({
+            tamil: 'தயவுசெய்து சற்று அருகில் வரவும்.',
+            english: 'Please move a little closer.'
+          });
+          if (portalFaceReticle) portalFaceReticle.style.borderColor = '#f59e0b';
+          updatePortalBlinkHUD(0, '🔍 Please move a little closer');
+        } else if (guidance === 'too_close') {
+          portalSpeakGuidance({
+            tamil: 'தயவுசெய்து சற்று பின்னால் நகரவும்.',
+            english: 'Please step back slightly.'
+          });
+          if (portalFaceReticle) portalFaceReticle.style.borderColor = '#f59e0b';
+          updatePortalBlinkHUD(0, '↔️ Please step back slightly');
+        } else if (guidance === 'off_center') {
+          portalSpeakGuidance({
+            tamil: 'முகத்தை திரையின் மையத்திற்கு கொண்டு வரவும்.',
+            english: 'Please align your face to the center of the frame.'
+          });
+          if (portalFaceReticle) portalFaceReticle.style.borderColor = '#f59e0b';
+          updatePortalBlinkHUD(0, '🎯 Align face to center');
+        } else if (guidance === 'looking_away') {
+          portalSpeakGuidance({
+            tamil: 'கேமராவை நேராகப் பார்க்கவும்.',
+            english: 'Please look straight at the camera.'
+          });
+          if (portalFaceReticle) portalFaceReticle.style.borderColor = '#f59e0b';
+          updatePortalBlinkHUD(0, '👀 Look straight at the camera');
+        } else if (guidance === 'aligned') {
+          if (portalFaceReticle) {
+            portalFaceReticle.style.borderColor = 'rgba(16, 185, 129, 0.85)';
+            portalFaceReticle.style.boxShadow = '0 0 25px rgba(16, 185, 129, 0.65)';
+          }
+          const alignedDuration = now - portalGuidanceStartTime;
+          if (portalBlinkCount === 0 && !portalHasSpokenAligned && alignedDuration > 900) {
+            portalHasSpokenAligned = true;
+            portalSpeakGuidance({
+              tamil: 'முகத்தை அசைக்காமல் நேராகப் பார்த்து, இருமுறை கண் சிமிட்டவும்.',
+              english: 'Hold steady, look straight at the camera, and blink twice.'
+            });
+          }
+          if (portalBlinkCount === 0 && isPortalHandsFreeActive && !portalPendingLivenessPunch && !isPortalPunching && alignedDuration >= 2500) {
+            const holdProgress = Math.min(100, Math.round(((alignedDuration - 2500) / 1200) * 100));
+            if (!portalHasSpokenSteadyHold && window.ArgusVoice) {
+              portalHasSpokenSteadyHold = true;
+              ArgusVoice.speak({
+                tamil: 'அசையாமல் இருக்கவும்.',
+                english: 'Please hold steady.'
+              });
+            }
+            updatePortalBlinkHUD(1, '✨ Face Aligned! Hold steady...', false, false, true);
+            if (portalFaceReticle) {
+              portalFaceReticle.style.borderColor = '#10b981';
+              portalFaceReticle.style.boxShadow = `0 0 ${16 + (holdProgress / 100) * 20}px rgba(16, 185, 129, ${0.5 + (holdProgress / 100) * 0.4})`;
+            }
+            if (alignedDuration >= 3700) {
+              playPortalChime('success');
+              updatePortalBlinkHUD(2, '✨ Face Verified! Recording...');
+              portalReticlePulse();
+              executePortalPunch('steady_face');
+              return;
+            }
+          }
+        }
+      }
+
       if (leftEAR === null || rightEAR === null) return;
 
       const avgEAR = (leftEAR + rightEAR) / 2.0;
-      if (avgEAR > 0.22 && !portalIsEyesClosed) {
-        portalBaselineEAR = Math.max(0.24, Math.min(0.38, portalBaselineEAR * 0.95 + avgEAR * 0.05));
+      // Adapt open-eye baseline smoothly across wide range of eye shapes & webcam angles
+      if (!portalIsEyesClosed && avgEAR > 0.14) {
+        if (portalBaselineEAR === null || portalBaselineEAR === 0.28) {
+          portalBaselineEAR = Math.max(0.16, Math.min(0.40, avgEAR));
+        } else {
+          portalBaselineEAR = Math.max(0.16, Math.min(0.40, portalBaselineEAR * 0.94 + avgEAR * 0.06));
+        }
       }
 
       const isHigh = (portalSensitivityMode === 'high');
-      const dropRatio = isHigh ? 0.84 : 0.78;
-      const closeFloor = isHigh ? 0.26 : 0.24;
-      const closeThreshold = Math.min(closeFloor, Math.max(0.16, portalBaselineEAR * dropRatio));
-      const openThreshold = Math.max(0.22, portalBaselineEAR * (isHigh ? 0.86 : 0.82));
+      const dropRatio = isHigh ? 0.88 : 0.85; // 12% drop in high mode, 15% drop in normal mode
+      const closeThreshold = portalBaselineEAR * dropRatio;
+      const openThreshold = portalBaselineEAR * (isHigh ? 0.93 : 0.90);
 
       if (portalBlinkCount > 0 && (now - portalLastBlinkTime > 4500)) {
         resetPortalBlinkState('Window timed out. Blink 2 times to punch');
@@ -2131,24 +2303,24 @@
       }
 
       const eyeIsLow = (avgEAR < closeThreshold) ||
-                       (leftEAR < closeThreshold && rightEAR < closeThreshold + 0.05) ||
-                       (rightEAR < closeThreshold && leftEAR < closeThreshold + 0.05);
+                       (leftEAR < portalBaselineEAR * 0.82) ||
+                       (rightEAR < portalBaselineEAR * 0.82);
 
       if (eyeIsLow) {
         portalClosedFrames++;
-        if (portalClosedFrames >= 1 && portalClosedFrames <= 24) {
+        if (portalClosedFrames >= 1 && portalClosedFrames <= 25) {
           portalIsEyesClosed = true;
           if (portalBlinkEyeState) {
             portalBlinkEyeState.textContent = 'Blink!';
             portalBlinkEyeState.className = 'blink-eye-state eye-blink';
           }
         }
-      } else if (avgEAR >= openThreshold) {
+      } else if (avgEAR >= openThreshold || (leftEAR >= openThreshold && rightEAR >= openThreshold)) {
         if (portalBlinkEyeState) {
           portalBlinkEyeState.textContent = 'Eye Open';
           portalBlinkEyeState.className = 'blink-eye-state eye-open';
         }
-        if (portalIsEyesClosed && portalClosedFrames >= 1 && portalClosedFrames <= 24) {
+        if (portalIsEyesClosed && portalClosedFrames >= 1 && portalClosedFrames <= 25) {
           portalIsEyesClosed = false;
           portalClosedFrames = 0;
           portalLastVerifiedBlinkTime = Date.now();
@@ -2162,11 +2334,14 @@
             }
             updatePortalBlinkHUD(2, '✨ Live Human Verified! Recording...');
             playPortalChime('success');
+            portalReticlePulse();
             executePortalPunch('button-liveness');
             return;
           }
 
-          handlePortalBlinkDetected('mesh');
+          if (isPortalHandsFreeActive) {
+            handlePortalBlinkDetected('mesh');
+          }
         } else {
           portalIsEyesClosed = false;
           portalClosedFrames = 0;
@@ -2176,10 +2351,9 @@
 
     function initPortalFaceMesh() {
       if (typeof FaceMesh === 'undefined') {
-        console.log('MediaPipe FaceMesh script loading or unavailable.');
-        return;
+        return false;
       }
-      if (portalFaceMesh) return;
+      if (portalFaceMesh && portalFaceMeshReady) return true;
 
       try {
         portalFaceMesh = new FaceMesh({
@@ -2193,9 +2367,11 @@
         });
         portalFaceMesh.onResults(onPortalFaceMeshResults);
         portalFaceMeshReady = true;
+        return true;
       } catch (err) {
         console.warn('Portal FaceMesh initialization error:', err);
         portalFaceMeshReady = false;
+        return false;
       }
     }
 
@@ -2217,6 +2393,11 @@
       if (window._detectionPaused) {
         portalAnimFrameId = requestAnimationFrame(runPortalDetectionLoop);
         return;
+      }
+
+      // Lazy-retry FaceMesh initialization in case deferred script finished loading after startCamera()
+      if (!portalFaceMeshReady && typeof FaceMesh !== 'undefined') {
+        initPortalFaceMesh();
       }
 
       const now = Date.now();
@@ -2282,8 +2463,11 @@
           punchResult.style.display = 'none';
           punchResult.innerHTML = '';
         }
+        portalCurrentGuidance = null;
+        portalGuidanceStartTime = 0;
+        portalHasSpokenAligned = false;
         resetPortalBlinkState();
-        updatePortalBlinkHUD(0, isPortalHandsFreeActive ? '👁️ Blink 2 times to punch hands-free' : '🟢 Ready for Attendance');
+        updatePortalBlinkHUD(0, isPortalHandsFreeActive ? 'Blink 2 times or hold steady' : 'Camera Active — Ready to Mark');
         btnPunch.disabled = false;
         if (btnPortalPunchText) {
           btnPortalPunchText.textContent = 'Mark My Attendance';
@@ -2297,6 +2481,7 @@
       }
 
       async function startCamera() {
+        if (cameraActive && stream) return;
         if (btnPortalToggleCamText) btnPortalToggleCamText.textContent = 'Starting...';
         try {
           stream = await navigator.mediaDevices.getUserMedia({
@@ -2317,12 +2502,28 @@
           if (portalBlinkHudOverlay && isPortalHandsFreeActive) {
             portalBlinkHudOverlay.style.display = 'flex';
           }
-          updatePortalBlinkHUD(0, '⏳ Initializing Face AI...');
-          if (portalBlinkEyeState) {
-            portalBlinkEyeState.textContent = 'Tracking...';
-            portalBlinkEyeState.className = 'blink-eye-state';
-          }
+
+          isPortalAIModelReady = false;
+          portalCalibratedFrames = 0;
+          portalHasAnnouncedWarmup = false;
+          portalCurrentGuidance = null;
+          portalHasSpokenAligned = false;
+          portalHasSpokenSteadyHold = false;
+          portalBaselineEAR = 0.28;
           resetPortalBlinkState();
+          updatePortalBlinkHUD(0, 'Initializing Face AI...', false, true);
+
+          if (portalAiWarmupTimer) clearTimeout(portalAiWarmupTimer);
+          portalAiWarmupTimer = setTimeout(() => {
+            if (!isPortalAIModelReady && cameraActive && window.ArgusVoice) {
+              portalHasAnnouncedWarmup = true;
+              ArgusVoice.speak({
+                tamil: 'கேமரா தயாராகிறது, ஒரு கணம் காத்திருக்கவும்.',
+                english: 'Face AI is starting up, please wait a moment.'
+              });
+            }
+          }, 1200);
+
           initPortalFaceMesh();
           if (window.ArgusVoice) {
             ArgusVoice.speak({
@@ -2362,6 +2563,16 @@
       }
 
       function stopCamera() {
+        if (portalAiWarmupTimer) {
+          clearTimeout(portalAiWarmupTimer);
+          portalAiWarmupTimer = null;
+        }
+        isPortalAIModelReady = false;
+        portalHasAnnouncedWarmup = false;
+        portalCalibratedFrames = 0;
+        portalCurrentGuidance = null;
+        portalHasSpokenAligned = false;
+        portalHasSpokenSteadyHold = false;
         if (window.ArgusVoice) {
           ArgusVoice.cancel();
         }
@@ -2402,6 +2613,13 @@
         }
       }
 
+      window.addEventListener('beforeunload', () => {
+        if (portalGeoWatchId !== null && navigator.geolocation) {
+          try { navigator.geolocation.clearWatch(portalGeoWatchId); } catch (e) {}
+          portalGeoWatchId = null;
+        }
+      });
+
       if (btnPortalToggleCam) {
         btnPortalToggleCam.addEventListener('click', function () {
           if (cameraActive) {
@@ -2414,10 +2632,11 @@
 
       startCamera();
 
-      // Unified Attendance Punch Handler (Manual Button + Hands-Free 2-Blink Detection)
+      // Unified Attendance Punch Handler (Manual Button + Hands-Free Blink / Steady Face)
       async function executePortalPunch(source = 'button') {
         if (!stream || isPortalPunching) return;
         isPortalPunching = true;
+        let punchSucceeded = false;
         btnPunch.disabled = true;
         if (btnPortalPunchText) {
           btnPortalPunchText.textContent = 'Verifying Face...';
@@ -2428,6 +2647,26 @@
 
         if (source === 'blink') {
           updatePortalBlinkHUD(2, '✨ Verifying Face (2 Blinks)...');
+        } else if (source === 'steady_face') {
+          updatePortalBlinkHUD(2, '✨ Verifying Face...', false, false, true);
+        }
+
+        // Wait briefly for live video dimensions if camera stream just started
+        let waitFrames = 0;
+        while ((video.readyState < 2 || !video.videoWidth || !video.videoHeight) && waitFrames < 8) {
+          await new Promise(r => setTimeout(r, 100));
+          waitFrames++;
+        }
+        if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+          isPortalPunching = false;
+          btnPunch.disabled = false;
+          if (btnPortalPunchText) {
+            btnPortalPunchText.textContent = 'Mark My Attendance';
+          } else {
+            btnPunch.textContent = 'Mark My Attendance';
+          }
+          updatePortalBlinkHUD(0, '⚠️ Camera initializing, please try again...');
+          return;
         }
 
         // Dual-Frame Burst Capture (Frame 1 at t=0, Frame 2 at t=200ms)
@@ -2500,6 +2739,7 @@
           }
 
           if (data.matched) {
+            punchSucceeded = true;
             const isPunchOut = data.punch_status === 'punch_out';
             const isAlreadyPunched = Boolean(data.punch_status === 'already_punched_in' || data.already_punched_in);
             const statusLabel = isAlreadyPunched ? 'Punch In Active (On Duty)' : (isPunchOut ? 'Punch Out Recorded' : 'Punch In Recorded');
@@ -2525,7 +2765,13 @@
             const conf = data.confidence ? `${data.confidence}% Match` : '98.5% Match';
             const rawDistStr = (data.formatted_distance || '').trim();
             const distInfo = (rawDistStr && rawDistStr !== '----' && rawDistStr !== '-') ? rawDistStr : '';
-            const hasPortalLocBadge = Boolean(distInfo || data.live_location);
+            const isImproperGeo = Boolean(data.geofence_enabled && (data.entry_type === 'improper' || data.is_improper));
+            const geofencePillHtml = data.geofence_enabled
+              ? (isImproperGeo
+                ? `<div style="margin-top: 2px;"><span style="display: inline-flex; align-items: center; gap: 4px; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px;">⚠ ${data.gps_verified === false ? 'GPS Unverified (Improper)' : 'Outside Geofence (Improper)'}</span></div>`
+                : `<div style="margin-top: 2px;"><span style="display: inline-flex; align-items: center; gap: 4px; background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px;">✓ Within Geofence (Proper)</span></div>`)
+              : '';
+            const hasPortalLocBadge = Boolean(distInfo || data.live_location || geofencePillHtml);
             const workingHoursHtml = (data.working_hours && !isAlreadyPunched) ? `
               <div class="punch-grid-item">
                 <span class="punch-grid-label">Working Hours:</span>
@@ -2582,6 +2828,7 @@
                       </div>
                       ` : ''}
                       ${data.live_location ? `<div style="font-size: 11px; color: #475569; padding-left: ${distInfo ? '18px' : '0px'}; line-height: 1.3;">📍 <strong>Location:</strong> ${escapeHtml(data.live_location)}</div>` : ''}
+                      ${geofencePillHtml}
                     </div>
                     ` : ''}
                   </div>
@@ -2663,21 +2910,37 @@
         } finally {
           isPortalPunching = false;
           btnPunch.disabled = false;
-          if (btnPortalPunchText) {
-            btnPortalPunchText.textContent = 'Proceed to Next Punch →';
+          portalCurrentGuidance = null;
+          portalHasSpokenAligned = false;
+          portalHasSpokenSteadyHold = false;
+          if (punchSucceeded) {
+            if (btnPortalPunchText) {
+              btnPortalPunchText.textContent = 'Proceed to Next Punch →';
+            } else {
+              btnPunch.textContent = 'Proceed to Next Punch →';
+            }
+            btnPunch.classList.add('btn-next-highlight');
+            // 15-second cooldown debounce only after a successful punch
+            portalCooldownUntil = Date.now() + 15000;
+            resetPortalBlinkState();
+            if (portalAutoDismissTimer) clearTimeout(portalAutoDismissTimer);
+            portalAutoDismissTimer = setTimeout(() => {
+              resetPortalForNextPunch();
+            }, 12000);
           } else {
-            btnPunch.textContent = 'Proceed to Next Punch →';
+            portalCooldownUntil = 0;
+            btnPunch.classList.remove('btn-next-highlight');
+            if (btnPortalPunchText) {
+              btnPortalPunchText.textContent = 'Mark My Attendance';
+            } else {
+              btnPunch.textContent = 'Mark My Attendance';
+            }
+            resetPortalBlinkState('Please try again — blink 2x or click Mark');
+            if (portalAutoDismissTimer) clearTimeout(portalAutoDismissTimer);
+            portalAutoDismissTimer = setTimeout(() => {
+              resetPortalForNextPunch();
+            }, 6000);
           }
-          btnPunch.classList.add('btn-next-highlight');
-          // 15-second cooldown debounce to avoid repeated auto-punching
-          portalCooldownUntil = Date.now() + 15000;
-          resetPortalBlinkState();
-
-          // Auto-dismiss dynamic punch card after 12 seconds
-          if (portalAutoDismissTimer) clearTimeout(portalAutoDismissTimer);
-          portalAutoDismissTimer = setTimeout(() => {
-            resetPortalForNextPunch();
-          }, 12000);
         }
       }
 
@@ -3913,6 +4176,20 @@
         }
       });
     }
+
+    // Clean wipe on explicit logout link click
+    document.querySelectorAll('a[href="/logout"], a[href*="/logout"]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        try {
+          localStorage.removeItem('argus_remember_token');
+          localStorage.removeItem('argus_logged_in');
+          localStorage.removeItem('argus_role');
+          localStorage.removeItem('argus_authenticated');
+          sessionStorage.clear();
+          document.cookie = 'argus_remember_token=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+        } catch (e) {}
+      });
+    });
 
     // Initial load for employee portal leave data
     loadLeaveBalances();

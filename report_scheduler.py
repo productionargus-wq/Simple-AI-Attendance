@@ -359,23 +359,40 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
     proper_entries = []
     improper_entries = []
 
+    comp_doc = database.get_company_by_id(company_id) or {}
+    comp_proper_enabled = database.parse_bool_flag(comp_doc.get('calculate_proper_entries'), default=True)
+    comp_radius = float(comp_doc.get('geofence_radius') or comp_doc.get('radius_meters') or database.GEOFENCE_RADIUS_METERS)
+    branch_radii = {}
+    try:
+        for br in db.company_branches.find({'company_id': str(company_id)}, {'id': 1, 'geofence_radius': 1}):
+            if br.get('id') and br.get('geofence_radius'):
+                branch_radii[str(br['id'])] = float(br['geofence_radius'])
+    except Exception:
+        pass
+
     for p in all_punches:
         emp_name = p.get('employee_name', '-')
         entry_t = format_time_12h(p.get('entry_time'))
         exit_t = format_time_12h(p.get('exit_time'))
         wh = p.get('working_hours') or '00:00'
 
-        entry_type = str(p.get('entry_type', '')).lower()
-        is_improper = (entry_type == 'improper') or (p.get('is_improper') in [True, 1, '1'])
-
         raw_dist = p.get('entry_distance') or p.get('formatted_distance') or ''
         dist_str = format_distance_str(raw_dist)
 
-        # Determine if improper by distance if not tagged
-        if not is_improper and ('km' in dist_str.lower() or (dist_str.endswith('m') and dist_str[:-2].strip().isdigit() and int(dist_str[:-2].strip()) > 200)):
-            is_improper = True
-
         emp_info = emp_map.get(emp_name)
+        emp_proper_enabled = database.parse_bool_flag(emp_info.get('calculate_proper_entries'), default=True) if emp_info else True
+
+        entry_type = str(p.get('entry_type') or '').strip().lower()
+        if entry_type in ('proper', 'improper', 'manual'):
+            is_improper = (entry_type == 'improper')
+        else:
+            is_improper = bool(p.get('is_improper') in [True, 1, '1'])
+            if not is_improper and comp_proper_enabled and emp_proper_enabled:
+                b_id = str(p.get('branch_id') or '').strip()
+                active_radius = branch_radii.get(b_id, comp_radius)
+                parsed_dist_m = database.parse_distance_meters_val(raw_dist)
+                if parsed_dist_m is not None and parsed_dist_m > active_radius:
+                    is_improper = True
 
         if is_improper:
             loc = p.get('entry_location') or 'Remote Location'

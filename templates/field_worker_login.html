@@ -223,7 +223,7 @@
     </a>
 
     <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 12px;">
-      <a href="/" style="color: #475569; text-decoration: none; font-weight: 600;">&larr; Back to Attendance Kiosk</a>
+      <a href="/?kiosk=1" style="color: #475569; text-decoration: none; font-weight: 600;">&larr; Back to Attendance Kiosk</a>
       <a href="/login" style="color: #1b4975; text-decoration: none; font-weight: 700;">System Admin Login</a>
     </div>
   </div>
@@ -233,6 +233,45 @@
       const inp = document.getElementById('fwPasswordInput');
       inp.type = inp.type === 'password' ? 'text' : 'password';
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      function clearClientAuthState() {
+        try {
+          localStorage.removeItem('argus_remember_token');
+          localStorage.removeItem('argus_logged_in');
+          localStorage.removeItem('argus_role');
+          localStorage.removeItem('argus_authenticated');
+          sessionStorage.clear();
+          document.cookie = 'argus_remember_token=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+        } catch (e) {}
+      }
+
+      if (window.location.search.includes('logout=1')) {
+        clearClientAuthState();
+      } else {
+        // Check if user already has an active persistent remember token in localStorage
+        try {
+          var token = localStorage.getItem('argus_remember_token');
+          if (token) {
+            fetch('/api/auth/restore-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              cache: 'no-store',
+              body: JSON.stringify({ token: token })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (data && data.success && (data.redirect || data.redirect_url)) {
+                window.location.replace(data.redirect || data.redirect_url);
+              } else {
+                clearClientAuthState();
+              }
+            })
+            .catch(function () {});
+          }
+        } catch (e) {}
+      }
+    });
   </script>
 </body>
 </html>

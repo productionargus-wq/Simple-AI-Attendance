@@ -930,6 +930,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Native label handles single click change cleanly
 
+  let activeCompanyCalculateProperEntries = (window.COMPANY_CALCULATE_PROPER_ENTRIES !== false);
+
+  function updateGeofencingSectionVisibility(isCompProperEnabled) {
+    const sec = document.getElementById('sectionAttendanceGeofencingCriteria');
+    const inCheck = document.getElementById('inputCalculateProperEntries');
+    const enabled = (isCompProperEnabled !== false);
+    if (!sec) return;
+    if (!enabled) {
+      sec.style.display = 'none';
+      if (inCheck) inCheck.checked = false;
+    } else {
+      sec.style.display = '';
+    }
+  }
+
   function openAddEntryModal() {
     setEmailTurnedOff(false);
     employeeForm.reset();
@@ -975,25 +990,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const photoPreviewBox = document.getElementById('currentPhotoPreview');
     if (photoPreviewBox) photoPreviewBox.style.display = 'none';
 
-    // Helper: update geofencing criteria section visibility
-    function updateGeofencingSectionVisibility(isCompProperEnabled) {
-      const sec = document.getElementById('sectionAttendanceGeofencingCriteria');
-      const inCheck = document.getElementById('inputCalculateProperEntries');
-      const enabled = (isCompProperEnabled !== false);
-      if (!sec) return;
-      if (!enabled) {
-        sec.style.display = 'none';
-        if (inCheck) inCheck.checked = false;
-      } else {
-        sec.style.display = '';
-      }
-    }
-
-    // Reset Calculate Proper Entries to checked and update visibility
+    // Reset Calculate Proper Entries to checked and update visibility using workspace company policy
     syncOvertimeToggleUI(false);
     const inCalcProper = document.getElementById('inputCalculateProperEntries');
     if (inCalcProper) inCalcProper.checked = true;
-    updateGeofencingSectionVisibility(window.COMPANY_CALCULATE_PROPER_ENTRIES);
+    activeCompanyCalculateProperEntries = (window.COMPANY_CALCULATE_PROPER_ENTRIES !== false);
+    updateGeofencingSectionVisibility(activeCompanyCalculateProperEntries);
 
     // Reset Employee Permissions to all checked
     const pPunch = document.getElementById('permPunchAttendance');
@@ -1098,15 +1100,8 @@ document.addEventListener('DOMContentLoaded', function () {
       const compProperEnabled = (emp.company_calculate_proper_entries !== undefined)
         ? emp.company_calculate_proper_entries
         : window.COMPANY_CALCULATE_PROPER_ENTRIES;
-      const secGeofence = document.getElementById('sectionAttendanceGeofencingCriteria');
-      if (secGeofence) {
-        if (compProperEnabled === false) {
-          secGeofence.style.display = 'none';
-          if (inEditCalcProper) inEditCalcProper.checked = false;
-        } else {
-          secGeofence.style.display = '';
-        }
-      }
+      activeCompanyCalculateProperEntries = (compProperEnabled !== false);
+      updateGeofencingSectionVisibility(activeCompanyCalculateProperEntries);
 
       // Populate Employee Permissions (defaulting to true for backward compatibility)
       const perms = emp.permissions || {};
@@ -1195,6 +1190,10 @@ document.addEventListener('DOMContentLoaded', function () {
       const pLeave = document.getElementById('permLeavePermission');
       if (pLeave) pLeave.checked = true;
       syncOvertimeToggleUI(false);
+      const inCalcProperReset = document.getElementById('inputCalculateProperEntries');
+      if (inCalcProperReset) inCalcProperReset.checked = true;
+      activeCompanyCalculateProperEntries = (window.COMPANY_CALCULATE_PROPER_ENTRIES !== false);
+      updateGeofencingSectionVisibility(activeCompanyCalculateProperEntries);
       renderEmployeeDocuments([]);
     });
   }
@@ -1478,9 +1477,9 @@ document.addEventListener('DOMContentLoaded', function () {
         formData.set('km_allowance_rate', '0');
       }
 
-      // Explicitly serialize calculate proper entries (disabled if company policy is disabled)
+      // Explicitly serialize calculate proper entries (disabled if the employee's company policy is disabled)
       const inCalcProperSubmit = document.getElementById('inputCalculateProperEntries');
-      const isCompProperEnabled = (window.COMPANY_CALCULATE_PROPER_ENTRIES !== false);
+      const isCompProperEnabled = (activeCompanyCalculateProperEntries !== false);
       if (!isCompProperEnabled) {
         formData.set('calculate_proper_entries', 'false');
       } else {

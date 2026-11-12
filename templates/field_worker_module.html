@@ -5624,5 +5624,19 @@
   <script src="{{ url_for('static', filename='js/coworker_ai.js') }}?v=20261102_langv1"></script>
   <!-- Universal Table Column Sorter -->
   <script src="{{ url_for('static', filename='js/universal_table_sort.js') }}?v=20261104_v1"></script>
+  <script>
+    document.querySelectorAll('a[href="/logout"], a[href*="/logout"]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        try {
+          localStorage.removeItem('argus_remember_token');
+          localStorage.removeItem('argus_logged_in');
+          localStorage.removeItem('argus_role');
+          localStorage.removeItem('argus_authenticated');
+          sessionStorage.clear();
+          document.cookie = 'argus_remember_token=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+        } catch (e) {}
+      });
+    });
+  </script>
 </body>
 </html>

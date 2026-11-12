@@ -911,6 +911,8 @@ def update_company(comp_id, data):
     db.company_admin.update_one(build_id_filter(comp_id), {'$set': upd})
     invalidate_company_modules_cache(comp_id)
     invalidate_company_cache(comp_id)
+    if any(k in upd for k in ('calculate_proper_entries', 'geofence_radius', 'radius_meters', 'latitude', 'longitude')):
+        _trigger_geofence_resync(company_id=str(comp_id))
     return True
 
 def toggle_company_auto_reports(comp_id, enabled=None):
@@ -974,6 +976,35 @@ def is_company_active(comp_id):
         print(f"Warning: is_company_active check error: {e}")
         return True
 
+_session_cache_lock = threading.Lock()
+_valid_session_cache = {}    # token -> (expires_monotonic, bool)
+_revoked_session_cache = {}  # token -> revoked_until_monotonic
+
+
+def is_user_session_active(token):
+    """Fast O(1)-cached check whether a database session token is active and not revoked."""
+    if not token or not str(token).strip():
+        return False
+    t = str(token).strip()
+    now_m = time.monotonic()
+    with _session_cache_lock:
+        rev_until = _revoked_session_cache.get(t)
+        if rev_until is not None:
+            if rev_until > now_m:
+                return False
+            _revoked_session_cache.pop(t, None)
+        cached = _valid_session_cache.get(t)
+        if cached and cached[0] > now_m:
+            return cached[1]
+    doc = get_user_session_by_token(t)
+    is_ok = bool(doc)
+    with _session_cache_lock:
+        if len(_valid_session_cache) > 4000:
+            _valid_session_cache.clear()
+        _valid_session_cache[t] = (now_m + 30.0, is_ok)
+    return is_ok
+
+
 def create_user_session(user_data):
     """
     Creates a persistent database-backed login session token (valid for 365 days).
@@ -996,11 +1027,17 @@ def create_user_session(user_data):
             'email': str(user_data.get('email') or user_data.get('admin_email') or user_data.get('company_email') or '').strip().lower(),
             'employee_id': str(user_data.get('employee_id', '')).strip(),
             'employee_name': str(user_data.get('employee_name', '')).strip(),
+            'redirect_target': str(user_data.get('redirect_target', '')).strip(),
             'created_at': now,
             'expires_at': expires_at,
             'last_active': now
         }
         db.user_sessions.insert_one(session_doc)
+        with _session_cache_lock:
+            _revoked_session_cache.pop(token, None)
+            if len(_valid_session_cache) > 4000:
+                _valid_session_cache.clear()
+            _valid_session_cache[token] = (time.monotonic() + 30.0, True)
         return token
     except Exception as e:
         print(f"Warning: create_user_session error: {e}")
@@ -1014,8 +1051,12 @@ def get_user_session_by_token(token):
     if not token or not str(token).strip():
         return None
     try:
-        db = get_db()
         token_clean = str(token).strip()
+        with _session_cache_lock:
+            rev_until = _revoked_session_cache.get(token_clean)
+            if rev_until is not None and rev_until > time.monotonic():
+                return None
+        db = get_db()
         doc = db.user_sessions.find_one({'token': token_clean})
         if not doc:
             return None
@@ -1043,12 +1084,20 @@ def get_user_session_by_token(token):
         return None
 
 def delete_user_session(token):
-    """Explicitly deletes a session token on logout."""
+    """Explicitly deletes and revokes a session token on logout."""
     if not token:
         return False
+    t = str(token).strip()
+    if not t:
+        return False
+    with _session_cache_lock:
+        _valid_session_cache.pop(t, None)
+        if len(_revoked_session_cache) > 4000:
+            _revoked_session_cache.clear()
+        _revoked_session_cache[t] = time.monotonic() + 3600.0
     try:
         db = get_db()
-        db.user_sessions.delete_one({'token': str(token).strip()})
+        db.user_sessions.delete_one({'token': t})
         return True
     except Exception:
         return False
@@ -1534,6 +1583,7 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc'
     for doc in cursor:
         c = clean_doc(doc)
         c['status'] = 'Inactive' if str(c.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
+        c['calculate_proper_entries'] = parse_bool_flag(c.get('calculate_proper_entries'), default=True)
         c['no_shift'] = is_no_shift_employee(c)
         if c['no_shift']:
             c['shift_hours'] = '-'
@@ -1607,6 +1657,7 @@ def get_employee_by_id(emp_id, company_id=None):
     cleaned = clean_doc(doc)
     if cleaned:
         cleaned['status'] = 'Inactive' if str(cleaned.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
+        cleaned['calculate_proper_entries'] = parse_bool_flag(cleaned.get('calculate_proper_entries'), default=True)
         cleaned['no_shift'] = is_no_shift_employee(cleaned)
         if cleaned['no_shift']:
             cleaned['shift_hours'] = '-'
@@ -1623,7 +1674,7 @@ def get_employee_by_id(emp_id, company_id=None):
         if cid:
             try:
                 comp = get_company_by_id(cid)
-                cleaned['company_calculate_proper_entries'] = (comp.get('calculate_proper_entries') is not False) if comp else True
+                cleaned['company_calculate_proper_entries'] = parse_bool_flag(comp.get('calculate_proper_entries'), default=True) if comp else True
             except Exception:
                 cleaned['company_calculate_proper_entries'] = True
         else:
@@ -2154,6 +2205,9 @@ def update_employee(emp_id, data, company_id=None):
     invalidate_dashboard_cache(company_id)
     invalidate_branch_emp_cache(company_id)
     invalidate_face_embeddings_cache(company_id)
+    if any(k in upd for k in ('calculate_proper_entries', 'branch_id')):
+        target_cid = upd.get('company_id') or (emp_doc_syn.get('company_id') if emp_doc_syn else company_id)
+        _trigger_geofence_resync(company_id=target_cid, employee_id=str(emp_id))
     return True
 
 def delete_employee(emp_id, company_id=None):
@@ -3155,53 +3209,121 @@ def parse_distance_meters_val(dist_str):
             return None
     return None
 
-def sync_geofence_entry_types():
-    """Synchronize attendance_reports entry_type to strictly match each company's geofencing rule."""
+def _is_valid_geo_coords(lat_val, lng_val):
+    """Returns (True, lat_float, lng_float) when coordinates are non-null and non-(0,0) sentinel."""
+    lat_f = parse_coordinate_to_float(lat_val, None)
+    lng_f = parse_coordinate_to_float(lng_val, None)
+    if lat_f is None or lng_f is None:
+        return (False, None, None)
+    if abs(lat_f) <= 0.0001 and abs(lng_f) <= 0.0001:
+        return (False, None, None)
+    return (True, lat_f, lng_f)
+
+
+def _trigger_geofence_resync(company_id=None, employee_id=None):
+    """Asynchronously re-syncs attendance_reports entry_type after geofence policy or coordinate updates."""
+    def _worker():
+        try:
+            sync_geofence_entry_types(company_id=company_id, employee_id=employee_id)
+            if company_id:
+                invalidate_dashboard_cache(company_id)
+        except Exception as err:
+            print(f"Warning in background geofence resync: {err}")
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+
+def sync_geofence_entry_types(company_id=None, employee_id=None):
+    """Synchronize attendance_reports entry_type to match company, branch, and employee geofencing rules."""
     try:
         db = get_db()
+        comp_query = build_id_filter(company_id) if (company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']) else {}
         comp_radii = {}
         comp_proper_flags = {}
         comp_has_coords = {}
-        for c in db.company_admin.find({}, {'id': 1, 'latitude': 1, 'longitude': 1, 'geofence_radius': 1, 'radius_meters': 1, 'calculate_proper_entries': 1}):
-            cid = c.get('id')
+        for c in db.company_admin.find(comp_query, {'id': 1, '_id': 1, 'latitude': 1, 'longitude': 1, 'geofence_radius': 1, 'radius_meters': 1, 'calculate_proper_entries': 1}):
+            cid = str(c.get('id') or c.get('_id') or '').strip()
             if cid:
                 comp_radii[cid] = float(c.get('geofence_radius') or c.get('radius_meters') or GEOFENCE_RADIUS_METERS)
-                comp_proper_flags[cid] = c.get('calculate_proper_entries', True)
-                c_lat = parse_coordinate_to_float(c.get('latitude'), None)
-                c_lng = parse_coordinate_to_float(c.get('longitude'), None)
-                comp_has_coords[cid] = (c_lat is not None and c_lng is not None)
+                comp_proper_flags[cid] = parse_bool_flag(c.get('calculate_proper_entries'), default=True)
+                has_c, _, _ = _is_valid_geo_coords(c.get('latitude'), c.get('longitude'))
+                comp_has_coords[cid] = has_c
 
-        emp_proper_flags = {}
-        for emp in db.employees.find({}, {'id': 1, 'calculate_proper_entries': 1}):
-            eid = emp.get('id')
-            if eid:
-                emp_proper_flags[str(eid)] = emp.get('calculate_proper_entries', True)
+        branch_configs = {}
+        branch_query = {'company_id': str(company_id)} if (company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']) else {}
+        for br in db.company_branches.find(branch_query, {'id': 1, '_id': 1, 'company_id': 1, 'latitude': 1, 'longitude': 1, 'geofence_radius': 1}):
+            bid = str(br.get('id') or br.get('_id') or '').strip()
+            if bid:
+                has_b, _, _ = _is_valid_geo_coords(br.get('latitude'), br.get('longitude'))
+                b_rad = None
+                try:
+                    if br.get('geofence_radius'):
+                        b_rad = float(br.get('geofence_radius'))
+                except (ValueError, TypeError):
+                    b_rad = None
+                branch_configs[bid] = (has_b, b_rad)
 
-        for doc in db.attendance_reports.find({}):
-            e_dist = parse_distance_meters_val(doc.get('entry_distance'))
-            x_dist = parse_distance_meters_val(doc.get('exit_distance'))
-            
-            # If neither distance is recorded (e.g. legacy/mock records without distances), leave as-is
-            if e_dist is None and x_dist is None:
+        emp_proper_by_id = {}
+        emp_proper_by_name = {}
+        emp_query = {'company_id': str(company_id)} if (company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']) else {}
+        for emp in db.employees.find(emp_query, {'id': 1, '_id': 1, 'company_id': 1, 'employee_name': 1, 'calculate_proper_entries': 1}):
+            flag = parse_bool_flag(emp.get('calculate_proper_entries'), default=True)
+            if emp.get('id'):
+                emp_proper_by_id[str(emp['id'])] = flag
+            if emp.get('_id'):
+                emp_proper_by_id[str(emp['_id'])] = flag
+            cname = str(emp.get('employee_name') or '').strip()
+            ccid = str(emp.get('company_id') or 'ARGUS_MASTER')
+            if cname:
+                emp_proper_by_name[(ccid, cname)] = flag
+
+        rep_query = {}
+        if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+            rep_query['company_id'] = str(company_id)
+        if employee_id:
+            rep_query['employee_id'] = str(employee_id)
+
+        for doc in db.attendance_reports.find(rep_query):
+            if doc.get('is_manual') or str(doc.get('entry_type', '')).strip().lower() == 'manual':
                 continue
 
-            c_id = doc.get('company_id', 'ARGUS_MASTER')
-            threshold = comp_radii.get(c_id, GEOFENCE_RADIUS_METERS)
+            e_raw_dist = str(doc.get('entry_distance') or '').strip().upper()
+            x_raw_dist = str(doc.get('exit_distance') or '').strip().upper()
+            e_dist = parse_distance_meters_val(doc.get('entry_distance'))
+            x_dist = parse_distance_meters_val(doc.get('exit_distance'))
+            has_unverified_gps = bool(doc.get('gps_unverified') or e_raw_dist == 'GPS UNVERIFIED' or x_raw_dist == 'GPS UNVERIFIED')
 
-            e_id = str(doc.get('employee_id') or '')
-            c_enabled = comp_proper_flags.get(c_id, True)
+            if e_dist is None and x_dist is None and not has_unverified_gps:
+                continue
+
+            c_id = str(doc.get('company_id') or 'ARGUS_MASTER')
+            threshold = comp_radii.get(c_id, GEOFENCE_RADIUS_METERS)
             c_coords = comp_has_coords.get(c_id, False)
-            e_enabled = emp_proper_flags.get(e_id, True)
+
+            b_id = str(doc.get('branch_id') or '').strip()
+            if b_id and b_id in branch_configs:
+                has_b, b_rad = branch_configs[b_id]
+                if has_b:
+                    c_coords = True
+                if b_rad and b_rad > 0:
+                    threshold = b_rad
+
+            e_id = str(doc.get('employee_id') or '').strip()
+            e_name = str(doc.get('employee_name') or '').strip()
+            c_enabled = comp_proper_flags.get(c_id, True)
+            e_enabled = emp_proper_by_id.get(e_id, emp_proper_by_name.get((c_id, e_name), True))
             should_calc_proper = bool(c_enabled and e_enabled and c_coords)
+
             if not should_calc_proper:
                 target_type = 'proper'
             else:
-                is_outside = False
+                is_outside = has_unverified_gps
                 if e_dist is not None and e_dist > threshold:
                     is_outside = True
                 if x_dist is not None and x_dist > threshold:
                     is_outside = True
                 target_type = 'improper' if is_outside else 'proper'
+
             if doc.get('entry_type') != target_type:
                 db.attendance_reports.update_one({'_id': doc['_id']}, {'$set': {'entry_type': target_type}})
     except Exception as e:
@@ -3607,25 +3729,24 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
     company_geofence_radius = GEOFENCE_RADIUS_METERS
     comp = get_company_by_id(comp_id, include_counts=False)
     if comp:
-        c_lat = parse_coordinate_to_float(comp.get('latitude'), None)
-        c_lng = parse_coordinate_to_float(comp.get('longitude'), None)
-        if c_lat is not None and c_lng is not None:
+        valid_c, c_lat, c_lng = _is_valid_geo_coords(comp.get('latitude'), comp.get('longitude'))
+        if valid_c:
             target_lat = c_lat
             target_lng = c_lng
         if comp.get('address'):
             loc_str = comp.get('address')
         company_geofence_radius = float(comp.get('geofence_radius') or comp.get('radius_meters') or GEOFENCE_RADIUS_METERS)
 
-    # Branch-specific geofencing and tagging override (cached)
-    active_branch_id = str(branch_id).strip() if branch_id and str(branch_id).strip() not in ['None', 'null', '', 'ALL'] else (emp.get('branch_id') if emp else None)
+    # Branch-specific geofencing and tagging override (cached; exclude 'HOME'/'ALL'/'UNASSIGNED' sentinel values)
+    req_bid_clean = str(branch_id or '').strip()
+    active_branch_id = req_bid_clean if (req_bid_clean and req_bid_clean.upper() not in ['NONE', 'NULL', 'ALL', 'HOME', 'UNASSIGNED']) else (emp.get('branch_id') if emp else None)
     active_branch_name = None
     if active_branch_id:
         branch = get_branch_by_id(active_branch_id, company_id=comp_id)
         if branch:
             active_branch_name = branch.get('branch_name')
-            b_lat = parse_coordinate_to_float(branch.get('latitude'), None)
-            b_lng = parse_coordinate_to_float(branch.get('longitude'), None)
-            if b_lat is not None and b_lng is not None:
+            valid_b, b_lat, b_lng = _is_valid_geo_coords(branch.get('latitude'), branch.get('longitude'))
+            if valid_b:
                 target_lat = b_lat
                 target_lng = b_lng
             if branch.get('address'):
@@ -3633,7 +3754,10 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             if branch.get('geofence_radius'):
                 company_geofence_radius = float(branch.get('geofence_radius'))
 
-    has_office_coords = (target_lat is not None and target_lng is not None)
+    has_office_coords, _, _ = _is_valid_geo_coords(target_lat, target_lng)
+    comp_proper_enabled = parse_bool_flag(comp.get('calculate_proper_entries'), default=True) if comp else True
+    emp_proper_enabled = parse_bool_flag(emp.get('calculate_proper_entries'), default=True) if emp else True
+    geofence_active = bool(comp_proper_enabled and emp_proper_enabled and has_office_coords)
 
     # Calculate proximity distance ONLY when office coordinates are configured AND valid device GPS was supplied
     dist_meters = None
@@ -3707,14 +3831,14 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             branch_name=active_branch_name
         )
 
-        # Geofencing threshold: Dynamic per company (defaults to 200m). Unconfigured coords => always Proper
-        comp_proper_enabled = comp.get('calculate_proper_entries', True) if comp else True
-        emp_proper_enabled = emp.get('calculate_proper_entries', True) if emp else True
-        should_calculate_proper = bool(comp_proper_enabled and emp_proper_enabled and has_office_coords and dist_meters is not None)
-        if not should_calculate_proper:
+        # Geofencing validation (strict Option A): when enabled and office coords exist, missing GPS or > radius is 'improper'
+        if not geofence_active:
             punch_in_entry_type = 'proper'
+        elif dist_meters is None:
+            punch_in_entry_type = 'improper'
         else:
             punch_in_entry_type = 'proper' if dist_meters <= company_geofence_radius else 'improper'
+        entry_dist_display = formatted_dist if formatted_dist else ('GPS UNVERIFIED' if geofence_active else '----')
         rep_doc = {
             'company_id': comp_id,
             'branch_id': active_branch_id,
@@ -3723,10 +3847,11 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
             'employee_name': employee_name,
             'date': today_date,
             'entry_time': now_time_12,
-            'entry_distance': formatted_dist if formatted_dist else '----',
+            'entry_distance': entry_dist_display,
             'entry_location': live_loc_str,
             'entry_lat': user_lat,
             'entry_lng': user_lng,
+            'gps_unverified': bool(geofence_active and dist_meters is None),
             'exit_time': '----',
             'exit_distance': '----',
             'exit_location': '----',
@@ -3753,7 +3878,15 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
                 ('live_entries', live_id, 'entry_location'),
                 ('attendance_reports', rep_res.inserted_id, 'entry_location')
             ], user_lat, user_lng)
-        return {'status': 'punch_in', 'live_id': live_id, 'formatted_dist': formatted_dist, 'live_location': live_loc_str}
+        return {
+            'status': 'punch_in',
+            'live_id': live_id,
+            'formatted_dist': formatted_dist,
+            'live_location': live_loc_str,
+            'entry_type': punch_in_entry_type,
+            'geofence_enabled': geofence_active,
+            'gps_verified': bool(dist_meters is not None)
+        }
         
     else:
         # PUNCH OUT: Update existing attendance report
@@ -3811,7 +3944,10 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
                 'entry_time': entry_time_str,
                 'formatted_dist': formatted_dist,
                 'live_location': live_loc_str,
-                'working_hours': '00:00'
+                'working_hours': '00:00',
+                'entry_type': existing_rep.get('entry_type', 'proper'),
+                'geofence_enabled': geofence_active,
+                'gps_verified': bool(dist_meters is not None)
             }
 
         w_hrs = working_minutes // 60
@@ -3849,24 +3985,22 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
         computed_salary = ot_metrics['total_salary']
         day_credit_type = ot_metrics['day_credit_type']
             
-        # Determine final entry_type: Proper only if BOTH punch-in and punch-out are within company_geofence_radius
-        comp_proper_enabled = comp.get('calculate_proper_entries', True) if comp else True
-        emp_proper_enabled = emp.get('calculate_proper_entries', True) if emp else True
-        should_calculate_proper = bool(comp_proper_enabled and emp_proper_enabled and has_office_coords and dist_meters is not None)
-        if not should_calculate_proper:
-            final_entry_type = existing_rep.get('entry_type', 'proper') if (has_office_coords and comp_proper_enabled and emp_proper_enabled) else 'proper'
+        # Determine final entry_type: Proper only if BOTH punch-in and punch-out are verified within radius when geofence is active
+        if not geofence_active:
+            final_entry_type = 'proper'
         else:
             in_entry_type = existing_rep.get('entry_type', 'proper')
-            out_is_proper = (dist_meters <= company_geofence_radius)
+            out_is_proper = bool(dist_meters is not None and dist_meters <= company_geofence_radius)
             final_entry_type = 'proper' if (in_entry_type == 'proper' and out_is_proper) else 'improper'
 
-        exit_dist_str = formatted_dist if formatted_dist else '----'
+        exit_dist_str = formatted_dist if formatted_dist else ('GPS UNVERIFIED' if geofence_active else '----')
         upd_data = {
             'exit_time': now_time_12,
             'exit_distance': exit_dist_str,
             'exit_location': live_loc_str,
             'exit_lat': user_lat,
             'exit_lng': user_lng,
+            'gps_unverified': bool(existing_rep.get('gps_unverified') or (geofence_active and dist_meters is None)),
             'working_hours': working_hours_str,
             'shift_variance': shift_variance_str,
             'salary_type': salary_type,
@@ -3940,7 +4074,16 @@ def record_face_attendance(employee_id, employee_name, user_lat=None, user_lng=N
                 ('timeout_entries', timeout_res.inserted_id, 'exit_location'),
                 ('attendance_reports', existing_rep['_id'], 'exit_location')
             ], user_lat, user_lng)
-        return {'status': 'punch_out', 'live_id': timeout_id, 'formatted_dist': formatted_dist, 'working_hours': working_hours_str, 'live_location': live_loc_str}
+        return {
+            'status': 'punch_out',
+            'live_id': timeout_id,
+            'formatted_dist': formatted_dist,
+            'working_hours': working_hours_str,
+            'live_location': live_loc_str,
+            'entry_type': final_entry_type,
+            'geofence_enabled': geofence_active,
+            'gps_verified': bool(dist_meters is not None)
+        }
 
 # ----------------- ATTENDANCE REPORTS ----------------- #
 
@@ -10872,6 +11015,11 @@ def update_company_branch(branch_id, data, company_id=None):
         )
     actual_cid = company_id or (res.matched_count and query.get('company_id'))
     invalidate_company_branches_cache(actual_cid)
+    if any(k in upd for k in ('latitude', 'longitude', 'geofence_radius')):
+        if not actual_cid or isinstance(actual_cid, bool):
+            b_doc_after = db.company_branches.find_one({'id': str(branch_id)}, {'company_id': 1})
+            actual_cid = b_doc_after.get('company_id') if b_doc_after else None
+        _trigger_geofence_resync(company_id=actual_cid)
     return res.modified_count > 0
 
 

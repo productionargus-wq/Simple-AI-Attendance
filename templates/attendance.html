@@ -6,32 +6,44 @@
   <title>Argus Attendance Intelligence v2.0.0</title>
   <script>
     (function () {
+      function clearClientAuthState() {
+        try {
+          localStorage.removeItem('argus_remember_token');
+          localStorage.removeItem('argus_logged_in');
+          localStorage.removeItem('argus_role');
+          localStorage.removeItem('argus_authenticated');
+          sessionStorage.clear();
+          document.cookie = 'argus_remember_token=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+        } catch (e) {}
+      }
+
+      if (window.location.search.includes('logout=1')) {
+        clearClientAuthState();
+        return;
+      }
+
       // If user specifically requested kiosk mode (?kiosk=1 or pathname /kiosk), do not auto-redirect
       if (window.location.search.includes('kiosk') || window.location.pathname === '/kiosk') return;
       try {
         var match = document.cookie.match(/(?:^|;\s*)argus_remember_token=([^;]+)/);
         var cookieToken = match ? match[1] : null;
         var storageToken = localStorage.getItem('argus_remember_token');
-        var role = localStorage.getItem('argus_role');
-        
-        // Fast path: if remember cookie exists, instant client navigation
-        if (cookieToken) {
-          var target = (role === 'employee') ? '/employee/portal' : '/dashboard';
-          window.location.replace(target);
-          return;
-        }
-        
-        // Fallback path: storage token exists -> rehydrate via API and redirect
-        if (storageToken && !window.location.search.includes('logout=1')) {
+        var candidateToken = storageToken || cookieToken;
+
+        // Validate candidate token with server before redirecting (prevents stale cookie redirect loops)
+        if (candidateToken) {
           fetch('/api/auth/restore-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: storageToken })
+            cache: 'no-store',
+            body: JSON.stringify({ token: candidateToken })
           })
           .then(function (r) { return r.json(); })
           .then(function (data) {
             if (data && data.success && (data.redirect || data.redirect_url)) {
               window.location.replace(data.redirect || data.redirect_url);
+            } else {
+              clearClientAuthState();
             }
           })
           .catch(function () {});
@@ -3039,7 +3051,13 @@
                 const conf = data.confidence ? `${data.confidence}% Match` : '98.5% Match';
                 const rawDistStr = (data.formatted_distance || '').trim();
                 const distInfo = (rawDistStr && rawDistStr !== '----' && rawDistStr !== '-') ? rawDistStr : '';
-                const hasLocationBadge = Boolean(distInfo || data.live_location);
+                const isImproperGeo = Boolean(data.geofence_enabled && (data.entry_type === 'improper' || data.is_improper));
+                const geofencePillHtml = data.geofence_enabled
+                  ? (isImproperGeo
+                    ? `<div style="margin-top: 2px;"><span style="display: inline-flex; align-items: center; gap: 4px; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px;">⚠ ${data.gps_verified === false ? 'GPS Unverified (Improper)' : 'Outside Geofence (Improper)'}</span></div>`
+                    : `<div style="margin-top: 2px;"><span style="display: inline-flex; align-items: center; gap: 4px; background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px;">✓ Within Geofence (Proper)</span></div>`)
+                  : '';
+                const hasLocationBadge = Boolean(distInfo || data.live_location || geofencePillHtml);
                 const workingHoursHtml = (data.working_hours && !isAlreadyPunched) ? `
                   <div class="punch-grid-item">
                     <span class="punch-grid-label">Working Hours:</span>
@@ -3095,6 +3113,7 @@
                         </div>
                         ` : ''}
                         ${data.live_location ? `<div style="font-size: 11px; color: #475569; padding-left: ${distInfo ? '18px' : '0px'}; line-height: 1.3;">📍 <strong>Location:</strong> ${escapeHtml(data.live_location)}</div>` : ''}
+                        ${geofencePillHtml}
                       </div>
                       ` : ''}
                     </div>

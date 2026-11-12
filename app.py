@@ -34,7 +34,7 @@ if getattr(sys, 'frozen', False):
 else:
     load_dotenv()
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file, send_from_directory, Response, session, make_response, flash
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file, send_from_directory, Response, session, make_response, flash, g
 from flask.sessions import SecureCookieSessionInterface
 from functools import wraps
 from flask_cors import CORS
@@ -135,17 +135,55 @@ def get_face_engine():
             print(f"Warning: face_engine import failed: {e}")
     return face_engine
 
+def _delete_auth_cookies(response):
+    """Deletes all authentication and remember-token cookies using matching security attributes."""
+    cookie_name = app.config.get('SESSION_COOKIE_NAME', 'argus_session')
+    domain = app.config.get('SESSION_COOKIE_DOMAIN')
+    path = app.config.get('SESSION_COOKIE_PATH', '/')
+    secure = app.config.get('SESSION_COOKIE_SECURE', False)
+    samesite = app.config.get('SESSION_COOKIE_SAMESITE', 'Lax')
+    httponly = app.config.get('SESSION_COOKIE_HTTPONLY', True)
+    for cname in [cookie_name, 'session']:
+        response.delete_cookie(
+            cname,
+            domain=domain,
+            path=path,
+            secure=secure,
+            samesite=samesite,
+            httponly=httponly,
+        )
+    response.delete_cookie(
+        'argus_remember_token',
+        domain=domain,
+        path=path,
+        secure=secure,
+        samesite=samesite,
+        httponly=False,
+    )
+    response.vary.add("Cookie")
+    return response
+
+
+def _set_no_store_headers(response):
+    """Prevents browser/proxy caching and back-forward cache resurrection of auth/HTML state."""
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+
 class PersistentSessionInterface(SecureCookieSessionInterface):
     """
     Guarantees session cookies are persisted to the browser's persistent on-disk cookie store
-    across tab and browser restarts by explicitly setting both Max-Age (in seconds) and Expires.
-    Supports candidate cookie names and direct DB remember token auto-rehydration seamlessly.
+    across tab and browser restarts by explicitly setting both Max-Age (in seconds) and Expires,
+    while rejecting server-side revoked tokens immediately so logged-out cookies cannot resurrect.
     """
     def open_session(self, app, request):
         s = self.get_signing_serializer(app)
         if s is None:
             return None
         max_age = int(app.permanent_session_lifetime.total_seconds())
+        saw_revoked_cookie = False
 
         # 1. Try candidate signed session cookies in order
         candidates = [self.get_cookie_name(app), 'session']
@@ -155,43 +193,61 @@ class PersistentSessionInterface(SecureCookieSessionInterface):
                 try:
                     data = s.loads(val, max_age=max_age)
                     if data and isinstance(data, dict):
+                        rem_tok = data.get('remember_token')
+                        if rem_tok and not database.is_user_session_active(rem_tok):
+                            saw_revoked_cookie = True
+                            continue
                         return self.session_class(data)
                 except Exception:
                     continue
+
+        if saw_revoked_cookie:
+            g._force_clear_auth_cookies = True
+            return self.session_class()
 
         # 2. Try direct rehydration from persistent DB remember token if cookies were lost or expired
         rem_token = request.cookies.get('argus_remember_token')
         if rem_token:
             try:
-                s_doc = database.get_user_session_by_token(rem_token)
+                if database.is_user_session_active(rem_token):
+                    s_doc = database.get_user_session_by_token(rem_token)
+                else:
+                    s_doc = None
                 if s_doc:
                     role = s_doc.get('role')
                     sess_data = {
                         '_permanent': True,
+                        'logged_in': True,
                         'role': role,
                         'company_id': s_doc.get('company_id', ''),
                         'company_name': s_doc.get('company_name', ''),
-                        'remember_token': rem_token
+                        'remember_token': rem_token,
+                        'redirect_target': s_doc.get('redirect_target', '')
                     }
-                    if role in ['super_admin', 'company_admin']:
+                    if role in ['super_admin', 'company_admin', 'admin']:
                         sess_data['admin_logged_in'] = True
                         sess_data['admin_username'] = s_doc.get('username') or ('Company Admin' if role == 'company_admin' else 'Admin')
                         sess_data['admin_email'] = s_doc.get('email', '')
+                        if role == 'company_admin':
+                            sess_data['company_email'] = s_doc.get('email', '')
                     elif role == 'employee':
                         sess_data['employee_logged_in'] = True
                         sess_data['employee_id'] = s_doc.get('employee_id', '')
                         sess_data['employee_name'] = s_doc.get('employee_name', '')
                         sess_data['employee_email'] = s_doc.get('email', '')
-                    return self.session_class(sess_data)
+                    s_obj = self.session_class(sess_data)
+                    s_obj.modified = True
+                    return s_obj
+                g._force_clear_auth_cookies = True
             except Exception:
-                pass
+                g._force_clear_auth_cookies = True
 
         return self.session_class()
 
     def should_set_cookie(self, app, session):
+        if getattr(g, '_force_clear_auth_cookies', False) and not session:
+            return False
         if session.modified:
-            return True
-        if session.get('admin_logged_in') or session.get('employee_logged_in') or session.permanent:
             return True
         return super().should_set_cookie(app, session)
 
@@ -207,17 +263,8 @@ class PersistentSessionInterface(SecureCookieSessionInterface):
             response.vary.add("Cookie")
 
         if not session:
-            if session.modified:
-                for cname in [name, 'session']:
-                    response.delete_cookie(
-                        cname,
-                        domain=domain,
-                        path=path,
-                        secure=secure,
-                        samesite=samesite,
-                        httponly=httponly,
-                    )
-                response.vary.add("Cookie")
+            if session.modified or getattr(g, '_force_clear_auth_cookies', False):
+                _delete_auth_cookies(response)
             return
 
         if not self.should_set_cookie(app, session):
@@ -251,6 +298,9 @@ def finalize_login_session(resp, role, user_info=None):
     session.permanent = True
     session.modified = True
     session['logged_in'] = True
+    redirect_target = (user_info.get('redirect_target') if isinstance(user_info, dict) else None) or resp.headers.get('Location', '')
+    if redirect_target:
+        session['redirect_target'] = redirect_target
     token = database.create_user_session({
         'role': role,
         'company_id': session.get('company_id', ''),
@@ -258,7 +308,8 @@ def finalize_login_session(resp, role, user_info=None):
         'username': session.get('admin_username') or session.get('employee_name', ''),
         'email': session.get('admin_email') or session.get('company_email') or session.get('employee_email', ''),
         'employee_id': session.get('employee_id', ''),
-        'employee_name': session.get('employee_name', '')
+        'employee_name': session.get('employee_name', ''),
+        'redirect_target': redirect_target
     })
     if token:
         session['remember_token'] = token
@@ -824,6 +875,9 @@ _COMPRESSIBLE_MIMETYPES = {
 
 @app.after_request
 def add_performance_headers(response):
+    if getattr(g, '_force_clear_auth_cookies', False) and request.endpoint != 'logout':
+        _delete_auth_cookies(response)
+
     if request.path.startswith('/static/'):
         if request.args.get('v'):
             response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
@@ -831,8 +885,10 @@ def add_performance_headers(response):
             response.headers['Cache-Control'] = 'public, max-age=86400'
         else:
             response.headers['Cache-Control'] = 'no-cache, must-revalidate'
+    elif response.mimetype == 'text/html' or request.path in ('/logout', '/', '/kiosk', '/login', '/company-login', '/employee-login', '/field-worker/login'):
+        _set_no_store_headers(response)
     elif response.status_code == 200 and request.method == 'GET' and not request.path.startswith('/api/'):
-        response.headers['Cache-Control'] = 'no-cache, must-revalidate'
+        _set_no_store_headers(response)
 
     accept_encoding = request.headers.get('Accept-Encoding', '')
     is_vendor_bundle = request.path.startswith('/static/vendor/') and request.path.endswith(('.wasm', '.data', '.binarypb', '.tflite'))
@@ -873,7 +929,7 @@ def ensure_persistent_session():
     if not (session.get('admin_logged_in') or session.get('employee_logged_in')):
         rem_token = request.cookies.get('argus_remember_token')
         if rem_token:
-            s_doc = database.get_user_session_by_token(rem_token)
+            s_doc = database.get_user_session_by_token(rem_token) if database.is_user_session_active(rem_token) else None
             if s_doc:
                 session.permanent = True
                 session.modified = True
@@ -882,6 +938,8 @@ def ensure_persistent_session():
                 session['company_id'] = s_doc.get('company_id')
                 session['company_name'] = s_doc.get('company_name')
                 session['remember_token'] = rem_token
+                if s_doc.get('redirect_target'):
+                    session['redirect_target'] = s_doc.get('redirect_target')
                 if role in ['super_admin', 'company_admin', 'admin']:
                     session['admin_logged_in'] = True
                     session['logged_in'] = True
@@ -891,13 +949,21 @@ def ensure_persistent_session():
                         session['company_email'] = s_doc.get('email', '')
                 elif role == 'employee':
                     session['employee_logged_in'] = True
+                    session['logged_in'] = True
                     session['employee_id'] = s_doc.get('employee_id')
                     session['employee_name'] = s_doc.get('employee_name')
                     session['employee_email'] = s_doc.get('email', '')
+            else:
+                g._force_clear_auth_cookies = True
 
     if session.get('admin_logged_in') or session.get('employee_logged_in'):
+        active_rem_tok = session.get('remember_token')
+        if active_rem_tok and not database.is_user_session_active(active_rem_tok):
+            session.clear()
+            g._force_clear_auth_cookies = True
+            return None
+
         session.permanent = True
-        session.modified = True
 
         role = session.get('role')
 
@@ -1656,16 +1722,28 @@ def employee_login():
 @app.route('/logout')
 def logout():
     role = session.get('role')
+    redirect_target = session.get('redirect_target', '')
     token = session.get('remember_token') or request.cookies.get('argus_remember_token')
     if token:
+        if not role or not redirect_target:
+            s_doc = database.get_user_session_by_token(token)
+            if s_doc:
+                role = role or s_doc.get('role')
+                redirect_target = redirect_target or s_doc.get('redirect_target', '')
         database.delete_user_session(token)
     session.clear()
-    cookie_name = app.config.get('SESSION_COOKIE_NAME', 'argus_session')
-    target = url_for('company_login') if role == 'company_admin' else (url_for('employee_login') if role == 'employee' else url_for('login'))
+    g._force_clear_auth_cookies = True
+    if redirect_target == '/field-worker':
+        target = url_for('field_worker_login', logout=1)
+    elif role == 'company_admin':
+        target = url_for('company_login', logout=1)
+    elif role == 'employee':
+        target = url_for('employee_login', logout=1)
+    else:
+        target = url_for('login', logout=1)
     resp = redirect(target)
-    resp.delete_cookie(cookie_name, path='/')
-    resp.delete_cookie('session', path='/')
-    resp.delete_cookie('argus_remember_token', path='/')
+    _delete_auth_cookies(resp)
+    _set_no_store_headers(resp)
     return resp
 
 @app.route('/api/auth/restore-session', methods=['POST'])
@@ -1674,30 +1752,48 @@ def api_restore_session():
     data = request.get_json(silent=True) or {}
     token = (data.get('token') or request.cookies.get('argus_remember_token') or '').strip()
     if not token:
-        return jsonify({'success': False, 'error': 'NO_TOKEN'}), 401
+        resp = make_response(jsonify({'success': False, 'error': 'NO_TOKEN'}), 401)
+        _delete_auth_cookies(resp)
+        _set_no_store_headers(resp)
+        return resp
 
-    s_doc = database.get_user_session_by_token(token)
+    s_doc = database.get_user_session_by_token(token) if database.is_user_session_active(token) else None
     if not s_doc:
-        return jsonify({'success': False, 'error': 'INVALID_TOKEN'}), 401
+        resp = make_response(jsonify({'success': False, 'error': 'INVALID_TOKEN'}), 401)
+        _delete_auth_cookies(resp)
+        _set_no_store_headers(resp)
+        return resp
 
     session.permanent = True
     session.modified = True
+    session['logged_in'] = True
     role = s_doc.get('role', 'company_admin')
     session['role'] = role
     session['company_id'] = s_doc.get('company_id', '')
     session['company_name'] = s_doc.get('company_name', '')
     session['remember_token'] = token
+    saved_target = str(s_doc.get('redirect_target') or '').strip()
+    if saved_target:
+        session['redirect_target'] = saved_target
 
-    if role in ['super_admin', 'company_admin']:
+    if role in ['super_admin', 'company_admin', 'admin']:
         session['admin_logged_in'] = True
         session['admin_username'] = s_doc.get('username') or ('Company Admin' if role == 'company_admin' else 'Admin')
         session['admin_email'] = s_doc.get('email', '')
-        target = url_for('dashboard')
+        if role == 'company_admin':
+            session['company_email'] = s_doc.get('email', '')
+        target = url_for('field_worker_module_page') if saved_target == '/field-worker' else url_for('dashboard')
     elif role == 'employee':
         session['employee_logged_in'] = True
         session['employee_id'] = s_doc.get('employee_id', '')
         session['employee_name'] = s_doc.get('employee_name', '')
         session['employee_email'] = s_doc.get('email', '')
+        if saved_target == '/field-worker':
+            target = url_for('field_worker_module_page')
+        else:
+            emp_doc = database.get_employee_summary_by_id(session['employee_id']) if session['employee_id'] else None
+            is_fw = bool(emp_doc and (emp_doc.get('is_field_worker') is True or str(emp_doc.get('employee_type') or '').lower() in ['field_worker', 'field', 'fw']))
+            target = url_for('field_worker_module_page') if is_fw else url_for('employee_portal')
     else:
         target = url_for('dashboard')
 
@@ -4173,6 +4269,10 @@ def api_face_recognize():
                 result['formatted_distance'] = str(punch_res.get('formatted_dist', ''))
                 result['live_location'] = str(punch_res.get('live_location', ''))
                 result['entry_location'] = str(punch_res.get('live_location', ''))
+                result['entry_type'] = str(punch_res.get('entry_type', 'proper'))
+                result['is_improper'] = (result['entry_type'] == 'improper')
+                result['geofence_enabled'] = bool(punch_res.get('geofence_enabled', False))
+                result['gps_verified'] = bool(punch_res.get('gps_verified', True))
                 result['punch_time'] = client_time or datetime.now().strftime('%d %b %Y, %I:%M:%S %p')
                 if punch_res.get('working_hours'):
                     result['working_hours'] = str(punch_res.get('working_hours'))

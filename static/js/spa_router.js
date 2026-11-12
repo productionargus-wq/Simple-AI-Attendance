@@ -443,12 +443,21 @@
     const anchor = e.target.closest('a');
     if (!anchor) return;
 
-    // Purge SPA cache & auth state on explicit logout
+    // Purge SPA cache, in-flight requests, and auth state on explicit logout
     if (anchor.href && (anchor.href.includes('/logout') || anchor.pathname === '/logout')) {
       pageCache.clear();
+      inflightFetches.clear();
+      if (activeAbortController) {
+        try { activeAbortController.abort(); } catch (err) {}
+        activeAbortController = null;
+      }
       try {
+        localStorage.removeItem('argus_remember_token');
+        localStorage.removeItem('argus_logged_in');
         localStorage.removeItem('argus_role');
         localStorage.removeItem('argus_authenticated');
+        sessionStorage.clear();
+        document.cookie = 'argus_remember_token=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
       } catch (err) {}
       return;
     }
