@@ -503,7 +503,9 @@ def create_company(data):
         'modules': {
             'single_company': bool(data.get('modules', {}).get('single_company', True) if isinstance(data.get('modules'), dict) else str(data.get('module_single_company', True)).lower() in ['true', '1', 'yes', 'on']),
             'branch_company': bool(data.get('modules', {}).get('branch_company', False) if isinstance(data.get('modules'), dict) else str(data.get('module_branch_company', False)).lower() in ['true', '1', 'yes', 'on']),
-            'field_worker': bool(data.get('modules', {}).get('field_worker', False) if isinstance(data.get('modules'), dict) else str(data.get('module_field_worker', False)).lower() in ['true', '1', 'yes', 'on'])
+            'field_worker': bool(data.get('modules', {}).get('field_worker', False) if isinstance(data.get('modules'), dict) else str(data.get('module_field_worker', False)).lower() in ['true', '1', 'yes', 'on']),
+            'face_blink': bool(data.get('modules', {}).get('face_blink', True) if isinstance(data.get('modules'), dict) else str(data.get('module_face_blink', True)).lower() in ['true', '1', 'yes', 'on']),
+            'face_button': bool(data.get('modules', {}).get('face_button', False) if isinstance(data.get('modules'), dict) else str(data.get('module_face_button', False)).lower() in ['true', '1', 'yes', 'on'])
         },
         'registered_date': reg_date_str,
         'created_at': now_ist,
@@ -900,13 +902,17 @@ def update_company(comp_id, data):
         upd['modules'] = {
             'single_company': bool(raw_m.get('single_company', True)),
             'branch_company': bool(raw_m.get('branch_company', False)),
-            'field_worker': bool(raw_m.get('field_worker', False))
+            'field_worker': bool(raw_m.get('field_worker', False)),
+            'face_blink': bool(raw_m.get('face_blink', True)),
+            'face_button': bool(raw_m.get('face_button', False))
         }
     elif any(k.startswith('module_') for k in data.keys()):
         upd['modules'] = {
             'single_company': str(data.get('module_single_company', True)).lower() in ['true', '1', 'yes', 'on'],
             'branch_company': str(data.get('module_branch_company', False)).lower() in ['true', '1', 'yes', 'on'],
-            'field_worker': str(data.get('module_field_worker', False)).lower() in ['true', '1', 'yes', 'on']
+            'field_worker': str(data.get('module_field_worker', False)).lower() in ['true', '1', 'yes', 'on'],
+            'face_blink': str(data.get('module_face_blink', True)).lower() in ['true', '1', 'yes', 'on'],
+            'face_button': str(data.get('module_face_button', False)).lower() in ['true', '1', 'yes', 'on']
         }
     db.company_admin.update_one(build_id_filter(comp_id), {'$set': upd})
     invalidate_company_modules_cache(comp_id)
@@ -11131,7 +11137,9 @@ def get_company_modules(comp_id):
         return {
             'single_company': True,
             'branch_company': True,
-            'field_worker': True
+            'field_worker': True,
+            'face_blink': True,
+            'face_button': True
         }
     key = str(comp_id)
     now_ts = time.time()
@@ -11145,7 +11153,9 @@ def get_company_modules(comp_id):
         res = {
             'single_company': True,
             'branch_company': True,
-            'field_worker': True
+            'field_worker': True,
+            'face_blink': True,
+            'face_button': True
         }
     else:
         mods = comp.get('modules')
@@ -11153,14 +11163,18 @@ def get_company_modules(comp_id):
             res = {
                 'single_company': bool(mods.get('single_company', True)),
                 'branch_company': bool(mods.get('branch_company', True)),
-                'field_worker': bool(mods.get('field_worker', True))
+                'field_worker': bool(mods.get('field_worker', True)),
+                'face_blink': bool(mods.get('face_blink', True)),
+                'face_button': bool(mods.get('face_button', False))
             }
         else:
             # Default for all companies before explicit restriction: all modules active
             res = {
                 'single_company': True,
                 'branch_company': True,
-                'field_worker': True
+                'field_worker': True,
+                'face_blink': True,
+                'face_button': False
             }
 
     _company_modules_cache[key] = (now_ts, res)

@@ -741,13 +741,20 @@ def inject_delete_permissions():
 
     # 4. Resolve company modules from cached comp_doc
     if is_super:
-        company_modules = {'single_company': True, 'branch_company': True, 'field_worker': True}
-    elif comp_doc and comp_doc.get('modules'):
-        company_modules = comp_doc['modules']
+        company_modules = {'single_company': True, 'branch_company': True, 'field_worker': True, 'face_blink': True, 'face_button': True}
+    elif comp_doc and comp_doc.get('modules') and isinstance(comp_doc.get('modules'), dict):
+        raw_mods = comp_doc['modules']
+        company_modules = {
+            'single_company': bool(raw_mods.get('single_company', True)),
+            'branch_company': bool(raw_mods.get('branch_company', False)),
+            'field_worker': bool(raw_mods.get('field_worker', False)),
+            'face_blink': bool(raw_mods.get('face_blink', True)),
+            'face_button': bool(raw_mods.get('face_button', False))
+        }
     elif target_comp_id:
         company_modules = database.get_company_modules(target_comp_id)
     else:
-        company_modules = {'single_company': True, 'branch_company': False, 'field_worker': False}
+        company_modules = {'single_company': True, 'branch_company': False, 'field_worker': False, 'face_blink': True, 'face_button': False}
 
     # 5. Fast cached branch list for navbar (skip headcount aggregation for 0.01ms speed)
     branches_list = []
@@ -1178,12 +1185,32 @@ def index():
             return redirect(url_for('dashboard'))
         if session.get('employee_logged_in'):
             return redirect(url_for('employee_portal'))
-    return render_template('attendance.html')
+    active_cid = request.args.get('company_id') or session.get('company_id')
+    active_comp = database.get_company_by_id(active_cid, include_counts=False) if active_cid else None
+    comp_mods = database.get_company_modules(active_cid) if active_cid else {
+        'single_company': True, 'branch_company': True, 'field_worker': True, 'face_blink': True, 'face_button': True
+    }
+    return render_template(
+        'attendance.html',
+        active_company=active_comp,
+        active_company_id=active_cid,
+        company_modules=comp_mods
+    )
 
 @app.route('/kiosk')
 def kiosk():
     """Direct alias to Attendance Kiosk interface."""
-    return render_template('attendance.html')
+    active_cid = request.args.get('company_id') or session.get('company_id')
+    active_comp = database.get_company_by_id(active_cid, include_counts=False) if active_cid else None
+    comp_mods = database.get_company_modules(active_cid) if active_cid else {
+        'single_company': True, 'branch_company': True, 'field_worker': True, 'face_blink': True, 'face_button': True
+    }
+    return render_template(
+        'attendance.html',
+        active_company=active_comp,
+        active_company_id=active_cid,
+        company_modules=comp_mods
+    )
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -4388,6 +4415,32 @@ def api_face_recognize():
             'matched': False,
             'message': f'Face recognition processing error: {str(e)}. Please face the camera directly in good lighting and try again.'
         }), 200
+
+@app.route('/api/kiosk/config', methods=['GET'])
+def api_kiosk_config():
+    """Returns dynamic attendance terminal configuration & authorized face recognition modules for a company."""
+    cid = (request.args.get('company_id') or session.get('company_id') or '').strip()
+    if not cid or cid in ['ALL', 'None', 'null']:
+        cid = None
+    comp = database.get_company_by_id(cid, include_counts=False) if cid else None
+    mods = database.get_company_modules(cid) if cid else {
+        'single_company': True, 'branch_company': True, 'field_worker': True, 'face_blink': True, 'face_button': True
+    }
+    logo_path = None
+    if comp:
+        if comp.get('logo_data'):
+            logo_path = comp['logo_data']
+        elif comp.get('logo'):
+            logo_path = f"/uploads/{comp['logo']}"
+    if not logo_path:
+        logo_path = url_for('static', filename='images/default_profile.svg')
+
+    return jsonify({
+        'company_id': cid,
+        'company_name': (comp.get('company_name') if comp else None) or 'Argus CNC™',
+        'logo_url': logo_path,
+        'modules': mods
+    })
 
 # ----------------- ATTENDANCE REPORTS API ROUTES ----------------- #
 
@@ -9828,6 +9881,7 @@ def branch_kiosk_page():
         'address': 'SF NO. 515, Bharathiyar Road, Ganapathy, Coimbatore'
     }
     branches = database.get_company_branches(active_cid, include_headcount=False)
+    comp_mods = database.get_company_modules(active_cid) if active_cid else None
     return render_template(
         'attendance.html',
         is_branch_kiosk=True,
@@ -9835,7 +9889,8 @@ def branch_kiosk_page():
         active_branch_id=active_bid,
         branches=branches,
         active_company=active_comp,
-        active_company_id=active_cid
+        active_company_id=active_cid,
+        company_modules=comp_mods
     )
 
 

@@ -1926,9 +1926,20 @@
     const portalBlinkDot2 = document.getElementById('portalBlinkDot2');
     const portalBlinkEyeState = document.getElementById('portalBlinkEyeState');
 
+    // Company modules configuration for Face Recognition mode
+    const portalCompanyModules = {{ (company_modules or {}) | tojson }};
+    const allowPortalBlink = (portalCompanyModules.face_blink !== false);
+    const allowPortalButton = Boolean(portalCompanyModules.face_button);
+
     let stream = null;
     let cameraActive = false;
-    let isPortalHandsFreeActive = true;
+    let isPortalHandsFreeActive = allowPortalBlink;
+    if (!allowPortalBlink && allowPortalButton) {
+      if (portalHandsfreeToggleLabel) portalHandsfreeToggleLabel.textContent = 'Mode: One-Click Button Capture';
+      if (btnPortalToggleHandsFree) btnPortalToggleHandsFree.classList.remove('active');
+      if (btnPortalToggleSensitivity) btnPortalToggleSensitivity.style.display = 'none';
+      if (btnPortalPunchText) btnPortalPunchText.textContent = 'Mark My Attendance';
+    }
     let userLat = null;
     let userLng = null;
     let userGpsCoords = null;
@@ -2664,8 +2675,10 @@
           if (btnPortalToggleCamText) {
             btnPortalToggleCamText.textContent = 'Turn Camera Off';
           }
-          if (portalBlinkHudOverlay && isPortalHandsFreeActive) {
+          if (portalBlinkHudOverlay && isPortalHandsFreeActive && allowPortalBlink) {
             portalBlinkHudOverlay.style.display = 'flex';
+          } else if (portalBlinkHudOverlay) {
+            portalBlinkHudOverlay.style.display = 'none';
           }
 
           isPortalAIModelReady = false;
@@ -2676,29 +2689,39 @@
           portalHasSpokenSteadyHold = false;
           portalBaselineEAR = 0.28;
           resetPortalBlinkState();
-          updatePortalBlinkHUD(0, 'Initializing Face AI...', false, true);
+          if (allowPortalBlink) {
+            updatePortalBlinkHUD(0, 'Initializing Face AI...', false, true);
 
-          if (portalAiWarmupTimer) clearTimeout(portalAiWarmupTimer);
-          portalAiWarmupTimer = setTimeout(() => {
-            if (!isPortalAIModelReady && cameraActive && window.ArgusVoice) {
-              portalHasAnnouncedWarmup = true;
+            if (portalAiWarmupTimer) clearTimeout(portalAiWarmupTimer);
+            portalAiWarmupTimer = setTimeout(() => {
+              if (!isPortalAIModelReady && cameraActive && window.ArgusVoice) {
+                portalHasAnnouncedWarmup = true;
+                ArgusVoice.speak({
+                  tamil: 'கேமரா தயாராகிறது, ஒரு கணம் காத்திருக்கவும்.',
+                  english: 'Face AI is starting up, please wait a moment.'
+                });
+              }
+            }, 1200);
+
+            initPortalFaceMesh();
+            if (window.ArgusVoice) {
               ArgusVoice.speak({
-                tamil: 'கேமரா தயாராகிறது, ஒரு கணம் காத்திருக்கவும்.',
-                english: 'Face AI is starting up, please wait a moment.'
+                tamil: 'கேமராவை நேராகப் பார்த்து முகத்தை காட்டவும்.',
+                english: 'Please look directly at the camera to mark your attendance.'
               });
             }
-          }, 1200);
-
-          initPortalFaceMesh();
-          if (window.ArgusVoice) {
-            ArgusVoice.speak({
-              tamil: 'கேமராவை நேராகப் பார்த்து முகத்தை காட்டவும்.',
-              english: 'Please look directly at the camera to mark your attendance.'
-            });
-          }
-          if (!isPortalDetecting) {
-            isPortalDetecting = true;
-            requestAnimationFrame(runPortalDetectionLoop);
+            if (!isPortalDetecting) {
+              isPortalDetecting = true;
+              requestAnimationFrame(runPortalDetectionLoop);
+            }
+          } else {
+            isPortalAIModelReady = true;
+            if (window.ArgusVoice) {
+              ArgusVoice.speak({
+                tamil: 'கேமராவை நேராகப் பார்த்து வருகைப் பதிவு பொத்தானை அழுத்தவும்.',
+                english: 'Please look at the camera and click Mark Attendance.'
+              });
+            }
           }
         } catch (err) {
           console.warn('Portal camera access error:', err);
@@ -3125,7 +3148,13 @@
           return;
         }
 
-        // Case 2: In ready state -> Manual verification trigger
+        // Case 2: In ready state -> Check module mode
+        if (allowPortalButton) {
+          // Module 2: Face recognition without blinks (Direct Button Capture)
+          executePortalPunch('button');
+          return;
+        }
+
         const now = Date.now();
         if (portalLastVerifiedBlinkTime && (now - portalLastVerifiedBlinkTime <= 4500)) {
           executePortalPunch('button');

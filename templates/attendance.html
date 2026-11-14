@@ -1420,6 +1420,12 @@
           <span class="nav-branch-pill">
             📍 {{ active_branch.branch_name }}
           </span>
+        {% elif active_company and active_company.company_name and active_company.company_name != 'ARGUS CNC™' %}
+          <span class="nav-branch-pill" id="kioskCompanyBadge" style="background: rgba(37, 99, 235, 0.2); border-color: rgba(96, 165, 250, 0.4); color: #93c5fd;">
+            🏢 {{ active_company.company_name }}
+          </span>
+        {% else %}
+          <span class="nav-branch-pill" id="kioskCompanyBadge" style="display: none; background: rgba(37, 99, 235, 0.2); border-color: rgba(96, 165, 250, 0.4); color: #93c5fd;"></span>
         {% endif %}
       </div>
     </a>
@@ -1690,6 +1696,83 @@
     let isProcessingPunch = false;
     let cooldownUntil = 0;
     let sensitivityMode = 'normal'; // 'normal' or 'high'
+
+    // 2.1 Dynamic Attendance Module Configuration (Blink vs. Button Capture)
+    const initialCompanyModules = {{ (company_modules or {}) | tojson }};
+    let activeCompanyId = '{{ active_company_id or "" }}';
+    let companyModules = Object.assign({
+      face_blink: true,
+      face_button: false
+    }, initialCompanyModules);
+
+    // Persist and resolve company ID from URL or localStorage
+    const urlCompId = urlParams.get('company_id');
+    if (urlCompId && urlCompId !== 'ALL' && urlCompId !== 'None') {
+      activeCompanyId = urlCompId;
+      try { localStorage.setItem('argus_kiosk_company_id', urlCompId); } catch (e) {}
+    } else if (!activeCompanyId) {
+      try {
+        const savedCid = localStorage.getItem('argus_kiosk_company_id');
+        if (savedCid) activeCompanyId = savedCid;
+      } catch (e) {}
+    }
+
+    let allowBlink = (companyModules.face_blink !== false);
+    let allowButton = Boolean(companyModules.face_button);
+
+    function applyAttendanceModulesConfig() {
+      if (!allowBlink && allowButton) {
+        // Mode 2: Button Capture Only (No Blinks Required)
+        isHandsFreeActive = false;
+        if (btnToggleHandsFree) {
+          btnToggleHandsFree.classList.remove('active');
+          if (handsfreeToggleLabel) handsfreeToggleLabel.textContent = 'Mode: One-Click Button Capture (No Blinks)';
+        }
+        if (btnToggleSensitivity) btnToggleSensitivity.style.display = 'none';
+        if (blinkHudOverlay) blinkHudOverlay.style.display = 'none';
+        if (btnMarkText) btnMarkText.textContent = 'Mark Attendance';
+      } else if (allowBlink && !allowButton) {
+        // Mode 1: 2-Blink Hands-Free Liveness Only
+        isHandsFreeActive = true;
+        if (btnToggleHandsFree) {
+          btnToggleHandsFree.classList.add('active');
+          if (handsfreeToggleLabel) handsfreeToggleLabel.textContent = 'Hands-Free: Active (Blink 2x)';
+        }
+        if (btnToggleSensitivity) btnToggleSensitivity.style.display = '';
+        if (btnMarkText) btnMarkText.textContent = 'Proceed to Next Person';
+      } else {
+        // Both modes enabled!
+        isHandsFreeActive = true;
+        if (btnToggleHandsFree) {
+          btnToggleHandsFree.classList.add('active');
+          if (handsfreeToggleLabel) handsfreeToggleLabel.textContent = 'Dual Mode: Blink 2x or Click Button';
+        }
+        if (btnToggleSensitivity) btnToggleSensitivity.style.display = '';
+        if (btnMarkText) btnMarkText.textContent = 'Mark Attendance';
+      }
+    }
+
+    // Dynamic config refresh from server if activeCompanyId is present and modules were not pre-rendered
+    if (activeCompanyId && (!initialCompanyModules || Object.keys(initialCompanyModules).length === 0)) {
+      fetch(`/api/kiosk/config?company_id=${encodeURIComponent(activeCompanyId)}`)
+        .then(res => res.json())
+        .then(cfg => {
+          if (cfg && cfg.modules) {
+            companyModules = cfg.modules;
+            allowBlink = (companyModules.face_blink !== false);
+            allowButton = Boolean(companyModules.face_button);
+            applyAttendanceModulesConfig();
+            const badge = document.getElementById('kioskCompanyBadge');
+            if (badge && cfg.company_name && cfg.company_name !== 'ARGUS CNC™') {
+              badge.textContent = `🏢 ${cfg.company_name}`;
+              badge.style.display = 'inline-flex';
+            }
+          }
+        })
+        .catch(err => console.warn('Could not fetch dynamic kiosk config:', err));
+    }
+
+    applyAttendanceModulesConfig();
 
     // Sensitivity Toggle Listener
     if (btnToggleSensitivity) {
@@ -2472,10 +2555,17 @@
           // 1. Voice Guidance: Speak ONCE when first aligned (no endless looping!)
           if (blinkCount === 0 && !hasSpokenAlignedGuidance && alignedDuration > 900) {
             hasSpokenAlignedGuidance = true;
-            tamilVoice.speakGuidance({
-              tamil: 'முகத்தை அசைக்காமல் நேராகப் பார்த்து, இருமுறை கண் சிமிட்டவும்.',
-              english: 'Hold steady, look straight at the camera, and blink twice.'
-            });
+            if (allowBlink) {
+              tamilVoice.speakGuidance({
+                tamil: 'முகத்தை அசைக்காமல் நேராகப் பார்த்து, இருமுறை கண் சிமிட்டவும்.',
+                english: 'Hold steady, look straight at the camera, and blink twice.'
+              });
+            } else if (allowButton) {
+              tamilVoice.speakGuidance({
+                tamil: 'கேமராவை நேராகப் பார்த்து வருகைப் பதிவு பொத்தானை அழுத்தவும்.',
+                english: 'Look straight at the camera and click Mark Attendance.'
+              });
+            }
           }
 
           // 2. Airport e-Gate Fallback: Steady-Face Auto-Punch
@@ -2689,34 +2779,44 @@
           tamilVoice.unlockAudio();
         }
 
-        if (blinkHudOverlay) {
-          blinkHudOverlay.style.display = 'flex';
+        if (!allowBlink && allowButton) {
+          if (blinkHudOverlay) blinkHudOverlay.style.display = 'none';
+          if (btnMarkText) btnMarkText.textContent = 'Mark Attendance';
+          isAIModelReady = true;
+        } else {
+          if (blinkHudOverlay) {
+            blinkHudOverlay.style.display = 'flex';
+          }
         }
 
         // AI Model warm-up state initialization
-        isAIModelReady = false;
-        calibratedFrames = 0;
-        hasAnnouncedWarmup = false;
-        updateBlinkHUD(0, '⚡ AI கேமரா தயாராகிறது... (AI Starting...)', false, true);
+        if (allowBlink) {
+          isAIModelReady = false;
+          calibratedFrames = 0;
+          hasAnnouncedWarmup = false;
+          updateBlinkHUD(0, '⚡ AI கேமரா தயாராகிறது... (AI Starting...)', false, true);
 
-        if (aiWarmupTimer) clearTimeout(aiWarmupTimer);
-        aiWarmupTimer = setTimeout(() => {
-          if (!isAIModelReady && isCameraRunning) {
-            hasAnnouncedWarmup = true;
-            if (typeof tamilVoice !== 'undefined' && tamilVoice) {
-              tamilVoice.speak({
-                tamil: 'கேமரா தயாராகிறது, ஒரு கணம் காத்திருக்கவும்.',
-                english: 'Camera is starting up, please wait a moment.'
-              }, { interrupt: true });
+          if (aiWarmupTimer) clearTimeout(aiWarmupTimer);
+          aiWarmupTimer = setTimeout(() => {
+            if (!isAIModelReady && isCameraRunning) {
+              hasAnnouncedWarmup = true;
+              if (typeof tamilVoice !== 'undefined' && tamilVoice) {
+                tamilVoice.speak({
+                  tamil: 'கேமரா தயாராகிறது, ஒரு கணம் காத்திருக்கவும்.',
+                  english: 'Camera is starting up, please wait a moment.'
+                }, { interrupt: true });
+              }
             }
-          }
-        }, 1200);
+          }, 1200);
 
-        resetBlinkState();
-        initFaceMesh();
-        if (!isDetectionRunning) {
-          isDetectionRunning = true;
-          requestAnimationFrame(runDetectionLoop);
+          resetBlinkState();
+          initFaceMesh();
+          if (!isDetectionRunning) {
+            isDetectionRunning = true;
+            requestAnimationFrame(runDetectionLoop);
+          }
+        } else {
+          isAIModelReady = true;
         }
       } catch (err) {
         console.warn('Camera permission denied or camera unavailable:', err);
@@ -2795,6 +2895,7 @@
 
     if (btnToggleHandsFree) {
       btnToggleHandsFree.addEventListener('click', function () {
+        if (!allowBlink) return;
         isHandsFreeActive = !isHandsFreeActive;
         if (isHandsFreeActive) {
           btnToggleHandsFree.classList.add('active');
@@ -2938,7 +3039,7 @@
       resetBlinkState();
       updateBlinkHUD(0, isHandsFreeActive ? '👁️ Blink 2 times or hold steady' : '🟢 Ready for Next Employee');
       btnMark.disabled = false;
-      btnMarkText.textContent = 'Proceed to Next Person';
+      btnMarkText.textContent = allowButton ? 'Mark Attendance' : 'Proceed to Next Person';
       btnMark.classList.remove('btn-next-highlight');
       reticlePulse();
       if (typeof tamilVoice !== 'undefined' && tamilVoice) {
@@ -3010,6 +3111,10 @@
           formData.append('longitude', coords.longitude);
         }
         formData.append('client_time', clientTimestamp);
+        formData.append('punch_source', source);
+        if (activeCompanyId) {
+          formData.append('company_id', activeCompanyId);
+        }
         {% if active_branch_id %}
         formData.append('branch_id', '{{ active_branch_id }}');
         {% endif %}
@@ -3221,7 +3326,15 @@
         return;
       }
 
-      // Case 2: Kiosk is in ready state -> Manual verification trigger for employees with glasses/lighting issues
+      // Case 2: Kiosk is in ready state -> Check allowed modules
+      if (allowButton) {
+        // Module 2: Face Recognition without Blinks (Button Capture)
+        // Immediately capture and mark attendance without requiring any blinks!
+        executeAttendancePunch('button');
+        return;
+      }
+
+      // Module 1 Only: Active 2-Blink verification
       const now = Date.now();
       // If user recently had a verified natural blink within 4.5 seconds
       if (lastVerifiedBlinkTime && (now - lastVerifiedBlinkTime <= 4500)) {
@@ -3240,7 +3353,7 @@
           if (pendingLivenessPunch && !isProcessingPunch) {
             pendingLivenessPunch = false;
             btnMark.disabled = false;
-            btnMarkText.textContent = 'Proceed to Next Person';
+            btnMarkText.textContent = allowButton ? 'Mark Attendance' : 'Proceed to Next Person';
             updateBlinkHUD(0, '⚠️ Liveness Check Timed Out. A live human blink is required.');
           }
         }, 7000);

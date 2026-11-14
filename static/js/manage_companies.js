@@ -1,1353 +1,1377 @@
-// Manage Companies JavaScript
-document.addEventListener('DOMContentLoaded', function () {
-  let currentPage = 1;
-  let currentLimit = 10;
-  let currentSearch = '';
-
-  const companyTableBody = document.getElementById('companyTableBody');
-  const companyEntriesLimit = document.getElementById('companyEntriesLimit');
-  const companyTableSearch = document.getElementById('companyTableSearch');
-  const companyTableInfo = document.getElementById('companyTableInfo');
-  const companyPrevBtn = document.getElementById('companyPrevBtn');
-  const companyCurrentBtn = document.getElementById('companyCurrentBtn');
-  const companyNextBtn = document.getElementById('companyNextBtn');
-
-  // Modal elements
-  const companyModal = document.getElementById('companyModal');
-  const companyModalTitle = document.getElementById('companyModalTitle');
-  const btnSaveCompany = document.getElementById('btnSaveCompany');
-  const btnOpenAddCompanyModal = document.getElementById('btnOpenAddCompanyModal');
-  const closeCompanyModal = document.getElementById('closeCompanyModal');
-  const btnCancelCompany = document.getElementById('btnCancelCompany');
-  const companyForm = document.getElementById('companyForm');
-  const companyFormAlert = document.getElementById('companyFormAlert');
-  const btnDetectLocation = document.getElementById('btnDetectLocation');
-
-  const inputCompanyName = document.getElementById('inputCompanyName');
-  const inputGstin = document.getElementById('inputGstin');
-  const inputPhone = document.getElementById('inputPhone');
-  const inputEmail = document.getElementById('inputEmail');
-  const inputLatitude = document.getElementById('inputLatitude');
-  const inputLongitude = document.getElementById('inputLongitude');
-  const inputStatus = document.getElementById('inputStatus');
-  const inputEmployeeLimit = document.getElementById('inputEmployeeLimit');
-  const inputBranchLimit = document.getElementById('inputBranchLimit');
-  const inputCompanyShiftHours = document.getElementById('inputShiftHours');
-  const inputRegisteredDate = document.getElementById('inputRegisteredDate');
-  const inputAutoEmailReports = document.getElementById('inputAutoEmailReports');
-  const inputDailyReportTime = document.getElementById('inputDailyReportTime');
-  const inputMonthlyReportDay = document.getElementById('inputMonthlyReportDay');
-  const inputCanDeleteEntries = document.getElementById('inputCanDeleteEntries');
-  const inputSupportEnabled = document.getElementById('inputSupportEnabled');
-  const inputGeofenceRadius = document.getElementById('inputGeofenceRadius');
-
-  // Cascade Delete Confirmation Modal elements
-  const deleteCompanyModal = document.getElementById('deleteCompanyModal');
-  const closeDeleteCompanyModal = document.getElementById('closeDeleteCompanyModal');
-  const btnCancelDeleteCompany = document.getElementById('btnCancelDeleteCompany');
-  const btnConfirmDeleteCompany = document.getElementById('btnConfirmDeleteCompany');
-  const deleteCompanyTargetName = document.getElementById('deleteCompanyTargetName');
-  const deleteCompanyTargetId = document.getElementById('deleteCompanyTargetId');
-  const btnConfirmDeleteText = document.getElementById('btnConfirmDeleteText');
-  let companyToDeleteId = null;
-  let companyToDeleteName = '';
-
-  function formatDateForDateInput(val) {
-    if (!val || val === '-') return new Date().toISOString().split('T')[0];
-    const s = String(val).trim();
-    if (s.includes('/')) {
-      const parts = s.split(' ')[0].split('/');
-      if (parts.length === 3) {
-        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
-    } else if (s.includes('-')) {
-      const parts = s.split(' ')[0].split('-');
-      if (parts.length === 3) {
-        if (parts[0].length === 4) return parts.join('-');
-        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
-    }
-    return new Date().toISOString().split('T')[0];
-  }
-
-  let loadedCompanies = [];
-  let editingCompanyId = null;
-
-  // Reports modal elements
-  const reportsModal = document.getElementById('reportsModal');
-  const btnOpenReportsModal = document.getElementById('btnOpenReportsModal');
-  const closeReportsModal = document.getElementById('closeReportsModal');
-  const btnCloseReportsFooter = document.getElementById('btnCloseReportsFooter');
-
-  // View modal elements
-  const viewCompanyModal = document.getElementById('viewCompanyModal');
-  const closeViewCompanyModal = document.getElementById('closeViewCompanyModal');
-  const btnCloseViewCompanyFooter = document.getElementById('btnCloseViewCompanyFooter');
-  const viewCompanyName = document.getElementById('viewCompanyName');
-  const viewCompanyId = document.getElementById('viewCompanyId');
-  const viewCompanyRegisteredDate = document.getElementById('viewCompanyRegisteredDate');
-  const viewCompanyGstin = document.getElementById('viewCompanyGstin');
-  const viewCompanyPhone = document.getElementById('viewCompanyPhone');
-  const viewCompanyEmail = document.getElementById('viewCompanyEmail');
-  const viewCompanyLocation = document.getElementById('viewCompanyLocation');
-  const viewCompanyShiftHours = document.getElementById('viewCompanyShiftHours');
-  const viewCompanyEmployees = document.getElementById('viewCompanyEmployees');
-  const viewCompanyBranches = document.getElementById('viewCompanyBranches');
-  const viewCompanyStatusBadge = document.getElementById('viewCompanyStatusBadge');
-  const viewCompanyReportsBadge = document.getElementById('viewCompanyReportsBadge');
-  const viewCompanyDailyTime = document.getElementById('viewCompanyDailyTime');
-  const viewCompanyMonthlyDay = document.getElementById('viewCompanyMonthlyDay');
-  const viewCompanyDeleteEntriesBadge = document.getElementById('viewCompanyDeleteEntriesBadge');
-
-  function formatDisplayDate(dateStr) {
-    if (!dateStr || dateStr === '-') return '-';
-    if (typeof dateStr === 'string' && (dateStr.includes('T') || (dateStr.includes('-') && dateStr.includes(':')))) {
-      try {
-        const d = new Date(dateStr.replace(' ', 'T'));
-        if (!isNaN(d.getTime())) {
-          const day = String(d.getDate()).padStart(2, '0');
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const year = d.getFullYear();
-          let hours = d.getHours();
-          const minutes = String(d.getMinutes()).padStart(2, '0');
-          const ampm = hours >= 12 ? 'PM' : 'AM';
-          hours = hours % 12;
-          hours = hours ? hours : 12;
-          const strHours = String(hours).padStart(2, '0');
-          return `${day}/${month}/${year} ${strHours}:${minutes} ${ampm}`;
-        }
-      } catch (e) {}
-    }
-    return dateStr;
-  }
-
-  function getDaysActiveBadgeHtml(days, label) {
-    const count = Number(days) || 0;
-    let badgeStyle = 'background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;'; // < 30 days (Emerald)
-    if (count >= 30 && count < 180) {
-      badgeStyle = 'background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;'; // 1-6 months (Blue)
-    } else if (count >= 180 && count < 365) {
-      badgeStyle = 'background-color: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff;'; // 6-12 months (Purple)
-    } else if (count >= 365) {
-      badgeStyle = 'background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a;'; // 1+ years (Gold)
-    }
-    const text = label || (count === 1 ? '1 Day' : `${count} Days`);
-    return `<span style="display: inline-flex; align-items: center; gap: 4px; ${badgeStyle} padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap;" title="Registered ${count} days ago">
-      <span style="font-size: 10px;">⚡</span>
-      <span>${escapeHtml(text)}</span>
-    </span>`;
-  }
-
-  // View Toggle State (Default to 'grid')
-  let currentView = localStorage.getItem('argus_company_view') || 'grid';
-  const btnCompanyListView = document.getElementById('btnCompanyListView');
-  const btnCompanyGridView = document.getElementById('btnCompanyGridView');
-  const companyListSection = document.getElementById('companyListSection');
-  const companyGridSection = document.getElementById('companyGridSection');
-
-  // Sorting state
-  let currentSortCol = null;
-  let currentSortDir = 'asc';
-
-  function getCompanyInitials(name) {
-    if (!name) return 'CO';
-    const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-  }
-
-  function getCompanyLogoHtml(comp, sizeClass = 'comp-table-logo', placeholderClass = 'comp-avatar-placeholder') {
-    const logoFile = comp.logo || comp.company_logo || comp.logo_filename;
-    const logoSrc = comp.logo_data || (logoFile ? (logoFile.startsWith('data:') ? logoFile : `/uploads/${encodeURIComponent(logoFile)}`) : '');
-    const initials = getCompanyInitials(comp.company_name);
-    if (logoSrc) {
-      return `<img src="${logoSrc}" class="${sizeClass}" alt="${escapeHtml(comp.company_name)}" onerror="this.outerHTML='<div class=\\'${placeholderClass}\\'>${initials}</div>'">`;
-    }
-    return `<div class="${placeholderClass}">${initials}</div>`;
-  }
-
-  function updateViewDisplay() {
-    if (currentView === 'grid') {
-      if (btnCompanyGridView) btnCompanyGridView.classList.add('active');
-      if (btnCompanyListView) btnCompanyListView.classList.remove('active');
-      if (companyListSection) companyListSection.style.display = 'none';
-      if (companyGridSection) companyGridSection.style.display = 'grid';
-      renderCompanyGridCards(loadedCompanies);
-    } else {
-      if (btnCompanyListView) btnCompanyListView.classList.add('active');
-      if (btnCompanyGridView) btnCompanyGridView.classList.remove('active');
-      if (companyListSection) companyListSection.style.display = 'block';
-      if (companyGridSection) companyGridSection.style.display = 'none';
-      renderCompanyTableRows(loadedCompanies, (currentPage - 1) * currentLimit);
-    }
-    attachCompanyRowEvents();
-  }
-
-  if (btnCompanyListView && btnCompanyGridView) {
-    btnCompanyListView.addEventListener('click', function () {
-      currentView = 'list';
-      localStorage.setItem('argus_company_view', 'list');
-      updateViewDisplay();
-    });
-
-    btnCompanyGridView.addEventListener('click', function () {
-      currentView = 'grid';
-      localStorage.setItem('argus_company_view', 'grid');
-      updateViewDisplay();
-    });
-  }
-
-  // Column header sorting
-  document.querySelectorAll('#companyDataTable th[data-col]').forEach(th => {
-    th.addEventListener('click', function () {
-      const col = this.getAttribute('data-col');
-      if (currentSortCol === col) {
-        currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
-      } else {
-        currentSortCol = col;
-        currentSortDir = 'asc';
-      }
-
-      document.querySelectorAll('#companyDataTable th[data-col]').forEach(h => {
-        const icon = h.querySelector('.sort-icon');
-        if (icon) icon.textContent = '⇅';
-      });
-      const thisIcon = this.querySelector('.sort-icon');
-      if (thisIcon) thisIcon.textContent = currentSortDir === 'asc' ? '▲' : '▼';
-
-      sortAndRenderCompanies();
-    });
-  });
-
-  function sortAndRenderCompanies() {
-    if (currentSortCol && loadedCompanies && loadedCompanies.length > 0) {
-      loadedCompanies.sort((a, b) => {
-        if (currentSortCol === 'days_active' || currentSortCol === 'sl_no') {
-          let numA = Number(a[currentSortCol]) || 0;
-          let numB = Number(b[currentSortCol]) || 0;
-          return currentSortDir === 'asc' ? numA - numB : numB - numA;
-        }
-        let vA = a[currentSortCol] || '';
-        let vB = b[currentSortCol] || '';
-        if (typeof vA === 'string') vA = vA.toLowerCase();
-        if (typeof vB === 'string') vB = vB.toLowerCase();
-        if (vA < vB) return currentSortDir === 'asc' ? -1 : 1;
-        if (vA > vB) return currentSortDir === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-    if (currentView === 'grid') {
-      renderCompanyGridCards(loadedCompanies);
-    } else {
-      renderCompanyTableRows(loadedCompanies, (currentPage - 1) * currentLimit);
-    }
-    attachCompanyRowEvents();
-  }
-
-  function renderCompanyTableRows(companies, startIndex = 0) {
-    if (!companyTableBody) return;
-    companyTableBody.innerHTML = '';
-
-    if (!companies || companies.length === 0) {
-      companyTableBody.innerHTML = `
-        <tr>
-          <td colspan="16" style="text-align: center; padding: 28px; color: #6c757d;">
-            No registered companies found. Click <strong>+ Add Company</strong> above to register a new tenant.
-          </td>
-        </tr>
-      `;
-      return;
-    }
-
-    companies.forEach((comp, idx) => {
-      const slNo = startIndex + idx + 1;
-      const hasCoords = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') &&
-                        (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '');
-      const lat = hasCoords ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
-      const lng = hasCoords ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
-      const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
-      const statusBadge = !isDeactive
-        ? `<span class="status-pill status-active">Active</span>`
-        : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
-
-      const isAutoReports = comp.auto_email_reports !== false;
-      const autoReportsBadge = isAutoReports
-        ? `<button type="button" class="btn-toggle-auto-reports btn-reports-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Auto Email Reports: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-              <polyline points="22,6 12,13 2,6"></polyline>
-            </svg>
-            <span>ON</span>
-          </button>`
-        : `<button type="button" class="btn-toggle-auto-reports btn-reports-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Auto Email Reports: DISABLED (Click to turn on)" style="background-color: #f1f5f9; color: #64748b; border: 1.5px solid #cbd5e1; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; opacity: 0.85; white-space: nowrap;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-              <line x1="2" y1="2" x2="22" y2="22"></line>
-            </svg>
-            <span>OFF</span>
-          </button>`;
-
-      const isDeleteEnabled = comp.can_delete_entries === true;
-      const deleteEntriesBadge = isDeleteEnabled
-        ? `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Delete Entries: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            <span>Delete Enabled</span>
-          </button>`
-        : `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Delete Entries: DISABLED (Click to turn on)" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-            </svg>
-            <span>Enable Delete Entries</span>
-          </button>`;
-
-      const isSupportEnabled = comp.support_enabled === true;
-      const supportBadge = isSupportEnabled
-        ? `<button type="button" class="btn-toggle-support btn-support-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Support: Enabled (Click to Disable)" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 4px 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-            </svg>
-            <span>Disable</span>
-          </button>`
-        : `<button type="button" class="btn-toggle-support btn-support-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Support: Disabled (Click to Enable)" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 4px 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            <span>Enable</span>
-          </button>`;
-
-      const formattedDate = formatDisplayDate(comp.registered_date);
-      const regDateDisplay = formattedDate && formattedDate !== '-'
-        ? `<span style="display: inline-block; background-color: #f1f5f9; color: #334155; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap;">${escapeHtml(formattedDate)}</span>`
-        : `<span style="color: #94a3b8; font-size: 11px;">-</span>`;
-
-      const logoHtml = getCompanyLogoHtml(comp, 'comp-table-logo', 'comp-avatar-placeholder');
-
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td style="font-weight: 700; color: #64748b; text-align: center; white-space: nowrap;">${slNo}</td>
-        <td style="text-align: center; vertical-align: middle;">${logoHtml}</td>
-        <td class="col-wrap sticky-col-comp" style="min-width: 170px; max-width: 280px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important;">
-          <div style="font-weight: 800; color: #0f172a; font-size: 12.5px; line-height: 1.35; word-break: break-word;">${escapeHtml(comp.company_name)}</div>
-          <div style="font-size: 10.5px; color: #64748b; font-family: monospace; margin-top: 2px; white-space: nowrap;">ID: ${comp.id}</div>
-        </td>
-        <td style="white-space: nowrap; text-align: center;">${regDateDisplay}</td>
-        <td style="white-space: nowrap; text-align: center;">${getDaysActiveBadgeHtml(comp.days_active, comp.days_active_label)}</td>
-        <td style="white-space: nowrap;"><code style="background-color: #f1f5f9; padding: 3px 6px; border-radius: 4px; font-size: 11px; color: #334155; font-weight: 600;">${escapeHtml(comp.gstin || '-')}</code></td>
-        <td style="white-space: nowrap;">
-          <a href="mailto:${escapeHtml(comp.email)}" style="color: #2563eb; text-decoration: none; font-weight: 700;">
-            ${escapeHtml(comp.email)}
-          </a>
-        </td>
-        <td style="white-space: nowrap; font-weight: 600; color: #334155;">${escapeHtml(comp.phone || '-')}</td>
-        <td style="white-space: nowrap;">
-          <div style="font-size: 11px; color: #334155; font-weight: 600;">
-            ${hasCoords ? `📍 ${lat}, ${lng} <span style="display: block; font-size: 10px; color: #0284c7; font-weight: 700; margin-top: 2px;">⭕ ${comp.geofence_radius || 200}m radius</span>` : `<span style="color: #94a3b8; font-size: 11px;">-</span>`}
-          </div>
-        </td>
-        <td style="text-align: center; white-space: nowrap;">
-          <span style="font-weight: 700; color: #0f172a; font-size: 11.5px; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 6px; display: inline-block;">
-            ${escapeHtml(comp.shift_hours || '08:00')}
-          </span>
-        </td>
-        <td style="text-align: center; white-space: nowrap;">
-          <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 2px 7px; border-radius: 10px; font-weight: 800; font-size: 11px;" title="Active employees vs Limit (Total preserved in DB: ${comp.total_count ?? comp.employee_count ?? 0})">
-            👥 ${comp.active_count ?? comp.employee_count ?? 0}/${comp.employee_limit || 50} Emps
-          </span>
-          <span style="display: block; font-size: 10px; color: #0284c7; font-weight: 700; margin-top: 2px;" title="Branch creation limit">
-            🏢 ${comp.branch_count ?? 0}/${comp.branch_limit || 5} Branches
-          </span>
-        </td>
-        <td style="text-align: center; white-space: nowrap;">${statusBadge}</td>
-        <td style="text-align: center; white-space: nowrap;">${autoReportsBadge}</td>
-        <td style="text-align: center; white-space: nowrap;">${deleteEntriesBadge}</td>
-        <td style="text-align: center; white-space: nowrap;">${supportBadge}</td>
-        <td style="text-align: center; white-space: nowrap;">
-          <div class="table-actions">
-            <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-              </svg>
-            </button>
-            <button class="btn-action-icon btn-action-edit" data-id="${comp.id}" title="Edit Company">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-              </svg>
-            </button>
-            <button class="btn-action-icon btn-action-delete" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Delete Company">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-            </button>
-          </div>
-        </td>
-      `;
-      companyTableBody.appendChild(row);
-    });
-  }
-
-  function renderCompanyGridCards(companies) {
-    if (!companyGridSection) return;
-    companyGridSection.innerHTML = '';
-
-    if (!companies || companies.length === 0) {
-      companyGridSection.innerHTML = `
-        <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #64748b; background: #ffffff; border-radius: 12px; border: 1px dashed #cbd5e1;">
-          <div style="font-size: 32px; margin-bottom: 8px;">🏢</div>
-          <div style="font-size: 14px; font-weight: 700; color: #1e293b;">No registered companies found</div>
-          <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Click <strong>+ Add Company</strong> above to register a new tenant.</div>
-        </div>
-      `;
-      return;
-    }
-
-    companies.forEach(comp => {
-      const card = document.createElement('div');
-      card.className = 'comp-grid-card';
-
-      const hasCoords = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') &&
-                        (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '');
-      const lat = hasCoords ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
-      const lng = hasCoords ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
-
-      const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
-      const statusBadge = !isDeactive
-        ? `<span class="status-pill status-active" style="font-size: 10.5px; padding: 2px 7px;">Active</span>`
-        : `<span class="status-pill status-inactive" style="font-size: 10.5px; padding: 2px 7px; background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
-
-      const isAutoReports = comp.auto_email_reports !== false;
-      const autoReportsBadge = isAutoReports
-        ? `<button type="button" class="btn-toggle-auto-reports btn-reports-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Auto Email Reports: ENABLED" style="background-color: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <span>Auto: ON</span>
-          </button>`
-        : `<button type="button" class="btn-toggle-auto-reports btn-reports-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Auto Email Reports: DISABLED" style="background-color: #f1f5f9; color: #64748b; border: 1.5px solid #cbd5e1; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="2" y1="2" x2="22" y2="22"></line></svg>
-            <span>Auto: OFF</span>
-          </button>`;
-
-      const isDeleteEnabled = comp.can_delete_entries === true;
-      const deleteEntriesBadge = isDeleteEnabled
-        ? `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Delete Entries: ENABLED" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <span>Delete: ON</span>
-          </button>`
-        : `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Delete Entries: DISABLED" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-            <span>Delete: OFF</span>
-          </button>`;
-
-      const isSupportEnabled = comp.support_enabled === true;
-      const supportBadge = isSupportEnabled
-        ? `<button type="button" class="btn-toggle-support btn-support-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Support: Enabled" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <span>Support: ON</span>
-          </button>`
-        : `<button type="button" class="btn-toggle-support btn-support-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Support: Disabled" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-            <span>Support: OFF</span>
-          </button>`;
-
-      const formattedDate = formatDisplayDate(comp.registered_date);
-      const logoHtml = getCompanyLogoHtml(comp, 'comp-grid-logo', 'comp-grid-avatar-placeholder');
-
-      card.innerHTML = `
-        <div class="comp-grid-header">
-          ${logoHtml}
-          <div style="flex: 1; min-width: 0;">
-            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 6px;">
-              <div class="comp-grid-info-title">${escapeHtml(comp.company_name)}</div>
-              ${statusBadge}
-            </div>
-            <div class="comp-grid-info-sub">ID: ${escapeHtml(comp.id)}</div>
-          </div>
-        </div>
-
-        <div class="comp-grid-body">
-          <div class="comp-grid-row">
-            <span class="comp-grid-label">📅 Registered:</span>
-            <span class="comp-grid-val" style="font-size: 11px;">${escapeHtml(formattedDate)}</span>
-          </div>
-          <div class="comp-grid-row">
-            <span class="comp-grid-label">⏱️ Days Active:</span>
-            <span class="comp-grid-val">${getDaysActiveBadgeHtml(comp.days_active, comp.days_active_label)}</span>
-          </div>
-          <div class="comp-grid-row">
-            <span class="comp-grid-label">🧾 GSTIN:</span>
-            <span class="comp-grid-val"><code style="background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 11px;">${escapeHtml(comp.gstin || '-')}</code></span>
-          </div>
-          <div class="comp-grid-row">
-            <span class="comp-grid-label">✉️ Email:</span>
-            <span class="comp-grid-val" style="font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;" title="${escapeHtml(comp.email || '-')}">
-              <a href="mailto:${escapeHtml(comp.email || '')}" style="color: #2563eb; text-decoration: none;">${escapeHtml(comp.email || '-')}</a>
-            </span>
-          </div>
-          <div class="comp-grid-row">
-            <span class="comp-grid-label">📞 Phone:</span>
-            <span class="comp-grid-val">${escapeHtml(comp.phone || '-')}</span>
-          </div>
-          <div class="comp-grid-row">
-            <span class="comp-grid-label">📍 Geofence:</span>
-            <span class="comp-grid-val" style="font-size: 11px;">
-              ${hasCoords ? `${lat}, ${lng} (⭕ ${comp.geofence_radius || 200}m)` : '-'}
-            </span>
-          </div>
-          <div class="comp-grid-row">
-            <span class="comp-grid-label">🕒 Shift Hours:</span>
-            <span class="comp-grid-val">${escapeHtml(comp.shift_hours || '08:00')} hrs</span>
-          </div>
-          <div class="comp-grid-row">
-            <span class="comp-grid-label">👥 Quota / Limits:</span>
-            <span class="comp-grid-val" style="font-size: 11px; color: #0369a1;">
-              ${comp.active_count ?? comp.employee_count ?? 0}/${comp.employee_limit || 50} Emps &bull; ${comp.branch_count ?? 0}/${comp.branch_limit || 5} Branches
-            </span>
-          </div>
-        </div>
-
-        <div class="comp-grid-switches">
-          ${autoReportsBadge}
-          ${deleteEntriesBadge}
-          ${supportBadge}
-        </div>
-
-        <div class="comp-grid-actions">
-          <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-          </button>
-          <button class="btn-action-icon btn-action-edit" data-id="${comp.id}" title="Edit Company">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-          </button>
-          <button class="btn-action-icon btn-action-delete" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Delete Company">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
-        </div>
-      `;
-      companyGridSection.appendChild(card);
-    });
-  }
-
-  function attachCompanyRowEvents() {
-    // Attach auto reports toggle handlers
-    document.querySelectorAll('.btn-toggle-auto-reports').forEach(btn => {
-      btn.addEventListener('click', async function () {
-        const compId = this.getAttribute('data-id');
-        const compName = this.getAttribute('data-name');
-        const currentState = this.getAttribute('data-state') === 'true';
-        const nextState = !currentState;
-
-        this.disabled = true;
-        this.style.opacity = '0.6';
-
-        try {
-          const res = await fetch(`/api/companies/${compId}/toggle-auto-reports`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enabled: nextState })
-          });
-          const resp = await res.json();
-          if (resp.success) {
-            loadCompanies(currentPage);
-          } else {
-            alert(`Error: ${resp.error || 'Failed to update auto reports setting'}`);
-            this.disabled = false;
-            this.style.opacity = '1';
-          }
-        } catch (err) {
-          alert('Network error while updating auto reports setting.');
-          this.disabled = false;
-          this.style.opacity = '1';
-        }
-      });
-    });
-
-    // Attach delete entries toggle handlers
-    document.querySelectorAll('.btn-toggle-delete-entries').forEach(btn => {
-      btn.addEventListener('click', async function () {
-        const compId = this.getAttribute('data-id');
-        const compName = this.getAttribute('data-name');
-        const currentState = this.getAttribute('data-state') === 'true';
-        const nextState = !currentState;
-
-        this.disabled = true;
-        this.style.opacity = '0.6';
-
-        try {
-          const res = await fetch(`/api/companies/${compId}/toggle-delete-entries`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enabled: nextState })
-          });
-          const resp = await res.json();
-          if (resp.success) {
-            loadCompanies(currentPage);
-          } else {
-            alert(`Error: ${resp.error || 'Failed to update delete entries permission'}`);
-            this.disabled = false;
-            this.style.opacity = '1';
-          }
-        } catch (err) {
-          alert('Network error while updating delete entries permission.');
-          this.disabled = false;
-          this.style.opacity = '1';
-        }
-      });
-    });
-
-    // Attach view handlers
-    document.querySelectorAll('.btn-action-view').forEach(btn => {
-      btn.addEventListener('click', async function () {
-        const compId = this.getAttribute('data-id');
-        let comp = loadedCompanies.find(c => String(c.id) === String(compId));
-        if (!comp) {
-          try {
-            const res = await fetch(`/api/companies/${compId}`);
-            comp = await res.json();
-          } catch (err) {
-            console.error('Error fetching company details:', err);
-          }
-        }
-        if (!comp) return;
-
-        if (viewCompanyName) viewCompanyName.textContent = comp.company_name || '-';
-        if (viewCompanyId) viewCompanyId.textContent = comp.id || '-';
-        if (viewCompanyRegisteredDate) viewCompanyRegisteredDate.textContent = comp.registered_date && comp.registered_date !== '-' ? comp.registered_date : 'Not recorded';
-        const viewCompanyDaysActiveBadge = document.getElementById('viewCompanyDaysActiveBadge');
-        if (viewCompanyDaysActiveBadge) {
-          viewCompanyDaysActiveBadge.innerHTML = getDaysActiveBadgeHtml(comp.days_active, comp.days_active_label);
-        }
-        if (viewCompanyGstin) viewCompanyGstin.textContent = comp.gstin || '-';
-        if (viewCompanyPhone) viewCompanyPhone.textContent = comp.phone || '-';
-        if (viewCompanyEmail) viewCompanyEmail.textContent = comp.email || '-';
-
-        const lat = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
-        const lng = (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '') ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
-        if (viewCompanyLocation) viewCompanyLocation.textContent = (lat !== '-' && lng !== '-') ? `Lat: ${lat}, Long: ${lng}` : '-';
-
-        if (viewCompanyShiftHours) viewCompanyShiftHours.textContent = comp.shift_hours || '08:00';
-        if (viewCompanyEmployees) viewCompanyEmployees.textContent = `${comp.active_count ?? comp.employee_count ?? 0} Active / ${comp.employee_limit || 50} Limit (${comp.total_count ?? comp.employee_count ?? 0} Total in DB)`;
-        if (viewCompanyBranches) viewCompanyBranches.textContent = `${comp.branch_count ?? 0} Active / ${comp.branch_limit || 5} Limit`;
-
-        if (viewCompanyStatusBadge) {
-          const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
-          viewCompanyStatusBadge.innerHTML = !isDeactive
-            ? `<span class="status-pill status-active">Active</span>`
-            : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
-        }
-
-        if (viewCompanyReportsBadge) {
-          viewCompanyReportsBadge.innerHTML = (comp.auto_email_reports !== false)
-            ? `<span class="status-pill status-active">Enabled</span>`
-            : `<span class="status-pill status-inactive">Disabled</span>`;
-        }
-
-        if (viewCompanyDailyTime) {
-          let t = comp.daily_report_time || '07:00';
-          if (t.includes(':')) {
-            let [h, m] = t.split(':').map(Number);
-            let ampm = h >= 12 ? 'PM' : 'AM';
-            h = h % 12 || 12;
-            t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
-          }
-          viewCompanyDailyTime.textContent = t;
-        }
-
-        if (viewCompanyMonthlyDay) {
-          const d = parseInt(comp.monthly_report_day || 1, 10);
-          const nth = (d === 1 || d === 21 || d === 31) ? 'st' : ((d === 2 || d === 22) ? 'nd' : ((d === 3 || d === 23) ? 'rd' : 'th'));
-          viewCompanyMonthlyDay.textContent = `${d}${nth} of month`;
-        }
-
-        if (viewCompanyDeleteEntriesBadge) {
-          viewCompanyDeleteEntriesBadge.innerHTML = (comp.can_delete_entries === true)
-            ? `<span class="status-pill status-active">Enabled</span>`
-            : `<span class="status-pill status-inactive">Disabled</span>`;
-        }
-
-        const viewCompanySupportBadge = document.getElementById('viewCompanySupportBadge');
-        if (viewCompanySupportBadge) {
-          viewCompanySupportBadge.innerHTML = (comp.support_enabled === true)
-            ? `<span class="status-pill status-active" style="background-color: #e8f5e9; color: #166534; border: 1px solid #86efac;">Enabled</span>`
-            : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Disabled</span>`;
-        }
-
-        const viewCompanyProperEntriesBadge = document.getElementById('viewCompanyProperEntriesBadge');
-        if (viewCompanyProperEntriesBadge) {
-          const isProperActive = (comp.calculate_proper_entries !== false);
-          viewCompanyProperEntriesBadge.innerHTML = isProperActive
-            ? `<span class="status-pill status-active" style="background-color: #e8f5e9; color: #166534; border: 1px solid #86efac;">✓ Enabled – Validate Employee Location</span>`
-            : `<span class="status-pill" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;">✕ Disabled – Allow All Locations</span>`;
-        }
-
-        const viewCompanyModulesBadges = document.getElementById('viewCompanyModulesBadges');
-        if (viewCompanyModulesBadges) {
-          const m = comp.modules || {};
-          const isSingle = m.single_company !== false;
-          const isBranch = !!m.branch_company;
-          const isField = !!m.field_worker;
-          let mHtml = '';
-          if (isSingle) mHtml += `<span class="status-pill" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-size:11px;font-weight:700;"><i class="fa-solid fa-building" style="margin-right:4px;"></i> Single Office</span>`;
-          if (isBranch) mHtml += `<span class="status-pill" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-size:11px;font-weight:700;"><i class="fa-solid fa-code-branch" style="margin-right:4px;"></i> Multi-Branch</span>`;
-          if (isField) mHtml += `<span class="status-pill" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-size:11px;font-weight:700;"><i class="fa-solid fa-location-crosshairs" style="margin-right:4px;"></i> Field Worker</span>`;
-          if (!mHtml) mHtml = `<span class="status-pill status-inactive">No modules assigned</span>`;
-          viewCompanyModulesBadges.innerHTML = mHtml;
-        }
-
-        if (viewCompanyModal) {
-          viewCompanyModal.classList.add('active');
-        }
-      });
-    });
-
-    // Attach edit handlers
-    document.querySelectorAll('.btn-action-edit').forEach(btn => {
-      btn.addEventListener('click', function () {
-        const compId = this.getAttribute('data-id');
-        const comp = loadedCompanies.find(c => String(c.id) === String(compId));
-        if (!comp) return;
-
-        editingCompanyId = comp.id;
-        companyForm.reset();
-        companyFormAlert.style.display = 'none';
-
-        if (companyModalTitle) companyModalTitle.textContent = `Edit Company - ${comp.company_name}`;
-        if (btnSaveCompany) btnSaveCompany.textContent = 'Update Company';
-
-        inputCompanyName.value = comp.company_name || '';
-        inputGstin.value = comp.gstin || '';
-        inputPhone.value = comp.phone || '';
-        inputEmail.value = comp.email || '';
-        inputLatitude.value = (comp.latitude !== undefined && comp.latitude !== null) ? comp.latitude : '';
-        inputLongitude.value = (comp.longitude !== undefined && comp.longitude !== null) ? comp.longitude : '';
-        const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
-        inputStatus.value = isDeactive ? 'Deactive' : 'Active';
-        if (inputEmployeeLimit) inputEmployeeLimit.value = comp.employee_limit || 50;
-        if (inputBranchLimit) inputBranchLimit.value = comp.branch_limit || 5;
-        if (inputCompanyShiftHours) inputCompanyShiftHours.value = comp.shift_hours || '08:00';
-        if (inputRegisteredDate) inputRegisteredDate.value = formatDateForDateInput(comp.registered_date);
-        if (inputAutoEmailReports) inputAutoEmailReports.value = (comp.auto_email_reports !== false) ? 'true' : 'false';
-        if (inputDailyReportTime) inputDailyReportTime.value = comp.daily_report_time || '07:00';
-        if (inputMonthlyReportDay) inputMonthlyReportDay.value = String(comp.monthly_report_day || 1);
-        if (inputCanDeleteEntries) inputCanDeleteEntries.value = (comp.can_delete_entries === true) ? 'true' : 'false';
-        if (inputGeofenceRadius) inputGeofenceRadius.value = comp.geofence_radius || comp.radius_meters || 200;
-        const inCalcProperComp = document.getElementById('inputCalculateProperEntriesCompany');
-        if (inCalcProperComp) inCalcProperComp.value = (comp.calculate_proper_entries !== false) ? 'true' : 'false';
-
-        const inModSingle = document.getElementById('inputModSingleCompany');
-        const inModBranch = document.getElementById('inputModBranchCompany');
-        const inModField = document.getElementById('inputModFieldWorker');
-        const m = comp.modules || {};
-        if (inModSingle) inModSingle.checked = !comp.modules || m.single_company !== false;
-        if (inModBranch) inModBranch.checked = !!m.branch_company;
-        if (inModField) inModField.checked = !!m.field_worker;
-
-        if (window.ArgusVoice) {
-          window.ArgusVoice.resetFormGuidance('#companyModal');
-        }
-
-        companyModal.classList.add('active');
-      });
-    });
-
-    // Attach delete handlers to open Confirmation Modal
-    document.querySelectorAll('.btn-action-delete').forEach(btn => {
-      btn.addEventListener('click', function () {
-        companyToDeleteId = this.getAttribute('data-id');
-        companyToDeleteName = this.getAttribute('data-name');
-        if (deleteCompanyTargetName) deleteCompanyTargetName.textContent = companyToDeleteName;
-        if (deleteCompanyTargetId) deleteCompanyTargetId.textContent = companyToDeleteId;
-        if (btnConfirmDeleteText) btnConfirmDeleteText.textContent = 'Yes, Delete Company & All Records';
-        if (btnConfirmDeleteCompany) btnConfirmDeleteCompany.disabled = false;
-        if (deleteCompanyModal) deleteCompanyModal.classList.add('active');
-      });
-    });
-
-    // Attach support toggle handlers
-    document.querySelectorAll('.btn-toggle-support').forEach(btn => {
-      btn.addEventListener('click', async function (e) {
-        e.preventDefault();
-        const compId = this.getAttribute('data-id');
-        const currentState = this.getAttribute('data-state') === 'true';
-        const newState = !currentState;
-
-        this.disabled = true;
-        this.style.opacity = '0.6';
-
-        try {
-          const res = await fetch(`/api/companies/${compId}/toggle-support`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enabled: newState })
-          });
-          const data = await res.json();
-          if (data.success) {
-            loadCompanies(currentPage);
-          } else {
-            alert(`Error: ${data.error || 'Failed to update support status.'}`);
-            this.disabled = false;
-            this.style.opacity = '1';
-          }
-        } catch (err) {
-          alert('Network error while updating support status.');
-          this.disabled = false;
-          this.style.opacity = '1';
-        }
-      });
-    });
-  }
-
-  // Fetch and display companies
-  async function loadCompanies(page = 1) {
-    currentPage = page;
-    if (window.renderTableLoading && companyTableBody) {
-      window.renderTableLoading(companyTableBody, "Loading registered companies...", 16);
-    }
-    if (window.renderGridLoading && companyGridSection) {
-      window.renderGridLoading(companyGridSection, "Loading registered companies...");
-    }
-
-    try {
-      const params = new URLSearchParams({
-        page: currentPage,
-        limit: currentLimit,
-        search: currentSearch
-      });
-
-      const res = await fetch(`/api/companies?${params.toString()}`);
-      const data = await res.json();
-      loadedCompanies = data.companies || [];
-
-      if (!data.companies || data.companies.length === 0) {
-        if (companyTableBody) {
-          companyTableBody.innerHTML = `
-            <tr>
-              <td colspan="15" style="text-align: center; padding: 28px; color: #6c757d;">
-                No registered companies found. Click <strong>+ Add Company</strong> above to register a new tenant.
-              </td>
-            </tr>
-          `;
-        }
-        if (companyGridSection) {
-          companyGridSection.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #64748b; background: #ffffff; border-radius: 12px; border: 1px dashed #cbd5e1;">
-              <div style="font-size: 32px; margin-bottom: 8px;">🏢</div>
-              <div style="font-size: 14px; font-weight: 700; color: #1e293b;">No registered companies found</div>
-              <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Click <strong>+ Add Company</strong> above to register a new tenant.</div>
-            </div>
-          `;
-        }
-        companyTableInfo.textContent = 'Showing 0 to 0 of 0 entries';
-        updatePagination(0, 0);
-        return;
-      }
-
-      // Sort if sort column is active
-      if (currentSortCol) {
-        loadedCompanies.sort((a, b) => {
-          if (currentSortCol === 'days_active' || currentSortCol === 'sl_no') {
-            let numA = Number(a[currentSortCol]) || 0;
-            let numB = Number(b[currentSortCol]) || 0;
-            return currentSortDir === 'asc' ? numA - numB : numB - numA;
-          }
-          let vA = a[currentSortCol] || '';
-          let vB = b[currentSortCol] || '';
-          if (typeof vA === 'string') vA = vA.toLowerCase();
-          if (typeof vB === 'string') vB = vB.toLowerCase();
-          if (vA < vB) return currentSortDir === 'asc' ? -1 : 1;
-          if (vA > vB) return currentSortDir === 'asc' ? 1 : -1;
-          return 0;
-        });
-      }
-
-      const startIndex = (data.page - 1) * data.limit;
-      renderCompanyTableRows(loadedCompanies, startIndex);
-      renderCompanyGridCards(loadedCompanies);
-      attachCompanyRowEvents();
-
-      // Ensure appropriate view section is displayed
-      if (currentView === 'grid') {
-        if (companyListSection) companyListSection.style.display = 'none';
-        if (companyGridSection) companyGridSection.style.display = 'grid';
-        if (btnCompanyGridView) btnCompanyGridView.classList.add('active');
-        if (btnCompanyListView) btnCompanyListView.classList.remove('active');
-      } else {
-        if (companyListSection) companyListSection.style.display = 'block';
-        if (companyGridSection) companyGridSection.style.display = 'none';
-        if (btnCompanyListView) btnCompanyListView.classList.add('active');
-        if (btnCompanyGridView) btnCompanyGridView.classList.remove('active');
-      }
-
-      // Update footer info
-      const startEntry = startIndex + 1;
-      const endEntry = Math.min(startIndex + data.companies.length, data.total);
-      companyTableInfo.textContent = `Showing ${startEntry} to ${endEntry} of ${data.total} entries`;
-      updatePagination(data.page, data.pages);
-    } catch (err) {
-      if (companyTableBody) {
-        companyTableBody.innerHTML = `
-          <tr>
-            <td colspan="15" style="text-align: center; padding: 24px; color: #dc3545;">
-              Failed to load companies. Please check database connection.
-            </td>
-          </tr>
-        `;
-      }
-      if (companyGridSection) {
-        companyGridSection.innerHTML = `
-          <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #dc3545;">Failed to load companies. Please check database connection.</div>
-        `;
-      }
-    }
-  }
-
-  function updatePagination(page, totalPages) {
-    companyCurrentBtn.textContent = page || 1;
-    if (page <= 1) {
-      companyPrevBtn.classList.add('disabled');
-    } else {
-      companyPrevBtn.classList.remove('disabled');
-    }
-    if (page >= totalPages || totalPages === 0) {
-      companyNextBtn.classList.add('disabled');
-    } else {
-      companyNextBtn.classList.remove('disabled');
-    }
-  }
-
-  companyPrevBtn.addEventListener('click', function () {
-    if (!this.classList.contains('disabled') && currentPage > 1) {
-      loadCompanies(currentPage - 1);
-    }
-  });
-
-  companyNextBtn.addEventListener('click', function () {
-    if (!this.classList.contains('disabled')) {
-      loadCompanies(currentPage + 1);
-    }
-  });
-
-  // Limit change
-  companyEntriesLimit.addEventListener('change', function () {
-    currentLimit = parseInt(this.value, 10);
-    loadCompanies(1);
-  });
-
-  // Search input debounce
-  let searchTimer;
-  companyTableSearch.addEventListener('input', function () {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      currentSearch = companyTableSearch.value.trim();
-      loadCompanies(1);
-    }, 300);
-  });
-
-  // Modal 1: Add Company Modal
-  if (btnOpenAddCompanyModal) {
-    btnOpenAddCompanyModal.addEventListener('click', function () {
-      editingCompanyId = null;
-      companyForm.reset();
-      companyFormAlert.style.display = 'none';
-      if (companyModalTitle) companyModalTitle.textContent = 'Register New Company';
-      if (btnSaveCompany) btnSaveCompany.textContent = 'Save Company';
-      if (inputEmployeeLimit) inputEmployeeLimit.value = 25;
-      if (inputBranchLimit) inputBranchLimit.value = 5;
-      if (inputCompanyShiftHours) inputCompanyShiftHours.value = '08:00';
-      if (inputRegisteredDate) inputRegisteredDate.value = new Date().toISOString().split('T')[0];
-      if (inputStatus) inputStatus.value = 'Active';
-      if (inputAutoEmailReports) inputAutoEmailReports.value = 'false';
-      if (inputDailyReportTime) inputDailyReportTime.value = '07:00';
-      if (inputMonthlyReportDay) inputMonthlyReportDay.value = '1';
-      if (inputCanDeleteEntries) inputCanDeleteEntries.value = 'false';
-      if (inputSupportEnabled) inputSupportEnabled.value = 'false';
-      if (inputGeofenceRadius) inputGeofenceRadius.value = 200;
-      const inCalcProperCompReset = document.getElementById('inputCalculateProperEntriesCompany');
-      if (inCalcProperCompReset) inCalcProperCompReset.value = 'true';
-      const inModSingle = document.getElementById('inputModSingleCompany');
-      const inModBranch = document.getElementById('inputModBranchCompany');
-      const inModField = document.getElementById('inputModFieldWorker');
-      if (inModSingle) inModSingle.checked = true;
-      if (inModBranch) inModBranch.checked = false;
-      if (inModField) inModField.checked = false;
-
-      if (window.ArgusVoice) {
-        window.ArgusVoice.resetFormGuidance('#companyModal');
-      }
-
-      companyModal.classList.add('active');
-    });
-  }
-
-  function closeCompanyModalFunc() {
-    if (window.ArgusVoice) {
-      window.ArgusVoice.stop();
-      window.ArgusVoice.resetFormGuidance('#companyModal');
-    }
-    companyModal.classList.remove('active');
-  }
-
-  if (closeCompanyModal) closeCompanyModal.addEventListener('click', closeCompanyModalFunc);
-  if (btnCancelCompany) btnCancelCompany.addEventListener('click', closeCompanyModalFunc);
-
-  // Auto Geolocation detection
-  if (btnDetectLocation) {
-    btnDetectLocation.addEventListener('click', function () {
-      if (navigator.geolocation) {
-        btnDetectLocation.textContent = '⏳ Detecting...';
-        navigator.geolocation.getCurrentPosition(
-          function (pos) {
-            document.getElementById('inputLatitude').value = pos.coords.latitude.toFixed(6);
-            document.getElementById('inputLongitude').value = pos.coords.longitude.toFixed(6);
-            btnDetectLocation.textContent = '✓ Location Detected';
-            setTimeout(() => { btnDetectLocation.textContent = '📍 Get Current Location'; }, 3000);
-          },
-          function (err) {
-            alert('Could not retrieve current location: ' + err.message);
-            btnDetectLocation.textContent = '📍 Get Current Location';
-          },
-          { enableHighAccuracy: true, timeout: 8000 }
-        );
-      } else {
-        alert('Geolocation is not supported by your browser.');
-      }
-    });
-  }
-
-  // Auto-split combined coordinates if user pastes/types "lat, lng" into latitude field
-  if (inputLatitude && inputLongitude) {
-    inputLatitude.addEventListener('input', function () {
-      const val = this.value;
-      if (val && (val.includes(',') || val.includes(';'))) {
-        const parts = val.split(/[,;]+/);
-        if (parts.length >= 2) {
-          this.value = parts[0].trim();
-          inputLongitude.value = parts[1].trim();
-        }
-      }
-    });
-  }
-
-  // Submit Company Form
-  if (companyForm) {
-    companyForm.addEventListener('submit', async function (e) {
-      e.preventDefault();
-      if (companyForm._isSubmitting) return false;
-
-      companyFormAlert.style.display = 'none';
-
-      const btnSave = btnSaveCompany || document.getElementById('btnSaveCompany');
-      const origBtnText = editingCompanyId ? 'Update Company' : 'Save Company';
-
-      companyForm._isSubmitting = true;
-      if (btnSave) {
-        btnSave.disabled = true;
-        btnSave.classList.add('btn-is-submitting');
-        btnSave.innerHTML = `<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> ${editingCompanyId ? 'Updating...' : 'Saving...'}`;
-      }
-
-      if (window.showSavingPopup) {
-        window.showSavingPopup(
-          editingCompanyId ? 'Updating Company Profile...' : 'Registering New Company...',
-          'Configuring company settings, shift hours, and email schedules...'
-        );
-      }
-
-      const formData = new FormData(companyForm);
-      const payload = {
-        company_name: formData.get('company_name'),
-        gstin: formData.get('gstin'),
-        phone: formData.get('phone'),
-        email: formData.get('email'),
-        latitude: (formData.get('latitude') !== null && String(formData.get('latitude')).trim() !== '') ? String(formData.get('latitude')).trim() : null,
-        longitude: (formData.get('longitude') !== null && String(formData.get('longitude')).trim() !== '') ? String(formData.get('longitude')).trim() : null,
-        status: (formData.get('status') === 'Deactive' || formData.get('status') === 'Inactive') ? 'Deactive' : 'Active',
-        employee_limit: parseInt(formData.get('employee_limit'), 10) || 50,
-        branch_limit: parseInt(formData.get('branch_limit'), 10) || 5,
-        shift_hours: (formData.get('shift_hours') || '08:00').trim(),
-        registered_date: formData.get('registered_date') || '',
-        auto_email_reports: formData.get('auto_email_reports') === 'true',
-        daily_report_time: (formData.get('daily_report_time') || '07:00').trim(),
-        monthly_report_day: parseInt(formData.get('monthly_report_day'), 10) || 1,
-        can_delete_entries: formData.get('can_delete_entries') === 'true',
-        support_enabled: formData.get('support_enabled') === 'true',
-        geofence_radius: parseFloat(formData.get('geofence_radius')) || 200,
-        calculate_proper_entries: document.getElementById('inputCalculateProperEntriesCompany') ? (document.getElementById('inputCalculateProperEntriesCompany').value !== 'false') : true,
-        modules: {
-          single_company: document.getElementById('inputModSingleCompany') ? document.getElementById('inputModSingleCompany').checked : true,
-          branch_company: document.getElementById('inputModBranchCompany') ? document.getElementById('inputModBranchCompany').checked : false,
-          field_worker: document.getElementById('inputModFieldWorker') ? document.getElementById('inputModFieldWorker').checked : false
-        }
-      };
-
-      try {
-        const url = editingCompanyId ? `/api/companies/${editingCompanyId}` : '/api/companies';
-        const method = editingCompanyId ? 'PUT' : 'POST';
-
-        const res = await fetch(url, {
-          method: method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const resp = await res.json();
-        if (window.hideSavingPopup) window.hideSavingPopup();
-
-        if (resp.success) {
-          closeCompanyModalFunc();
-          loadCompanies(currentPage);
-        } else {
-          companyFormAlert.textContent = resp.error || 'Failed to save company.';
-          companyFormAlert.style.backgroundColor = '#f8d7da';
-          companyFormAlert.style.color = '#842029';
-          companyFormAlert.style.display = 'block';
-        }
-      } catch (err) {
-        if (window.hideSavingPopup) window.hideSavingPopup();
-        companyFormAlert.textContent = 'Connection error. Please try again.';
-        companyFormAlert.style.backgroundColor = '#f8d7da';
-        companyFormAlert.style.color = '#842029';
-        companyFormAlert.style.display = 'block';
-      } finally {
-        companyForm._isSubmitting = false;
-        if (window.hideSavingPopup) window.hideSavingPopup();
-        if (btnSave) {
-          btnSave.disabled = false;
-          btnSave.classList.remove('btn-is-submitting');
-          btnSave.textContent = origBtnText;
-        }
-      }
-    });
-  }
-
-  // Modal 2: Reports Summary Modal
-  if (btnOpenReportsModal) {
-    btnOpenReportsModal.addEventListener('click', async function () {
-      reportsModal.classList.add('active');
-      const breakdownBody = document.getElementById('reportsBreakdownBody');
-      breakdownBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 18px;">Loading report summary...</td></tr>';
-
-      try {
-        const res = await fetch('/api/companies/reports');
-        const data = await res.json();
-
-        if (data.success && data.summary) {
-          const s = data.summary;
-          document.getElementById('statTotalCompanies').textContent = s.total_companies || 0;
-          document.getElementById('statActiveCompanies').textContent = s.active_companies || 0;
-          document.getElementById('statTenantEmployees').textContent = s.total_tenant_employees || 0;
-          document.getElementById('statArgusEmployees').textContent = s.total_argus_employees || 0;
-
-          if (!s.companies || s.companies.length === 0) {
-            breakdownBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 18px; color: #888;">No client companies registered yet.</td></tr>';
-          } else {
-            breakdownBody.innerHTML = '';
-            s.companies.forEach(c => {
-              const row = document.createElement('tr');
-              const badge = c.status === 'Active'
-                ? '<span style="background-color: #d1e7dd; color: #0f5132; padding: 2px 6px; border-radius: 10px; font-size: 10px; font-weight: 700;">Active</span>'
-                : '<span style="background-color: #f8d7da; color: #842029; padding: 2px 6px; border-radius: 10px; font-size: 10px; font-weight: 700;">Inactive</span>';
-
-              row.innerHTML = `
-                <td style="font-weight: 700;">${escapeHtml(c.company_name)}</td>
-                <td>${escapeHtml(c.email)}</td>
-                <td style="text-align: center; font-weight: 800;">${c.employee_count}</td>
-                <td style="text-align: center;">${badge}</td>
-              `;
-              breakdownBody.appendChild(row);
-            });
-          }
-        }
-      } catch (err) {
-        breakdownBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 18px; color: #dc3545;">Error loading reports summary.</td></tr>';
-      }
-    });
-  }
-
-  function closeReportsModalFunc() {
-    if (reportsModal) reportsModal.classList.remove('active');
-  }
-
-  if (closeReportsModal) closeReportsModal.addEventListener('click', closeReportsModalFunc);
-  if (btnCloseReportsFooter) btnCloseReportsFooter.addEventListener('click', closeReportsModalFunc);
-
-  function closeViewCompanyModalFunc() {
-    if (viewCompanyModal) viewCompanyModal.classList.remove('active');
-  }
-
-  if (closeViewCompanyModal) closeViewCompanyModal.addEventListener('click', closeViewCompanyModalFunc);
-  if (btnCloseViewCompanyFooter) btnCloseViewCompanyFooter.addEventListener('click', closeViewCompanyModalFunc);
-
-  // Modal: Cascade Delete Confirmation Handlers
-  function closeDeleteCompanyModalFunc() {
-    if (deleteCompanyModal) deleteCompanyModal.classList.remove('active');
-    companyToDeleteId = null;
-    companyToDeleteName = '';
-  }
-
-  if (closeDeleteCompanyModal) closeDeleteCompanyModal.addEventListener('click', closeDeleteCompanyModalFunc);
-  if (btnCancelDeleteCompany) btnCancelDeleteCompany.addEventListener('click', closeDeleteCompanyModalFunc);
-
-  if (btnConfirmDeleteCompany) {
-    btnConfirmDeleteCompany.addEventListener('click', async function () {
-      if (!companyToDeleteId) return;
-
-      btnConfirmDeleteCompany.disabled = true;
-      if (btnConfirmDeleteText) btnConfirmDeleteText.textContent = 'Deleting all records...';
-
-      try {
-        const res = await fetch(`/api/companies/${companyToDeleteId}`, { method: 'DELETE' });
-        const resp = await res.json();
-        if (resp.success) {
-          closeDeleteCompanyModalFunc();
-          loadCompanies(currentPage);
-        } else {
-          alert(`Error: ${resp.error || 'Failed to delete company'}`);
-        }
-      } catch (err) {
-        alert('Network error while deleting company.');
-      } finally {
-        if (btnConfirmDeleteCompany) btnConfirmDeleteCompany.disabled = false;
-        if (btnConfirmDeleteText) btnConfirmDeleteText.textContent = 'Yes, Delete Company & All Records';
-      }
-    });
-  }
-
-  window.addEventListener('click', function (e) {
-    if (e.target === viewCompanyModal) closeViewCompanyModalFunc();
-    // companyModal is intentionally NOT closed on backdrop click to prevent losing form data
-    if (e.target === reportsModal) closeReportsModalFunc();
-    if (e.target === deleteCompanyModal) closeDeleteCompanyModalFunc();
-  });
-
-  // Helper escape function
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
-  // ================= EXPORTS (COPY, CSV, EXCEL, PDF, PRINT) =================
-  const btnCopyCompanies = document.getElementById('btnCopyCompanies');
-  const btnCsvCompanies = document.getElementById('btnCsvCompanies');
-  const btnExcelCompanies = document.getElementById('btnExcelCompanies');
-  const btnPdfCompanies = document.getElementById('btnPdfCompanies');
-  const btnPrintCompanies = document.getElementById('btnPrintCompanies');
-
-  if (btnCopyCompanies) {
-    btnCopyCompanies.addEventListener('click', function () {
-      const table = document.getElementById('companyDataTable');
-      if (!table) return;
-      let text = '';
-      for (let row of table.rows) {
-        let rowData = [];
-        const cellCount = row.cells.length;
-        for (let i = 0; i < Math.max(1, cellCount - 2); i++) {
-          rowData.push(row.cells[i].innerText.trim());
-        }
-        text += rowData.join('\t') + '\n';
-      }
-      (window.safeCopyToClipboard ? window.safeCopyToClipboard(text) : navigator.clipboard.writeText(text)).then(() => {
-        alert('Companies table copied to clipboard!');
-      }).catch(err => console.error(err));
-    });
-  }
-
-  if (btnCsvCompanies) {
-    btnCsvCompanies.addEventListener('click', function () {
-      window.location.href = `/api/companies/export/csv?search=${encodeURIComponent(currentSearch)}`;
-    });
-  }
-
-  if (btnExcelCompanies) {
-    btnExcelCompanies.addEventListener('click', function () {
-      window.location.href = `/api/companies/export/excel?search=${encodeURIComponent(currentSearch)}`;
-    });
-  }
-
-  if (btnPdfCompanies) {
-    btnPdfCompanies.addEventListener('click', function () {
-      window.location.href = `/api/companies/export/pdf?search=${encodeURIComponent(currentSearch)}`;
-    });
-  }
-
-  if (btnPrintCompanies) {
-    btnPrintCompanies.addEventListener('click', function () {
-      const printContents = document.getElementById('companyDataTable').outerHTML;
-      const printWindow = window.open('', '', 'height=600,width=850');
-      printWindow.document.write('<html><head><title>Print Companies Directory</title>');
-      printWindow.document.write('<style>');
-      printWindow.document.write(`
-        body { font-family: sans-serif; padding: 20px; }
-        h2 { text-align: center; margin-bottom: 20px; font-size: 18px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
-        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
-        th { background: #2c3e50; color: #fff; }
-        th:nth-last-child(1), td:nth-last-child(1), th:nth-last-child(2), td:nth-last-child(2) { display: none; }
-      `);
-      printWindow.document.write('</style></head><body>');
-      printWindow.document.write('<h2>REGISTERED CLIENT COMPANIES</h2>');
-      printWindow.document.write(printContents);
-      printWindow.document.write('</body></html>');
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 250);
-    });
-  }
-
-  // Bind Company Modal Voice Assistant Guidance & Toggle
-  if (window.ArgusVoice) {
-    window.ArgusVoice.bindToggle('btnCompanyModalToggleVoice');
-    window.ArgusVoice.attachFormGuidance('#companyModal', {
-      '#inputCompanyName': {
-        english: 'Please enter the registered company name.',
-        tamil: 'பதிவு செய்யப்பட்ட நிறுவனத்தின் பெயரை உள்ளிடவும்.'
-      },
-      '#inputGstin': {
-        english: 'Enter the 15-digit GST identification number if available.',
-        tamil: 'கிடைக்கப்பெற்றால் 15 இலக்க ஜி.எஸ்.டி அடையாள எண்ணை உள்ளிடவும்.'
-      },
-      '#inputPhone': {
-        english: 'Enter a valid 10-digit primary contact phone number.',
-        tamil: 'பத்து இலக்க செல்லுபடியாகும் தொடர்பு தொலைபேசி எண்ணை உள்ளிடவும்.'
-      },
-      '#inputEmail': {
-        english: 'Enter the registered corporate email address containing an at symbol. This is used for admin login.',
-        tamil: 'அட் குறியீட்டுடன் அட்மின் உள்நுழைவுக்குப் பயன்படும் நிறுவன மின்னஞ்சல் முகவரியை உள்ளிடவும்.'
-      },
-      '#inputGeofenceRadius': {
-        english: 'Specify the geofence perimeter radius in meters for attendance punch validation.',
-        tamil: 'வருகைப் பதிவைச் சரிபார்க்க தேவையான ஜியோபென்ஸ் தூரத்தை மீட்டரில் குறிப்பிடவும்.'
-      },
-      '#inputEmployeeLimit': {
-        english: 'Enter the maximum number of employees permitted for this company.',
-        tamil: 'இந்த நிறுவனத்திற்கான அதிகபட்ச பணியாளர்களின் எண்ணிக்கையை உள்ளிடவும்.'
-      }
-    });
-  }
-
-  // Initial load
-  loadCompanies(1);
-});
+// Manage Companies JavaScript
+document.addEventListener('DOMContentLoaded', function () {
+  let currentPage = 1;
+  let currentLimit = 10;
+  let currentSearch = '';
+
+  const companyTableBody = document.getElementById('companyTableBody');
+  const companyEntriesLimit = document.getElementById('companyEntriesLimit');
+  const companyTableSearch = document.getElementById('companyTableSearch');
+  const companyTableInfo = document.getElementById('companyTableInfo');
+  const companyPrevBtn = document.getElementById('companyPrevBtn');
+  const companyCurrentBtn = document.getElementById('companyCurrentBtn');
+  const companyNextBtn = document.getElementById('companyNextBtn');
+
+  // Modal elements
+  const companyModal = document.getElementById('companyModal');
+  const companyModalTitle = document.getElementById('companyModalTitle');
+  const btnSaveCompany = document.getElementById('btnSaveCompany');
+  const btnOpenAddCompanyModal = document.getElementById('btnOpenAddCompanyModal');
+  const closeCompanyModal = document.getElementById('closeCompanyModal');
+  const btnCancelCompany = document.getElementById('btnCancelCompany');
+  const companyForm = document.getElementById('companyForm');
+  const companyFormAlert = document.getElementById('companyFormAlert');
+  const btnDetectLocation = document.getElementById('btnDetectLocation');
+
+  const inputCompanyName = document.getElementById('inputCompanyName');
+  const inputGstin = document.getElementById('inputGstin');
+  const inputPhone = document.getElementById('inputPhone');
+  const inputEmail = document.getElementById('inputEmail');
+  const inputLatitude = document.getElementById('inputLatitude');
+  const inputLongitude = document.getElementById('inputLongitude');
+  const inputStatus = document.getElementById('inputStatus');
+  const inputEmployeeLimit = document.getElementById('inputEmployeeLimit');
+  const inputBranchLimit = document.getElementById('inputBranchLimit');
+  const inputCompanyShiftHours = document.getElementById('inputShiftHours');
+  const inputRegisteredDate = document.getElementById('inputRegisteredDate');
+  const inputAutoEmailReports = document.getElementById('inputAutoEmailReports');
+  const inputDailyReportTime = document.getElementById('inputDailyReportTime');
+  const inputMonthlyReportDay = document.getElementById('inputMonthlyReportDay');
+  const inputCanDeleteEntries = document.getElementById('inputCanDeleteEntries');
+  const inputSupportEnabled = document.getElementById('inputSupportEnabled');
+  const inputGeofenceRadius = document.getElementById('inputGeofenceRadius');
+
+  // Cascade Delete Confirmation Modal elements
+  const deleteCompanyModal = document.getElementById('deleteCompanyModal');
+  const closeDeleteCompanyModal = document.getElementById('closeDeleteCompanyModal');
+  const btnCancelDeleteCompany = document.getElementById('btnCancelDeleteCompany');
+  const btnConfirmDeleteCompany = document.getElementById('btnConfirmDeleteCompany');
+  const deleteCompanyTargetName = document.getElementById('deleteCompanyTargetName');
+  const deleteCompanyTargetId = document.getElementById('deleteCompanyTargetId');
+  const btnConfirmDeleteText = document.getElementById('btnConfirmDeleteText');
+  let companyToDeleteId = null;
+  let companyToDeleteName = '';
+
+  function formatDateForDateInput(val) {
+    if (!val || val === '-') return new Date().toISOString().split('T')[0];
+    const s = String(val).trim();
+    if (s.includes('/')) {
+      const parts = s.split(' ')[0].split('/');
+      if (parts.length === 3) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    } else if (s.includes('-')) {
+      const parts = s.split(' ')[0].split('-');
+      if (parts.length === 3) {
+        if (parts[0].length === 4) return parts.join('-');
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    return new Date().toISOString().split('T')[0];
+  }
+
+  let loadedCompanies = [];
+  let editingCompanyId = null;
+
+  // Reports modal elements
+  const reportsModal = document.getElementById('reportsModal');
+  const btnOpenReportsModal = document.getElementById('btnOpenReportsModal');
+  const closeReportsModal = document.getElementById('closeReportsModal');
+  const btnCloseReportsFooter = document.getElementById('btnCloseReportsFooter');
+
+  // View modal elements
+  const viewCompanyModal = document.getElementById('viewCompanyModal');
+  const closeViewCompanyModal = document.getElementById('closeViewCompanyModal');
+  const btnCloseViewCompanyFooter = document.getElementById('btnCloseViewCompanyFooter');
+  const viewCompanyName = document.getElementById('viewCompanyName');
+  const viewCompanyId = document.getElementById('viewCompanyId');
+  const viewCompanyRegisteredDate = document.getElementById('viewCompanyRegisteredDate');
+  const viewCompanyGstin = document.getElementById('viewCompanyGstin');
+  const viewCompanyPhone = document.getElementById('viewCompanyPhone');
+  const viewCompanyEmail = document.getElementById('viewCompanyEmail');
+  const viewCompanyLocation = document.getElementById('viewCompanyLocation');
+  const viewCompanyShiftHours = document.getElementById('viewCompanyShiftHours');
+  const viewCompanyEmployees = document.getElementById('viewCompanyEmployees');
+  const viewCompanyBranches = document.getElementById('viewCompanyBranches');
+  const viewCompanyStatusBadge = document.getElementById('viewCompanyStatusBadge');
+  const viewCompanyReportsBadge = document.getElementById('viewCompanyReportsBadge');
+  const viewCompanyDailyTime = document.getElementById('viewCompanyDailyTime');
+  const viewCompanyMonthlyDay = document.getElementById('viewCompanyMonthlyDay');
+  const viewCompanyDeleteEntriesBadge = document.getElementById('viewCompanyDeleteEntriesBadge');
+
+  function formatDisplayDate(dateStr) {
+    if (!dateStr || dateStr === '-') return '-';
+    if (typeof dateStr === 'string' && (dateStr.includes('T') || (dateStr.includes('-') && dateStr.includes(':')))) {
+      try {
+        const d = new Date(dateStr.replace(' ', 'T'));
+        if (!isNaN(d.getTime())) {
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          let hours = d.getHours();
+          const minutes = String(d.getMinutes()).padStart(2, '0');
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          hours = hours % 12;
+          hours = hours ? hours : 12;
+          const strHours = String(hours).padStart(2, '0');
+          return `${day}/${month}/${year} ${strHours}:${minutes} ${ampm}`;
+        }
+      } catch (e) {}
+    }
+    return dateStr;
+  }
+
+  function getDaysActiveBadgeHtml(days, label) {
+    const count = Number(days) || 0;
+    let badgeStyle = 'background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;'; // < 30 days (Emerald)
+    if (count >= 30 && count < 180) {
+      badgeStyle = 'background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;'; // 1-6 months (Blue)
+    } else if (count >= 180 && count < 365) {
+      badgeStyle = 'background-color: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff;'; // 6-12 months (Purple)
+    } else if (count >= 365) {
+      badgeStyle = 'background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a;'; // 1+ years (Gold)
+    }
+    const text = label || (count === 1 ? '1 Day' : `${count} Days`);
+    return `<span style="display: inline-flex; align-items: center; gap: 4px; ${badgeStyle} padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap;" title="Registered ${count} days ago">
+      <span style="font-size: 10px;">⚡</span>
+      <span>${escapeHtml(text)}</span>
+    </span>`;
+  }
+
+  // View Toggle State (Default to 'grid')
+  let currentView = localStorage.getItem('argus_company_view') || 'grid';
+  const btnCompanyListView = document.getElementById('btnCompanyListView');
+  const btnCompanyGridView = document.getElementById('btnCompanyGridView');
+  const companyListSection = document.getElementById('companyListSection');
+  const companyGridSection = document.getElementById('companyGridSection');
+
+  // Sorting state
+  let currentSortCol = null;
+  let currentSortDir = 'asc';
+
+  function getCompanyInitials(name) {
+    if (!name) return 'CO';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  }
+
+  function getCompanyLogoHtml(comp, sizeClass = 'comp-table-logo', placeholderClass = 'comp-avatar-placeholder') {
+    const logoFile = comp.logo || comp.company_logo || comp.logo_filename;
+    const logoSrc = comp.logo_data || (logoFile ? (logoFile.startsWith('data:') ? logoFile : `/uploads/${encodeURIComponent(logoFile)}`) : '');
+    const initials = getCompanyInitials(comp.company_name);
+    if (logoSrc) {
+      return `<img src="${logoSrc}" class="${sizeClass}" alt="${escapeHtml(comp.company_name)}" onerror="this.outerHTML='<div class=\\'${placeholderClass}\\'>${initials}</div>'">`;
+    }
+    return `<div class="${placeholderClass}">${initials}</div>`;
+  }
+
+  function updateViewDisplay() {
+    if (currentView === 'grid') {
+      if (btnCompanyGridView) btnCompanyGridView.classList.add('active');
+      if (btnCompanyListView) btnCompanyListView.classList.remove('active');
+      if (companyListSection) companyListSection.style.display = 'none';
+      if (companyGridSection) companyGridSection.style.display = 'grid';
+      renderCompanyGridCards(loadedCompanies);
+    } else {
+      if (btnCompanyListView) btnCompanyListView.classList.add('active');
+      if (btnCompanyGridView) btnCompanyGridView.classList.remove('active');
+      if (companyListSection) companyListSection.style.display = 'block';
+      if (companyGridSection) companyGridSection.style.display = 'none';
+      renderCompanyTableRows(loadedCompanies, (currentPage - 1) * currentLimit);
+    }
+    attachCompanyRowEvents();
+  }
+
+  if (btnCompanyListView && btnCompanyGridView) {
+    btnCompanyListView.addEventListener('click', function () {
+      currentView = 'list';
+      localStorage.setItem('argus_company_view', 'list');
+      updateViewDisplay();
+    });
+
+    btnCompanyGridView.addEventListener('click', function () {
+      currentView = 'grid';
+      localStorage.setItem('argus_company_view', 'grid');
+      updateViewDisplay();
+    });
+  }
+
+  // Column header sorting
+  document.querySelectorAll('#companyDataTable th[data-col]').forEach(th => {
+    th.addEventListener('click', function () {
+      const col = this.getAttribute('data-col');
+      if (currentSortCol === col) {
+        currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSortCol = col;
+        currentSortDir = 'asc';
+      }
+
+      document.querySelectorAll('#companyDataTable th[data-col]').forEach(h => {
+        const icon = h.querySelector('.sort-icon');
+        if (icon) icon.textContent = '⇅';
+      });
+      const thisIcon = this.querySelector('.sort-icon');
+      if (thisIcon) thisIcon.textContent = currentSortDir === 'asc' ? '▲' : '▼';
+
+      sortAndRenderCompanies();
+    });
+  });
+
+  function sortAndRenderCompanies() {
+    if (currentSortCol && loadedCompanies && loadedCompanies.length > 0) {
+      loadedCompanies.sort((a, b) => {
+        if (currentSortCol === 'days_active' || currentSortCol === 'sl_no') {
+          let numA = Number(a[currentSortCol]) || 0;
+          let numB = Number(b[currentSortCol]) || 0;
+          return currentSortDir === 'asc' ? numA - numB : numB - numA;
+        }
+        let vA = a[currentSortCol] || '';
+        let vB = b[currentSortCol] || '';
+        if (typeof vA === 'string') vA = vA.toLowerCase();
+        if (typeof vB === 'string') vB = vB.toLowerCase();
+        if (vA < vB) return currentSortDir === 'asc' ? -1 : 1;
+        if (vA > vB) return currentSortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    if (currentView === 'grid') {
+      renderCompanyGridCards(loadedCompanies);
+    } else {
+      renderCompanyTableRows(loadedCompanies, (currentPage - 1) * currentLimit);
+    }
+    attachCompanyRowEvents();
+  }
+
+  function renderCompanyTableRows(companies, startIndex = 0) {
+    if (!companyTableBody) return;
+    companyTableBody.innerHTML = '';
+
+    if (!companies || companies.length === 0) {
+      companyTableBody.innerHTML = `
+        <tr>
+          <td colspan="16" style="text-align: center; padding: 28px; color: #6c757d;">
+            No registered companies found. Click <strong>+ Add Company</strong> above to register a new tenant.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    companies.forEach((comp, idx) => {
+      const slNo = startIndex + idx + 1;
+      const hasCoords = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') &&
+                        (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '');
+      const lat = hasCoords ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
+      const lng = hasCoords ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
+      const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
+      const statusBadge = !isDeactive
+        ? `<span class="status-pill status-active">Active</span>`
+        : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
+
+      const isAutoReports = comp.auto_email_reports !== false;
+      const autoReportsBadge = isAutoReports
+        ? `<button type="button" class="btn-toggle-auto-reports btn-reports-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Auto Email Reports: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <span>ON</span>
+          </button>`
+        : `<button type="button" class="btn-toggle-auto-reports btn-reports-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Auto Email Reports: DISABLED (Click to turn on)" style="background-color: #f1f5f9; color: #64748b; border: 1.5px solid #cbd5e1; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; opacity: 0.85; white-space: nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <line x1="2" y1="2" x2="22" y2="22"></line>
+            </svg>
+            <span>OFF</span>
+          </button>`;
+
+      const isDeleteEnabled = comp.can_delete_entries === true;
+      const deleteEntriesBadge = isDeleteEnabled
+        ? `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Delete Entries: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Delete Enabled</span>
+          </button>`
+        : `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Delete Entries: DISABLED (Click to turn on)" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+            </svg>
+            <span>Enable Delete Entries</span>
+          </button>`;
+
+      const isSupportEnabled = comp.support_enabled === true;
+      const supportBadge = isSupportEnabled
+        ? `<button type="button" class="btn-toggle-support btn-support-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Support: Enabled (Click to Disable)" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 4px 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+            </svg>
+            <span>Disable</span>
+          </button>`
+        : `<button type="button" class="btn-toggle-support btn-support-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Support: Disabled (Click to Enable)" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 4px 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Enable</span>
+          </button>`;
+
+      const formattedDate = formatDisplayDate(comp.registered_date);
+      const regDateDisplay = formattedDate && formattedDate !== '-'
+        ? `<span style="display: inline-block; background-color: #f1f5f9; color: #334155; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap;">${escapeHtml(formattedDate)}</span>`
+        : `<span style="color: #94a3b8; font-size: 11px;">-</span>`;
+
+      const logoHtml = getCompanyLogoHtml(comp, 'comp-table-logo', 'comp-avatar-placeholder');
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td style="font-weight: 700; color: #64748b; text-align: center; white-space: nowrap;">${slNo}</td>
+        <td style="text-align: center; vertical-align: middle;">${logoHtml}</td>
+        <td class="col-wrap sticky-col-comp" style="min-width: 170px; max-width: 280px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important;">
+          <div style="font-weight: 800; color: #0f172a; font-size: 12.5px; line-height: 1.35; word-break: break-word;">${escapeHtml(comp.company_name)}</div>
+          <div style="font-size: 10.5px; color: #64748b; font-family: monospace; margin-top: 2px; white-space: nowrap;">ID: ${comp.id}</div>
+        </td>
+        <td style="white-space: nowrap; text-align: center;">${regDateDisplay}</td>
+        <td style="white-space: nowrap; text-align: center;">${getDaysActiveBadgeHtml(comp.days_active, comp.days_active_label)}</td>
+        <td style="white-space: nowrap;"><code style="background-color: #f1f5f9; padding: 3px 6px; border-radius: 4px; font-size: 11px; color: #334155; font-weight: 600;">${escapeHtml(comp.gstin || '-')}</code></td>
+        <td style="white-space: nowrap;">
+          <a href="mailto:${escapeHtml(comp.email)}" style="color: #2563eb; text-decoration: none; font-weight: 700;">
+            ${escapeHtml(comp.email)}
+          </a>
+        </td>
+        <td style="white-space: nowrap; font-weight: 600; color: #334155;">${escapeHtml(comp.phone || '-')}</td>
+        <td style="white-space: nowrap;">
+          <div style="font-size: 11px; color: #334155; font-weight: 600;">
+            ${hasCoords ? `📍 ${lat}, ${lng} <span style="display: block; font-size: 10px; color: #0284c7; font-weight: 700; margin-top: 2px;">⭕ ${comp.geofence_radius || 200}m radius</span>` : `<span style="color: #94a3b8; font-size: 11px;">-</span>`}
+          </div>
+        </td>
+        <td style="text-align: center; white-space: nowrap;">
+          <span style="font-weight: 700; color: #0f172a; font-size: 11.5px; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 6px; display: inline-block;">
+            ${escapeHtml(comp.shift_hours || '08:00')}
+          </span>
+        </td>
+        <td style="text-align: center; white-space: nowrap;">
+          <span style="display: inline-block; background-color: #e2e8f0; color: #1e293b; padding: 2px 7px; border-radius: 10px; font-weight: 800; font-size: 11px;" title="Active employees vs Limit (Total preserved in DB: ${comp.total_count ?? comp.employee_count ?? 0})">
+            👥 ${comp.active_count ?? comp.employee_count ?? 0}/${comp.employee_limit || 50} Emps
+          </span>
+          <span style="display: block; font-size: 10px; color: #0284c7; font-weight: 700; margin-top: 2px;" title="Branch creation limit">
+            🏢 ${comp.branch_count ?? 0}/${comp.branch_limit || 5} Branches
+          </span>
+        </td>
+        <td style="text-align: center; white-space: nowrap;">${statusBadge}</td>
+        <td style="text-align: center; white-space: nowrap;">${autoReportsBadge}</td>
+        <td style="text-align: center; white-space: nowrap;">${deleteEntriesBadge}</td>
+        <td style="text-align: center; white-space: nowrap;">${supportBadge}</td>
+        <td style="text-align: center; white-space: nowrap;">
+          <div class="table-actions">
+            <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+            <button class="btn-action-icon btn-action-edit" data-id="${comp.id}" title="Edit Company">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </button>
+            <button class="btn-action-icon btn-action-delete" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Delete Company">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
+        </td>
+      `;
+      companyTableBody.appendChild(row);
+    });
+  }
+
+  function renderCompanyGridCards(companies) {
+    if (!companyGridSection) return;
+    companyGridSection.innerHTML = '';
+
+    if (!companies || companies.length === 0) {
+      companyGridSection.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #64748b; background: #ffffff; border-radius: 12px; border: 1px dashed #cbd5e1;">
+          <div style="font-size: 32px; margin-bottom: 8px;">🏢</div>
+          <div style="font-size: 14px; font-weight: 700; color: #1e293b;">No registered companies found</div>
+          <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Click <strong>+ Add Company</strong> above to register a new tenant.</div>
+        </div>
+      `;
+      return;
+    }
+
+    companies.forEach(comp => {
+      const card = document.createElement('div');
+      card.className = 'comp-grid-card';
+
+      const hasCoords = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') &&
+                        (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '');
+      const lat = hasCoords ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
+      const lng = hasCoords ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
+
+      const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
+      const statusBadge = !isDeactive
+        ? `<span class="status-pill status-active" style="font-size: 10.5px; padding: 2px 7px;">Active</span>`
+        : `<span class="status-pill status-inactive" style="font-size: 10.5px; padding: 2px 7px; background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
+
+      const isAutoReports = comp.auto_email_reports !== false;
+      const autoReportsBadge = isAutoReports
+        ? `<button type="button" class="btn-toggle-auto-reports btn-reports-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Auto Email Reports: ENABLED" style="background-color: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>Auto: ON</span>
+          </button>`
+        : `<button type="button" class="btn-toggle-auto-reports btn-reports-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Auto Email Reports: DISABLED" style="background-color: #f1f5f9; color: #64748b; border: 1.5px solid #cbd5e1; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="2" y1="2" x2="22" y2="22"></line></svg>
+            <span>Auto: OFF</span>
+          </button>`;
+
+      const isDeleteEnabled = comp.can_delete_entries === true;
+      const deleteEntriesBadge = isDeleteEnabled
+        ? `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Delete Entries: ENABLED" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>Delete: ON</span>
+          </button>`
+        : `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Delete Entries: DISABLED" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+            <span>Delete: OFF</span>
+          </button>`;
+
+      const isSupportEnabled = comp.support_enabled === true;
+      const supportBadge = isSupportEnabled
+        ? `<button type="button" class="btn-toggle-support btn-support-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Support: Enabled" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>Support: ON</span>
+          </button>`
+        : `<button type="button" class="btn-toggle-support btn-support-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Support: Disabled" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+            <span>Support: OFF</span>
+          </button>`;
+
+      const formattedDate = formatDisplayDate(comp.registered_date);
+      const logoHtml = getCompanyLogoHtml(comp, 'comp-grid-logo', 'comp-grid-avatar-placeholder');
+
+      card.innerHTML = `
+        <div class="comp-grid-header">
+          ${logoHtml}
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 6px;">
+              <div class="comp-grid-info-title">${escapeHtml(comp.company_name)}</div>
+              ${statusBadge}
+            </div>
+            <div class="comp-grid-info-sub">ID: ${escapeHtml(comp.id)}</div>
+          </div>
+        </div>
+
+        <div class="comp-grid-body">
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">📅 Registered:</span>
+            <span class="comp-grid-val" style="font-size: 11px;">${escapeHtml(formattedDate)}</span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">⏱️ Days Active:</span>
+            <span class="comp-grid-val">${getDaysActiveBadgeHtml(comp.days_active, comp.days_active_label)}</span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">🧾 GSTIN:</span>
+            <span class="comp-grid-val"><code style="background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 11px;">${escapeHtml(comp.gstin || '-')}</code></span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">✉️ Email:</span>
+            <span class="comp-grid-val" style="font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;" title="${escapeHtml(comp.email || '-')}">
+              <a href="mailto:${escapeHtml(comp.email || '')}" style="color: #2563eb; text-decoration: none;">${escapeHtml(comp.email || '-')}</a>
+            </span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">📞 Phone:</span>
+            <span class="comp-grid-val">${escapeHtml(comp.phone || '-')}</span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">📍 Geofence:</span>
+            <span class="comp-grid-val" style="font-size: 11px;">
+              ${hasCoords ? `${lat}, ${lng} (⭕ ${comp.geofence_radius || 200}m)` : '-'}
+            </span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">🕒 Shift Hours:</span>
+            <span class="comp-grid-val">${escapeHtml(comp.shift_hours || '08:00')} hrs</span>
+          </div>
+          <div class="comp-grid-row">
+            <span class="comp-grid-label">👥 Quota / Limits:</span>
+            <span class="comp-grid-val" style="font-size: 11px; color: #0369a1;">
+              ${comp.active_count ?? comp.employee_count ?? 0}/${comp.employee_limit || 50} Emps &bull; ${comp.branch_count ?? 0}/${comp.branch_limit || 5} Branches
+            </span>
+          </div>
+        </div>
+
+        <div class="comp-grid-switches">
+          ${autoReportsBadge}
+          ${deleteEntriesBadge}
+          ${supportBadge}
+        </div>
+
+        <div class="comp-grid-actions">
+          <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+          <button class="btn-action-icon btn-action-edit" data-id="${comp.id}" title="Edit Company">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+          <button class="btn-action-icon btn-action-delete" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Delete Company">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      `;
+      companyGridSection.appendChild(card);
+    });
+  }
+
+  function attachCompanyRowEvents() {
+    // Attach auto reports toggle handlers
+    document.querySelectorAll('.btn-toggle-auto-reports').forEach(btn => {
+      btn.addEventListener('click', async function () {
+        const compId = this.getAttribute('data-id');
+        const compName = this.getAttribute('data-name');
+        const currentState = this.getAttribute('data-state') === 'true';
+        const nextState = !currentState;
+
+        this.disabled = true;
+        this.style.opacity = '0.6';
+
+        try {
+          const res = await fetch(`/api/companies/${compId}/toggle-auto-reports`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: nextState })
+          });
+          const resp = await res.json();
+          if (resp.success) {
+            loadCompanies(currentPage);
+          } else {
+            alert(`Error: ${resp.error || 'Failed to update auto reports setting'}`);
+            this.disabled = false;
+            this.style.opacity = '1';
+          }
+        } catch (err) {
+          alert('Network error while updating auto reports setting.');
+          this.disabled = false;
+          this.style.opacity = '1';
+        }
+      });
+    });
+
+    // Attach delete entries toggle handlers
+    document.querySelectorAll('.btn-toggle-delete-entries').forEach(btn => {
+      btn.addEventListener('click', async function () {
+        const compId = this.getAttribute('data-id');
+        const compName = this.getAttribute('data-name');
+        const currentState = this.getAttribute('data-state') === 'true';
+        const nextState = !currentState;
+
+        this.disabled = true;
+        this.style.opacity = '0.6';
+
+        try {
+          const res = await fetch(`/api/companies/${compId}/toggle-delete-entries`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: nextState })
+          });
+          const resp = await res.json();
+          if (resp.success) {
+            loadCompanies(currentPage);
+          } else {
+            alert(`Error: ${resp.error || 'Failed to update delete entries permission'}`);
+            this.disabled = false;
+            this.style.opacity = '1';
+          }
+        } catch (err) {
+          alert('Network error while updating delete entries permission.');
+          this.disabled = false;
+          this.style.opacity = '1';
+        }
+      });
+    });
+
+    // Attach view handlers
+    document.querySelectorAll('.btn-action-view').forEach(btn => {
+      btn.addEventListener('click', async function () {
+        const compId = this.getAttribute('data-id');
+        let comp = loadedCompanies.find(c => String(c.id) === String(compId));
+        if (!comp) {
+          try {
+            const res = await fetch(`/api/companies/${compId}`);
+            comp = await res.json();
+          } catch (err) {
+            console.error('Error fetching company details:', err);
+          }
+        }
+        if (!comp) return;
+
+        if (viewCompanyName) viewCompanyName.textContent = comp.company_name || '-';
+        if (viewCompanyId) viewCompanyId.textContent = comp.id || '-';
+        if (viewCompanyRegisteredDate) viewCompanyRegisteredDate.textContent = comp.registered_date && comp.registered_date !== '-' ? comp.registered_date : 'Not recorded';
+        const viewCompanyDaysActiveBadge = document.getElementById('viewCompanyDaysActiveBadge');
+        if (viewCompanyDaysActiveBadge) {
+          viewCompanyDaysActiveBadge.innerHTML = getDaysActiveBadgeHtml(comp.days_active, comp.days_active_label);
+        }
+        if (viewCompanyGstin) viewCompanyGstin.textContent = comp.gstin || '-';
+        if (viewCompanyPhone) viewCompanyPhone.textContent = comp.phone || '-';
+        if (viewCompanyEmail) viewCompanyEmail.textContent = comp.email || '-';
+
+        const lat = (comp.latitude !== undefined && comp.latitude !== null && String(comp.latitude).trim() !== '') ? (isNaN(Number(comp.latitude)) ? comp.latitude : Number(comp.latitude).toFixed(5)) : '-';
+        const lng = (comp.longitude !== undefined && comp.longitude !== null && String(comp.longitude).trim() !== '') ? (isNaN(Number(comp.longitude)) ? comp.longitude : Number(comp.longitude).toFixed(5)) : '-';
+        if (viewCompanyLocation) viewCompanyLocation.textContent = (lat !== '-' && lng !== '-') ? `Lat: ${lat}, Long: ${lng}` : '-';
+
+        if (viewCompanyShiftHours) viewCompanyShiftHours.textContent = comp.shift_hours || '08:00';
+        if (viewCompanyEmployees) viewCompanyEmployees.textContent = `${comp.active_count ?? comp.employee_count ?? 0} Active / ${comp.employee_limit || 50} Limit (${comp.total_count ?? comp.employee_count ?? 0} Total in DB)`;
+        if (viewCompanyBranches) viewCompanyBranches.textContent = `${comp.branch_count ?? 0} Active / ${comp.branch_limit || 5} Limit`;
+
+        if (viewCompanyStatusBadge) {
+          const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
+          viewCompanyStatusBadge.innerHTML = !isDeactive
+            ? `<span class="status-pill status-active">Active</span>`
+            : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Deactive</span>`;
+        }
+
+        if (viewCompanyReportsBadge) {
+          viewCompanyReportsBadge.innerHTML = (comp.auto_email_reports !== false)
+            ? `<span class="status-pill status-active">Enabled</span>`
+            : `<span class="status-pill status-inactive">Disabled</span>`;
+        }
+
+        if (viewCompanyDailyTime) {
+          let t = comp.daily_report_time || '07:00';
+          if (t.includes(':')) {
+            let [h, m] = t.split(':').map(Number);
+            let ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12 || 12;
+            t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+          }
+          viewCompanyDailyTime.textContent = t;
+        }
+
+        if (viewCompanyMonthlyDay) {
+          const d = parseInt(comp.monthly_report_day || 1, 10);
+          const nth = (d === 1 || d === 21 || d === 31) ? 'st' : ((d === 2 || d === 22) ? 'nd' : ((d === 3 || d === 23) ? 'rd' : 'th'));
+          viewCompanyMonthlyDay.textContent = `${d}${nth} of month`;
+        }
+
+        if (viewCompanyDeleteEntriesBadge) {
+          viewCompanyDeleteEntriesBadge.innerHTML = (comp.can_delete_entries === true)
+            ? `<span class="status-pill status-active">Enabled</span>`
+            : `<span class="status-pill status-inactive">Disabled</span>`;
+        }
+
+        const viewCompanySupportBadge = document.getElementById('viewCompanySupportBadge');
+        if (viewCompanySupportBadge) {
+          viewCompanySupportBadge.innerHTML = (comp.support_enabled === true)
+            ? `<span class="status-pill status-active" style="background-color: #e8f5e9; color: #166534; border: 1px solid #86efac;">Enabled</span>`
+            : `<span class="status-pill status-inactive" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;">Disabled</span>`;
+        }
+
+        const viewCompanyProperEntriesBadge = document.getElementById('viewCompanyProperEntriesBadge');
+        if (viewCompanyProperEntriesBadge) {
+          const isProperActive = (comp.calculate_proper_entries !== false);
+          viewCompanyProperEntriesBadge.innerHTML = isProperActive
+            ? `<span class="status-pill status-active" style="background-color: #e8f5e9; color: #166534; border: 1px solid #86efac;">✓ Enabled – Validate Employee Location</span>`
+            : `<span class="status-pill" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;">✕ Disabled – Allow All Locations</span>`;
+        }
+
+        const viewCompanyModulesBadges = document.getElementById('viewCompanyModulesBadges');
+        if (viewCompanyModulesBadges) {
+          const m = comp.modules || {};
+          const isSingle = m.single_company !== false;
+          const isBranch = !!m.branch_company;
+          const isField = !!m.field_worker;
+          const isBlink = m.face_blink !== false;
+          const isButton = !!m.face_button;
+          let mHtml = '';
+          if (isSingle) mHtml += `<span class="status-pill" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-size:11px;font-weight:700;"><i class="fa-solid fa-building" style="margin-right:4px;"></i> Single Office</span>`;
+          if (isBranch) mHtml += `<span class="status-pill" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-size:11px;font-weight:700;"><i class="fa-solid fa-code-branch" style="margin-right:4px;"></i> Multi-Branch</span>`;
+          if (isField) mHtml += `<span class="status-pill" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-size:11px;font-weight:700;"><i class="fa-solid fa-location-crosshairs" style="margin-right:4px;"></i> Field Worker</span>`;
+          if (isBlink) mHtml += `<span class="status-pill" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;font-size:11px;font-weight:700;"><i class="fa-solid fa-eye" style="margin-right:4px;"></i> 2-Blink Liveness</span>`;
+          if (isButton) mHtml += `<span class="status-pill" style="background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;font-size:11px;font-weight:700;"><i class="fa-solid fa-camera" style="margin-right:4px;"></i> Button Capture (No Blinks)</span>`;
+          if (!mHtml) mHtml = `<span class="status-pill status-inactive">No modules assigned</span>`;
+          viewCompanyModulesBadges.innerHTML = mHtml;
+        }
+
+        if (viewCompanyModal) {
+          viewCompanyModal.classList.add('active');
+        }
+      });
+    });
+
+    // Attach edit handlers
+    document.querySelectorAll('.btn-action-edit').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const compId = this.getAttribute('data-id');
+        const comp = loadedCompanies.find(c => String(c.id) === String(compId));
+        if (!comp) return;
+
+        editingCompanyId = comp.id;
+        companyForm.reset();
+        companyFormAlert.style.display = 'none';
+
+        if (companyModalTitle) companyModalTitle.textContent = `Edit Company - ${comp.company_name}`;
+        if (btnSaveCompany) btnSaveCompany.textContent = 'Update Company';
+
+        inputCompanyName.value = comp.company_name || '';
+        inputGstin.value = comp.gstin || '';
+        inputPhone.value = comp.phone || '';
+        inputEmail.value = comp.email || '';
+        inputLatitude.value = (comp.latitude !== undefined && comp.latitude !== null) ? comp.latitude : '';
+        inputLongitude.value = (comp.longitude !== undefined && comp.longitude !== null) ? comp.longitude : '';
+        const isDeactive = String(comp.status || '').trim().toLowerCase() === 'deactive' || String(comp.status || '').trim().toLowerCase() === 'inactive';
+        inputStatus.value = isDeactive ? 'Deactive' : 'Active';
+        if (inputEmployeeLimit) inputEmployeeLimit.value = comp.employee_limit || 50;
+        if (inputBranchLimit) inputBranchLimit.value = comp.branch_limit || 5;
+        if (inputCompanyShiftHours) inputCompanyShiftHours.value = comp.shift_hours || '08:00';
+        if (inputRegisteredDate) inputRegisteredDate.value = formatDateForDateInput(comp.registered_date);
+        if (inputAutoEmailReports) inputAutoEmailReports.value = (comp.auto_email_reports !== false) ? 'true' : 'false';
+        if (inputDailyReportTime) inputDailyReportTime.value = comp.daily_report_time || '07:00';
+        if (inputMonthlyReportDay) inputMonthlyReportDay.value = String(comp.monthly_report_day || 1);
+        if (inputCanDeleteEntries) inputCanDeleteEntries.value = (comp.can_delete_entries === true) ? 'true' : 'false';
+        if (inputGeofenceRadius) inputGeofenceRadius.value = comp.geofence_radius || comp.radius_meters || 200;
+        const inCalcProperComp = document.getElementById('inputCalculateProperEntriesCompany');
+        if (inCalcProperComp) inCalcProperComp.value = (comp.calculate_proper_entries !== false) ? 'true' : 'false';
+
+        const inModSingle = document.getElementById('inputModSingleCompany');
+        const inModBranch = document.getElementById('inputModBranchCompany');
+        const inModField = document.getElementById('inputModFieldWorker');
+        const inModBlink = document.getElementById('inputModFaceBlink');
+        const inModButton = document.getElementById('inputModFaceButton');
+        const m = comp.modules || {};
+        if (inModSingle) inModSingle.checked = !comp.modules || m.single_company !== false;
+        if (inModBranch) inModBranch.checked = !!m.branch_company;
+        if (inModField) inModField.checked = !!m.field_worker;
+        if (inModBlink) inModBlink.checked = !comp.modules || m.face_blink !== false;
+        if (inModButton) inModButton.checked = !!m.face_button;
+
+        if (window.ArgusVoice) {
+          window.ArgusVoice.resetFormGuidance('#companyModal');
+        }
+
+        companyModal.classList.add('active');
+      });
+    });
+
+    // Attach delete handlers to open Confirmation Modal
+    document.querySelectorAll('.btn-action-delete').forEach(btn => {
+      btn.addEventListener('click', function () {
+        companyToDeleteId = this.getAttribute('data-id');
+        companyToDeleteName = this.getAttribute('data-name');
+        if (deleteCompanyTargetName) deleteCompanyTargetName.textContent = companyToDeleteName;
+        if (deleteCompanyTargetId) deleteCompanyTargetId.textContent = companyToDeleteId;
+        if (btnConfirmDeleteText) btnConfirmDeleteText.textContent = 'Yes, Delete Company & All Records';
+        if (btnConfirmDeleteCompany) btnConfirmDeleteCompany.disabled = false;
+        if (deleteCompanyModal) deleteCompanyModal.classList.add('active');
+      });
+    });
+
+    // Attach support toggle handlers
+    document.querySelectorAll('.btn-toggle-support').forEach(btn => {
+      btn.addEventListener('click', async function (e) {
+        e.preventDefault();
+        const compId = this.getAttribute('data-id');
+        const currentState = this.getAttribute('data-state') === 'true';
+        const newState = !currentState;
+
+        this.disabled = true;
+        this.style.opacity = '0.6';
+
+        try {
+          const res = await fetch(`/api/companies/${compId}/toggle-support`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: newState })
+          });
+          const data = await res.json();
+          if (data.success) {
+            loadCompanies(currentPage);
+          } else {
+            alert(`Error: ${data.error || 'Failed to update support status.'}`);
+            this.disabled = false;
+            this.style.opacity = '1';
+          }
+        } catch (err) {
+          alert('Network error while updating support status.');
+          this.disabled = false;
+          this.style.opacity = '1';
+        }
+      });
+    });
+  }
+
+  // Fetch and display companies
+  async function loadCompanies(page = 1) {
+    currentPage = page;
+    if (window.renderTableLoading && companyTableBody) {
+      window.renderTableLoading(companyTableBody, "Loading registered companies...", 16);
+    }
+    if (window.renderGridLoading && companyGridSection) {
+      window.renderGridLoading(companyGridSection, "Loading registered companies...");
+    }
+
+    try {
+      const params = new URLSearchParams({
+        page: currentPage,
+        limit: currentLimit,
+        search: currentSearch
+      });
+
+      const res = await fetch(`/api/companies?${params.toString()}`);
+      const data = await res.json();
+      loadedCompanies = data.companies || [];
+
+      if (!data.companies || data.companies.length === 0) {
+        if (companyTableBody) {
+          companyTableBody.innerHTML = `
+            <tr>
+              <td colspan="15" style="text-align: center; padding: 28px; color: #6c757d;">
+                No registered companies found. Click <strong>+ Add Company</strong> above to register a new tenant.
+              </td>
+            </tr>
+          `;
+        }
+        if (companyGridSection) {
+          companyGridSection.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #64748b; background: #ffffff; border-radius: 12px; border: 1px dashed #cbd5e1;">
+              <div style="font-size: 32px; margin-bottom: 8px;">🏢</div>
+              <div style="font-size: 14px; font-weight: 700; color: #1e293b;">No registered companies found</div>
+              <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Click <strong>+ Add Company</strong> above to register a new tenant.</div>
+            </div>
+          `;
+        }
+        companyTableInfo.textContent = 'Showing 0 to 0 of 0 entries';
+        updatePagination(0, 0);
+        return;
+      }
+
+      // Sort if sort column is active
+      if (currentSortCol) {
+        loadedCompanies.sort((a, b) => {
+          if (currentSortCol === 'days_active' || currentSortCol === 'sl_no') {
+            let numA = Number(a[currentSortCol]) || 0;
+            let numB = Number(b[currentSortCol]) || 0;
+            return currentSortDir === 'asc' ? numA - numB : numB - numA;
+          }
+          let vA = a[currentSortCol] || '';
+          let vB = b[currentSortCol] || '';
+          if (typeof vA === 'string') vA = vA.toLowerCase();
+          if (typeof vB === 'string') vB = vB.toLowerCase();
+          if (vA < vB) return currentSortDir === 'asc' ? -1 : 1;
+          if (vA > vB) return currentSortDir === 'asc' ? 1 : -1;
+          return 0;
+        });
+      }
+
+      const startIndex = (data.page - 1) * data.limit;
+      renderCompanyTableRows(loadedCompanies, startIndex);
+      renderCompanyGridCards(loadedCompanies);
+      attachCompanyRowEvents();
+
+      // Ensure appropriate view section is displayed
+      if (currentView === 'grid') {
+        if (companyListSection) companyListSection.style.display = 'none';
+        if (companyGridSection) companyGridSection.style.display = 'grid';
+        if (btnCompanyGridView) btnCompanyGridView.classList.add('active');
+        if (btnCompanyListView) btnCompanyListView.classList.remove('active');
+      } else {
+        if (companyListSection) companyListSection.style.display = 'block';
+        if (companyGridSection) companyGridSection.style.display = 'none';
+        if (btnCompanyListView) btnCompanyListView.classList.add('active');
+        if (btnCompanyGridView) btnCompanyGridView.classList.remove('active');
+      }
+
+      // Update footer info
+      const startEntry = startIndex + 1;
+      const endEntry = Math.min(startIndex + data.companies.length, data.total);
+      companyTableInfo.textContent = `Showing ${startEntry} to ${endEntry} of ${data.total} entries`;
+      updatePagination(data.page, data.pages);
+    } catch (err) {
+      if (companyTableBody) {
+        companyTableBody.innerHTML = `
+          <tr>
+            <td colspan="15" style="text-align: center; padding: 24px; color: #dc3545;">
+              Failed to load companies. Please check database connection.
+            </td>
+          </tr>
+        `;
+      }
+      if (companyGridSection) {
+        companyGridSection.innerHTML = `
+          <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #dc3545;">Failed to load companies. Please check database connection.</div>
+        `;
+      }
+    }
+  }
+
+  function updatePagination(page, totalPages) {
+    companyCurrentBtn.textContent = page || 1;
+    if (page <= 1) {
+      companyPrevBtn.classList.add('disabled');
+    } else {
+      companyPrevBtn.classList.remove('disabled');
+    }
+    if (page >= totalPages || totalPages === 0) {
+      companyNextBtn.classList.add('disabled');
+    } else {
+      companyNextBtn.classList.remove('disabled');
+    }
+  }
+
+  companyPrevBtn.addEventListener('click', function () {
+    if (!this.classList.contains('disabled') && currentPage > 1) {
+      loadCompanies(currentPage - 1);
+    }
+  });
+
+  companyNextBtn.addEventListener('click', function () {
+    if (!this.classList.contains('disabled')) {
+      loadCompanies(currentPage + 1);
+    }
+  });
+
+  // Limit change
+  companyEntriesLimit.addEventListener('change', function () {
+    currentLimit = parseInt(this.value, 10);
+    loadCompanies(1);
+  });
+
+  // Search input debounce
+  let searchTimer;
+  companyTableSearch.addEventListener('input', function () {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      currentSearch = companyTableSearch.value.trim();
+      loadCompanies(1);
+    }, 300);
+  });
+
+  // Modal 1: Add Company Modal
+  if (btnOpenAddCompanyModal) {
+    btnOpenAddCompanyModal.addEventListener('click', function () {
+      editingCompanyId = null;
+      companyForm.reset();
+      companyFormAlert.style.display = 'none';
+      if (companyModalTitle) companyModalTitle.textContent = 'Register New Company';
+      if (btnSaveCompany) btnSaveCompany.textContent = 'Save Company';
+      if (inputEmployeeLimit) inputEmployeeLimit.value = 25;
+      if (inputBranchLimit) inputBranchLimit.value = 5;
+      if (inputCompanyShiftHours) inputCompanyShiftHours.value = '08:00';
+      if (inputRegisteredDate) inputRegisteredDate.value = new Date().toISOString().split('T')[0];
+      if (inputStatus) inputStatus.value = 'Active';
+      if (inputAutoEmailReports) inputAutoEmailReports.value = 'false';
+      if (inputDailyReportTime) inputDailyReportTime.value = '07:00';
+      if (inputMonthlyReportDay) inputMonthlyReportDay.value = '1';
+      if (inputCanDeleteEntries) inputCanDeleteEntries.value = 'false';
+      if (inputSupportEnabled) inputSupportEnabled.value = 'false';
+      if (inputGeofenceRadius) inputGeofenceRadius.value = 200;
+      const inCalcProperCompReset = document.getElementById('inputCalculateProperEntriesCompany');
+      if (inCalcProperCompReset) inCalcProperCompReset.value = 'true';
+      const inModSingle = document.getElementById('inputModSingleCompany');
+      const inModBranch = document.getElementById('inputModBranchCompany');
+      const inModField = document.getElementById('inputModFieldWorker');
+      const inModBlink = document.getElementById('inputModFaceBlink');
+      const inModButton = document.getElementById('inputModFaceButton');
+      if (inModSingle) inModSingle.checked = true;
+      if (inModBranch) inModBranch.checked = false;
+      if (inModField) inModField.checked = false;
+      if (inModBlink) inModBlink.checked = true;
+      if (inModButton) inModButton.checked = false;
+
+      if (window.ArgusVoice) {
+        window.ArgusVoice.resetFormGuidance('#companyModal');
+      }
+
+      companyModal.classList.add('active');
+    });
+  }
+
+  function closeCompanyModalFunc() {
+    if (window.ArgusVoice) {
+      window.ArgusVoice.stop();
+      window.ArgusVoice.resetFormGuidance('#companyModal');
+    }
+    companyModal.classList.remove('active');
+  }
+
+  if (closeCompanyModal) closeCompanyModal.addEventListener('click', closeCompanyModalFunc);
+  if (btnCancelCompany) btnCancelCompany.addEventListener('click', closeCompanyModalFunc);
+
+  // Auto Geolocation detection
+  if (btnDetectLocation) {
+    btnDetectLocation.addEventListener('click', function () {
+      if (navigator.geolocation) {
+        btnDetectLocation.textContent = '⏳ Detecting...';
+        navigator.geolocation.getCurrentPosition(
+          function (pos) {
+            document.getElementById('inputLatitude').value = pos.coords.latitude.toFixed(6);
+            document.getElementById('inputLongitude').value = pos.coords.longitude.toFixed(6);
+            btnDetectLocation.textContent = '✓ Location Detected';
+            setTimeout(() => { btnDetectLocation.textContent = '📍 Get Current Location'; }, 3000);
+          },
+          function (err) {
+            alert('Could not retrieve current location: ' + err.message);
+            btnDetectLocation.textContent = '📍 Get Current Location';
+          },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      } else {
+        alert('Geolocation is not supported by your browser.');
+      }
+    });
+  }
+
+  // Auto-split combined coordinates if user pastes/types "lat, lng" into latitude field
+  if (inputLatitude && inputLongitude) {
+    inputLatitude.addEventListener('input', function () {
+      const val = this.value;
+      if (val && (val.includes(',') || val.includes(';'))) {
+        const parts = val.split(/[,;]+/);
+        if (parts.length >= 2) {
+          this.value = parts[0].trim();
+          inputLongitude.value = parts[1].trim();
+        }
+      }
+    });
+  }
+
+  // Submit Company Form
+  if (companyForm) {
+    companyForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      if (companyForm._isSubmitting) return false;
+
+      companyFormAlert.style.display = 'none';
+
+      const isModBlinkChecked = document.getElementById('inputModFaceBlink') ? document.getElementById('inputModFaceBlink').checked : false;
+      const isModButtonChecked = document.getElementById('inputModFaceButton') ? document.getElementById('inputModFaceButton').checked : false;
+      if (!isModBlinkChecked && !isModButtonChecked) {
+        companyFormAlert.textContent = 'Please enable at least one face recognition attendance module: 2-Blink Liveness or Button Capture.';
+        companyFormAlert.style.backgroundColor = '#f8d7da';
+        companyFormAlert.style.color = '#842029';
+        companyFormAlert.style.display = 'block';
+        return false;
+      }
+
+      const btnSave = btnSaveCompany || document.getElementById('btnSaveCompany');
+      const origBtnText = editingCompanyId ? 'Update Company' : 'Save Company';
+
+      companyForm._isSubmitting = true;
+      if (btnSave) {
+        btnSave.disabled = true;
+        btnSave.classList.add('btn-is-submitting');
+        btnSave.innerHTML = `<span class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> ${editingCompanyId ? 'Updating...' : 'Saving...'}`;
+      }
+
+      if (window.showSavingPopup) {
+        window.showSavingPopup(
+          editingCompanyId ? 'Updating Company Profile...' : 'Registering New Company...',
+          'Configuring company settings, shift hours, and email schedules...'
+        );
+      }
+
+      const formData = new FormData(companyForm);
+      const payload = {
+        company_name: formData.get('company_name'),
+        gstin: formData.get('gstin'),
+        phone: formData.get('phone'),
+        email: formData.get('email'),
+        latitude: (formData.get('latitude') !== null && String(formData.get('latitude')).trim() !== '') ? String(formData.get('latitude')).trim() : null,
+        longitude: (formData.get('longitude') !== null && String(formData.get('longitude')).trim() !== '') ? String(formData.get('longitude')).trim() : null,
+        status: (formData.get('status') === 'Deactive' || formData.get('status') === 'Inactive') ? 'Deactive' : 'Active',
+        employee_limit: parseInt(formData.get('employee_limit'), 10) || 50,
+        branch_limit: parseInt(formData.get('branch_limit'), 10) || 5,
+        shift_hours: (formData.get('shift_hours') || '08:00').trim(),
+        registered_date: formData.get('registered_date') || '',
+        auto_email_reports: formData.get('auto_email_reports') === 'true',
+        daily_report_time: (formData.get('daily_report_time') || '07:00').trim(),
+        monthly_report_day: parseInt(formData.get('monthly_report_day'), 10) || 1,
+        can_delete_entries: formData.get('can_delete_entries') === 'true',
+        support_enabled: formData.get('support_enabled') === 'true',
+        geofence_radius: parseFloat(formData.get('geofence_radius')) || 200,
+        calculate_proper_entries: document.getElementById('inputCalculateProperEntriesCompany') ? (document.getElementById('inputCalculateProperEntriesCompany').value !== 'false') : true,
+        modules: {
+          single_company: document.getElementById('inputModSingleCompany') ? document.getElementById('inputModSingleCompany').checked : true,
+          branch_company: document.getElementById('inputModBranchCompany') ? document.getElementById('inputModBranchCompany').checked : false,
+          field_worker: document.getElementById('inputModFieldWorker') ? document.getElementById('inputModFieldWorker').checked : false,
+          face_blink: isModBlinkChecked,
+          face_button: isModButtonChecked
+        }
+      };
+
+      try {
+        const url = editingCompanyId ? `/api/companies/${editingCompanyId}` : '/api/companies';
+        const method = editingCompanyId ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const resp = await res.json();
+        if (window.hideSavingPopup) window.hideSavingPopup();
+
+        if (resp.success) {
+          closeCompanyModalFunc();
+          loadCompanies(currentPage);
+        } else {
+          companyFormAlert.textContent = resp.error || 'Failed to save company.';
+          companyFormAlert.style.backgroundColor = '#f8d7da';
+          companyFormAlert.style.color = '#842029';
+          companyFormAlert.style.display = 'block';
+        }
+      } catch (err) {
+        if (window.hideSavingPopup) window.hideSavingPopup();
+        companyFormAlert.textContent = 'Connection error. Please try again.';
+        companyFormAlert.style.backgroundColor = '#f8d7da';
+        companyFormAlert.style.color = '#842029';
+        companyFormAlert.style.display = 'block';
+      } finally {
+        companyForm._isSubmitting = false;
+        if (window.hideSavingPopup) window.hideSavingPopup();
+        if (btnSave) {
+          btnSave.disabled = false;
+          btnSave.classList.remove('btn-is-submitting');
+          btnSave.textContent = origBtnText;
+        }
+      }
+    });
+  }
+
+  // Modal 2: Reports Summary Modal
+  if (btnOpenReportsModal) {
+    btnOpenReportsModal.addEventListener('click', async function () {
+      reportsModal.classList.add('active');
+      const breakdownBody = document.getElementById('reportsBreakdownBody');
+      breakdownBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 18px;">Loading report summary...</td></tr>';
+
+      try {
+        const res = await fetch('/api/companies/reports');
+        const data = await res.json();
+
+        if (data.success && data.summary) {
+          const s = data.summary;
+          document.getElementById('statTotalCompanies').textContent = s.total_companies || 0;
+          document.getElementById('statActiveCompanies').textContent = s.active_companies || 0;
+          document.getElementById('statTenantEmployees').textContent = s.total_tenant_employees || 0;
+          document.getElementById('statArgusEmployees').textContent = s.total_argus_employees || 0;
+
+          if (!s.companies || s.companies.length === 0) {
+            breakdownBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 18px; color: #888;">No client companies registered yet.</td></tr>';
+          } else {
+            breakdownBody.innerHTML = '';
+            s.companies.forEach(c => {
+              const row = document.createElement('tr');
+              const badge = c.status === 'Active'
+                ? '<span style="background-color: #d1e7dd; color: #0f5132; padding: 2px 6px; border-radius: 10px; font-size: 10px; font-weight: 700;">Active</span>'
+                : '<span style="background-color: #f8d7da; color: #842029; padding: 2px 6px; border-radius: 10px; font-size: 10px; font-weight: 700;">Inactive</span>';
+
+              row.innerHTML = `
+                <td style="font-weight: 700;">${escapeHtml(c.company_name)}</td>
+                <td>${escapeHtml(c.email)}</td>
+                <td style="text-align: center; font-weight: 800;">${c.employee_count}</td>
+                <td style="text-align: center;">${badge}</td>
+              `;
+              breakdownBody.appendChild(row);
+            });
+          }
+        }
+      } catch (err) {
+        breakdownBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 18px; color: #dc3545;">Error loading reports summary.</td></tr>';
+      }
+    });
+  }
+
+  function closeReportsModalFunc() {
+    if (reportsModal) reportsModal.classList.remove('active');
+  }
+
+  if (closeReportsModal) closeReportsModal.addEventListener('click', closeReportsModalFunc);
+  if (btnCloseReportsFooter) btnCloseReportsFooter.addEventListener('click', closeReportsModalFunc);
+
+  function closeViewCompanyModalFunc() {
+    if (viewCompanyModal) viewCompanyModal.classList.remove('active');
+  }
+
+  if (closeViewCompanyModal) closeViewCompanyModal.addEventListener('click', closeViewCompanyModalFunc);
+  if (btnCloseViewCompanyFooter) btnCloseViewCompanyFooter.addEventListener('click', closeViewCompanyModalFunc);
+
+  // Modal: Cascade Delete Confirmation Handlers
+  function closeDeleteCompanyModalFunc() {
+    if (deleteCompanyModal) deleteCompanyModal.classList.remove('active');
+    companyToDeleteId = null;
+    companyToDeleteName = '';
+  }
+
+  if (closeDeleteCompanyModal) closeDeleteCompanyModal.addEventListener('click', closeDeleteCompanyModalFunc);
+  if (btnCancelDeleteCompany) btnCancelDeleteCompany.addEventListener('click', closeDeleteCompanyModalFunc);
+
+  if (btnConfirmDeleteCompany) {
+    btnConfirmDeleteCompany.addEventListener('click', async function () {
+      if (!companyToDeleteId) return;
+
+      btnConfirmDeleteCompany.disabled = true;
+      if (btnConfirmDeleteText) btnConfirmDeleteText.textContent = 'Deleting all records...';
+
+      try {
+        const res = await fetch(`/api/companies/${companyToDeleteId}`, { method: 'DELETE' });
+        const resp = await res.json();
+        if (resp.success) {
+          closeDeleteCompanyModalFunc();
+          loadCompanies(currentPage);
+        } else {
+          alert(`Error: ${resp.error || 'Failed to delete company'}`);
+        }
+      } catch (err) {
+        alert('Network error while deleting company.');
+      } finally {
+        if (btnConfirmDeleteCompany) btnConfirmDeleteCompany.disabled = false;
+        if (btnConfirmDeleteText) btnConfirmDeleteText.textContent = 'Yes, Delete Company & All Records';
+      }
+    });
+  }
+
+  window.addEventListener('click', function (e) {
+    if (e.target === viewCompanyModal) closeViewCompanyModalFunc();
+    // companyModal is intentionally NOT closed on backdrop click to prevent losing form data
+    if (e.target === reportsModal) closeReportsModalFunc();
+    if (e.target === deleteCompanyModal) closeDeleteCompanyModalFunc();
+  });
+
+  // Helper escape function
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // ================= EXPORTS (COPY, CSV, EXCEL, PDF, PRINT) =================
+  const btnCopyCompanies = document.getElementById('btnCopyCompanies');
+  const btnCsvCompanies = document.getElementById('btnCsvCompanies');
+  const btnExcelCompanies = document.getElementById('btnExcelCompanies');
+  const btnPdfCompanies = document.getElementById('btnPdfCompanies');
+  const btnPrintCompanies = document.getElementById('btnPrintCompanies');
+
+  if (btnCopyCompanies) {
+    btnCopyCompanies.addEventListener('click', function () {
+      const table = document.getElementById('companyDataTable');
+      if (!table) return;
+      let text = '';
+      for (let row of table.rows) {
+        let rowData = [];
+        const cellCount = row.cells.length;
+        for (let i = 0; i < Math.max(1, cellCount - 2); i++) {
+          rowData.push(row.cells[i].innerText.trim());
+        }
+        text += rowData.join('\t') + '\n';
+      }
+      (window.safeCopyToClipboard ? window.safeCopyToClipboard(text) : navigator.clipboard.writeText(text)).then(() => {
+        alert('Companies table copied to clipboard!');
+      }).catch(err => console.error(err));
+    });
+  }
+
+  if (btnCsvCompanies) {
+    btnCsvCompanies.addEventListener('click', function () {
+      window.location.href = `/api/companies/export/csv?search=${encodeURIComponent(currentSearch)}`;
+    });
+  }
+
+  if (btnExcelCompanies) {
+    btnExcelCompanies.addEventListener('click', function () {
+      window.location.href = `/api/companies/export/excel?search=${encodeURIComponent(currentSearch)}`;
+    });
+  }
+
+  if (btnPdfCompanies) {
+    btnPdfCompanies.addEventListener('click', function () {
+      window.location.href = `/api/companies/export/pdf?search=${encodeURIComponent(currentSearch)}`;
+    });
+  }
+
+  if (btnPrintCompanies) {
+    btnPrintCompanies.addEventListener('click', function () {
+      const printContents = document.getElementById('companyDataTable').outerHTML;
+      const printWindow = window.open('', '', 'height=600,width=850');
+      printWindow.document.write('<html><head><title>Print Companies Directory</title>');
+      printWindow.document.write('<style>');
+      printWindow.document.write(`
+        body { font-family: sans-serif; padding: 20px; }
+        h2 { text-align: center; margin-bottom: 20px; font-size: 18px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+        th { background: #2c3e50; color: #fff; }
+        th:nth-last-child(1), td:nth-last-child(1), th:nth-last-child(2), td:nth-last-child(2) { display: none; }
+      `);
+      printWindow.document.write('</style></head><body>');
+      printWindow.document.write('<h2>REGISTERED CLIENT COMPANIES</h2>');
+      printWindow.document.write(printContents);
+      printWindow.document.write('</body></html>');
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+    });
+  }
+
+  // Bind Company Modal Voice Assistant Guidance & Toggle
+  if (window.ArgusVoice) {
+    window.ArgusVoice.bindToggle('btnCompanyModalToggleVoice');
+    window.ArgusVoice.attachFormGuidance('#companyModal', {
+      '#inputCompanyName': {
+        english: 'Please enter the registered company name.',
+        tamil: 'பதிவு செய்யப்பட்ட நிறுவனத்தின் பெயரை உள்ளிடவும்.'
+      },
+      '#inputGstin': {
+        english: 'Enter the 15-digit GST identification number if available.',
+        tamil: 'கிடைக்கப்பெற்றால் 15 இலக்க ஜி.எஸ்.டி அடையாள எண்ணை உள்ளிடவும்.'
+      },
+      '#inputPhone': {
+        english: 'Enter a valid 10-digit primary contact phone number.',
+        tamil: 'பத்து இலக்க செல்லுபடியாகும் தொடர்பு தொலைபேசி எண்ணை உள்ளிடவும்.'
+      },
+      '#inputEmail': {
+        english: 'Enter the registered corporate email address containing an at symbol. This is used for admin login.',
+        tamil: 'அட் குறியீட்டுடன் அட்மின் உள்நுழைவுக்குப் பயன்படும் நிறுவன மின்னஞ்சல் முகவரியை உள்ளிடவும்.'
+      },
+      '#inputGeofenceRadius': {
+        english: 'Specify the geofence perimeter radius in meters for attendance punch validation.',
+        tamil: 'வருகைப் பதிவைச் சரிபார்க்க தேவையான ஜியோபென்ஸ் தூரத்தை மீட்டரில் குறிப்பிடவும்.'
+      },
+      '#inputEmployeeLimit': {
+        english: 'Enter the maximum number of employees permitted for this company.',
+        tamil: 'இந்த நிறுவனத்திற்கான அதிகபட்ச பணியாளர்களின் எண்ணிக்கையை உள்ளிடவும்.'
+      }
+    });
+  }
+
+  // Initial load
+  loadCompanies(1);
+});
