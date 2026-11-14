@@ -27,6 +27,48 @@
     gap: 18px;
     align-items: start;
   }
+  .content-banner-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: nowrap;
+  }
+  .banner-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+  .btn-voice-icon-only {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    padding: 0;
+    border-radius: 8px;
+    border: 1.5px solid #cbd5e1;
+    background: #f8fafc;
+    color: #475569;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+  .btn-voice-icon-only:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+  }
+  .btn-voice-icon-only.active {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1d4ed8;
+  }
 
   @media (max-width: 768px) {
     .custom-leave-row {
@@ -101,7 +143,7 @@
 
 
 
-  <div class="banner-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+  <div class="banner-actions">
 
     {% if is_system_admin and system_admin_companies %}
 
@@ -199,11 +241,9 @@
 
 
 
-    <button type="button" class="btn-secondary-action" id="btnLeaveToggleVoice" title="Toggle voice announcements" style="display: inline-flex; align-items: center; gap: 6px;">
+    <button type="button" class="btn-voice-icon-only" id="btnLeaveToggleVoice" title="Audio announcements: Click to mute/unmute" aria-label="Toggle voice audio">
 
       <span class="voice-icon">🔊</span>
-
-      <span class="voice-text">Audio: On</span>
 
     </button>
 

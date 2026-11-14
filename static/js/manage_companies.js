@@ -983,7 +983,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inputDailyReportTime) inputDailyReportTime.value = '07:00';
       if (inputMonthlyReportDay) inputMonthlyReportDay.value = '1';
       if (inputCanDeleteEntries) inputCanDeleteEntries.value = 'false';
-      if (inputSupportEnabled) inputSupportEnabled.value = 'false';
+      if (inputSupportEnabled) inputSupportEnabled.value = 'true';
       if (inputGeofenceRadius) inputGeofenceRadius.value = 200;
       const inCalcProperCompReset = document.getElementById('inputCalculateProperEntriesCompany');
       if (inCalcProperCompReset) inCalcProperCompReset.value = 'true';

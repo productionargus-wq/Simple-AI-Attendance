@@ -255,7 +255,13 @@ if (!window.makeModalDraggable) {
   class ArgusCoworkerAI {
     constructor() {
       this.isOpen = false;
-      this.language = localStorage.getItem('argus_ai_voice_lang') || 'en';
+      this.isMobile = (window.ArgusVoice && window.ArgusVoice.isMobile !== undefined)
+        ? window.ArgusVoice.isMobile
+        : (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i.test(navigator.userAgent || '') || (('ontouchstart' in window) && window.innerWidth <= 1024));
+      // Desktop devices EXCLUSIVELY use English audio; Mobile defaults to Tamil or saved preference
+      this.language = this.isMobile
+        ? ((window.ArgusVoice && typeof window.ArgusVoice.getLanguage === 'function') ? window.ArgusVoice.getLanguage() : (localStorage.getItem('argus_app_voice_lang') || 'ta'))
+        : 'en';
       this.voiceEnabled = localStorage.getItem('argus_coworker_voice') !== 'false';
       this.history = [];
       this.activeServerAudio = null;
@@ -382,7 +388,7 @@ if (!window.makeModalDraggable) {
             </div>
           </div>
           <div class="coworker-header-actions">
-            <button class="coworker-icon-btn coworker-lang-btn" id="coworkerLangToggleBtn" title="Language: English / தமிழ்">
+            <button class="coworker-icon-btn coworker-lang-btn" id="coworkerLangToggleBtn" title="Language: English / தமிழ்" style="display: ${this.isMobile ? 'inline-flex' : 'none'};">
               🌐 <span id="coworkerLangLabel">${this.language === 'ta' ? 'தமிழ்' : 'EN'}</span>
             </button>
             <button class="coworker-icon-btn coworker-voice-toggle-btn ${this.voiceEnabled ? 'active' : ''}" id="coworkerVoiceToggleBtn" title="Toggle Voice Responses (TTS)">
@@ -492,12 +498,18 @@ if (!window.makeModalDraggable) {
       // Clear button
       this.clearBtn.addEventListener('click', () => this.clearChat());
 
-      // Language Toggle
+      // Language Toggle (Mobile Only)
       const langBtn = this.chatWindow.querySelector('#coworkerLangToggleBtn');
       if (langBtn) {
         langBtn.addEventListener('click', () => {
-          this.language = (this.language === 'ta') ? 'en' : 'ta';
-          localStorage.setItem('argus_ai_voice_lang', this.language);
+          if (!this.isMobile) return;
+          if (window.ArgusVoice && typeof window.ArgusVoice.toggleLanguage === 'function') {
+            this.language = window.ArgusVoice.toggleLanguage();
+          } else {
+            this.language = (this.language === 'ta') ? 'en' : 'ta';
+            localStorage.setItem('argus_app_voice_lang', this.language);
+            localStorage.setItem('argus_ai_voice_lang', this.language);
+          }
           const lbl = langBtn.querySelector('#coworkerLangLabel');
           if (lbl) lbl.innerText = (this.language === 'ta') ? 'தமிழ்' : 'EN';
           if (this.voiceEnabled) {
@@ -505,6 +517,13 @@ if (!window.makeModalDraggable) {
           }
         });
       }
+
+      window.addEventListener('argus-voice-language-changed', (e) => {
+        if (!this.isMobile) return;
+        this.language = (e.detail && e.detail.language) || 'ta';
+        const lbl = this.chatWindow ? this.chatWindow.querySelector('#coworkerLangLabel') : null;
+        if (lbl) lbl.innerText = (this.language === 'ta') ? 'தமிழ்' : 'EN';
+      });
 
       // Voice Toggle button
       this.voiceToggleBtn.addEventListener('click', () => {
@@ -904,6 +923,13 @@ if (!window.makeModalDraggable) {
       this.stopSpeaking();
 
       const clean = text.replace(/[*_#`•⚠️📈🏢🚨👉📥👁️🔗]/g, '').replace(/₹/g, ' rupees ').trim();
+
+      // Desktop devices NEVER speak Tamil audio
+      if (!this.isMobile) {
+        this.language = 'en';
+        this.speakEnglishFallback(altEnglishText || clean);
+        return;
+      }
 
       if (this.language === 'ta') {
         // 1. Attempt Native Browser Tamil Voice

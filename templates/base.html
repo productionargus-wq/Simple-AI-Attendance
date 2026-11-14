@@ -174,6 +174,46 @@
 
     }
 
+    #mobileLangToggleWrap {
+      display: none !important;
+    }
+
+    @media (max-width: 768px) {
+      #mobileLangToggleWrap {
+        display: inline-flex !important;
+        align-items: center;
+        margin-right: 8px;
+        flex-shrink: 0;
+      }
+      .mobile-lang-pill-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 9px;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #1d4ed8;
+        cursor: pointer;
+        line-height: 1.2;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+      }
+      .mobile-lang-pill-btn:active {
+        transform: scale(0.96);
+        background: #dbeafe;
+      }
+      .mobile-lang-pill-btn .lang-globe-icon {
+        font-size: 11.5px;
+      }
+      .mobile-lang-pill-btn .lang-label {
+        font-size: 11px;
+        font-weight: 800;
+      }
+    }
+
   </style>
 
 </head>
@@ -415,6 +455,14 @@
       {% endif %}
 
 
+
+      <!-- Mobile Only Voice Language Switcher (Tamil / English) -->
+      <div class="mobile-lang-pill-container" id="mobileLangToggleWrap">
+        <button type="button" class="mobile-lang-pill-btn" id="mobileGlobalLangBtn" title="Voice Language: தமிழ் / English" aria-label="Switch voice language">
+          <span class="lang-globe-icon">🌐</span>
+          <span class="lang-label" id="mobileGlobalLangLabel">தமிழ்</span>
+        </button>
+      </div>
 
       <div class="top-nav-logo-circle" title="{{ session.get('company_name') or 'Company' }}">
 

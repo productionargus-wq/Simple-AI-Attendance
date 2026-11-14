@@ -49,6 +49,26 @@
       white-space: nowrap;
       pointer-events: none;
     }
+    .mobile-lang-pill-btn {
+      display: none !important;
+    }
+    @media (max-width: 768px) {
+      .mobile-lang-pill-btn {
+        display: inline-flex !important;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 16px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #ffffff;
+        cursor: pointer;
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+    }
     .portal-nav-left {
       display: flex;
       align-items: center;
@@ -1069,6 +1089,11 @@
     </div>
 
     <div class="portal-nav-right" style="display: flex; align-items: center; gap: 14px;">
+      <!-- Mobile Only Voice Language Switcher (Tamil / English) -->
+      <button type="button" class="mobile-lang-pill-btn" id="mobileGlobalLangBtn" title="Voice Language: தமிழ் / English" aria-label="Switch voice language">
+        <span class="lang-globe-icon">🌐</span>
+        <span class="lang-label" id="mobileGlobalLangLabel">தமிழ்</span>
+      </button>
       <a href="/logout" data-no-spa="true" class="portal-btn-logout" style="background-color: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 6px 14px; font-size: 11px; font-weight: 700; text-decoration: none;">
         Logout
       </a>

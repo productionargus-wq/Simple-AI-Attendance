@@ -499,7 +499,7 @@ def create_company(data):
         'radius_meters': float(data.get('geofence_radius') or data.get('radius_meters') or 200.0),
         'calculate_proper_entries': bool(data.get('calculate_proper_entries', True) if isinstance(data.get('calculate_proper_entries'), bool) else str(data.get('calculate_proper_entries', 'true')).strip().lower() in ['true', '1', 'yes', 'on']),
         'can_delete_entries': str(data.get('can_delete_entries', False)).lower() in ['true', '1', 'yes'],
-        'support_enabled': str(data.get('support_enabled', False)).lower() in ['true', '1', 'yes'],
+        'support_enabled': str(data.get('support_enabled', True)).lower() in ['true', '1', 'yes'],
         'modules': {
             'single_company': bool(data.get('modules', {}).get('single_company', True) if isinstance(data.get('modules'), dict) else str(data.get('module_single_company', True)).lower() in ['true', '1', 'yes', 'on']),
             'branch_company': bool(data.get('modules', {}).get('branch_company', False) if isinstance(data.get('modules'), dict) else str(data.get('module_branch_company', False)).lower() in ['true', '1', 'yes', 'on']),
@@ -675,7 +675,7 @@ def get_all_companies(search='', page=1, limit=10):
         c['monthly_report_day'] = int(c.get('monthly_report_day') or 1)
         if 'can_delete_entries' not in c:
             c['can_delete_entries'] = False
-        c['support_enabled'] = bool(c.get('support_enabled', False))
+        c['support_enabled'] = bool(c.get('support_enabled', True))
         c['geofence_radius'] = float(c.get('geofence_radius') or c.get('radius_meters') or 200.0)
         c['radius_meters'] = c['geofence_radius']
         c['status'] = 'Deactive' if str(c.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active'
@@ -733,7 +733,7 @@ def get_company_by_id(comp_id, include_counts=False):
         c['monthly_report_day'] = int(c.get('monthly_report_day') or 1)
         if 'can_delete_entries' not in c:
             c['can_delete_entries'] = False
-        c['support_enabled'] = bool(c.get('support_enabled', False))
+        c['support_enabled'] = bool(c.get('support_enabled', True))
         c['geofence_radius'] = float(c.get('geofence_radius') or c.get('radius_meters') or 200.0)
         c['radius_meters'] = c['geofence_radius']
         c['status'] = 'Deactive' if str(c.get('status', 'Active')).strip().lower() in ['inactive', 'deactive'] else 'Active'
@@ -1109,11 +1109,11 @@ def delete_user_session(token):
         return False
 
 def is_company_support_enabled(comp_id):
-    """Checks whether Support & Help is enabled for a company. Defaults to False."""
+    """Checks whether Support & Help is enabled for a company. Defaults to True."""
     if not comp_id or str(comp_id).strip() in ['ALL', 'ARGUS_MASTER']:
         return True  # System Administrator always has access
     c = get_company_by_id(comp_id, include_counts=False)
-    return bool(c.get('support_enabled', False)) if c else False
+    return bool(c.get('support_enabled', True)) if c else True
 
 def toggle_company_support(comp_id, enabled=None):
     """Toggles or sets the support feature permission for a company."""

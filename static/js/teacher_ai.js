@@ -369,7 +369,13 @@
   class ArgusTeacherAI {
     constructor() {
       this.isActive = false;
-      this.language = localStorage.getItem('argus_ai_voice_lang') || 'en';
+      this.isMobile = (window.ArgusVoice && window.ArgusVoice.isMobile !== undefined)
+        ? window.ArgusVoice.isMobile
+        : (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i.test(navigator.userAgent || '') || (('ontouchstart' in window) && window.innerWidth <= 1024));
+      // Desktop devices EXCLUSIVELY use English audio; Mobile defaults to Tamil or saved preference
+      this.language = this.isMobile
+        ? ((window.ArgusVoice && typeof window.ArgusVoice.getLanguage === 'function') ? window.ArgusVoice.getLanguage() : (localStorage.getItem('argus_app_voice_lang') || 'ta'))
+        : 'en';
       this.voiceEnabled = localStorage.getItem('argus_teacher_ai_voice') !== 'false';
       this.synth = window.speechSynthesis || null;
       this.activeServerAudio = null;
@@ -423,7 +429,7 @@
         <div class="teacher-ai-hud-divider"></div>
         <div class="teacher-ai-hud-hint">Hover or click any card, badge, or text to learn rules</div>
         <div class="teacher-ai-hud-actions">
-          <button type="button" class="teacher-ai-hud-btn teacher-ai-hud-btn-lang" id="teacherAiToggleLangBtn" title="Switch Voice Language">
+          <button type="button" class="teacher-ai-hud-btn teacher-ai-hud-btn-lang" id="teacherAiToggleLangBtn" title="Switch Voice Language" style="display: ${this.isMobile ? 'inline-flex' : 'none'};">
             <span id="teacherAiLangText">${this.language === 'ta' ? '🌐 தமிழ்' : '🌐 EN'}</span>
           </button>
           <button type="button" class="teacher-ai-hud-btn teacher-ai-hud-btn-voice ${this.voiceEnabled ? 'is-active' : ''}" id="teacherAiToggleVoiceBtn" title="Toggle Spoken Voice Explanation">
@@ -463,8 +469,14 @@
       if (langBtn) {
         langBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          this.language = (this.language === 'ta') ? 'en' : 'ta';
-          localStorage.setItem('argus_ai_voice_lang', this.language);
+          if (!this.isMobile) return;
+          if (window.ArgusVoice && typeof window.ArgusVoice.toggleLanguage === 'function') {
+            this.language = window.ArgusVoice.toggleLanguage();
+          } else {
+            this.language = (this.language === 'ta') ? 'en' : 'ta';
+            localStorage.setItem('argus_app_voice_lang', this.language);
+            localStorage.setItem('argus_ai_voice_lang', this.language);
+          }
           const lbl = langBtn.querySelector('#teacherAiLangText');
           if (lbl) lbl.innerText = (this.language === 'ta') ? '🌐 தமிழ்' : '🌐 EN';
           if (this.voiceEnabled) {
@@ -472,6 +484,13 @@
           }
         });
       }
+
+      window.addEventListener('argus-voice-language-changed', (e) => {
+        if (!this.isMobile) return;
+        this.language = (e.detail && e.detail.language) || 'ta';
+        const lbl = this.hudEl ? this.hudEl.querySelector('#teacherAiLangText') : null;
+        if (lbl) lbl.innerText = (this.language === 'ta') ? '🌐 தமிழ்' : '🌐 EN';
+      });
 
       const voiceBtn = this.hudEl.querySelector('#teacherAiToggleVoiceBtn');
       if (voiceBtn) {
@@ -921,6 +940,13 @@
       this.stopSpeaking();
 
       const clean = text.replace(/[*_#`•⚠️📈🏢🚨|]/g, '').replace(/₹/g, ' rupees ').trim();
+
+      // Desktop devices NEVER speak Tamil audio
+      if (!this.isMobile) {
+        this.language = 'en';
+        this.speakEnglishFallback(clean);
+        return;
+      }
 
       if (this.language === 'ta') {
         if (this.synth) {

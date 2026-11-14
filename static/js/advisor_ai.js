@@ -263,7 +263,13 @@
   class AdvisorAIEngine {
     constructor() {
       this.isOpen = false;
-      this.language = localStorage.getItem('argus_ai_voice_lang') || 'en';
+      this.isMobile = (window.ArgusVoice && window.ArgusVoice.isMobile !== undefined)
+        ? window.ArgusVoice.isMobile
+        : (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i.test(navigator.userAgent || '') || (('ontouchstart' in window) && window.innerWidth <= 1024));
+      // Desktop devices EXCLUSIVELY use English audio; Mobile defaults to Tamil or saved preference
+      this.language = this.isMobile
+        ? ((window.ArgusVoice && typeof window.ArgusVoice.getLanguage === 'function') ? window.ArgusVoice.getLanguage() : (localStorage.getItem('argus_app_voice_lang') || 'ta'))
+        : 'en';
       this.voiceEnabled = true;
       this.isSystemAdmin = Boolean(window.IS_SYSTEM_ADMIN);
       this.isSpeaking = false;
@@ -335,7 +341,7 @@
             </div>
           </div>
           <div class="advisor-hud-actions">
-            <button class="advisor-hud-btn" id="advHudLangBtn" title="Language: English / தமிழ்">
+            <button class="advisor-hud-btn" id="advHudLangBtn" title="Language: English / தமிழ்" style="display: ${this.isMobile ? 'inline-flex' : 'none'};">
               🌐 <span id="advHudLangText">${this.language === 'ta' ? 'தமிழ்' : 'EN'}</span>
             </button>
             <button class="advisor-hud-btn" id="advHudVoiceToggleBtn" title="Toggle Audio">
@@ -436,16 +442,32 @@
         }
       });
 
-      // Language Switcher
+      // Language Switcher (Mobile Only)
       this.langBtn.addEventListener('click', () => {
-        this.language = (this.language === 'ta') ? 'en' : 'ta';
-        localStorage.setItem('argus_ai_voice_lang', this.language);
+        if (!this.isMobile) return;
+        if (window.ArgusVoice && typeof window.ArgusVoice.toggleLanguage === 'function') {
+          this.language = window.ArgusVoice.toggleLanguage();
+        } else {
+          this.language = (this.language === 'ta') ? 'en' : 'ta';
+          localStorage.setItem('argus_app_voice_lang', this.language);
+          localStorage.setItem('argus_ai_voice_lang', this.language);
+        }
         this.langText.innerText = (this.language === 'ta') ? 'தமிழ்' : 'EN';
         if (this.recognition) {
           this.recognition.lang = (this.language === 'ta') ? 'ta-IN' : 'en-US';
         }
         this.stopSpeaking();
         this.loadBriefing();
+      });
+
+      // Synchronize when mobile global language switcher triggers
+      window.addEventListener('argus-voice-language-changed', (e) => {
+        if (!this.isMobile) return;
+        this.language = (e.detail && e.detail.language) || 'ta';
+        if (this.langText) this.langText.innerText = (this.language === 'ta') ? 'தமிழ்' : 'EN';
+        if (this.recognition) {
+          this.recognition.lang = (this.language === 'ta') ? 'ta-IN' : 'en-US';
+        }
       });
 
       // Play / Pause Briefing
@@ -780,6 +802,13 @@
       this.isSpeaking = true;
       if (this.playPauseBtn) this.playPauseBtn.innerHTML = '⏸️ Pause';
       if (this.voiceWave) this.voiceWave.classList.add('speaking');
+
+      // Desktop devices NEVER speak Tamil audio
+      if (!this.isMobile) {
+        this.language = 'en';
+        this.fallbackBrowserTTS(textEnFallback || textTaOrEn, textEnFallback || textTaOrEn);
+        return;
+      }
 
       // For English, use native browser speech synthesis directly for instant 0-latency playback
       if (this.language === 'en' && 'speechSynthesis' in window) {

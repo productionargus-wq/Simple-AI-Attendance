@@ -30,6 +30,7 @@
       this.lastGuidanceTime = 0;
       this.lastGuidanceText = '';
       this.boundButtons = [];
+      this.boundLangButtons = [];
 
       this.init();
     }
@@ -50,6 +51,29 @@
       };
       window.addEventListener('click', unlockHandler, { passive: true, once: true });
       window.addEventListener('touchstart', unlockHandler, { passive: true, once: true });
+
+      // Synchronize across open tabs on language change
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'argus_app_voice_lang') {
+          this.updateBoundLangButtons();
+        }
+      });
+
+      // Auto-bind language buttons once DOM is available
+      const autoBindLangButtons = () => {
+        const globalBtn = document.getElementById('mobileGlobalLangBtn');
+        if (globalBtn) this.bindLangButton(globalBtn);
+        const termBtn = document.getElementById('btnTerminalLangToggle');
+        if (termBtn) this.bindLangButton(termBtn);
+        document.querySelectorAll('.mobile-lang-pill-btn, .mobile-lang-toggle-btn').forEach(b => {
+          this.bindLangButton(b);
+        });
+      };
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', autoBindLangButtons);
+      } else {
+        autoBindLangButtons();
+      }
     }
 
     refreshVoices() {
@@ -86,12 +110,106 @@
     }
 
     unlockAudio() {
-      if (!this.synth) return;
+      if (this.synth) {
+        try {
+          if (this.synth.paused) {
+            this.synth.resume();
+          }
+        } catch (e) { }
+      }
+      if (!this._audioElement) {
+        try {
+          this._audioElement = new Audio();
+          // Prime audio element on user gesture so subsequent mobile audio calls play without blockage
+          this._audioElement.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+          const p = this._audioElement.play();
+          if (p && typeof p.then === 'function') {
+            p.then(() => { this._audioElement.pause(); }).catch(() => {});
+          }
+        } catch (e) { }
+      }
+    }
+
+    getLanguage() {
+      if (!this.isMobile) return 'en'; // Desktop is EXCLUSIVELY English
+      const saved = localStorage.getItem('argus_app_voice_lang');
+      return (saved === 'en' || saved === 'ta') ? saved : 'ta'; // Default to Tamil on mobile
+    }
+
+    setLanguage(lang) {
+      if (!this.isMobile) return 'en';
+      const cleanLang = (lang === 'en') ? 'en' : 'ta';
+      localStorage.setItem('argus_app_voice_lang', cleanLang);
+      localStorage.setItem('argus_ai_voice_lang', cleanLang);
+      this.updateBoundLangButtons();
+
       try {
-        if (this.synth.paused) {
-          this.synth.resume();
-        }
+        window.dispatchEvent(new CustomEvent('argus-voice-language-changed', { detail: { language: cleanLang } }));
       } catch (e) { }
+
+      if (this.isVoiceEnabled) {
+        if (cleanLang === 'ta') {
+          this.speak({
+            tamil: 'குரல் மொழி தமிழில் அமைக்கப்பட்டது.',
+            english: 'Voice language set to Tamil.'
+          }, { interrupt: true, force: true });
+        } else {
+          this.speak({
+            tamil: 'குரல் மொழி ஆங்கிலத்தில் அமைக்கப்பட்டது.',
+            english: 'Voice language set to English.'
+          }, { interrupt: true, force: true });
+        }
+      }
+      return cleanLang;
+    }
+
+    toggleLanguage() {
+      if (!this.isMobile) return 'en';
+      const cur = this.getLanguage();
+      const next = (cur === 'ta') ? 'en' : 'ta';
+      return this.setLanguage(next);
+    }
+
+    bindLangButton(btn, label) {
+      const btnEl = typeof btn === 'string' ? document.getElementById(btn) : btn;
+      if (!btnEl) return;
+      let labelEl = typeof label === 'string' ? document.getElementById(label) : label;
+      if (!labelEl) {
+        labelEl = btnEl.querySelector('.lang-label') || btnEl.querySelector('[id*="LangLabel"]') || btnEl.querySelector('[id*="langLabel"]') || btnEl.querySelector('[id*="LangText"]');
+      }
+
+      const item = { btn: btnEl, label: labelEl };
+      this.boundLangButtons = (this.boundLangButtons || []).filter(b => b.btn !== btnEl);
+      this.boundLangButtons.push(item);
+      this.renderLangButton(item);
+
+      if (!btnEl._hasVoiceLangClickListener) {
+        btnEl._hasVoiceLangClickListener = true;
+        btnEl.addEventListener('click', (e) => {
+          if (e && e.preventDefault) e.preventDefault();
+          this.toggleLanguage();
+        });
+      }
+    }
+
+    renderLangButton(item) {
+      if (!item || !item.btn) return;
+      if (!this.isMobile) {
+        item.btn.style.display = 'none';
+        return;
+      }
+      const lang = this.getLanguage();
+      const isTa = (lang === 'ta');
+      if (item.label) {
+        item.label.textContent = isTa ? 'தமிழ்' : 'EN';
+      }
+      item.btn.setAttribute('title', isTa ? 'Voice Language: Tamil (click for English)' : 'Voice Language: English (click for Tamil)');
+      item.btn.setAttribute('data-voice-lang', lang);
+    }
+
+    updateBoundLangButtons() {
+      this.boundLangButtons = (this.boundLangButtons || []).filter(b => b.btn && document.contains(b.btn));
+      this.boundLangButtons.forEach(b => this.renderLangButton(b));
     }
 
     setEnabled(enabled) {
@@ -125,17 +243,32 @@
       this.cancel();
     }
 
-    playServerAudio(text) {
+    playServerAudio(text, lang) {
       if (!text) return;
       this.cancel();
       try {
-        const audio = new Audio('/api/voice/tamil-tts?text=' + encodeURIComponent(text) + '&lang=ta');
-        audio.playbackRate = this.tamilRate || 1.3;
+        const cleanLang = (lang === 'en') ? 'en' : ((lang === 'ta' || (!lang && this.getLanguage() === 'ta')) ? 'ta' : 'en');
+        const audio = this._audioElement || new Audio();
+        audio.pause();
+        audio.src = '/api/voice/tamil-tts?text=' + encodeURIComponent(text) + '&lang=' + cleanLang;
+        audio.playbackRate = (cleanLang === 'ta') ? (this.tamilRate || 1.3) : 1.0;
         this.activeServerAudio = audio;
-        audio.play().catch(e => {
-          console.warn('Server TTS playback notice:', e);
-        });
-      } catch (e) { }
+        if (window.ArgusCaptions) {
+          window.ArgusCaptions.show(text, { lang: cleanLang === 'ta' ? 'ta-IN' : 'en-US' });
+        }
+        audio.onended = () => {
+          if (window.ArgusCaptions) window.ArgusCaptions.hide(false);
+        };
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(e => {
+            console.warn('Server TTS playback notice:', e);
+            if (window.ArgusCaptions) window.ArgusCaptions.hide(false);
+          });
+        }
+      } catch (e) {
+        console.warn('playServerAudio error:', e);
+      }
     }
 
     toggle() {
@@ -169,11 +302,20 @@
     speak(content, options = {}) {
       if ((!this.isVoiceEnabled && !options.force) || !content) return;
 
+      const currentLang = this.getLanguage(); // 'en' on desktop, 'ta' or 'en' on mobile
       let targetText = '';
       if (typeof content === 'object') {
-        targetText = this.isMobile
-          ? (content.tamil || content.ta || content.english || content.en || '')
-          : (content.english || content.en || content.tamil || content.ta || '');
+        if (!this.isMobile) {
+          // DESKTOP: Exclusively English, never select Tamil
+          targetText = content.english || content.en || '';
+        } else {
+          // MOBILE: Respect user-chosen language
+          if (currentLang === 'ta') {
+            targetText = content.tamil || content.ta || content.english || content.en || '';
+          } else {
+            targetText = content.english || content.en || content.tamil || content.ta || '';
+          }
+        }
       } else {
         targetText = String(content);
       }
@@ -233,33 +375,80 @@
         return;
       }
 
-      // MOBILE: Authentic Tamil speech synthesis
-      if (this.tamilVoice && this.synth) {
-        try {
-          this.cancel();
-          this.unlockAudio();
-          const utter = new SpeechSynthesisUtterance(targetText);
-          utter.voice = this.tamilVoice;
-          utter.lang = this.tamilVoice.lang || 'ta-IN';
-          utter.rate = options.rate || this.tamilRate || 1.3;
-          utter.pitch = options.pitch || 1.0;
-          utter.volume = 1.0;
-          window._activeSpeechUtterance = utter;
-          utter.onend = () => { window._activeSpeechUtterance = null; };
-          utter.onerror = () => { window._activeSpeechUtterance = null; };
-          this.synth.speak(utter);
-          return;
-        } catch (err) {
-          console.warn('Mobile Tamil SpeechSynthesis error, using server fallback:', err);
+      // MOBILE: Bilingual (Tamil or English based on user selection)
+      if (currentLang === 'ta') {
+        // Authentic Tamil speech synthesis
+        if (this.tamilVoice && this.synth) {
+          try {
+            this.cancel();
+            this.unlockAudio();
+            const utter = new SpeechSynthesisUtterance(targetText);
+            utter.voice = this.tamilVoice;
+            utter.lang = this.tamilVoice.lang || 'ta-IN';
+            utter.rate = options.rate || this.tamilRate || 1.3;
+            utter.pitch = options.pitch || 1.0;
+            utter.volume = 1.0;
+            window._activeSpeechUtterance = utter;
+            utter.onend = () => {
+              window._activeSpeechUtterance = null;
+              if (window.ArgusCaptions) window.ArgusCaptions.hide(false);
+            };
+            utter.onerror = () => {
+              window._activeSpeechUtterance = null;
+              if (window.ArgusCaptions) window.ArgusCaptions.hide(false);
+            };
+            if (window.ArgusCaptions) {
+              window.ArgusCaptions.show(targetText, { lang: 'ta-IN' });
+            }
+            this.synth.speak(utter);
+            return;
+          } catch (err) {
+            console.warn('Mobile Tamil SpeechSynthesis error, using server fallback:', err);
+          }
         }
+        // Mobile Fallback: Server-side streaming Tamil TTS
+        this.playServerAudio(targetText, 'ta');
+        return;
+      } else {
+        // Mobile English speech synthesis
+        if (this.synth) {
+          try {
+            this.cancel();
+            this.unlockAudio();
+            if (!this.englishVoice) this.refreshVoices();
+            const utter = new SpeechSynthesisUtterance(targetText);
+            if (this.englishVoice) utter.voice = this.englishVoice;
+            utter.lang = (this.englishVoice && this.englishVoice.lang) || 'en-US';
+            utter.rate = options.rate || 1.0;
+            utter.pitch = options.pitch || 1.0;
+            utter.volume = 1.0;
+            window._activeSpeechUtterance = utter;
+            utter.onend = () => {
+              window._activeSpeechUtterance = null;
+              if (window.ArgusCaptions) window.ArgusCaptions.hide(false);
+            };
+            utter.onerror = () => {
+              window._activeSpeechUtterance = null;
+              if (window.ArgusCaptions) window.ArgusCaptions.hide(false);
+            };
+            if (window.ArgusCaptions) {
+              window.ArgusCaptions.show(targetText, { lang: utter.lang });
+            }
+            this.synth.speak(utter);
+            return;
+          } catch (err) {
+            console.warn('Mobile English SpeechSynthesis error, using server fallback:', err);
+          }
+        }
+        // Mobile Fallback: Server-side streaming English TTS
+        this.playServerAudio(targetText, 'en');
+        return;
       }
-
-      // Mobile Fallback: Server-side streaming Tamil TTS
-      this.playServerAudio(targetText);
     }
 
     speakGuidance(content) {
-      this.speak(content, { isGuidance: true, rate: this.isMobile ? (this.tamilRate || 1.3) : 1.0 });
+      const isTa = (this.getLanguage() === 'ta');
+      this.speak(content, { isGuidance: true, rate: isTa ? (this.tamilRate || 1.3) : 1.0 });
     }
 
     // Format standard time into natural spoken Tamil
@@ -299,7 +488,7 @@
       this.speak({
         tamil: `நன்றி ${empName}! உங்கள் வருகை பதிவாகியது. நேரம் ${timeTa}.`,
         english: `Thank you, ${empName}! Your punch in is recorded at ${timeEn}.`
-      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.3) : 1.0 });
+      }, { interrupt: true, rate: (this.getLanguage() === 'ta') ? (this.tamilRate || 1.3) : 1.0 });
     }
 
     announcePunchOut(empName, punchTime) {
@@ -308,14 +497,14 @@
       this.speak({
         tamil: `நன்றி ${empName}! பணி நிறைவு நேரம் பதிவானது. நேரம் ${timeTa}.`,
         english: `Thank you, ${empName}! Your punch out is recorded at ${timeEn}.`
-      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.3) : 1.0 });
+      }, { interrupt: true, rate: (this.getLanguage() === 'ta') ? (this.tamilRate || 1.3) : 1.0 });
     }
 
     announceAlreadyPunched(empName) {
       this.speak({
         tamil: `${empName}, உங்கள் வருகை ஏற்கனவே பதிவாகியுள்ளது.`,
         english: `${empName}, your attendance is already marked.`
-      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.3) : 1.0 });
+      }, { interrupt: true, rate: (this.getLanguage() === 'ta') ? (this.tamilRate || 1.3) : 1.0 });
     }
 
     announceGeofenceWarning(locationName) {
@@ -324,7 +513,7 @@
       this.speak({
         tamil: `எச்சரிக்கை! நீங்கள் அனுமதிக்கப்பட்ட எல்லைக்கு வெளியே உள்ளீர்கள்${locTa}.`,
         english: `Warning: You are outside your assigned work location${locEn}.`
-      }, { interrupt: true, rate: this.isMobile ? (this.tamilRate || 1.3) : 1.0 });
+      }, { interrupt: true, rate: (this.getLanguage() === 'ta') ? (this.tamilRate || 1.3) : 1.0 });
     }
 
     announceSuccess(tamilText, englishText) {
@@ -385,6 +574,7 @@
       if (!t || !t.btn || !t.btn.classList) return;
       const iconEl = t.icon || t.btn.querySelector('.voice-icon') || t.btn.querySelector('[id*="Icon"]') || t.btn.querySelector('[id*="icon"]');
       const labelEl = t.label || t.btn.querySelector('.voice-text') || t.btn.querySelector('.voice-label') || t.btn.querySelector('[id*="Label"]') || t.btn.querySelector('[id*="label"]');
+      const isIconOnly = t.btn.classList.contains('btn-voice-icon-only');
 
       if (this.isVoiceEnabled) {
         t.btn.classList.add('active');
@@ -394,8 +584,10 @@
         t.btn.style.color = '#1d4ed8';
         t.btn.style.background = '#eff6ff';
         if (iconEl) iconEl.textContent = '🔊';
-        if (labelEl) labelEl.textContent = 'Audio: On';
-        if (!labelEl && !iconEl) t.btn.textContent = '🔊 Audio: On';
+        if (!isIconOnly) {
+          if (labelEl) labelEl.textContent = 'Audio: On';
+          if (!labelEl && !iconEl) t.btn.textContent = '🔊 Audio: On';
+        }
       } else {
         t.btn.classList.remove('active');
         t.btn.setAttribute('aria-pressed', 'false');
@@ -404,8 +596,10 @@
         t.btn.style.color = '#64748b';
         t.btn.style.background = '#f8fafc';
         if (iconEl) iconEl.textContent = '🔇';
-        if (labelEl) labelEl.textContent = 'Audio: Off';
-        if (!labelEl && !iconEl) t.btn.textContent = '🔇 Audio: Off';
+        if (!isIconOnly) {
+          if (labelEl) labelEl.textContent = 'Audio: Off';
+          if (!labelEl && !iconEl) t.btn.textContent = '🔇 Audio: Off';
+        }
       }
     }
 
