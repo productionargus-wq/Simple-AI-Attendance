@@ -474,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function () {
           </svg>
           <span>View</span>
         </button>
-        <button type="button" class="btn-doc-add" title="Add another document row">
+        <button type="button" class="btn-doc-add" style="display: none;" title="Add another document row">
           +
         </button>
         <button type="button" class="btn-doc-remove btn-remove-new-row" title="Remove this row">
@@ -574,6 +574,99 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnAddDocRowTop) {
     btnAddDocRowTop.addEventListener('click', function () {
       addNewDocumentRow();
+    });
+  }
+
+  // ================= DYNAMIC BADGE & CONTROL HELPERS =================
+  function updateEntryModalTopBadge(isEdit) {
+    const badge = document.getElementById('entryModalTopBadge');
+    if (!badge) return;
+    badge.textContent = isEdit ? 'EDIT EMPLOYEE' : 'NEW EMPLOYEE';
+    badge.className = 'emp-pill emp-pill-gray';
+  }
+
+  function updateSalaryTypeBadge(val) {
+    const badge = document.getElementById('salaryTypeBadge');
+    if (!badge) return;
+    if (val === 'hourly') {
+      badge.textContent = 'Hourly Based';
+      badge.className = 'emp-pill emp-pill-green';
+    } else if (val === 'daily') {
+      badge.textContent = 'Day Based';
+      badge.className = 'emp-pill emp-pill-green';
+    } else if (val === 'half_day') {
+      badge.textContent = 'Half-Day Based';
+      badge.className = 'emp-pill emp-pill-green';
+    } else {
+      badge.textContent = val ? String(val).toUpperCase() : 'Salary Rate';
+      badge.className = 'emp-pill emp-pill-green';
+    }
+  }
+
+  function updateShiftTypeBadge(isNoShift) {
+    const badge = document.getElementById('shiftTypeBadge');
+    if (!badge) return;
+    if (isNoShift) {
+      badge.textContent = 'Punch Hours Only';
+      badge.className = 'emp-pill emp-pill-green';
+    } else {
+      badge.textContent = 'Standard Shift';
+      badge.className = 'emp-pill emp-pill-slate';
+    }
+  }
+
+  function updateGeofenceStatusBadge(isEnabled) {
+    const badge = document.getElementById('geofenceStatusBadge');
+    const caption = document.getElementById('geofenceCaptionText');
+    if (badge) {
+      badge.textContent = isEnabled ? 'Validation On' : 'Validation Off';
+      badge.className = isEnabled ? 'emp-pill emp-pill-green' : 'emp-pill emp-pill-gray';
+    }
+    if (caption) {
+      caption.textContent = isEnabled ? 'Enabled — Validate Employee Location' : 'Disabled — No Distance Check';
+      caption.style.color = isEnabled ? '#16a34a' : '#64748b';
+    }
+  }
+
+  // Photo upload trigger button
+  const btnTriggerPhotoUpload = document.getElementById('btnTriggerPhotoUpload');
+  const photoInputEl = document.getElementById('inputPhoto');
+  if (btnTriggerPhotoUpload && photoInputEl) {
+    btnTriggerPhotoUpload.addEventListener('click', function () {
+      photoInputEl.click();
+    });
+  }
+
+  if (photoInputEl) {
+    photoInputEl.addEventListener('change', function () {
+      if (photoInputEl.files && photoInputEl.files[0]) {
+        const file = photoInputEl.files[0];
+        const statusEl = document.getElementById('captureStatus');
+        if (statusEl) {
+          statusEl.textContent = `Photo selected: ${file.name}`;
+          statusEl.style.color = '#16a34a';
+        }
+        const previewBox = document.getElementById('currentPhotoPreview');
+        const thumb = document.getElementById('editPhotoThumb');
+        const note = document.getElementById('editPhotoNote');
+        if (previewBox && thumb) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            thumb.src = e.target.result;
+            if (note) note.textContent = `Selected photo: ${file.name}. Save employee to commit.`;
+            previewBox.style.display = 'flex';
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    });
+  }
+
+  // Geofence checkbox listener
+  const inputCalcProperCheckbox = document.getElementById('inputCalculateProperEntries');
+  if (inputCalcProperCheckbox) {
+    inputCalcProperCheckbox.addEventListener('change', function () {
+      updateGeofenceStatusBadge(this.checked);
     });
   }
 
@@ -794,6 +887,8 @@ document.addEventListener('DOMContentLoaded', function () {
         otBadge.style.color = '#64748b';
         otBadge.style.borderColor = '#cbd5e1';
       }
+      updateShiftTypeBadge(true);
+      updateSalaryTypeBadge('hourly');
     } else {
       if (noShiftInput) noShiftInput.value = '0';
       if (toggleSwitch) toggleSwitch.checked = false;
@@ -848,6 +943,8 @@ document.addEventListener('DOMContentLoaded', function () {
           syncOvertimeToggleUI(Boolean(chkOt.checked));
         }
       }
+      updateShiftTypeBadge(false);
+      updateSalaryTypeBadge(selSalaryType ? selSalaryType.value : 'daily');
     }
   }
 
@@ -963,7 +1060,11 @@ document.addEventListener('DOMContentLoaded', function () {
     capturedPhotoData = null;
     capturedPhotoFilename = null;
     document.getElementById('formEmployeeId').value = '';
-    document.getElementById('entryModalTitle').textContent = 'Employee Detail Entry';
+    document.getElementById('entryModalTitle').textContent = 'Employee Details Entry';
+    updateEntryModalTopBadge(false);
+    updateSalaryTypeBadge('daily');
+    updateShiftTypeBadge(false);
+    updateGeofenceStatusBadge(true);
     document.getElementById('inputSalaryType').value = 'daily';
     const inStatus = document.getElementById('inputStatus');
     if (inStatus) inStatus.value = 'Active';
@@ -1031,7 +1132,8 @@ document.addEventListener('DOMContentLoaded', function () {
       capturedPhotoFilename = emp.photo_filename || emp.photo || null;
 
       document.getElementById('formEmployeeId').value = emp.id;
-      document.getElementById('entryModalTitle').textContent = 'Employee Detail Entry';
+      document.getElementById('entryModalTitle').textContent = 'Employee Details Entry';
+      updateEntryModalTopBadge(true);
       document.getElementById('inputName').value = emp.employee_name || '';
       const inDept = document.getElementById('inputDepartment');
       if (inDept) inDept.value = emp.department || '';
@@ -1104,6 +1206,8 @@ document.addEventListener('DOMContentLoaded', function () {
         : window.COMPANY_CALCULATE_PROPER_ENTRIES;
       activeCompanyCalculateProperEntries = (compProperEnabled !== false);
       updateGeofencingSectionVisibility(activeCompanyCalculateProperEntries);
+      updateGeofenceStatusBadge(emp.calculate_proper_entries !== false);
+      if (!isEmpNoShift) updateSalaryTypeBadge(emp.salary_type || 'hourly');
 
       // Populate Employee Permissions (defaulting to true for backward compatibility)
       const perms = emp.permissions || {};
@@ -1196,6 +1300,9 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inCalcProperReset) inCalcProperReset.checked = true;
       activeCompanyCalculateProperEntries = (window.COMPANY_CALCULATE_PROPER_ENTRIES !== false);
       updateGeofencingSectionVisibility(activeCompanyCalculateProperEntries);
+      updateSalaryTypeBadge('daily');
+      updateShiftTypeBadge(false);
+      updateGeofenceStatusBadge(true);
       renderEmployeeDocuments([]);
     });
   }
@@ -1307,6 +1414,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (inputSalaryType) {
     inputSalaryType.addEventListener('change', function () {
       const st = this.value;
+      updateSalaryTypeBadge(st);
       if (st === 'hourly') {
         if (inputHourly) {
           inputHourly.step = '0.01';

@@ -13,7 +13,7 @@ A full-stack attendance and payroll management web application built with Python
 
 ### 2. Employee Details Tab
 - Exact 13-column sortable table with action buttons (View, Edit, Delete, View Image).
-- 3-column Employee Detail Entry Modal.
+- Employee Details Entry Modal with sectioned layout (Personal, Employment, Salary, Shift, Bank, Photo & Documents, Geofencing, Permissions).
 - 2-column Employee Detail View Modal with Print & PDF download.
 
 ### 3. Live Report Tab

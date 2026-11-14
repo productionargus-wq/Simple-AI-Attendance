@@ -240,668 +240,920 @@
 
 
 
-<!-- ================= MODAL 1: Employee Detail Entry (Add/Edit) ================= -->
+<!-- ================= MODAL 1: Employee Details Entry (Add/Edit) ================= -->
+<style>
+  .modal-box-employee-entry {
+    max-width: 980px !important;
+    width: 95% !important;
+    max-height: 92vh !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.22);
+  }
+  .emp-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px 24px 14px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #ffffff;
+    gap: 12px;
+  }
+  .emp-modal-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .emp-modal-header-left .modal-header-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+    line-height: 1.2;
+  }
+  .emp-modal-subtitle {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+  .emp-modal-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .emp-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+  .emp-pill-gray {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+  }
+  .emp-pill-green {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+  }
+  .emp-pill-slate {
+    background: #f8fafc;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+  }
+  .emp-modal-body {
+    background: #f8fafc;
+    padding: 18px 22px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .emp-section-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .emp-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .emp-section-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .emp-section-num {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 8px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12.5px;
+    font-weight: 800;
+    color: #475569;
+  }
+  .emp-section-title {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.2;
+  }
+  .emp-section-subtitle {
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+  .emp-section-grid.emp-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px 18px;
+  }
+  .emp-section-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .emp-inner-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .emp-inner-card-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    cursor: pointer;
+    user-select: none;
+    margin: 0;
+    width: 100%;
+  }
+  .emp-inner-card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+  }
+  .emp-inner-card-desc {
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .emp-switch-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .emp-switch-state-text {
+    font-size: 11px;
+    font-weight: 800;
+    color: #64748b;
+    min-width: 24px;
+    text-align: right;
+  }
+  .emp-face-box {
+    background: #ffffff;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .emp-face-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .emp-face-icon-wrap {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 8px;
+    background: #eff6ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .emp-face-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+  }
+  .emp-face-desc {
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 1px;
+  }
+  .emp-face-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-emp-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #1e293b;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-emp-action:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+  }
+  .emp-docs-section {
+    border-top: 1px solid #e2e8f0;
+    padding-top: 14px;
+    margin-top: 6px;
+  }
+  .emp-docs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .emp-docs-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+  }
+  .emp-docs-subtitle {
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 1px;
+  }
+  .btn-emp-add-doc {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 14px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: #ffffff;
+    border: 1px solid #3b82f6;
+    color: #1d4ed8;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-emp-add-doc:hover {
+    background: #eff6ff;
+  }
+  .emp-docs-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .doc-entry-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #ffffff;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+  }
+  .doc-entry-row .doc-title-input {
+    flex: 1;
+    min-width: 160px;
+  }
+  .doc-entry-row .doc-upload-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  .doc-entry-row .btn-doc-choose {
+    padding: 6px 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .doc-entry-row .doc-file-status {
+    font-size: 11.5px;
+    color: #64748b;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .doc-entry-row .btn-doc-remove {
+    width: 32px;
+    height: 32px;
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #ef4444;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    line-height: 1;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .doc-entry-row .btn-doc-remove:hover {
+    background: #fee2e2;
+  }
+  .emp-geofence-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    margin: 0;
+    width: 100%;
+  }
+  .emp-geofence-caption {
+    margin-top: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #16a34a;
+  }
+  .emp-perms-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .emp-perm-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 11px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s;
+  }
+  .emp-perm-card:hover {
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+  }
+  .emp-checkbox {
+    width: 17px;
+    height: 17px;
+    accent-color: #2563eb;
+    cursor: pointer;
+    margin: 0;
+    flex-shrink: 0;
+  }
+  .emp-perm-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #1e293b;
+  }
+  .emp-modal-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
+    border-top: 1px solid #e2e8f0;
+    background: #ffffff;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+  }
+  .emp-footer-brand {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: #94a3b8;
+    text-transform: uppercase;
+  }
+  .emp-footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-emp-footer-cancel,
+  .btn-emp-footer-reset {
+    padding: 8px 18px;
+    font-size: 12.5px;
+    font-weight: 600;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-emp-footer-cancel:hover,
+  .btn-emp-footer-reset:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+  }
+  .btn-emp-footer-submit {
+    padding: 8px 22px;
+    font-size: 12.5px;
+    font-weight: 600;
+    background: #1d4ed8;
+    border: 1px solid #1d4ed8;
+    color: #ffffff;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s ease;
+  }
+  .btn-emp-footer-submit:hover {
+    background: #1e40af;
+  }
+  @media (max-width: 768px) {
+    .emp-section-grid.emp-grid-3,
+    .emp-perms-grid {
+      grid-template-columns: 1fr !important;
+    }
+    .emp-face-box {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .emp-face-right {
+      width: 100%;
+      justify-content: flex-start;
+    }
+    .emp-modal-footer {
+      flex-direction: column;
+      gap: 12px;
+      align-items: stretch;
+    }
+    .emp-footer-actions {
+      justify-content: flex-end;
+    }
+    .emp-footer-brand {
+      text-align: center;
+    }
+  }
+</style>
 
 <div class="modal-overlay" id="entryModal">
-
-  <div class="modal-box modal-box-large">
-
-    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
-
-      <div class="modal-header-title" id="entryModalTitle">Employee Detail Entry</div>
-
-      <div style="display: flex; align-items: center; gap: 8px;">
-
-        <button type="button" class="btn-modal-voice-toggle" id="btnEntryModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
-
-          <span class="voice-icon">🔊</span>
-
-          <span class="voice-text">Audio: On</span>
-
-        </button>
-
-        <button class="modal-close-btn" id="closeEntryModal">&times;</button>
-
+  <div class="modal-box modal-box-employee-entry">
+    <div class="modal-header emp-modal-header">
+      <div class="emp-modal-header-left">
+        <div class="emp-modal-title-row">
+          <div class="modal-header-title" id="entryModalTitle">Employee Details Entry</div>
+          <span class="emp-pill emp-pill-gray" id="entryModalTopBadge">NEW EMPLOYEE</span>
+        </div>
+        <div class="emp-modal-subtitle">Fields marked <span class="required">*</span> are required. Optional details can be added later.</div>
       </div>
-
+      <div class="emp-modal-header-right">
+        <button type="button" class="btn-modal-voice-toggle" id="btnEntryModalToggleVoice" title="Toggle voice guidance" style="padding: 4px 10px; font-size: 11.5px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+          <span class="voice-icon">🔊</span>
+          <span class="voice-text">Audio: On</span>
+        </button>
+        <button type="button" class="modal-close-btn" id="closeEntryModal" aria-label="Close modal">&times;</button>
+      </div>
     </div>
 
-    
-
     <form id="employeeForm" enctype="multipart/form-data">
-
       <input type="hidden" id="formEmployeeId" name="id">
 
-      
-
-      <div class="modal-body">
-
-        <div class="form-grid">
-
-          <!-- Row 1 -->
-
-          <div class="form-group">
-
-            <label class="form-label">Employee Name<span class="required">*</span></label>
-
-            <input type="text" class="form-input" id="inputName" name="employee_name" placeholder="Name" required>
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label">Department<span class="required">*</span></label>
-
-            <input type="text" class="form-input" id="inputDepartment" name="department" placeholder="Department (e.g. Production, IT, HR)" required>
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label">Designation<span class="required">*</span></label>
-
-            <input type="text" class="form-input" id="inputDesignation" name="designation" placeholder="Type/Select Designation" required>
-
-          </div>
-
-
-
-          <!-- Row 2: Contact & Employee Status -->
-
-          <div class="form-group">
-
-            <label class="form-label">Mobile Number<span class="required">*</span></label>
-
-            <input type="text" class="form-input" id="inputMobile" name="mobile_number" placeholder="Number" required>
-
-          </div>
-
-          <div class="form-group" id="groupEmailField">
-
-            <label class="form-label">Email ID<span id="emailRequiredMarker" class="required">*</span></label>
-
-            <div class="email-input-wrapper" style="position: relative; display: flex; align-items: center; width: 100%;">
-
-              <input type="email" class="form-input" id="inputEmail" name="email_id" placeholder="Email ID (e.g. employee@company.com)" style="padding-right: 68px; width: 100%; box-sizing: border-box;" required>
-
-              <!-- Sliding Toggle Switch -->
-
-              <label class="email-toggle-container" id="emailToggleContainer" title="Toggle email requirement (ON = Required, OFF = Optional/Disabled)"
-
-                     style="position: absolute; right: 7px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; z-index: 5; margin: 0;">
-
-                <span class="email-toggle-state-text" id="emailToggleStateText" style="font-size: 10px; font-weight: 700; color: #10b981; letter-spacing: 0.5px; transition: color 0.2s;">ON</span>
-
-                <span class="email-switch" title="Toggle Email Requirement">
-
-                  <input type="checkbox" id="toggleEmailSwitch" checked>
-
-                  <span class="email-slider" id="emailSlider"></span>
-
-                </span>
-
-              </label>
-
+      <div class="modal-body emp-modal-body">
+        
+        <!-- SECTION 01: Personal Details -->
+        <div class="emp-section-card">
+          <div class="emp-section-header">
+            <div class="emp-section-header-left">
+              <span class="emp-section-num">01</span>
+              <div>
+                <div class="emp-section-title">Personal Details</div>
+                <div class="emp-section-subtitle">Basic employee information and contact details</div>
+              </div>
             </div>
+          </div>
+          <div class="emp-section-grid emp-grid-3">
+            <div class="form-group">
+              <label class="form-label" for="inputName">Employee Name<span class="required">*</span></label>
+              <input type="text" class="form-input" id="inputName" name="employee_name" placeholder="Enter full name" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputMobile">Mobile Number<span class="required">*</span></label>
+              <input type="text" class="form-input" id="inputMobile" name="mobile_number" placeholder="Enter mobile number" required>
+            </div>
+            <div class="form-group" id="groupEmailField">
+              <label class="form-label" for="inputEmail">Email ID<span id="emailRequiredMarker" class="required">*</span></label>
+              <div class="email-input-wrapper" style="position: relative; display: flex; align-items: center; width: 100%;">
+                <input type="email" class="form-input" id="inputEmail" name="email_id" placeholder="employee@example.com" style="padding-right: 68px; width: 100%; box-sizing: border-box;" required>
+                <label class="email-toggle-container" id="emailToggleContainer" title="Toggle email requirement (ON = Required, OFF = Optional/Disabled)" style="position: absolute; right: 7px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; z-index: 5; margin: 0;">
+                  <span class="email-toggle-state-text" id="emailToggleStateText" style="font-size: 10px; font-weight: 700; color: #10b981; letter-spacing: 0.5px; transition: color 0.2s;">ON</span>
+                  <span class="email-switch" title="Toggle Email Requirement">
+                    <input type="checkbox" id="toggleEmailSwitch" checked>
+                    <span class="email-slider" id="emailSlider"></span>
+                  </span>
+                </label>
+              </div>
+              <input type="hidden" id="inputNoEmail" name="no_email" value="0">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputDob">Date of Birth</label>
+              <input type="date" class="form-input" id="inputDob" name="date_of_birth" placeholder="mm/dd/yyyy">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputAadhar">Aadhaar Number</label>
+              <input type="text" class="form-input" id="inputAadhar" name="aadhar_number" placeholder="12-digit Aadhaar number">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputEmergency">Emergency Contact</label>
+              <input type="text" class="form-input" id="inputEmergency" name="emergency_contact" placeholder="Emergency mobile number">
+            </div>
+          </div>
+        </div>
 
-            <input type="hidden" id="inputNoEmail" name="no_email" value="0">
-
+        <!-- SECTION 02: Employment Details -->
+        <div class="emp-section-card">
+          <div class="emp-section-header">
+            <div class="emp-section-header-left">
+              <span class="emp-section-num">02</span>
+              <div>
+                <div class="emp-section-title">Employment Details</div>
+                <div class="emp-section-subtitle">Department, role, employee status, and joining date</div>
+              </div>
+            </div>
+          </div>
+          <div class="emp-section-grid emp-grid-3">
+            <div class="form-group">
+              <label class="form-label" for="inputDepartment">Department<span class="required">*</span></label>
+              <input type="text" class="form-input" id="inputDepartment" name="department" placeholder="Select or enter department" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputDesignation">Designation<span class="required">*</span></label>
+              <input type="text" class="form-input" id="inputDesignation" name="designation" placeholder="Enter designation" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputStatus">Employee Status<span class="required">*</span></label>
+              <select class="form-input" id="inputStatus" name="status" required>
+                <option value="Active" selected>Active (Counts towards Quota)</option>
+                <option value="Inactive">Inactive (Unlimited / Quota Exempt)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputEmployeeType">Employee Type<span class="required">*</span></label>
+              <select class="form-input" id="inputEmployeeType" name="employee_type" required>
+                <option value="standard" selected>Standard Employee (Office / Industrial)</option>
+                {% if company_modules and company_modules.field_worker %}
+                <option value="field_worker">🏃 Field Worker (GPS Tracked / Site Visits)</option>
+                {% endif %}
+              </select>
+            </div>
+            {% if company_modules and company_modules.branch_company and branches and branches|length > 0 %}
+            <div class="form-group" id="groupBranchAssign">
+              <label class="form-label" for="inputBranchId">Assigned Branch Location</label>
+              <select class="form-input" id="inputBranchId" name="branch_id" data-default-branch="{{ active_branch_id or '' }}">
+                <option value="HOME" {% if active_branch_id == 'HOME' or not active_branch_id or active_branch_id == 'ALL' %}selected{% endif %}>🏠 Home Branch (Head Office / Initial Company)</option>
+                {% for b in branches or [] %}
+                <option value="{{ b.id }}" {% if active_branch_id and (active_branch_id == b.id or active_branch_id == b.branch_id) %}selected{% endif %}>📍 {{ b.branch_name }} ({{ b.district or 'Hub' }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% endif %}
+            <div class="form-group">
+              <label class="form-label" for="inputJoiningDate">Joining Date</label>
+              <input type="date" class="form-input" id="inputJoiningDate" name="joining_date" placeholder="mm/dd/yyyy">
+            </div>
           </div>
 
-          <div class="form-group">
-
-            <label class="form-label">Employee Status<span class="required">*</span></label>
-
-            <select class="form-input" id="inputStatus" name="status" required>
-
-              <option value="Active" selected>Active (Counts towards Quota)</option>
-
-              <option value="Inactive">Inactive (Unlimited / Quota Exempt)</option>
-
-            </select>
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label">Employee Type<span class="required">*</span></label>
-
-            <select class="form-input" id="inputEmployeeType" name="employee_type" required>
-
-              <option value="standard" selected>🏢 Standard Employee (Office / In-House)</option>
-
-              {% if company_modules and company_modules.field_worker %}
-
-              <option value="field_worker">🏃 Field Worker (GPS Tracked / Site Visits)</option>
-
-              {% endif %}
-
-            </select>
-
-          </div>
-
-          {% if company_modules and company_modules.branch_company and branches and branches|length > 0 %}
-
-          <div class="form-group" id="groupBranchAssign">
-
-            <label class="form-label">Assigned Branch Location</label>
-
-            <select class="form-input" id="inputBranchId" name="branch_id" data-default-branch="{{ active_branch_id or '' }}">
-
-              <option value="HOME" {% if active_branch_id == 'HOME' or not active_branch_id or active_branch_id == 'ALL' %}selected{% endif %}>🏠 Home Branch (Head Office / Initial Company)</option>
-
-              {% for b in branches or [] %}
-
-              <option value="{{ b.id }}" {% if active_branch_id and (active_branch_id == b.id or active_branch_id == b.branch_id) %}selected{% endif %}>📍 {{ b.branch_name }} ({{ b.district or 'Hub' }})</option>
-
-              {% endfor %}
-
-            </select>
-
-          </div>
-
-          {% endif %}
-
-
-
-          <!-- Contextual Field Worker Settings (Visible when Field Worker is selected) -->
-
-          <div class="form-group" id="groupFieldWorkerSettings" style="display: none; grid-column: 1 / -1; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 14px; margin-top: 4px;">
-
+          <!-- Contextual Field Worker Settings -->
+          <div class="form-group" id="groupFieldWorkerSettings" style="display: none; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 14px; margin-top: 14px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-
               <div style="display: flex; align-items: center; gap: 8px;">
-
                 <span style="font-size: 18px;">🏃</span>
-
                 <span style="font-weight: 700; color: #166534; font-size: 13px;">Field Worker Telemetry &amp; Compensation Settings</span>
-
               </div>
-
               <span style="font-size: 11px; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 12px; font-weight: 700;">Enrolled in Field Worker Module</span>
-
             </div>
-
             <div style="font-size: 11.5px; color: #166534; margin-bottom: 12px; line-height: 1.4;">
-
               This employee is enrolled as an active Field Worker with real-time GPS telemetry, client visit tracking, detour anomaly AI detection, and automated travel reimbursement.
-
             </div>
-
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-
               <div>
-
                 <label class="form-label" style="font-size: 11.5px; color: #14532d; font-weight: 600;">Assigned Territory / Zone</label>
-
                 <input type="text" class="form-input" id="inputTerritoryZone" name="territory_zone" placeholder="e.g. Coimbatore North, Metro Area">
-
               </div>
-
               <div>
-
                 <label class="form-label" style="font-size: 11.5px; color: #14532d; font-weight: 600;">Per-Visit Incentive (₹)</label>
-
                 <input type="number" step="0.01" min="0" class="form-input" id="inputVisitIncentive" name="per_visit_incentive" placeholder="e.g. 150.00">
-
               </div>
-
               <div>
-
                 <label class="form-label" style="font-size: 11.5px; color: #14532d; font-weight: 600;">KM Allowance Rate (₹/KM)</label>
-
                 <input type="number" step="0.01" min="0" class="form-input" id="inputKmAllowance" name="km_allowance_rate" placeholder="e.g. 4.50">
-
               </div>
-
             </div>
-
           </div>
-
-
-
-          <!-- Row 3: Salary Structure -->
-
-          <div class="form-group">
-
-            <label class="form-label" for="inputSalaryType">Salary Basis / Type<span class="required">*</span></label>
-
-            <select class="form-input" id="inputSalaryType" name="salary_type" required>
-
-              <option value="hourly">Hourly-Based</option>
-
-              <option value="daily" selected>Day-Based</option>
-
-              <option value="half_day">Half-Day-Based</option>
-
-            </select>
-
-            <div id="salaryBasisNoShiftNote" style="display: none; font-size: 10.5px; color: #0f766e; font-weight: 600; margin-top: 4px;">
-              Locked to Hourly-Based (Punch Hours Only)
-            </div>
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label">Day Salary</label>
-
-            <input type="number" step="0.01" min="0" class="form-input" id="inputDaySalary" name="day_salary" placeholder="Amount (e.g. 800)">
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label">Half Day Salary</label>
-
-            <input type="number" step="0.01" min="0" class="form-input" id="inputHalfDaySalary" name="half_day_salary" placeholder="Amount (e.g. 400)">
-
-          </div>
-
-
-
-          <!-- Row 4: Hourly & Personal Dates -->
-
-          <div class="form-group">
-
-            <label class="form-label">Hourly Salary</label>
-
-            <input type="number" step="0.01" min="0" class="form-input" id="inputHourlySalary" name="hourly_salary" placeholder="Rate in Decimals (e.g. 150.50)">
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label">Date of Birth</label>
-
-            <input type="date" class="form-input" id="inputDob" name="date_of_birth" placeholder="mm/dd/yyyy">
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label">Joining Date</label>
-
-            <input type="date" class="form-input" id="inputJoiningDate" name="joining_date" placeholder="mm/dd/yyyy">
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label">Emergency Contact</label>
-
-            <input type="text" class="form-input" id="inputEmergency" name="emergency_contact" placeholder="Number">
-
-          </div>
-
-
-
-          <!-- Row 5: Shift Details -->
-
-          <div class="form-group" id="sectionNoShiftToggle" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 4px;">
-
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
-
-              <label class="form-label" for="toggleNoShiftSwitch" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Shift Schedule Policy</label>
-
-              <span id="noShiftBadge" role="status" aria-live="polite" style="font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">OFF — Standard Shift Active</span>
-
-            </div>
-
-            <div style="background: #f8fafc; padding: 11px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
-
-              <label for="toggleNoShiftSwitch" style="display: flex; align-items: center; justify-content: space-between; gap: 14px; cursor: pointer; user-select: none; margin: 0;">
-
-                <div>
-
-                  <div style="font-size: 12.5px; font-weight: 700; color: #1e293b;">
-
-                    No Fixed Shift (Punch Hours Only)
-
-                  </div>
-
-                  <div id="noShiftToggleDesc" style="font-size: 11px; color: #64748b; margin-top: 2px; line-height: 1.4;">
-
-                    When enabled, Shift Start, Shift End, and Shift Hours display &quot;-&quot; and salary is calculated strictly from attendance punch records and punch hours using Hourly Salary.
-
-                  </div>
-
-                </div>
-
-                <span style="display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;">
-
-                  <span id="noShiftStateText" style="font-size: 11px; font-weight: 800; color: #64748b; min-width: 24px; text-align: right;">OFF</span>
-
-                  <span class="email-switch no-shift-switch" title="Toggle No Fixed Shift (Punch Hours Only)">
-
-                    <input type="checkbox" id="toggleNoShiftSwitch" switch aria-describedby="noShiftToggleDesc">
-
-                    <span class="email-slider"></span>
-
-                  </span>
-
-                </span>
-
-              </label>
-
-            </div>
-
-            <input type="hidden" id="inputNoShift" name="no_shift" value="0">
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label" for="inputShiftStart">Shift Start</label>
-
-            <input type="text" class="form-input" id="inputShiftStart" name="shift_start" placeholder="09:00 AM" value="09:00 AM">
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label" for="inputShiftEnd">Shift End</label>
-
-            <input type="text" class="form-input" id="inputShiftEnd" name="shift_end" placeholder="06:00 PM" value="06:00 PM">
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label" for="inputShiftHours">Shift Hours</label>
-
-            <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="e.g. 09:00 or 00:00" value="09:00">
-
-          </div>
-
-
-
-          <!-- Row 6: Identity & Banking -->
-
-          <div class="form-group">
-
-            <label class="form-label">Aadhar Number</label>
-
-            <input type="text" class="form-input" id="inputAadhar" name="aadhar_number" placeholder="Number">
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label">Account Holder Name</label>
-
-            <input type="text" class="form-input" id="inputAccountHolder" name="account_holder_name" placeholder="Account Holder Name">
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label">Account Number</label>
-
-            <input type="text" class="form-input" id="inputAccountNumber" name="account_number" placeholder="Account Number">
-
-          </div>
-
-
-
-          <!-- Row 7: Banking & UPI -->
-
-          <div class="form-group">
-
-            <label class="form-label">IFSC Code</label>
-
-            <input type="text" class="form-input" id="inputIfsc" name="ifsc_code" placeholder="IFSC Code">
-
-          </div>
-
-          <div class="form-group">
-
-            <label class="form-label">UPI Number</label>
-
-            <input type="text" class="form-input" id="inputUpi" name="upi_number" placeholder="UPI Number">
-
-          </div>
-
-
-
-          <!-- Row 7: Register Face & Photo -->
-
-          <div class="form-group" style="grid-column: span 3;">
-
-            <label class="form-label">Register Face & Photo</label>
-
-            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-
-              <input type="file" class="form-input form-file-input" id="inputPhoto" name="photo" accept="image/*" style="flex: 1; min-width: 160px;">
-
-              <button type="button" id="btnCaptureface" class="btn-submit" style="padding: 7px 14px; font-size: 12px; white-space: nowrap; background-color: #3d6078;">📷 Capture Face</button>
-
-            </div>
-
-            <div id="captureStatus" style="font-size: 12px; color: #198754; font-weight: 700; margin-top: 6px;"></div>
-
-            <div id="currentPhotoPreview" style="display: none; margin-top: 8px; align-items: center; gap: 12px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
-
-              <img id="editPhotoThumb" src="" alt="Profile Photo" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #3d6078;">
-
-              <span id="editPhotoNote" style="font-size: 11px; color: #475569; font-weight: 500;">Profile photo attached. Leave file input empty to keep this photo, or capture/upload a new one to replace.</span>
-
-            </div>
-
-          </div>
-
-
-
-          <!-- Row 8: Employee Documents -->
-
-          <div class="form-group" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
-
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-
+        </div>
+
+        <!-- SECTION 03: Salary & Payroll -->
+        <div class="emp-section-card">
+          <div class="emp-section-header">
+            <div class="emp-section-header-left">
+              <span class="emp-section-num">03</span>
               <div>
-
-                <label class="form-label" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Employee Documents</label>
-
-                <div style="font-size: 11px; color: #64748b; font-weight: 500; margin-top: 2px;">
-
-                  Attach identity proofs, certificates, and employment documents (PDF, DOCX, JPG, PNG, etc.)
-
-                </div>
-
+                <div class="emp-section-title">Salary &amp; Payroll</div>
+                <div class="emp-section-subtitle">Configure salary calculation and payroll rates</div>
               </div>
-
-              <button type="button" id="btnAddDocRowTop" class="btn-submit" style="padding: 5px 12px; font-size: 11px; background-color: #3d6078; display: inline-flex; align-items: center; gap: 4px;">
-
-                <span>+ Add Document</span>
-
-              </button>
-
             </div>
-
-            <div id="employeeDocsContainer" style="display: flex; flex-direction: column; gap: 8px;">
-
-              <!-- Dynamic document rows rendered via JavaScript -->
-
+            <div class="emp-section-header-right">
+              <span id="salaryTypeBadge" class="emp-pill emp-pill-green">Hourly Based</span>
             </div>
-
           </div>
-
-
-
-          <!-- Row: Overtime Calculation Criteria -->
-
-          <div class="form-group" id="sectionOvertimeCriteria" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
-
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
-
-              <label class="form-label" for="inputCalculateOvertime" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Overtime Calculation</label>
-
-              <span id="overtimeToggleBadge" style="font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">OFF — Shift Hours Only</span>
-
+          <div class="emp-section-grid emp-grid-3">
+            <div class="form-group">
+              <label class="form-label" for="inputSalaryType">Salary Basis / Type<span class="required">*</span></label>
+              <select class="form-input" id="inputSalaryType" name="salary_type" required>
+                <option value="hourly">Hourly-Based</option>
+                <option value="daily" selected>Day-Based</option>
+                <option value="half_day">Half-Day-Based</option>
+              </select>
+              <div id="salaryBasisNoShiftNote" style="display: none; font-size: 10.5px; color: #0f766e; font-weight: 600; margin-top: 4px;">
+                Locked to Hourly-Based while No Fixed Shift is enabled
+              </div>
             </div>
+            <div class="form-group">
+              <label class="form-label" for="inputHourlySalary">Hourly Salary<span class="required">*</span></label>
+              <input type="number" step="0.01" min="0" class="form-input" id="inputHourlySalary" name="hourly_salary" placeholder="e.g. 150.50">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputDaySalary">Day Salary</label>
+              <input type="number" step="0.01" min="0" class="form-input" id="inputDaySalary" name="day_salary" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputHalfDaySalary">Half Day Salary</label>
+              <input type="number" step="0.01" min="0" class="form-input" id="inputHalfDaySalary" name="half_day_salary" placeholder="0.00">
+            </div>
+          </div>
+        </div>
 
-            <div style="background: #f8fafc; padding: 12px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
-
-              <label for="inputCalculateOvertime" style="display: flex; align-items: center; justify-content: space-between; gap: 14px; cursor: pointer; user-select: none; margin: 0;">
-
-                <div>
-
-                  <div style="font-size: 12.5px; font-weight: 700; color: #1e293b;">
-
-                    Calculate Overtime Past Shift Hours
-
+        <!-- SECTION 04: Shift & Overtime -->
+        <div class="emp-section-card">
+          <div class="emp-section-header">
+            <div class="emp-section-header-left">
+              <span class="emp-section-num">04</span>
+              <div>
+                <div class="emp-section-title">Shift &amp; Overtime</div>
+                <div class="emp-section-subtitle">Control working schedule and overtime calculations</div>
+              </div>
+            </div>
+            <div class="emp-section-header-right">
+              <span id="shiftTypeBadge" class="emp-pill emp-pill-green">Punch Hours Only</span>
+            </div>
+          </div>
+          <div class="emp-section-stack">
+            <!-- No Fixed Shift Banner -->
+            <div class="emp-inner-card" id="sectionNoShiftToggle">
+              <label for="toggleNoShiftSwitch" class="emp-inner-card-label">
+                <div class="emp-inner-card-text">
+                  <div class="emp-inner-card-title">No Fixed Shift (Punch Hours Only)</div>
+                  <div class="emp-inner-card-desc" id="noShiftToggleDesc">
+                    When enabled, shift timings are not required. Pay is calculated from actual attendance punch hours using the hourly salary rate.
                   </div>
-
-                  <div id="overtimeToggleDesc" style="font-size: 11px; color: #64748b; margin-top: 2px; line-height: 1.4;">
-
-                    When enabled, this employee will not be auto timed-out at Shift End; extra hours worked past Shift Hours are calculated as Overtime in Payslip &amp; Salary Report. When disabled, payable hours stop at Shift Hours.
-
-                  </div>
-
                 </div>
-
-                <span style="display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;">
-
-                  <span id="overtimeStateText" style="font-size: 11px; font-weight: 800; color: #64748b; min-width: 24px; text-align: right;">OFF</span>
-
-                  <span class="email-switch overtime-switch">
-
-                    <input type="checkbox" id="inputCalculateOvertime" name="calculate_overtime" value="true" switch aria-describedby="overtimeToggleDesc">
-
+                <div class="emp-switch-wrapper">
+                  <span id="noShiftStateText" class="emp-switch-state-text">OFF</span>
+                  <span class="email-switch no-shift-switch" title="Toggle No Fixed Shift (Punch Hours Only)">
+                    <input type="checkbox" id="toggleNoShiftSwitch" switch aria-describedby="noShiftToggleDesc">
                     <span class="email-slider"></span>
-
                   </span>
-
-                </span>
-
-              </label>
-
-            </div>
-
-          </div>
-
-
-
-          <!-- Row: Attendance & Geofencing Calculation -->
-
-          <div class="form-group" id="sectionAttendanceGeofencingCriteria" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
-
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-
-              <label class="form-label" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Attendance &amp; Geofencing Criteria</label>
-
-              <span style="font-size: 11px; color: #64748b; font-weight: 500;">Geofence distance validation policy</span>
-
-            </div>
-
-            <div style="background: #f8fafc; padding: 12px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
-
-              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; user-select: none; margin: 0;">
-
-                <input type="checkbox" id="inputCalculateProperEntries" name="calculate_proper_entries" value="true" checked style="accent-color: #3d6078; width: 17px; height: 17px; margin-top: 2px; cursor: pointer;">
-
-                <div>
-
-                  <div style="font-size: 12.5px; font-weight: 700; color: #1e293b;">
-
-                    Apply Geofence Validation
-
-                  </div>
-
-                  <div style="font-size: 11px; color: #64748b; margin-top: 2px; line-height: 1.4;">
-
-                    When enabled, attendance within the geofence radius is marked as Proper; attendance outside the radius is marked as Improper. When disabled, all attendance entries are marked as Proper without distance validation.
-
-                  </div>
-
                 </div>
-
               </label>
-
+              <input type="hidden" id="inputNoShift" name="no_shift" value="0">
             </div>
 
+            <!-- Shift Times Row -->
+            <div class="emp-section-grid emp-grid-3">
+              <div class="form-group">
+                <label class="form-label" for="inputShiftStart">Shift Start</label>
+                <input type="text" class="form-input" id="inputShiftStart" name="shift_start" placeholder="--:-- --" value="09:00 AM">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="inputShiftEnd">Shift End</label>
+                <input type="text" class="form-input" id="inputShiftEnd" name="shift_end" placeholder="--:-- --" value="06:00 PM">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="inputShiftHours">Shift Hours</label>
+                <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="Auto-calculated" value="09:00">
+              </div>
+            </div>
+
+            <!-- Overtime Calculation Banner -->
+            <div class="emp-inner-card" id="sectionOvertimeCriteria">
+              <label for="inputCalculateOvertime" class="emp-inner-card-label">
+                <div class="emp-inner-card-text">
+                  <div class="emp-inner-card-title">Calculate Overtime Past Shift Hours</div>
+                  <div class="emp-inner-card-desc" id="overtimeToggleDesc">
+                    Not applicable while No Fixed Shift is enabled. With a fixed shift, extra hours can be calculated as overtime.
+                  </div>
+                </div>
+                <div class="emp-switch-wrapper">
+                  <span id="overtimeStateText" class="emp-switch-state-text">OFF</span>
+                  <span class="email-switch overtime-switch">
+                    <input type="checkbox" id="inputCalculateOvertime" name="calculate_overtime" value="true" switch aria-describedby="overtimeToggleDesc">
+                    <span class="email-slider"></span>
+                  </span>
+                </div>
+              </label>
+            </div>
           </div>
+        </div>
 
-
-
-          <!-- Row 9: Employee Permissions -->
-
-          <div class="form-group" style="grid-column: span 3; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 6px;">
-
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-
-              <label class="form-label" style="font-weight: 700; color: #1e293b; margin: 0; font-size: 13px;">Employee Permissions</label>
-
-              <span style="font-size: 11px; color: #64748b; font-weight: 500;">Select sections visible in employee portal</span>
-
+        <!-- SECTION 05: Bank Details -->
+        <div class="emp-section-card">
+          <div class="emp-section-header">
+            <div class="emp-section-header-left">
+              <span class="emp-section-num">05</span>
+              <div>
+                <div class="emp-section-title">Bank Details</div>
+                <div class="emp-section-subtitle">Salary payment and bank transfer information</div>
+              </div>
             </div>
-
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; background: #f8fafc; padding: 12px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
-
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
-
-                <input type="checkbox" id="permPunchAttendance" name="perm_punch_attendance" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
-
-                <span>Punch Attendance</span>
-
-              </label>
-
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
-
-                <input type="checkbox" id="permAttendanceHistory" name="perm_attendance_history" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
-
-                <span>Attendance History</span>
-
-              </label>
-
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
-
-                <input type="checkbox" id="permMonthlyPayslip" name="perm_monthly_payslip" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
-
-                <span>Monthly Payslip</span>
-
-              </label>
-
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
-
-                <input type="checkbox" id="permEmployeeCredentials" name="perm_employee_credentials" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
-
-                <span>Employee Credentials</span>
-
-              </label>
-
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
-
-                <input type="checkbox" id="permLeavePermission" name="perm_leave_permission" value="true" checked style="accent-color: #3d6078; width: 16px; height: 16px; cursor: pointer;">
-
-                <span>Leave &amp; Permissions</span>
-
-              </label>
-
+            <div class="emp-section-header-right">
+              <span class="emp-pill emp-pill-gray">OPTIONAL</span>
             </div>
-
           </div>
+          <div class="emp-section-grid emp-grid-3">
+            <div class="form-group">
+              <label class="form-label" for="inputAccountHolder">Account Holder Name</label>
+              <input type="text" class="form-input" id="inputAccountHolder" name="account_holder_name" placeholder="Name as per bank records">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputAccountNumber">Account Number</label>
+              <input type="text" class="form-input" id="inputAccountNumber" name="account_number" placeholder="Enter account number">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputIfsc">IFSC Code</label>
+              <input type="text" class="form-input" id="inputIfsc" name="ifsc_code" placeholder="E.G. SBIN0001234">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputUpi">UPI Number / ID</label>
+              <input type="text" class="form-input" id="inputUpi" name="upi_number" placeholder="Mobile number or UPI ID">
+            </div>
+          </div>
+        </div>
 
+        <!-- SECTION 06: Photo & Documents -->
+        <div class="emp-section-card">
+          <div class="emp-section-header">
+            <div class="emp-section-header-left">
+              <span class="emp-section-num">06</span>
+              <div>
+                <div class="emp-section-title">Photo &amp; Documents</div>
+                <div class="emp-section-subtitle">Register employee face and attach identity or employment proofs</div>
+              </div>
+            </div>
+            <div class="emp-section-header-right">
+              <span class="emp-pill emp-pill-gray">OPTIONAL</span>
+            </div>
+          </div>
+          <div class="emp-section-stack">
+            <!-- Face & Photo Registration Box -->
+            <div class="emp-face-box">
+              <div class="emp-face-left">
+                <div class="emp-face-icon-wrap">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
+                </div>
+                <div>
+                  <div class="emp-face-title">Employee Face &amp; Photo</div>
+                  <div class="emp-face-desc">Upload an image or capture a face photo</div>
+                </div>
+              </div>
+              <div class="emp-face-right">
+                <input type="file" id="inputPhoto" name="photo" accept="image/*" style="display: none;">
+                <button type="button" class="btn-emp-action" id="btnTriggerPhotoUpload">
+                  <span>&uarr; Upload Photo</span>
+                </button>
+                <button type="button" class="btn-emp-action" id="btnCaptureface">
+                  <span>&#x1F4F7; Capture Face</span>
+                </button>
+              </div>
+            </div>
+
+            <div id="captureStatus" style="font-size: 12px; color: #16a34a; font-weight: 700; margin-top: 4px;"></div>
+            <div id="currentPhotoPreview" style="display: none; margin-top: 8px; align-items: center; gap: 12px; background: #f8fafc; padding: 10px 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
+              <img id="editPhotoThumb" src="" alt="Profile Photo" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #3b82f6;">
+              <span id="editPhotoNote" style="font-size: 11.5px; color: #475569; font-weight: 500;">Current registered photo. Leave file input empty to keep this photo, or capture/upload a new one to replace.</span>
+            </div>
+
+            <!-- Documents Sub-Section -->
+            <div class="emp-docs-section">
+              <div class="emp-docs-header">
+                <div>
+                  <div class="emp-docs-title">Employee Documents</div>
+                  <div class="emp-docs-subtitle">Aadhaar, certificates, employment records (PDF, DOCX, JPG, PNG)</div>
+                </div>
+                <button type="button" id="btnAddDocRowTop" class="btn-emp-add-doc">
+                  <span>+ Add Document</span>
+                </button>
+              </div>
+              <div id="employeeDocsContainer" class="emp-docs-container">
+                <!-- Dynamic document rows rendered via JavaScript -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 07: Attendance & Geofencing -->
+        <div class="emp-section-card" id="sectionAttendanceGeofencingCriteria">
+          <div class="emp-section-header">
+            <div class="emp-section-header-left">
+              <span class="emp-section-num">07</span>
+              <div>
+                <div class="emp-section-title">Attendance &amp; Geofencing</div>
+                <div class="emp-section-subtitle">Set the location validation rule for this employee</div>
+              </div>
+            </div>
+            <div class="emp-section-header-right">
+              <span id="geofenceStatusBadge" class="emp-pill emp-pill-green">Validation On</span>
+            </div>
+          </div>
+          <div class="emp-inner-card">
+            <label class="emp-geofence-label">
+              <input type="checkbox" id="inputCalculateProperEntries" name="calculate_proper_entries" value="true" checked class="emp-checkbox">
+              <div>
+                <div class="emp-inner-card-title">Apply Geofence Validation</div>
+                <div class="emp-inner-card-desc">
+                  When enabled, attendance within the allowed geofence radius is marked <strong>Proper</strong>, and outside the radius is marked <strong>Improper</strong>. When disabled, attendance is marked <strong>Proper</strong> without checking distance.
+                </div>
+                <div id="geofenceCaptionText" class="emp-geofence-caption">
+                  Enabled — Validate Employee Location
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- SECTION 08: Employee Portal Permissions -->
+        <div class="emp-section-card">
+          <div class="emp-section-header">
+            <div class="emp-section-header-left">
+              <span class="emp-section-num">08</span>
+              <div>
+                <div class="emp-section-title">Employee Portal Permissions</div>
+                <div class="emp-section-subtitle">Choose which modules this employee can access</div>
+              </div>
+            </div>
+          </div>
+          <div class="emp-perms-grid">
+            <label class="emp-perm-card">
+              <input type="checkbox" id="permPunchAttendance" name="perm_punch_attendance" value="true" checked class="emp-checkbox">
+              <span class="emp-perm-label">Punch Attendance</span>
+            </label>
+            <label class="emp-perm-card">
+              <input type="checkbox" id="permAttendanceHistory" name="perm_attendance_history" value="true" checked class="emp-checkbox">
+              <span class="emp-perm-label">Attendance History</span>
+            </label>
+            <label class="emp-perm-card">
+              <input type="checkbox" id="permMonthlyPayslip" name="perm_monthly_payslip" value="true" checked class="emp-checkbox">
+              <span class="emp-perm-label">Monthly Payslip</span>
+            </label>
+            <label class="emp-perm-card">
+              <input type="checkbox" id="permEmployeeCredentials" name="perm_employee_credentials" value="true" checked class="emp-checkbox">
+              <span class="emp-perm-label">Employee Credentials</span>
+            </label>
+            <label class="emp-perm-card">
+              <input type="checkbox" id="permLeavePermission" name="perm_leave_permission" value="true" checked class="emp-checkbox">
+              <span class="emp-perm-label">Leave &amp; Permissions</span>
+            </label>
+          </div>
         </div>
 
       </div>
 
-
-
-      <div class="modal-footer modal-footer-left" style="display: flex; gap: 8px;">
-
-        <button type="submit" class="btn-submit" id="btnSubmitForm">Submit</button>
-
-        <button type="button" class="btn-reset" id="btnCancelEntryModal" style="background-color: #64748b; color: #ffffff;">Cancel</button>
-
-        <button type="button" class="btn-reset" id="btnResetForm" style="background-color: #e2e8f0; color: #475569;">Reset</button>
-
+      <div class="modal-footer emp-modal-footer">
+        <div class="emp-footer-brand">ARGUS ATTENDANCE &bull; EMPLOYEE MANAGEMENT</div>
+        <div class="emp-footer-actions">
+          <button type="button" class="btn-emp-footer-cancel" id="btnCancelEntryModal">Cancel</button>
+          <button type="button" class="btn-emp-footer-reset" id="btnResetForm">Reset</button>
+          <button type="submit" class="btn-emp-footer-submit" id="btnSubmitForm">&#x2713; Save Employee</button>
+        </div>
       </div>
-
     </form>
-
   </div>
-
 </div>
 
 
