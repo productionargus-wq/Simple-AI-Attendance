@@ -3418,8 +3418,10 @@ function renderChapterMockup(idx) {
   viewport.innerHTML = `
     <!-- Top Mini Navbar -->
     <div class="mockup-top-nav">
-      <div class="mockup-nav-left">
-        <img src="/static/images/argus_logo_rectangular.png?v=20261118_v3" class="mockup-nav-logo" alt="Argus Attendance Intelligence" style="height: 22px; width: auto; object-fit: contain;">
+      <div class="mockup-nav-left" style="display: flex; align-items: center; gap: 8px;">
+        <img src="/static/images/argus_square_badge.png?v=20261118_v5" class="brand-square-badge" alt="Argus" style="width: 20px; height: 20px; border-radius: 4px;">
+        <div class="brand-vertical-divider" style="height: 14px;"></div>
+        <span class="brand-text-inline" style="font-size: 10px;">ATTENDANCE INTELLIGENCE</span>
       </div>
       <div class="mockup-nav-title">${escapeHtml(compName)}</div>
       <div class="mockup-nav-right">
