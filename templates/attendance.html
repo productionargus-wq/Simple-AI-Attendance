@@ -138,13 +138,66 @@
       vertical-align: middle;
     }
 
+    .brand-lockup {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      background: transparent !important;
+      color: #ffffff !important;
+    }
+
+    .brand-square-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      object-fit: contain;
+      flex-shrink: 0;
+      display: block;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    }
+
+    .brand-vertical-divider {
+      width: 1.5px;
+      height: 22px;
+      background-color: rgba(255, 255, 255, 0.45);
+      flex-shrink: 0;
+    }
+
+    .brand-lockup.theme-light .brand-vertical-divider {
+      background-color: #cbd5e1 !important;
+    }
+
+    .brand-text-inline {
+      color: #ffffff !important;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+
+    .brand-lockup.theme-light .brand-text-inline {
+      color: #64748b !important;
+    }
+
     .nav-brand {
       display: flex;
       align-items: center;
       gap: 12px;
       text-decoration: none;
+      color: #ffffff !important;
       flex-shrink: 0;
       min-width: 0;
+    }
+
+    .nav-brand:visited, .nav-brand:hover, .nav-brand:active, .nav-brand:focus {
+      color: #ffffff !important;
+      text-decoration: none;
+    }
+
+    .nav-brand .brand-text-inline {
+      color: #ffffff !important;
     }
 
     .nav-logo-badge {
@@ -1457,10 +1510,10 @@
 
   <!-- Top Dark Navy Navbar -->
   <header class="navbar">
-    <a href="/" class="brand-lockup nav-brand" style="display: flex; align-items: center; gap: 10px; text-decoration: none;">
-      <img src="{{ url_for('static', filename='images/argus_square_badge.png') }}?v=20261118_v5" alt="Argus" class="brand-square-badge" style="width: 32px; height: 32px;">
-      <div class="brand-vertical-divider" style="height: 22px;"></div>
-      <span class="brand-text-inline" style="font-size: 13px;">ATTENDANCE INTELLIGENCE</span>
+    <a href="/" class="brand-lockup nav-brand" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #ffffff;">
+      <img src="{{ url_for('static', filename='images/argus_square_badge.png') }}?v=20261118_v5" alt="Argus" class="brand-square-badge" style="width: 32px; height: 32px; border-radius: 7px; box-shadow: 0 1px 4px rgba(0,0,0,0.25);">
+      <div class="brand-vertical-divider" style="width: 1.5px; height: 22px; background-color: rgba(255, 255, 255, 0.45); flex-shrink: 0;"></div>
+      <span class="brand-text-inline" style="color: #ffffff !important; font-size: 14px; font-weight: 800; letter-spacing: 0.8px; white-space: nowrap;">ATTENDANCE INTELLIGENCE</span>
       <div class="nav-title">
         {% if is_branch_kiosk and active_branch %}
           <span class="nav-branch-pill">
@@ -1619,8 +1672,8 @@
       <div class="brand-lockup theme-light" style="display: inline-flex; align-items: center; gap: 8px;">
         <span style="font-size: 11px; color: #64748b; font-weight: 500;">Powered by</span>
         <img src="{{ url_for('static', filename='images/argus_square_badge.png') }}?v=20261118_v5" alt="Argus" class="brand-square-badge" style="width: 22px; height: 22px; border-radius: 4px;">
-        <div class="brand-vertical-divider" style="height: 16px;"></div>
-        <span class="brand-text-inline" style="font-size: 10.5px; color: #64748b;">ATTENDANCE INTELLIGENCE</span>
+        <div class="brand-vertical-divider" style="width: 1.5px; height: 16px; background-color: #cbd5e1; flex-shrink: 0;"></div>
+        <span class="brand-text-inline" style="font-size: 10.5px; color: #64748b !important; font-weight: 800; letter-spacing: 0.5px;">ATTENDANCE INTELLIGENCE</span>
       </div>
 
       <!-- System Administration Tooltip Wrapper (Matching Image 2) -->
