@@ -789,7 +789,7 @@ def render_chapter_8(frame_idx):
         ("Office GPS Geofence Coordinates", "12.9716° N, 77.5946° E (Allowed Radius: 150m)", 260, 280, 700),
         ("Standard Shift Schedule", "09:00 AM - 06:00 PM (Grace Period: 15 mins)", 740, 280, 1210),
         ("Automated Daily Report Email", "director@hexatech.com, hr@hexatech.com", 260, 360, 700),
-        ("Company Logo Branding", "argus_triangle_logo.png (Configured)", 740, 360, 1210)
+        ("Company Logo Branding", "argus_logo_rectangular.png (Configured)", 740, 360, 1210)
     ]
     for lbl, val, gx1, gy1, gx2 in settings:
         draw.text((gx1, gy1), lbl, font=font_bold_12, fill=C_TEXT_MUTED)

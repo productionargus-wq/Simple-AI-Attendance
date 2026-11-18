@@ -828,8 +828,10 @@ def favicon():
         resp = make_response(send_from_directory(icon_dir, 'favicon.ico', mimetype='image/x-icon'))
         resp.headers['Cache-Control'] = 'no-cache, must-revalidate'
         return resp
-    if os.path.exists(os.path.join(icon_dir, 'argus_triangle_logo.png')):
-        return send_from_directory(icon_dir, 'argus_triangle_logo.png', mimetype='image/png')
+    if os.path.exists(os.path.join(icon_dir, 'favicon.png')):
+        return send_from_directory(icon_dir, 'favicon.png', mimetype='image/png')
+    if os.path.exists(os.path.join(icon_dir, 'argus_icon.png')):
+        return send_from_directory(icon_dir, 'argus_icon.png', mimetype='image/png')
     return Response(status=204)
 
 @app.errorhandler(500)

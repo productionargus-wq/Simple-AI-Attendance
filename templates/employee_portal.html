@@ -1072,14 +1072,12 @@
 
   <!-- Portal Navigation Header -->
   <header class="portal-nav">
-    <div class="portal-nav-left">
-      <div class="portal-logo-badge">
-        <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}" alt="Argus" style="width: 22px; height: 22px; object-fit: contain;">
+    <div class="portal-nav-left" style="display: flex; align-items: center; gap: 10px;">
+      <div style="background: #ffffff; border-radius: 6px; padding: 4px 8px; display: inline-flex; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.2);">
+        <img src="{{ url_for('static', filename='images/argus_logo_rectangular.png') }}?v=20261118_v3" alt="Argus Attendance Intelligence" style="height: 22px; width: auto; object-fit: contain;">
       </div>
       <div class="portal-brand-stack">
-        <div class="portal-nav-title">ARGUS <span class="portal-ver-tag">v2.0.0</span></div>
-        <div class="portal-brand-subline">ATTENDANCE INTELLIGENCE</div>
-        <div class="portal-nav-subtitle">EMPLOYEE SELF-SERVICE PORTAL</div>
+        <div class="portal-nav-subtitle" style="font-size: 11px; font-weight: 700; color: #93c5fd; letter-spacing: 0.5px;">EMPLOYEE SELF-SERVICE PORTAL</div>
       </div>
     </div>
 
@@ -1897,7 +1895,7 @@
     </div>
     <div style="display: flex; align-items: center; gap: 6px;">
       <span style="font-size: 11px; color: #64748b; font-weight: 500;">Powered by</span>
-      <img src="{{ url_for('static', filename='images/argus_cnc_logo.png') }}" alt="ARGUS CNC™" style="height: 22px; width: auto; object-fit: contain; vertical-align: middle;">
+      <img src="{{ url_for('static', filename='images/argus_logo_rectangular.png') }}?v=20261118_v3" alt="ARGUS CNC™" style="height: 22px; width: auto; object-fit: contain; vertical-align: middle;">
     </div>
   </footer>
 

@@ -195,6 +195,17 @@ body.modal-open {
     justify-content: center;
   }
 
+  body.sidebar-mini .sidebar-brand-card {
+    display: none !important;
+  }
+
+  body.sidebar-mini .sidebar-brand-mini {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
   body.sidebar-mini .sidebar-brand-box {
     justify-content: center;
     margin-bottom: 0;
@@ -364,6 +375,39 @@ body.modal-open {
   text-align: left;
   padding: 0 4px;
   margin-bottom: 16px;
+}
+
+.sidebar-brand-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  text-decoration: none;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.sidebar-brand-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.sidebar-logo-rect {
+  width: 100%;
+  height: auto;
+  max-height: 42px;
+  object-fit: contain;
+  display: block;
+}
+
+.sidebar-brand-mini {
+  display: none;
+  text-decoration: none;
 }
 
 .sidebar-brand-box {
@@ -6315,6 +6359,14 @@ body {
     gap: 7px;
     text-decoration: none;
     line-height: 1;
+  }
+
+  .mobile-nav-logo-rect {
+    height: 28px;
+    width: auto;
+    max-width: 140px;
+    object-fit: contain;
+    display: block;
   }
 
   .mobile-nav-logo-circle {

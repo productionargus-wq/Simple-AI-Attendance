@@ -10,13 +10,13 @@
 
   <title>{{ session.get('company_name') or 'Argus CNC™' }} - Argus Attendance Intelligence v2.0.0</title>
 
-  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261111_v2">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261118_v3">
 
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261111_v2">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261118_v3">
 
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261111_v2">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}?v=20261118_v3">
 
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261112_tb3_v2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20261118_v3">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/live_captions.css') }}?v=20261111_v2">
 
@@ -244,19 +244,7 @@
 
       <a href="/dashboard" class="mobile-nav-brand" title="Argus Attendance Intelligence">
 
-        <span class="mobile-nav-logo-circle">
-
-          <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}?v=20261111_v2" alt="Argus">
-
-        </span>
-
-        <span class="mobile-nav-brand-text">
-
-          <span class="mobile-brand-title">ARGUS</span>
-
-          <span class="mobile-brand-subtitle">ATTENDANCE INTELLIGENCE</span>
-
-        </span>
+        <img src="{{ url_for('static', filename='images/argus_logo_rectangular.png') }}?v=20261118_v3" alt="Argus Attendance Intelligence" class="mobile-nav-logo-rect">
 
       </a>
 
@@ -504,23 +492,21 @@
 
       <div class="sidebar-header">
 
-        <div class="sidebar-brand-box">
+        <a href="{{ url_for('dashboard') }}" class="sidebar-brand-card" title="Argus Attendance Intelligence">
+
+          <img src="{{ url_for('static', filename='images/argus_logo_rectangular.png') }}?v=20261118_v3" alt="Argus Attendance Intelligence" class="sidebar-logo-rect">
+
+        </a>
+
+        <a href="{{ url_for('dashboard') }}" class="sidebar-brand-mini" title="Argus Attendance Intelligence">
 
           <div class="sidebar-logo-circle">
 
-            <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}?v=20261111_v2" alt="Argus" class="sidebar-logo-img">
+            <img src="{{ url_for('static', filename='images/favicon.png') }}?v=20261118_v3" alt="Argus" class="sidebar-logo-img">
 
           </div>
 
-          <div class="sidebar-brand-text">
-
-            <span class="brand-title">ARGUS</span>
-
-            <span class="brand-subtitle">ATTENDANCE INTELLIGENCE</span>
-
-          </div>
-
-        </div>
+        </a>
 
         {% if session.get('role') == 'super_admin' %}
 
@@ -758,7 +744,7 @@
 
           <div class="argus-logo-spinner" style="--spinner-size: 64px;">
 
-            <img src="{{ url_for('static', filename='images/argus_triangle_logo.png') }}?v=20261111_v2" alt="Argus">
+            <img src="{{ url_for('static', filename='images/favicon.png') }}?v=20261118_v3" alt="Argus">
 
           </div>
 
@@ -796,7 +782,7 @@
 
       <span style="font-size: 11px; color: #64748b; font-weight: 500;">Powered by</span>
 
-      <img src="{{ url_for('static', filename='images/argus_cnc_logo.png') }}" alt="Argus CNC™" class="footer-logo" style="height: 22px; width: auto; object-fit: contain; vertical-align: middle;">
+      <img src="{{ url_for('static', filename='images/argus_logo_rectangular.png') }}?v=20261118_v3" alt="Argus Attendance Intelligence" class="footer-logo" style="height: 22px; width: auto; object-fit: contain; vertical-align: middle;">
 
     </div>
 
