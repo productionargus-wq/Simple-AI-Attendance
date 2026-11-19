@@ -82,11 +82,11 @@ document.addEventListener('DOMContentLoaded', function () {
       if (data.company_calculate_proper_entries !== undefined) {
         window.COMPANY_CALCULATE_PROPER_ENTRIES = (data.company_calculate_proper_entries !== false);
       }
-      if (Array.isArray(data.existing_departments)) {
-        updateDatalist('departmentList', data.existing_departments);
+      if (Array.isArray(data.existing_departments) && departmentCombobox) {
+        departmentCombobox.addItems(data.existing_departments);
       }
-      if (Array.isArray(data.existing_designations)) {
-        updateDatalist('designationList', data.existing_designations);
+      if (Array.isArray(data.existing_designations) && designationCombobox) {
+        designationCombobox.addItems(data.existing_designations);
       }
       if (currentView === 'grid') {
         renderGridCards(currentEmployees);
@@ -112,20 +112,242 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  function updateDatalist(datalistId, items) {
-    const dl = document.getElementById(datalistId);
-    if (!dl || !Array.isArray(items)) return;
-    const existingValues = new Set(Array.from(dl.options).map(o => o.value.trim().toLowerCase()));
-    items.forEach(val => {
-      const vStr = String(val || '').trim();
-      if (vStr && !existingValues.has(vStr.toLowerCase())) {
-        const opt = document.createElement('option');
-        opt.value = vStr;
-        dl.appendChild(opt);
-        existingValues.add(vStr.toLowerCase());
+  // Classic Light-Theme Combobox Controller (Department & Designation)
+  let departmentCombobox = null;
+  let designationCombobox = null;
+
+  function initClassicCombobox({ inputId, menuId, toggleBtnId, wrapperId, initialItems = [], placeholderItem = 'item' }) {
+    const input = document.getElementById(inputId);
+    const menu = document.getElementById(menuId);
+    const toggleBtn = document.getElementById(toggleBtnId);
+    const wrapper = document.getElementById(wrapperId);
+
+    if (!input || !menu) return null;
+
+    let items = [];
+    const itemSet = new Set();
+    let highlightedIndex = -1;
+
+    function addItems(newItems) {
+      if (!Array.isArray(newItems)) return;
+      newItems.forEach(it => {
+        const str = String(it || '').trim();
+        if (str && !itemSet.has(str.toLowerCase())) {
+          itemSet.add(str.toLowerCase());
+          items.push(str);
+        }
+      });
+      items.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      if (isOpen()) renderMenu();
+    }
+
+    // Read initial data attributes if provided by server rendering
+    let seedItems = Array.isArray(initialItems) ? [...initialItems] : [];
+    if (wrapper && wrapper.dataset && wrapper.dataset.initial) {
+      try {
+        const parsed = JSON.parse(wrapper.dataset.initial);
+        if (Array.isArray(parsed)) seedItems = seedItems.concat(parsed);
+      } catch (e) {}
+    }
+    if (seedItems.length) addItems(seedItems);
+
+    function openMenu() {
+      // Close other open comboboxes
+      document.querySelectorAll('.classic-combobox-menu.show').forEach(m => {
+        if (m !== menu) m.classList.remove('show');
+      });
+      document.querySelectorAll('.classic-combobox-wrapper.is-open').forEach(w => {
+        if (w !== wrapper) w.classList.remove('is-open');
+      });
+
+      renderMenu();
+      menu.classList.add('show');
+      if (wrapper) wrapper.classList.add('is-open');
+    }
+
+    function closeMenu() {
+      menu.classList.remove('show');
+      if (wrapper) wrapper.classList.remove('is-open');
+      highlightedIndex = -1;
+    }
+
+    function isOpen() {
+      return menu.classList.contains('show');
+    }
+
+    function renderMenu() {
+      menu.innerHTML = '';
+      const filterText = (input.value || '').trim().toLowerCase();
+      const matchingItems = filterText
+        ? items.filter(it => it.toLowerCase().includes(filterText))
+        : items;
+
+      const exactMatch = items.some(it => it.toLowerCase() === filterText);
+
+      if (matchingItems.length === 0 && !filterText) {
+        const emptyEl = document.createElement('div');
+        emptyEl.className = 'classic-combobox-empty';
+        emptyEl.textContent = `No ${placeholderItem}s available. Type to create one.`;
+        menu.appendChild(emptyEl);
+        return;
+      }
+
+      matchingItems.forEach((it, idx) => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'classic-combobox-item';
+        if (idx === highlightedIndex) itemEl.classList.add('highlighted');
+        const isCurrentVal = (input.value || '').trim().toLowerCase() === it.toLowerCase();
+        if (isCurrentVal) itemEl.classList.add('selected');
+
+        const escapedIt = (typeof escapeHtml === 'function') ? escapeHtml(it) : it;
+        itemEl.innerHTML = `
+          <span>${escapedIt}</span>
+          ${isCurrentVal ? '<span style="color: #0284c7; font-weight: 700;">✓</span>' : ''}
+        `;
+
+        itemEl.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          selectValue(it);
+        });
+
+        menu.appendChild(itemEl);
+      });
+
+      // If user typed custom text that is not an existing item, offer to add as new
+      if (filterText && !exactMatch) {
+        const rawTyped = (input.value || '').trim();
+        const createEl = document.createElement('div');
+        createEl.className = 'classic-combobox-create-item';
+        const escapedTyped = (typeof escapeHtml === 'function') ? escapeHtml(rawTyped) : rawTyped;
+        createEl.innerHTML = `<span>➕ Add new:</span> <strong>"${escapedTyped}"</strong>`;
+        createEl.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          addItems([rawTyped]);
+          selectValue(rawTyped);
+        });
+        menu.appendChild(createEl);
+      }
+    }
+
+    function selectValue(val) {
+      input.value = val;
+      closeMenu();
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isOpen()) {
+          closeMenu();
+        } else {
+          openMenu();
+          input.focus();
+        }
+      });
+    }
+
+    input.addEventListener('focus', () => {
+      openMenu();
+    });
+
+    input.addEventListener('click', () => {
+      if (!isOpen()) openMenu();
+    });
+
+    input.addEventListener('input', () => {
+      highlightedIndex = -1;
+      if (!isOpen()) openMenu();
+      else renderMenu();
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (!isOpen()) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          openMenu();
+          return;
+        }
+      }
+
+      const visibleItems = menu.querySelectorAll('.classic-combobox-item, .classic-combobox-create-item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (visibleItems.length > 0) {
+          highlightedIndex = (highlightedIndex + 1) % visibleItems.length;
+          updateHighlight(visibleItems);
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (visibleItems.length > 0) {
+          highlightedIndex = (highlightedIndex - 1 + visibleItems.length) % visibleItems.length;
+          updateHighlight(visibleItems);
+        }
+      } else if (e.key === 'Enter') {
+        if (isOpen() && highlightedIndex >= 0 && visibleItems[highlightedIndex]) {
+          e.preventDefault();
+          visibleItems[highlightedIndex].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        } else if (isOpen() && (input.value || '').trim()) {
+          const val = input.value.trim();
+          addItems([val]);
+          closeMenu();
+        }
+      } else if (e.key === 'Escape') {
+        if (isOpen()) {
+          e.preventDefault();
+          closeMenu();
+        }
+      } else if (e.key === 'Tab') {
+        closeMenu();
       }
     });
+
+    function updateHighlight(visibleItems) {
+      visibleItems.forEach((el, i) => {
+        if (i === highlightedIndex) {
+          el.classList.add('highlighted');
+          el.scrollIntoView({ block: 'nearest' });
+        } else {
+          el.classList.remove('highlighted');
+        }
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (wrapper && !wrapper.contains(e.target)) {
+        closeMenu();
+      }
+    });
+
+    return {
+      addItems,
+      setValue: (val) => {
+        input.value = val || '';
+        if (val) addItems([val]);
+        if (isOpen()) renderMenu();
+      },
+      close: closeMenu
+    };
   }
+
+  // Initialize Classic Comboboxes on DOM Ready
+  departmentCombobox = initClassicCombobox({
+    inputId: 'inputDepartment',
+    menuId: 'departmentMenu',
+    toggleBtnId: 'btnToggleDepartmentMenu',
+    wrapperId: 'departmentComboboxWrapper',
+    placeholderItem: 'department'
+  });
+
+  designationCombobox = initClassicCombobox({
+    inputId: 'inputDesignation',
+    menuId: 'designationMenu',
+    toggleBtnId: 'btnToggleDesignationMenu',
+    wrapperId: 'designationComboboxWrapper',
+    placeholderItem: 'designation'
+  });
 
   function renderTableRows(employees) {
     if (!tableBody) return;
@@ -1066,6 +1288,8 @@ document.addEventListener('DOMContentLoaded', function () {
   function openAddEntryModal() {
     setEmailTurnedOff(false);
     employeeForm.reset();
+    if (departmentCombobox) departmentCombobox.close();
+    if (designationCombobox) designationCombobox.close();
     if (document.getElementById('inputBankBranch')) document.getElementById('inputBankBranch').value = '';
     prevShiftSnapshot = {
       shiftStart: '09:00 AM',
@@ -1158,8 +1382,11 @@ document.addEventListener('DOMContentLoaded', function () {
       updateEntryModalTopBadge(true);
       document.getElementById('inputName').value = emp.employee_name || '';
       const inDept = document.getElementById('inputDepartment');
-      if (inDept) inDept.value = emp.department || '';
-      document.getElementById('inputDesignation').value = emp.designation || '';
+      if (departmentCombobox) departmentCombobox.setValue(emp.department || '');
+      else if (inDept) inDept.value = emp.department || '';
+      const inDesig = document.getElementById('inputDesignation');
+      if (designationCombobox) designationCombobox.setValue(emp.designation || '');
+      else if (inDesig) inDesig.value = emp.designation || '';
       document.getElementById('inputSalaryType').value = emp.salary_type || 'hourly';
       const inEditStatus = document.getElementById('inputStatus');
       if (inEditStatus) inEditStatus.value = (emp.status === 'Inactive') ? 'Inactive' : 'Active';
@@ -1290,6 +1517,8 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnResetForm) {
     btnResetForm.addEventListener('click', function () {
       employeeForm.reset();
+      if (departmentCombobox) departmentCombobox.close();
+      if (designationCombobox) designationCombobox.close();
       setEmailTurnedOff(false);
       prevShiftSnapshot = {
         shiftStart: '09:00 AM',
@@ -1739,8 +1968,8 @@ document.addEventListener('DOMContentLoaded', function () {
           if (window.hideSavingPopup) window.hideSavingPopup();
           const submittedDept = (formData.get('department') || '').trim();
           const submittedDesig = (formData.get('designation') || '').trim();
-          if (submittedDept) updateDatalist('departmentList', [submittedDept]);
-          if (submittedDesig) updateDatalist('designationList', [submittedDesig]);
+          if (submittedDept && departmentCombobox) departmentCombobox.addItems([submittedDept]);
+          if (submittedDesig && designationCombobox) designationCombobox.addItems([submittedDesig]);
           alert(msg);
           loadEmployees();
         } else {

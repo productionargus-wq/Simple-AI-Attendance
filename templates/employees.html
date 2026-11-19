@@ -708,6 +708,120 @@
       text-align: center;
     }
   }
+
+  /* Classic Light-Theme Combobox Dropdown */
+  .classic-combobox-wrapper {
+    position: relative;
+    width: 100%;
+  }
+  .classic-combobox-input {
+    width: 100%;
+    padding-right: 32px !important;
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 4px;
+    font-size: 12px;
+    box-sizing: border-box;
+    cursor: text;
+  }
+  .classic-combobox-input:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15) !important;
+    outline: none;
+  }
+  .classic-combobox-toggle {
+    position: absolute;
+    right: 1px;
+    top: 1px;
+    bottom: 1px;
+    width: 30px;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    cursor: pointer;
+    border-radius: 0 4px 4px 0;
+    transition: color 0.15s ease, background-color 0.15s ease;
+    padding: 0;
+  }
+  .classic-combobox-toggle:hover {
+    color: #0f172a;
+    background-color: #f1f5f9;
+  }
+  .classic-combobox-toggle svg {
+    transition: transform 0.2s ease;
+  }
+  .classic-combobox-wrapper.is-open .classic-combobox-toggle svg {
+    transform: rotate(180deg);
+  }
+  .classic-combobox-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 1050;
+    display: none;
+    padding: 4px 0;
+  }
+  .classic-combobox-menu.show {
+    display: block;
+  }
+  .classic-combobox-item {
+    padding: 8px 12px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #1e293b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background-color 0.12s ease, color 0.12s ease;
+    user-select: none;
+  }
+  .classic-combobox-item:hover,
+  .classic-combobox-item.highlighted {
+    background-color: #f1f5f9;
+    color: #0284c7;
+  }
+  .classic-combobox-item.selected {
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 600;
+  }
+  .classic-combobox-create-item {
+    padding: 9px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0284c7;
+    background-color: #f8fafc;
+    border-top: 1px dashed #e2e8f0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.12s ease;
+    user-select: none;
+  }
+  .classic-combobox-create-item:hover,
+  .classic-combobox-create-item.highlighted {
+    background-color: #e0f2fe;
+    color: #0369a1;
+  }
+  .classic-combobox-empty {
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #94a3b8;
+    text-align: center;
+  }
 </style>
 
 <div class="modal-overlay" id="entryModal">
@@ -797,25 +911,27 @@
           <div class="emp-section-grid emp-grid-3">
             <div class="form-group">
               <label class="form-label" for="inputDepartment">Department<span class="required">*</span></label>
-              <input type="text" class="form-input" id="inputDepartment" name="department" list="departmentList" placeholder="Select or type department" autocomplete="off" required>
-              <datalist id="departmentList">
-                {% if existing_departments %}
-                  {% for dept in existing_departments %}
-                    <option value="{{ dept }}"></option>
-                  {% endfor %}
-                {% endif %}
-              </datalist>
+              <div class="classic-combobox-wrapper" id="departmentComboboxWrapper" data-initial='{{ (existing_departments or [])|tojson }}'>
+                <input type="text" class="form-input classic-combobox-input" id="inputDepartment" name="department" placeholder="Select or type department" autocomplete="off" required>
+                <button type="button" class="classic-combobox-toggle" id="btnToggleDepartmentMenu" tabindex="-1" aria-label="Toggle department list" title="Show department options">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+                <div class="classic-combobox-menu" id="departmentMenu" role="listbox"></div>
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label" for="inputDesignation">Designation<span class="required">*</span></label>
-              <input type="text" class="form-input" id="inputDesignation" name="designation" list="designationList" placeholder="Select or type designation" autocomplete="off" required>
-              <datalist id="designationList">
-                {% if existing_designations %}
-                  {% for desig in existing_designations %}
-                    <option value="{{ desig }}"></option>
-                  {% endfor %}
-                {% endif %}
-              </datalist>
+              <div class="classic-combobox-wrapper" id="designationComboboxWrapper" data-initial='{{ (existing_designations or [])|tojson }}'>
+                <input type="text" class="form-input classic-combobox-input" id="inputDesignation" name="designation" placeholder="Select or type designation" autocomplete="off" required>
+                <button type="button" class="classic-combobox-toggle" id="btnToggleDesignationMenu" tabindex="-1" aria-label="Toggle designation list" title="Show designation options">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+                <div class="classic-combobox-menu" id="designationMenu" role="listbox"></div>
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label" for="inputStatus">Employee Status<span class="required">*</span></label>
