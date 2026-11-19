@@ -242,7 +242,7 @@
 
       </button>
 
-      <a href="/dashboard" class="mobile-nav-brand brand-lockup theme-light" title="Argus Attendance Intelligence">
+      <a href="https://argussoftwares.com" target="_blank" rel="noopener noreferrer" class="mobile-nav-brand brand-lockup theme-light" title="Argus Softwares (Opens in new tab)">
 
         <img src="{{ url_for('static', filename='images/argus_square_badge.png') }}?v=20261118_v5" alt="Argus" class="brand-square-badge" style="width: 28px; height: 28px;">
 
@@ -456,7 +456,7 @@
         </button>
       </div>
 
-      <div class="top-nav-logo-circle" title="{{ session.get('company_name') or 'Company' }}">
+      <a href="{{ url_for('company_profile') }}" class="top-nav-logo-circle" title="View Company Profile - {{ session.get('company_name') or 'Company' }}" style="text-decoration: none; cursor: pointer;">
 
         {% if has_company_logo and current_company_logo_url %}
 
@@ -474,7 +474,7 @@
 
         {% endif %}
 
-    </div>
+      </a>
 
   </header>
 
@@ -496,7 +496,7 @@
 
       <div class="sidebar-header">
 
-        <a href="{{ url_for('dashboard') }}" class="brand-lockup sidebar-brand-lockup" title="Argus Attendance Intelligence">
+        <a href="https://argussoftwares.com" target="_blank" rel="noopener noreferrer" class="brand-lockup sidebar-brand-lockup" title="Argus Softwares (Opens in new tab)">
 
           <img src="{{ url_for('static', filename='images/argus_square_badge.png') }}?v=20261118_v5" alt="Argus" class="brand-square-badge">
 
@@ -512,7 +512,7 @@
 
         </a>
 
-        <a href="{{ url_for('dashboard') }}" class="sidebar-brand-mini" title="Argus Attendance Intelligence">
+        <a href="https://argussoftwares.com" target="_blank" rel="noopener noreferrer" class="sidebar-brand-mini" title="Argus Softwares (Opens in new tab)">
 
           <img src="{{ url_for('static', filename='images/argus_square_badge.png') }}?v=20261118_v5" alt="Argus" class="brand-square-badge" style="width: 38px; height: 38px;">
 

@@ -87,10 +87,11 @@
       <thead>
         <tr>
           <th data-col="employee_name" class="sticky-col-emp">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
+          <th data-col="salary_type" style="min-width: 120px; text-align: center; white-space: nowrap;">SALARY TYPE <span class="sort-icon">⇅</span></th>
           <th data-col="pay_period">PAY PERIOD <span class="sort-icon">⇅</span></th>
           <th data-col="working_days">WORKING DAYS <span class="sort-icon">⇅</span></th>
           <th data-col="working_hours">WORKING HOURS <span class="sort-icon">⇅</span></th>
-          <th data-col="overtime_pay" style="color: #2563eb !important;">OVERTIME <span class="sort-icon">⇅</span></th>
+          <th data-col="overtime_pay" style="color: #2563eb !important; min-width: 170px;">OVERTIME <span class="sort-icon">⇅</span></th>
           <th data-col="allowance">ALLOWANCE <span class="sort-icon">⇅</span></th>
           <th data-col="incentive">INCENTIVE <span class="sort-icon">⇅</span></th>
           <th data-col="other_earnings">OTHER EARNINGS <span class="sort-icon">⇅</span></th>
@@ -106,7 +107,7 @@
       </thead>
       <tbody id="salaryTableBody">
         <tr>
-          <td colspan="16" class="table-empty-message">No data available in table</td>
+          <td colspan="17" class="table-empty-message">No data available in table</td>
         </tr>
       </tbody>
     </table>
@@ -273,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const data = res.data;
 
     if (!data || data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="16" class="table-empty-message">No data available in table</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="17" class="table-empty-message">No data available in table</td></tr>';
       infoText.innerText = 'Showing 0 to 0 of 0 entries';
       prevBtn.classList.add('disabled');
       nextBtn.classList.add('disabled');
@@ -314,14 +315,51 @@ document.addEventListener('DOMContentLoaded', function () {
       const otMinsVal = Number(r.overtime_minutes || 0);
       const otHrsSafe = escapeHtml(r.overtime_hours || '00:00');
       const otDisplayVal = fmtMoney(r.overtime_pay || 0);
-      const otSubHtml = otMinsVal > 0 ? `<div style="font-size: 10.5px; color: #2563eb; font-weight: 600;">${otHrsSafe} hrs</div>` : `<div style="font-size: 10px; color: #94a3b8;">00:00 hrs</div>`;
-      const otCellHtml = isNoShift
-        ? `<td style="white-space: nowrap; color: #64748b; font-weight: 600;">-</td>`
-        : `<td style="white-space: nowrap;"><div style="font-weight: 700; color: ${otMinsVal > 0 ? '#1d4ed8' : '#475569'};">₹ ${otDisplayVal}</div>${otSubHtml}</td>`;
+      const otBreakdown = Array.isArray(r.overtime_breakdown) ? r.overtime_breakdown : [];
+
+      const stRaw = String(r.salary_type || 'daily').toLowerCase();
+      let stBadge = '<span class="status-pill status-blue" style="font-size: 11px; font-weight: 700;">Day Salary</span>';
+      if (stRaw === 'hourly') {
+        stBadge = '<span class="status-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:11px; font-weight:700;">Hourly Salary</span>';
+      } else if (stRaw === 'half_day') {
+        stBadge = '<span class="status-pill" style="background:#ede9fe; color:#5b21b6; border:1px solid #ddd6fe; font-size:11px; font-weight:700;">Half Day Salary</span>';
+      }
+
+      let otCellHtml = '';
+      if (isNoShift) {
+        otCellHtml = `<td style="white-space: nowrap; color: #64748b; font-weight: 600; text-align: center;">-</td>`;
+      } else if (otBreakdown.length > 0) {
+        const otItemsHtml = otBreakdown.map(item => `
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px dashed #e2e8f0; font-size: 11px;">
+            <span style="font-weight: 600; color: #1e40af;">${escapeHtml(item.date_display)}:</span>
+            <span style="color: #0369a1; font-weight: 700;">+${escapeHtml(item.extra_hours)} hrs</span>
+            <span style="color: #64748b; font-size: 10px;">(Out: ${escapeHtml(item.exit_time)})</span>
+            <span style="font-weight: 700; color: #166534;">₹ ${fmtMoney(item.amount)}</span>
+          </div>
+        `).join('');
+
+        otCellHtml = `
+          <td style="min-width: 220px; vertical-align: top;">
+            <div style="background: #f8fafc; border: 1px solid #dbeafe; border-radius: 6px; padding: 6px 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px solid #cbd5e1;">
+                <span style="font-size: 10px; font-weight: 800; color: #1e3a8a; text-transform: uppercase;">Overtime Breakdown</span>
+                <span style="font-size: 11px; font-weight: 800; color: #1d4ed8;">₹ ${otDisplayVal}</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                ${otItemsHtml}
+              </div>
+            </div>
+          </td>
+        `;
+      } else {
+        const otSubHtml = otMinsVal > 0 ? `<div style="font-size: 10.5px; color: #2563eb; font-weight: 600;">${otHrsSafe} hrs</div>` : `<div style="font-size: 10px; color: #94a3b8;">00:00 hrs</div>`;
+        otCellHtml = `<td style="white-space: nowrap; text-align: center;"><div style="font-weight: 700; color: ${otMinsVal > 0 ? '#1d4ed8' : '#475569'};">₹ ${otDisplayVal}</div>${otSubHtml}</td>`;
+      }
 
       rowsHtml += `
         <tr>
           <td class="col-wrap sticky-col-emp" style="font-weight: 600; white-space: normal !important; word-break: break-word !important; min-width: 140px;">${empNameSafe}</td>
+          <td style="text-align: center; white-space: nowrap;">${stBadge}</td>
           <td>${payPeriodSafe}</td>
           <td>${r.working_days}</td>
           <td>${r.working_hours}</td>

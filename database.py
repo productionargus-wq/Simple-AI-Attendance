@@ -1718,6 +1718,28 @@ def format_minutes_hhmm(total_mins):
     mins = max(0, int(round(total_mins or 0)))
     return f"{mins // 60:02d}:{mins % 60:02d}"
 
+def format_exit_time_12hr(val):
+    """Normalize any exit time string into 12-hour hh:mm AM/PM format."""
+    if not val or str(val).strip() in ['----', '-', '']:
+        return '-'
+    val_str = str(val).strip()
+    parts = val_str.split(' ')
+    if len(parts) >= 3 and parts[-1].upper() in ['AM', 'PM']:
+        t_part = parts[-2]
+        t_sub = ':'.join(t_part.split(':')[:2])
+        return f"{t_sub} {parts[-1].upper()}"
+    if len(parts) == 2 and parts[1].upper() in ['AM', 'PM']:
+        t_part = parts[0]
+        t_sub = ':'.join(t_part.split(':')[:2])
+        return f"{t_sub} {parts[1].upper()}"
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%H:%M:%S', '%H:%M', '%d/%m/%Y %H:%M:%S'):
+        try:
+            dt = datetime.strptime(val_str[:19], fmt)
+            return dt.strftime('%I:%M %p')
+        except Exception:
+            pass
+    return val_str
+
 def is_no_shift_employee(emp):
     """Returns True when an employee has no fixed shift schedule (punch-hours only)."""
     if not emp or not isinstance(emp, dict):
@@ -1961,6 +1983,7 @@ def create_employee(data, company_id=None):
         'account_holder_name': data.get('account_holder_name', '').strip(),
         'upi_number': data.get('upi_number', '').strip(),
         'bank_name': data.get('bank_name', '').strip(),
+        'bank_branch': data.get('bank_branch', '').strip(),
         'account_number': data.get('account_number', '').strip(),
         'ifsc_code': data.get('ifsc_code', '').strip(),
         'shift_hours': shift_val_str,
@@ -2032,7 +2055,7 @@ def update_employee(emp_id, data, company_id=None):
     text_fields = [
         'employee_name', 'department', 'designation', 'mobile_number', 'email_id',
         'aadhar_number', 'emergency_contact', 'date_of_birth', 'dob', 'joining_date', 'account_holder_name',
-        'upi_number', 'bank_name', 'account_number', 'ifsc_code', 'shift_hours',
+        'upi_number', 'bank_name', 'bank_branch', 'account_number', 'ifsc_code', 'shift_hours',
         'shift_start', 'shift_end', 'territory_zone'
     ]
     for key in text_fields:
@@ -2227,6 +2250,49 @@ def delete_employee(emp_id, company_id=None):
     invalidate_dashboard_cache(company_id)
     invalidate_branch_emp_cache(company_id)
     invalidate_face_embeddings_cache(company_id)
+    return True
+
+def get_distinct_departments(company_id=None):
+    """Return distinct non-empty department names for the given company or system-wide."""
+    db = get_db()
+    query = {}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        query['company_id'] = str(company_id)
+    raw = db.employees.distinct('department', query)
+    cleaned = sorted(list({str(d).strip() for d in raw if d and str(d).strip() and str(d).strip() != '-'}))
+    return cleaned
+
+def get_distinct_designations(company_id=None):
+    """Return distinct non-empty designation names for the given company or system-wide."""
+    db = get_db()
+    query = {}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        query['company_id'] = str(company_id)
+    raw = db.employees.distinct('designation', query)
+    cleaned = sorted(list({str(d).strip() for d in raw if d and str(d).strip() and str(d).strip() != '-'}))
+    return cleaned
+
+def get_company_notes(company_id):
+    """Fetch private admin notes for a company."""
+    if not company_id:
+        return ''
+    db = get_db()
+    f = build_id_filter(company_id)
+    doc = db.company_admin.find_one(f)
+    if not doc:
+        doc = db.companies.find_one(f)
+    return doc.get('admin_notes', '') if doc else ''
+
+def save_company_notes(company_id, notes):
+    """Save private admin notes for a company."""
+    if not company_id:
+        return False
+    db = get_db()
+    f = build_id_filter(company_id)
+    notes_val = str(notes or '').strip()
+    upd = {'admin_notes': notes_val, 'updated_at': get_ist_now()}
+    db.company_admin.update_one(f, {'$set': upd})
+    db.companies.update_one(f, {'$set': upd})
     return True
 
 _face_embeddings_cache = {}
@@ -6079,6 +6145,40 @@ def _compute_employee_monthly_salary_payload(
     if basic_salary == 0.0 and manual_salary_sum > 0.0 and working_days == 0:
         basic_salary = round(manual_salary_sum, 2)
 
+    overtime_breakdown = []
+    if shift_target_minutes > 0 and calculate_overtime:
+        exit_time_by_date = {}
+        for rec in records:
+            if rec.get('entry_type') == 'improper':
+                continue
+            d_val = normalize_iso_date(rec.get('date') or rec.get('entry_time') or rec.get('created_at'))
+            xt = str(rec.get('exit_time') or '').strip()
+            if xt and xt not in ['', '----', '-']:
+                exit_time_by_date[d_val] = xt
+
+        for d, mins in sorted(net_daily_minutes.items()):
+            if mins > shift_target_minutes:
+                extra_mins = mins - shift_target_minutes
+                ot_amt = round((extra_mins / 60.0) * effective_hour, 2)
+                if salary_type != 'hourly':
+                    ot_amt = int(round(ot_amt))
+                raw_exit = exit_time_by_date.get(d, '')
+                exit_12 = format_exit_time_12hr(raw_exit) if raw_exit else '-'
+                date_lbl = d
+                try:
+                    d_dt = datetime.strptime(d, '%Y-%m-%d')
+                    date_lbl = d_dt.strftime('%d %b')
+                except Exception:
+                    pass
+                overtime_breakdown.append({
+                    'date': d,
+                    'date_display': date_lbl,
+                    'exit_time': exit_12,
+                    'extra_hours': format_minutes_hhmm(extra_mins),
+                    'extra_minutes': extra_mins,
+                    'amount': ot_amt
+                })
+
     allowance = 0.0
     incentive = 0.0
     other_earnings = 0.0
@@ -6296,6 +6396,7 @@ def _compute_employee_monthly_salary_payload(
         'overtime_minutes': total_overtime_minutes,
         'overtime_hours': overtime_hours,
         'overtime_pay': out_overtime,
+        'overtime_breakdown': overtime_breakdown,
         'basic_salary': out_basic,
         'allowance': out_allowance,
         'incentive': out_incentive,
@@ -6577,6 +6678,7 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
                 'overtime_hours': payload['overtime_hours'],
                 'overtime_minutes': payload['overtime_minutes'],
                 'overtime_pay': payload['overtime_pay'],
+                'overtime_breakdown': payload.get('overtime_breakdown', []),
                 'allowance': payload['allowance'],
                 'incentive': payload['incentive'],
                 'other_earnings': other_earn_total,

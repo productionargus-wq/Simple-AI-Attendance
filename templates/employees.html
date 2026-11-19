@@ -797,11 +797,25 @@
           <div class="emp-section-grid emp-grid-3">
             <div class="form-group">
               <label class="form-label" for="inputDepartment">Department<span class="required">*</span></label>
-              <input type="text" class="form-input" id="inputDepartment" name="department" placeholder="Select or enter department" required>
+              <input type="text" class="form-input" id="inputDepartment" name="department" list="departmentList" placeholder="Select or type department" autocomplete="off" required>
+              <datalist id="departmentList">
+                {% if existing_departments %}
+                  {% for dept in existing_departments %}
+                    <option value="{{ dept }}"></option>
+                  {% endfor %}
+                {% endif %}
+              </datalist>
             </div>
             <div class="form-group">
               <label class="form-label" for="inputDesignation">Designation<span class="required">*</span></label>
-              <input type="text" class="form-input" id="inputDesignation" name="designation" placeholder="Enter designation" required>
+              <input type="text" class="form-input" id="inputDesignation" name="designation" list="designationList" placeholder="Select or type designation" autocomplete="off" required>
+              <datalist id="designationList">
+                {% if existing_designations %}
+                  {% for desig in existing_designations %}
+                    <option value="{{ desig }}"></option>
+                  {% endfor %}
+                {% endif %}
+              </datalist>
             </div>
             <div class="form-group">
               <label class="form-label" for="inputStatus">Employee Status<span class="required">*</span></label>
@@ -1006,6 +1020,10 @@
               <input type="text" class="form-input" id="inputIfsc" name="ifsc_code" placeholder="E.G. SBIN0001234">
             </div>
             <div class="form-group">
+              <label class="form-label" for="inputBankBranch">Branch Name</label>
+              <input type="text" class="form-input" id="inputBankBranch" name="bank_branch" placeholder="Bank branch name (optional)">
+            </div>
+            <div class="form-group">
               <label class="form-label" for="inputUpi">UPI Number / ID</label>
               <input type="text" class="form-input" id="inputUpi" name="upi_number" placeholder="Mobile number or UPI ID">
             </div>
@@ -1021,9 +1039,6 @@
                 <div class="emp-section-title">Photo &amp; Documents</div>
                 <div class="emp-section-subtitle">Register employee face and attach identity or employment proofs</div>
               </div>
-            </div>
-            <div class="emp-section-header-right">
-              <span class="emp-pill emp-pill-gray">OPTIONAL</span>
             </div>
           </div>
           <div class="emp-section-stack">
@@ -1063,7 +1078,7 @@
             <div class="emp-docs-section">
               <div class="emp-docs-header">
                 <div>
-                  <div class="emp-docs-title">Employee Documents</div>
+                  <div class="emp-docs-title">Employee Documents <span style="font-size: 11px; font-weight: 500; color: #64748b; margin-left: 6px;">(Optional)</span></div>
                   <div class="emp-docs-subtitle">Aadhaar, certificates, employment records (PDF, DOCX, JPG, PNG)</div>
                 </div>
                 <button type="button" id="btnAddDocRowTop" class="btn-emp-add-doc">

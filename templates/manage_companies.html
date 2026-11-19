@@ -208,6 +208,8 @@
 
           <th style="min-width: 110px; text-align: center; white-space: nowrap;">SUPPORT</th>
 
+          <th style="min-width: 75px; text-align: center; white-space: nowrap;">NOTES</th>
+
           <th style="min-width: 115px; text-align: center; white-space: nowrap;">ACTIONS <span class="sort-icon">⇅</span></th>
 
         </tr>
@@ -218,7 +220,7 @@
 
         <tr class="table-loading-row">
 
-          <td colspan="16" class="table-loading-cell">
+          <td colspan="17" class="table-loading-cell">
 
             <div class="table-loading-container" role="status" aria-label="Loading registered companies...">
 
@@ -1310,6 +1312,37 @@
 
   </div>
 
+</div>
+
+<!-- Company Notes Modal (System Admin Only) -->
+<div class="modal" id="companyNotesModal" style="display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center;">
+  <div class="modal-overlay" id="companyNotesModalOverlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px);"></div>
+  <div class="modal-container" style="position: relative; max-width: 650px; width: 92%; background: #ffffff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1); overflow: hidden; z-index: 10;">
+    <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 22px;">📝</span>
+        <div>
+          <h3 id="companyNotesTitle" style="margin: 0; font-size: 17px; font-weight: 700; color: #1e293b;">Company Notes</h3>
+          <p id="companyNotesSubtitle" style="margin: 2px 0 0; font-size: 12px; color: #64748b;">Private system admin notes for this company</p>
+        </div>
+      </div>
+      <button type="button" class="btn-close-modal" id="btnCloseCompanyNotesModal" style="background: transparent; border: none; font-size: 24px; cursor: pointer; color: #64748b; line-height: 1; padding: 4px;">&times;</button>
+    </div>
+    <div class="modal-body" style="padding: 20px 24px; background: #ffffff;">
+      <input type="hidden" id="companyNotesId">
+      <div class="form-group" style="margin: 0;">
+        <label for="companyNotesTextarea" style="display: block; font-size: 12.5px; font-weight: 600; color: #334155; margin-bottom: 8px;">
+          Internal Admin Notes <span style="font-size: 11px; font-weight: normal; color: #64748b;">(Confidential — visible only to System Admin)</span>
+        </label>
+        <textarea id="companyNotesTextarea" class="form-input" rows="12" placeholder="Write internal notes, contract details, special instructions, server configurations, or any custom details for this company..." style="width: 100%; min-height: 220px; resize: vertical; font-family: inherit; font-size: 13.5px; line-height: 1.6; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; outline: none; transition: border-color 0.2s;"></textarea>
+      </div>
+      <div id="companyNotesSaveStatus" style="margin-top: 8px; font-size: 12px; min-height: 18px;"></div>
+    </div>
+    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 12px; padding: 14px 24px; border-top: 1px solid #e2e8f0; background: #f8fafc;">
+      <button type="button" class="btn btn-secondary" id="btnCancelCompanyNotes" style="padding: 8px 18px; font-size: 13px; font-weight: 600; border-radius: 6px; cursor: pointer; background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569;">Close</button>
+      <button type="button" class="btn btn-primary" id="btnSaveCompanyNotes" style="padding: 8px 22px; font-size: 13px; font-weight: 600; border-radius: 6px; cursor: pointer; background: #4f46e5; border: none; color: #ffffff; box-shadow: 0 1px 2px 0 rgba(79, 70, 229, 0.4);">Save Notes</button>
+    </div>
+  </div>
 </div>
 
 {% endblock %}

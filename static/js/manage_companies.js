@@ -368,6 +368,17 @@ document.addEventListener('DOMContentLoaded', function () {
         <td style="text-align: center; white-space: nowrap;">${deleteEntriesBadge}</td>
         <td style="text-align: center; white-space: nowrap;">${supportBadge}</td>
         <td style="text-align: center; white-space: nowrap;">
+          <button class="btn-action-icon btn-action-notes" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Internal Notes" style="color: #4f46e5; border-color: #c7d2fe; background: #eef2ff;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </button>
+        </td>
+        <td style="text-align: center; white-space: nowrap;">
           <div class="table-actions">
             <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -519,6 +530,15 @@ document.addEventListener('DOMContentLoaded', function () {
         </div>
 
         <div class="comp-grid-actions">
+          <button class="btn-action-icon btn-action-notes" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" title="Internal Notes" style="color: #4f46e5; border-color: #c7d2fe; background: #eef2ff;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </button>
           <button class="btn-action-icon btn-action-view" data-id="${comp.id}" title="View Company Details">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -786,6 +806,15 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
 
+    // Attach notes handlers
+    document.querySelectorAll('.btn-action-notes').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const compId = this.getAttribute('data-id');
+        const compName = this.getAttribute('data-name');
+        openCompanyNotesModal(compId, compName);
+      });
+    });
+
     // Attach support toggle handlers
     document.querySelectorAll('.btn-toggle-support').forEach(btn => {
       btn.addEventListener('click', async function (e) {
@@ -824,7 +853,7 @@ document.addEventListener('DOMContentLoaded', function () {
   async function loadCompanies(page = 1) {
     currentPage = page;
     if (window.renderTableLoading && companyTableBody) {
-      window.renderTableLoading(companyTableBody, "Loading registered companies...", 16);
+      window.renderTableLoading(companyTableBody, "Loading registered companies...", 17);
     }
     if (window.renderGridLoading && companyGridSection) {
       window.renderGridLoading(companyGridSection, "Loading registered companies...");
@@ -1368,6 +1397,98 @@ document.addEventListener('DOMContentLoaded', function () {
       '#inputEmployeeLimit': {
         english: 'Enter the maximum number of employees permitted for this company.',
         tamil: 'இந்த நிறுவனத்திற்கான அதிகபட்ச பணியாளர்களின் எண்ணிக்கையை உள்ளிடவும்.'
+      }
+    });
+  }
+
+  // Company Notes Modal Logic (System Admin Only)
+  const companyNotesModal = document.getElementById('companyNotesModal');
+  const companyNotesModalOverlay = document.getElementById('companyNotesModalOverlay');
+  const btnCloseCompanyNotesModal = document.getElementById('btnCloseCompanyNotesModal');
+  const btnCancelCompanyNotes = document.getElementById('btnCancelCompanyNotes');
+  const btnSaveCompanyNotes = document.getElementById('btnSaveCompanyNotes');
+  const companyNotesTitle = document.getElementById('companyNotesTitle');
+  const companyNotesSubtitle = document.getElementById('companyNotesSubtitle');
+  const companyNotesId = document.getElementById('companyNotesId');
+  const companyNotesTextarea = document.getElementById('companyNotesTextarea');
+  const companyNotesSaveStatus = document.getElementById('companyNotesSaveStatus');
+
+  function openCompanyNotesModal(compId, compName) {
+    if (!companyNotesModal) return;
+    companyNotesId.value = compId;
+    if (companyNotesTitle) companyNotesTitle.textContent = `Notes: ${compName || compId}`;
+    if (companyNotesSubtitle) companyNotesSubtitle.textContent = `Private system admin notes for ${compName || compId}`;
+    if (companyNotesTextarea) {
+      companyNotesTextarea.value = 'Loading notes...';
+      companyNotesTextarea.disabled = true;
+    }
+    if (companyNotesSaveStatus) companyNotesSaveStatus.innerHTML = '';
+    companyNotesModal.style.display = 'flex';
+
+    fetch(`/api/companies/${encodeURIComponent(compId)}/notes`)
+      .then(res => res.json())
+      .then(data => {
+        if (companyNotesTextarea) {
+          companyNotesTextarea.disabled = false;
+          if (data.success) {
+            companyNotesTextarea.value = data.notes || '';
+          } else {
+            companyNotesTextarea.value = '';
+            if (companyNotesSaveStatus) companyNotesSaveStatus.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHtml(data.error || 'Failed to fetch notes')}</span>`;
+          }
+          companyNotesTextarea.focus();
+        }
+      })
+      .catch(err => {
+        if (companyNotesTextarea) {
+          companyNotesTextarea.disabled = false;
+          companyNotesTextarea.value = '';
+        }
+        if (companyNotesSaveStatus) companyNotesSaveStatus.innerHTML = `<span style="color: #ef4444;">Failed to load notes.</span>`;
+      });
+  }
+
+  function closeCompanyNotesModal() {
+    if (companyNotesModal) companyNotesModal.style.display = 'none';
+  }
+
+  if (btnCloseCompanyNotesModal) btnCloseCompanyNotesModal.addEventListener('click', closeCompanyNotesModal);
+  if (companyNotesModalOverlay) companyNotesModalOverlay.addEventListener('click', closeCompanyNotesModal);
+  if (btnCancelCompanyNotes) btnCancelCompanyNotes.addEventListener('click', closeCompanyNotesModal);
+
+  if (btnSaveCompanyNotes) {
+    btnSaveCompanyNotes.addEventListener('click', async function () {
+      const compId = companyNotesId ? companyNotesId.value : '';
+      const notes = companyNotesTextarea ? companyNotesTextarea.value : '';
+      if (!compId) return;
+      btnSaveCompanyNotes.disabled = true;
+      btnSaveCompanyNotes.textContent = 'Saving...';
+      if (companyNotesSaveStatus) companyNotesSaveStatus.innerHTML = '<span style="color: #64748b;">Saving notes...</span>';
+      try {
+        const res = await fetch(`/api/companies/${encodeURIComponent(compId)}/notes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes: notes })
+        });
+        const data = await res.json();
+        btnSaveCompanyNotes.disabled = false;
+        btnSaveCompanyNotes.textContent = 'Save Notes';
+        if (data.success) {
+          if (companyNotesSaveStatus) {
+            companyNotesSaveStatus.innerHTML = '<span style="color: #16a34a; font-weight: 600;">✓ Notes saved successfully!</span>';
+            setTimeout(() => {
+              if (companyNotesSaveStatus.innerHTML.includes('Notes saved')) {
+                companyNotesSaveStatus.innerHTML = '';
+              }
+            }, 3000);
+          }
+        } else {
+          if (companyNotesSaveStatus) companyNotesSaveStatus.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHtml(data.error || 'Failed to save')}</span>`;
+        }
+      } catch (err) {
+        btnSaveCompanyNotes.disabled = false;
+        btnSaveCompanyNotes.textContent = 'Save Notes';
+        if (companyNotesSaveStatus) companyNotesSaveStatus.innerHTML = '<span style="color: #ef4444;">Network error while saving notes.</span>';
       }
     });
   }

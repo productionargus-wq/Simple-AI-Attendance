@@ -2046,15 +2046,27 @@ def employee_details():
     comp_id = get_current_company_id()
     branches = []
     company_calculate_proper_entries = True
+    existing_departments = []
+    existing_designations = []
     if comp_id:
         try:
             branches = database.get_company_branches(comp_id, include_headcount=False)
             comp = database.get_company_by_id(comp_id)
             if comp and comp.get('calculate_proper_entries') is False:
                 company_calculate_proper_entries = False
+            existing_departments = database.get_distinct_departments(comp_id)
+            existing_designations = database.get_distinct_designations(comp_id)
         except Exception:
             branches = []
-    return render_template('employees.html', active_tab='EMPLOYEE DETAILS', branches=branches, active_branch_id=get_current_branch_id(), company_calculate_proper_entries=company_calculate_proper_entries)
+    return render_template(
+        'employees.html',
+        active_tab='EMPLOYEE DETAILS',
+        branches=branches,
+        active_branch_id=get_current_branch_id(),
+        company_calculate_proper_entries=company_calculate_proper_entries,
+        existing_departments=existing_departments,
+        existing_designations=existing_designations
+    )
 
 @app.route('/live-report')
 @login_required
@@ -2206,6 +2218,19 @@ def api_toggle_company_delete_entries(comp_id):
         'can_delete_entries': new_state,
         'message': f"Delete entries feature {'enabled' if new_state else 'disabled'} successfully."
     })
+
+@app.route('/api/companies/<comp_id>/notes', methods=['GET', 'POST'])
+@app.route('/api/company/<comp_id>/notes', methods=['GET', 'POST'])
+@super_admin_required
+def api_company_notes(comp_id):
+    if request.method == 'GET':
+        notes = database.get_company_notes(comp_id)
+        return jsonify({'success': True, 'company_id': comp_id, 'notes': notes})
+    else:
+        data = request.get_json(silent=True) or request.form.to_dict() or {}
+        notes = data.get('notes', '')
+        database.save_company_notes(comp_id, notes)
+        return jsonify({'success': True, 'company_id': comp_id, 'notes': notes, 'message': 'Notes saved successfully'})
 
 @app.route('/api/companies/reports', methods=['GET'])
 @super_admin_required
@@ -3318,6 +3343,8 @@ def api_get_employees():
     if isinstance(result, dict):
         comp = database.get_company_by_id(comp_id) if comp_id else None
         result['company_calculate_proper_entries'] = (comp.get('calculate_proper_entries') is not False) if comp else True
+        result['existing_departments'] = database.get_distinct_departments(comp_id)
+        result['existing_designations'] = database.get_distinct_designations(comp_id)
     return jsonify(result)
 
 @app.route('/api/employees/<emp_id>', methods=['GET'])
@@ -5195,7 +5222,7 @@ def api_salary_reports_export_excel():
     )
     
     headers = [
-        'EMPLOYEE NAME', 'PAY PERIOD', 'WORKING DAYS', 'WORKING HOURS',
+        'EMPLOYEE NAME', 'SALARY TYPE', 'PAY PERIOD', 'WORKING DAYS', 'WORKING HOURS',
         'OVERTIME HOURS', 'OVERTIME PAY',
         'ALLOWANCE', 'INCENTIVE', 'OTHER EARNINGS', 'BASIC EARNINGS',
         'TOTAL EARNINGS', 'PAID SALARY', 'ADVANCE REPAYMENT', 'OTHER DEDUCTIONS',
@@ -5204,8 +5231,10 @@ def api_salary_reports_export_excel():
     rows = []
     for r in result['data']:
         is_ns = bool(r.get('no_shift'))
+        st_raw = str(r.get('salary_type') or 'daily').lower()
+        st_label = 'Day Salary' if st_raw == 'daily' else ('Hourly Salary' if st_raw == 'hourly' else ('Half Day Salary' if st_raw == 'half_day' else st_raw.title()))
         rows.append([
-            r.get('employee_name', ''), r.get('pay_period', ''), r.get('working_days', ''), r.get('working_hours', ''),
+            r.get('employee_name', ''), st_label, r.get('pay_period', ''), r.get('working_days', ''), r.get('working_hours', ''),
             '-' if is_ns else r.get('overtime_hours', '00:00'), '-' if is_ns else round(float(r.get('overtime_pay', 0)), 2),
             int(float(r.get('allowance', 0))), int(float(r.get('incentive', 0))), int(float(r.get('other_earnings', 0))),
             round(float(r.get('basic_earnings', 0)), 2), round(float(r.get('total_earnings', 0)), 2), int(float(r.get('paid_salary', 0))),

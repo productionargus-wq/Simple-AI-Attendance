@@ -82,6 +82,12 @@ document.addEventListener('DOMContentLoaded', function () {
       if (data.company_calculate_proper_entries !== undefined) {
         window.COMPANY_CALCULATE_PROPER_ENTRIES = (data.company_calculate_proper_entries !== false);
       }
+      if (Array.isArray(data.existing_departments)) {
+        updateDatalist('departmentList', data.existing_departments);
+      }
+      if (Array.isArray(data.existing_designations)) {
+        updateDatalist('designationList', data.existing_designations);
+      }
       if (currentView === 'grid') {
         renderGridCards(currentEmployees);
       } else {
@@ -104,6 +110,21 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch (err) {
       console.error('Failed to load employees:', err);
     }
+  }
+
+  function updateDatalist(datalistId, items) {
+    const dl = document.getElementById(datalistId);
+    if (!dl || !Array.isArray(items)) return;
+    const existingValues = new Set(Array.from(dl.options).map(o => o.value.trim().toLowerCase()));
+    items.forEach(val => {
+      const vStr = String(val || '').trim();
+      if (vStr && !existingValues.has(vStr.toLowerCase())) {
+        const opt = document.createElement('option');
+        opt.value = vStr;
+        dl.appendChild(opt);
+        existingValues.add(vStr.toLowerCase());
+      }
+    });
   }
 
   function renderTableRows(employees) {
@@ -1045,6 +1066,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function openAddEntryModal() {
     setEmailTurnedOff(false);
     employeeForm.reset();
+    if (document.getElementById('inputBankBranch')) document.getElementById('inputBankBranch').value = '';
     prevShiftSnapshot = {
       shiftStart: '09:00 AM',
       shiftEnd: '06:00 PM',
@@ -1170,6 +1192,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inDob) inDob.value = emp.date_of_birth || emp.dob || '';
       document.getElementById('inputJoiningDate').value = emp.joining_date || '';
       document.getElementById('inputAccountHolder').value = emp.account_holder_name || '';
+      if (document.getElementById('inputBankBranch')) document.getElementById('inputBankBranch').value = emp.bank_branch || '';
       document.getElementById('inputUpi').value = emp.upi_number || '';
       if (document.getElementById('inputBankName')) document.getElementById('inputBankName').value = emp.bank_name || '';
       document.getElementById('inputAccountNumber').value = emp.account_number || '';
@@ -1714,6 +1737,10 @@ document.addEventListener('DOMContentLoaded', function () {
             );
           }
           if (window.hideSavingPopup) window.hideSavingPopup();
+          const submittedDept = (formData.get('department') || '').trim();
+          const submittedDesig = (formData.get('designation') || '').trim();
+          if (submittedDept) updateDatalist('departmentList', [submittedDept]);
+          if (submittedDesig) updateDatalist('designationList', [submittedDesig]);
           alert(msg);
           loadEmployees();
         } else {
@@ -1810,6 +1837,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ['DATE OF BIRTH', emp.date_of_birth || emp.dob || '-'],
         ['JOINING DATE', emp.joining_date],
         ['ACCOUNT HOLDER NAME', emp.account_holder_name],
+        ['BANK BRANCH', emp.bank_branch || '-'],
         ['UPI NUMBER', emp.upi_number],
         ['ACCOUNT NUMBER', emp.account_number],
         ['IFSC CODE', emp.ifsc_code],
