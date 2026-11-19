@@ -1042,6 +1042,34 @@
       display: none;
     }
 
+    /* 2-line Brand Text Stack on Right Side of Logo */
+    .brand-text-stack {
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+      line-height: 1.15;
+      justify-content: center;
+      user-select: none;
+    }
+    .brand-text-top {
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+    }
+    .brand-text-bottom {
+      color: #ff5f00;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+    .brand-vertical-divider {
+      width: 1.5px;
+      height: 22px;
+      background-color: rgba(255, 255, 255, 0.45);
+      flex-shrink: 0;
+    }
+
     @media (max-width: 768px) {
       .navbar {
         padding: 0 10px !important;
@@ -1054,10 +1082,28 @@
       .nav-brand {
         flex-shrink: 0 !important;
         gap: 6px !important;
+        display: flex !important;
+        align-items: center !important;
       }
-      .nav-brand .brand-vertical-divider,
-      .nav-brand .brand-text-inline {
-        display: none !important;
+      .nav-brand .brand-vertical-divider {
+        display: block !important;
+        height: 20px !important;
+        width: 1.5px !important;
+      }
+      .nav-brand .brand-text-stack {
+        display: flex !important;
+        flex-direction: column !important;
+        line-height: 1.1 !important;
+      }
+      .nav-brand .brand-text-top {
+        font-size: 9.5px !important;
+        letter-spacing: 0.6px !important;
+        color: #ffffff !important;
+      }
+      .nav-brand .brand-text-bottom {
+        font-size: 8.5px !important;
+        letter-spacing: 0.8px !important;
+        color: #ff5f00 !important;
       }
       .nav-brand .brand-square-badge {
         width: 30px !important;
@@ -1285,8 +1331,23 @@
 
     @media (max-width: 440px) {
       .navbar {
-        padding: 0 6px !important;
-        gap: 4px !important;
+        padding: 0 5px !important;
+        gap: 3px !important;
+      }
+      .nav-brand {
+        gap: 5px !important;
+      }
+      .nav-brand .brand-square-badge {
+        width: 28px !important;
+        height: 28px !important;
+      }
+      .nav-brand .brand-text-top {
+        font-size: 8.5px !important;
+        letter-spacing: 0.4px !important;
+      }
+      .nav-brand .brand-text-bottom {
+        font-size: 7.5px !important;
+        letter-spacing: 0.5px !important;
       }
       .nav-links {
         gap: 3px !important;
@@ -1617,10 +1678,13 @@
 
   <!-- Top Dark Navy Navbar -->
   <header class="navbar">
-    <a href="https://argussoftwares.com" target="_blank" rel="noopener noreferrer" class="brand-lockup nav-brand" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #ffffff;" title="Argus Softwares (Opens in new tab)">
-      <img src="{{ url_for('static', filename='images/argus_square_badge.png') }}?v=20261118_v5" alt="Argus" class="brand-square-badge" style="width: 32px; height: 32px; border-radius: 7px; box-shadow: 0 1px 4px rgba(0,0,0,0.25);">
+    <a href="https://argussoftwares.com" target="_blank" rel="noopener noreferrer" class="brand-lockup nav-brand" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: #ffffff;" title="Argus Softwares (Opens in new tab)">
+      <img src="{{ url_for('static', filename='images/argus_titlebar_logo.png') }}?v=20261119_v1" alt="Argus" class="brand-square-badge" style="width: 32px; height: 32px; border-radius: 7px; box-shadow: 0 1px 4px rgba(0,0,0,0.25);">
       <div class="brand-vertical-divider" style="width: 1.5px; height: 22px; background-color: rgba(255, 255, 255, 0.45); flex-shrink: 0;"></div>
-      <span class="brand-text-inline" style="color: #ffffff !important; font-size: 14px; font-weight: 800; letter-spacing: 0.8px; white-space: nowrap;">ATTENDANCE INTELLIGENCE</span>
+      <div class="brand-text-stack">
+        <span class="brand-text-top">ATTENDANCE</span>
+        <span class="brand-text-bottom">INTELLIGENCE</span>
+      </div>
       <div class="nav-title">
         {% if is_branch_kiosk and active_branch %}
           <span class="nav-branch-pill">
