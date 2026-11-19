@@ -599,7 +599,8 @@
       font-weight: 700;
     }
 
-    .btn-voice-toggle {
+    .btn-voice-toggle,
+    .btn-lang-toggle {
       background: #f8fafc;
       border: 1px solid #cbd5e1;
       border-radius: 20px;
@@ -612,6 +613,19 @@
       align-items: center;
       gap: 4px;
       transition: all 0.2s ease;
+    }
+
+    .btn-lang-toggle {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1d4ed8;
+      font-weight: 700;
+    }
+
+    .btn-lang-toggle:hover {
+      background: #dbeafe;
+      border-color: #93c5fd;
+      color: #1e40af;
     }
 
     .btn-voice-toggle:hover {
@@ -1253,7 +1267,8 @@
       }
       .btn-handsfree-toggle,
       .btn-sensitivity-toggle,
-      .btn-voice-toggle {
+      .btn-voice-toggle,
+      .btn-lang-toggle {
         font-size: 11px;
         padding: 4px 10px;
       }
@@ -1623,11 +1638,6 @@
 
     <!-- Right Navigation (Direct Links - NO Dropdown carets) -->
     <nav class="nav-links">
-      <!-- Mobile Only Voice Language Switcher (Tamil / English) -->
-      <button type="button" class="mobile-lang-toggle-btn" id="btnTerminalLangToggle" title="Voice Language: Tamil / English" aria-label="Switch voice language">
-        <span class="terminal-lang-icon">🌐</span>
-        <span class="terminal-lang-label" id="terminalLangLabel">தமிழ்</span>
-      </button>
       <a href="/company-login" class="nav-btn" id="btnCompanyAccess" title="Company Portal Access">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
@@ -1744,6 +1754,10 @@
         <button type="button" class="btn-voice-toggle active" id="btnToggleVoice" title="Toggle Voice Guidance and Announcements">
           <span id="voiceToggleIcon">🔊</span>
           <span id="voiceToggleLabel">Audio: On</span>
+        </button>
+        <button type="button" class="btn-voice-toggle btn-lang-toggle" id="btnTerminalLangToggle" title="Voice Language: Tamil / English" aria-label="Switch voice language">
+          <span class="terminal-lang-icon">🌐</span>
+          <span class="terminal-lang-label" id="terminalLangLabel">தமிழ்</span>
         </button>
       </div>
 
@@ -2255,7 +2269,6 @@
       }
 
       toggleLanguage() {
-        if (!this.isMobile) return 'en';
         const cur = this.getLanguage();
         const next = (cur === 'ta') ? 'en' : 'ta';
         return this.setLanguage(next);
@@ -2265,13 +2278,9 @@
         const btn = document.getElementById('btnTerminalLangToggle');
         const lbl = document.getElementById('terminalLangLabel');
         if (!btn) return;
-        if (!this.isMobile) {
-          btn.style.display = 'none';
-          return;
-        }
         const lang = this.getLanguage();
         if (lbl) {
-          lbl.textContent = (lang === 'ta') ? 'தமிழ்' : 'EN';
+          lbl.textContent = (lang === 'ta') ? 'தமிழ்' : 'English';
         }
         btn.setAttribute('title', (lang === 'ta') ? 'Voice Language: Tamil (click for English)' : 'Voice Language: English (click for Tamil)');
       }
