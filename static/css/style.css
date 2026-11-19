@@ -1919,7 +1919,8 @@ tr:hover td.sticky-col-comp {
 .app-footer .footer-logo,
 .footer .footer-logo {
   height: 20px;
-  width: 20px;
+  width: auto;
+  max-width: 130px;
   object-fit: contain;
   vertical-align: middle;
 }
