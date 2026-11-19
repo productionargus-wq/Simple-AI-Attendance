@@ -283,6 +283,30 @@
       </div>
     </div>
 
+    <!-- Authorized Platform Features & Modules (Read-Only Display) -->
+    <div id="profileEnabledFeaturesSection" style="margin-bottom: 24px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 18px 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 16px;">✨</span>
+          <span style="font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.4px;">
+            Authorized Platform Features &amp; Modules
+          </span>
+        </div>
+        <span style="font-size: 11px; font-weight: 700; color: #16a34a; background: #dcfce7; padding: 2px 10px; border-radius: 12px; border: 1px solid #bbf7d0;">
+          System Admin Authorized
+        </span>
+      </div>
+      <div style="font-size: 12px; color: #64748b; margin-bottom: 14px; line-height: 1.4;">
+        Active capabilities and functional modules provisioned for your company by Argus Platform Administration.
+      </div>
+      <div id="profileEnabledFeaturesContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+        <!-- Dynamically injected active feature cards -->
+      </div>
+      <div id="profileNoFeaturesMsg" style="display: none; padding: 16px; text-align: center; color: #94a3b8; font-size: 12.5px; background: #ffffff; border-radius: 6px; border: 1px dashed #cbd5e1;">
+        No active optional modules provisioned for this organization.
+      </div>
+    </div>
+
     <!-- Action Buttons -->
     <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #f1f5f9; padding-top: 18px; flex-wrap: wrap;">
       <button type="button" id="btnResetProfile" class="btn-reset" style="background-color: #94a3b8; color: #ffffff; padding: 9px 20px; font-size: 13px; font-weight: 700; border-radius: 5px; cursor: pointer;">
@@ -590,6 +614,154 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (profilePasswordHelp) profilePasswordHelp.textContent = 'View or set the login password for this company administrator.';
       }
+    }
+
+    // Render Authorized Features & Modules (Active only, omitting all disabled features)
+    renderActiveFeatures(comp);
+  }
+
+  function renderActiveFeatures(comp) {
+    const container = document.getElementById('profileEnabledFeaturesContainer');
+    const noFeaturesMsg = document.getElementById('profileNoFeaturesMsg');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const activeFeatures = [];
+    const mods = (comp && typeof comp.modules === 'object' && comp.modules !== null) ? comp.modules : {};
+
+    // 1. Single Company Module
+    if (mods.single_company === true || mods.single_company === 'true' || (mods.single_company === undefined && comp.id !== 'ARGUS_MASTER')) {
+      activeFeatures.push({
+        title: 'Single Office Operations',
+        badge: 'Base Office',
+        badgeBg: '#eff6ff',
+        badgeColor: '#1d4ed8',
+        desc: 'Core biometric attendance, shift scheduling, leave permissions, and payroll calculation.',
+        icon: '🏢'
+      });
+    }
+
+    // 2. Multi-Branch Enterprise Module
+    if (mods.branch_company === true || mods.branch_company === 'true') {
+      activeFeatures.push({
+        title: 'Multi-Branch Enterprise Hub',
+        badge: 'Multi-Site',
+        badgeBg: '#e0f2fe',
+        badgeColor: '#0369a1',
+        desc: 'Regional branch sites, individual branch geofences, and district-filtered attendance & payroll.',
+        icon: '🏬'
+      });
+    }
+
+    // 3. Field Worker Module
+    if (mods.field_worker === true || mods.field_worker === 'true') {
+      activeFeatures.push({
+        title: 'Field Worker GPS Module',
+        badge: 'GPS & CRM',
+        badgeBg: '#fef3c7',
+        badgeColor: '#b45309',
+        desc: 'Live GPS route telemetry, customer visit CRM, KM travel allowances, and detour detection.',
+        icon: '🗺️'
+      });
+    }
+
+    // 4. Face Recognition with 2-Blink Liveness
+    if (mods.face_blink === true || mods.face_blink === 'true') {
+      activeFeatures.push({
+        title: '2-Blink Liveness Biometrics',
+        badge: 'Hands-Free',
+        badgeBg: '#ecfdf5',
+        badgeColor: '#047857',
+        desc: 'Real-time eye-blink liveness verification preventing photo spoofing on punch kiosk.',
+        icon: '👁️'
+      });
+    }
+
+    // 5. Face Recognition Quick Button Capture
+    if (mods.face_button === true || mods.face_button === 'true') {
+      activeFeatures.push({
+        title: 'Quick Button Biometrics',
+        badge: 'Instant Capture',
+        badgeBg: '#f5f3ff',
+        badgeColor: '#6d28d9',
+        desc: 'Single-click facial scan capture for rapid kiosk check-in.',
+        icon: '⚡'
+      });
+    }
+
+    // 6. Attendance Record Deletion (can_delete_entries)
+    if (comp.can_delete_entries === true || comp.can_delete_entries === 'true') {
+      activeFeatures.push({
+        title: 'Attendance Record Deletion',
+        badge: 'Bulk Deletion',
+        badgeBg: '#fee2e2',
+        badgeColor: '#b91c1c',
+        desc: 'Permission to delete inaccurate attendance records individually, in bulk, or by date range.',
+        icon: '🗑️'
+      });
+    }
+
+    // 7. Automated Email Reports
+    if (comp.auto_reports_enabled === true || comp.auto_reports_enabled === 'true' || comp.auto_email_reports === true || comp.auto_email_reports === 'true') {
+      activeFeatures.push({
+        title: 'Automated Email Reports',
+        badge: 'Daily & Monthly',
+        badgeBg: '#f0fdf4',
+        badgeColor: '#15803d',
+        desc: 'Automated daily activity digests and scheduled monthly payroll statements sent via email.',
+        icon: '📧'
+      });
+    }
+
+    // 8. Location Validation & Geofencing
+    if (comp.calculate_proper_entries === true || comp.calculate_proper_entries === 'true' || (comp.calculate_proper_entries === undefined && comp.id !== 'ARGUS_MASTER')) {
+      activeFeatures.push({
+        title: 'Geofence Location Validation',
+        badge: 'Active Radius',
+        badgeBg: '#ecfeff',
+        badgeColor: '#0e7490',
+        desc: 'Strict office perimeter radius validation classifying punches into Proper vs. Improper.',
+        icon: '📍'
+      });
+    }
+
+    // 9. Dedicated Support Helpdesk
+    if (comp.support_enabled === true || comp.support_enabled === 'true' || (comp.support_enabled === undefined && comp.id !== 'ARGUS_MASTER')) {
+      activeFeatures.push({
+        title: 'Dedicated Support Helpdesk',
+        badge: 'Helpdesk Active',
+        badgeBg: '#eef2ff',
+        badgeColor: '#4338ca',
+        desc: 'Direct in-app ticketing and platform customer care assistance.',
+        icon: '🎧'
+      });
+    }
+
+    if (activeFeatures.length === 0) {
+      if (noFeaturesMsg) noFeaturesMsg.style.display = 'block';
+    } else {
+      if (noFeaturesMsg) noFeaturesMsg.style.display = 'none';
+      activeFeatures.forEach(feat => {
+        const card = document.createElement('div');
+        card.style.cssText = 'background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between;';
+        card.innerHTML = `
+          <div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
+              <div style="display: flex; align-items: center; gap: 7px;">
+                <span style="font-size: 15px;">${feat.icon}</span>
+                <strong style="font-size: 12.5px; color: #0f172a;">${feat.title}</strong>
+              </div>
+              <span style="font-size: 10.5px; font-weight: 700; background: ${feat.badgeBg}; color: ${feat.badgeColor}; padding: 2px 8px; border-radius: 10px; white-space: nowrap;">
+                ✓ ${feat.badge}
+              </span>
+            </div>
+            <div style="font-size: 11px; color: #64748b; line-height: 1.45;">
+              ${feat.desc}
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
     }
   }
 

@@ -122,9 +122,21 @@
 
       </div>
 
+      <div class="filter-group">
+        <label for="sortOrderSelect">Sort Date</label>
+        <select id="sortOrderSelect" class="filter-input" style="min-width: 125px;">
+          <option value="desc" selected>Newest First ⬇</option>
+          <option value="asc">Oldest First ⬆</option>
+        </select>
+      </div>
+
       <button class="btn-filter" id="btnFilter">Filter</button>
 
       <button class="btn-clear" id="btnClear">Clear</button>
+
+      {% if can_delete_entries or is_system_admin %}
+      <button class="btn-filter" id="btnOpenDeleteRange" title="Bulk delete entries by date range" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-weight: 600;">🗑️ Delete Range</button>
+      {% endif %}
 
     </div>
 
@@ -236,7 +248,19 @@
 
   </div>
 
-
+  {% if can_delete_entries or is_system_admin %}
+  <div id="bulkActionsBar" style="display: none; align-items: center; justify-content: space-between; background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 8px; padding: 10px 16px; margin: 12px 0 16px 0; gap: 10px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(225, 29, 72, 0.08);">
+    <div style="display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 600; color: #9f1239;">
+      <span>Selected: <span id="selectedCountBadge" style="background: #e11d48; color: #fff; padding: 3px 9px; border-radius: 12px; font-size: 12px; font-weight: 700;">0</span> record(s)</span>
+      <button type="button" id="btnClearSelection" style="background: transparent; border: none; color: #64748b; font-size: 12px; cursor: pointer; text-decoration: underline; font-weight: 500;">Clear Selection</button>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <button type="button" id="btnDeleteSelected" style="background: #dc2626; color: #ffffff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2);">
+        🗑️ Delete Selected (<span id="btnSelectedCount">0</span>)
+      </button>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="table-responsive" id="printableStandardSection">
 
@@ -245,6 +269,12 @@
       <thead>
 
         <tr>
+
+          {% if can_delete_entries or is_system_admin %}
+          <th style="width: 42px; text-align: center; white-space: nowrap;">
+            <input type="checkbox" id="selectAllAttendance" title="Select All on this page" style="cursor: pointer; width: 16px; height: 16px; accent-color: #dc2626;">
+          </th>
+          {% endif %}
 
           <th data-col="employee_name" class="sticky-col-emp" style="min-width: 140px; white-space: nowrap;">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
 

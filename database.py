@@ -4489,7 +4489,7 @@ def extract_sort_timestamp(row):
             
     return '1970-01-01 00:00:00'
 
-def get_attendance_reports(report_type='all', start_date=None, end_date=None, employee='All', search=None, page=1, limit=10, company_id=None, branch_id=None, exclude_field_workers=True):
+def get_attendance_reports(report_type='all', start_date=None, end_date=None, employee='All', search=None, page=1, limit=10, company_id=None, branch_id=None, exclude_field_workers=True, sort_order='desc'):
     db = get_db()
     fw_names = get_field_worker_names(company_id) if exclude_field_workers else set()
 
@@ -4815,8 +4815,9 @@ def get_attendance_reports(report_type='all', start_date=None, end_date=None, em
             'sort_key': str(c.get('from_date') or c.get('created_at') or '')
         })
 
-    # Sort descending by date/timestamp
-    combined.sort(key=lambda x: (extract_sort_timestamp(x), str(x.get('created_at', '') or x.get('id', ''))), reverse=True)
+    # Sort by date/timestamp (default descending: newest first; ascending when sort_order='asc')
+    is_desc = (str(sort_order).strip().lower() != 'asc')
+    combined.sort(key=lambda x: (extract_sort_timestamp(x), str(x.get('created_at', '') or x.get('id', ''))), reverse=is_desc)
     total = len(combined)
 
     if limit and limit > 0:
@@ -5372,6 +5373,62 @@ def delete_attendance_report(report_id, is_manual=False, company_id=None):
                 deleted = (res.deleted_count > 0)
                 
     return deleted
+
+def bulk_delete_attendance_reports(items, company_id=None):
+    """
+    Deletes multiple attendance report entries in bulk.
+    items: list of IDs or list of dicts [{'id': '...', 'is_manual': bool}]
+    """
+    if not items or not isinstance(items, list):
+        return {'deleted_count': 0}
+    
+    deleted_count = 0
+    for it in items:
+        if isinstance(it, dict):
+            rec_id = it.get('id') or it.get('_id')
+            is_m = bool(it.get('is_manual'))
+        else:
+            rec_id = it
+            is_m = False
+            
+        if rec_id:
+            try:
+                ok = delete_attendance_report(rec_id, is_manual=is_m, company_id=company_id)
+                if ok:
+                    deleted_count += 1
+            except Exception as e:
+                print(f"Error deleting record {rec_id} in bulk_delete: {e}")
+                
+    return {'deleted_count': deleted_count}
+
+def delete_attendance_reports_by_range(start_date, end_date, employee='All', report_type='all', company_id=None, branch_id=None):
+    """
+    Deletes all attendance records within a specific date range and employee filter.
+    """
+    # Fetch all records within the range (up to 100,000 records)
+    records_res = get_attendance_reports(
+        report_type=report_type or 'all',
+        start_date=start_date,
+        end_date=end_date,
+        employee=employee or 'All',
+        search=None,
+        page=1,
+        limit=100000,
+        company_id=company_id,
+        branch_id=branch_id
+    )
+    rows = records_res.get('data') or []
+    if not rows:
+        return {'deleted_count': 0}
+        
+    items = []
+    for r in rows:
+        rec_id = r.get('id') or r.get('_id')
+        if rec_id:
+            is_m = bool(r.get('is_manual') or str(r.get('entry_type', '')).lower() in ['manual', 'sub', 'add'])
+            items.append({'id': rec_id, 'is_manual': is_m})
+            
+    return bulk_delete_attendance_reports(items, company_id=company_id)
 
 # ----------------- PAYMENT MANAGEMENT ----------------- #
 

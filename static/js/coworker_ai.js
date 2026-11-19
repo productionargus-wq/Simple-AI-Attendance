@@ -870,6 +870,13 @@ if (!window.makeModalDraggable) {
           { label: '📝 Add Manual Entry', prompt: 'create a manual entry' },
           { label: '📊 Live Report', prompt: 'take me to live report' }
         ];
+      } else if (taskData && taskData.type === 'calculation') {
+        const amt = (taskData.details && taskData.details['Calculated Value']) ? taskData.details['Calculated Value'] : '';
+        chipPrompts = [
+          { label: '💰 Create Payment', prompt: amt ? `create payment of rupees ${amt} and status will be salary for ` : 'create payment' },
+          { label: '➖ Record Deduction', prompt: amt ? `create payment of rupees ${amt} and status will be Other Deductions for ` : 'deduct from ' },
+          { label: '📋 View Ledger', prompt: 'take me to payment entry' }
+        ];
       } else if (taskData && taskData.type === 'employee') {
         const emp = (taskData.details && taskData.details.Employee) ? taskData.details.Employee : '';
         chipPrompts = [

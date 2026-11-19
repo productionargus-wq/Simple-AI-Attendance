@@ -54,6 +54,18 @@ document.addEventListener('DOMContentLoaded', function () {
   const nextArrowBtn = document.getElementById('nextArrowBtn');
   const currentPageBtn = document.getElementById('currentPageBtn');
 
+  // Bulk deletion & sort elements
+  const sortOrderSelect = document.getElementById('sortOrderSelect');
+  let currentSortOrder = 'desc';
+  const selectAllAttendance = document.getElementById('selectAllAttendance');
+  const bulkActionsBar = document.getElementById('bulkActionsBar');
+  const selectedCountBadge = document.getElementById('selectedCountBadge');
+  const btnSelectedCount = document.getElementById('btnSelectedCount');
+  const btnClearSelection = document.getElementById('btnClearSelection');
+  const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+  const btnOpenDeleteRange = document.getElementById('btnOpenDeleteRange');
+  const selectedRecordsMap = new Map(); // id -> { id, is_manual, name }
+
   // Export buttons
   const btnCopy = document.getElementById('btnCopyTable');
   const btnExcel = document.getElementById('btnExportExcel');
@@ -210,7 +222,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const { signal } = standardAbortCtrl;
 
     if (window.renderTableLoading && standardTableBody) {
-      window.renderTableLoading(standardTableBody, "Loading attendance records...", (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? 13 : 12);
+      window.renderTableLoading(standardTableBody, "Loading attendance records...", (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? 14 : 12);
     }
     try {
       const params = new URLSearchParams({
@@ -220,7 +232,8 @@ document.addEventListener('DOMContentLoaded', function () {
         employee: employeeName,
         search: currentSearch,
         page: currentPage,
-        limit: currentLimit
+        limit: currentLimit,
+        sort_order: currentSortOrder
       });
 
       const res = await fetch(`/api/attendance-reports?${params.toString()}`, {
@@ -266,11 +279,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!rows || rows.length === 0) {
       standardTableBody.innerHTML = `
         <tr>
-          <td colspan="${(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? 13 : 12}" style="text-align: center; color: #555; padding: 25px;">
+          <td colspan="${(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? 14 : 12}" style="text-align: center; color: #555; padding: 25px;">
             No data available in table
           </td>
         </tr>
       `;
+      updateBulkActionsBar();
       return;
     }
 
@@ -280,6 +294,12 @@ document.addEventListener('DOMContentLoaded', function () {
       const entryStatusVal = isLeave ? 'Leave' : ((r.is_manual || r.source === 'manual') ? '-' : (r.entry_status || '-'));
       const exitStatusVal = isLeave ? 'Leave' : ((r.is_manual || r.source === 'manual') ? '-' : (r.exit_status || '-'));
       const isManual = (r.is_manual || r.entry_type === 'manual' || r.source === 'manual') ? true : false;
+      const isChecked = selectedRecordsMap.has(String(r.id || r._id));
+      const checkboxHtml = (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? `
+        <td style="text-align: center; white-space: nowrap;">
+          <input type="checkbox" class="attendance-row-checkbox" value="${escapeHtml(r.id || r._id)}" data-manual="${isManual}" data-name="${escapeHtml(r.employee_name)}" ${isChecked ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: #dc2626;">
+        </td>
+      ` : '';
       const actionHtml = (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? `
         <td style="text-align: center; white-space: nowrap;">
           <button class="btn-action-del" data-id="${escapeHtml(r.id || r._id)}" data-manual="${isManual}" data-name="${escapeHtml(r.employee_name)}" title="Delete record" style="padding: 3px 8px; font-size: 11px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; font-weight: 600;">Del</button>
@@ -290,6 +310,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const exitLocIcon = isLeave ? '<span style="color: #7e22ce; margin-right: 3px;">📅</span>' : (r.exit_location && r.exit_location !== '----' ? '<span style="color: #0284c7; margin-right: 3px;">📍</span>' : '');
 
       tr.innerHTML = `
+        ${checkboxHtml}
         <td class="sticky-col-emp" style="white-space: nowrap;"><strong>${escapeHtml(r.employee_name)}</strong></td>
         <td style="white-space: nowrap;">${escapeHtml(r.entry_time || '')}</td>
         <td class="col-nowrap" data-col="entry_distance" title="${escapeHtml(r.entry_location || '')}" style="white-space: nowrap !important; min-width: 130px;">
@@ -314,6 +335,7 @@ document.addEventListener('DOMContentLoaded', function () {
       `;
       standardTableBody.appendChild(tr);
     });
+    updateBulkActionsBar();
   }
 
   // Load Simple Table Data
@@ -685,6 +707,192 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (standardTableBody) standardTableBody.addEventListener('click', handleAttendanceDelete);
   if (simpleTableBody) simpleTableBody.addEventListener('click', handleAttendanceDelete);
+
+  // Sort Order change
+  if (sortOrderSelect) {
+    sortOrderSelect.addEventListener('change', function () {
+      currentSortOrder = this.value;
+      currentPage = 1;
+      loadStandardTable();
+    });
+  }
+
+  // Header column click sorting
+  const standardTableHead = document.querySelector('#attendanceStandardTable thead');
+  if (standardTableHead) {
+    standardTableHead.addEventListener('click', function (e) {
+      const th = e.target.closest('th[data-col]');
+      if (!th) return;
+      const col = th.dataset.col;
+      if (col === 'entry_time' || col === 'exit_time') {
+        currentSortOrder = (currentSortOrder === 'desc') ? 'asc' : 'desc';
+        if (sortOrderSelect) sortOrderSelect.value = currentSortOrder;
+        currentPage = 1;
+        loadStandardTable();
+      }
+    });
+  }
+
+  // Selection state manager
+  function updateBulkActionsBar() {
+    const count = selectedRecordsMap.size;
+    if (selectedCountBadge) selectedCountBadge.textContent = String(count);
+    if (btnSelectedCount) btnSelectedCount.textContent = String(count);
+    if (bulkActionsBar) {
+      bulkActionsBar.style.display = count > 0 ? 'flex' : 'none';
+    }
+
+    if (selectAllAttendance && standardTableBody) {
+      const allRowCbs = standardTableBody.querySelectorAll('.attendance-row-checkbox');
+      if (allRowCbs.length === 0) {
+        selectAllAttendance.checked = false;
+        selectAllAttendance.indeterminate = false;
+      } else {
+        const checkedCount = Array.from(allRowCbs).filter(cb => cb.checked).length;
+        selectAllAttendance.checked = checkedCount === allRowCbs.length;
+        selectAllAttendance.indeterminate = checkedCount > 0 && checkedCount < allRowCbs.length;
+      }
+    }
+  }
+
+  function clearSelection() {
+    selectedRecordsMap.clear();
+    if (standardTableBody) {
+      standardTableBody.querySelectorAll('.attendance-row-checkbox').forEach(cb => cb.checked = false);
+    }
+    if (selectAllAttendance) {
+      selectAllAttendance.checked = false;
+      selectAllAttendance.indeterminate = false;
+    }
+    updateBulkActionsBar();
+  }
+
+  if (btnClearSelection) {
+    btnClearSelection.addEventListener('click', clearSelection);
+  }
+
+  if (selectAllAttendance) {
+    selectAllAttendance.addEventListener('change', function () {
+      if (!standardTableBody) return;
+      const cbs = standardTableBody.querySelectorAll('.attendance-row-checkbox');
+      cbs.forEach(cb => {
+        cb.checked = selectAllAttendance.checked;
+        const recId = cb.value;
+        const isM = cb.dataset.manual === 'true';
+        const empName = cb.dataset.name || '';
+        if (selectAllAttendance.checked) {
+          selectedRecordsMap.set(recId, { id: recId, is_manual: isM, name: empName });
+        } else {
+          selectedRecordsMap.delete(recId);
+        }
+      });
+      updateBulkActionsBar();
+    });
+  }
+
+  if (standardTableBody) {
+    standardTableBody.addEventListener('change', function (e) {
+      const cb = e.target.closest('.attendance-row-checkbox');
+      if (!cb) return;
+      const recId = cb.value;
+      const isM = cb.dataset.manual === 'true';
+      const empName = cb.dataset.name || '';
+      if (cb.checked) {
+        selectedRecordsMap.set(recId, { id: recId, is_manual: isM, name: empName });
+      } else {
+        selectedRecordsMap.delete(recId);
+      }
+      updateBulkActionsBar();
+    });
+  }
+
+  if (btnDeleteSelected) {
+    btnDeleteSelected.addEventListener('click', async function () {
+      const count = selectedRecordsMap.size;
+      if (count === 0) {
+        alert('Please select at least one attendance record to delete.');
+        return;
+      }
+      if (!confirm(`Are you sure you want to permanently delete these ${count} selected attendance record(s)? This action cannot be undone.`)) {
+        return;
+      }
+
+      btnDeleteSelected.disabled = true;
+      btnDeleteSelected.style.opacity = '0.7';
+      try {
+        const items = Array.from(selectedRecordsMap.values());
+        const res = await fetch('/api/attendance-reports/bulk-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items })
+        });
+        const d = await res.json();
+        if (res.ok && d.success) {
+          alert(d.message || `Deleted ${d.deleted_count} records.`);
+          clearSelection();
+          loadStandardTable();
+        } else {
+          alert(d.error || 'Failed to delete records.');
+        }
+      } catch (err) {
+        console.error('Bulk delete error:', err);
+        alert('An error occurred during bulk deletion.');
+      } finally {
+        btnDeleteSelected.disabled = false;
+        btnDeleteSelected.style.opacity = '1';
+      }
+    });
+  }
+
+  if (btnOpenDeleteRange) {
+    btnOpenDeleteRange.addEventListener('click', async function () {
+      syncFilterInputs();
+      if (!startDate || !endDate) {
+        alert('Please select both a Start Date and an End Date before deleting by date range.');
+        return;
+      }
+
+      const promptMsg = `⚠️ DANGER ZONE: BULK DELETE BY DATE RANGE\n\n` +
+        `You are about to permanently delete ALL attendance records from "${startDate}" to "${endDate}" for employee "${employeeName}".\n\n` +
+        `This will purge all corresponding punches, manual adjustments, and attendance logs.\n\n` +
+        `Type "DELETE" (all uppercase) to confirm:`;
+
+      const conf = prompt(promptMsg);
+      if (conf !== 'DELETE') {
+        if (conf !== null) alert('Deletion cancelled: confirmation text did not match "DELETE".');
+        return;
+      }
+
+      btnOpenDeleteRange.disabled = true;
+      btnOpenDeleteRange.style.opacity = '0.7';
+      try {
+        const res = await fetch('/api/attendance-reports/delete-range', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            start_date: startDate,
+            end_date: endDate,
+            employee: employeeName,
+            type: currentView
+          })
+        });
+        const d = await res.json();
+        if (res.ok && d.success) {
+          alert(d.message || `Deleted ${d.deleted_count} records in date range.`);
+          clearSelection();
+          loadStandardTable();
+        } else {
+          alert(d.error || 'Failed to delete records by range.');
+        }
+      } catch (err) {
+        console.error('Delete range error:', err);
+        alert('An error occurred while deleting date range records.');
+      } finally {
+        btnOpenDeleteRange.disabled = false;
+        btnOpenDeleteRange.style.opacity = '1';
+      }
+    });
+  }
 
   // Auto-resume data loading when user switches back to this tab (self-cleans after SPA navigation)
   function handleVisibilityChange() {

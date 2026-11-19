@@ -4483,6 +4483,7 @@ def api_get_attendance_reports():
     search = request.args.get('search', '').strip()
     page = int(request.args.get('page', 1))
     limit = int(request.args.get('limit', 10))
+    sort_order = request.args.get('sort_order', 'desc').strip().lower()
     
     result = database.get_attendance_reports(
         report_type=report_type,
@@ -4493,7 +4494,8 @@ def api_get_attendance_reports():
         page=page,
         limit=limit,
         company_id=get_current_company_id(),
-        branch_id=get_current_branch_id()
+        branch_id=get_current_branch_id(),
+        sort_order=sort_order
     )
     return jsonify(result)
 
@@ -4529,6 +4531,52 @@ def api_delete_attendance_report(report_id):
     if not success:
         return jsonify({'error': 'Attendance record not found or could not be deleted'}), 404
     return jsonify({'success': True, 'message': 'Attendance record deleted successfully'})
+
+@app.route('/api/attendance-reports/bulk-delete', methods=['POST'])
+@login_required
+def api_bulk_delete_attendance_reports():
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    data = request.get_json(silent=True) or {}
+    items = data.get('items') or data.get('ids') or []
+    if not items:
+        return jsonify({'error': 'No attendance records selected for deletion'}), 400
+    res = database.bulk_delete_attendance_reports(items, company_id=get_current_company_id())
+    del_count = res.get('deleted_count', 0)
+    return jsonify({
+        'success': True,
+        'deleted_count': del_count,
+        'message': f"Successfully deleted {del_count} attendance record(s)"
+    })
+
+@app.route('/api/attendance-reports/delete-range', methods=['POST'])
+@login_required
+def api_delete_attendance_range():
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    data = request.get_json(silent=True) or {}
+    start_date = str(data.get('start_date') or '').strip()
+    end_date = str(data.get('end_date') or '').strip()
+    employee = str(data.get('employee') or 'All').strip()
+    report_type = str(data.get('type') or 'all').strip()
+    
+    if not start_date or not end_date:
+        return jsonify({'error': 'Both start date and end date are required for range deletion'}), 400
+        
+    res = database.delete_attendance_reports_by_range(
+        start_date=start_date,
+        end_date=end_date,
+        employee=employee,
+        report_type=report_type,
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
+    )
+    del_count = res.get('deleted_count', 0)
+    return jsonify({
+        'success': True,
+        'deleted_count': del_count,
+        'message': f"Successfully deleted {del_count} attendance record(s) between {start_date} and {end_date}"
+    })
 
 @app.route('/api/attendance-reports/export/excel', methods=['GET'])
 @app.route('/api/attendance-reports/export/csv', methods=['GET'])
@@ -7160,6 +7208,58 @@ def api_coworker_ai_chat():
                 return now.strftime('%Y-%m')
             return None
 
+        def safe_eval_arithmetic(expr_text):
+            """Safely evaluates arithmetic expressions (e.g., +1000, -1000, 5000 - 1000, 1000 - 200, 25000 * 0.1, 50000 - 10%)."""
+            import ast
+            if not expr_text:
+                return None, None, None
+            clean = str(expr_text).strip()
+            clean = re.sub(r'^(?:calculate|calc|what\s+is|how\s+much\s+is|solve|evaluate|please\s+calculate|can\s+you\s+calculate)\s+', '', clean, flags=re.IGNORECASE).strip()
+            clean = re.sub(r'(?:rs\.?|inr|rupees|₹)', '', clean, flags=re.IGNORECASE).strip()
+            clean = re.sub(r'(?<=\d),(?=\d)', '', clean)
+            pct_m = re.search(r'(\d+(?:\.\d+)?)\s*([+\-])\s*(\d+(?:\.\d+)?)\s*%', clean)
+            if pct_m:
+                b = float(pct_m.group(1))
+                op = pct_m.group(2)
+                p = float(pct_m.group(3))
+                clean = f"{b} {op} {b * (p / 100.0)}"
+            if not re.match(r'^[0-9+\-*/%().\s]+$', clean):
+                return None, None, None
+            if not re.search(r'\d', clean):
+                return None, None, None
+            try:
+                node = ast.parse(clean, mode='eval')
+                def _eval_node(n):
+                    if isinstance(n, ast.Expression):
+                        return _eval_node(n.body)
+                    elif isinstance(n, ast.Constant):
+                        if isinstance(n.value, (int, float)):
+                            return n.value
+                        raise ValueError()
+                    elif hasattr(ast, 'Num') and isinstance(n, ast.Num):
+                        return n.n
+                    elif isinstance(n, ast.UnaryOp):
+                        opd = _eval_node(n.operand)
+                        if isinstance(n.op, ast.USub): return -opd
+                        elif isinstance(n.op, ast.UAdd): return +opd
+                        raise ValueError()
+                    elif isinstance(n, ast.BinOp):
+                        l = _eval_node(n.left)
+                        r = _eval_node(n.right)
+                        if isinstance(n.op, ast.Add): return l + r
+                        elif isinstance(n.op, ast.Sub): return l - r
+                        elif isinstance(n.op, ast.Mult): return l * r
+                        elif isinstance(n.op, ast.Div): return l / r if r != 0 else 0
+                        elif isinstance(n.op, ast.FloorDiv): return l // r if r != 0 else 0
+                        elif isinstance(n.op, ast.Mod): return l % r if r != 0 else 0
+                        raise ValueError()
+                    raise ValueError()
+                val = round(_eval_node(node), 2)
+                cur = f"₹{val:,.2f}"
+                return val, clean, cur
+            except Exception:
+                return None, None, None
+
         def extract_amount_from_text(t):
             if not t:
                 return None
@@ -7168,8 +7268,8 @@ def api_coworker_ai_chat():
             # Strip hours notations
             clean_t = re.sub(r'\b\d{1,2}(?::\d{2})?\s*(?:hrs?|hours?)\b|\b\d{1,2}:\d{2}\b', '', clean_t, flags=re.IGNORECASE)
             
-            # 1. Match with currency prefix or amount indicator
-            m = re.search(r'(?:rs\.?|inr|rupees|₹|amount(?:\s+of)?|for)\s*(\d+(?:\.\d+)?)', clean_t, re.IGNORECASE)
+            # 1. Match with prefix (currency, amount, minus, deduct, sub, or symbols)
+            m = re.search(r'(?:rs\.?|inr|rupees|₹|amount(?:\s+of)?|for|minus|sub|deduct|cut|penalty|[-+])\s*(\d+(?:\.\d+)?)', clean_t, re.IGNORECASE)
             if m:
                 try:
                     return float(m.group(1))
@@ -7182,8 +7282,8 @@ def api_coworker_ai_chat():
                     return float(m2.group(1))
                 except (ValueError, TypeError):
                     pass
-            # 3. Match standalone number
-            m3 = re.search(r'\b(\d+(?:\.\d+)?)\b', clean_t)
+            # 3. Match standalone number with optional sign
+            m3 = re.search(r'[-+]?\s*(\d+(?:\.\d+)?)', clean_t)
             if m3:
                 try:
                     val = float(m3.group(1))
@@ -7205,7 +7305,7 @@ def api_coworker_ai_chat():
                 return 'Allowance'
             elif any(w in t_low for w in ['bonus', 'earning', 'extra']):
                 return 'Other Earnings'
-            elif any(w in t_low for w in ['deduction', 'deduct', 'penalty', 'fine']):
+            elif any(w in t_low for w in ['deduction', 'deduct', 'penalty', 'fine', 'minus', 'cut', 'sub', 'subtract', 'less']) or bool(re.search(r'(?:^|\s)-\s*\d+', t_low)):
                 return 'Other Deductions'
             elif 'salary' in t_low:
                 return 'Salary'
@@ -7306,6 +7406,12 @@ def api_coworker_ai_chat():
             if reason_val:
                 p_out['reason'] = reason_val
 
+            # 5. Entry Type (Add vs Sub)
+            if any(w in low for w in ['sub', 'subtract', 'minus', 'deduct', 'cut', 'less']) or bool(re.search(r'(?:^|\s)-\s*\d+', low)):
+                p_out['entry_type'] = 'Sub'
+            elif not p_out.get('entry_type'):
+                p_out['entry_type'] = 'Add'
+
             p_out['recorded_by'] = 'coworker'
             return p_out
 
@@ -7355,6 +7461,25 @@ def api_coworker_ai_chat():
         # TIER 1: DETERMINISTIC NATURAL LANGUAGE PARSER & TASK DISPATCHER
         # =====================================================================
         is_nav = any(w in msg_lower for w in ['open', 'go to', 'take me', 'navigate', 'show page', 'view page'])
+
+        # 0. EXECUTIVE ARITHMETIC / MATH CALCULATION INTENT (e.g. +1000, -1000, 5000 - 1000, 1000 - 200, calculate 25000 - 3000)
+        has_emp = bool(find_employee_in_text(user_message))
+        if not has_emp:
+            is_calc_phrase = any(msg_lower.startswith(p) for p in ['calculate', 'calc', 'what is', 'how much is', 'solve', 'evaluate', 'math'])
+            is_arithmetic = bool(re.match(r'^\s*[-+]?\s*\d+(?:\.\d+)?\s*(?:[+\-*/%]\s*[-+]?\s*\d+(?:\.\d+)?)+\s*$', user_message))
+            is_unary_math = bool(re.match(r'^\s*[-+]\s*\d+(?:\.\d+)?\s*$', user_message))
+            if is_calc_phrase or is_arithmetic or is_unary_math:
+                res_num, clean_expr, cur_val = safe_eval_arithmetic(user_message)
+                if res_num is not None:
+                    parsed_action = {
+                        'action': 'calculate',
+                        'parameters': {
+                            'expression': clean_expr,
+                            'result': res_num,
+                            'formatted_result': cur_val
+                        },
+                        'reply_text': ''
+                    }
 
         # 1. ADVANCE REPAYMENT INTENT (High Priority explicit check)
         is_repayment = ('repayment' in msg_lower or 'repay' in msg_lower or ('advance' in msg_lower and any(w in msg_lower for w in ['returned', 'paid back', 'settle', 'clear', 'repaid']))) and not is_nav
@@ -7489,11 +7614,13 @@ def api_coworker_ai_chat():
                 }
 
             # D. Attendance / Manual Entry
-            elif (
-                (('manual' in msg_lower or 'attendance' in msg_lower) and any(w in msg_lower for w in ['entry', 'create', 'add', 'log', 'record', 'put', 'enter', 'mark', 'punch']))
+            is_hours_mention = bool(re.search(r'\b\d+(?:\.\d+)?\s*(?:hrs?|hours?)\b|\b\d{1,2}:\d{2}\b', msg_lower))
+            if (
+                (('manual' in msg_lower or 'attendance' in msg_lower) and any(w in msg_lower for w in ['entry', 'create', 'add', 'log', 'record', 'put', 'enter', 'mark', 'punch', 'sub', 'deduct', 'minus', 'cut']))
                 or 'manual entry' in msg_lower
                 or 'manual attendance' in msg_lower
                 or 'attendance entry' in msg_lower
+                or (is_hours_mention and bool(find_employee_in_text(user_message)) and any(w in msg_lower for w in ['add', 'sub', 'deduct', 'minus', 'put', 'enter', 'log', 'cut', '+', '-']))
             ) and not is_nav and not any(p in msg_lower for p in ['who is present', 'who is absent', 'is present', 'present today', 'how many present', 'summary']):
                 emp_doc_found = find_employee_in_text(user_message)
                 target_emp = emp_doc_found.get('employee_name') if emp_doc_found else None
@@ -7530,7 +7657,11 @@ def api_coworker_ai_chat():
                 }
 
             # F. Payment Entry (Advance Payment, Advance Repayment, Salary, Incentive, Allowance, Other Earnings, Other Deductions)
-            elif (any(w in msg_lower for w in ['payment', 'paid', 'pay ', 'disburse', 'advance payment', 'incentive', 'allowance', 'bonus', 'deduction', 'earning']) or 'payment' in msg_lower) and not is_nav:
+            elif (
+                any(w in msg_lower for w in ['payment', 'paid', 'pay ', 'disburse', 'advance payment', 'incentive', 'allowance', 'bonus', 'deduction', 'deduct', 'penalty', 'fine', 'earning'])
+                or 'payment' in msg_lower
+                or (not is_hours_mention and bool(find_employee_in_text(user_message)) and (any(w in msg_lower for w in ['minus', 'cut', 'sub ', 'subtract']) or bool(re.search(r'[-+]\s*\d+', msg_lower))))
+            ) and not is_nav:
                 emp_doc_found = find_employee_in_text(user_message)
                 amt_val = extract_amount_from_text(user_message)
                 st_val = determine_payment_status(user_message)
@@ -7669,7 +7800,10 @@ def api_coworker_ai_chat():
             status = params.get('status') or 'Advance Repayment'
             pay_type = params.get('payment_type') or 'UPI'
             pay_date = params.get('date') or parse_date_from_text(user_message, default_today=True)
-            reason = params.get('reason') or f"{status} recorded via Co-Worker"
+            if status == 'Other Deductions':
+                reason = params.get('reason') or "Deduction recorded via Co-Worker"
+            else:
+                reason = params.get('reason') or f"{status} recorded via Co-Worker"
 
             payment_payload = {
                 'employee_name': canonical_emp,
@@ -7800,6 +7934,7 @@ def api_coworker_ai_chat():
             display_reason = raw_reason if raw_reason else 'Recorded by Coworker'
             target_cid = (emp_doc.get('company_id') if emp_doc else None) or (cid if cid != 'ARGUS_MASTER' else None) or (emp_doc.get('company_id') if emp_doc else 'ARGUS_MASTER')
             target_bid = (emp_doc.get('branch_id') if emp_doc else None) or bid
+            m_entry_type = params.get('entry_type', 'Add')
             entry_payload = {
                 'employee_name': canonical_emp,
                 'entry_date': date_str,
@@ -7808,6 +7943,7 @@ def api_coworker_ai_chat():
                 'mode': 'Hours',
                 'status': status,
                 'reason': display_reason,
+                'entry_type': m_entry_type,
                 'recorded_by': 'coworker',
                 'company_id': target_cid,
                 'branch_id': target_bid
@@ -7815,9 +7951,11 @@ def api_coworker_ai_chat():
             ins_id = database.create_manual_entry(entry_payload, company_id=target_cid)
             session['coworker_pending_task'] = None
 
+            is_sub = (str(m_entry_type).lower() == 'sub')
+            reply_title = "Logged manual attendance deduction" if is_sub else "Logged manual attendance"
             return jsonify({
                 'success': True,
-                'reply': f"Logged manual attendance for **{canonical_emp}** on **{date_str}** ({hours_str} hrs, **{status} ({display_reason})**). Entry ID is **#{ins_id}**.",
+                'reply': f"{reply_title} for **{canonical_emp}** on **{date_str}** ({'-' if is_sub else ''}{hours_str} hrs, **{status} ({display_reason})**). Entry ID is **#{ins_id}**.",
                 'task_executed': True,
                 'action': 'refresh_manual_entries',
                 'task_data': {
@@ -7825,7 +7963,8 @@ def api_coworker_ai_chat():
                     'details': {
                         'Employee': canonical_emp,
                         'Date': date_str,
-                        'Hours': hours_str,
+                        'Hours': f"{'-' if is_sub else ''}{hours_str}",
+                        'Entry Type': str(m_entry_type).capitalize(),
                         'Status': f"{status} ({display_reason})",
                         'Source': 'Recorded by Coworker',
                         'Entry ID': str(ins_id)
@@ -8079,6 +8218,29 @@ def api_coworker_ai_chat():
                 'task_executed': True,
                 'action': 'navigate',
                 'task_data': {'url': target_url, 'action_label': f"Open {target_key.replace('_', ' ').title()}", 'action_url': target_url},
+                'pending_task': None
+            })
+
+        # 12. ARITHMETIC / MATH CALCULATION
+        elif action_name == 'calculate':
+            expr = params.get('expression') or user_message
+            res_num = params.get('result')
+            fmt_res = params.get('formatted_result') or f"₹{float(res_num or 0):,.2f}"
+            disp_num = f"{res_num:,.2f}" if isinstance(res_num, float) and not res_num.is_integer() else f"{int(res_num):,}"
+            
+            return jsonify({
+                'success': True,
+                'reply': f"🔢 **Calculation Result:**\n• Expression: `{expr}`\n• Calculated Value: **{disp_num}** ({fmt_res})",
+                'task_executed': True,
+                'action': 'none',
+                'task_data': {
+                    'type': 'calculation',
+                    'details': {
+                        'Expression': str(expr),
+                        'Calculated Value': str(disp_num),
+                        'Result Amount': str(fmt_res)
+                    }
+                },
                 'pending_task': None
             })
 
