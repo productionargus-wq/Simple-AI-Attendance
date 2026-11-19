@@ -98,10 +98,29 @@
     </div>
   </div>
 
+  {% if can_delete_entries or is_system_admin %}
+  <div id="bulkActionsBar" style="display: none; align-items: center; justify-content: space-between; background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 8px; padding: 10px 16px; margin: 12px 0 16px 0; gap: 10px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(225, 29, 72, 0.08);">
+    <div style="display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 600; color: #9f1239;">
+      <span>Selected: <span id="selectedCountBadge" style="background: #e11d48; color: #fff; padding: 3px 9px; border-radius: 12px; font-size: 12px; font-weight: 700;">0</span> record(s)</span>
+      <button type="button" id="btnClearSelection" style="background: transparent; border: none; color: #64748b; font-size: 12px; cursor: pointer; text-decoration: underline; font-weight: 500;">Clear Selection</button>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <button type="button" id="btnDeleteSelected" style="background: #dc2626; color: #ffffff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2);">
+        🗑️ Delete Selected (<span id="btnSelectedCount">0</span>)
+      </button>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="table-responsive" id="printableAdvanceSection">
     <table class="employee-table" id="advanceTable">
       <thead>
         <tr>
+          {% if can_delete_entries or is_system_admin %}
+          <th style="width: 38px; text-align: center;">
+            <input type="checkbox" id="selectAllAdvance" title="Select All on page" style="cursor: pointer; width: 16px; height: 16px; accent-color: #dc2626;">
+          </th>
+          {% endif %}
           <th data-col="timestamp" style="width: 25%;">Timestamp <span class="sort-icon">⇅</span></th>
           <th data-col="employee_name" class="sticky-col-emp" style="width: 25%;">Employee <span class="sort-icon">⇅</span></th>
           <th data-col="advance_date" style="width: 20%;">Date <span class="sort-icon">⇅</span></th>
@@ -174,6 +193,38 @@ document.addEventListener('DOMContentLoaded', function () {
   let advancePage = 1;
   let advanceLimit = 10;
   let advanceTotal = 0;
+
+  const bulkBar = document.getElementById('bulkActionsBar');
+  const selectedCountBadge = document.getElementById('selectedCountBadge');
+  const btnSelectedCount = document.getElementById('btnSelectedCount');
+  const btnClearSelection = document.getElementById('btnClearSelection');
+  const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+  const selectAllAdvance = document.getElementById('selectAllAdvance');
+  const selectedAdvanceIds = new Set();
+
+  function updateBulkBar() {
+    const count = selectedAdvanceIds.size;
+    if (bulkBar) {
+      bulkBar.style.display = count > 0 ? 'flex' : 'none';
+    }
+    if (selectedCountBadge) selectedCountBadge.textContent = count;
+    if (btnSelectedCount) btnSelectedCount.textContent = count;
+    if (selectAllAdvance) {
+      const pageCheckboxes = document.querySelectorAll('.advance-row-select');
+      if (pageCheckboxes.length > 0) {
+        selectAllAdvance.checked = Array.from(pageCheckboxes).every(cb => cb.checked);
+      } else {
+        selectAllAdvance.checked = false;
+      }
+    }
+  }
+
+  function clearSelection() {
+    selectedAdvanceIds.clear();
+    document.querySelectorAll('.advance-row-select').forEach(cb => cb.checked = false);
+    if (selectAllAdvance) selectAllAdvance.checked = false;
+    updateBulkBar();
+  }
 
   const todayStr = new Date().toISOString().split('T')[0];
   const advDateInput = document.getElementById('advDate');
@@ -275,11 +326,15 @@ document.addEventListener('DOMContentLoaded', function () {
     advanceTotal = res.total;
     const data = res.data;
 
+    const canDelete = Boolean(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN);
+    const colCount = canDelete ? 6 : 5;
+
     if (!data || data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="table-empty-message">No data available in table</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="${colCount}" class="table-empty-message">No data available in table</td></tr>`;
       infoText.innerText = 'Showing 0 to 0 of 0 entries';
       prevBtn.classList.add('disabled');
       nextBtn.classList.add('disabled');
+      updateBulkBar();
       return;
     }
 
@@ -301,8 +356,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let rowsHtml = '';
     data.forEach(r => {
+      const rIdStr = String(r.id);
+      const isChecked = selectedAdvanceIds.has(rIdStr);
+      const chkCol = canDelete
+        ? `<td style="text-align: center;"><input type="checkbox" class="advance-row-select" data-id="${rIdStr}" ${isChecked ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: #dc2626;"></td>`
+        : '';
+      const delBtnHtml = canDelete
+        ? `<button class="btn-action-manual-del btn-del-advance" data-id="${r.id}" title="Delete Advance" style="background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;">Del</button>`
+        : '';
+
       rowsHtml += `
         <tr>
+          ${chkCol}
           <td style="white-space: nowrap;">${r.timestamp}</td>
           <td class="col-wrap sticky-col-emp" style="font-weight: 600; white-space: normal !important; word-break: break-word !important; min-width: 140px;">${r.employee_name}</td>
           <td style="white-space: nowrap;">${r.advance_date}</td>
@@ -310,7 +375,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <td>
             <div style="display: flex; gap: 6px; align-items: center;">
               <button class="btn-action-manual-edit btn-edit-advance" data-id="${r.id}" title="Edit Advance" style="background-color: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;">Edit</button>
-              <button class="btn-action-manual-del btn-del-advance" data-id="${r.id}" title="Delete Advance" style="background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;">Del</button>
+              ${delBtnHtml}
             </div>
           </td>
         </tr>
@@ -318,6 +383,19 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     tbody.innerHTML = rowsHtml;
+
+    document.querySelectorAll('.advance-row-select').forEach(cb => {
+      cb.addEventListener('change', function () {
+        const id = this.getAttribute('data-id');
+        if (this.checked) {
+          selectedAdvanceIds.add(id);
+        } else {
+          selectedAdvanceIds.delete(id);
+        }
+        updateBulkBar();
+      });
+    });
+    updateBulkBar();
 
     document.querySelectorAll('.btn-edit-advance').forEach(btn => {
       btn.addEventListener('click', function () {
@@ -516,6 +594,59 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  if (selectAllAdvance) {
+    selectAllAdvance.addEventListener('change', function () {
+      const isChecked = this.checked;
+      document.querySelectorAll('.advance-row-select').forEach(cb => {
+        cb.checked = isChecked;
+        const id = cb.getAttribute('data-id');
+        if (isChecked) {
+          selectedAdvanceIds.add(id);
+        } else {
+          selectedAdvanceIds.delete(id);
+        }
+      });
+      updateBulkBar();
+    });
+  }
+
+  if (btnClearSelection) {
+    btnClearSelection.addEventListener('click', clearSelection);
+  }
+
+  if (btnDeleteSelected) {
+    btnDeleteSelected.addEventListener('click', async function () {
+      const count = selectedAdvanceIds.size;
+      if (count === 0) return;
+      if (!confirm(`Are you sure you want to permanently delete the ${count} selected advance records?`)) {
+        return;
+      }
+      btnDeleteSelected.disabled = true;
+      btnDeleteSelected.style.opacity = '0.7';
+      try {
+        const res = await fetch('/api/advances/bulk-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: Array.from(selectedAdvanceIds) })
+        });
+        const d = await res.json();
+        if (res.ok && d.success) {
+          alert(d.message || `Deleted ${d.deleted_count} advance record(s) successfully.`);
+          clearSelection();
+          loadAdvances();
+        } else {
+          alert(d.error || 'Failed to delete selected advance records.');
+        }
+      } catch (err) {
+        alert('An error occurred during bulk deletion: ' + err.message);
+      } finally {
+        btnDeleteSelected.disabled = false;
+        btnDeleteSelected.style.opacity = '1';
+      }
+    });
+  }
+
+  // Initial load
   loadAdvances();
 
   // Real-time synchronization with Co-Worker AI

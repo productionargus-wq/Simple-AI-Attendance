@@ -2252,6 +2252,21 @@ def delete_employee(emp_id, company_id=None):
     invalidate_face_embeddings_cache(company_id)
     return True
 
+def bulk_delete_employees(emp_ids, company_id=None):
+    """Bulk deletes employees by ID and invalidates relevant caches."""
+    deleted_count = 0
+    if not emp_ids or not isinstance(emp_ids, list):
+        return {'deleted_count': 0}
+    for e_id in emp_ids:
+        if not e_id:
+            continue
+        try:
+            if delete_employee(e_id, company_id=company_id):
+                deleted_count += 1
+        except Exception as ex:
+            print(f"Error deleting employee {e_id}: {ex}")
+    return {'deleted_count': deleted_count}
+
 def get_distinct_departments(company_id=None):
     """Return distinct non-empty department names for the given company or system-wide."""
     db = get_db()
@@ -3552,6 +3567,21 @@ def delete_live_report_entry(entry_id, entry_type='live', company_id=None):
         deleted = (res1.deleted_count > 0 or res2.deleted_count > 0)
         
     return deleted
+
+def bulk_delete_live_entries(entry_ids, company_id=None):
+    """Bulk deletes entries from live_entries and timeout_entries."""
+    deleted_count = 0
+    if not entry_ids or not isinstance(entry_ids, list):
+        return {'deleted_count': 0}
+    for e_id in entry_ids:
+        if not e_id:
+            continue
+        try:
+            if delete_live_report_entry(e_id, company_id=company_id):
+                deleted_count += 1
+        except Exception as ex:
+            print(f"Error deleting live entry {e_id}: {ex}")
+    return {'deleted_count': deleted_count}
 
 _REVERSE_GEOCODE_CACHE = {}
 _GEOCODE_LOCK = threading.Lock()
@@ -5310,6 +5340,66 @@ def delete_manual_entry(entry_id):
     db.manual_entries.delete_one(build_id_filter(entry_id))
     return True
 
+def bulk_delete_manual_entries(entry_ids, company_id=None):
+    """Bulk deletes manual entries by ID and cleans corresponding reports."""
+    db = get_db()
+    deleted_count = 0
+    if not entry_ids or not isinstance(entry_ids, list):
+        return {'deleted_count': 0}
+    for e_id in entry_ids:
+        if not e_id:
+            continue
+        try:
+            f = build_id_filter(e_id)
+            if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+                f['company_id'] = str(company_id)
+            doc = db.manual_entries.find_one(f)
+            if doc:
+                res = db.manual_entries.delete_one({'_id': doc['_id']})
+                if res.deleted_count > 0:
+                    deleted_count += 1
+                    emp = doc.get('employee_name')
+                    date_val = doc.get('entry_date') or doc.get('date')
+                    if emp and date_val:
+                        db.attendance_reports.delete_many({
+                            'employee_name': emp,
+                            'date': str(date_val),
+                            '$or': [{'is_manual': True}, {'entry_type': {'$in': ['manual', 'Manual', 'sub', 'Sub', 'add', 'Add']}}]
+                        })
+        except Exception as ex:
+            print(f"Error deleting manual entry {e_id}: {ex}")
+    return {'deleted_count': deleted_count}
+
+def delete_manual_entries_by_range(start_date, end_date, employee='All', status='All', company_id=None, branch_id=None):
+    """Deletes all manual entries within a date range."""
+    db = get_db()
+    query = {}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        query['company_id'] = str(company_id)
+    if start_date and end_date:
+        query['$or'] = [
+            {'entry_date': {'$gte': start_date, '$lte': end_date}},
+            {'date': {'$gte': start_date, '$lte': end_date}}
+        ]
+    elif start_date:
+        query['$or'] = [
+            {'entry_date': {'$gte': start_date}},
+            {'date': {'$gte': start_date}}
+        ]
+    elif end_date:
+        query['$or'] = [
+            {'entry_date': {'$lte': end_date}},
+            {'date': {'$lte': end_date}}
+        ]
+    if employee and employee != 'All':
+        query['employee_name'] = employee
+    if status and status != 'All':
+        query['status'] = status
+        
+    docs = list(db.manual_entries.find(query, {'_id': 1, 'id': 1}))
+    ids = [d.get('id') or str(d.get('_id')) for d in docs]
+    return bulk_delete_manual_entries(ids, company_id=company_id)
+
 def delete_attendance_report(report_id, is_manual=False, company_id=None):
     """
     Deletes an attendance report (facial punch or manual adjustment).
@@ -5631,6 +5721,47 @@ def delete_payment(payment_id):
     db.payments.delete_one(build_id_filter(payment_id))
     return True
 
+def bulk_delete_payments(payment_ids, company_id=None):
+    """Bulk deletes payments by ID."""
+    db = get_db()
+    deleted_count = 0
+    if not payment_ids or not isinstance(payment_ids, list):
+        return {'deleted_count': 0}
+    for p_id in payment_ids:
+        if not p_id:
+            continue
+        try:
+            f = build_id_filter(p_id)
+            if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+                f['company_id'] = str(company_id)
+            res = db.payments.delete_one(f)
+            if res.deleted_count > 0:
+                deleted_count += 1
+        except Exception as ex:
+            print(f"Error deleting payment {p_id}: {ex}")
+    return {'deleted_count': deleted_count}
+
+def delete_payments_by_range(start_date, end_date, employee='All', status='All', company_id=None, branch_id=None):
+    """Deletes payments within a date range."""
+    db = get_db()
+    query = {}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        query['company_id'] = str(company_id)
+    if start_date and end_date:
+        query['payment_date'] = {'$gte': start_date, '$lte': end_date}
+    elif start_date:
+        query['payment_date'] = {'$gte': start_date}
+    elif end_date:
+        query['payment_date'] = {'$lte': end_date}
+    if employee and employee != 'All':
+        query['employee_name'] = employee
+    if status and status != 'All':
+        query['$or'] = [{'status': status}, {'reason': status}]
+        
+    docs = list(db.payments.find(query, {'_id': 1, 'id': 1}))
+    ids = [d.get('id') or str(d.get('_id')) for d in docs]
+    return bulk_delete_payments(ids, company_id=company_id)
+
 # ----------------- ADVANCE MANAGEMENT ----------------- #
 
 def get_advances(employee=None, start_date=None, end_date=None, search=None, page=1, limit=10, company_id=None, branch_id=None):
@@ -5745,6 +5876,26 @@ def delete_advance(advance_id):
     db = get_db()
     db.advances.delete_one(build_id_filter(advance_id))
     return True
+
+def bulk_delete_advances(advance_ids, company_id=None):
+    """Bulk deletes advance entries by ID."""
+    db = get_db()
+    deleted_count = 0
+    if not advance_ids or not isinstance(advance_ids, list):
+        return {'deleted_count': 0}
+    for a_id in advance_ids:
+        if not a_id:
+            continue
+        try:
+            f = build_id_filter(a_id)
+            if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+                f['company_id'] = str(company_id)
+            res = db.advances.delete_one(f)
+            if res.deleted_count > 0:
+                deleted_count += 1
+        except Exception as ex:
+            print(f"Error deleting advance {a_id}: {ex}")
+    return {'deleted_count': deleted_count}
 
 # ----------------- BALANCE REPORT ----------------- #
 
@@ -8734,6 +8885,34 @@ def delete_employee_leave_request(request_id, emp_id=None):
 
     db.leave_requests.delete_one({'_id': req['_id']})
     return {'success': True, 'message': 'Request deleted successfully'}
+
+def bulk_delete_employee_leave_requests(request_ids, company_id=None):
+    """
+    Bulk deletes leave or permission requests by ID for an authorized admin.
+    Does not restrict to 'Pending' because this is an administrative delete.
+    """
+    db = get_db()
+    deleted_count = 0
+    if not request_ids or not isinstance(request_ids, list):
+        return {'deleted_count': 0}
+    for r_id in request_ids:
+        if not r_id:
+            continue
+        try:
+            q = {'$or': [
+                {'request_id': str(r_id)},
+                {'id': int(r_id) if str(r_id).isdigit() else str(r_id)},
+                {'id': str(r_id)},
+                build_id_filter(r_id)
+            ]}
+            if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+                q = {'$and': [q, {'company_id': str(company_id)}]}
+            res = db.leave_requests.delete_one(q)
+            if res.deleted_count > 0:
+                deleted_count += 1
+        except Exception as ex:
+            print(f"Error deleting leave request {r_id}: {ex}")
+    return {'deleted_count': deleted_count}
 
 def edit_employee_leave_request(request_id, emp_id, updated_fields):
     """

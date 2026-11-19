@@ -43,6 +43,40 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnPdf = document.getElementById('btnPdfTable');
   const btnPrint = document.getElementById('btnPrintTable');
 
+  // Bulk actions elements
+  const bulkBar = document.getElementById('bulkActionsBar');
+  const selectedCountBadge = document.getElementById('selectedCountBadge');
+  const btnSelectedCount = document.getElementById('btnSelectedCount');
+  const btnClearSelection = document.getElementById('btnClearSelection');
+  const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+  const btnOpenDeleteRangeManual = document.getElementById('btnOpenDeleteRangeManual');
+  const selectAllManual = document.getElementById('selectAllManual');
+  const selectedManualIds = new Set();
+
+  function updateBulkBar() {
+    const count = selectedManualIds.size;
+    if (bulkBar) {
+      bulkBar.style.display = count > 0 ? 'flex' : 'none';
+    }
+    if (selectedCountBadge) selectedCountBadge.textContent = count;
+    if (btnSelectedCount) btnSelectedCount.textContent = count;
+    if (selectAllManual) {
+      const pageCheckboxes = document.querySelectorAll('.manual-row-select');
+      if (pageCheckboxes.length > 0) {
+        selectAllManual.checked = Array.from(pageCheckboxes).every(cb => cb.checked);
+      } else {
+        selectAllManual.checked = false;
+      }
+    }
+  }
+
+  function clearSelection() {
+    selectedManualIds.clear();
+    document.querySelectorAll('.manual-row-select').forEach(cb => cb.checked = false);
+    if (selectAllManual) selectAllManual.checked = false;
+    updateBulkBar();
+  }
+
   // Load employee names for modal dropdown (reuse server-rendered options; fallback to lightweight names endpoint)
   async function loadEmployees() {
     if (empNameSelect && empNameSelect.options.length > 1) return;
@@ -94,14 +128,18 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!tableBody) return;
     tableBody.innerHTML = '';
 
+    const canDelete = Boolean(window.CAN_DELETE_ENTRIES);
+    const colCount = canDelete ? 11 : 10;
+
     if (!rows || rows.length === 0) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="10" style="text-align: center; color: #555; padding: 25px;">
+          <td colspan="${colCount}" style="text-align: center; color: #555; padding: 25px;">
             No data available in table
           </td>
         </tr>
       `;
+      updateBulkBar();
       return;
     }
 
@@ -138,7 +176,17 @@ document.addEventListener('DOMContentLoaded', function () {
         ? ` <span style="display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 2px 7px; font-size: 10.5px; font-weight: 700; border-radius: 999px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; white-space: nowrap;" title="Entered via Co-Worker AI">🤖 Recorded by Coworker</span>`
         : '';
 
+      const rIdStr = String(r.id);
+      const isChecked = selectedManualIds.has(rIdStr);
+      const chkCol = canDelete
+        ? `<td style="text-align: center;"><input type="checkbox" class="manual-row-select" data-id="${escapeHtml(rIdStr)}" ${isChecked ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: #dc2626;"></td>`
+        : '';
+      const delBtnHtml = canDelete
+        ? `<button class="btn-action-manual-del" onclick="deleteManualEntry(${r.id}, '${escapeHtml(r.employee_name)}')">Del</button>`
+        : '';
+
       tr.innerHTML = `
+        ${chkCol}
         <td class="col-wrap sticky-col-emp" style="white-space: normal !important; word-break: break-word !important; min-width: 140px;">${escapeHtml(r.employee_name)}</td>
         <td>${escapeHtml(r.entry_date || '')}</td>
         <td>${hoursDisplay}</td>
@@ -150,11 +198,24 @@ document.addEventListener('DOMContentLoaded', function () {
         <td><span class="${salClass}">${salDisplay}</span></td>
         <td>
           <button class="btn-action-manual-edit" onclick="editManualEntry(${r.id})">Edit</button>
-          <button class="btn-action-manual-del" onclick="deleteManualEntry(${r.id}, '${escapeHtml(r.employee_name)}')">Del</button>
+          ${delBtnHtml}
         </td>
       `;
       tableBody.appendChild(tr);
     });
+
+    tableBody.querySelectorAll('.manual-row-select').forEach(cb => {
+      cb.addEventListener('change', function () {
+        const id = this.getAttribute('data-id');
+        if (this.checked) {
+          selectedManualIds.add(id);
+        } else {
+          selectedManualIds.delete(id);
+        }
+        updateBulkBar();
+      });
+    });
+    updateBulkBar();
   }
 
   function updatePagination(total, page, limit) {
@@ -521,6 +582,101 @@ document.addEventListener('DOMContentLoaded', function () {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  if (selectAllManual) {
+    selectAllManual.addEventListener('change', function () {
+      const isChecked = this.checked;
+      tableBody.querySelectorAll('.manual-row-select').forEach(cb => {
+        cb.checked = isChecked;
+        const id = cb.getAttribute('data-id');
+        if (isChecked) {
+          selectedManualIds.add(id);
+        } else {
+          selectedManualIds.delete(id);
+        }
+      });
+      updateBulkBar();
+    });
+  }
+
+  if (btnClearSelection) {
+    btnClearSelection.addEventListener('click', clearSelection);
+  }
+
+  if (btnDeleteSelected) {
+    btnDeleteSelected.addEventListener('click', async function () {
+      const count = selectedManualIds.size;
+      if (count === 0) return;
+      if (!confirm(`Are you sure you want to permanently delete the ${count} selected manual entries?`)) {
+        return;
+      }
+      btnDeleteSelected.disabled = true;
+      btnDeleteSelected.style.opacity = '0.7';
+      try {
+        const res = await fetch('/api/manual-entries/bulk-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: Array.from(selectedManualIds) })
+        });
+        const d = await res.json();
+        if (res.ok && d.success) {
+          alert(d.message || `Deleted ${d.deleted_count} manual entries successfully.`);
+          clearSelection();
+          loadEntries();
+        } else {
+          alert(d.error || 'Failed to delete selected manual entries.');
+        }
+      } catch (err) {
+        alert('An error occurred during bulk deletion: ' + err.message);
+      } finally {
+        btnDeleteSelected.disabled = false;
+        btnDeleteSelected.style.opacity = '1';
+      }
+    });
+  }
+
+  if (btnOpenDeleteRangeManual) {
+    btnOpenDeleteRangeManual.addEventListener('click', async function () {
+      if (!fromDate || !toDate) {
+        alert('Please select both a From Date and a To Date before deleting by date range.');
+        return;
+      }
+      const promptMsg = `⚠️ DANGER ZONE: BULK DELETE MANUAL ENTRIES BY DATE RANGE\n\n` +
+        `You are about to permanently delete ALL manual entries from "${fromDate}" to "${toDate}" (Status: ${statusVal}).\n\n` +
+        `Type "DELETE" (all uppercase) to confirm:`;
+      const conf = prompt(promptMsg);
+      if (conf !== 'DELETE') {
+        if (conf !== null) alert('Deletion cancelled: confirmation text did not match "DELETE".');
+        return;
+      }
+      btnOpenDeleteRangeManual.disabled = true;
+      btnOpenDeleteRangeManual.style.opacity = '0.7';
+      try {
+        const res = await fetch('/api/manual-entries/delete-range', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            start_date: fromDate,
+            end_date: toDate,
+            status: statusVal
+          })
+        });
+        const d = await res.json();
+        if (res.ok && d.success) {
+          alert(d.message || `Deleted ${d.deleted_count} manual entries in date range.`);
+          clearSelection();
+          loadEntries();
+        } else {
+          alert(d.error || 'Failed to delete manual entries by date range.');
+        }
+      } catch (err) {
+        alert('An error occurred while deleting date range manual entries.');
+      } finally {
+        btnOpenDeleteRangeManual.disabled = false;
+        btnOpenDeleteRangeManual.style.opacity = '1';
+      }
+    });
   }
 
   // Initial load

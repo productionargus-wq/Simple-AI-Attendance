@@ -34,6 +34,39 @@ document.addEventListener('DOMContentLoaded', function () {
   const searchRequestsInput = document.getElementById('searchRequestsInput');
   const requestsTbody = document.getElementById('leaveRequestsTbody');
 
+  // Bulk actions elements
+  const bulkBar = document.getElementById('bulkActionsBar');
+  const selectedCountBadge = document.getElementById('selectedCountBadge');
+  const btnSelectedCount = document.getElementById('btnSelectedCount');
+  const btnClearSelection = document.getElementById('btnClearSelection');
+  const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+  const selectAllLeaves = document.getElementById('selectAllLeaves');
+  const selectedLeaveIds = new Set();
+
+  function updateBulkBar() {
+    const count = selectedLeaveIds.size;
+    if (bulkBar) {
+      bulkBar.style.display = count > 0 ? 'flex' : 'none';
+    }
+    if (selectedCountBadge) selectedCountBadge.textContent = count;
+    if (btnSelectedCount) btnSelectedCount.textContent = count;
+    if (selectAllLeaves) {
+      const pageCheckboxes = document.querySelectorAll('.leave-row-select');
+      if (pageCheckboxes.length > 0) {
+        selectAllLeaves.checked = Array.from(pageCheckboxes).every(cb => cb.checked);
+      } else {
+        selectAllLeaves.checked = false;
+      }
+    }
+  }
+
+  function clearSelection() {
+    selectedLeaveIds.clear();
+    document.querySelectorAll('.leave-row-select').forEach(cb => cb.checked = false);
+    if (selectAllLeaves) selectAllLeaves.checked = false;
+    updateBulkBar();
+  }
+
   // Request Tab Badge Elements
   const badgeReqAll = document.getElementById('badgeReqAll');
   const badgeReqPending = document.getElementById('badgeReqPending');
@@ -531,6 +564,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function renderRequestsTable() {
     if (!requestsTbody) return;
+    const canDelete = Boolean(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN);
+    const colCount = canDelete ? 9 : 8;
     const query = (searchRequestsInput ? searchRequestsInput.value : '').toLowerCase().trim();
 
     const filtered = cachedRequests.filter(r => {
@@ -546,7 +581,8 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     if (filtered.length === 0) {
-      requestsTbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 24px; color: #94a3b8; font-size: 12.5px;">No requests found matching criteria.</td></tr>`;
+      requestsTbody.innerHTML = `<tr><td colspan="${colCount}" style="text-align: center; padding: 24px; color: #94a3b8; font-size: 12.5px;">No requests found matching criteria.</td></tr>`;
+      updateBulkBar();
       return;
     }
 
@@ -634,10 +670,25 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
       }
 
+      if (canDelete) {
+        actionButtons += `
+          <button type="button" class="btn-quick-del-leave" data-id="${r.request_id}" data-name="${escapeHtml(r.employee_name)}" title="Delete Request" style="border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background: #fee2e2; color: #dc2626; font-size: 11px; font-weight: 700;">
+            🗑️
+          </button>
+        `;
+      }
+
       actionButtons += `</div>`;
+
+      const rIdStr = String(r.request_id || r.id);
+      const isChecked = selectedLeaveIds.has(rIdStr);
+      const chkCol = canDelete
+        ? `<td style="padding: 10px 14px; text-align: center;"><input type="checkbox" class="leave-row-select" data-id="${escapeHtml(rIdStr)}" ${isChecked ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: #dc2626;"></td>`
+        : '';
 
       return `
         <tr style="border-bottom: 1px solid #f1f5f9;">
+          ${chkCol}
           <td style="padding: 10px 14px; text-align: center; font-size: 11.5px; color: #64748b; font-weight: 600;">${idx + 1}</td>
           <td style="padding: 10px 14px; font-size: 12px;">${typeBadge}</td>
           <td class="sticky-col-emp" style="padding: 10px 14px; font-size: 12px;">
@@ -659,6 +710,47 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function attachQuickActionHandlers() {
+    // Row selection checkboxes
+    document.querySelectorAll('.leave-row-select').forEach(cb => {
+      cb.addEventListener('change', function () {
+        const id = this.getAttribute('data-id');
+        if (this.checked) {
+          selectedLeaveIds.add(id);
+        } else {
+          selectedLeaveIds.delete(id);
+        }
+        updateBulkBar();
+      });
+    });
+    updateBulkBar();
+
+    // Quick Delete (Admin authorized)
+    document.querySelectorAll('.btn-quick-del-leave').forEach(btn => {
+      btn.addEventListener('click', async function () {
+        const reqId = this.getAttribute('data-id');
+        const empName = this.getAttribute('data-name') || 'this employee';
+        if (!confirm(`Are you sure you want to delete leave/permission request #${reqId} for ${empName}? This action cannot be undone.`)) return;
+
+        this.disabled = true;
+        try {
+          const res = await fetch(`/api/admin/leave-permission/requests/${reqId}`, {
+            method: 'DELETE'
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            refreshAllData();
+          } else {
+            alert(data.error || 'Failed to delete request.');
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Error deleting request.');
+        } finally {
+          this.disabled = false;
+        }
+      });
+    });
+
     // Quick Approve
     document.querySelectorAll('.btn-quick-approve').forEach(btn => {
       btn.addEventListener('click', async function () {
@@ -782,12 +874,65 @@ document.addEventListener('DOMContentLoaded', function () {
       reqFilterTabs.forEach(t => t.classList.remove('active'));
       this.classList.add('active');
       currentStatusFilter = this.getAttribute('data-status') || '';
+      clearSelection();
       loadRequests();
     });
   });
 
   if (searchRequestsInput) {
     searchRequestsInput.addEventListener('input', renderRequestsTable);
+  }
+
+  if (selectAllLeaves) {
+    selectAllLeaves.addEventListener('change', function () {
+      const isChecked = this.checked;
+      document.querySelectorAll('.leave-row-select').forEach(cb => {
+        cb.checked = isChecked;
+        const id = cb.getAttribute('data-id');
+        if (isChecked) {
+          selectedLeaveIds.add(id);
+        } else {
+          selectedLeaveIds.delete(id);
+        }
+      });
+      updateBulkBar();
+    });
+  }
+
+  if (btnClearSelection) {
+    btnClearSelection.addEventListener('click', clearSelection);
+  }
+
+  if (btnDeleteSelected) {
+    btnDeleteSelected.addEventListener('click', async function () {
+      const count = selectedLeaveIds.size;
+      if (count === 0) return;
+      if (!confirm(`Are you sure you want to permanently delete the ${count} selected leave/permission requests?`)) {
+        return;
+      }
+      btnDeleteSelected.disabled = true;
+      btnDeleteSelected.style.opacity = '0.7';
+      try {
+        const res = await fetch('/api/admin/leave-permission/requests/bulk-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: Array.from(selectedLeaveIds) })
+        });
+        const d = await res.json();
+        if (res.ok && d.success) {
+          alert(d.message || `Deleted ${d.deleted_count} leave/permission request(s) successfully.`);
+          clearSelection();
+          refreshAllData();
+        } else {
+          alert(d.error || 'Failed to delete selected requests.');
+        }
+      } catch (err) {
+        alert('An error occurred during bulk deletion: ' + err.message);
+      } finally {
+        btnDeleteSelected.disabled = false;
+        btnDeleteSelected.style.opacity = '1';
+      }
+    });
   }
 
   // Refresh All Data

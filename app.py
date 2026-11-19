@@ -3283,6 +3283,33 @@ def api_admin_leave_request_action(request_id):
     res = database.update_leave_request_status(request_id, action, admin_remark=remark, reviewer=reviewer)
     return jsonify(res)
 
+@app.route('/api/admin/leave-permission/requests/<request_id>', methods=['DELETE'])
+@login_required
+def api_admin_delete_leave_request(request_id):
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    res = database.bulk_delete_employee_leave_requests([request_id], company_id=get_current_company_id())
+    if res.get('deleted_count', 0) > 0:
+        return jsonify({'success': True, 'message': 'Leave request deleted successfully'})
+    return jsonify({'error': 'Leave request not found or could not be deleted'}), 404
+
+@app.route('/api/admin/leave-permission/requests/bulk-delete', methods=['POST'])
+@login_required
+def api_admin_bulk_delete_leave_requests():
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    data = request.get_json(silent=True) or {}
+    items = data.get('items') or data.get('ids') or []
+    if not items:
+        return jsonify({'error': 'No leave requests selected for deletion'}), 400
+    res = database.bulk_delete_employee_leave_requests(items, company_id=get_current_company_id())
+    del_count = res.get('deleted_count', 0)
+    return jsonify({
+        'success': True,
+        'deleted_count': del_count,
+        'message': f"Successfully deleted {del_count} leave/permission request(s)"
+    })
+
 # ----------------- EMPLOYEE MANAGEMENT API ROUTES ----------------- #
 
 @app.route('/api/dashboard/stats')
@@ -3696,13 +3723,30 @@ def api_update_employee(emp_id):
 @app.route('/api/employees/<emp_id>', methods=['DELETE'])
 @login_required
 def api_delete_employee(emp_id):
-    if not (session.get('role') in ['super_admin', 'company_admin'] or check_user_can_delete_entries()):
+    if not check_user_can_delete_entries():
         return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     emp = database.get_employee_by_id(emp_id)
     if not emp:
         return jsonify({'error': 'Employee not found'}), 404
-    database.delete_employee(emp_id)
+    database.delete_employee(emp_id, company_id=get_current_company_id())
     return jsonify({'success': True, 'message': 'Employee deleted successfully'})
+
+@app.route('/api/employees/bulk-delete', methods=['POST'])
+@login_required
+def api_bulk_delete_employees():
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    data = request.get_json(silent=True) or {}
+    items = data.get('items') or data.get('ids') or []
+    if not items:
+        return jsonify({'error': 'No employees selected for deletion'}), 400
+    res = database.bulk_delete_employees(items, company_id=get_current_company_id())
+    del_count = res.get('deleted_count', 0)
+    return jsonify({
+        'success': True,
+        'deleted_count': del_count,
+        'message': f"Successfully deleted {del_count} employee(s)"
+    })
 
 @app.route('/api/employees/<emp_id>/pdf', methods=['GET'])
 @login_required
@@ -3916,6 +3960,23 @@ def api_delete_live_entry(entry_id):
     if not success:
         return jsonify({'error': 'Entry not found or could not be deleted'}), 404
     return jsonify({'success': True, 'message': 'Live report entry deleted successfully'})
+
+@app.route('/api/live-entries/bulk-delete', methods=['POST'])
+@login_required
+def api_bulk_delete_live_entries():
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    data = request.get_json(silent=True) or {}
+    items = data.get('items') or data.get('ids') or []
+    if not items:
+        return jsonify({'error': 'No live entries selected for deletion'}), 400
+    res = database.bulk_delete_live_entries(items, company_id=get_current_company_id())
+    del_count = res.get('deleted_count', 0)
+    return jsonify({
+        'success': True,
+        'deleted_count': del_count,
+        'message': f"Successfully deleted {del_count} live entry record(s)"
+    })
 
 @app.route('/api/live-entries/export/excel', methods=['GET'])
 @app.route('/api/live-entries/export/csv', methods=['GET'])
@@ -4726,12 +4787,60 @@ def api_update_manual_entry(entry_id):
 @app.route('/api/manual-entries/<entry_id>', methods=['DELETE'])
 @login_required
 def api_delete_manual_entry(entry_id):
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     entry = database.get_manual_entry_by_id(entry_id)
     if not entry:
         return jsonify({'error': 'Manual entry not found'}), 404
         
     database.delete_manual_entry(entry_id)
     return jsonify({'success': True, 'message': 'Manual entry deleted successfully'})
+
+@app.route('/api/manual-entries/bulk-delete', methods=['POST'])
+@login_required
+def api_bulk_delete_manual_entries():
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    data = request.get_json(silent=True) or {}
+    items = data.get('items') or data.get('ids') or []
+    if not items:
+        return jsonify({'error': 'No manual entries selected for deletion'}), 400
+    res = database.bulk_delete_manual_entries(items, company_id=get_current_company_id())
+    del_count = res.get('deleted_count', 0)
+    return jsonify({
+        'success': True,
+        'deleted_count': del_count,
+        'message': f"Successfully deleted {del_count} manual entry record(s)"
+    })
+
+@app.route('/api/manual-entries/delete-range', methods=['POST'])
+@login_required
+def api_delete_manual_entries_range():
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    data = request.get_json(silent=True) or {}
+    start_date = str(data.get('start_date') or data.get('from_date') or '').strip()
+    end_date = str(data.get('end_date') or data.get('to_date') or '').strip()
+    employee = str(data.get('employee') or 'All').strip()
+    status = str(data.get('status') or 'All').strip()
+    
+    if not start_date or not end_date:
+        return jsonify({'error': 'Both start date and end date are required for range deletion'}), 400
+        
+    res = database.delete_manual_entries_by_range(
+        start_date=start_date,
+        end_date=end_date,
+        employee=employee,
+        status=status,
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
+    )
+    del_count = res.get('deleted_count', 0)
+    return jsonify({
+        'success': True,
+        'deleted_count': del_count,
+        'message': f"Successfully deleted {del_count} manual entry record(s) between {start_date} and {end_date}"
+    })
 
 @app.route('/api/manual-entries/export/excel', methods=['GET'])
 @app.route('/api/manual-entries/export/csv', methods=['GET'])
@@ -4891,12 +5000,60 @@ def api_update_payment(payment_id):
 @app.route('/api/payments/<payment_id>', methods=['DELETE'])
 @login_required
 def api_delete_payment(payment_id):
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     p = database.get_payment_by_id(payment_id)
     if not p:
         return jsonify({'error': 'Payment not found'}), 404
         
     database.delete_payment(payment_id)
     return jsonify({'success': True, 'message': 'Payment deleted successfully'})
+
+@app.route('/api/payments/bulk-delete', methods=['POST'])
+@login_required
+def api_bulk_delete_payments():
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    data = request.get_json(silent=True) or {}
+    items = data.get('items') or data.get('ids') or []
+    if not items:
+        return jsonify({'error': 'No payments selected for deletion'}), 400
+    res = database.bulk_delete_payments(items, company_id=get_current_company_id())
+    del_count = res.get('deleted_count', 0)
+    return jsonify({
+        'success': True,
+        'deleted_count': del_count,
+        'message': f"Successfully deleted {del_count} payment record(s)"
+    })
+
+@app.route('/api/payments/delete-range', methods=['POST'])
+@login_required
+def api_delete_payments_range():
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    data = request.get_json(silent=True) or {}
+    start_date = str(data.get('start_date') or '').strip()
+    end_date = str(data.get('end_date') or '').strip()
+    employee = str(data.get('employee') or 'All').strip()
+    status = str(data.get('status') or data.get('reason') or 'All').strip()
+    
+    if not start_date or not end_date:
+        return jsonify({'error': 'Both start date and end date are required for range deletion'}), 400
+        
+    res = database.delete_payments_by_range(
+        start_date=start_date,
+        end_date=end_date,
+        employee=employee,
+        status=status,
+        company_id=get_current_company_id(),
+        branch_id=get_current_branch_id()
+    )
+    del_count = res.get('deleted_count', 0)
+    return jsonify({
+        'success': True,
+        'deleted_count': del_count,
+        'message': f"Successfully deleted {del_count} payment record(s) between {start_date} and {end_date}"
+    })
 
 @app.route('/api/payments/export/excel', methods=['GET'])
 @app.route('/api/payments/export/csv', methods=['GET'])
@@ -5031,12 +5188,31 @@ def api_update_advance(advance_id):
 @app.route('/api/advances/<advance_id>', methods=['DELETE'])
 @login_required
 def api_delete_advance(advance_id):
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
     a = database.get_advance_by_id(advance_id)
     if not a:
         return jsonify({'error': 'Advance not found'}), 404
         
     database.delete_advance(advance_id)
     return jsonify({'success': True, 'message': 'Advance deleted successfully'})
+
+@app.route('/api/advances/bulk-delete', methods=['POST'])
+@login_required
+def api_bulk_delete_advances():
+    if not check_user_can_delete_entries():
+        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    data = request.get_json(silent=True) or {}
+    items = data.get('items') or data.get('ids') or []
+    if not items:
+        return jsonify({'error': 'No advances selected for deletion'}), 400
+    res = database.bulk_delete_advances(items, company_id=get_current_company_id())
+    del_count = res.get('deleted_count', 0)
+    return jsonify({
+        'success': True,
+        'deleted_count': del_count,
+        'message': f"Successfully deleted {del_count} advance record(s)"
+    })
 
 @app.route('/api/advances/export/excel', methods=['GET'])
 @app.route('/api/advances/export/csv', methods=['GET'])

@@ -40,10 +40,44 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnPdf = document.getElementById('btnExportPdf');
   const btnPrint = document.getElementById('btnPrintReport');
 
+  // Bulk actions elements
+  const bulkBar = document.getElementById('bulkActionsBar');
+  const selectedCountBadge = document.getElementById('selectedCountBadge');
+  const btnSelectedCount = document.getElementById('btnSelectedCount');
+  const btnClearSelection = document.getElementById('btnClearSelection');
+  const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+  const selectAllLive = document.getElementById('selectAllLive');
+  const selectedLiveIds = new Set();
+
+  function updateBulkBar() {
+    const count = selectedLiveIds.size;
+    if (bulkBar) {
+      bulkBar.style.display = count > 0 ? 'flex' : 'none';
+    }
+    if (selectedCountBadge) selectedCountBadge.textContent = count;
+    if (btnSelectedCount) btnSelectedCount.textContent = count;
+    if (selectAllLive) {
+      const pageCheckboxes = document.querySelectorAll('.live-row-select');
+      if (pageCheckboxes.length > 0) {
+        selectAllLive.checked = Array.from(pageCheckboxes).every(cb => cb.checked);
+      } else {
+        selectAllLive.checked = false;
+      }
+    }
+  }
+
+  function clearSelection() {
+    selectedLiveIds.clear();
+    document.querySelectorAll('.live-row-select').forEach(cb => cb.checked = false);
+    if (selectAllLive) selectAllLive.checked = false;
+    updateBulkBar();
+  }
+
   // Switch View
   function setView(type) {
     currentType = type;
     currentPage = 1;
+    clearSelection();
 
     if (currentType === 'live') {
       pageTitle.textContent = 'LIVE ENTRIES';
@@ -136,14 +170,18 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!tableBody) return;
     tableBody.innerHTML = '';
 
+    const canDelete = Boolean(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN);
+    const colCount = canDelete ? 7 : 5;
+
     if (!entries || entries.length === 0) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="${(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? 6 : 5}" style="text-align: center; color: #555; padding: 25px; font-size: 13px;">
+          <td colspan="${colCount}" style="text-align: center; color: #555; padding: 25px; font-size: 13px;">
             No data available in table
           </td>
         </tr>
       `;
+      updateBulkBar();
       return;
     }
 
@@ -168,13 +206,20 @@ document.addEventListener('DOMContentLoaded', function () {
       const distDisplay = (currentType === 'timeout' && entry.exit_distance && entry.exit_distance !== '----') ? entry.exit_distance : distStr;
       const statusDisplay = (currentType === 'timeout' && entry.exit_status) ? entry.exit_status : (entry.entry_status || '-');
 
-      const actionHtml = (window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN) ? `
+      const entryId = String(entry.id || entry._id);
+      const isChecked = selectedLiveIds.has(entryId);
+      const chkCol = canDelete
+        ? `<td style="text-align: center;"><input type="checkbox" class="live-row-select" data-id="${escapeHtml(entryId)}" ${isChecked ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: #dc2626;"></td>`
+        : '';
+
+      const actionHtml = canDelete ? `
         <td style="text-align: center; white-space: nowrap;">
-          <button class="btn-action-del" data-id="${escapeHtml(entry.id || entry._id)}" data-name="${escapeHtml(entry.employee_name)}" title="Delete entry" style="padding: 3px 8px; font-size: 11px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; font-weight: 600;">Del</button>
+          <button class="btn-action-del" data-id="${escapeHtml(entryId)}" data-name="${escapeHtml(entry.employee_name)}" title="Delete entry" style="padding: 3px 8px; font-size: 11px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; font-weight: 600;">Del</button>
         </td>
       ` : '';
 
       tr.innerHTML = `
+        ${chkCol}
         <td class="sticky-col-emp" style="white-space: nowrap;"><strong>${escapeHtml(entry.employee_name)}</strong></td>
         <td style="white-space: nowrap;">${escapeHtml(timeDisplay)}</td>
         <td class="col-location" data-col="entry_location" title="${escapeHtml(locDisplay)}" style="min-width: 220px; max-width: 320px; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; font-size: 11.5px; line-height: 1.4;">
@@ -186,6 +231,19 @@ document.addEventListener('DOMContentLoaded', function () {
       `;
       tableBody.appendChild(tr);
     });
+
+    tableBody.querySelectorAll('.live-row-select').forEach(cb => {
+      cb.addEventListener('change', function () {
+        const id = this.getAttribute('data-id');
+        if (this.checked) {
+          selectedLiveIds.add(id);
+        } else {
+          selectedLiveIds.delete(id);
+        }
+        updateBulkBar();
+      });
+    });
+    updateBulkBar();
   }
 
   function updatePagination(total, page, limit) {
@@ -374,6 +432,58 @@ document.addEventListener('DOMContentLoaded', function () {
       } catch (err) {
         console.error('Delete error:', err);
         alert('An error occurred while deleting the entry.');
+      }
+    });
+  }
+
+  if (selectAllLive) {
+    selectAllLive.addEventListener('change', function () {
+      const isChecked = this.checked;
+      tableBody.querySelectorAll('.live-row-select').forEach(cb => {
+        cb.checked = isChecked;
+        const id = cb.getAttribute('data-id');
+        if (isChecked) {
+          selectedLiveIds.add(id);
+        } else {
+          selectedLiveIds.delete(id);
+        }
+      });
+      updateBulkBar();
+    });
+  }
+
+  if (btnClearSelection) {
+    btnClearSelection.addEventListener('click', clearSelection);
+  }
+
+  if (btnDeleteSelected) {
+    btnDeleteSelected.addEventListener('click', async function () {
+      const count = selectedLiveIds.size;
+      if (count === 0) return;
+      if (!confirm(`Are you sure you want to permanently delete the ${count} selected ${currentType} entries?`)) {
+        return;
+      }
+      btnDeleteSelected.disabled = true;
+      btnDeleteSelected.style.opacity = '0.7';
+      try {
+        const res = await fetch('/api/live-entries/bulk-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: Array.from(selectedLiveIds) })
+        });
+        const d = await res.json();
+        if (res.ok && d.success) {
+          alert(d.message || `Deleted ${d.deleted_count} live entries successfully.`);
+          clearSelection();
+          loadEntries();
+        } else {
+          alert(d.error || 'Failed to delete selected live entries.');
+        }
+      } catch (err) {
+        alert('An error occurred during bulk deletion: ' + err.message);
+      } finally {
+        btnDeleteSelected.disabled = false;
+        btnDeleteSelected.style.opacity = '1';
       }
     });
   }

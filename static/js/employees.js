@@ -39,6 +39,39 @@ document.addEventListener('DOMContentLoaded', function () {
   // List vs Grid View Toggle Elements
   let currentView = 'grid';
   let currentEmployees = [];
+
+  // Bulk actions elements
+  const bulkBar = document.getElementById('bulkActionsBar');
+  const selectedCountBadge = document.getElementById('selectedCountBadge');
+  const btnSelectedCount = document.getElementById('btnSelectedCount');
+  const btnClearSelection = document.getElementById('btnClearSelection');
+  const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+  const selectAllEmployees = document.getElementById('selectAllEmployees');
+  const selectedEmployeeIds = new Set();
+
+  function updateBulkBar() {
+    const count = selectedEmployeeIds.size;
+    if (bulkBar) {
+      bulkBar.style.display = count > 0 ? 'flex' : 'none';
+    }
+    if (selectedCountBadge) selectedCountBadge.textContent = count;
+    if (btnSelectedCount) btnSelectedCount.textContent = count;
+    if (selectAllEmployees) {
+      const pageCheckboxes = document.querySelectorAll('.emp-row-select, .emp-grid-select');
+      if (pageCheckboxes.length > 0) {
+        selectAllEmployees.checked = Array.from(pageCheckboxes).every(cb => cb.checked);
+      } else {
+        selectAllEmployees.checked = false;
+      }
+    }
+  }
+
+  function clearSelection() {
+    selectedEmployeeIds.clear();
+    document.querySelectorAll('.emp-row-select, .emp-grid-select').forEach(cb => cb.checked = false);
+    if (selectAllEmployees) selectAllEmployees.checked = false;
+    updateBulkBar();
+  }
   const btnListView = document.getElementById('btnListView');
   const btnGridView = document.getElementById('btnGridView');
   const employeeListSection = document.getElementById('employeeListSection');
@@ -353,8 +386,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!tableBody) return;
     tableBody.innerHTML = '';
 
+    const canDelete = Boolean(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN);
+    const colCount = canDelete ? 14 : 13;
+
     if (!employees || employees.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="13" style="text-align: center; padding: 24px; color: #64748b;">No matching records found</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="${colCount}" style="text-align: center; padding: 24px; color: #64748b;">No matching records found</td></tr>`;
+      updateBulkBar();
       return;
     }
 
@@ -392,7 +429,23 @@ document.addEventListener('DOMContentLoaded', function () {
           ? '<span class="status-pill" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; white-space: nowrap;">🏃 Field Worker</span>' 
           : '';
 
-        tr.innerHTML = `
+      const empIdStr = String(emp.id);
+      const isChecked = selectedEmployeeIds.has(empIdStr);
+      const chkCol = canDelete
+        ? `<td style="text-align: center;"><input type="checkbox" class="emp-row-select" data-id="${escapeHtml(empIdStr)}" ${isChecked ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: #dc2626;"></td>`
+        : '';
+
+      const delBtnHtml = canDelete
+        ? `<button class="btn-action-icon btn-action-delete" onclick="deleteEmployee('${emp.id}', '${escapeHtml(emp.employee_name)}')" title="Delete Employee">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>`
+        : '';
+
+      tr.innerHTML = `
+        ${chkCol}
         <td style="font-weight: 700; color: #0f172a; white-space: nowrap;">${escapeHtml(emp.id)}</td>
         <td style="text-align: center; vertical-align: middle;">${photoHtml}</td>
         <td class="col-wrap sticky-col-emp" style="max-width: 180px; white-space: normal !important; word-break: break-word !important;"><strong style="color: #0f172a;">${escapeHtml(emp.employee_name)}</strong>${fwBadge}</td>
@@ -419,17 +472,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
               </svg>
             </button>
-            <button class="btn-action-icon btn-action-delete" onclick="deleteEmployee('${emp.id}', '${escapeHtml(emp.employee_name)}')" title="Delete Employee">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-            </button>
+            ${delBtnHtml}
           </div>
         </td>
       `;
       tableBody.appendChild(tr);
     });
+
+    tableBody.querySelectorAll('.emp-row-select').forEach(cb => {
+      cb.addEventListener('change', function () {
+        const id = this.getAttribute('data-id');
+        if (this.checked) {
+          selectedEmployeeIds.add(id);
+        } else {
+          selectedEmployeeIds.delete(id);
+        }
+        updateBulkBar();
+      });
+    });
+    updateBulkBar();
   }
 
   function renderGridCards(employees) {
@@ -437,8 +498,11 @@ document.addEventListener('DOMContentLoaded', function () {
     employeeGridSection.innerHTML = '';
     if (!employees || employees.length === 0) {
       employeeGridSection.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 30px; color: #888;">No matching records found</div>`;
+      updateBulkBar();
       return;
     }
+
+    const canDelete = Boolean(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN);
 
     employees.forEach(emp => {
       const card = document.createElement('div');
@@ -464,12 +528,30 @@ document.addEventListener('DOMContentLoaded', function () {
         ? '<span class="status-pill status-inactive" style="font-size: 10.5px; padding: 2px 7px;">Inactive</span>' 
         : '<span class="status-pill status-active" style="font-size: 10.5px; padding: 2px 7px;">Active</span>';
 
+      const empIdStr = String(emp.id);
+      const isChecked = selectedEmployeeIds.has(empIdStr);
+      const gridChkCol = canDelete
+        ? `<input type="checkbox" class="emp-grid-select" data-id="${escapeHtml(empIdStr)}" ${isChecked ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: #dc2626; margin-right: 6px;">`
+        : '';
+
+      const gridDelBtn = canDelete
+        ? `<button class="btn-action btn-action-delete" onclick="deleteEmployee('${emp.id}', '${escapeHtml(emp.employee_name)}')" title="Delete Employee">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>`
+        : '';
+
       card.innerHTML = `
         <div class="emp-grid-header">
           ${photoImgHtml}
           <div style="flex: 1; min-width: 0;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-              <div class="emp-grid-info-title" title="${escapeHtml(emp.employee_name)}">${escapeHtml(emp.employee_name)}</div>
+              <div style="display: flex; align-items: center; min-width: 0;">
+                ${gridChkCol}
+                <div class="emp-grid-info-title" title="${escapeHtml(emp.employee_name)}">${escapeHtml(emp.employee_name)}</div>
+              </div>
               ${statusBadgeHtml}
             </div>
             <div class="emp-grid-info-sub">
@@ -521,15 +603,75 @@ document.addEventListener('DOMContentLoaded', function () {
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
           </button>
-          <button class="btn-action btn-action-delete" onclick="deleteEmployee('${emp.id}', '${escapeHtml(emp.employee_name)}')" title="Delete Employee">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
+          ${gridDelBtn}
         </div>
       `;
       employeeGridSection.appendChild(card);
+    });
+
+    employeeGridSection.querySelectorAll('.emp-grid-select').forEach(cb => {
+      cb.addEventListener('change', function () {
+        const id = this.getAttribute('data-id');
+        if (this.checked) {
+          selectedEmployeeIds.add(id);
+        } else {
+          selectedEmployeeIds.delete(id);
+        }
+        updateBulkBar();
+      });
+    });
+    updateBulkBar();
+  }
+
+  if (selectAllEmployees) {
+    selectAllEmployees.addEventListener('change', function () {
+      const isChecked = this.checked;
+      document.querySelectorAll('.emp-row-select, .emp-grid-select').forEach(cb => {
+        cb.checked = isChecked;
+        const id = cb.getAttribute('data-id');
+        if (isChecked) {
+          selectedEmployeeIds.add(id);
+        } else {
+          selectedEmployeeIds.delete(id);
+        }
+      });
+      updateBulkBar();
+    });
+  }
+
+  if (btnClearSelection) {
+    btnClearSelection.addEventListener('click', clearSelection);
+  }
+
+  if (btnDeleteSelected) {
+    btnDeleteSelected.addEventListener('click', async function () {
+      const count = selectedEmployeeIds.size;
+      if (count === 0) return;
+      if (!confirm(`Are you sure you want to permanently delete the ${count} selected employee(s)? This will remove their profiles and biometric punch records.`)) {
+        return;
+      }
+      btnDeleteSelected.disabled = true;
+      btnDeleteSelected.style.opacity = '0.7';
+      try {
+        const res = await fetch('/api/employees/bulk-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: Array.from(selectedEmployeeIds) })
+        });
+        const d = await res.json();
+        if (res.ok && d.success) {
+          alert(d.message || `Deleted ${d.deleted_count} employee(s) successfully.`);
+          clearSelection();
+          loadEmployees();
+        } else {
+          alert(d.error || 'Failed to delete selected employees.');
+        }
+      } catch (err) {
+        alert('An error occurred during bulk deletion: ' + err.message);
+      } finally {
+        btnDeleteSelected.disabled = false;
+        btnDeleteSelected.style.opacity = '1';
+      }
     });
   }
 
