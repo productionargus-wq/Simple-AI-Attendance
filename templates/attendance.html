@@ -1028,64 +1028,7 @@
       display: none;
     }
 
-    /* Mobile Kiosk Portals Quick-Access Bar */
-    .kiosk-mobile-portal-bar {
-      display: none;
-      width: 100%;
-      max-width: 560px;
-      margin: 0 auto 14px auto;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      box-sizing: border-box;
-      padding: 0 4px;
-    }
-    .kiosk-portal-card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 9px 6px;
-      border-radius: 10px;
-      text-decoration: none;
-      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
-      transition: all 0.15s ease;
-      text-align: center;
-      gap: 4px;
-      min-height: 48px;
-    }
-    .kiosk-portal-card:active {
-      transform: scale(0.97);
-    }
-    .kiosk-portal-card.company-card {
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      color: #1d4ed8;
-    }
-    .kiosk-portal-card.employee-card {
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      color: #15803d;
-    }
-    .kiosk-portal-card.field-card {
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-      color: #b45309;
-    }
-    .kiosk-portal-icon {
-      font-size: 18px;
-      line-height: 1;
-    }
-    .kiosk-portal-text {
-      font-size: 11px;
-      font-weight: 800;
-      white-space: nowrap;
-      letter-spacing: 0.2px;
-    }
-
     @media (max-width: 768px) {
-      .kiosk-mobile-portal-bar {
-        display: grid !important;
-      }
       .navbar {
         padding: 0 10px !important;
         height: 52px !important;
@@ -1347,9 +1290,6 @@
       }
       .mobile-lang-toggle-btn {
         padding: 4px 5px !important;
-        font-size: 10px !important;
-      }
-      .kiosk-portal-text {
         font-size: 10px !important;
       }
     }
@@ -1731,22 +1671,6 @@
     <div class="datetime-header">
       <div class="header-date" id="liveDate">29 September 2026</div>
       <div class="header-time" id="liveTime">10:48:53 AM</div>
-    </div>
-
-    <!-- Mobile Quick Access Portal Bar (Guaranteed visibility on mobile phones) -->
-    <div class="kiosk-mobile-portal-bar">
-      <a href="/company-login" class="kiosk-portal-card company-card" title="Company Portal Access">
-        <span class="kiosk-portal-icon">🏢</span>
-        <span class="kiosk-portal-text">Company Access</span>
-      </a>
-      <a href="/employee-login" class="kiosk-portal-card employee-card" title="Employee Portal Login">
-        <span class="kiosk-portal-icon">👤</span>
-        <span class="kiosk-portal-text">Employee Login</span>
-      </a>
-      <a href="/field-worker/login" class="kiosk-portal-card field-card" title="Field Worker Portal Login">
-        <span class="kiosk-portal-icon">📍</span>
-        <span class="kiosk-portal-text">Field Worker</span>
-      </a>
     </div>
 
     <!-- Attendance Camera Card -->
