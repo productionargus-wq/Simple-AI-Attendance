@@ -9217,11 +9217,20 @@ def get_all_support_tickets(company_filter=None, status_filter=None, search=None
     Returns support tickets across ALL companies for Super Admin with multi-tenant filtering.
     """
     db = get_db()
-    all_count = db.support_tickets.count_documents({})
-    open_count = db.support_tickets.count_documents({'status': 'Open'})
-    in_progress_count = db.support_tickets.count_documents({'status': 'In Progress'})
-    resolved_count = db.support_tickets.count_documents({'status': 'Resolved'})
-    closed_count = db.support_tickets.count_documents({'status': 'Closed'})
+    comp_q = {}
+    if company_filter and str(company_filter).lower() not in ['all', 'all companies', '']:
+        comp_q = {
+            '$or': [
+                {'company_id': str(company_filter)},
+                {'company_name': str(company_filter)}
+            ]
+        }
+
+    all_count = db.support_tickets.count_documents(comp_q)
+    open_count = db.support_tickets.count_documents({**comp_q, 'status': 'Open'} if not comp_q else {'$and': [comp_q, {'status': 'Open'}]})
+    in_progress_count = db.support_tickets.count_documents({**comp_q, 'status': 'In Progress'} if not comp_q else {'$and': [comp_q, {'status': 'In Progress'}]})
+    resolved_count = db.support_tickets.count_documents({**comp_q, 'status': 'Resolved'} if not comp_q else {'$and': [comp_q, {'status': 'Resolved'}]})
+    closed_count = db.support_tickets.count_documents({**comp_q, 'status': 'Closed'} if not comp_q else {'$and': [comp_q, {'status': 'Closed'}]})
 
     counts = {
         'all': all_count,
@@ -9231,12 +9240,7 @@ def get_all_support_tickets(company_filter=None, status_filter=None, search=None
         'closed': closed_count
     }
 
-    query = {}
-    if company_filter and str(company_filter).lower() not in ['all', 'all companies', '']:
-        query['$or'] = [
-            {'company_id': str(company_filter)},
-            {'company_name': str(company_filter)}
-        ]
+    query = dict(comp_q) if comp_q else {}
 
     if status_filter and str(status_filter).lower() not in ['all', 'all status', '']:
         query['status'] = {'$regex': f"^{re.escape(status_filter)}$", '$options': 'i'}
@@ -9397,6 +9401,10 @@ def update_support_ticket_status(ticket_id, new_status, updated_by_name, updated
     )
 
     updated_ticket = db.support_tickets.find_one({'ticket_id': ticket['ticket_id']})
+    try:
+        invalidate_badge_counts_cache()
+    except Exception:
+        pass
     return {'success': True, 'ticket': clean_doc(updated_ticket)}
 
 def get_support_badge_count(company_id=None):

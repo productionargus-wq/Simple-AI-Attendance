@@ -421,6 +421,85 @@ def generate_companies_pdf(companies, company_info=None):
     return buffer
 
 
+def generate_support_tickets_pdf(tickets, company_info=None):
+    """Generates a clean PDF directory report of support tickets."""
+    from reportlab.lib.pagesizes import landscape, letter
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(letter),
+        rightMargin=25,
+        leftMargin=25,
+        topMargin=25,
+        bottomMargin=25
+    )
+    styles = getSampleStyleSheet()
+    header_style = ParagraphStyle('TktHdr', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor('#2c3e50'))
+    cell_style = ParagraphStyle('TktCell', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#333333'))
+    
+    elements = []
+    build_pdf_header(elements, company_info=company_info, title="SYSTEM SUPPORT TICKETS REPORT")
+    
+    table_data = [
+        [
+            Paragraph("SL NO", header_style),
+            Paragraph("TICKET ID", header_style),
+            Paragraph("DATE & TIME", header_style),
+            Paragraph("COMPANY NAME", header_style),
+            Paragraph("RAISED BY", header_style),
+            Paragraph("SUBJECT", header_style),
+            Paragraph("STATUS", header_style),
+            Paragraph("ATTACHMENTS", header_style)
+        ]
+    ]
+    
+    if not tickets:
+        table_data.append([
+            Paragraph("No support tickets found", cell_style),
+            Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style),
+            Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style),
+            Paragraph("", cell_style)
+        ])
+    else:
+        for idx, t in enumerate(tickets, 1):
+            att_count = len(t.get('attachments', []))
+            table_data.append([
+                Paragraph(str(idx), cell_style),
+                Paragraph(str(t.get('ticket_id', '')), cell_style),
+                Paragraph(str(t.get('date_time_str', '')), cell_style),
+                Paragraph(str(t.get('company_name', '')), cell_style),
+                Paragraph(str(t.get('raised_by', '')), cell_style),
+                Paragraph(str(t.get('subject', '')), cell_style),
+                Paragraph(str(t.get('status', 'Open')), cell_style),
+                Paragraph(str(att_count), cell_style)
+            ])
+            
+    col_widths = [35, 75, 100, 110, 85, 215, 65, 57]
+    t = Table(table_data, colWidths=col_widths)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EDF1F5')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#DCE1E7')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#FBFBFD')])
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 14))
+    elements.append(Paragraph("© Argus Attendance Intelligence version 2.0.0 | powered by ArgusCNC™", ParagraphStyle('Footer', fontName='Helvetica', fontSize=8, alignment=TA_CENTER, textColor=colors.gray)))
+    
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
 def generate_live_report_pdf(title, entries, company_info=None):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(

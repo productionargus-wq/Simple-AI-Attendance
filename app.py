@@ -5917,6 +5917,17 @@ def api_admin_support_export():
     )
     tickets = result['tickets']
 
+    if export_format == 'pdf':
+        company_info = get_current_company_info()
+        pdf_buffer = pdf_generator.generate_support_tickets_pdf(tickets, company_info=company_info)
+        filename = f"Support_Tickets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        return send_file(
+            pdf_buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf'
+        )
+
     if export_format not in ['csv', 'excel']:
         return jsonify({'success': False, 'error': 'Unsupported export format'}), 400
 
