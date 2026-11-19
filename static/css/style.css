@@ -7817,3 +7817,337 @@ body {
   border-radius: 12px;
   border: 1px dashed #cbd5e1;
 }
+
+
+/* ==========================================================================
+   UNIVERSAL COMPREHENSIVE MOBILE RESPONSIVENESS SUITE (v2.0.0)
+   Covers viewports: 320px - 768px (Smartphones, Phablets & Small Tablets)
+   ========================================================================== */
+
+/* 1. Global Viewport Safety & Touch Action */
+html, body {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+  box-sizing: border-box !important;
+}
+
+button, a, input, select, textarea, .nav-item-btn, .btn-action-icon {
+  touch-action: manipulation;
+}
+
+/* 2. Mobile Top Navbar & Header Branding */
+@media (max-width: 480px) {
+  .mobile-nav-brand .brand-vertical-divider,
+  .mobile-nav-brand .brand-text-inline {
+    display: none !important;
+  }
+  .mobile-nav-brand {
+    gap: 0 !important;
+  }
+  .mobile-nav-brand .brand-square-badge {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  .nav-center {
+    padding: 0 4px !important;
+  }
+  .nav-title {
+    max-width: 125px !important;
+    font-size: 12px !important;
+  }
+  .nav-branch-title-suffix {
+    display: none !important;
+  }
+  .nav-branch-toggle-btn {
+    padding: 0 8px !important;
+    height: 30px !important;
+    font-size: 11px !important;
+  }
+  .nav-active-branch-badge {
+    max-width: 75px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  .nav-branch-dropdown-menu {
+    max-width: calc(100vw - 16px) !important;
+    right: 0 !important;
+    left: auto !important;
+  }
+  .top-nav-logo-circle {
+    width: 32px !important;
+    height: 32px !important;
+  }
+}
+
+/* 3. Floating Bulk Actions Bar (Multi-Tab Responsive Formatting) */
+@media (max-width: 640px) {
+  #bulkActionsBar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  #bulkActionsBar > div:first-child {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+  }
+  #bulkActionsBar > div:last-child {
+    width: 100% !important;
+  }
+  #bulkActionsBar #btnDeleteSelected {
+    width: 100% !important;
+    justify-content: center !important;
+    min-height: 42px !important;
+    font-size: 13px !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* 4. Data Tables Touch Momentum & Sticky Column Stacking */
+@media (max-width: 768px) {
+  .table-responsive,
+  .table-responsive-custom,
+  .table-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin !important;
+    box-sizing: border-box !important;
+  }
+
+  .table-responsive::-webkit-scrollbar {
+    height: 5px !important;
+  }
+  .table-responsive::-webkit-scrollbar-thumb {
+    background: #cbd5e1 !important;
+    border-radius: 4px !important;
+  }
+
+  /* Sticky Employee Column during Horizontal Pan */
+  body:not(.page-dashboard) th.sticky-col-emp,
+  body:not(.page-dashboard) td.sticky-col-emp,
+  .employee-table th.sticky-col-emp,
+  .employee-table td.sticky-col-emp,
+  .table-custom th.sticky-col-emp,
+  .table-custom td.sticky-col-emp {
+    background-color: #ffffff !important;
+    box-shadow: 2px 0 6px rgba(15, 23, 42, 0.08) !important;
+    z-index: 3 !important;
+  }
+
+  body:not(.page-dashboard) tr:hover td.sticky-col-emp,
+  .employee-table tr:hover td.sticky-col-emp,
+  .table-custom tr:hover td.sticky-col-emp {
+    background-color: #f8fafc !important;
+  }
+
+  .employee-table th,
+  .employee-table td,
+  .table-custom th,
+  .table-custom td {
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
+  }
+
+  /* Location descriptions wrapped readability */
+  td[data-col="entry_location"],
+  td.location-cell {
+    white-space: normal !important;
+    min-width: 180px !important;
+    max-width: 240px !important;
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+  }
+
+  /* Table Action Icons */
+  .btn-action-icon,
+  .btn-action-view,
+  .btn-action-edit,
+  .btn-action-delete,
+  .btn-action-notes {
+    min-width: 36px !important;
+    min-height: 36px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+}
+
+/* 5. Universal Bottom-Sheet Modals */
+@media (max-width: 768px) {
+  .modal-overlay,
+  .fw-modal-backdrop {
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  .modal-box,
+  .modal-box-large,
+  .modal-box-payment,
+  .modal-box-manual,
+  .modal-box-leave,
+  .modal-box-perm,
+  .fw-modal-dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(92dvh - var(--safe-top)) !important;
+    margin: 0 !important;
+    border-radius: 16px 16px 0 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.25) !important;
+  }
+
+  .modal-header,
+  .fw-modal-header {
+    padding: 14px 16px !important;
+    flex-shrink: 0 !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+
+  .modal-body,
+  .fw-modal-body {
+    flex: 1 1 auto !important;
+    max-height: calc(92dvh - 130px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 14px 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  .modal-footer,
+  .fw-modal-footer {
+    padding: 12px 16px calc(12px + var(--safe-bottom)) 16px !important;
+    flex-shrink: 0 !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    border-top: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+  }
+
+  .modal-footer button,
+  .modal-footer a,
+  .fw-modal-footer .fw-btn {
+    flex: 1 1 calc(50% - 6px) !important;
+    min-height: 44px !important;
+    justify-content: center !important;
+    text-align: center !important;
+    font-size: 13px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Form Grids in Modals */
+  .form-grid,
+  .form-grid-company,
+  .payment-form-grid,
+  .profile-grid,
+  .view-company-grid,
+  .advance-form-row {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Classic Light Theme Custom Dropdown Menu inside Modals */
+  .custom-select-menu {
+    z-index: 10005 !important;
+    max-height: 190px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .custom-select-option {
+    min-height: 38px !important;
+    display: flex !important;
+    align-items: center !important;
+    touch-action: manipulation !important;
+  }
+
+  /* Notes Modal */
+  #companyNotesModal .modal-box,
+  #companyNotesModal .modal-box-large {
+    width: 100% !important;
+    border-radius: 16px 16px 0 0 !important;
+    max-height: 90dvh !important;
+  }
+  #companyNotesText {
+    min-height: 170px !important;
+    font-size: 14px !important;
+  }
+}
+
+/* 6. Content Banners & Action Buttons */
+@media (max-width: 768px) {
+  .content-banner-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding: 14px 16px !important;
+  }
+  .banner-actions {
+    width: 100% !important;
+    justify-content: stretch !important;
+    gap: 8px !important;
+  }
+  .banner-actions button {
+    flex: 1 1 auto !important;
+    justify-content: center !important;
+    min-height: 40px !important;
+  }
+
+  /* Company Profile Logo Card */
+  .company-logo-card {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    padding: 14px !important;
+  }
+  .company-logo-card > div:last-child {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+  .company-logo-card button {
+    flex: 1 1 100% !important;
+    justify-content: center !important;
+    min-height: 38px !important;
+  }
+
+  /* Payslip Preview Wrapper */
+  .payslip-document-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 8px !important;
+    border-radius: 8px !important;
+    max-width: 100% !important;
+  }
+  .payslip-paper {
+    min-width: 600px !important;
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+}
+
+/* 7. Ultra-Compact Smartphone Adaptations (<= 360px) */
+@media (max-width: 360px) {
+  .stats-cards-row,
+  .dash-stats-grid,
+  .reports-stats-grid,
+  .leave-kpi-grid,
+  .fw-kpi-grid,
+  .quick-actions-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .modal-footer button,
+  .modal-footer a,
+  .fw-modal-footer .fw-btn {
+    flex: 1 1 100% !important;
+  }
+}
