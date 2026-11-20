@@ -133,7 +133,7 @@
         <tr>
           <th data-col="employee_name" class="sticky-col-emp">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
           <th data-col="salary_type" style="min-width: 120px; text-align: center; white-space: nowrap;">SALARY TYPE <span class="sort-icon">⇅</span></th>
-          <th data-col="pay_period" id="colHeaderPayPeriod">PAY PERIOD (MONTH) <span class="sort-icon">⇅</span></th>
+          <th data-col="pay_period" id="colHeaderPayPeriod">MONTH PERIOD <span class="sort-icon">⇅</span></th>
           <th data-col="working_days">WORKING DAYS <span class="sort-icon">⇅</span></th>
           <th data-col="working_hours">WORKING HOURS <span class="sort-icon">⇅</span></th>
           <th data-col="overtime_pay" style="color: #2563eb !important; min-width: 170px;">OVERTIME <span class="sort-icon">⇅</span></th>
@@ -415,7 +415,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (monthlyFilters) monthlyFilters.style.display = 'flex';
       if (weeklyFilters) weeklyFilters.style.display = 'none';
       if (colHeader && colHeader.childNodes.length > 0) {
-        colHeader.childNodes[0].nodeValue = 'PAY PERIOD (MONTH) ';
+        colHeader.childNodes[0].nodeValue = 'MONTH PERIOD ';
       }
     }
     salaryPage = 1;
@@ -431,38 +431,46 @@ document.addEventListener('DOMContentLoaded', function () {
     btnModeWeekly.addEventListener('click', () => setReportMode('weekly'));
   }
 
-  // Prev / Next Week buttons
+  // Prev / Next Week buttons with fast debouncing and instant visual feedback
+  let weekStepTimer = null;
+  function stepWeek(offsetDays) {
+    const curDateStr = salarySelectDateInput?.value || todayIso;
+    const cur = new Date(curDateStr + 'T00:00:00');
+    if (isNaN(cur.getTime())) {
+      cur.setTime(new Date().getTime());
+    }
+    cur.setDate(cur.getDate() + offsetDays);
+    const newIso = `${cur.getFullYear()}-${padZero(cur.getMonth() + 1)}-${padZero(cur.getDate())}`;
+    if (salarySelectDateInput) salarySelectDateInput.value = newIso;
+    const w = getWeekRange(newIso);
+    currentResolvedWeek = w;
+    const b = document.getElementById('weeklyResolvedBadge');
+    if (b) b.innerText = w.label;
+
+    const tbody = document.getElementById('salaryTableBody');
+    if (tbody) {
+      tbody.style.opacity = '0.35';
+      tbody.style.transition = 'opacity 0.12s ease';
+    }
+
+    salaryPage = 1;
+    clearTimeout(weekStepTimer);
+    weekStepTimer = setTimeout(() => {
+      loadSalaryReports();
+    }, 120);
+  }
+
   const btnPrevWeek = document.getElementById('btnPrevWeek');
   if (btnPrevWeek) {
     btnPrevWeek.addEventListener('click', function () {
-      const curDateStr = salarySelectDateInput?.value || todayIso;
-      const cur = new Date(curDateStr + 'T00:00:00');
-      cur.setDate(cur.getDate() - 7);
-      const newIso = `${cur.getFullYear()}-${padZero(cur.getMonth() + 1)}-${padZero(cur.getDate())}`;
-      if (salarySelectDateInput) salarySelectDateInput.value = newIso;
-      const w = getWeekRange(newIso);
-      currentResolvedWeek = w;
-      const b = document.getElementById('weeklyResolvedBadge');
-      if (b) b.innerText = w.label;
-      salaryPage = 1;
-      loadSalaryReports();
+      stepWeek(-7);
     });
   }
 
   const btnNextWeek = document.getElementById('btnNextWeek');
   if (btnNextWeek) {
     btnNextWeek.addEventListener('click', function () {
-      const curDateStr = salarySelectDateInput?.value || todayIso;
-      const cur = new Date(curDateStr + 'T00:00:00');
-      cur.setDate(cur.getDate() + 7);
-      const newIso = `${cur.getFullYear()}-${padZero(cur.getMonth() + 1)}-${padZero(cur.getDate())}`;
-      if (salarySelectDateInput) salarySelectDateInput.value = newIso;
-      const w = getWeekRange(newIso);
-      currentResolvedWeek = w;
-      const b = document.getElementById('weeklyResolvedBadge');
-      if (b) b.innerText = w.label;
-      salaryPage = 1;
-      loadSalaryReports();
+      stepWeek(7);
     });
   }
 
@@ -472,8 +480,18 @@ document.addEventListener('DOMContentLoaded', function () {
       currentResolvedWeek = w;
       const b = document.getElementById('weeklyResolvedBadge');
       if (b) b.innerText = w.label;
+
+      const tbody = document.getElementById('salaryTableBody');
+      if (tbody) {
+        tbody.style.opacity = '0.35';
+        tbody.style.transition = 'opacity 0.12s ease';
+      }
+
       salaryPage = 1;
-      loadSalaryReports();
+      clearTimeout(weekStepTimer);
+      weekStepTimer = setTimeout(() => {
+        loadSalaryReports();
+      }, 120);
     });
   }
 
@@ -482,6 +500,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!tableBody) return; // Exit if not on salary report page
     if (salaryAbortCtrl) salaryAbortCtrl.abort();
     salaryAbortCtrl = new AbortController();
+    tableBody.style.opacity = '0.35';
 
     const search = (document.getElementById('salarySearch')?.value || '').trim();
     const urlParams = new URLSearchParams(window.location.search);
@@ -525,12 +544,15 @@ document.addEventListener('DOMContentLoaded', function () {
       })
       .catch(err => {
         if (err && err.name === 'AbortError') return;
+        const tbody = document.getElementById('salaryTableBody');
+        if (tbody) tbody.style.opacity = '1';
         console.error('Error fetching salary reports:', err);
       });
   }
 
   function renderSalaryTable(res) {
     const tbody = document.getElementById('salaryTableBody');
+    if (tbody) tbody.style.opacity = '1';
     const infoText = document.getElementById('salaryTableInfo');
     const prevBtn = document.getElementById('prevSalaryPageBtn');
     const nextBtn = document.getElementById('nextSalaryPageBtn');

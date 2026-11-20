@@ -2584,7 +2584,63 @@ def invalidate_dashboard_cache(company_id=None):
 _employee_names_cache = {}
 _employee_names_cache_ttl = 60  # seconds
 
+_salary_employees_cache = {}
+_salary_employees_cache_ttl = 60  # seconds
+
+_company_admin_cache = {}
+_company_admin_cache_ttl = 300  # seconds
+
+def get_cached_company_admin_doc(cid):
+    now = time.time()
+    cid_str = str(cid or 'ARGUS_MASTER')
+    if cid_str in _company_admin_cache:
+        t_entry, doc = _company_admin_cache[cid_str]
+        if now - t_entry < _company_admin_cache_ttl:
+            return doc
+    db = get_db()
+    doc = db.company_admin.find_one({'id': cid_str}) or db.company_admin.find_one(build_id_filter(cid_str))
+    _company_admin_cache[cid_str] = (now, doc)
+    return doc
+
+_company_branches_cache = {}
+_company_branches_cache_ttl = 300  # seconds
+
+def get_cached_company_branch_doc(bid):
+    now = time.time()
+    bid_str = str(bid or '')
+    if not bid_str or is_home_branch_id(bid_str):
+        return None
+    if bid_str in _company_branches_cache:
+        t_entry, doc = _company_branches_cache[bid_str]
+        if now - t_entry < _company_branches_cache_ttl:
+            return doc
+    db = get_db()
+    doc = db.company_branches.find_one({'id': bid_str}, {'branch_name': 1, 'location': 1})
+    _company_branches_cache[bid_str] = (now, doc)
+    return doc
+
+_company_holidays_cache = {}
+_company_holidays_cache_ttl = 300  # seconds
+
+def get_cached_company_holidays(cid, month=None):
+    now = time.time()
+    cid_str = str(cid or 'ARGUS_MASTER')
+    m_str = str(month or '')[:7]
+    key = f"{cid_str}:{m_str}"
+    if key in _company_holidays_cache:
+        t_entry, hols = _company_holidays_cache[key]
+        if now - t_entry < _company_holidays_cache_ttl:
+            return hols
+    hols = get_company_holidays(cid_str, month=m_str)
+    _company_holidays_cache[key] = (now, hols)
+    return hols
+
 def invalidate_employee_names_cache(company_id=None):
+    global _employee_names_cache, _salary_employees_cache, _company_admin_cache, _company_branches_cache, _company_holidays_cache
+    _salary_employees_cache.clear()
+    _company_admin_cache.clear()
+    _company_branches_cache.clear()
+    _company_holidays_cache.clear()
     global _employee_names_cache
     if company_id:
         _employee_names_cache.pop(str(company_id), None)
@@ -6908,6 +6964,23 @@ def _compute_employee_monthly_salary_payload(
     }
 
 
+def get_salary_employees_cached(b_id, company_id, exclude_field_workers=True):
+    global _salary_employees_cache
+    b_key = str(b_id or 'ALL')
+    c_key = str(company_id or 'ALL')
+    cache_key = f"{b_key}:{c_key}:{exclude_field_workers}"
+    now_ts = time.time()
+    if cache_key in _salary_employees_cache:
+        entry_time, cached_docs = _salary_employees_cache[cache_key]
+        if now_ts - entry_time < _salary_employees_cache_ttl:
+            return cached_docs
+
+    db = get_db()
+    emp_q = get_branch_employee_query(b_id, company_id, exclude_field_workers=exclude_field_workers)
+    docs = list(db.employees.find(emp_q, {'photo_data': 0, 'face_embedding': 0, 'documents': 0}))
+    _salary_employees_cache[cache_key] = (now_ts, docs)
+    return docs
+
 def get_salary_reports(start_month=None, end_month=None, search=None, page=1, limit=10, company_id=None, branch_id=None, exclude_field_workers=True, report_type='monthly', selected_date=None, start_date=None, end_date=None):
     """
     Dynamically compute live monthly payroll rows for all matching employees across the resolved month(s)
@@ -6917,8 +6990,7 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
     if str(report_type or 'monthly').strip().lower() == 'weekly':
         w_start, w_end, w_label = resolve_week_date_range(selected_date or start_date or None)
         b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
-        emp_q = get_branch_employee_query(b_id, company_id, exclude_field_workers=exclude_field_workers)
-        emp_docs = list(db.employees.find(emp_q, {'photo_data': 0, 'face_embedding': 0, 'documents': 0}))
+        emp_docs = get_salary_employees_cached(b_id, company_id, exclude_field_workers=exclude_field_workers)
         if not emp_docs:
             return {'total': 0, 'page': page, 'limit': limit, 'data': [], 'report_type': 'weekly', 'start_date': w_start, 'end_date': w_end, 'selected_date': selected_date or w_start, 'week_label': w_label}
 
@@ -7010,24 +7082,30 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
                 pm_by_emp.setdefault(en, []).append(r)
 
         comp_cache = {}
+        for cid_k in {str(e.get('company_id') or company_id or 'ARGUS_MASTER') for e in emp_docs} | ({comp_scope} if comp_scope else set()):
+            comp_cache[cid_k] = get_cached_company_admin_doc(cid_k)
+
         branch_cache = {}
+        for bid_k in {str(e.get('branch_id')) for e in emp_docs if e.get('branch_id') and not is_home_branch_id(e.get('branch_id'))}:
+            branch_cache[bid_k] = get_cached_company_branch_doc(bid_k)
+
+        holiday_cache = {}
+        for cid_k in comp_cache:
+            holiday_cache[cid_k] = get_cached_company_holidays(cid_k, month=w_start[:7])
+
         rows = []
         search_low = (search or '').strip().lower()
 
         for emp_d in emp_docs:
             ename = str(emp_d.get('employee_name') or '').strip()
             cid_e = str((emp_d.get('company_id') if emp_d.get('company_id') else None) or company_id or 'ARGUS_MASTER')
-            if cid_e not in comp_cache:
-                comp_cache[cid_e] = db.company_admin.find_one({'id': cid_e}) or db.company_admin.find_one(build_id_filter(cid_e))
-            comp_doc = comp_cache[cid_e]
+            comp_doc = comp_cache.get(cid_e)
 
             res_b_name = 'HOME'
             b_addr = ''
             emp_bid = emp_d.get('branch_id')
             if emp_bid and not is_home_branch_id(emp_bid):
-                if emp_bid not in branch_cache:
-                    branch_cache[emp_bid] = db.company_branches.find_one({'id': str(emp_bid)})
-                b_obj = branch_cache[emp_bid]
+                b_obj = branch_cache.get(str(emp_bid))
                 if b_obj:
                     res_b_name = b_obj.get('branch_name') or 'HOME'
                     b_addr = b_obj.get('location') or ''
@@ -7047,6 +7125,7 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
                 approved_leaves=lv_by_emp.get(ename, []),
                 approved_perms=pm_by_emp.get(ename, []),
                 include_heavy_media=False,
+                paid_holidays=holiday_cache.get(cid_e, []),
                 is_weekly=True,
                 start_date=w_start,
                 end_date=w_end,
@@ -7122,8 +7201,7 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
         return {'total': 0, 'page': page, 'limit': limit, 'data': [], 'start_month': s_iso, 'end_month': e_iso, 'report_type': 'monthly'}
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
-    emp_q = get_branch_employee_query(b_id, company_id, exclude_field_workers=exclude_field_workers)
-    emp_docs = list(db.employees.find(emp_q, {'photo_data': 0, 'face_embedding': 0, 'documents': 0}))
+    emp_docs = get_salary_employees_cached(b_id, company_id, exclude_field_workers=exclude_field_workers)
     if not emp_docs:
         return {'total': 0, 'page': page, 'limit': limit, 'data': [], 'start_month': s_iso, 'end_month': e_iso}
 
@@ -7215,11 +7293,11 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
     # Preload company & branch names once to avoid N+1 lookups
     comp_cache = {}
     for cid_k in {str(e.get('company_id') or 'ARGUS_MASTER') for e in emp_docs} | ({comp_scope} if comp_scope else set()):
-        comp_cache[cid_k] = get_company_by_id(cid_k, include_counts=False)
+        comp_cache[cid_k] = get_cached_company_admin_doc(cid_k)
     branch_cache = {}
     for bid_k in {str(e.get('branch_id')) for e in emp_docs if e.get('branch_id') and not is_home_branch_id(e.get('branch_id'))}:
-        branch_cache[bid_k] = db.company_branches.find_one({'id': bid_k}, {'branch_name': 1, 'location': 1})
-    active_b_obj = db.company_branches.find_one({'id': b_id}, {'branch_name': 1, 'location': 1}) if (b_id and not is_home_branch_id(b_id)) else None
+        branch_cache[bid_k] = get_cached_company_branch_doc(bid_k)
+    active_b_obj = get_cached_company_branch_doc(b_id) if (b_id and not is_home_branch_id(b_id)) else None
 
     # Bucket records cleanly by (emp_name, month_year) and track active/historical names per month
     att_by_em = {}
@@ -7284,7 +7362,7 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
             comp_doc = comp_cache.get(cid_e) or comp_cache.get('ARGUS_MASTER')
             hol_key = (cid_e, mo_k)
             if hol_key not in holiday_cache:
-                holiday_cache[hol_key] = get_company_holidays(cid_e, month=mo_k)
+                holiday_cache[hol_key] = get_cached_company_holidays(cid_e, month=mo_k)
 
             if b_id:
                 res_b_name = 'HOME' if is_home_branch_id(b_id) else (active_b_obj.get('branch_name') if active_b_obj else b_id)
