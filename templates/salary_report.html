@@ -319,10 +319,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const stRaw = String(r.salary_type || 'daily').toLowerCase();
       let stBadge = '<span class="status-pill status-blue" style="font-size: 11px; font-weight: 700;">Day Salary</span>';
+      let salAmtText = '';
       if (stRaw === 'hourly') {
         stBadge = '<span class="status-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:11px; font-weight:700;">Hourly Salary</span>';
+        const amt = Number(r.hourly_salary || r.hours_salary || 0);
+        salAmtText = `₹ ${fmtMoney(amt)} / hr`;
       } else if (stRaw === 'half_day') {
         stBadge = '<span class="status-pill" style="background:#ede9fe; color:#5b21b6; border:1px solid #ddd6fe; font-size:11px; font-weight:700;">Half Day Salary</span>';
+        const amt = Number(r.half_day_salary || 0);
+        salAmtText = `₹ ${fmtMoney(amt)} / half-day`;
+      } else {
+        const amt = Number(r.day_salary || 0);
+        salAmtText = `₹ ${fmtMoney(amt)} / day`;
       }
 
       let otCellHtml = '';
@@ -359,7 +367,10 @@ document.addEventListener('DOMContentLoaded', function () {
       rowsHtml += `
         <tr>
           <td class="col-wrap sticky-col-emp" style="font-weight: 600; white-space: normal !important; word-break: break-word !important; min-width: 140px;">${empNameSafe}</td>
-          <td style="text-align: center; white-space: nowrap;">${stBadge}</td>
+          <td style="text-align: center; white-space: nowrap; vertical-align: middle;">
+            ${stBadge}
+            <div style="font-size: 11px; font-weight: 700; color: #1e293b; margin-top: 4px;">${salAmtText}</div>
+          </td>
           <td>${payPeriodSafe}</td>
           <td>${r.working_days}</td>
           <td>${r.working_hours}</td>

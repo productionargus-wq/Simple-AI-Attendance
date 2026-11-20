@@ -312,18 +312,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const isDeleteEnabled = comp.can_delete_entries === true;
       const deleteEntriesBadge = isDeleteEnabled
-        ? `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Delete Entries: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+        ? `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Attendance Delete: ENABLED (Click to turn off)" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
-            <span>Delete Enabled</span>
+            <span>Att. Delete ON</span>
           </button>`
-        : `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Delete Entries: DISABLED (Click to turn on)" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
+        : `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Attendance Delete: DISABLED (Click to turn on)" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease; white-space: nowrap;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10"></circle>
               <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
             </svg>
-            <span>Enable Delete Entries</span>
+            <span>Att. Delete OFF</span>
           </button>`;
 
       const isSupportEnabled = comp.support_enabled === true;
@@ -468,13 +468,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const isDeleteEnabled = comp.can_delete_entries === true;
       const deleteEntriesBadge = isDeleteEnabled
-        ? `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Delete Entries: ENABLED" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+        ? `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-enabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="true" title="Attendance Delete: ENABLED" style="background-color: #e8f5e9; color: #166534; border: 1.5px solid #86efac; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <span>Delete: ON</span>
+            <span>Att. Del: ON</span>
           </button>`
-        : `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Delete Entries: DISABLED" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+        : `<button type="button" class="btn-toggle-delete-entries btn-delete-perm-disabled" data-id="${comp.id}" data-name="${escapeHtml(comp.company_name)}" data-state="false" title="Attendance Delete: DISABLED" style="background-color: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-            <span>Delete: OFF</span>
+            <span>Att. Del: OFF</span>
           </button>`;
 
       const isSupportEnabled = comp.support_enabled === true;

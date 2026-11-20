@@ -145,242 +145,613 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Classic Light-Theme Combobox Controller (Department & Designation)
+  // =========================================================================
+  // Smart Department & Department-Linked Designation System
+  // =========================================================================
   let departmentCombobox = null;
   let designationCombobox = null;
 
-  function initClassicCombobox({ inputId, menuId, toggleBtnId, wrapperId, initialItems = [], placeholderItem = 'item' }) {
-    const input = document.getElementById(inputId);
-    const menu = document.getElementById(menuId);
-    const toggleBtn = document.getElementById(toggleBtnId);
-    const wrapper = document.getElementById(wrapperId);
+  function initSmartDeptDesigSystem() {
+    // 12 Industrial Default Departments & Designations Mapping
+    const DEFAULT_MAP = {
+      "Production": [
+        "CNC Operator", "VMC Operator", "VMC Setter", "Machine Setter",
+        "Production Supervisor", "Production Engineer", "Production Manager", "Plant In-Charge"
+      ],
+      "Quality Control": [
+        "Quality Inspector", "QC Engineer", "CMM Operator", "Quality Supervisor", "Quality Manager"
+      ],
+      "Maintenance": [
+        "Maintenance Technician", "Electrical Technician", "Maintenance Engineer",
+        "Maintenance Supervisor", "Maintenance Manager"
+      ],
+      "Design & Engineering": [
+        "Design Engineer", "CAD Engineer", "CAM Programmer", "Mastercam Programmer",
+        "Process Engineer", "Engineering Manager"
+      ],
+      "Stores & Inventory": [
+        "Storekeeper", "Stores Executive", "Inventory Controller", "Stores Supervisor", "Stores Manager"
+      ],
+      "Purchase": [
+        "Purchase Assistant", "Purchase Executive", "Purchase Officer", "Purchase Manager"
+      ],
+      "HR & Administration": [
+        "HR Executive", "HR Manager", "Admin Executive", "Office Administrator", "Office Assistant"
+      ],
+      "Accounts & Finance": [
+        "Accountant", "Accounts Executive", "Finance Executive", "Finance Manager"
+      ],
+      "Sales & Marketing": [
+        "Sales Executive", "Marketing Executive", "Business Development Executive",
+        "Sales Manager", "Channel Partner Manager"
+      ],
+      "IT & Software": [
+        "Software Developer", "Frontend Developer", "Backend Developer",
+        "UI/UX Designer", "QA Tester", "Technical Support Engineer"
+      ],
+      "Logistics & Dispatch": [
+        "Dispatch Executive", "Logistics Coordinator", "Dispatch Supervisor",
+        "Driver", "Logistics Manager"
+      ],
+      "Management": [
+        "Assistant Manager", "Operations Manager", "General Manager", "Managing Director"
+      ]
+    };
 
-    if (!input || !menu) return null;
+    // State
+    let departments = Object.keys(DEFAULT_MAP);
+    let mapping = {};
+    for (const d of departments) {
+      mapping[d] = [...DEFAULT_MAP[d]];
+    }
 
-    let items = [];
-    const itemSet = new Set();
-    let highlightedIndex = -1;
-
-    function addItems(newItems) {
-      if (!Array.isArray(newItems)) return;
-      newItems.forEach(it => {
-        const str = String(it || '').trim();
-        if (str && !itemSet.has(str.toLowerCase())) {
-          itemSet.add(str.toLowerCase());
-          items.push(str);
+    // Merge server seed if present
+    if (window.INITIAL_DEPT_DESIG && typeof window.INITIAL_DEPT_DESIG === 'object') {
+      if (Array.isArray(window.INITIAL_DEPT_DESIG.departments)) {
+        window.INITIAL_DEPT_DESIG.departments.forEach(d => {
+          if (d && !departments.includes(d)) departments.push(d);
+        });
+      }
+      if (window.INITIAL_DEPT_DESIG.mapping && typeof window.INITIAL_DEPT_DESIG.mapping === 'object') {
+        for (const [dept, desigs] of Object.entries(window.INITIAL_DEPT_DESIG.mapping)) {
+          if (!mapping[dept]) {
+            mapping[dept] = [];
+            if (!departments.includes(dept)) departments.push(dept);
+          }
+          if (Array.isArray(desigs)) {
+            desigs.forEach(dg => {
+              if (dg && !mapping[dept].includes(dg)) mapping[dept].push(dg);
+            });
+          }
         }
-      });
-      items.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-      if (isOpen()) renderMenu();
+      }
     }
 
-    // Read initial data attributes if provided by server rendering
-    let seedItems = Array.isArray(initialItems) ? [...initialItems] : [];
-    if (wrapper && wrapper.dataset && wrapper.dataset.initial) {
-      try {
-        const parsed = JSON.parse(wrapper.dataset.initial);
-        if (Array.isArray(parsed)) seedItems = seedItems.concat(parsed);
-      } catch (e) {}
+    // DOM Elements - Department
+    const inDept = document.getElementById('inputDepartment');
+    const triggerDept = document.getElementById('deptSelectTrigger');
+    const textDept = document.getElementById('deptSelectedText');
+    const panelDept = document.getElementById('deptDropdownPanel');
+    const searchDept = document.getElementById('deptSearchInput');
+    const listDept = document.getElementById('deptOptionsList');
+    const btnQuickAddDept = document.getElementById('btnQuickAddDept');
+
+    // DOM Elements - Designation
+    const inDesig = document.getElementById('inputDesignation');
+    const triggerDesig = document.getElementById('desigSelectTrigger');
+    const textDesig = document.getElementById('desigSelectedText');
+    const panelDesig = document.getElementById('desigDropdownPanel');
+    const searchDesig = document.getElementById('desigSearchInput');
+    const listDesig = document.getElementById('desigOptionsList');
+    const btnQuickAddDesig = document.getElementById('btnQuickAddDesig');
+    const headingDesig = document.getElementById('desigPanelHeading');
+    const helperDesig = document.getElementById('desigHelperText');
+    const toastDeptReq = document.getElementById('deptRequiredToast');
+
+    // DOM Elements - Smart Mapping Card
+    const cardSmart = document.getElementById('smartDeptDesigCard');
+    const titleSmart = document.getElementById('smartCardTitle');
+    const subtitleSmart = document.getElementById('smartCardSubtitle');
+    const pillsRowSmart = document.getElementById('smartCardPillsRow');
+
+    // DOM Elements - Manage Modal
+    const btnManage = document.getElementById('btnManageDeptDesig');
+    const modalManage = document.getElementById('modalManageDeptDesig');
+    const btnCloseManage = document.getElementById('btnCloseManageDeptDesig');
+    const btnDoneManage = document.getElementById('btnManageDone');
+    const manageNewDeptInput = document.getElementById('manageNewDeptInput');
+    const btnManageAddDept = document.getElementById('btnManageAddDept');
+    const manageDeptTargetSelect = document.getElementById('manageDeptTargetSelect');
+    const manageNewDesigInput = document.getElementById('manageNewDesigInput');
+    const btnManageAddDesig = document.getElementById('btnManageAddDesig');
+    const manageDeptAccordion = document.getElementById('manageDeptAccordion');
+
+    let toastTimer = null;
+
+    function showDeptRequiredToast() {
+      if (!toastDeptReq) return;
+      if (toastTimer) clearTimeout(toastTimer);
+      toastDeptReq.style.display = 'flex';
+      if (triggerDept) {
+        triggerDept.style.borderColor = '#ef4444';
+        triggerDept.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.2)';
+        setTimeout(() => {
+          triggerDept.style.borderColor = '';
+          triggerDept.style.boxShadow = '';
+        }, 1200);
+      }
+      toastTimer = setTimeout(() => {
+        toastDeptReq.style.display = 'none';
+      }, 2500);
     }
-    if (seedItems.length) addItems(seedItems);
 
-    function openMenu() {
-      // Close other open comboboxes
-      document.querySelectorAll('.classic-combobox-menu.show').forEach(m => {
-        if (m !== menu) m.classList.remove('show');
-      });
-      document.querySelectorAll('.classic-combobox-wrapper.is-open').forEach(w => {
-        if (w !== wrapper) w.classList.remove('is-open');
-      });
-
-      renderMenu();
-      menu.classList.add('show');
-      if (wrapper) wrapper.classList.add('is-open');
+    function closeAllPanels() {
+      if (panelDept) panelDept.classList.remove('show');
+      if (triggerDept) triggerDept.classList.remove('is-open');
+      if (panelDesig) panelDesig.classList.remove('show');
+      if (triggerDesig) triggerDesig.classList.remove('is-open');
     }
 
-    function closeMenu() {
-      menu.classList.remove('show');
-      if (wrapper) wrapper.classList.remove('is-open');
-      highlightedIndex = -1;
-    }
+    // Render Department Options List
+    function renderDeptList(filter = '') {
+      if (!listDept) return;
+      listDept.innerHTML = '';
+      const filterLow = (filter || '').trim().toLowerCase();
+      const currentVal = (inDept ? inDept.value : '').trim().toLowerCase();
 
-    function isOpen() {
-      return menu.classList.contains('show');
-    }
-
-    function renderMenu() {
-      menu.innerHTML = '';
-      const filterText = (input.value || '').trim().toLowerCase();
-      const matchingItems = filterText
-        ? items.filter(it => it.toLowerCase().includes(filterText))
-        : items;
-
-      const exactMatch = items.some(it => it.toLowerCase() === filterText);
-
-      if (matchingItems.length === 0 && !filterText) {
-        const emptyEl = document.createElement('div');
-        emptyEl.className = 'classic-combobox-empty';
-        emptyEl.textContent = `No ${placeholderItem}s available. Type to create one.`;
-        menu.appendChild(emptyEl);
+      const filtered = departments.filter(d => d.toLowerCase().includes(filterLow));
+      if (filtered.length === 0) {
+        listDept.innerHTML = `<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">No matching departments found.</div>`;
         return;
       }
 
-      matchingItems.forEach((it, idx) => {
-        const itemEl = document.createElement('div');
-        itemEl.className = 'classic-combobox-item';
-        if (idx === highlightedIndex) itemEl.classList.add('highlighted');
-        const isCurrentVal = (input.value || '').trim().toLowerCase() === it.toLowerCase();
-        if (isCurrentVal) itemEl.classList.add('selected');
-
-        const escapedIt = (typeof escapeHtml === 'function') ? escapeHtml(it) : it;
-        itemEl.innerHTML = `
-          <span>${escapedIt}</span>
-          ${isCurrentVal ? '<span style="color: #0284c7; font-weight: 700;">✓</span>' : ''}
+      filtered.forEach(dept => {
+        const item = document.createElement('div');
+        item.className = 'smart-panel-item' + (dept.toLowerCase() === currentVal ? ' selected' : '');
+        item.innerHTML = `
+          <span>${escapeHtml(dept)}</span>
+          ${dept.toLowerCase() === currentVal ? '<span style="color: #1d4ed8; font-weight: 800;">✓</span>' : ''}
         `;
-
-        itemEl.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          selectValue(it);
+        item.addEventListener('click', () => {
+          selectDepartment(dept);
         });
-
-        menu.appendChild(itemEl);
+        listDept.appendChild(item);
       });
+    }
 
-      // If user typed custom text that is not an existing item, offer to add as new
-      if (filterText && !exactMatch) {
-        const rawTyped = (input.value || '').trim();
-        const createEl = document.createElement('div');
-        createEl.className = 'classic-combobox-create-item';
-        const escapedTyped = (typeof escapeHtml === 'function') ? escapeHtml(rawTyped) : rawTyped;
-        createEl.innerHTML = `<span>➕ Add new:</span> <strong>"${escapedTyped}"</strong>`;
-        createEl.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          addItems([rawTyped]);
-          selectValue(rawTyped);
+    // Render Designation Options List
+    function renderDesigList(filter = '') {
+      if (!listDesig) return;
+      listDesig.innerHTML = '';
+      const currentDept = (inDept ? inDept.value : '').trim();
+      const desigs = mapping[currentDept] || [];
+      const filterLow = (filter || '').trim().toLowerCase();
+      const currentVal = (inDesig ? inDesig.value : '').trim().toLowerCase();
+
+      const filtered = desigs.filter(dg => dg.toLowerCase().includes(filterLow));
+      if (filtered.length === 0) {
+        listDesig.innerHTML = `<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">No designations found for this department.</div>`;
+        return;
+      }
+
+      filtered.forEach(dg => {
+        const item = document.createElement('div');
+        item.className = 'smart-panel-item' + (dg.toLowerCase() === currentVal ? ' selected' : '');
+        item.innerHTML = `
+          <span>${escapeHtml(dg)}</span>
+          ${dg.toLowerCase() === currentVal ? '<span style="color: #1d4ed8; font-weight: 800;">✓</span>' : ''}
+        `;
+        item.addEventListener('click', () => {
+          selectDesignation(dg);
         });
-        menu.appendChild(createEl);
+        listDesig.appendChild(item);
+      });
+    }
+
+    // Update Smart Mapping Card & Pills Row
+    function updateSmartCard() {
+      if (!cardSmart || !pillsRowSmart) return;
+      const currentDept = (inDept ? inDept.value : '').trim();
+      pillsRowSmart.innerHTML = '';
+
+      if (!currentDept) {
+        // No department selected: show default department pills (Image 2)
+        cardSmart.classList.remove('is-active-dept');
+        if (titleSmart) titleSmart.textContent = 'Smart Department → Designation Mapping';
+        if (subtitleSmart) subtitleSmart.textContent = 'Select a department above to see only its linked job roles.';
+
+        // Show first 3 prominent departments + more pill
+        const sampleDepts = ['Production', 'Quality Control', 'IT & Software'];
+        sampleDepts.forEach(d => {
+          if (departments.includes(d)) {
+            const pill = document.createElement('span');
+            pill.className = 'smart-pill';
+            pill.textContent = d;
+            pill.addEventListener('click', () => selectDepartment(d));
+            pillsRowSmart.appendChild(pill);
+          }
+        });
+
+        const remainingCount = Math.max(0, departments.length - sampleDepts.length);
+        if (remainingCount > 0) {
+          const morePill = document.createElement('span');
+          morePill.className = 'smart-pill smart-pill-more';
+          morePill.textContent = `+${remainingCount} more departments`;
+          morePill.addEventListener('click', () => {
+            closeAllPanels();
+            if (panelDept) panelDept.classList.add('show');
+            if (triggerDept) triggerDept.classList.add('is-open');
+            if (searchDept) { searchDept.value = ''; searchDept.focus(); }
+            renderDeptList('');
+          });
+          pillsRowSmart.appendChild(morePill);
+        }
+      } else {
+        // Department selected: show its mapped job roles (Image 3 & 4)
+        cardSmart.classList.add('is-active-dept');
+        const desigs = mapping[currentDept] || [];
+        if (titleSmart) titleSmart.textContent = `${currentDept} → Select a designation`;
+        if (subtitleSmart) subtitleSmart.textContent = `${desigs.length} mapped roles for this department. Choose a role above or click a pill:`;
+
+        const curDesig = (inDesig ? inDesig.value : '').trim();
+        desigs.forEach(dg => {
+          const pill = document.createElement('span');
+          pill.className = 'smart-pill' + (dg.toLowerCase() === curDesig.toLowerCase() ? ' is-selected' : '');
+          pill.textContent = dg;
+          pill.addEventListener('click', () => selectDesignation(dg));
+          pillsRowSmart.appendChild(pill);
+        });
       }
     }
 
-    function selectValue(val) {
-      input.value = val;
-      closeMenu();
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
+    // Select Department
+    function selectDepartment(deptName, keepDesig = false) {
+      if (!inDept) return;
+      inDept.value = deptName || '';
+      if (textDept) {
+        textDept.textContent = deptName || 'Select department';
+      }
+      closeAllPanels();
+
+      if (deptName) {
+        if (triggerDesig) triggerDesig.classList.remove('is-disabled-look');
+        const desigs = mapping[deptName] || [];
+        if (helperDesig) {
+          helperDesig.textContent = `${desigs.length} related designations available · Add your own`;
+        }
+        if (headingDesig) {
+          headingDesig.textContent = `DESIGNATIONS — ${deptName.toUpperCase()}`;
+        }
+        if (!keepDesig) {
+          // If current designation is not valid for this department, clear it
+          const curDesig = inDesig ? inDesig.value.trim() : '';
+          if (curDesig && !desigs.some(d => d.toLowerCase() === curDesig.toLowerCase())) {
+            if (inDesig) inDesig.value = '';
+            if (textDesig) textDesig.textContent = 'Select designation';
+          } else if (!curDesig && textDesig) {
+            textDesig.textContent = 'Select designation';
+          }
+        }
+      } else {
+        if (triggerDesig) triggerDesig.classList.add('is-disabled-look');
+        if (textDesig) textDesig.textContent = 'Select department first';
+        if (helperDesig) helperDesig.textContent = 'Only related designations will appear';
+        if (inDesig) inDesig.value = '';
+      }
+
+      updateSmartCard();
+      inDept.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', (e) => {
-        e.preventDefault();
+    // Select Designation
+    function selectDesignation(desigName) {
+      if (!inDesig) return;
+      inDesig.value = desigName || '';
+      if (textDesig) {
+        textDesig.textContent = desigName || (inDept && inDept.value ? 'Select designation' : 'Select department first');
+      }
+      closeAllPanels();
+      updateSmartCard();
+      inDesig.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // Event Listeners - Department Trigger
+    if (triggerDept) {
+      triggerDept.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (isOpen()) {
-          closeMenu();
-        } else {
-          openMenu();
-          input.focus();
+        const isOpen = panelDept && panelDept.classList.contains('show');
+        closeAllPanels();
+        if (!isOpen && panelDept) {
+          panelDept.classList.add('show');
+          triggerDept.classList.add('is-open');
+          if (searchDept) {
+            searchDept.value = '';
+            searchDept.focus();
+          }
+          renderDeptList('');
+        }
+      });
+      triggerDept.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          triggerDept.click();
         }
       });
     }
 
-    input.addEventListener('focus', () => {
-      openMenu();
-    });
+    if (searchDept) {
+      searchDept.addEventListener('input', (e) => {
+        renderDeptList(e.target.value);
+      });
+      searchDept.addEventListener('click', (e) => e.stopPropagation());
+    }
 
-    input.addEventListener('click', () => {
-      if (!isOpen()) openMenu();
-    });
+    // Quick Add Department in Dropdown Footer
+    if (btnQuickAddDept) {
+      btnQuickAddDept.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const typed = (searchDept ? searchDept.value : '').trim();
+        const name = window.prompt("Enter new Department name:", typed);
+        if (!name || !name.trim()) return;
+        const cleanName = name.trim();
 
-    input.addEventListener('input', () => {
-      highlightedIndex = -1;
-      if (!isOpen()) openMenu();
-      else renderMenu();
-    });
+        if (!departments.includes(cleanName)) {
+          departments.push(cleanName);
+          mapping[cleanName] = mapping[cleanName] || [];
+        }
+        selectDepartment(cleanName);
 
-    input.addEventListener('keydown', (e) => {
-      if (!isOpen()) {
-        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-          e.preventDefault();
-          openMenu();
+        try {
+          await fetch('/api/departments-designations/department', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ department: cleanName })
+          });
+        } catch (err) {
+          console.error("Failed to sync custom department:", err);
+        }
+      });
+    }
+
+    // Event Listeners - Designation Trigger
+    if (triggerDesig) {
+      triggerDesig.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const curDept = inDept ? inDept.value.trim() : '';
+        if (!curDept) {
+          showDeptRequiredToast();
           return;
         }
-      }
-
-      const visibleItems = menu.querySelectorAll('.classic-combobox-item, .classic-combobox-create-item');
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (visibleItems.length > 0) {
-          highlightedIndex = (highlightedIndex + 1) % visibleItems.length;
-          updateHighlight(visibleItems);
+        const isOpen = panelDesig && panelDesig.classList.contains('show');
+        closeAllPanels();
+        if (!isOpen && panelDesig) {
+          panelDesig.classList.add('show');
+          triggerDesig.classList.add('is-open');
+          if (searchDesig) {
+            searchDesig.value = '';
+            searchDesig.focus();
+          }
+          renderDesigList('');
         }
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (visibleItems.length > 0) {
-          highlightedIndex = (highlightedIndex - 1 + visibleItems.length) % visibleItems.length;
-          updateHighlight(visibleItems);
-        }
-      } else if (e.key === 'Enter') {
-        if (isOpen() && highlightedIndex >= 0 && visibleItems[highlightedIndex]) {
+      });
+      triggerDesig.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
           e.preventDefault();
-          visibleItems[highlightedIndex].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-        } else if (isOpen() && (input.value || '').trim()) {
-          const val = input.value.trim();
-          addItems([val]);
-          closeMenu();
-        }
-      } else if (e.key === 'Escape') {
-        if (isOpen()) {
-          e.preventDefault();
-          closeMenu();
-        }
-      } else if (e.key === 'Tab') {
-        closeMenu();
-      }
-    });
-
-    function updateHighlight(visibleItems) {
-      visibleItems.forEach((el, i) => {
-        if (i === highlightedIndex) {
-          el.classList.add('highlighted');
-          el.scrollIntoView({ block: 'nearest' });
-        } else {
-          el.classList.remove('highlighted');
+          triggerDesig.click();
         }
       });
     }
 
+    if (searchDesig) {
+      searchDesig.addEventListener('input', (e) => {
+        renderDesigList(e.target.value);
+      });
+      searchDesig.addEventListener('click', (e) => e.stopPropagation());
+    }
+
+    // Quick Add Designation in Dropdown Footer
+    if (btnQuickAddDesig) {
+      btnQuickAddDesig.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const curDept = inDept ? inDept.value.trim() : '';
+        if (!curDept) {
+          showDeptRequiredToast();
+          return;
+        }
+        const typed = (searchDesig ? searchDesig.value : '').trim();
+        const name = window.prompt(`Enter new designation for "${curDept}":`, typed);
+        if (!name || !name.trim()) return;
+        const cleanDesig = name.trim();
+
+        mapping[curDept] = mapping[curDept] || [];
+        if (!mapping[curDept].includes(cleanDesig)) {
+          mapping[curDept].push(cleanDesig);
+        }
+        selectDesignation(cleanDesig);
+
+        try {
+          await fetch('/api/departments-designations/designation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ department: curDept, designation: cleanDesig })
+          });
+        } catch (err) {
+          console.error("Failed to sync custom designation:", err);
+        }
+      });
+    }
+
+    // Outside Click Dismiss
     document.addEventListener('click', (e) => {
-      if (wrapper && !wrapper.contains(e.target)) {
-        closeMenu();
+      if (panelDept && !panelDept.contains(e.target) && triggerDept && !triggerDept.contains(e.target)) {
+        if (panelDept.classList.contains('show')) {
+          panelDept.classList.remove('show');
+          if (triggerDept) triggerDept.classList.remove('is-open');
+        }
+      }
+      if (panelDesig && !panelDesig.contains(e.target) && triggerDesig && !triggerDesig.contains(e.target)) {
+        if (panelDesig.classList.contains('show')) {
+          panelDesig.classList.remove('show');
+          if (triggerDesig) triggerDesig.classList.remove('is-open');
+        }
       }
     });
 
+    // Manage Modal Controller
+    function renderManageModal() {
+      if (!manageDeptTargetSelect || !manageDeptAccordion) return;
+      manageDeptTargetSelect.innerHTML = '';
+      departments.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = d;
+        if (inDept && inDept.value === d) opt.selected = true;
+        manageDeptTargetSelect.appendChild(opt);
+      });
+
+      manageDeptAccordion.innerHTML = '';
+      departments.forEach(dept => {
+        const desigs = mapping[dept] || [];
+        const card = document.createElement('div');
+        card.style.cssText = 'border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; background: #ffffff;';
+        card.innerHTML = `
+          <div style="padding: 10px 14px; background: #f8fafc; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 1px solid #e2e8f0;" onclick="const b = this.nextElementSibling; b.style.display = b.style.display === 'none' ? 'flex' : 'none';">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: 700; color: #1e293b; font-size: 12.5px;">${escapeHtml(dept)}</span>
+              <span style="background: #e2e8f0; color: #475569; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px;">${desigs.length} roles</span>
+            </div>
+            <span style="font-size: 11px; color: #64748b;">▼</span>
+          </div>
+          <div style="padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 6px; background: #ffffff;">
+            ${desigs.length > 0 ? desigs.map(dg => `<span style="display: inline-flex; align-items: center; padding: 3px 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 11.5px; color: #334155;">${escapeHtml(dg)}</span>`).join('') : '<span style="color: #94a3b8; font-size: 11px;">No designations mapped yet</span>'}
+          </div>
+        `;
+        manageDeptAccordion.appendChild(card);
+      });
+    }
+
+    if (btnManage && modalManage) {
+      btnManage.addEventListener('click', () => {
+        renderManageModal();
+        modalManage.style.display = 'flex';
+      });
+    }
+    if (btnCloseManage && modalManage) {
+      btnCloseManage.addEventListener('click', () => {
+        modalManage.style.display = 'none';
+      });
+    }
+    if (btnDoneManage && modalManage) {
+      btnDoneManage.addEventListener('click', () => {
+        modalManage.style.display = 'none';
+      });
+    }
+
+    if (btnManageAddDept) {
+      btnManageAddDept.addEventListener('click', async () => {
+        const val = (manageNewDeptInput ? manageNewDeptInput.value : '').trim();
+        if (!val) return;
+        if (!departments.includes(val)) {
+          departments.push(val);
+          mapping[val] = mapping[val] || [];
+        }
+        if (manageNewDeptInput) manageNewDeptInput.value = '';
+        renderManageModal();
+        try {
+          await fetch('/api/departments-designations/department', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ department: val })
+          });
+        } catch (e) {}
+      });
+    }
+
+    if (btnManageAddDesig) {
+      btnManageAddDesig.addEventListener('click', async () => {
+        const targetDept = manageDeptTargetSelect ? manageDeptTargetSelect.value : '';
+        const val = (manageNewDesigInput ? manageNewDesigInput.value : '').trim();
+        if (!targetDept || !val) return;
+        mapping[targetDept] = mapping[targetDept] || [];
+        if (!mapping[targetDept].includes(val)) {
+          mapping[targetDept].push(val);
+        }
+        if (manageNewDesigInput) manageNewDesigInput.value = '';
+        renderManageModal();
+        try {
+          await fetch('/api/departments-designations/designation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ department: targetDept, designation: val })
+          });
+        } catch (e) {}
+      });
+    }
+
+    // Initialize initial card view
+    updateSmartCard();
+
+    // Controllers compatibility object
     return {
-      addItems,
-      setValue: (val) => {
-        input.value = val || '';
-        if (val) addItems([val]);
-        if (isOpen()) renderMenu();
+      dept: {
+        addItems: (items) => {
+          if (!Array.isArray(items)) return;
+          items.forEach(it => {
+            const str = String(it || '').trim();
+            if (str && !departments.includes(str)) {
+              departments.push(str);
+              mapping[str] = mapping[str] || [];
+            }
+          });
+        },
+        setValue: (val) => {
+          if (val) {
+            const str = String(val).trim();
+            if (str && !departments.includes(str)) {
+              departments.push(str);
+              mapping[str] = mapping[str] || [];
+            }
+            selectDepartment(str, true);
+          } else {
+            selectDepartment('');
+          }
+        },
+        close: closeAllPanels
       },
-      close: closeMenu
+      desig: {
+        addItems: (items) => {
+          if (!Array.isArray(items)) return;
+          const curDept = inDept ? inDept.value.trim() : '';
+          if (curDept) {
+            mapping[curDept] = mapping[curDept] || [];
+            items.forEach(it => {
+              const str = String(it || '').trim();
+              if (str && !mapping[curDept].includes(str)) mapping[curDept].push(str);
+            });
+          }
+        },
+        setValue: (val) => {
+          if (val) {
+            const str = String(val).trim();
+            const curDept = inDept ? inDept.value.trim() : '';
+            if (curDept) {
+              mapping[curDept] = mapping[curDept] || [];
+              if (str && !mapping[curDept].includes(str)) mapping[curDept].push(str);
+            }
+            selectDesignation(str);
+          } else {
+            selectDesignation('');
+          }
+        },
+        close: closeAllPanels
+      }
     };
   }
 
-  // Initialize Classic Comboboxes on DOM Ready
-  departmentCombobox = initClassicCombobox({
-    inputId: 'inputDepartment',
-    menuId: 'departmentMenu',
-    toggleBtnId: 'btnToggleDepartmentMenu',
-    wrapperId: 'departmentComboboxWrapper',
-    placeholderItem: 'department'
-  });
-
-  designationCombobox = initClassicCombobox({
-    inputId: 'inputDesignation',
-    menuId: 'designationMenu',
-    toggleBtnId: 'btnToggleDesignationMenu',
-    wrapperId: 'designationComboboxWrapper',
-    placeholderItem: 'designation'
-  });
+  // Initialize Smart Controller on load
+  const smartDeptDesigSystem = initSmartDeptDesigSystem();
+  departmentCombobox = smartDeptDesigSystem.dept;
+  designationCombobox = smartDeptDesigSystem.desig;
 
   function renderTableRows(employees) {
     if (!tableBody) return;

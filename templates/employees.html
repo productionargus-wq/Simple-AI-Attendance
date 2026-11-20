@@ -727,74 +727,143 @@
     }
   }
 
-  /* Classic Light-Theme Combobox Dropdown */
-  .classic-combobox-wrapper {
-    position: relative;
-    width: 100%;
+  /* Smart Department & Designation Custom Dropdowns */
+  .btn-manage-masters {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #1e3a8a;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   }
-  .classic-combobox-input {
+  .btn-manage-masters:hover {
+    background: #f0f7ff;
+    border-color: #93c5fd;
+    color: #1d4ed8;
+    box-shadow: 0 2px 4px rgba(37,99,235,0.12);
+  }
+  .smart-select-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
-    padding-right: 32px !important;
-    background-color: #ffffff !important;
-    color: #1e293b !important;
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 4px;
-    font-size: 12px;
+    height: 38px;
+    padding: 0 12px;
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
     box-sizing: border-box;
-    cursor: text;
   }
-  .classic-combobox-input:focus {
+  .smart-select-trigger:focus,
+  .smart-select-trigger.is-open {
     border-color: #3b82f6 !important;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15) !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18) !important;
     outline: none;
   }
-  .classic-combobox-toggle {
-    position: absolute;
-    right: 1px;
-    top: 1px;
-    bottom: 1px;
-    width: 30px;
-    background: transparent;
-    border: none;
+  .smart-select-trigger.is-disabled-look {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+  }
+  .smart-select-value {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #1e293b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .smart-select-trigger.is-disabled-look .smart-select-value {
+    color: #94a3b8;
+  }
+  .smart-select-arrow {
     display: flex;
     align-items: center;
     justify-content: center;
     color: #64748b;
-    cursor: pointer;
-    border-radius: 0 4px 4px 0;
-    transition: color 0.15s ease, background-color 0.15s ease;
-    padding: 0;
-  }
-  .classic-combobox-toggle:hover {
-    color: #0f172a;
-    background-color: #f1f5f9;
-  }
-  .classic-combobox-toggle svg {
     transition: transform 0.2s ease;
+    flex-shrink: 0;
   }
-  .classic-combobox-wrapper.is-open .classic-combobox-toggle svg {
+  .smart-select-trigger.is-open .smart-select-arrow {
     transform: rotate(180deg);
+    color: #2563eb;
   }
-  .classic-combobox-menu {
+  .form-helper-text {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 4px;
+    line-height: 1.3;
+  }
+  .smart-dropdown-panel {
     position: absolute;
     top: calc(100% + 4px);
     left: 0;
     right: 0;
-    background: #ffffff !important;
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 6px !important;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
-    max-height: 220px;
-    overflow-y: auto;
+    background: #ffffff;
+    border: 1.5px solid #93c5fd;
+    border-radius: 10px;
+    box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.18), 0 4px 10px -2px rgba(15, 23, 42, 0.08);
     z-index: 1050;
     display: none;
+    flex-direction: column;
+    overflow: hidden;
+    animation: smartDropdownPop 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes smartDropdownPop {
+    from { opacity: 0; transform: translateY(-4px) scale(0.99); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .smart-dropdown-panel.show {
+    display: flex;
+  }
+  .smart-search-wrapper {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+  .smart-search-input {
+    width: 100%;
+    height: 34px;
+    border: 1.5px solid #93c5fd;
+    border-radius: 6px;
+    padding: 0 10px;
+    font-size: 12.5px;
+    color: #0f172a;
+    outline: none;
+    background: #ffffff;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .smart-search-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+  }
+  .smart-panel-heading {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #64748b;
+    padding: 8px 12px 4px 12px;
+    background: #ffffff;
+    user-select: none;
+  }
+  .smart-panel-list {
+    max-height: 200px;
+    overflow-y: auto;
     padding: 4px 0;
   }
-  .classic-combobox-menu.show {
-    display: block;
-  }
-  .classic-combobox-item {
-    padding: 8px 12px;
+  .smart-panel-item {
+    padding: 8px 14px;
     font-size: 12.5px;
     font-weight: 500;
     color: #1e293b;
@@ -802,43 +871,150 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    transition: background-color 0.12s ease, color 0.12s ease;
+    transition: background 0.12s ease, color 0.12s ease;
     user-select: none;
   }
-  .classic-combobox-item:hover,
-  .classic-combobox-item.highlighted {
-    background-color: #f1f5f9;
+  .smart-panel-item:hover,
+  .smart-panel-item.highlighted {
+    background: #f1f5f9;
     color: #0284c7;
   }
-  .classic-combobox-item.selected {
-    background-color: #eff6ff;
+  .smart-panel-item.selected {
+    background: #eff6ff;
     color: #1d4ed8;
-    font-weight: 600;
+    font-weight: 700;
   }
-  .classic-combobox-create-item {
-    padding: 9px 12px;
+  .smart-panel-footer {
+    border-top: 1px solid #e2e8f0;
+    padding: 6px 10px;
+    background: #f8fafc;
+  }
+  .btn-smart-add-new {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: #1d4ed8;
     font-size: 12px;
-    font-weight: 600;
-    color: #0284c7;
-    background-color: #f8fafc;
-    border-top: 1px dashed #e2e8f0;
+    font-weight: 700;
+    text-align: left;
+    padding: 6px 8px;
+    border-radius: 4px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
-    transition: background-color 0.12s ease;
-    user-select: none;
+    gap: 4px;
+    transition: background 0.15s ease;
   }
-  .classic-combobox-create-item:hover,
-  .classic-combobox-create-item.highlighted {
-    background-color: #e0f2fe;
+  .btn-smart-add-new:hover {
+    background: #e0f2fe;
     color: #0369a1;
   }
-  .classic-combobox-empty {
-    padding: 10px 12px;
-    font-size: 12px;
-    color: #94a3b8;
-    text-align: center;
+  .dept-required-toast {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    background: #0f172a;
+    color: #ffffff;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 9px 16px;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.35);
+    z-index: 1080;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    animation: toastPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes toastPop {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .smart-dept-desig-card {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-top: 14px;
+    transition: all 0.25s ease;
+  }
+  .smart-dept-desig-card.is-active-dept {
+    background: #f0f7ff;
+    border-color: #bfdbfe;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.06);
+  }
+  .smart-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .smart-card-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: #e0f2fe;
+    color: #0284c7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .smart-dept-desig-card.is-active-dept .smart-card-icon {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+  .smart-card-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+  }
+  .smart-card-subtitle {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 1px;
+  }
+  .smart-card-pills-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .smart-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+    user-select: none;
+  }
+  .smart-pill:hover {
+    border-color: #3b82f6;
+    color: #1d4ed8;
+    background: #eff6ff;
+    transform: translateY(-1px);
+  }
+  .smart-pill.is-selected {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #1d4ed8;
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+  }
+  .smart-pill-more {
+    border: 1px dashed #93c5fd;
+    background: transparent;
+    color: #0284c7;
+  }
+  .smart-pill-more:hover {
+    background: #e0f2fe;
+    border-color: #2563eb;
   }
 </style>
 
@@ -925,30 +1101,73 @@
                 <div class="emp-section-subtitle">Department, role, employee status, and joining date</div>
               </div>
             </div>
+            <button type="button" class="btn-manage-masters" id="btnManageDeptDesig" title="Manage Departments & Designations">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              Manage Departments &amp; Designations
+            </button>
           </div>
           <div class="emp-section-grid emp-grid-3">
-            <div class="form-group">
-              <label class="form-label" for="inputDepartment">Department<span class="required">*</span></label>
-              <div class="classic-combobox-wrapper" id="departmentComboboxWrapper" data-initial='{{ (existing_departments or [])|tojson }}'>
-                <input type="text" class="form-input classic-combobox-input" id="inputDepartment" name="department" placeholder="Select or type department" autocomplete="off" required>
-                <button type="button" class="classic-combobox-toggle" id="btnToggleDepartmentMenu" tabindex="-1" aria-label="Toggle department list" title="Show department options">
+            <div class="form-group" style="position: relative;">
+              <label class="form-label" for="deptSelectTrigger">Department<span class="required">*</span></label>
+              <input type="hidden" id="inputDepartment" name="department" required>
+              <div class="smart-select-trigger" id="deptSelectTrigger" tabindex="0" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+                <span class="smart-select-value" id="deptSelectedText">Select department</span>
+                <span class="smart-select-arrow">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="6 9 12 15 18 9"></polyline>
                   </svg>
-                </button>
-                <div class="classic-combobox-menu" id="departmentMenu" role="listbox"></div>
+                </span>
+              </div>
+              <div class="form-helper-text" id="deptHelperText">Choose from default list or add your own</div>
+
+              <!-- Department Dropdown Menu -->
+              <div class="smart-dropdown-panel" id="deptDropdownPanel" role="listbox">
+                <div class="smart-search-wrapper">
+                  <input type="text" class="smart-search-input" id="deptSearchInput" placeholder="Search department..." autocomplete="off">
+                </div>
+                <div class="smart-panel-heading">AVAILABLE DEPARTMENTS</div>
+                <div class="smart-panel-list" id="deptOptionsList"></div>
+                <div class="smart-panel-footer">
+                  <button type="button" class="btn-smart-add-new" id="btnQuickAddDept">
+                    + Add New Department
+                  </button>
+                </div>
               </div>
             </div>
-            <div class="form-group">
-              <label class="form-label" for="inputDesignation">Designation<span class="required">*</span></label>
-              <div class="classic-combobox-wrapper" id="designationComboboxWrapper" data-initial='{{ (existing_designations or [])|tojson }}'>
-                <input type="text" class="form-input classic-combobox-input" id="inputDesignation" name="designation" placeholder="Select or type designation" autocomplete="off" required>
-                <button type="button" class="classic-combobox-toggle" id="btnToggleDesignationMenu" tabindex="-1" aria-label="Toggle designation list" title="Show designation options">
+
+            <div class="form-group" style="position: relative;">
+              <label class="form-label" for="desigSelectTrigger">Designation<span class="required">*</span></label>
+              <input type="hidden" id="inputDesignation" name="designation" required>
+              <div class="smart-select-trigger is-disabled-look" id="desigSelectTrigger" tabindex="0" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+                <span class="smart-select-value" id="desigSelectedText">Select department first</span>
+                <span class="smart-select-arrow">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="6 9 12 15 18 9"></polyline>
                   </svg>
-                </button>
-                <div class="classic-combobox-menu" id="designationMenu" role="listbox"></div>
+                </span>
+              </div>
+              <div class="form-helper-text" id="desigHelperText">Only related designations will appear</div>
+
+              <!-- Floating notification bubble when clicked without department -->
+              <div class="dept-required-toast" id="deptRequiredToast" style="display: none;">
+                Please select a Department first.
+              </div>
+
+              <!-- Designation Dropdown Menu -->
+              <div class="smart-dropdown-panel" id="desigDropdownPanel" role="listbox">
+                <div class="smart-search-wrapper">
+                  <input type="text" class="smart-search-input" id="desigSearchInput" placeholder="Search designation..." autocomplete="off">
+                </div>
+                <div class="smart-panel-heading" id="desigPanelHeading">DESIGNATIONS</div>
+                <div class="smart-panel-list" id="desigOptionsList"></div>
+                <div class="smart-panel-footer">
+                  <button type="button" class="btn-smart-add-new" id="btnQuickAddDesig">
+                    + Add Designation to this Department
+                  </button>
+                </div>
               </div>
             </div>
             <div class="form-group">
@@ -982,6 +1201,23 @@
               <label class="form-label" for="inputJoiningDate">Joining Date</label>
               <input type="date" class="form-input" id="inputJoiningDate" name="joining_date" placeholder="mm/dd/yyyy">
             </div>
+          </div>
+
+          <!-- Smart Department → Designation Mapping Card -->
+          <div class="smart-dept-desig-card" id="smartDeptDesigCard">
+            <div class="smart-card-header">
+              <div class="smart-card-icon" id="smartCardIcon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </div>
+              <div>
+                <div class="smart-card-title" id="smartCardTitle">Smart Department &rarr; Designation Mapping</div>
+                <div class="smart-card-subtitle" id="smartCardSubtitle">Select a department above to see only its linked job roles.</div>
+              </div>
+            </div>
+            <div class="smart-card-pills-row" id="smartCardPillsRow"></div>
           </div>
 
           <!-- Contextual Field Worker Settings -->
@@ -1493,6 +1729,48 @@
 
 
 
+
+<!-- ================= MODAL: Manage Departments & Designations ================= -->
+<div class="modal-overlay" id="modalManageDeptDesig" style="display: none;">
+  <div class="modal-box" style="max-width: 680px; width: 95%; max-height: 85vh; display: flex; flex-direction: column;">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 16px;">⚙️</span>
+        <div class="modal-header-title" style="font-size: 15px; font-weight: 700; color: #0f172a; margin: 0;">Manage Departments &amp; Designations</div>
+      </div>
+      <button type="button" class="modal-close-btn" id="btnCloseManageDeptDesig">&times;</button>
+    </div>
+    <div class="modal-body" style="padding: 16px 20px; overflow-y: auto; flex: 1;">
+      <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px; font-size: 11.5px; color: #1e40af; margin-bottom: 14px;">
+        12 standard industrial departments and default job roles are preloaded. You can add custom departments or map additional designations to any department.
+      </div>
+
+      <!-- Quick Add Actions -->
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+        <div style="font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">+ Add New Department</div>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="manageNewDeptInput" class="form-input" placeholder="e.g. Research & Development" style="flex: 1; height: 34px; font-size: 12px;">
+          <button type="button" id="btnManageAddDept" class="btn-filter" style="background: #2563eb; color: #ffffff; border: none; font-weight: 700; font-size: 12px; height: 34px; padding: 0 14px; border-radius: 6px; cursor: pointer;">Add</button>
+        </div>
+
+        <div style="font-size: 12px; font-weight: 700; color: #1e293b; margin-top: 12px; margin-bottom: 8px;">+ Add Designation to Department</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <select id="manageDeptTargetSelect" class="form-input" style="flex: 1; min-width: 140px; height: 34px; font-size: 12px;"></select>
+          <input type="text" id="manageNewDesigInput" class="form-input" placeholder="e.g. Senior CNC Programmer" style="flex: 1.5; min-width: 160px; height: 34px; font-size: 12px;">
+          <button type="button" id="btnManageAddDesig" class="btn-filter" style="background: #10b981; color: #ffffff; border: none; font-weight: 700; font-size: 12px; height: 34px; padding: 0 14px; border-radius: 6px; cursor: pointer;">Add</button>
+        </div>
+      </div>
+
+      <!-- Department & Designation Accordion Tree -->
+      <div style="font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">Available Departments &amp; Mapped Designations</div>
+      <div id="manageDeptAccordion" style="display: flex; flex-direction: column; gap: 8px;"></div>
+    </div>
+    <div class="modal-footer" style="padding: 12px 20px; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: flex-end;">
+      <button type="button" class="btn-filter" id="btnManageDone" style="background: #0f172a; color: #ffffff; border: none; padding: 7px 18px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer;">Done</button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 
@@ -1504,6 +1782,8 @@
   window.ACTIVE_BRANCH_ID = "{{ active_branch_id or '' }}";
 
   window.COMPANY_CALCULATE_PROPER_ENTRIES = {{ 'true' if company_calculate_proper_entries else 'false' }};
+
+  window.INITIAL_DEPT_DESIG = {{ (dept_desig_data or {})|tojson }};
 
 </script>
 

@@ -653,8 +653,8 @@ def employee_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-def check_user_can_delete_entries():
-    """Checks whether the currently logged-in user can delete attendance/report entries."""
+def check_user_can_delete_attendance_entries():
+    """Checks whether the currently logged-in user can delete attendance report entries (scoped strictly to Attendance Reports)."""
     if not session.get('admin_logged_in'):
         return False
     if session.get('role') == 'super_admin':
@@ -664,6 +664,10 @@ def check_user_can_delete_entries():
         if comp_id and database.can_company_delete_entries(comp_id):
             return True
     return False
+
+def check_user_can_delete_entries():
+    """Checks whether user can delete entries in all standard tabs (Manual, Payment, Live, Leave, Employees) - always allowed for logged-in admins."""
+    return bool(session.get('admin_logged_in'))
 
 # Cache for inject_delete_permissions to avoid 3-5 DB round-trips on every request
 _delete_perms_cache = {}
@@ -789,7 +793,8 @@ def inject_delete_permissions():
         'is_system_admin': is_super,
         'system_admin_companies': system_admin_companies,
         'active_company_id': active_comp_id,
-        'can_delete_entries': comp_can_del,
+        'can_delete_attendance_entries': comp_can_del,
+        'can_delete_entries': True,
         'company_support_enabled': company_support_enabled,
         'pending_leave_count': pending_cnt,
         'support_open_count': support_open_count,
@@ -2056,8 +2061,12 @@ def employee_details():
                 company_calculate_proper_entries = False
             existing_departments = database.get_distinct_departments(comp_id)
             existing_designations = database.get_distinct_designations(comp_id)
+            dept_desig_data = database.get_company_department_designations(comp_id)
         except Exception:
             branches = []
+            dept_desig_data = database.get_company_department_designations(None)
+    else:
+        dept_desig_data = database.get_company_department_designations(None)
     return render_template(
         'employees.html',
         active_tab='EMPLOYEE DETAILS',
@@ -2065,7 +2074,8 @@ def employee_details():
         active_branch_id=get_current_branch_id(),
         company_calculate_proper_entries=company_calculate_proper_entries,
         existing_departments=existing_departments,
-        existing_designations=existing_designations
+        existing_designations=existing_designations,
+        dept_desig_data=dept_desig_data
     )
 
 @app.route('/live-report')
@@ -3400,6 +3410,7 @@ def api_get_employees():
         result['company_calculate_proper_entries'] = (comp.get('calculate_proper_entries') is not False) if comp else True
         result['existing_departments'] = database.get_distinct_departments(comp_id)
         result['existing_designations'] = database.get_distinct_designations(comp_id)
+        result['department_designations'] = database.get_company_department_designations(comp_id)
     return jsonify(result)
 
 @app.route('/api/employees/<emp_id>', methods=['GET'])
@@ -3412,6 +3423,44 @@ def api_get_employee(emp_id):
     comp = database.get_company_by_id(comp_id) if comp_id else None
     emp['company_calculate_proper_entries'] = (comp.get('calculate_proper_entries') is not False) if comp else True
     return jsonify(emp)
+@app.route('/api/departments-designations', methods=['GET'])
+@login_required
+def api_get_departments_designations():
+    comp_id = get_current_company_id()
+    data = database.get_company_department_designations(comp_id)
+    return jsonify({'success': True, **data})
+
+@app.route('/api/departments-designations/department', methods=['POST'])
+@login_required
+def api_add_custom_department():
+    comp_id = get_current_company_id()
+    if not comp_id:
+        return jsonify({'error': 'Company context required'}), 400
+    data = request.get_json(silent=True) or {}
+    name = str(data.get('name') or data.get('department') or '').strip()
+    if not name:
+        return jsonify({'error': 'Department name cannot be empty'}), 400
+    success = database.add_company_custom_department(comp_id, name)
+    data = database.get_company_department_designations(comp_id)
+    return jsonify({'success': success, 'message': f'Department "{name}" added successfully', **data})
+
+@app.route('/api/departments-designations/designation', methods=['POST'])
+@login_required
+def api_add_custom_designation():
+    comp_id = get_current_company_id()
+    if not comp_id:
+        return jsonify({'error': 'Company context required'}), 400
+    data = request.get_json(silent=True) or {}
+    dept = str(data.get('department') or '').strip()
+    desig = str(data.get('designation') or data.get('name') or '').strip()
+    if not dept:
+        return jsonify({'error': 'Department is required'}), 400
+    if not desig:
+        return jsonify({'error': 'Designation name cannot be empty'}), 400
+    success = database.add_company_custom_designation(comp_id, dept, desig)
+    data = database.get_company_department_designations(comp_id)
+    return jsonify({'success': success, 'message': f'Designation "{desig}" added to {dept}', **data})
+
 
 def extract_employee_permissions(data, default_val=True):
     raw_perms = data.get('permissions')
@@ -4613,8 +4662,8 @@ def api_update_attendance_records():
 @app.route('/api/attendance-reports/<report_id>', methods=['DELETE'])
 @login_required
 def api_delete_attendance_report(report_id):
-    if not check_user_can_delete_entries():
-        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    if not check_user_can_delete_attendance_entries():
+        return jsonify({'error': 'Delete permission is disabled for Attendance Reports in your company. Please contact System Administrator.'}), 403
     is_manual = request.args.get('is_manual', 'false').lower() in ['true', '1', 'yes']
     success = database.delete_attendance_report(report_id, is_manual=is_manual, company_id=get_current_company_id())
     if not success:
@@ -4624,8 +4673,8 @@ def api_delete_attendance_report(report_id):
 @app.route('/api/attendance-reports/bulk-delete', methods=['POST'])
 @login_required
 def api_bulk_delete_attendance_reports():
-    if not check_user_can_delete_entries():
-        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    if not check_user_can_delete_attendance_entries():
+        return jsonify({'error': 'Delete permission is disabled for Attendance Reports in your company. Please contact System Administrator.'}), 403
     data = request.get_json(silent=True) or {}
     items = data.get('items') or data.get('ids') or []
     if not items:
@@ -4641,8 +4690,8 @@ def api_bulk_delete_attendance_reports():
 @app.route('/api/attendance-reports/delete-range', methods=['POST'])
 @login_required
 def api_delete_attendance_range():
-    if not check_user_can_delete_entries():
-        return jsonify({'error': 'Delete permission is disabled for your company. Please contact System Administrator.'}), 403
+    if not check_user_can_delete_attendance_entries():
+        return jsonify({'error': 'Delete permission is disabled for Attendance Reports in your company. Please contact System Administrator.'}), 403
     data = request.get_json(silent=True) or {}
     start_date = str(data.get('start_date') or '').strip()
     end_date = str(data.get('end_date') or '').strip()
@@ -5484,7 +5533,15 @@ def api_salary_reports_export_excel():
     for r in result['data']:
         is_ns = bool(r.get('no_shift'))
         st_raw = str(r.get('salary_type') or 'daily').lower()
-        st_label = 'Day Salary' if st_raw == 'daily' else ('Hourly Salary' if st_raw == 'hourly' else ('Half Day Salary' if st_raw == 'half_day' else st_raw.title()))
+        if st_raw == 'hourly':
+            amt = r.get('hourly_salary') or r.get('hours_salary') or 0
+            st_label = f"Hourly Salary (₹{amt:g}/hr)" if amt else "Hourly Salary"
+        elif st_raw == 'half_day':
+            amt = r.get('half_day_salary') or 0
+            st_label = f"Half Day Salary (₹{amt:g}/half-day)" if amt else "Half Day Salary"
+        else:
+            amt = r.get('day_salary') or 0
+            st_label = f"Day Salary (₹{amt:g}/day)" if amt else "Day Salary" 
         rows.append([
             r.get('employee_name', ''), st_label, r.get('pay_period', ''), r.get('working_days', ''), r.get('working_hours', ''),
             '-' if is_ns else r.get('overtime_hours', '00:00'), '-' if is_ns else round(float(r.get('overtime_pay', 0)), 2),

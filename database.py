@@ -2267,25 +2267,222 @@ def bulk_delete_employees(emp_ids, company_id=None):
             print(f"Error deleting employee {e_id}: {ex}")
     return {'deleted_count': deleted_count}
 
+DEFAULT_DEPARTMENT_DESIGNATIONS = {
+    "Production": [
+        "CNC Operator",
+        "VMC Operator",
+        "VMC Setter",
+        "Machine Setter",
+        "Production Supervisor",
+        "Production Engineer",
+        "Production Manager",
+        "Plant In-Charge"
+    ],
+    "Quality Control": [
+        "Quality Inspector",
+        "QC Engineer",
+        "CMM Operator",
+        "Quality Supervisor",
+        "Quality Manager"
+    ],
+    "Maintenance": [
+        "Maintenance Technician",
+        "Electrical Technician",
+        "Maintenance Engineer",
+        "Maintenance Supervisor",
+        "Maintenance Manager"
+    ],
+    "Design & Engineering": [
+        "Design Engineer",
+        "CAD Engineer",
+        "CAM Programmer",
+        "Mastercam Programmer",
+        "Process Engineer",
+        "Engineering Manager"
+    ],
+    "Stores & Inventory": [
+        "Storekeeper",
+        "Stores Executive",
+        "Inventory Controller",
+        "Stores Supervisor",
+        "Stores Manager"
+    ],
+    "Purchase": [
+        "Purchase Assistant",
+        "Purchase Executive",
+        "Purchase Officer",
+        "Purchase Manager"
+    ],
+    "HR & Administration": [
+        "HR Executive",
+        "HR Manager",
+        "Admin Executive",
+        "Office Administrator",
+        "Office Assistant"
+    ],
+    "Accounts & Finance": [
+        "Accountant",
+        "Accounts Executive",
+        "Finance Executive",
+        "Finance Manager"
+    ],
+    "Sales & Marketing": [
+        "Sales Executive",
+        "Marketing Executive",
+        "Business Development Executive",
+        "Sales Manager",
+        "Channel Partner Manager"
+    ],
+    "IT & Software": [
+        "Software Developer",
+        "Frontend Developer",
+        "Backend Developer",
+        "UI/UX Designer",
+        "QA Tester",
+        "Technical Support Engineer"
+    ],
+    "Logistics & Dispatch": [
+        "Dispatch Executive",
+        "Logistics Coordinator",
+        "Dispatch Supervisor",
+        "Driver",
+        "Logistics Manager"
+    ],
+    "Management": [
+        "Assistant Manager",
+        "Operations Manager",
+        "General Manager",
+        "Managing Director"
+    ]
+}
+
 def get_distinct_departments(company_id=None):
-    """Return distinct non-empty department names for the given company or system-wide."""
+    """Return distinct non-empty department names for the given company or system-wide, including 12 defaults."""
     db = get_db()
     query = {}
     if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         query['company_id'] = str(company_id)
     raw = db.employees.distinct('department', query)
-    cleaned = sorted(list({str(d).strip() for d in raw if d and str(d).strip() and str(d).strip() != '-'}))
-    return cleaned
+    custom_from_db = {str(d).strip() for d in raw if d and str(d).strip() and str(d).strip() != '-'}
+    
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        try:
+            m = db.company_department_designations.find_one({'company_id': str(company_id)})
+            if m and m.get('custom_departments'):
+                custom_from_db.update(m.get('custom_departments', []))
+        except Exception:
+            pass
+
+    default_depts = list(DEFAULT_DEPARTMENT_DESIGNATIONS.keys())
+    existing = [d for d in default_depts]
+    custom_extras = sorted([d for d in custom_from_db if d not in default_depts])
+    return existing + custom_extras
 
 def get_distinct_designations(company_id=None):
-    """Return distinct non-empty designation names for the given company or system-wide."""
+    """Return distinct non-empty designation names for the given company or system-wide, including defaults."""
     db = get_db()
     query = {}
     if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         query['company_id'] = str(company_id)
     raw = db.employees.distinct('designation', query)
-    cleaned = sorted(list({str(d).strip() for d in raw if d and str(d).strip() and str(d).strip() != '-'}))
-    return cleaned
+    custom_from_db = {str(d).strip() for d in raw if d and str(d).strip() and str(d).strip() != '-'}
+    
+    default_desigs = {dg for dlist in DEFAULT_DEPARTMENT_DESIGNATIONS.values() for dg in dlist}
+    all_desigs = sorted(list(default_desigs.union(custom_from_db)))
+    return all_desigs
+
+def get_company_department_designations(company_id=None):
+    """Return structured mapping { 'departments': [...], 'mapping': {dept: [desig, ...]}, 'all_designations': [...] }."""
+    db = get_db()
+    mapping = {k: list(v) for k, v in DEFAULT_DEPARTMENT_DESIGNATIONS.items()}
+    custom_depts = []
+
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        try:
+            doc = db.company_department_designations.find_one({'company_id': str(company_id)})
+            if doc:
+                for cdept in doc.get('custom_departments', []):
+                    cdept = str(cdept).strip()
+                    if cdept and cdept not in mapping:
+                        mapping[cdept] = []
+                        custom_depts.append(cdept)
+                for dept, desigs in (doc.get('custom_mapping') or {}).items():
+                    if dept not in mapping:
+                        mapping[dept] = []
+                        if dept not in custom_depts:
+                            custom_depts.append(dept)
+                    for dg in desigs:
+                        dg = str(dg).strip()
+                        if dg and dg not in mapping[dept]:
+                            mapping[dept].append(dg)
+        except Exception as ex:
+            print(f"Error loading company department designations: {ex}")
+
+    query = {}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        query['company_id'] = str(company_id)
+    try:
+        emp_records = list(db.employees.find(query, {'department': 1, 'designation': 1}))
+        for er in emp_records:
+            d = str(er.get('department') or '').strip()
+            g = str(er.get('designation') or '').strip()
+            if d and d != '-':
+                if d not in mapping:
+                    mapping[d] = []
+                    if d not in custom_depts:
+                        custom_depts.append(d)
+                if g and g != '-' and g not in mapping[d]:
+                    mapping[d].append(g)
+    except Exception:
+        pass
+
+    depts_ordered = list(DEFAULT_DEPARTMENT_DESIGNATIONS.keys()) + sorted(custom_depts)
+    all_desigs = sorted(list({desig for desigs in mapping.values() for desig in desigs}))
+
+    return {
+        'departments': depts_ordered,
+        'mapping': mapping,
+        'all_designations': all_desigs
+    }
+
+def add_company_custom_department(company_id, dept_name):
+    """Add a custom department for a company."""
+    if not company_id or not dept_name:
+        return False
+    dept_name = str(dept_name).strip()
+    if not dept_name:
+        return False
+    db = get_db()
+    db.company_department_designations.update_one(
+        {'company_id': str(company_id)},
+        {
+            '$addToSet': {'custom_departments': dept_name},
+            '$setOnInsert': {'created_at': get_ist_now()},
+            '$set': {'updated_at': get_ist_now()}
+        },
+        upsert=True
+    )
+    return True
+
+def add_company_custom_designation(company_id, dept_name, desig_name):
+    """Add a custom designation to a department for a company."""
+    if not company_id or not dept_name or not desig_name:
+        return False
+    dept_name = str(dept_name).strip()
+    desig_name = str(desig_name).strip()
+    if not dept_name or not desig_name:
+        return False
+    db = get_db()
+    db.company_department_designations.update_one(
+        {'company_id': str(company_id)},
+        {
+            '$addToSet': {f'custom_mapping.{dept_name}': desig_name},
+            '$setOnInsert': {'created_at': get_ist_now()},
+            '$set': {'updated_at': get_ist_now()}
+        },
+        upsert=True
+    )
+    return True
 
 def get_company_notes(company_id):
     """Fetch private admin notes for a company."""
@@ -6876,6 +7073,10 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
                 'employee_name': ename,
                 'pay_period': mo_k,
                 'salary_type': payload['salary_type'],
+                'day_salary': payload.get('day_salary', 0) or emp_d.get('day_salary', 0),
+                'hourly_salary': payload.get('hours_salary', 0) or emp_d.get('hourly_salary', 0),
+                'half_day_salary': payload.get('half_day_salary', 0) or emp_d.get('half_day_salary', 0),
+                'monthly_salary': emp_d.get('monthly_salary', 0),
                 'no_shift': payload['no_shift'],
                 'shift_hours': payload['shift_hours'],
                 'shift_start': payload['shift_start'],
