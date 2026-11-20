@@ -5468,9 +5468,29 @@ def api_export_payslip_pdf():
     
     template = request.args.get('template', 'template_1').strip()
     theme = request.args.get('theme', 'navy').strip()
-    payslip = database.get_payslip_data(employee, month, company_id=comp_id, branch_id=branch_id)
+    report_type = request.args.get('report_type', 'monthly').strip().lower()
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    selected_date = request.args.get('date') or request.args.get('selected_date')
+    if report_type == 'weekly' and not start_date and selected_date:
+        w_start, w_end, _ = database.resolve_week_date_range(selected_date)
+        start_date = w_start
+        end_date = w_end
+
+    payslip = database.get_payslip_data(
+        employee,
+        month,
+        company_id=comp_id,
+        branch_id=branch_id,
+        report_type=report_type,
+        start_date=start_date,
+        end_date=end_date
+    )
     pdf_buffer = pdf_generator.generate_payslip_pdf(payslip, template_id=template, theme=theme)
-    filename = f"payslip_{employee}_{month}.pdf"
+    if report_type == 'weekly':
+        filename = f"payslip_{employee}_week_{start_date or 'current'}.pdf"
+    else:
+        filename = f"payslip_{employee}_{month}.pdf"
 
     view_inline = (request.args.get('view') == '1' or request.args.get('inline') == '1')
     return send_file(
@@ -5490,6 +5510,10 @@ def api_get_salary_reports():
     search = request.args.get('search', '').strip()
     page = int(request.args.get('page', 1))
     limit = int(request.args.get('limit', 10))
+    report_type = request.args.get('report_type', 'monthly').strip().lower()
+    selected_date = request.args.get('date') or request.args.get('selected_date')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
     
     result = database.get_salary_reports(
         start_month=start_month,
@@ -5498,7 +5522,11 @@ def api_get_salary_reports():
         page=page,
         limit=limit,
         company_id=get_current_company_id(),
-        branch_id=get_current_branch_id()
+        branch_id=get_current_branch_id(),
+        report_type=report_type,
+        selected_date=selected_date,
+        start_date=start_date,
+        end_date=end_date
     )
     return jsonify(result)
 
@@ -5512,6 +5540,10 @@ def api_salary_reports_export_excel():
     end_month = request.args.get('end_month', '').strip()
     search = request.args.get('search', '').strip()
     branch_id = request.args.get('branch_id') or get_current_branch_id()
+    report_type = request.args.get('report_type', 'monthly').strip().lower()
+    selected_date = request.args.get('date') or request.args.get('selected_date')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
     
     result = database.get_salary_reports(
         start_month=start_month,
@@ -5519,7 +5551,11 @@ def api_salary_reports_export_excel():
         search=search,
         limit=10000,
         company_id=get_current_company_id(),
-        branch_id=branch_id
+        branch_id=branch_id,
+        report_type=report_type,
+        selected_date=selected_date,
+        start_date=start_date,
+        end_date=end_date
     )
     
     headers = [
@@ -5561,6 +5597,10 @@ def api_salary_reports_export_pdf():
     end_month = request.args.get('end_month', '').strip()
     search = request.args.get('search', '').strip()
     branch_id = request.args.get('branch_id') or get_current_branch_id()
+    report_type = request.args.get('report_type', 'monthly').strip().lower()
+    selected_date = request.args.get('date') or request.args.get('selected_date')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
     
     result = database.get_salary_reports(
         start_month=start_month,
@@ -5568,7 +5608,11 @@ def api_salary_reports_export_pdf():
         search=search,
         limit=10000,
         company_id=get_current_company_id(),
-        branch_id=branch_id
+        branch_id=branch_id,
+        report_type=report_type,
+        selected_date=selected_date,
+        start_date=start_date,
+        end_date=end_date
     )
     company_info = get_current_company_info()
     pdf_buffer = pdf_generator.generate_salary_report_pdf(result['data'], company_info=company_info)

@@ -26,26 +26,71 @@
       </select>
     </div>
     {% endif %}
-    <button class="btn-primary-action" style="cursor: default;">
-      Monthly Report
-    </button>
+    <div class="salary-mode-switcher" id="salaryModeSwitcher">
+      <button type="button" id="btnModeMonthly" class="btn-mode-tab active" title="Switch to Monthly Salary Reports">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+        <span>Monthly Report</span>
+      </button>
+      <button type="button" id="btnModeWeekly" class="btn-mode-tab" title="Switch to Weekly Salary Reports">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span>Weekly Report</span>
+      </button>
+    </div>
   </div>
 </div>
 
 <!-- Salary Report Table Card with Single-Row Unified Toolbar -->
 <div class="table-card">
   <div class="table-toolbar">
-    <div class="table-toolbar-left">
-      <div class="filter-group">
-        <label for="salaryStartMonth">Start Month</label>
-        <input type="month" id="salaryStartMonth" class="filter-input">
+    <div class="table-toolbar-left" style="display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap;">
+      <!-- Monthly Filter Controls -->
+      <div id="monthlyFilterControls" style="display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap;">
+        <div class="filter-group">
+          <label for="salaryStartMonth">Start Month</label>
+          <input type="month" id="salaryStartMonth" class="filter-input">
+        </div>
+        <div class="filter-group">
+          <label for="salaryEndMonth">End Month</label>
+          <input type="month" id="salaryEndMonth" class="filter-input">
+        </div>
       </div>
-      <div class="filter-group">
-        <label for="salaryEndMonth">End Month</label>
-        <input type="month" id="salaryEndMonth" class="filter-input">
+
+      <!-- Weekly Filter Controls -->
+      <div id="weeklyFilterControls" style="display: none; align-items: flex-end; gap: 8px; flex-wrap: wrap;">
+        <div class="filter-group">
+          <label for="salarySelectDate">Select Any Date in Week</label>
+          <input type="date" id="salarySelectDate" class="filter-input" style="font-weight: 600;">
+        </div>
+        <div style="display: inline-flex; align-items: center; gap: 4px; padding-bottom: 2px;">
+          <button type="button" id="btnPrevWeek" class="btn-week-step" title="Previous Week">
+            ‹ Prev
+          </button>
+          <button type="button" id="btnNextWeek" class="btn-week-step" title="Next Week">
+            Next ›
+          </button>
+        </div>
+        <div class="week-range-pill" id="weeklyResolvedPill" title="Resolved Week Range (Mon - Sun)" style="margin-bottom: 2px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          <span style="opacity: 0.85;">Week:</span>
+          <span id="weeklyResolvedBadge" style="font-weight: 800; color: #1d4ed8;">Resolving...</span>
+        </div>
       </div>
-      <button type="button" id="btnFilterSalary" class="btn-filter">Filter</button>
-      <button type="button" id="btnClearSalary" class="btn-clear">Clear</button>
+
+      <button type="button" id="btnFilterSalary" class="btn-filter" style="margin-bottom: 2px;">Filter</button>
+      <button type="button" id="btnClearSalary" class="btn-clear" style="margin-bottom: 2px;">Clear</button>
     </div>
 
     <div class="table-toolbar-right">
@@ -88,7 +133,7 @@
         <tr>
           <th data-col="employee_name" class="sticky-col-emp">EMPLOYEE NAME <span class="sort-icon">⇅</span></th>
           <th data-col="salary_type" style="min-width: 120px; text-align: center; white-space: nowrap;">SALARY TYPE <span class="sort-icon">⇅</span></th>
-          <th data-col="pay_period">PAY PERIOD <span class="sort-icon">⇅</span></th>
+          <th data-col="pay_period" id="colHeaderPayPeriod">PAY PERIOD (MONTH) <span class="sort-icon">⇅</span></th>
           <th data-col="working_days">WORKING DAYS <span class="sort-icon">⇅</span></th>
           <th data-col="working_hours">WORKING HOURS <span class="sort-icon">⇅</span></th>
           <th data-col="overtime_pay" style="color: #2563eb !important; min-width: 170px;">OVERTIME <span class="sort-icon">⇅</span></th>
@@ -190,6 +235,70 @@
   @keyframes spinPdf {
     to { transform: rotate(360deg); }
   }
+  /* Dynamic Mode Switcher */
+  .salary-mode-switcher {
+    display: inline-flex;
+    align-items: center;
+    background: #e2e8f0;
+    padding: 3px;
+    border-radius: 8px;
+    gap: 4px;
+  }
+  .btn-mode-tab {
+    padding: 7px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: transparent;
+    color: #475569;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-mode-tab:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.6);
+    color: #1e293b;
+  }
+  .btn-mode-tab.active {
+    background: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
+  .btn-week-step {
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1.4;
+  }
+  .btn-week-step:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+  }
+  .week-range-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1e40af;
+    line-height: 1.4;
+  }
   .btn-action-view {
     display: inline-flex;
     align-items: center;
@@ -227,25 +336,181 @@ document.addEventListener('DOMContentLoaded', function () {
   let salaryTotal = 0;
   let salaryAbortCtrl = null;
 
+  // Dynamic Mode: 'monthly' or 'weekly'
+  let currentReportMode = 'monthly';
+  let currentResolvedWeek = null;
+
+  // Helper: Resolve a date string (YYYY-MM-DD) to Monday-Sunday week range
+  function getWeekRange(dateStr) {
+    let d = null;
+    if (dateStr && String(dateStr).trim()) {
+      d = new Date(dateStr + 'T00:00:00');
+    }
+    if (!d || isNaN(d.getTime())) {
+      d = new Date();
+    }
+    // Monday is 1, Sunday is 0 in JS getDay()
+    const day = d.getDay();
+    const diffToMon = (day === 0 ? -6 : 1) - day;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + diffToMon);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const fmtIso = (dt) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const fmtLbl = (dt) => `${pad(dt.getDate())} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
+
+    return {
+      selectedIso: fmtIso(d),
+      startStr: fmtIso(monday),
+      endStr: fmtIso(sunday),
+      label: `${fmtLbl(monday)} - ${fmtLbl(sunday)}`
+    };
+  }
+
+  // Initialize weekly date input to today
+  const initDate = new Date();
+  const padZero = (n) => String(n).padStart(2, '0');
+  const todayIso = `${initDate.getFullYear()}-${padZero(initDate.getMonth() + 1)}-${padZero(initDate.getDate())}`;
+  const salarySelectDateInput = document.getElementById('salarySelectDate');
+  if (salarySelectDateInput && !salarySelectDateInput.value) {
+    salarySelectDateInput.value = todayIso;
+  }
+  currentResolvedWeek = getWeekRange(todayIso);
+  const initialBadge = document.getElementById('weeklyResolvedBadge');
+  if (initialBadge) {
+    initialBadge.innerText = currentResolvedWeek.label;
+  }
+
+  // Switch between Monthly and Weekly Report modes
+  function setReportMode(mode) {
+    currentReportMode = mode;
+    const btnMonthly = document.getElementById('btnModeMonthly');
+    const btnWeekly = document.getElementById('btnModeWeekly');
+    const monthlyFilters = document.getElementById('monthlyFilterControls');
+    const weeklyFilters = document.getElementById('weeklyFilterControls');
+    const colHeader = document.getElementById('colHeaderPayPeriod');
+
+    if (mode === 'weekly') {
+      if (btnMonthly) btnMonthly.classList.remove('active');
+      if (btnWeekly) btnWeekly.classList.add('active');
+      if (monthlyFilters) monthlyFilters.style.display = 'none';
+      if (weeklyFilters) weeklyFilters.style.display = 'flex';
+      if (colHeader && colHeader.childNodes.length > 0) {
+        colHeader.childNodes[0].nodeValue = 'WEEK PERIOD ';
+      }
+      // Ensure date selector has value
+      if (salarySelectDateInput && !salarySelectDateInput.value) {
+        salarySelectDateInput.value = todayIso;
+      }
+      const w = getWeekRange(salarySelectDateInput?.value || todayIso);
+      currentResolvedWeek = w;
+      const b = document.getElementById('weeklyResolvedBadge');
+      if (b) b.innerText = w.label;
+    } else {
+      if (btnMonthly) btnMonthly.classList.add('active');
+      if (btnWeekly) btnWeekly.classList.remove('active');
+      if (monthlyFilters) monthlyFilters.style.display = 'flex';
+      if (weeklyFilters) weeklyFilters.style.display = 'none';
+      if (colHeader && colHeader.childNodes.length > 0) {
+        colHeader.childNodes[0].nodeValue = 'PAY PERIOD (MONTH) ';
+      }
+    }
+    salaryPage = 1;
+    loadSalaryReports();
+  }
+
+  const btnModeMonthly = document.getElementById('btnModeMonthly');
+  if (btnModeMonthly) {
+    btnModeMonthly.addEventListener('click', () => setReportMode('monthly'));
+  }
+  const btnModeWeekly = document.getElementById('btnModeWeekly');
+  if (btnModeWeekly) {
+    btnModeWeekly.addEventListener('click', () => setReportMode('weekly'));
+  }
+
+  // Prev / Next Week buttons
+  const btnPrevWeek = document.getElementById('btnPrevWeek');
+  if (btnPrevWeek) {
+    btnPrevWeek.addEventListener('click', function () {
+      const curDateStr = salarySelectDateInput?.value || todayIso;
+      const cur = new Date(curDateStr + 'T00:00:00');
+      cur.setDate(cur.getDate() - 7);
+      const newIso = `${cur.getFullYear()}-${padZero(cur.getMonth() + 1)}-${padZero(cur.getDate())}`;
+      if (salarySelectDateInput) salarySelectDateInput.value = newIso;
+      const w = getWeekRange(newIso);
+      currentResolvedWeek = w;
+      const b = document.getElementById('weeklyResolvedBadge');
+      if (b) b.innerText = w.label;
+      salaryPage = 1;
+      loadSalaryReports();
+    });
+  }
+
+  const btnNextWeek = document.getElementById('btnNextWeek');
+  if (btnNextWeek) {
+    btnNextWeek.addEventListener('click', function () {
+      const curDateStr = salarySelectDateInput?.value || todayIso;
+      const cur = new Date(curDateStr + 'T00:00:00');
+      cur.setDate(cur.getDate() + 7);
+      const newIso = `${cur.getFullYear()}-${padZero(cur.getMonth() + 1)}-${padZero(cur.getDate())}`;
+      if (salarySelectDateInput) salarySelectDateInput.value = newIso;
+      const w = getWeekRange(newIso);
+      currentResolvedWeek = w;
+      const b = document.getElementById('weeklyResolvedBadge');
+      if (b) b.innerText = w.label;
+      salaryPage = 1;
+      loadSalaryReports();
+    });
+  }
+
+  if (salarySelectDateInput) {
+    salarySelectDateInput.addEventListener('change', function () {
+      const w = getWeekRange(this.value);
+      currentResolvedWeek = w;
+      const b = document.getElementById('weeklyResolvedBadge');
+      if (b) b.innerText = w.label;
+      salaryPage = 1;
+      loadSalaryReports();
+    });
+  }
+
   function loadSalaryReports() {
     const tableBody = document.getElementById('salaryTableBody');
     if (!tableBody) return; // Exit if not on salary report page
     if (salaryAbortCtrl) salaryAbortCtrl.abort();
     salaryAbortCtrl = new AbortController();
 
-    const startMonth = document.getElementById('salaryStartMonth')?.value || '';
-    const endMonth = document.getElementById('salaryEndMonth')?.value || '';
     const search = (document.getElementById('salarySearch')?.value || '').trim();
     const urlParams = new URLSearchParams(window.location.search);
     const activeBranchId = urlParams.get('branch_id') || '{{ active_branch_id or "" }}';
 
     const params = new URLSearchParams({
-      start_month: startMonth,
-      end_month: endMonth,
       search: search,
       page: salaryPage,
-      limit: salaryLimit
+      limit: salaryLimit,
+      report_type: currentReportMode
     });
+
+    if (currentReportMode === 'weekly') {
+      const dateVal = document.getElementById('salarySelectDate')?.value || todayIso;
+      const w = getWeekRange(dateVal);
+      currentResolvedWeek = w;
+      const badge = document.getElementById('weeklyResolvedBadge');
+      if (badge) badge.innerText = w.label;
+
+      params.set('date', dateVal);
+      params.set('start_date', w.startStr);
+      params.set('end_date', w.endStr);
+    } else {
+      const startMonth = document.getElementById('salaryStartMonth')?.value || '';
+      const endMonth = document.getElementById('salaryEndMonth')?.value || '';
+      params.set('start_month', startMonth);
+      params.set('end_month', endMonth);
+    }
+
     if (activeBranchId && activeBranchId !== 'ALL') {
       params.set('branch_id', activeBranchId);
     }
@@ -283,9 +548,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const startIdx = (salaryPage - 1) * salaryLimit + 1;
     const endIdx = Math.min(salaryPage * salaryLimit, salaryTotal);
-    const periodLabel = (res.start_month && res.end_month && res.start_month === res.end_month)
-      ? ` (${res.start_month})`
-      : '';
+    let periodLabel = '';
+    if (currentReportMode === 'weekly') {
+      periodLabel = res.week_label ? ` (${res.week_label})` : (currentResolvedWeek ? ` (${currentResolvedWeek.label})` : '');
+    } else if (res.start_month && res.end_month && res.start_month === res.end_month) {
+      periodLabel = ` (${res.start_month})`;
+    }
     infoText.innerText = `Showing ${startIdx} to ${endIdx} of ${salaryTotal} entries${periodLabel}`;
 
     if (salaryPage <= 1) {
@@ -386,7 +654,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <td style="color: #dc3545; font-weight: 700;">₹ ${fmtMoney(r.total_deductions)}</td>
           <td style="background-color: #e3f2fd; color: #0d6efd; font-weight: 700;">₹ ${fmtMoney(r.net_salary)}</td>
           <td style="text-align: center; white-space: nowrap;" class="no-print">
-            <button type="button" class="btn-action-view" onclick="openSalaryPdfModal('${empAttrSafe}', '${periodAttrSafe}')" title="View Payslip PDF">
+            <button type="button" class="btn-action-view" onclick="openSalaryPdfModal('${empAttrSafe}', '${periodAttrSafe}', '${escapeAttr(r.report_type || currentReportMode)}', '${escapeAttr(r.start_date || (currentResolvedWeek ? currentResolvedWeek.startStr : ''))}', '${escapeAttr(r.end_date || (currentResolvedWeek ? currentResolvedWeek.endStr : ''))}')" title="View ${currentReportMode === 'weekly' ? 'Weekly' : 'Monthly'} Payslip PDF">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                 <circle cx="12" cy="12" r="3"></circle>
@@ -481,20 +749,44 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnSalaryExcel = document.getElementById('btnSalaryExcel');
   if (btnSalaryExcel) {
     btnSalaryExcel.addEventListener('click', function () {
-      const startMonth = document.getElementById('salaryStartMonth')?.value || '';
-      const endMonth = document.getElementById('salaryEndMonth')?.value || '';
       const search = (document.getElementById('salarySearch')?.value || '').trim();
-      window.location.href = `/api/salary-reports/export/excel?start_month=${encodeURIComponent(startMonth)}&end_month=${encodeURIComponent(endMonth)}&search=${encodeURIComponent(search)}`;
+      const expParams = new URLSearchParams({
+        search: search,
+        report_type: currentReportMode
+      });
+      if (currentReportMode === 'weekly') {
+        const dVal = document.getElementById('salarySelectDate')?.value || todayIso;
+        const w = getWeekRange(dVal);
+        expParams.set('date', dVal);
+        expParams.set('start_date', w.startStr);
+        expParams.set('end_date', w.endStr);
+      } else {
+        expParams.set('start_month', document.getElementById('salaryStartMonth')?.value || '');
+        expParams.set('end_month', document.getElementById('salaryEndMonth')?.value || '');
+      }
+      window.location.href = `/api/salary-reports/export/excel?${expParams.toString()}`;
     });
   }
 
   const btnSalaryPdf = document.getElementById('btnSalaryPdf');
   if (btnSalaryPdf) {
     btnSalaryPdf.addEventListener('click', function () {
-      const startMonth = document.getElementById('salaryStartMonth')?.value || '';
-      const endMonth = document.getElementById('salaryEndMonth')?.value || '';
       const search = (document.getElementById('salarySearch')?.value || '').trim();
-      window.location.href = `/api/salary-reports/export/pdf?start_month=${encodeURIComponent(startMonth)}&end_month=${encodeURIComponent(endMonth)}&search=${encodeURIComponent(search)}`;
+      const expParams = new URLSearchParams({
+        search: search,
+        report_type: currentReportMode
+      });
+      if (currentReportMode === 'weekly') {
+        const dVal = document.getElementById('salarySelectDate')?.value || todayIso;
+        const w = getWeekRange(dVal);
+        expParams.set('date', dVal);
+        expParams.set('start_date', w.startStr);
+        expParams.set('end_date', w.endStr);
+      } else {
+        expParams.set('start_month', document.getElementById('salaryStartMonth')?.value || '');
+        expParams.set('end_month', document.getElementById('salaryEndMonth')?.value || '');
+      }
+      window.location.href = `/api/salary-reports/export/pdf?${expParams.toString()}`;
     });
   }
 
@@ -519,6 +811,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
   let currentSalaryModalEmp = null;
   let currentSalaryModalPeriod = null;
+  let currentSalaryModalRepType = 'monthly';
+  let currentSalaryModalStartDate = '';
+  let currentSalaryModalEndDate = '';
 
   function loadSalaryPdfPreview() {
     if (!currentSalaryModalEmp || !currentSalaryModalPeriod) return;
@@ -534,16 +829,35 @@ document.addEventListener('DOMContentLoaded', function () {
     const iframe = document.getElementById('salaryPdfFrame');
     const loading = document.getElementById('salaryPdfLoading');
     const title = document.getElementById('salaryPdfEmpTitle');
+    const modalMainTitle = document.querySelector('#salaryPdfModal .modal-header-title');
+
+    const isWeekly = (currentSalaryModalRepType === 'weekly');
+    if (modalMainTitle) {
+      modalMainTitle.innerText = isWeekly ? 'WEEKLY PAYSLIP PREVIEW' : 'MONTHLY PAYSLIP PREVIEW';
+    }
 
     if (title) {
-      title.innerText = `${currentSalaryModalEmp} • Pay Period: ${currentSalaryModalPeriod}`;
+      const pLabel = isWeekly ? `Week: ${currentSalaryModalPeriod}` : `Pay Period: ${currentSalaryModalPeriod}`;
+      title.innerText = `${currentSalaryModalEmp} • ${pLabel}`;
     }
 
     if (loading) loading.style.display = 'flex';
     if (iframe) {
       iframe.style.display = 'none';
-      const pdfUrl = `/api/payslip/export/pdf?employee_name=${encodeURIComponent(currentSalaryModalEmp)}&month=${encodeURIComponent(currentSalaryModalPeriod)}&template=${encodeURIComponent(template)}&theme=${encodeURIComponent(theme)}&branch_id=${encodeURIComponent(branchId)}&view=1#toolbar=0&navpanes=0&scrollbar=1`;
-      iframe.src = pdfUrl;
+      const pdfParams = new URLSearchParams({
+        employee_name: currentSalaryModalEmp,
+        month: currentSalaryModalPeriod,
+        report_type: currentSalaryModalRepType,
+        start_date: currentSalaryModalStartDate,
+        end_date: currentSalaryModalEndDate,
+        template: template,
+        theme: theme,
+        view: '1'
+      });
+      if (branchId && branchId !== 'ALL') {
+        pdfParams.set('branch_id', branchId);
+      }
+      iframe.src = `/api/payslip/export/pdf?${pdfParams.toString()}#toolbar=0&navpanes=0&scrollbar=1`;
       iframe.onload = function () {
         if (loading) loading.style.display = 'none';
         iframe.style.display = 'block';
@@ -551,9 +865,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  window.openSalaryPdfModal = function (empName, period) {
+  window.openSalaryPdfModal = function (empName, period, repType, sDate, eDate) {
     currentSalaryModalEmp = empName;
     currentSalaryModalPeriod = period;
+    currentSalaryModalRepType = repType || currentReportMode;
+    currentSalaryModalStartDate = sDate || '';
+    currentSalaryModalEndDate = eDate || '';
 
     const savedTheme = localStorage.getItem('argus_payslip_theme') || 'navy';
     const savedTemplate = localStorage.getItem('argus_payslip_template') || 'template_1';
@@ -622,7 +939,8 @@ document.addEventListener('DOMContentLoaded', function () {
       .no-print { display: none !important; }
     `);
     const compName = document.querySelector('.nav-title')?.innerText?.trim() || 'ARGUS CNC™';
-    printWindow.document.write(`<h2>${compName} - MONTHLY SALARY REPORT</h2>`);
+    const rTitle = (currentReportMode === 'weekly') ? `WEEKLY SALARY REPORT (${currentResolvedWeek ? currentResolvedWeek.label : ''})` : 'MONTHLY SALARY REPORT';
+    printWindow.document.write(`<h2>${compName} - ${rTitle}</h2>`);
     printWindow.document.write(printContents);
     printWindow.document.write('</body></html>');
     printWindow.document.close();

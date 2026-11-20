@@ -6272,13 +6272,51 @@ def _enumerate_salary_months(start_month=None, end_month=None, max_months=24):
     return months, s_iso, e_iso, True
 
 
+def resolve_week_date_range(date_val=None):
+    """
+    Given a date (ISO string 'YYYY-MM-DD', day number like '3', or date/datetime object),
+    resolves the full Monday-through-Sunday week range in which that date resides.
+    Returns: (start_date_str, end_date_str, week_label)
+    Example: '2026-11-03' -> ('2026-11-02', '2026-11-08', '02 Nov 2026 - 08 Nov 2026')
+    """
+    target_date = None
+    if isinstance(date_val, (datetime, date)):
+        target_date = date_val.date() if isinstance(date_val, datetime) else date_val
+    elif isinstance(date_val, str) and date_val.strip():
+        s = date_val.strip()
+        if '-' in s and len(s) == 10:
+            try:
+                target_date = datetime.strptime(s, '%Y-%m-%d').date()
+            except Exception:
+                pass
+        elif s.isdigit():
+            try:
+                now_ist = get_ist_now()
+                target_date = date(now_ist.year, now_ist.month, int(s))
+            except Exception:
+                pass
+
+    if not target_date:
+        target_date = get_ist_now().date()
+
+    # Monday is 0, Sunday is 6
+    weekday = target_date.weekday()
+    start_of_week = target_date - timedelta(days=weekday)
+    end_of_week = start_of_week + timedelta(days=6)
+
+    start_str = start_of_week.strftime('%Y-%m-%d')
+    end_str = end_of_week.strftime('%Y-%m-%d')
+    label = f"{start_of_week.strftime('%d %b %Y')} - {end_of_week.strftime('%d %b %Y')}"
+    return start_str, end_str, label
+
 def _compute_employee_monthly_salary_payload(
     emp, employee_name, month_year, assigned_company_id, comp_doc=None,
     resolved_branch_name='HOME', branch_address='', records=None,
     manual_entries=None, payments=None, adv_doc=None,
     approved_leaves=None, approved_perms=None,
     travel_logs=None, petrol_cfg=None, visits=None,
-    include_heavy_media=True, paid_holidays=None
+    include_heavy_media=True, paid_holidays=None,
+    is_weekly=False, start_date=None, end_date=None, pay_period_label=None
 ):
     """
     Compute complete monthly payroll metrics (working days, working hours, overtime hours/pay,
@@ -6295,12 +6333,20 @@ def _compute_employee_monthly_salary_payload(
     if paid_holidays is None:
         paid_holidays = get_company_holidays(assigned_company_id, month=month_year)
 
-    try:
-        parts = month_year.split('-')
-        yr, mo = int(parts[0]), int(parts[1])
-        total_days = calendar.monthrange(yr, mo)[1]
-    except Exception:
-        total_days = 30
+    if is_weekly or (start_date and end_date):
+        try:
+            s_d = datetime.strptime(start_date, '%Y-%m-%d').date()
+            e_d = datetime.strptime(end_date, '%Y-%m-%d').date()
+            total_days = max(1, (e_d - s_d).days + 1)
+        except Exception:
+            total_days = 7
+    else:
+        try:
+            parts = month_year.split('-')
+            yr, mo = int(parts[0]), int(parts[1])
+            total_days = calendar.monthrange(yr, mo)[1]
+        except Exception:
+            total_days = 30
 
     emp_id = emp.get('id', '') if emp else ''
     designation = emp.get('designation', '') if emp else ''
@@ -6367,7 +6413,12 @@ def _compute_employee_monthly_salary_payload(
         if shift_target_minutes == 0 and is_auto_timeout:
             continue
         d_val = normalize_iso_date(rec.get('date') or rec.get('entry_time') or rec.get('created_at'))
-        if not d_val or d_val[:7] != month_year:
+        if not d_val:
+            continue
+        if start_date and end_date:
+            if not (start_date <= d_val <= end_date):
+                continue
+        elif d_val[:7] != month_year:
             continue
 
         wh = rec.get('working_hours', '00:00')
@@ -6399,7 +6450,12 @@ def _compute_employee_monthly_salary_payload(
         if 'improper' in st_raw:
             continue
         ed = normalize_iso_date(m_entry.get('entry_date') or m_entry.get('submitted_at') or m_entry.get('created_at'))
-        if not ed or ed[:7] != month_year:
+        if not ed:
+            continue
+        if start_date and end_date:
+            if not (start_date <= ed <= end_date):
+                continue
+        elif ed[:7] != month_year:
             continue
         valid_manual_entries.append(m_entry)
 
@@ -6787,7 +6843,11 @@ def _compute_employee_monthly_salary_payload(
         'half_days': half_days,
         'partial_days': partial_days,
         'working_days_breakdown': working_days_breakdown,
-        'pay_period': month_year,
+        'is_weekly': bool(is_weekly),
+        'report_type': 'weekly' if is_weekly else 'monthly',
+        'start_date': start_date,
+        'end_date': end_date,
+        'pay_period': pay_period_label or month_year,
         'year_month': month_year,
         'hours_salary': rep_hours_salary,
         'day_salary': rep_day_salary,
@@ -6848,15 +6908,218 @@ def _compute_employee_monthly_salary_payload(
     }
 
 
-def get_salary_reports(start_month=None, end_month=None, search=None, page=1, limit=10, company_id=None, branch_id=None, exclude_field_workers=True):
+def get_salary_reports(start_month=None, end_month=None, search=None, page=1, limit=10, company_id=None, branch_id=None, exclude_field_workers=True, report_type='monthly', selected_date=None, start_date=None, end_date=None):
     """
     Dynamically compute live monthly payroll rows for all matching employees across the resolved month(s)
     directly from live attendance, overtime, manual adjustments, approved leaves, payments, and advances.
     """
     db = get_db()
+    if str(report_type or 'monthly').strip().lower() == 'weekly':
+        w_start, w_end, w_label = resolve_week_date_range(selected_date or start_date or None)
+        b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
+        emp_q = get_branch_employee_query(b_id, company_id, exclude_field_workers=exclude_field_workers)
+        emp_docs = list(db.employees.find(emp_q, {'photo_data': 0, 'face_embedding': 0, 'documents': 0}))
+        if not emp_docs:
+            return {'total': 0, 'page': page, 'limit': limit, 'data': [], 'report_type': 'weekly', 'start_date': w_start, 'end_date': w_end, 'selected_date': selected_date or w_start, 'week_label': w_label}
+
+        emp_names = []
+        emp_names_seen = set()
+        for ed in emp_docs:
+            ename = str(ed.get('employee_name') or '').strip()
+            if ename and ename not in emp_names_seen:
+                emp_names_seen.add(ename)
+                emp_names.append(ename)
+
+        comp_scope = str(company_id).strip() if (company_id and str(company_id).strip() not in ['ALL', 'ARGUS_MASTER']) else None
+        base_att_q = {
+            'employee_name': {'$in': emp_names},
+            'entry_type': {'$ne': 'improper'},
+            '$or': [
+                {'date': {'$gte': w_start, '$lte': w_end}},
+                {'entry_time': {'$gte': w_start, '$lte': w_end + ' 23:59:59'}}
+            ]
+        }
+        if comp_scope:
+            base_att_q['company_id'] = comp_scope
+        att_rows = list(db.attendance_reports.find(base_att_q))
+
+        base_man_q = {
+            'employee_name': {'$in': emp_names},
+            '$or': [
+                {'entry_date': {'$gte': w_start, '$lte': w_end}},
+                {'submitted_at': {'$gte': w_start, '$lte': w_end + ' 23:59:59'}}
+            ]
+        }
+        if comp_scope:
+            base_man_q['company_id'] = comp_scope
+        man_rows = list(db.manual_entries.find(base_man_q))
+
+        base_pay_q = {
+            'employee_name': {'$in': emp_names},
+            '$or': [
+                {'payment_date': {'$gte': w_start, '$lte': w_end}},
+                {'timestamp': {'$gte': w_start, '$lte': w_end + ' 23:59:59'}}
+            ]
+        }
+        if comp_scope:
+            base_pay_q['company_id'] = comp_scope
+        pay_rows = list(db.payments.find(base_pay_q))
+
+        adv_q = {'employee_name': {'$in': emp_names}}
+        if comp_scope:
+            adv_q['company_id'] = comp_scope
+        adv_by_emp = {}
+        for ad in db.advances.find(adv_q):
+            aname = str(ad.get('employee_name') or '').strip()
+            if aname and aname not in adv_by_emp:
+                adv_by_emp[aname] = ad
+
+        lv_q = {
+            'employee_name': {'$in': emp_names},
+            'status': 'Approved',
+            '$or': [
+                {'request_type': 'Leave', 'from_date': {'$lte': w_end}, 'to_date': {'$gte': w_start}},
+                {'request_type': 'Leave', 'from_date': {'$lte': w_end}, 'to_date': {'$exists': False}},
+                {'request_type': 'Permission', 'from_date': {'$gte': w_start, '$lte': w_end}},
+                {'request_type': 'Permission', 'date': {'$gte': w_start, '$lte': w_end}}
+            ]
+        }
+        if comp_scope:
+            lv_q['company_id'] = comp_scope
+        lv_rows = list(db.leave_requests.find(lv_q))
+
+        att_by_emp = {}
+        for r in att_rows:
+            att_by_emp.setdefault(str(r.get('employee_name') or '').strip(), []).append(r)
+
+        man_by_emp = {}
+        for r in man_rows:
+            man_by_emp.setdefault(str(r.get('employee_name') or '').strip(), []).append(r)
+
+        pay_by_emp = {}
+        for r in pay_rows:
+            pay_by_emp.setdefault(str(r.get('employee_name') or '').strip(), []).append(r)
+
+        lv_by_emp = {}
+        pm_by_emp = {}
+        for r in lv_rows:
+            en = str(r.get('employee_name') or '').strip()
+            if r.get('request_type') == 'Leave':
+                lv_by_emp.setdefault(en, []).append(r)
+            else:
+                pm_by_emp.setdefault(en, []).append(r)
+
+        comp_cache = {}
+        branch_cache = {}
+        rows = []
+        search_low = (search or '').strip().lower()
+
+        for emp_d in emp_docs:
+            ename = str(emp_d.get('employee_name') or '').strip()
+            cid_e = str((emp_d.get('company_id') if emp_d.get('company_id') else None) or company_id or 'ARGUS_MASTER')
+            if cid_e not in comp_cache:
+                comp_cache[cid_e] = db.company_admin.find_one({'id': cid_e}) or db.company_admin.find_one(build_id_filter(cid_e))
+            comp_doc = comp_cache[cid_e]
+
+            res_b_name = 'HOME'
+            b_addr = ''
+            emp_bid = emp_d.get('branch_id')
+            if emp_bid and not is_home_branch_id(emp_bid):
+                if emp_bid not in branch_cache:
+                    branch_cache[emp_bid] = db.company_branches.find_one({'id': str(emp_bid)})
+                b_obj = branch_cache[emp_bid]
+                if b_obj:
+                    res_b_name = b_obj.get('branch_name') or 'HOME'
+                    b_addr = b_obj.get('location') or ''
+
+            payload = _compute_employee_monthly_salary_payload(
+                emp=emp_d,
+                employee_name=ename,
+                month_year=w_start[:7],
+                assigned_company_id=cid_e,
+                comp_doc=comp_doc,
+                resolved_branch_name=res_b_name,
+                branch_address=b_addr,
+                records=att_by_emp.get(ename, []),
+                manual_entries=man_by_emp.get(ename, []),
+                payments=pay_by_emp.get(ename, []),
+                adv_doc=adv_by_emp.get(ename),
+                approved_leaves=lv_by_emp.get(ename, []),
+                approved_perms=pm_by_emp.get(ename, []),
+                include_heavy_media=False,
+                is_weekly=True,
+                start_date=w_start,
+                end_date=w_end,
+                pay_period_label=w_label
+            )
+
+            other_earn_total = round(float(payload.get('other_earnings', 0)), 2)
+            row = {
+                'id': emp_d.get('id'),
+                'company_id': payload['company_id'],
+                'employee_name': ename,
+                'pay_period': w_label,
+                'report_type': 'weekly',
+                'start_date': w_start,
+                'end_date': w_end,
+                'salary_type': payload['salary_type'],
+                'day_salary': payload.get('day_salary', 0) or emp_d.get('day_salary', 0),
+                'hourly_salary': payload.get('hours_salary', 0) or emp_d.get('hourly_salary', 0),
+                'half_day_salary': payload.get('half_day_salary', 0) or emp_d.get('half_day_salary', 0),
+                'monthly_salary': emp_d.get('monthly_salary', 0),
+                'no_shift': payload['no_shift'],
+                'shift_hours': payload['shift_hours'],
+                'shift_start': payload['shift_start'],
+                'shift_end': payload['shift_end'],
+                'calculate_overtime': payload['calculate_overtime'],
+                'working_days': payload['working_days'],
+                'working_hours': payload['working_hours'],
+                'overtime_hours': payload['overtime_hours'],
+                'overtime_minutes': payload['overtime_minutes'],
+                'overtime_pay': payload['overtime_pay'],
+                'overtime_breakdown': payload.get('overtime_breakdown', []),
+                'allowance': payload['allowance'],
+                'incentive': payload['incentive'],
+                'other_earnings': other_earn_total,
+                'basic_earnings': payload['basic_salary'],
+                'paid_holiday_days': payload.get('paid_holiday_days', 0),
+                'paid_holiday_salary': payload.get('paid_holiday_salary', 0),
+                'total_earnings': payload['total_earnings'],
+                'paid_salary': payload['paid_salary'],
+                'advance_repayment': payload['advance_repayment'],
+                'other_deductions': payload['other_deductions'],
+                'total_deductions': payload['total_deductions'],
+                'net_salary': payload['net_pay']
+            }
+            if search_low:
+                haystack = f"{row['employee_name']} {row['pay_period']} {row['working_hours']} {row['overtime_hours']}".lower()
+                if search_low not in haystack:
+                    continue
+            rows.append(row)
+
+        rows.sort(key=lambda r: (-float(r['net_salary']), r['employee_name'].lower()))
+        total = len(rows)
+        if limit and limit > 0:
+            start_idx = max(0, (int(page) - 1) * int(limit))
+            paged_rows = rows[start_idx:start_idx + int(limit)]
+        else:
+            paged_rows = rows
+
+        return {
+            'total': total,
+            'page': page,
+            'limit': limit,
+            'report_type': 'weekly',
+            'start_date': w_start,
+            'end_date': w_end,
+            'selected_date': selected_date or w_start,
+            'week_label': w_label,
+            'data': paged_rows
+        }
+
     months_list, s_iso, e_iso, range_ok = _enumerate_salary_months(start_month, end_month)
     if not range_ok or not months_list:
-        return {'total': 0, 'page': page, 'limit': limit, 'data': [], 'start_month': s_iso, 'end_month': e_iso}
+        return {'total': 0, 'page': page, 'limit': limit, 'data': [], 'start_month': s_iso, 'end_month': e_iso, 'report_type': 'monthly'}
 
     b_id = str(branch_id).strip() if branch_id and str(branch_id).strip().upper() not in ['ALL', 'NONE', '', 'NULL'] else None
     emp_q = get_branch_employee_query(b_id, company_id, exclude_field_workers=exclude_field_workers)
@@ -7121,6 +7384,7 @@ def get_salary_reports(start_month=None, end_month=None, search=None, page=1, li
         'total': total,
         'page': page,
         'limit': limit,
+        'report_type': 'monthly',
         'start_month': s_iso,
         'end_month': e_iso,
         'data': paged_rows
@@ -7258,7 +7522,7 @@ def save_generated_salary_report(p, company_id=None):
     )
     return True
 
-def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None):
+def get_payslip_data(employee_name, month_year=None, company_id=None, branch_id=None, report_type='monthly', start_date=None, end_date=None):
     db = get_db()
     emp = None
     if company_id and company_id not in ['ALL', 'ARGUS_MASTER']:
@@ -7407,6 +7671,85 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
     approved_leaves = list(db.leave_requests.find(approved_leave_query))
     approved_perms = list(db.leave_requests.find(approved_perm_query))
 
+    if str(report_type or 'monthly').strip().lower() == 'weekly':
+        w_start, w_end, w_label = resolve_week_date_range(start_date or month_year)
+        w_att_q = {
+            'employee_name': query_emp_name,
+            'entry_type': {'$ne': 'improper'},
+            '$or': [
+                {'date': {'$gte': w_start, '$lte': w_end}},
+                {'entry_time': {'$gte': w_start, '$lte': w_end + ' 23:59:59'}}
+            ]
+        }
+        w_records = list(db.attendance_reports.find(w_att_q)) or list(db.attendance.find(w_att_q))
+
+        w_man_q = {
+            'employee_name': query_emp_name,
+            '$or': [
+                {'entry_date': {'$gte': w_start, '$lte': w_end}},
+                {'submitted_at': {'$gte': w_start, '$lte': w_end + ' 23:59:59'}}
+            ]
+        }
+        w_manuals = list(db.manual_entries.find(w_man_q))
+
+        w_pay_q = {
+            'employee_name': query_emp_name,
+            '$or': [
+                {'payment_date': {'$gte': w_start, '$lte': w_end}},
+                {'timestamp': {'$gte': w_start, '$lte': w_end + ' 23:59:59'}}
+            ]
+        }
+        w_payments = list(db.payments.find(w_pay_q))
+
+        w_lv_q = {
+            'employee_name': query_emp_name,
+            'request_type': 'Leave',
+            'status': 'Approved',
+            '$or': [
+                {'from_date': {'$lte': w_end}, 'to_date': {'$gte': w_start}},
+                {'from_date': {'$lte': w_end}, 'to_date': {'$exists': False}}
+            ]
+        }
+        w_pm_q = {
+            'employee_name': query_emp_name,
+            'request_type': 'Permission',
+            'status': 'Approved',
+            '$or': [
+                {'from_date': {'$gte': w_start, '$lte': w_end}},
+                {'date': {'$gte': w_start, '$lte': w_end}}
+            ]
+        }
+        if assigned_company_id and assigned_company_id not in ['ALL', 'ARGUS_MASTER']:
+            w_lv_q['company_id'] = str(assigned_company_id)
+            w_pm_q['company_id'] = str(assigned_company_id)
+
+        w_leaves = list(db.leave_requests.find(w_lv_q))
+        w_perms = list(db.leave_requests.find(w_pm_q))
+
+        return _compute_employee_monthly_salary_payload(
+            emp=emp,
+            employee_name=employee_name,
+            month_year=w_start[:7],
+            assigned_company_id=assigned_company_id,
+            comp_doc=comp_doc,
+            resolved_branch_name=resolved_branch_name,
+            branch_address=branch_address,
+            records=w_records,
+            manual_entries=w_manuals,
+            payments=w_payments,
+            adv_doc=adv_doc,
+            approved_leaves=w_leaves,
+            approved_perms=w_perms,
+            travel_logs=[],
+            petrol_cfg=None,
+            visits=[],
+            include_heavy_media=True,
+            is_weekly=True,
+            start_date=w_start,
+            end_date=w_end,
+            pay_period_label=w_label
+        )
+
     return _compute_employee_monthly_salary_payload(
         emp=emp,
         employee_name=employee_name,
@@ -7424,7 +7767,8 @@ def get_payslip_data(employee_name, month_year, company_id=None, branch_id=None)
         travel_logs=travel_logs,
         petrol_cfg=petrol_cfg,
         visits=visits,
-        include_heavy_media=True
+        include_heavy_media=True,
+        is_weekly=False
     )
 
 

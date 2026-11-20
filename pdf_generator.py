@@ -1215,9 +1215,15 @@ def _extract_payslip_fields(p):
     elif p.get('gstin'): contact_bits.append(f"GSTIN: {p['gstin']}")
     contact_str = " | ".join(contact_bits) if contact_bits else ""
 
+    is_weekly = bool(p.get('is_weekly')) or str(p.get('report_type', '')).strip().lower() == 'weekly'
+    payslip_type_upper = "WEEKLY PAYSLIP" if is_weekly else "MONTHLY PAYSLIP"
+    payslip_type_title = "Weekly Payslip" if is_weekly else "Monthly Payslip"
+
     raw_ym = str(p.get('year_month', '')).strip()
     month_badge_val = "OCT 2026"
-    if raw_ym:
+    if is_weekly:
+        month_badge_val = str(p.get('pay_period') or (f"{p.get('start_date')} to {p.get('end_date')}" if p.get('start_date') and p.get('end_date') else "CURRENT WEEK")).upper()
+    elif raw_ym:
         try:
             dt = datetime.strptime(raw_ym, "%Y-%m")
             month_badge_val = dt.strftime("%b %Y").upper()
@@ -1297,6 +1303,9 @@ def _extract_payslip_fields(p):
     net_words_val = str(p.get('net_pay_in_words', '')).strip() or "Zero Rupees Only"
 
     return {
+        'is_weekly': is_weekly,
+        'payslip_type_upper': payslip_type_upper,
+        'payslip_type_title': payslip_type_title,
         'comp_name': comp_name,
         'comp_addr': comp_addr,
         'contact_str': contact_str,
@@ -1371,7 +1380,7 @@ def _build_payslip_modern_executive(p, template_id, palette):
         logo_cell_content,
         hdr_center,
         [
-            Paragraph("<font size='6.5' color='#cbd5e1'><b>MONTHLY PAYSLIP</b></font>", ParagraphStyle('HdrBadgeSub', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
+            Paragraph(f"<font size='6.5' color='#cbd5e1'><b>{f['payslip_type_upper']}</b></font>", ParagraphStyle('HdrBadgeSub', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
             Paragraph(f"<b>{f['month_badge_val']}</b>", ParagraphStyle('HdrBadgeMain', fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=TA_CENTER, textColor=colors.white))
         ]
     ]]
@@ -1606,7 +1615,7 @@ def _build_payslip_premium_executive(p, palette):
         logo_cell_content,
         hdr_center,
         [
-            Paragraph("<font size='6.5' color='#cbd5e1'><b>MONTHLY PAYSLIP</b></font>", ParagraphStyle('HdrBadgeSub', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
+            Paragraph(f"<font size='6.5' color='#cbd5e1'><b>{f['payslip_type_upper']}</b></font>", ParagraphStyle('HdrBadgeSub', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
             Paragraph(f"<b>{f['month_badge_val']}</b>", ParagraphStyle('HdrBadgeMain', fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=TA_CENTER, textColor=colors.white))
         ]
     ]]
@@ -1820,7 +1829,7 @@ def _build_payslip_classic_grid(p, palette):
     if f['contact_str']:
         elements.append(Paragraph(f['contact_str'], ParagraphStyle('C4Contact', fontName='Helvetica', fontSize=7.2, leading=10, alignment=TA_CENTER, textColor=colors.HexColor('#475569'))))
     elements.append(Spacer(1, 3))
-    elements.append(Paragraph("<b>Monthly Payslip</b>", ParagraphStyle('C4Sub', fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=TA_CENTER, textColor=colors.black)))
+    elements.append(Paragraph(f"<b>{f['payslip_type_title']}</b>", ParagraphStyle('C4Sub', fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=TA_CENTER, textColor=colors.black)))
     elements.append(Spacer(1, 5))
 
     # 2. Section Bar: PAYSLIP
@@ -1956,7 +1965,7 @@ def _build_payslip_minimalist_card(p, palette):
         logo_cell,
         hdr_center,
         [
-            Paragraph("<font size='6.5' color='#1e40af'><b>MONTHLY PAYSLIP</b></font>", ParagraphStyle('H5B1', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
+            Paragraph(f"<font size='6.5' color='#1e40af'><b>{f['payslip_type_upper']}</b></font>", ParagraphStyle('H5B1', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
             Paragraph(f"<b>{f['month_badge_val']}</b>", ParagraphStyle('H5B2', fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=TA_CENTER, textColor=colors.HexColor('#1e3a8a')))
         ]
     ]]
@@ -2170,7 +2179,7 @@ def _build_payslip_professional_elegant(p, palette):
         logo_cell,
         hdr_center,
         [
-            Paragraph("<font size='6.5' color='#065f46'><b>MONTHLY PAYSLIP</b></font>", ParagraphStyle('H6B1', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
+            Paragraph(f"<font size='6.5' color='#065f46'><b>{f['payslip_type_upper']}</b></font>", ParagraphStyle('H6B1', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
             Paragraph(f"<b>{f['month_badge_val']}</b>", ParagraphStyle('H6B2', fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=TA_CENTER, textColor=colors.HexColor('#064e3b')))
         ]
     ]]
@@ -2405,7 +2414,7 @@ def _build_payslip_template_7(p, palette):
         logo_cell,
         hdr_center,
         [
-            Paragraph("<font size='6.5' color='#065f46'><b>MONTHLY PAYSLIP</b></font>", ParagraphStyle('H7B1', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
+            Paragraph(f"<font size='6.5' color='#065f46'><b>{f['payslip_type_upper']}</b></font>", ParagraphStyle('H7B1', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
             Paragraph(f"<b>{f['month_badge_val']}</b>", ParagraphStyle('H7B2', fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=TA_CENTER, textColor=colors.HexColor('#0f172a')))
         ]
     ]]
@@ -2670,7 +2679,7 @@ def _build_payslip_template_8(p, palette):
         logo_cell,
         hdr_center,
         [
-            Paragraph("<font size='6.5' color='#1e40af'><b>MONTHLY PAYSLIP</b></font>", ParagraphStyle('H8B1', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
+            Paragraph(f"<font size='6.5' color='#1e40af'><b>{f['payslip_type_upper']}</b></font>", ParagraphStyle('H8B1', fontName='Helvetica-Bold', alignment=TA_CENTER, leading=8)),
             Paragraph(f"<b>{f['month_badge_val']}</b>", ParagraphStyle('H8B2', fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=TA_CENTER, textColor=colors.HexColor('#0f172a')))
         ]
     ]]
