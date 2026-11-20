@@ -352,3 +352,14 @@ window.renderGridLoading = function (containerOrId, message = 'Loading records..
     </div>
   `;
 };
+
+// Universal fail-safe for support tab navigation
+window.switchSupportTab = function (tabKey) {
+  if (typeof window._switchSupportTabHandler === 'function') {
+    return window._switchSupportTabHandler(tabKey);
+  }
+  const heroCard = document.getElementById(tabKey === 'raise' ? 'heroCardRaise' : (tabKey === 'tickets' ? 'heroCardTickets' : 'heroCardVideos'));
+  if (heroCard) {
+    heroCard.click();
+  }
+};
