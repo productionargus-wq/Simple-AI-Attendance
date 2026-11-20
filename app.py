@@ -2238,6 +2238,34 @@ def api_company_reports():
     summary = database.get_company_reports_summary()
     return jsonify({'success': True, 'summary': summary})
 
+@app.route('/api/companies/detect-ip-location', methods=['GET'])
+@login_required
+def api_detect_ip_location():
+    """Fallback IP geolocation endpoint when client GPS is unavailable or blocked."""
+    try:
+        forwarded = request.headers.get('X-Forwarded-For')
+        client_ip = forwarded.split(',')[0].strip() if forwarded else (request.remote_addr or '')
+
+        url = 'https://ipwho.is/'
+        if client_ip and not client_ip.startswith(('127.', '192.168.', '10.', '172.', '::1', 'localhost')):
+            url = f'https://ipwho.is/{client_ip}'
+
+        resp = requests.get(url, timeout=4, headers={'User-Agent': 'ArgusAttendance/2.0'})
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get('success') and data.get('latitude') and data.get('longitude'):
+                return jsonify({
+                    'success': True,
+                    'latitude': round(float(data['latitude']), 6),
+                    'longitude': round(float(data['longitude']), 6),
+                    'city': data.get('city', ''),
+                    'region': data.get('region', ''),
+                    'country': data.get('country', '')
+                })
+    except Exception as e:
+        print(f"[IP Geolocation] Failed: {e}")
+    return jsonify({'success': False, 'error': 'Could not detect location from network IP'}), 400
+
 @app.route('/api/companies/export/excel', methods=['GET'])
 @app.route('/api/companies/export/csv', methods=['GET'])
 @super_admin_required

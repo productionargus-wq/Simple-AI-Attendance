@@ -807,6 +807,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (inModBlink) inModBlink.checked = !comp.modules || m.face_blink !== false;
         if (inModButton) inModButton.checked = !!m.face_button;
         syncModuleCardStates();
+        clearLocationNotice();
 
         if (window.ArgusVoice) {
           window.ArgusVoice.resetFormGuidance('#companyModal');
@@ -1051,6 +1052,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inModBlink) inModBlink.checked = true;
       if (inModButton) inModButton.checked = false;
       syncModuleCardStates();
+      clearLocationNotice();
 
       if (window.ArgusVoice) {
         window.ArgusVoice.resetFormGuidance('#companyModal');
@@ -1058,6 +1060,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
       companyModal.classList.add('active');
     });
+  }
+
+  // Location detection notice container helper
+  const locationNotice = document.getElementById('locationDetectNotice');
+
+  function showLocationNotice(html, type) {
+    if (!locationNotice) return;
+    locationNotice.innerHTML = html;
+    locationNotice.style.display = 'block';
+    if (type === 'success') {
+      setTimeout(() => {
+        if (locationNotice) locationNotice.style.display = 'none';
+      }, 6000);
+    }
+  }
+
+  function clearLocationNotice() {
+    if (locationNotice) {
+      locationNotice.innerHTML = '';
+      locationNotice.style.display = 'none';
+    }
   }
 
   // Bind live change handlers to module cards for interactive highlight sync
@@ -1070,48 +1093,144 @@ document.addEventListener('DOMContentLoaded', function () {
       window.ArgusVoice.stop();
       window.ArgusVoice.resetFormGuidance('#companyModal');
     }
+    clearLocationNotice();
     companyModal.classList.remove('active');
   }
 
   if (closeCompanyModal) closeCompanyModal.addEventListener('click', closeCompanyModalFunc);
   if (btnCancelCompany) btnCancelCompany.addEventListener('click', closeCompanyModalFunc);
 
-  // Auto Geolocation detection
+  // Auto Geolocation detection with seamless IP Fallback & non-blocking guidance
   if (btnDetectLocation) {
-    btnDetectLocation.addEventListener('click', function () {
-      if (navigator.geolocation) {
-        btnDetectLocation.textContent = '⏳ Detecting...';
-        navigator.geolocation.getCurrentPosition(
-          function (pos) {
-            document.getElementById('inputLatitude').value = pos.coords.latitude.toFixed(6);
-            document.getElementById('inputLongitude').value = pos.coords.longitude.toFixed(6);
-            btnDetectLocation.textContent = '✓ Location Detected';
-            setTimeout(() => { btnDetectLocation.textContent = '📍 Get Current Location'; }, 3000);
-          },
-          function (err) {
-            alert('Could not retrieve current location: ' + err.message);
-            btnDetectLocation.textContent = '📍 Get Current Location';
-          },
-          { enableHighAccuracy: true, timeout: 8000 }
-        );
-      } else {
-        alert('Geolocation is not supported by your browser.');
+    const origLocationBtnHtml = btnDetectLocation.innerHTML;
+
+    async function attemptIpLocationFallback(reasonText) {
+      btnDetectLocation.innerHTML = '<span class="spinner-ring" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> <span>Detecting via IP...</span>';
+
+      let lat = null, lng = null, city = '';
+
+      // 1. Try public client-side IP Geolocation
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch('https://ipwho.is/', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success && data.latitude && data.longitude) {
+            lat = parseFloat(data.latitude).toFixed(6);
+            lng = parseFloat(data.longitude).toFixed(6);
+            city = data.city || data.region || '';
+          }
+        }
+      } catch (e) {}
+
+      // 2. Try server-side fallback if client-side was blocked
+      if (!lat || !lng) {
+        try {
+          const res = await fetch('/api/companies/detect-ip-location');
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.success && data.latitude && data.longitude) {
+              lat = parseFloat(data.latitude).toFixed(6);
+              lng = parseFloat(data.longitude).toFixed(6);
+              city = data.city || data.region || '';
+            }
+          }
+        } catch (e) {}
       }
+
+      if (lat && lng) {
+        if (inputLatitude) inputLatitude.value = lat;
+        if (inputLongitude) inputLongitude.value = lng;
+        btnDetectLocation.innerHTML = '<span style="color:#38bdf8; font-weight:700;">✓ Location Found (IP)</span>';
+        showLocationNotice(`
+          <div style="display:flex; align-items:flex-start; gap:8px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 12px; font-size:12px; color:#1e40af;">
+            <span style="font-size:15px; line-height:1;">📍</span>
+            <div>
+              <strong>Approximate coordinates detected via network IP (${city ? escapeHtml(city) : 'Regional network'})</strong>.
+              <div style="font-size:11px; color:#475569; margin-top:3px;">
+                Browser GPS was unavailable (${escapeHtml(reasonText || 'Permission denied')}). You can use these coordinates, or click the 🔒 lock icon in your address bar to allow high-accuracy GPS.
+              </div>
+            </div>
+          </div>
+        `, 'info');
+        setTimeout(() => {
+          btnDetectLocation.innerHTML = origLocationBtnHtml;
+          btnDetectLocation.disabled = false;
+        }, 3500);
+      } else {
+        btnDetectLocation.innerHTML = origLocationBtnHtml;
+        btnDetectLocation.disabled = false;
+        showLocationNotice(`
+          <div style="display:flex; align-items:flex-start; gap:8px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:9px 12px; font-size:12px; color:#991b1b;">
+            <span style="font-size:15px; line-height:1;">⚠️</span>
+            <div>
+              <strong>Browser Location Permission Blocked</strong>
+              <div style="font-size:11.5px; color:#7f1d1d; margin-top:3px; line-height:1.4;">
+                To auto-detect coordinates, click the <strong>🔒 lock / tune icon</strong> in your browser address bar (next to <code>${window.location.hostname}</code>) and change <strong>Location</strong> to <strong>Allow</strong>, then refresh.
+              </div>
+              <div style="font-size:11px; color:#57534e; margin-top:4px;">
+                Tip: You can also copy/paste coordinates from Google Maps (e.g. <code>11.0298, 76.9740</code>) directly into either field.
+              </div>
+            </div>
+          </div>
+        `, 'error');
+      }
+    }
+
+    btnDetectLocation.addEventListener('click', function () {
+      clearLocationNotice();
+      btnDetectLocation.disabled = true;
+      btnDetectLocation.innerHTML = '<span class="spinner-ring" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> <span>Detecting GPS...</span>';
+
+      if (!navigator.geolocation) {
+        attemptIpLocationFallback('Geolocation not supported by device');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          if (inputLatitude) inputLatitude.value = pos.coords.latitude.toFixed(6);
+          if (inputLongitude) inputLongitude.value = pos.coords.longitude.toFixed(6);
+          btnDetectLocation.innerHTML = '<span style="color:#059669; font-weight:700;">✓ GPS Detected</span>';
+          showLocationNotice(`
+            <div style="display:flex; align-items:center; gap:8px; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:6px; padding:7px 12px; font-size:12px; color:#065f46;">
+              <span>✓</span>
+              <span>Exact GPS coordinates acquired successfully from device sensor.</span>
+            </div>
+          `, 'success');
+          setTimeout(() => {
+            btnDetectLocation.innerHTML = origLocationBtnHtml;
+            btnDetectLocation.disabled = false;
+          }, 3000);
+        },
+        function (err) {
+          let reason = 'Device GPS unavailable';
+          if (err.code === 1) reason = 'User denied Geolocation';
+          else if (err.code === 2) reason = 'Position unavailable';
+          else if (err.code === 3) reason = 'GPS request timed out';
+          attemptIpLocationFallback(reason);
+        },
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 }
+      );
     });
   }
 
-  // Auto-split combined coordinates if user pastes/types "lat, lng" into latitude field
+  // Auto-split combined coordinates if user pastes/types "lat, lng" into latitude or longitude field
   if (inputLatitude && inputLongitude) {
-    inputLatitude.addEventListener('input', function () {
+    const handleCoordSplit = function () {
       const val = this.value;
       if (val && (val.includes(',') || val.includes(';'))) {
         const parts = val.split(/[,;]+/);
         if (parts.length >= 2) {
-          this.value = parts[0].trim();
+          inputLatitude.value = parts[0].trim();
           inputLongitude.value = parts[1].trim();
         }
       }
-    });
+    };
+    inputLatitude.addEventListener('input', handleCoordSplit);
+    inputLongitude.addEventListener('input', handleCoordSplit);
   }
 
   // Submit Company Form

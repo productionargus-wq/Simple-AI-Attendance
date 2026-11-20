@@ -859,11 +859,13 @@
                 <input type="text" class="form-input-custom" id="inputLongitude" name="longitude" placeholder="e.g. 76.974000 or any coordinate">
                 <button type="button" class="btn-location-detect" id="btnDetectLocation" title="Get current GPS coordinates">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                  Get Current Location
+                  <span>Get Current Location</span>
                 </button>
               </div>
             </div>
           </div>
+          <!-- Location Notice Box for GPS / IP detection status and permissions guidance -->
+          <div id="locationDetectNotice" style="display: none; margin-top: 10px;"></div>
           <div class="company-grid-2col" style="margin-top: 12px;">
             <div class="form-group-custom">
               <label class="form-label-custom">Geofence Radius (Meters) <span class="required-asterisk">*</span></label>

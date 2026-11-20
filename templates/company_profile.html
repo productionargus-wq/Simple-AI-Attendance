@@ -822,26 +822,95 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   const btnDetectProfileLocation = document.getElementById('btnDetectProfileLocation');
+  const profileCoordHelp = document.getElementById('profileCoordHelp');
   if (btnDetectProfileLocation) {
-    btnDetectProfileLocation.addEventListener('click', function () {
-      if (navigator.geolocation) {
-        btnDetectProfileLocation.textContent = '⌛ Detecting...';
-        navigator.geolocation.getCurrentPosition(
-          function (pos) {
-            document.getElementById('profileLatitude').value = pos.coords.latitude.toFixed(6);
-            document.getElementById('profileLongitude').value = pos.coords.longitude.toFixed(6);
-            btnDetectProfileLocation.textContent = '✓ Location Detected';
-            setTimeout(() => { btnDetectProfileLocation.textContent = '📍 Get Current Location'; }, 3000);
-          },
-          function (err) {
-            alert('Could not retrieve current location: ' + err.message);
-            btnDetectProfileLocation.textContent = '📍 Get Current Location';
-          },
-          { enableHighAccuracy: true, timeout: 8000 }
-        );
-      } else {
-        alert('Geolocation is not supported by your browser.');
+    const origProfileBtnText = btnDetectProfileLocation.textContent;
+
+    async function attemptProfileIpLocationFallback(reasonText) {
+      btnDetectProfileLocation.textContent = '⏳ Detecting via IP...';
+      let lat = null, lng = null, city = '';
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch('https://ipwho.is/', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success && data.latitude && data.longitude) {
+            lat = parseFloat(data.latitude).toFixed(6);
+            lng = parseFloat(data.longitude).toFixed(6);
+            city = data.city || data.region || '';
+          }
+        }
+      } catch (e) {}
+
+      if (!lat || !lng) {
+        try {
+          const res = await fetch('/api/companies/detect-ip-location');
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.success && data.latitude && data.longitude) {
+              lat = parseFloat(data.latitude).toFixed(6);
+              lng = parseFloat(data.longitude).toFixed(6);
+              city = data.city || data.region || '';
+            }
+          }
+        } catch (e) {}
       }
+
+      if (lat && lng) {
+        document.getElementById('profileLatitude').value = lat;
+        document.getElementById('profileLongitude').value = lng;
+        btnDetectProfileLocation.textContent = '✓ Location Found (IP)';
+        if (profileCoordHelp) {
+          profileCoordHelp.innerHTML = `<span style="color:#0284c7;font-weight:600;">📍 Approximate location detected via network IP (${city || 'Regional network'}).</span> Browser GPS was unavailable (${reasonText || 'Permission denied'}). You can enter exact coordinates manually.`;
+        }
+        setTimeout(() => {
+          btnDetectProfileLocation.textContent = origProfileBtnText;
+          btnDetectProfileLocation.disabled = false;
+        }, 3500);
+      } else {
+        btnDetectProfileLocation.textContent = origProfileBtnText;
+        btnDetectProfileLocation.disabled = false;
+        if (profileCoordHelp) {
+          profileCoordHelp.innerHTML = `<span style="color:#ef4444;font-weight:600;">⚠️ Location permission blocked in browser.</span> Click the 🔒 lock icon in your address bar to allow Location access, or enter coordinates manually.`;
+        }
+      }
+    }
+
+    btnDetectProfileLocation.addEventListener('click', function () {
+      btnDetectProfileLocation.disabled = true;
+      btnDetectProfileLocation.textContent = '⌛ Detecting GPS...';
+      if (profileCoordHelp) profileCoordHelp.innerHTML = '';
+
+      if (!navigator.geolocation) {
+        attemptProfileIpLocationFallback('Geolocation not supported');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          document.getElementById('profileLatitude').value = pos.coords.latitude.toFixed(6);
+          document.getElementById('profileLongitude').value = pos.coords.longitude.toFixed(6);
+          btnDetectProfileLocation.textContent = '✓ Location Detected';
+          if (profileCoordHelp) {
+            profileCoordHelp.innerHTML = `<span style="color:#059669;font-weight:600;">✓ Exact GPS location detected from device sensor.</span>`;
+          }
+          setTimeout(() => {
+            btnDetectProfileLocation.textContent = origProfileBtnText;
+            btnDetectProfileLocation.disabled = false;
+          }, 3000);
+        },
+        function (err) {
+          let reason = 'Device GPS unavailable';
+          if (err.code === 1) reason = 'User denied Geolocation';
+          else if (err.code === 2) reason = 'Position unavailable';
+          else if (err.code === 3) reason = 'GPS request timed out';
+          attemptProfileIpLocationFallback(reason);
+        },
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 }
+      );
     });
   }
 
