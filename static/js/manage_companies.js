@@ -15,13 +15,34 @@ document.addEventListener('DOMContentLoaded', function () {
   // Modal elements
   const companyModal = document.getElementById('companyModal');
   const companyModalTitle = document.getElementById('companyModalTitle');
+  const companyModalSubtitle = document.getElementById('companyModalSubtitle');
   const btnSaveCompany = document.getElementById('btnSaveCompany');
+  const btnSaveCompanyText = document.getElementById('btnSaveCompanyText');
   const btnOpenAddCompanyModal = document.getElementById('btnOpenAddCompanyModal');
   const closeCompanyModal = document.getElementById('closeCompanyModal');
   const btnCancelCompany = document.getElementById('btnCancelCompany');
   const companyForm = document.getElementById('companyForm');
   const companyFormAlert = document.getElementById('companyFormAlert');
   const btnDetectLocation = document.getElementById('btnDetectLocation');
+
+  function setCompanySaveBtnLabel(label) {
+    if (btnSaveCompanyText) {
+      btnSaveCompanyText.textContent = label;
+    } else if (btnSaveCompany) {
+      btnSaveCompany.textContent = label;
+    }
+  }
+
+  function syncModuleCardStates() {
+    document.querySelectorAll('.module-card-item').forEach(card => {
+      const cb = card.querySelector('input[type="checkbox"]');
+      if (cb && cb.checked) {
+        card.classList.add('module-card-active');
+      } else {
+        card.classList.remove('module-card-active');
+      }
+    });
+  }
 
   const inputCompanyName = document.getElementById('inputCompanyName');
   const inputGstin = document.getElementById('inputGstin');
@@ -751,7 +772,8 @@ document.addEventListener('DOMContentLoaded', function () {
         companyFormAlert.style.display = 'none';
 
         if (companyModalTitle) companyModalTitle.textContent = `Edit Company - ${comp.company_name}`;
-        if (btnSaveCompany) btnSaveCompany.textContent = 'Update Company';
+        if (companyModalSubtitle) companyModalSubtitle.textContent = 'Modify settings, limits, and subscriptions for this company.';
+        setCompanySaveBtnLabel('Update Company');
 
         inputCompanyName.value = comp.company_name || '';
         inputGstin.value = comp.gstin || '';
@@ -784,6 +806,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (inModField) inModField.checked = !!m.field_worker;
         if (inModBlink) inModBlink.checked = !comp.modules || m.face_blink !== false;
         if (inModButton) inModButton.checked = !!m.face_button;
+        syncModuleCardStates();
 
         if (window.ArgusVoice) {
           window.ArgusVoice.resetFormGuidance('#companyModal');
@@ -1002,7 +1025,8 @@ document.addEventListener('DOMContentLoaded', function () {
       companyForm.reset();
       companyFormAlert.style.display = 'none';
       if (companyModalTitle) companyModalTitle.textContent = 'Register New Company';
-      if (btnSaveCompany) btnSaveCompany.textContent = 'Save Company';
+      if (companyModalSubtitle) companyModalSubtitle.textContent = 'Add and configure a new company in the attendance system.';
+      setCompanySaveBtnLabel('Save Company');
       if (inputEmployeeLimit) inputEmployeeLimit.value = 25;
       if (inputBranchLimit) inputBranchLimit.value = 5;
       if (inputCompanyShiftHours) inputCompanyShiftHours.value = '08:00';
@@ -1026,6 +1050,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inModField) inModField.checked = false;
       if (inModBlink) inModBlink.checked = true;
       if (inModButton) inModButton.checked = false;
+      syncModuleCardStates();
 
       if (window.ArgusVoice) {
         window.ArgusVoice.resetFormGuidance('#companyModal');
@@ -1034,6 +1059,11 @@ document.addEventListener('DOMContentLoaded', function () {
       companyModal.classList.add('active');
     });
   }
+
+  // Bind live change handlers to module cards for interactive highlight sync
+  document.querySelectorAll('.module-card-checkbox').forEach(cb => {
+    cb.addEventListener('change', syncModuleCardStates);
+  });
 
   function closeCompanyModalFunc() {
     if (window.ArgusVoice) {
@@ -1182,7 +1212,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (btnSave) {
           btnSave.disabled = false;
           btnSave.classList.remove('btn-is-submitting');
-          btnSave.textContent = origBtnText;
+          btnSave.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> <span id="btnSaveCompanyText">${origBtnText}</span>`;
         }
       }
     });

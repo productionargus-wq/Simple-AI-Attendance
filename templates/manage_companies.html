@@ -18,13 +18,6 @@
     .content-banner-card .banner-actions button {
       flex: 1 1 auto !important;
     }
-    .form-grid-company {
-      grid-template-columns: 1fr !important;
-      gap: 10px !important;
-    }
-    .form-grid-company .form-group[style*="grid-column: span 2"] {
-      grid-column: span 1 !important;
-    }
     .reports-stats-grid {
       grid-template-columns: repeat(2, 1fr) !important;
       gap: 8px !important;
@@ -33,6 +26,484 @@
   @media (max-width: 380px) {
     .reports-stats-grid {
       grid-template-columns: 1fr !important;
+    }
+  }
+
+  /* ==========================================================================
+     REDESIGNED COMPANY MODAL STYLES (MATCHES MOCKUP)
+     ========================================================================== */
+  .modal-box-company-redesign {
+    max-width: 820px !important;
+    width: 100% !important;
+    border-radius: 16px !important;
+    background: #ffffff !important;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: 92vh !important;
+  }
+
+  .company-modal-header {
+    padding: 18px 24px !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  .company-modal-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .company-modal-icon-badge {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.25);
+  }
+
+  .company-modal-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+    letter-spacing: -0.2px;
+  }
+
+  .company-modal-subtitle {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  .company-modal-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .company-modal-close-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+
+  .company-modal-close-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+
+  .company-modal-body {
+    background: #f8fafc !important;
+    padding: 20px !important;
+    overflow-y: auto !important;
+    max-height: calc(92vh - 145px) !important;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .company-section-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    transition: border-color 0.15s ease;
+  }
+
+  .company-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .section-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-num-pill {
+    background: #0284c7;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+  }
+
+  .section-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.2;
+  }
+
+  .section-subtitle {
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  .section-header-icon {
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .form-group-custom {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .form-label-custom {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .required-asterisk {
+    color: #ef4444;
+    font-weight: 800;
+  }
+
+  .form-input-custom {
+    width: 100%;
+    height: 38px;
+    padding: 8px 12px;
+    font-size: 12.5px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #0f172a;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+  }
+
+  .form-input-custom:focus {
+    border-color: #0284c7;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+  }
+
+  .form-select-custom {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px 14px;
+    padding-right: 32px;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .company-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 14px;
+  }
+
+  .company-grid-3col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px 14px;
+  }
+
+  .company-grid-location {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 12px 14px;
+    align-items: flex-end;
+  }
+
+  .input-with-button-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .btn-location-detect {
+    background: #1e293b;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    height: 38px;
+    padding: 0 14px;
+    font-size: 11.5px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+  }
+
+  .btn-location-detect:hover {
+    background: #0f172a;
+  }
+
+  .input-unit-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .input-unit-wrap input {
+    padding-right: 70px;
+    font-weight: 700;
+  }
+
+  .unit-pill {
+    position: absolute;
+    right: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 4px;
+    pointer-events: none;
+  }
+
+  .company-info-callout {
+    background: #eff6ff;
+    border: 1px solid #dbeafe;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 11.5px;
+    color: #1e40af;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    line-height: 1.45;
+  }
+
+  .company-info-callout svg {
+    flex-shrink: 0;
+  }
+
+  .company-modules-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .module-card-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+
+  .module-card-item:hover {
+    border-color: #94a3b8;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  }
+
+  .module-card-checkbox {
+    width: 17px;
+    height: 17px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .module-icon-box {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .box-blue { background: #eff6ff; color: #0284c7; }
+  .box-purple { background: #faf5ff; color: #9333ea; }
+  .box-amber { background: #fffbeb; color: #d97706; }
+  .box-emerald { background: #ecfdf5; color: #059669; }
+  .box-indigo { background: #eef2ff; color: #4f46e5; }
+
+  .module-card-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .module-card-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .module-card-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .module-pill-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 9999px;
+    white-space: nowrap;
+  }
+
+  .pill-blue { background: #e0f2fe; color: #0369a1; }
+  .pill-teal { background: #ccfbf1; color: #0f766e; }
+  .pill-amber { background: #fef3c7; color: #b45309; }
+  .pill-emerald { background: #d1fae5; color: #065f46; }
+  .pill-indigo { background: #e0e7ff; color: #3730a3; }
+
+  .module-card-desc {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 3px;
+    line-height: 1.35;
+  }
+
+  .module-span-2 {
+    grid-column: span 2;
+  }
+
+  /* Dynamic Active Checkbox Highlights */
+  .module-theme-blue.module-card-active,
+  .module-theme-blue:has(input:checked) {
+    border-color: #38bdf8 !important;
+    background: #f0f9ff !important;
+  }
+
+  .module-theme-purple.module-card-active,
+  .module-theme-purple:has(input:checked) {
+    border-color: #c084fc !important;
+    background: #faf5ff !important;
+  }
+
+  .module-theme-amber.module-card-active,
+  .module-theme-amber:has(input:checked) {
+    border-color: #fcd34d !important;
+    background: #fffdf5 !important;
+  }
+
+  .module-theme-emerald.module-card-active,
+  .module-theme-emerald:has(input:checked) {
+    border-color: #34d399 !important;
+    background: #f0fdf4 !important;
+    box-shadow: 0 0 0 1px #34d399 !important;
+  }
+
+  .module-theme-indigo.module-card-active,
+  .module-theme-indigo:has(input:checked) {
+    border-color: #818cf8 !important;
+    background: #f5f7ff !important;
+  }
+
+  .company-modal-footer {
+    position: sticky !important;
+    bottom: 0 !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
+    padding: 14px 24px !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 12px !important;
+    z-index: 10 !important;
+    flex-shrink: 0 !important;
+  }
+
+  .btn-company-cancel {
+    background: #475569;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 24px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .btn-company-cancel:hover {
+    background: #334155;
+  }
+
+  .btn-company-save {
+    background: #16a34a;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 26px;
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(22, 163, 74, 0.3);
+    transition: background 0.15s ease;
+  }
+
+  .btn-company-save:hover {
+    background: #15803d;
+  }
+
+  @media (max-width: 768px) {
+    .company-grid-2col,
+    .company-grid-3col,
+    .company-grid-location,
+    .company-modules-grid {
+      grid-template-columns: 1fr !important;
+    }
+    .module-span-2 {
+      grid-column: span 1 !important;
+    }
+    .input-with-button-group {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+    .btn-location-detect {
+      width: 100% !important;
+      justify-content: center !important;
     }
   }
 </style>
@@ -276,587 +747,370 @@
 
 
 
-<!-- ================= MODAL 1: Add Company Modal ================= -->
+<!-- ================= MODAL 1: Add Company Modal (Redesigned 5-Section Layout) ================= -->
 
 <div class="modal-overlay" id="companyModal">
 
-  <div class="modal-box modal-box-large" style="max-width: 620px;">
+  <div class="modal-box modal-box-company-redesign">
 
-    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
-
-      <div class="modal-header-title" id="companyModalTitle">Register New Company</div>
-
-      <div style="display: flex; align-items: center; gap: 8px;">
-
-        <button type="button" class="btn-modal-voice-toggle" id="btnCompanyModalToggleVoice" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
-
-          <span class="voice-icon">🔊</span>
-
-          <span class="voice-text">Audio: On</span>
-
-        </button>
-
-        <button class="modal-close-btn" id="closeCompanyModal">&times;</button>
-
+    <!-- Modal Header -->
+    <div class="modal-header company-modal-header">
+      <div class="company-modal-header-left">
+        <div class="company-modal-icon-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+            <path d="M9 22v-4h6v4"></path>
+            <path d="M8 6h.01"></path>
+            <path d="M16 6h.01"></path>
+            <path d="M8 10h.01"></path>
+            <path d="M16 10h.01"></path>
+            <path d="M8 14h.01"></path>
+            <path d="M16 14h.01"></path>
+          </svg>
+        </div>
+        <div class="company-modal-title-group">
+          <div class="company-modal-title" id="companyModalTitle">Register New Company</div>
+          <div class="company-modal-subtitle" id="companyModalSubtitle">Add and configure a new company in the attendance system.</div>
+        </div>
       </div>
-
+      <div class="company-modal-header-right">
+        <button type="button" class="btn-modal-voice-toggle" id="btnCompanyModalToggleVoice" style="padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 9999px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; transition: all 0.15s ease;" title="Toggle voice guidance">
+          <span class="voice-icon">🔊</span>
+          <span class="voice-text">Audio: On</span>
+        </button>
+        <button type="button" class="modal-close-btn company-modal-close-btn" id="closeCompanyModal" title="Close">&times;</button>
+      </div>
     </div>
 
-
-
     <form id="companyForm">
-
-      <div class="modal-body" style="max-height: calc(85vh - 130px); overflow-y: auto; padding: 20px;">
-
-        <div id="companyFormAlert" style="display: none; padding: 10px 14px; border-radius: 4px; font-size: 12px; margin-bottom: 14px;"></div>
-
-
-
-        <div class="form-grid-company" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-
-          <!-- Field 1: Company Name -->
-
-          <div class="form-group" style="grid-column: span 2;">
-
-            <label class="form-label">Company Name <span class="required">*</span></label>
-
-            <input type="text" class="form-input" id="inputCompanyName" name="company_name" placeholder="e.g. Acme Innovations Pvt Ltd" required>
-
-          </div>
-
-
-
-          <!-- Field 2: GSTIN Number -->
-
-          <div class="form-group">
-
-            <label class="form-label">GSTIN Number</label>
-
-            <input type="text" class="form-input" id="inputGstin" name="gstin" placeholder="15-digit GSTIN (e.g. 33AAAAA0000A1Z5)" style="text-transform: uppercase;">
-
-          </div>
-
-
-
-          <!-- Field 3: Phone Number -->
-
-          <div class="form-group">
-
-            <label class="form-label">Phone Number <span class="required">*</span></label>
-
-            <input type="tel" class="form-input" id="inputPhone" name="phone" placeholder="e.g. +91 9876543210" required>
-
-          </div>
-
-
-
-          <!-- Field 4: Registered Corporate Email -->
-
-          <div class="form-group" style="grid-column: span 2;">
-
-            <label class="form-label">Registered Corporate Email ID <span class="required">*</span></label>
-
-            <input type="email" class="form-input" id="inputEmail" name="email" placeholder="admin@acme.com" required>
-
-            <span style="font-size: 11px; color: #3d6078; font-weight: 600; margin-top: 3px;">
-
-              ℹ️ Crucial: This email will be used as the exclusive Company Admin Login ID on <code>/company-login</code>.
-
-            </span>
-
-          </div>
-
-
-
-          <!-- Field 5: Geolocation -->
-
-          <div class="form-group">
-
-            <label class="form-label">Office Latitude</label>
-
-            <input type="text" class="form-input" id="inputLatitude" name="latitude" placeholder="e.g. 11.029800 or any coordinate">
-
-          </div>
-
-
-
-          <div class="form-group">
-
-            <label class="form-label">Office Longitude</label>
-
-            <input type="text" class="form-input" id="inputLongitude" name="longitude" placeholder="e.g. 76.974000 or any coordinate">
-
-          </div>
-
-
-
-          <!-- Auto Geolocation Trigger -->
-
-          <div style="grid-column: span 2; display: flex; align-items: center; justify-content: space-between; background-color: #f1f5f9; padding: 8px 12px; border-radius: 4px; flex-wrap: wrap; gap: 8px;">
-
-            <span style="font-size: 11px; color: #475569;">Used to calculate proximity when employees punch attendance.</span>
-
-            <button type="button" id="btnDetectLocation" style="background-color: #3d6078; color: #ffffff; border: none; border-radius: 4px; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer;">
-
-              📍 Get Current Location
-
-            </button>
-
-          </div>
-
-
-
-          <!-- Field 6: Geofence Radius (System Admin Configurable Only) -->
-
-          <div class="form-group" style="grid-column: span 2;">
-
-            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
-
-              <span>Geofence Radius (Meters) <span class="required">*</span></span>
-
-            </label>
-
-            <div style="display: flex; align-items: center; gap: 8px;">
-
-              <input type="number" class="form-input" id="inputGeofenceRadius" name="geofence_radius" min="10" max="50000" step="5" value="200" placeholder="e.g. 200" required style="font-weight: 700; max-width: 180px;">
-
-              <span style="font-size: 13px; font-weight: 700; color: #64748b; white-space: nowrap;">Meters</span>
-
+      <div class="modal-body company-modal-body">
+        <div id="companyFormAlert" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 4px;"></div>
+
+        <!-- 01: Company Details -->
+        <div class="company-section-card">
+          <div class="company-section-header">
+            <div class="section-header-left">
+              <span class="section-num-pill">01</span>
+              <div>
+                <h4 class="section-title">Company Details</h4>
+                <div class="section-subtitle">Enter the basic company information for registration.</div>
+              </div>
             </div>
-
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Perimeter distance from office coordinates allowed for valid attendance punches (default 200m). Locked for Company Admin; editable anytime by System Admin.</span>
-
-          </div>
-
-
-
-          <!-- Field: Calculate Proper Entries (Geofence Validation Policy) -->
-
-          <div class="form-group" style="grid-column: span 2;">
-
-            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
-
-              <span>Geofence Validation <span class="required">*</span></span>
-
-            </label>
-
-            <select class="form-input" id="inputCalculateProperEntriesCompany" name="calculate_proper_entries" style="font-weight: 600;">
-
-              <option value="true" selected>Enabled – Validate Employee Location</option>
-
-              <option value="false">Disabled – Allow All Locations</option>
-
-            </select>
-
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">When enabled, attendance is validated based on the geofence radius. When disabled, all attendance entries are marked as Proper without distance validation.</span>
-
-          </div>
-
-
-
-          <!-- Row: Employee Limit & Branch Limit -->
-
-          <div class="form-group">
-
-            <label class="form-label">Employee Count Limit <span class="required">*</span></label>
-
-            <input type="number" class="form-input" id="inputEmployeeLimit" name="employee_limit" min="1" max="10000" placeholder="e.g. 25" required>
-
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Maximum allowed employees for this company.</span>
-
-          </div>
-
-
-
-          <div class="form-group">
-
-            <label class="form-label">Branch Creation Limit <span class="required">*</span></label>
-
-            <input type="number" class="form-input" id="inputBranchLimit" name="branch_limit" min="1" max="100" value="5" placeholder="e.g. 5" required>
-
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Maximum regional branch locations this company can create.</span>
-
-          </div>
-
-
-
-          <div class="form-group" style="grid-column: span 2;">
-
-            <label class="form-label">Automatic Checkout Limit <span class="required">*</span></label>
-
-            <input type="text" class="form-input" id="inputShiftHours" name="shift_hours" placeholder="e.g. 08:00 or 8" value="08:00" required>
-
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Maximum hours before auto-checkout (e.g. 08:00).</span>
-
-          </div>
-
-
-
-          <!-- Row: Manual Registered Date -->
-
-          <div class="form-group" style="grid-column: span 2;">
-
-            <label class="form-label">Date <span class="required">*</span></label>
-
-            <input type="date" class="form-input" id="inputRegisteredDate" name="registered_date" required>
-
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Date this company is registered in the application.</span>
-
-          </div>
-
-
-
-          <!-- Row: Company Status & Auto Email Reports -->
-
-          <div class="form-group">
-
-            <label class="form-label">Company Status</label>
-
-            <select class="form-input" id="inputStatus" name="status">
-
-              <option value="Active" selected>Active</option>
-
-              <option value="Deactive">Deactive</option>
-
-            </select>
-
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Deactivating locks out this company and all its employees.</span>
-
-          </div>
-
-
-
-          <div class="form-group">
-
-            <label class="form-label">Auto Email Reports</label>
-
-            <select class="form-input" id="inputAutoEmailReports" name="auto_email_reports">
-
-              <option value="false" selected>Disabled (No Emails)</option>
-
-              <option value="true">Enabled (Send Emails)</option>
-
-            </select>
-
-          </div>
-
-
-
-          <!-- Row: Daily Report Email Time -->
-
-          <div class="form-group">
-
-            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
-
-              <span>Daily Report Email Time <span class="required">*</span></span>
-
-            </label>
-
-            <input type="time" class="form-input" id="inputDailyReportTime" name="daily_report_time" value="07:00" required style="font-weight: 700;">
-
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Time of day to send yesterday's daily activity digest (default: 07:00 AM).</span>
-
-          </div>
-
-
-
-          <!-- Row: Monthly Report Email Day -->
-
-          <div class="form-group">
-
-            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
-
-              <span>Monthly Report Email Day <span class="required">*</span></span>
-
-            </label>
-
-            <select class="form-input" id="inputMonthlyReportDay" name="monthly_report_day" style="font-weight: 700;">
-
-              <option value="1" selected>1st of every month (Default)</option>
-
-              <option value="2">2nd of every month</option>
-
-              <option value="3">3rd of every month</option>
-
-              <option value="4">4th of every month</option>
-
-              <option value="5">5th of every month</option>
-
-              <option value="6">6th of every month</option>
-
-              <option value="7">7th of every month</option>
-
-              <option value="8">8th of every month</option>
-
-              <option value="9">9th of every month</option>
-
-              <option value="10">10th of every month</option>
-
-              <option value="11">11th of every month</option>
-
-              <option value="12">12th of every month</option>
-
-              <option value="13">13th of every month</option>
-
-              <option value="14">14th of every month</option>
-
-              <option value="15">15th of every month</option>
-
-              <option value="16">16th of every month</option>
-
-              <option value="17">17th of every month</option>
-
-              <option value="18">18th of every month</option>
-
-              <option value="19">19th of every month</option>
-
-              <option value="20">20th of every month</option>
-
-              <option value="21">21st of every month</option>
-
-              <option value="22">22nd of every month</option>
-
-              <option value="23">23rd of every month</option>
-
-              <option value="24">24th of every month</option>
-
-              <option value="25">25th of every month</option>
-
-              <option value="26">26th of every month</option>
-
-              <option value="27">27th of every month</option>
-
-              <option value="28">28th of every month</option>
-
-            </select>
-
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Day of the month to send the monthly salary and payroll report.</span>
-
-          </div>
-
-
-
-          <div class="form-group">
-
-            <label class="form-label">Delete Entries Permission</label>
-
-            <select class="form-input" id="inputCanDeleteEntries" name="can_delete_entries">
-
-              <option value="false" selected>Disabled (Delete buttons hidden in company UI)</option>
-
-              <option value="true">Enabled (Allow deleting entries in company UI)</option>
-
-            </select>
-
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Controls whether delete buttons are visible in company UI.</span>
-
-          </div>
-
-
-
-          <div class="form-group">
-
-            <label class="form-label">Support Access</label>
-
-            <select class="form-input" id="inputSupportEnabled" name="support_enabled">
-
-              <option value="true" selected>Enabled (Support tab visible)</option>
-
-              <option value="false">Disabled (Support tab hidden)</option>
-
-            </select>
-
-            <span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Controls if company admin has access to the Support & Help tab.</span>
-
-          </div>
-
-
-
-          <!-- Field: Authorized Company Modules (Feature Toggles) -->
-
-          <div class="form-group" style="grid-column: span 2; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin-top: 4px;">
-
-            <label class="form-label" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.4px;">
-
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-
-              <span>Authorized Platform Modules &amp; Subscriptions</span>
-
-            </label>
-
-            <div style="font-size: 11.5px; color: #64748b; margin-bottom: 12px; line-height: 1.4;">
-
-              Select the feature modules granted to this client. Only checked modules will be accessible in their navigation and portal.
-
+            <div class="section-header-icon" title="Company Details">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+                <path d="M9 22v-4h6v4"></path>
+                <path d="M8 6h.01"></path>
+                <path d="M16 6h.01"></path>
+                <path d="M8 10h.01"></path>
+                <path d="M16 10h.01"></path>
+              </svg>
             </div>
-
-
-
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-
-              <!-- Module 1: Single Company -->
-
-              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
-
-                <input type="checkbox" id="inputModSingleCompany" name="module_single_company" checked style="width: 17px; height: 17px; margin-top: 2px; accent-color: #2563eb; cursor: pointer;">
-
-                <div>
-
-                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-
-                    <span>1. Single Company Module</span>
-
-                    <span style="font-size: 10px; background: #eff6ff; color: #1d4ed8; padding: 1px 6px; border-radius: 10px; font-weight: 700;">Base Office</span>
-
-                  </div>
-
-                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
-
-                    Enables core company attendance, AI gate camera punch, basic shift management, leave permissions, and monthly payroll.
-
-                  </div>
-
-                </div>
-
-              </label>
-
-
-
-              <!-- Module 2: Branch Company -->
-
-              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
-
-                <input type="checkbox" id="inputModBranchCompany" name="module_branch_company" style="width: 17px; height: 17px; margin-top: 2px; accent-color: #0284c7; cursor: pointer;">
-
-                <div>
-
-                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-
-                    <span>2. Multi-Branch Enterprise Module</span>
-
-                    <span style="font-size: 10px; background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 10px; font-weight: 700;">Multi-Site Hub</span>
-
-                  </div>
-
-                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
-
-                    Enables multiple regional branches, individual branch geofences, branch manager logins, and district-filtered attendance &amp; payroll.
-
-                  </div>
-
-                </div>
-
-              </label>
-
-
-
-              <!-- Module 3: Field Worker -->
-
-              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
-
-                <input type="checkbox" id="inputModFieldWorker" name="module_field_worker" style="width: 17px; height: 17px; margin-top: 2px; accent-color: #d97706; cursor: pointer;">
-
-                <div>
-
-                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-
-                    <span>3. Field Worker Module</span>
-
-                    <span style="font-size: 10px; background: #fef3c7; color: #b45309; padding: 1px 6px; border-radius: 10px; font-weight: 700;">GPS &amp; CRM</span>
-
-                  </div>
-
-                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
-
-                    Enables live GPS route telemetry, customer visit CRM, KM travel allowances, detour detection, and field attendance terminal.
-
-                  </div>
-
-                </div>
-
-              </label>
-
-
-
-              <!-- Module 4: Face Recognition with 2-Blink Liveness -->
-
-              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
-
-                <input type="checkbox" id="inputModFaceBlink" name="module_face_blink" checked style="width: 17px; height: 17px; margin-top: 2px; accent-color: #10b981; cursor: pointer;">
-
-                <div>
-
-                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-
-                    <span>4. Face Recognition with 2-Blink Liveness</span>
-
-                    <span style="font-size: 10px; background: #ecfdf5; color: #047857; padding: 1px 6px; border-radius: 10px; font-weight: 700;">Hands-Free Blink</span>
-
-                  </div>
-
-                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
-
-                    Requires two eye blinks for hands-free attendance punch with AI biometric liveness verification.
-
-                  </div>
-
-                </div>
-
-              </label>
-
-
-
-              <!-- Module 5: Face Recognition without Blinks (Button Capture) -->
-
-              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; transition: border-color 0.15s ease;">
-
-                <input type="checkbox" id="inputModFaceButton" name="module_face_button" style="width: 17px; height: 17px; margin-top: 2px; accent-color: #7c3aed; cursor: pointer;">
-
-                <div>
-
-                  <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-
-                    <span>5. Face Recognition without Blinks (Button Capture)</span>
-
-                    <span style="font-size: 10px; background: #f5f3ff; color: #6d28d9; padding: 1px 6px; border-radius: 10px; font-weight: 700;">Direct One-Click</span>
-
-                  </div>
-
-                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
-
-                    Enables instant attendance punch by capturing the camera frame on clicking 'Mark Attendance', without requiring any eye blinks.
-
-                  </div>
-
-                </div>
-
-              </label>
-
-            </div>
-
           </div>
-
+          <div class="company-grid-2col">
+            <div class="form-group-custom">
+              <label class="form-label-custom">Company Name <span class="required-asterisk">*</span></label>
+              <input type="text" class="form-input-custom" id="inputCompanyName" name="company_name" placeholder="e.g. Acme Innovations Pvt Ltd" required>
+            </div>
+            <div class="form-group-custom">
+              <label class="form-label-custom">GSTIN Number</label>
+              <input type="text" class="form-input-custom" id="inputGstin" name="gstin" placeholder="15-DIGIT GSTIN (E.G. 33AAAAA0000A1Z5)" style="text-transform: uppercase;">
+            </div>
+            <div class="form-group-custom">
+              <label class="form-label-custom">Phone Number <span class="required-asterisk">*</span></label>
+              <input type="tel" class="form-input-custom" id="inputPhone" name="phone" placeholder="e.g. +91 9876543210" required>
+            </div>
+            <div class="form-group-custom">
+              <label class="form-label-custom">Registered Corporate Email ID <span class="required-asterisk">*</span></label>
+              <input type="email" class="form-input-custom" id="inputEmail" name="email" placeholder="admin@acme.com" required>
+            </div>
+          </div>
+          <div class="company-info-callout">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span><strong>Crucial:</strong> This email will be used as the exclusive Company Admin Login ID on <code>/company-login</code>.</span>
+          </div>
         </div>
 
+        <!-- 02: Location & Geofencing -->
+        <div class="company-section-card">
+          <div class="company-section-header">
+            <div class="section-header-left">
+              <span class="section-num-pill">02</span>
+              <div>
+                <h4 class="section-title">Location &amp; Geofencing</h4>
+                <div class="section-subtitle">Set the office location and geofence to control valid attendance.</div>
+              </div>
+            </div>
+            <div class="section-header-icon" title="Location & Geofencing">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+            </div>
+          </div>
+          <div class="company-grid-location">
+            <div class="form-group-custom">
+              <label class="form-label-custom">Office Latitude</label>
+              <input type="text" class="form-input-custom" id="inputLatitude" name="latitude" placeholder="e.g. 11.029800 or any coordinate">
+            </div>
+            <div class="form-group-custom">
+              <label class="form-label-custom">Office Longitude</label>
+              <div class="input-with-button-group">
+                <input type="text" class="form-input-custom" id="inputLongitude" name="longitude" placeholder="e.g. 76.974000 or any coordinate">
+                <button type="button" class="btn-location-detect" id="btnDetectLocation" title="Get current GPS coordinates">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                  Get Current Location
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="company-grid-2col" style="margin-top: 12px;">
+            <div class="form-group-custom">
+              <label class="form-label-custom">Geofence Radius (Meters) <span class="required-asterisk">*</span></label>
+              <div class="input-unit-wrap">
+                <input type="number" class="form-input-custom" id="inputGeofenceRadius" name="geofence_radius" min="10" max="50000" step="5" value="200" placeholder="e.g. 200" required>
+                <span class="unit-pill">Meters</span>
+              </div>
+            </div>
+            <div class="form-group-custom">
+              <label class="form-label-custom">Geofence Validation <span class="required-asterisk">*</span></label>
+              <select class="form-input-custom form-select-custom" id="inputCalculateProperEntriesCompany" name="calculate_proper_entries">
+                <option value="true" selected>Enabled – Validate Employee Location</option>
+                <option value="false">Disabled – Allow All Locations</option>
+              </select>
+            </div>
+          </div>
+          <div class="company-info-callout">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span>When enabled, attendance is validated based on the geofence radius. When disabled, all attendance entries are marked as Proper without distance validation.</span>
+          </div>
+        </div>
+
+        <!-- 03: Company Limits & Attendance Policy -->
+        <div class="company-section-card">
+          <div class="company-section-header">
+            <div class="section-header-left">
+              <span class="section-num-pill">03</span>
+              <div>
+                <h4 class="section-title">Company Limits &amp; Attendance Policy</h4>
+                <div class="section-subtitle">Define employee, branch, and auto-checkout limits for this company.</div>
+              </div>
+            </div>
+            <div class="section-header-icon" title="Limits & Policy">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="company-grid-3col">
+            <div class="form-group-custom">
+              <label class="form-label-custom">Employee Count Limit <span class="required-asterisk">*</span></label>
+              <input type="number" class="form-input-custom" id="inputEmployeeLimit" name="employee_limit" min="1" max="10000" placeholder="e.g. 25" value="25" required>
+            </div>
+            <div class="form-group-custom">
+              <label class="form-label-custom">Branch Creation Limit <span class="required-asterisk">*</span></label>
+              <input type="number" class="form-input-custom" id="inputBranchLimit" name="branch_limit" min="1" max="100" value="5" placeholder="e.g. 5" required>
+            </div>
+            <div class="form-group-custom">
+              <label class="form-label-custom">Automatic Checkout Limit <span class="required-asterisk">*</span></label>
+              <input type="text" class="form-input-custom" id="inputShiftHours" name="shift_hours" placeholder="e.g. 08:00 or 8" value="08:00" required>
+            </div>
+          </div>
+          <div class="company-grid-2col" style="margin-top: 12px;">
+            <div class="form-group-custom">
+              <label class="form-label-custom">Date <span class="required-asterisk">*</span></label>
+              <div class="input-date-wrap">
+                <input type="date" class="form-input-custom" id="inputRegisteredDate" name="registered_date" required>
+              </div>
+            </div>
+            <div class="form-group-custom">
+              <label class="form-label-custom">Company Status</label>
+              <select class="form-input-custom form-select-custom" id="inputStatus" name="status">
+                <option value="Active" selected>Active</option>
+                <option value="Deactive">Deactive</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 04: Reports & Access Controls -->
+        <div class="company-section-card">
+          <div class="company-section-header">
+            <div class="section-header-left">
+              <span class="section-num-pill">04</span>
+              <div>
+                <h4 class="section-title">Reports &amp; Access Controls</h4>
+                <div class="section-subtitle">Configure automated reports and system access permissions.</div>
+              </div>
+            </div>
+            <div class="section-header-icon" title="Reports & Access">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="company-grid-3col">
+            <div class="form-group-custom">
+              <label class="form-label-custom">Auto Email Reports</label>
+              <select class="form-input-custom form-select-custom" id="inputAutoEmailReports" name="auto_email_reports">
+                <option value="false" selected>Disabled (No Emails)</option>
+                <option value="true">Enabled (Send Emails)</option>
+              </select>
+            </div>
+            <div class="form-group-custom">
+              <label class="form-label-custom">Daily Report Email Time <span class="required-asterisk">*</span></label>
+              <input type="time" class="form-input-custom" id="inputDailyReportTime" name="daily_report_time" value="07:00" required>
+            </div>
+            <div class="form-group-custom">
+              <label class="form-label-custom">Monthly Report Email Day <span class="required-asterisk">*</span></label>
+              <select class="form-input-custom form-select-custom" id="inputMonthlyReportDay" name="monthly_report_day">
+                <option value="1" selected>1st of every month (Default)</option>
+                <option value="2">2nd of every month</option>
+                <option value="3">3rd of every month</option>
+                <option value="4">4th of every month</option>
+                <option value="5">5th of every month</option>
+                <option value="6">6th of every month</option>
+                <option value="7">7th of every month</option>
+                <option value="8">8th of every month</option>
+                <option value="9">9th of every month</option>
+                <option value="10">10th of every month</option>
+                <option value="15">15th of every month</option>
+                <option value="20">20th of every month</option>
+                <option value="25">25th of every month</option>
+                <option value="28">28th of every month</option>
+              </select>
+            </div>
+          </div>
+          <div class="company-grid-2col" style="margin-top: 12px;">
+            <div class="form-group-custom">
+              <label class="form-label-custom">Delete Entries Permission</label>
+              <select class="form-input-custom form-select-custom" id="inputCanDeleteEntries" name="can_delete_entries">
+                <option value="false" selected>Disabled (Delete buttons hidden in company UI)</option>
+                <option value="true">Enabled (Allow deleting entries in company UI)</option>
+              </select>
+            </div>
+            <div class="form-group-custom">
+              <label class="form-label-custom">Support Access</label>
+              <select class="form-input-custom form-select-custom" id="inputSupportEnabled" name="support_enabled">
+                <option value="true" selected>Enabled (Support tab visible)</option>
+                <option value="false">Disabled (Support tab hidden)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 05: Authorized Platform Modules & Subscriptions -->
+        <div class="company-section-card">
+          <div class="company-section-header">
+            <div class="section-header-left">
+              <span class="section-num-pill">05</span>
+              <div>
+                <h4 class="section-title">Authorized Platform Modules &amp; Subscriptions</h4>
+                <div class="section-subtitle">Select the feature modules granted to this client. Only checked modules will be accessible in their navigation and portal.</div>
+              </div>
+            </div>
+            <div class="section-header-icon" title="Modules & Subscriptions">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+            </div>
+          </div>
+
+          <div class="company-modules-grid">
+            <!-- Module 1: Single Company -->
+            <label class="module-card-item module-theme-blue" id="labelModSingleCompany">
+              <input type="checkbox" id="inputModSingleCompany" name="module_single_company" checked class="module-card-checkbox">
+              <div class="module-icon-box box-blue">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M8 10h.01"></path><path d="M16 10h.01"></path></svg>
+              </div>
+              <div class="module-card-body">
+                <div class="module-card-heading">
+                  <span class="module-card-title">1. Single Company Module</span>
+                  <span class="module-pill-badge pill-blue">Base Office</span>
+                </div>
+                <div class="module-card-desc">Enables core company attendance, AI gate camera punch, basic shift management, leave permissions, and monthly payroll.</div>
+              </div>
+            </label>
+
+            <!-- Module 2: Multi-Branch Enterprise -->
+            <label class="module-card-item module-theme-purple" id="labelModBranchCompany">
+              <input type="checkbox" id="inputModBranchCompany" name="module_branch_company" class="module-card-checkbox">
+              <div class="module-icon-box box-purple">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M5 10v11M19 10v11M9 10v11M15 10v11M4 10l8-6 8 6"></path></svg>
+              </div>
+              <div class="module-card-body">
+                <div class="module-card-heading">
+                  <span class="module-card-title">2. Multi-Branch Enterprise Module</span>
+                  <span class="module-pill-badge pill-teal">Multi-Site Hub</span>
+                </div>
+                <div class="module-card-desc">Enables multiple regional branches, individual branch geofences, branch manager logins, and district-filtered attendance &amp; payroll.</div>
+              </div>
+            </label>
+
+            <!-- Module 3: Field Worker Module -->
+            <label class="module-card-item module-theme-amber" id="labelModFieldWorker">
+              <input type="checkbox" id="inputModFieldWorker" name="module_field_worker" class="module-card-checkbox">
+              <div class="module-icon-box box-amber">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              </div>
+              <div class="module-card-body">
+                <div class="module-card-heading">
+                  <span class="module-card-title">3. Field Worker Module</span>
+                  <span class="module-pill-badge pill-amber">GPS &amp; CRM</span>
+                </div>
+                <div class="module-card-desc">Enables live GPS route telemetry, customer visit CRM, KM travel allowances, detour detection, and field attendance terminal.</div>
+              </div>
+            </label>
+
+            <!-- Module 4: Face Recognition 2-Blink -->
+            <label class="module-card-item module-theme-emerald" id="labelModFaceBlink">
+              <input type="checkbox" id="inputModFaceBlink" name="module_face_blink" checked class="module-card-checkbox">
+              <div class="module-icon-box box-emerald">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="4"></rect><path d="M9 10h.01"></path><path d="M15 10h.01"></path><path d="M10 15a2 2 0 0 0 4 0"></path></svg>
+              </div>
+              <div class="module-card-body">
+                <div class="module-card-heading">
+                  <span class="module-card-title">4. Face Recognition with 2-Blink Liveness</span>
+                  <span class="module-pill-badge pill-emerald">Hands-Free Blink</span>
+                </div>
+                <div class="module-card-desc">Requires two eye blinks for hands-free attendance punch with AI biometric liveness verification.</div>
+              </div>
+            </label>
+
+            <!-- Module 5: Face Recognition without Blinks (Button Capture) -->
+            <label class="module-card-item module-theme-indigo module-span-2" id="labelModFaceButton">
+              <input type="checkbox" id="inputModFaceButton" name="module_face_button" class="module-card-checkbox">
+              <div class="module-icon-box box-indigo">
+                <svg width="18" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              </div>
+              <div class="module-card-body">
+                <div class="module-card-heading">
+                  <span class="module-card-title">5. Face Recognition without Blinks (Button Capture)</span>
+                  <span class="module-pill-badge pill-indigo">Direct One-Click</span>
+                </div>
+                <div class="module-card-desc">Enables instant attendance punch by capturing the camera frame on clicking 'Mark Attendance', without requiring any eye blinks.</div>
+              </div>
+            </label>
+          </div>
+        </div>
       </div>
 
-
-
-      <div class="modal-footer modal-footer-right" style="padding: 14px 20px; background-color: #ffffff; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; justify-content: flex-end; align-items: center; position: sticky; bottom: 0; z-index: 10;">
-
-        <button type="button" class="btn-reset" id="btnCancelCompany" style="background-color: #64748b; color: #ffffff; border: none; border-radius: 4px; padding: 8px 20px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s ease;">Cancel</button>
-
-        <button type="submit" class="btn-submit" id="btnSaveCompany" style="background-color: #198754; color: #ffffff; border: none; border-radius: 4px; padding: 8px 22px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">Save Company</button>
-
+      <!-- Modal Footer -->
+      <div class="modal-footer company-modal-footer">
+        <button type="button" class="btn-company-cancel" id="btnCancelCompany">Cancel</button>
+        <button type="submit" class="btn-company-save" id="btnSaveCompany">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span id="btnSaveCompanyText">Save Company</span>
+        </button>
       </div>
-
     </form>
-
   </div>
-
 </div>
-
-
 
 <!-- ================= MODAL 2: Reports Summary Modal ================= -->
 
