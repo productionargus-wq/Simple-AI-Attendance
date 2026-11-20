@@ -108,7 +108,7 @@ def main():
 
     if cloud_is_online:
         target_url = CLOUD_URL
-        window_title = 'Argus Attendance Intelligence (Cloud Connected)'
+        window_title = 'Argus Attendance Intelligence'
         print("[OK] Production Cloud Server is ONLINE. Connecting to live cloud...")
         print("  All latest web changes and features will reflect in real-time.")
     else:
@@ -124,7 +124,7 @@ def main():
         )
         server_thread.start()
         target_url = local_server_url
-        window_title = 'Argus Attendance Intelligence (Offline Mode - Local Fallback)'
+        window_title = 'Argus Attendance Intelligence (Offline Mode)'
         print("[WARN] Notice: Cloud server is unreachable or device is offline.")
         print(f"[OK] Falling back to local offline server at: {local_server_url}")
         wait_for_server_ready(local_server_url)
@@ -136,8 +136,9 @@ def main():
     # 4. Resolve application window icon
     base_dir = get_base_dir()
     icon_candidates = [
-        os.path.join(base_dir, 'static', 'favicon.ico'),
         os.path.join(base_dir, 'static', 'app_icon.ico'),
+        os.path.join(base_dir, 'static', 'favicon.ico'),
+        os.path.join(os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else base_dir, 'static', 'app_icon.ico'),
         os.path.join(os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else base_dir, 'static', 'favicon.ico')
     ]
     icon_path = next((p for p in icon_candidates if os.path.exists(p)), None)
@@ -157,7 +158,7 @@ def main():
 
     # 6. Launch PyWebView with Windows Edge Chromium (WebView2)
     # private_mode=False ensures cookie persistence across app launches
-    webview.start(gui='edgechromium', debug=False, private_mode=False)
+    webview.start(gui='edgechromium', debug=False, private_mode=False, icon=icon_path)
 
     print("Desktop application window closed. Cleaning up and exiting.")
     sys.exit(0)
