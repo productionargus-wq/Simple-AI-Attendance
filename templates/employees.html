@@ -1016,6 +1016,177 @@
     background: #e0f2fe;
     border-color: #2563eb;
   }
+
+  /* Custom Master Modals (Replacing raw browser prompts) */
+  .custom-master-modal-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    z-index: 12000 !important;
+    display: none;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 16px !important;
+  }
+  .custom-master-modal-box {
+    background: #ffffff !important;
+    border-radius: 14px !important;
+    width: 100% !important;
+    max-width: 480px !important;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(15, 23, 42, 0.08) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    animation: customMasterPop 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  @keyframes customMasterPop {
+    from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .custom-master-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .custom-master-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .custom-master-icon-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .custom-master-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+  }
+  .custom-master-subtitle {
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+  .custom-master-close {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+  }
+  .custom-master-close:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+  }
+  .custom-master-body {
+    padding: 20px;
+  }
+  .custom-master-input {
+    width: 100% !important;
+    height: 42px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    padding: 0 14px !important;
+    font-size: 13.5px !important;
+    color: #0f172a !important;
+    background: #ffffff !important;
+    box-sizing: border-box !important;
+    transition: all 0.15s ease !important;
+  }
+  .custom-master-input:focus {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18) !important;
+    outline: none !important;
+  }
+  .custom-master-input.has-error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+  }
+  .custom-master-error-msg {
+    font-size: 11.5px;
+    color: #dc2626;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .custom-master-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 11.5px;
+    color: #1e40af;
+    line-height: 1.45;
+    margin-top: 10px;
+  }
+  .custom-master-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 20px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+  }
+  .btn-custom-master-cancel {
+    height: 38px;
+    padding: 0 16px;
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    color: #475569;
+    font-size: 12.5px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-custom-master-cancel:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    color: #0f172a;
+  }
+  .btn-custom-master-submit {
+    height: 38px;
+    padding: 0 18px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border: none;
+    color: #ffffff;
+    font-size: 12.5px;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+    transition: all 0.15s ease;
+  }
+  .btn-custom-master-submit:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.35);
+  }
 </style>
 
 <div class="modal-overlay" id="entryModal">
@@ -1121,7 +1292,7 @@
                   </svg>
                 </span>
               </div>
-              <div class="form-helper-text" id="deptHelperText">Choose from default list or add your own</div>
+              <div class="form-helper-text" id="deptHelperText">Choose from default list or <span id="linkAddDeptHelper" style="color: #2563eb; font-weight: 600; cursor: pointer; text-decoration: underline;">add your own</span></div>
 
               <!-- Department Dropdown Menu -->
               <div class="smart-dropdown-panel" id="deptDropdownPanel" role="listbox">
@@ -1767,6 +1938,110 @@
     </div>
     <div class="modal-footer" style="padding: 12px 20px; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: flex-end;">
       <button type="button" class="btn-filter" id="btnManageDone" style="background: #0f172a; color: #ffffff; border: none; padding: 7px 18px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer;">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: Add Custom Department (Argus Native Modal) ================= -->
+<div class="modal-overlay custom-master-modal-overlay" id="modalAddCustomDept" style="display: none;">
+  <div class="modal-box custom-master-modal-box">
+    <div class="custom-master-modal-header">
+      <div class="custom-master-header-left">
+        <div class="custom-master-icon-badge" style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+            <line x1="9" y1="22" x2="9" y2="22.01"></line>
+            <line x1="15" y1="22" x2="15" y2="22.01"></line>
+            <line x1="9" y1="18" x2="9" y2="18.01"></line>
+            <line x1="15" y1="18" x2="15" y2="18.01"></line>
+            <line x1="9" y1="14" x2="9" y2="14.01"></line>
+            <line x1="15" y1="14" x2="15" y2="14.01"></line>
+            <line x1="9" y1="10" x2="9" y2="10.01"></line>
+            <line x1="15" y1="10" x2="15" y2="10.01"></line>
+            <line x1="9" y1="6" x2="9" y2="6.01"></line>
+            <line x1="15" y1="6" x2="15" y2="6.01"></line>
+          </svg>
+        </div>
+        <div>
+          <div class="custom-master-title">Add New Department</div>
+          <div class="custom-master-subtitle">Create a custom department for your organization</div>
+        </div>
+      </div>
+      <button type="button" class="custom-master-close" id="btnCloseAddCustomDept" title="Close">&times;</button>
+    </div>
+    <div class="custom-master-body">
+      <div class="form-group" style="margin-bottom: 8px;">
+        <label class="form-label" for="inputCustomDeptName" style="font-weight: 700; color: #1e293b; font-size: 12.5px; margin-bottom: 6px; display: block;">
+          Department Name <span style="color: #ef4444;">*</span>
+        </label>
+        <input type="text" id="inputCustomDeptName" class="form-input custom-master-input" placeholder="e.g. Research & Development, Tool Room..." autocomplete="off">
+        <div id="customDeptErrorMsg" class="custom-master-error-msg" style="display: none;"></div>
+      </div>
+      <div class="custom-master-tip">
+        <span style="font-size: 14px;">💡</span>
+        <span>Standard departments like <strong>Production</strong>, <strong>Quality Control</strong>, <strong>Maintenance</strong>, <strong>Stores</strong>, etc. are already preloaded.</span>
+      </div>
+    </div>
+    <div class="custom-master-footer">
+      <button type="button" class="btn-custom-master-cancel" id="btnCancelAddCustomDept">Cancel</button>
+      <button type="button" class="btn-custom-master-submit" id="btnSubmitAddCustomDept">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        Add Department
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: Add Custom Designation (Argus Native Modal) ================= -->
+<div class="modal-overlay custom-master-modal-overlay" id="modalAddCustomDesig" style="display: none;">
+  <div class="modal-box custom-master-modal-box">
+    <div class="custom-master-modal-header">
+      <div class="custom-master-header-left">
+        <div class="custom-master-icon-badge" style="background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="custom-master-title">Add New Designation</div>
+          <div class="custom-master-subtitle">Link a new job role to department</div>
+        </div>
+      </div>
+      <button type="button" class="custom-master-close" id="btnCloseAddCustomDesig" title="Close">&times;</button>
+    </div>
+    <div class="custom-master-body">
+      <div class="custom-desig-dept-banner" style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;">
+        <div>
+          <div style="font-size: 10.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Assigned Department</div>
+          <div id="customDesigTargetDeptName" style="font-size: 13.5px; font-weight: 700; color: #1e293b; margin-top: 2px;">Production</div>
+        </div>
+        <span style="font-size: 11px; font-weight: 700; padding: 3px 10px; background: #e0f2fe; color: #0369a1; border-radius: 12px; border: 1px solid #bae6fd;">Mapped Role</span>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 8px;">
+        <label class="form-label" for="inputCustomDesigName" style="font-weight: 700; color: #1e293b; font-size: 12.5px; margin-bottom: 6px; display: block;">
+          Designation Title <span style="color: #ef4444;">*</span>
+        </label>
+        <input type="text" id="inputCustomDesigName" class="form-input custom-master-input" placeholder="e.g. Senior CNC Programmer, Lead Inspector..." autocomplete="off">
+        <div id="customDesigErrorMsg" class="custom-master-error-msg" style="display: none;"></div>
+      </div>
+
+      <div class="custom-master-tip">
+        <span style="font-size: 14px;">💡</span>
+        <span>This role will be available whenever you select <strong><span id="customDesigTipDeptName">this department</span></strong>.</span>
+      </div>
+    </div>
+    <div class="custom-master-footer">
+      <button type="button" class="btn-custom-master-cancel" id="btnCancelAddCustomDesig">Cancel</button>
+      <button type="button" class="btn-custom-master-submit" id="btnSubmitAddCustomDesig" style="background: linear-gradient(135deg, #16a34a, #15803d);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        Add Designation
+      </button>
     </div>
   </div>
 </div>

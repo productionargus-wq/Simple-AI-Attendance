@@ -266,6 +266,23 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnManageAddDesig = document.getElementById('btnManageAddDesig');
     const manageDeptAccordion = document.getElementById('manageDeptAccordion');
 
+    // DOM Elements - Custom Master Modals (Replacing browser prompt)
+    const modalAddCustomDept = document.getElementById('modalAddCustomDept');
+    const btnCloseAddCustomDept = document.getElementById('btnCloseAddCustomDept');
+    const btnCancelAddCustomDept = document.getElementById('btnCancelAddCustomDept');
+    const btnSubmitAddCustomDept = document.getElementById('btnSubmitAddCustomDept');
+    const inputCustomDeptName = document.getElementById('inputCustomDeptName');
+    const customDeptErrorMsg = document.getElementById('customDeptErrorMsg');
+
+    const modalAddCustomDesig = document.getElementById('modalAddCustomDesig');
+    const btnCloseAddCustomDesig = document.getElementById('btnCloseAddCustomDesig');
+    const btnCancelAddCustomDesig = document.getElementById('btnCancelAddCustomDesig');
+    const btnSubmitAddCustomDesig = document.getElementById('btnSubmitAddCustomDesig');
+    const inputCustomDesigName = document.getElementById('inputCustomDesigName');
+    const customDesigTargetDeptName = document.getElementById('customDesigTargetDeptName');
+    const customDesigTipDeptName = document.getElementById('customDesigTipDeptName');
+    const customDesigErrorMsg = document.getElementById('customDesigErrorMsg');
+
     let toastTimer = null;
 
     function showDeptRequiredToast() {
@@ -290,6 +307,144 @@ document.addEventListener('DOMContentLoaded', function () {
       if (triggerDept) triggerDept.classList.remove('is-open');
       if (panelDesig) panelDesig.classList.remove('show');
       if (triggerDesig) triggerDesig.classList.remove('is-open');
+    }
+
+    // Custom Master Modal Controllers
+    function openAddDeptModal(initialValue = '') {
+      closeAllPanels();
+      if (!modalAddCustomDept) return;
+      if (inputCustomDeptName) {
+        inputCustomDeptName.value = initialValue;
+        inputCustomDeptName.classList.remove('has-error');
+      }
+      if (customDeptErrorMsg) {
+        customDeptErrorMsg.style.display = 'none';
+        customDeptErrorMsg.textContent = '';
+      }
+      modalAddCustomDept.style.display = 'flex';
+      setTimeout(() => {
+        if (inputCustomDeptName) {
+          inputCustomDeptName.focus();
+          inputCustomDeptName.select();
+        }
+      }, 60);
+    }
+
+    function closeAddDeptModal() {
+      if (modalAddCustomDept) modalAddCustomDept.style.display = 'none';
+      if (inputCustomDeptName) inputCustomDeptName.classList.remove('has-error');
+      if (customDeptErrorMsg) customDeptErrorMsg.style.display = 'none';
+    }
+
+    async function handleAddDeptSubmit() {
+      if (!inputCustomDeptName) return;
+      const raw = inputCustomDeptName.value.trim();
+      if (!raw) {
+        inputCustomDeptName.classList.add('has-error');
+        if (customDeptErrorMsg) {
+          customDeptErrorMsg.textContent = 'Please enter a department name.';
+          customDeptErrorMsg.style.display = 'block';
+        }
+        inputCustomDeptName.focus();
+        return;
+      }
+
+      const existing = departments.find(d => d.trim().toLowerCase() === raw.toLowerCase());
+      const cleanName = existing || raw;
+
+      if (!existing) {
+        departments.push(cleanName);
+        mapping[cleanName] = mapping[cleanName] || [];
+      }
+      selectDepartment(cleanName);
+      closeAddDeptModal();
+
+      if (!existing) {
+        try {
+          await fetch('/api/departments-designations/department', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ department: cleanName })
+          });
+        } catch (err) {
+          console.error("Failed to sync custom department:", err);
+        }
+      }
+    }
+
+    function openAddDesigModal(initialValue = '') {
+      closeAllPanels();
+      const curDept = inDept ? inDept.value.trim() : '';
+      if (!curDept) {
+        showDeptRequiredToast();
+        return;
+      }
+      if (!modalAddCustomDesig) return;
+      if (customDesigTargetDeptName) customDesigTargetDeptName.textContent = curDept;
+      if (customDesigTipDeptName) customDesigTipDeptName.textContent = curDept;
+      if (inputCustomDesigName) {
+        inputCustomDesigName.value = initialValue;
+        inputCustomDesigName.classList.remove('has-error');
+      }
+      if (customDesigErrorMsg) {
+        customDesigErrorMsg.style.display = 'none';
+        customDesigErrorMsg.textContent = '';
+      }
+      modalAddCustomDesig.style.display = 'flex';
+      setTimeout(() => {
+        if (inputCustomDesigName) {
+          inputCustomDesigName.focus();
+          inputCustomDesigName.select();
+        }
+      }, 60);
+    }
+
+    function closeAddDesigModal() {
+      if (modalAddCustomDesig) modalAddCustomDesig.style.display = 'none';
+      if (inputCustomDesigName) inputCustomDesigName.classList.remove('has-error');
+      if (customDesigErrorMsg) customDesigErrorMsg.style.display = 'none';
+    }
+
+    async function handleAddDesigSubmit() {
+      const curDept = inDept ? inDept.value.trim() : '';
+      if (!curDept) {
+        closeAddDesigModal();
+        showDeptRequiredToast();
+        return;
+      }
+      if (!inputCustomDesigName) return;
+      const raw = inputCustomDesigName.value.trim();
+      if (!raw) {
+        inputCustomDesigName.classList.add('has-error');
+        if (customDesigErrorMsg) {
+          customDesigErrorMsg.textContent = 'Please enter a designation title.';
+          customDesigErrorMsg.style.display = 'block';
+        }
+        inputCustomDesigName.focus();
+        return;
+      }
+
+      mapping[curDept] = mapping[curDept] || [];
+      const existing = mapping[curDept].find(d => d.trim().toLowerCase() === raw.toLowerCase());
+      const cleanDesig = existing || raw;
+
+      if (!existing) {
+        mapping[curDept].push(cleanDesig);
+      }
+      selectDesignation(cleanDesig);
+      closeAddDesigModal();
+
+      if (!existing) {
+        try {
+          await fetch('/api/departments-designations/designation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ department: curDept, designation: cleanDesig })
+          });
+        } catch (err) {
+          console.error("Failed to sync custom designation:", err);
+        }
+      }
     }
 
     // Render Department Options List
@@ -401,6 +556,13 @@ document.addEventListener('DOMContentLoaded', function () {
           pill.addEventListener('click', () => selectDesignation(dg));
           pillsRowSmart.appendChild(pill);
         });
+
+        // Add quick "+ Add Designation" pill
+        const addPill = document.createElement('span');
+        addPill.className = 'smart-pill smart-pill-more';
+        addPill.innerHTML = '+ Add Designation';
+        addPill.addEventListener('click', () => openAddDesigModal(''));
+        pillsRowSmart.appendChild(addPill);
       }
     }
 
@@ -417,7 +579,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (triggerDesig) triggerDesig.classList.remove('is-disabled-look');
         const desigs = mapping[deptName] || [];
         if (helperDesig) {
-          helperDesig.textContent = `${desigs.length} related designations available · Add your own`;
+          helperDesig.innerHTML = `${desigs.length} related designations available · <span id="linkAddDesigHelper" style="color: #2563eb; font-weight: 600; cursor: pointer; text-decoration: underline;">Add your own</span>`;
+          const linkAddDesig = document.getElementById('linkAddDesigHelper');
+          if (linkAddDesig) {
+            linkAddDesig.addEventListener('click', (e) => {
+              e.preventDefault();
+              openAddDesigModal('');
+            });
+          }
         }
         if (headingDesig) {
           headingDesig.textContent = `DESIGNATIONS — ${deptName.toUpperCase()}`;
@@ -488,28 +657,36 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Quick Add Department in Dropdown Footer
     if (btnQuickAddDept) {
-      btnQuickAddDept.addEventListener('click', async (e) => {
+      btnQuickAddDept.addEventListener('click', (e) => {
         e.stopPropagation();
         const typed = (searchDept ? searchDept.value : '').trim();
-        const name = window.prompt("Enter new Department name:", typed);
-        if (!name || !name.trim()) return;
-        const cleanName = name.trim();
+        openAddDeptModal(typed);
+      });
+    }
 
-        if (!departments.includes(cleanName)) {
-          departments.push(cleanName);
-          mapping[cleanName] = mapping[cleanName] || [];
+    // Modal Add Department actions
+    if (btnCloseAddCustomDept) btnCloseAddCustomDept.addEventListener('click', closeAddDeptModal);
+    if (btnCancelAddCustomDept) btnCancelAddCustomDept.addEventListener('click', closeAddDeptModal);
+    if (btnSubmitAddCustomDept) btnSubmitAddCustomDept.addEventListener('click', handleAddDeptSubmit);
+    if (inputCustomDeptName) {
+      inputCustomDeptName.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleAddDeptSubmit();
         }
-        selectDepartment(cleanName);
+      });
+      inputCustomDeptName.addEventListener('input', () => {
+        inputCustomDeptName.classList.remove('has-error');
+        if (customDeptErrorMsg) customDeptErrorMsg.style.display = 'none';
+      });
+    }
 
-        try {
-          await fetch('/api/departments-designations/department', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ department: cleanName })
-          });
-        } catch (err) {
-          console.error("Failed to sync custom department:", err);
-        }
+    // Helper Link for Department
+    const linkAddDept = document.getElementById('linkAddDeptHelper');
+    if (linkAddDept) {
+      linkAddDept.addEventListener('click', (e) => {
+        e.preventDefault();
+        openAddDeptModal('');
       });
     }
 
@@ -551,7 +728,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Quick Add Designation in Dropdown Footer
     if (btnQuickAddDesig) {
-      btnQuickAddDesig.addEventListener('click', async (e) => {
+      btnQuickAddDesig.addEventListener('click', (e) => {
         e.stopPropagation();
         const curDept = inDept ? inDept.value.trim() : '';
         if (!curDept) {
@@ -559,27 +736,48 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         const typed = (searchDesig ? searchDesig.value : '').trim();
-        const name = window.prompt(`Enter new designation for "${curDept}":`, typed);
-        if (!name || !name.trim()) return;
-        const cleanDesig = name.trim();
-
-        mapping[curDept] = mapping[curDept] || [];
-        if (!mapping[curDept].includes(cleanDesig)) {
-          mapping[curDept].push(cleanDesig);
-        }
-        selectDesignation(cleanDesig);
-
-        try {
-          await fetch('/api/departments-designations/designation', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ department: curDept, designation: cleanDesig })
-          });
-        } catch (err) {
-          console.error("Failed to sync custom designation:", err);
-        }
+        openAddDesigModal(typed);
       });
     }
+
+    // Modal Add Designation actions
+    if (btnCloseAddCustomDesig) btnCloseAddCustomDesig.addEventListener('click', closeAddDesigModal);
+    if (btnCancelAddCustomDesig) btnCancelAddCustomDesig.addEventListener('click', closeAddDesigModal);
+    if (btnSubmitAddCustomDesig) btnSubmitAddCustomDesig.addEventListener('click', handleAddDesigSubmit);
+    if (inputCustomDesigName) {
+      inputCustomDesigName.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleAddDesigSubmit();
+        }
+      });
+      inputCustomDesigName.addEventListener('input', () => {
+        inputCustomDesigName.classList.remove('has-error');
+        if (customDesigErrorMsg) customDesigErrorMsg.style.display = 'none';
+      });
+    }
+
+    // Outside Click & Escape Dismiss for Custom Modals
+    if (modalAddCustomDept) {
+      modalAddCustomDept.addEventListener('click', (e) => {
+        if (e.target === modalAddCustomDept) closeAddDeptModal();
+      });
+    }
+    if (modalAddCustomDesig) {
+      modalAddCustomDesig.addEventListener('click', (e) => {
+        if (e.target === modalAddCustomDesig) closeAddDesigModal();
+      });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (modalAddCustomDept && modalAddCustomDept.style.display === 'flex') {
+          closeAddDeptModal();
+        }
+        if (modalAddCustomDesig && modalAddCustomDesig.style.display === 'flex') {
+          closeAddDesigModal();
+        }
+      }
+    });
 
     // Outside Click Dismiss
     document.addEventListener('click', (e) => {
