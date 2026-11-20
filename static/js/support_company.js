@@ -779,14 +779,15 @@
 
     const sideModules = [
       { name: 'Dashboard', icon: '📊' },
-      { name: 'Employee Details', icon: '👥', activeFor: 0 },
-      { name: 'Live Report', icon: '📡', activeFor: 1 },
-      { name: 'Attendance Report', icon: '📋', activeFor: 2 },
-      { name: 'Manual Entry', icon: '✏️', activeFor: 3 },
-      { name: 'Payment Entry', icon: '💳', activeFor: 4 },
-      { name: 'Payslip Preview', icon: '📄', activeFor: 5 },
-      { name: 'Salary Report', icon: '📈', activeFor: 6 },
-      { name: 'Company Profile', icon: '🏢', activeFor: 7 }
+      { name: 'Employee Details', icon: '👥' },
+      { name: 'Live Report', icon: '📡' },
+      { name: 'Attendance Report', icon: '📋' },
+      { name: 'Manual Entry', icon: '✏️', activeFor: 0 },
+      { name: 'Payment Entry', icon: '💳' },
+      { name: 'Payslip Preview', icon: '📄', activeFor: 1 },
+      { name: 'Salary Report', icon: '📈' },
+      { name: 'Company Profile', icon: '🏢', activeFor: 2 },
+      { name: 'Support & Help', icon: '🎧', activeFor: 3 }
     ];
 
     let sidebarItemsHtml = '';
@@ -803,137 +804,174 @@
     let moduleBodyHtml = '';
 
     if (idx === 0) {
+      // 1. Manual Entry Mockup
       moduleBodyHtml = `
         <div class="mockup-header-row">
           <div class="mockup-header-text">
-            <h4>Employee Details</h4>
-            <p>Manage your employees, add new employees, and update their information.</p>
+            <h4>Manual Entry &amp; Time Adjustments</h4>
+            <p>Add or deduct attendance hours, calculate pro-rated pay, and record audit remarks.</p>
           </div>
-          <button type="button" class="mockup-btn-primary">+ Add Employee</button>
+          <button type="button" class="mockup-btn-primary">+ Save Entry</button>
         </div>
-        <div class="mockup-filter-row">
-          <input type="text" class="mockup-search-input" placeholder="🔍 Search employees by name, ID..." readonly>
-          <select class="mockup-select"><option>All Departments</option></select>
-          <select class="mockup-select"><option>All Status</option></select>
-          <span style="font-size: 8px; color: #64748b; cursor: pointer;">🔄</span>
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+          <div>
+            <div style="font-size: 7px; font-weight: 700; color: #475569; margin-bottom: 2px;">SELECT EMPLOYEE</div>
+            <select class="mockup-select" style="width: 100%;"><option>Ghanshyam (CNC Operator)</option></select>
+          </div>
+          <div>
+            <div style="font-size: 7px; font-weight: 700; color: #475569; margin-bottom: 2px;">ENTRY TYPE</div>
+            <div style="display: flex; gap: 4px;">
+              <span style="background: #dbeafe; color: #1e40af; font-size: 7px; font-weight: 700; padding: 2px 6px; border-radius: 3px;">+ Add Hours</span>
+              <span style="background: #f1f5f9; color: #64748b; font-size: 7px; font-weight: 600; padding: 2px 6px; border-radius: 3px;">- Deduct</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size: 7px; font-weight: 700; color: #475569; margin-bottom: 2px;">HOURS &amp; RATE</div>
+            <div style="font-size: 8px; font-weight: 800; color: #16a34a;">08:00 hrs • ₹ 650.00</div>
+          </div>
         </div>
         <div class="mockup-table-box">
           <table class="mockup-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>Employee ID</th>
-                <th>Employee Name</th>
-                <th>Designation</th>
-                <th>Department</th>
-                <th>Phone Number</th>
-                <th>Join Date</th>
+                <th>Date</th>
+                <th>Employee</th>
+                <th>Type</th>
+                <th>Hours</th>
+                <th>Rate / Impact</th>
+                <th>Reason / Remarks</th>
                 <th>Status</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>1</td>
-                <td style="font-weight: 700; color: #0284c7;">EMP001</td>
-                <td style="font-weight: 600;">John Smith</td>
-                <td>Manager</td>
-                <td>Administration</td>
-                <td>9876543210</td>
-                <td>12/01/2023</td>
-                <td><span class="mockup-pill-green">Active</span></td>
-                <td>✏️ 👁️</td>
-              </tr>
-              <tr>
-                <td>2</td>
-                <td style="font-weight: 700; color: #0284c7;">EMP002</td>
-                <td style="font-weight: 600;">Sarah Johnson</td>
-                <td>HR Executive</td>
-                <td>Human Resources</td>
-                <td>9876543211</td>
-                <td>15/02/2023</td>
-                <td><span class="mockup-pill-green">Active</span></td>
-                <td>✏️ 👁️</td>
-              </tr>
-              <tr>
-                <td>3</td>
-                <td style="font-weight: 700; color: #0284c7;">EMP003</td>
-                <td style="font-weight: 600;">Michael Brown</td>
-                <td>Software Engineer</td>
-                <td>IT</td>
-                <td>9876543212</td>
-                <td>10/03/2023</td>
-                <td><span class="mockup-pill-green">Active</span></td>
-                <td>✏️ 👁️</td>
+                <td style="font-weight: 700;">20/11/2026</td>
+                <td style="font-weight: 600;">Ghanshyam</td>
+                <td><span class="mockup-pill-green">+ Add</span></td>
+                <td style="font-weight: 700;">08:00</td>
+                <td style="color: #16a34a; font-weight: 700;">+₹650.00</td>
+                <td>On-site client installation visit</td>
+                <td><span class="mockup-pill-green">Approved</span></td>
               </tr>
             </tbody>
           </table>
         </div>
       `;
     } else if (idx === 1) {
+      // 2. Payslip Preview Mockup
       moduleBodyHtml = `
         <div class="mockup-header-row">
           <div class="mockup-header-text">
-            <h4>Live Report &amp; Face Recognition Monitor</h4>
-            <p>Real-time employee attendance feed with biometric validation.</p>
+            <h4>Payslip Preview &amp; Professional Statement</h4>
+            <p>Dynamic payroll statement generator with 8 executive PDF templates.</p>
           </div>
-          <span style="font-size: 7.5px; background: #dcfce7; color: #16a34a; font-weight: 700; padding: 2px 6px; border-radius: 4px;">● Live Feed Active</span>
+          <div style="display: flex; gap: 4px;">
+            <span style="font-size: 7px; background: #eff6ff; color: #1d4ed8; font-weight: 700; padding: 2px 5px; border-radius: 4px; border: 1px solid #bfdbfe;">Template 1: Modern Executive</span>
+            <button type="button" class="mockup-btn-primary">📄 Export PDF</button>
+          </div>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
-          <div style="background: #ffffff; padding: 4px 6px; border-radius: 3px; border: 1px solid #e2e8f0;">
-            <div style="font-size: 7px; color: #64748b;">Total Staff</div>
-            <div style="font-size: 11px; font-weight: 800; color: #0f172a;">42</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 5px 7px;">
+            <div style="font-size: 6.5px; font-weight: 800; color: #166534; border-bottom: 1px solid #dcfce7; padding-bottom: 2px; margin-bottom: 3px;">EARNINGS BREAKDOWN</div>
+            <div style="display: flex; justify-content: space-between; font-size: 7px; padding: 1px 0;"><span>Basic Salary:</span><b>₹ 18,200.00</b></div>
+            <div style="display: flex; justify-content: space-between; font-size: 7px; padding: 1px 0;"><span>Overtime (04:30 hrs):</span><b style="color: #1e40af;">+₹ 1,125.00</b></div>
+            <div style="display: flex; justify-content: space-between; font-size: 7px; padding: 1px 0;"><span>Allowances:</span><b>+₹ 1,000.00</b></div>
           </div>
-          <div style="background: #ffffff; padding: 4px 6px; border-radius: 3px; border: 1px solid #e2e8f0;">
-            <div style="font-size: 7px; color: #64748b;">Present Today</div>
-            <div style="font-size: 11px; font-weight: 800; color: #16a34a;">38</div>
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 5px 7px;">
+            <div style="font-size: 6.5px; font-weight: 800; color: #991b1b; border-bottom: 1px solid #fee2e2; padding-bottom: 2px; margin-bottom: 3px;">DEDUCTIONS &amp; ADVANCES</div>
+            <div style="display: flex; justify-content: space-between; font-size: 7px; padding: 1px 0;"><span>Advance Repayment:</span><b style="color: #dc2626;">-₹ 2,000.00</b></div>
+            <div style="display: flex; justify-content: space-between; font-size: 7px; padding: 1px 0;"><span>LOP Leaves:</span><b>₹ 0.00</b></div>
+            <div style="display: flex; justify-content: space-between; font-size: 7px; padding: 1px 0;"><span>Other Deductions:</span><b>₹ 0.00</b></div>
           </div>
-          <div style="background: #ffffff; padding: 4px 6px; border-radius: 3px; border: 1px solid #e2e8f0;">
-            <div style="font-size: 7px; color: #64748b;">Late Entries</div>
-            <div style="font-size: 11px; font-weight: 800; color: #d97706;">3</div>
+        </div>
+        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; padding: 5px 8px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 6.5px; font-weight: 800; color: #1e40af;">NET PAYABLE SALARY</div>
+            <div style="font-size: 6px; color: #64748b;">Nineteen Thousand Three Hundred Twenty Five Rupees Only</div>
           </div>
-          <div style="background: #ffffff; padding: 4px 6px; border-radius: 3px; border: 1px solid #e2e8f0;">
-            <div style="font-size: 7px; color: #64748b;">On Leave</div>
-            <div style="font-size: 11px; font-weight: 800; color: #0284c7;">1</div>
+          <div style="font-size: 11px; font-weight: 900; color: #1e3a8a;">₹ 18,325.00</div>
+        </div>
+      `;
+    } else if (idx === 2) {
+      // 3. Company Profile Mockup
+      moduleBodyHtml = `
+        <div class="mockup-header-row">
+          <div class="mockup-header-text">
+            <h4>Company Profile &amp; Location Geofencing</h4>
+            <p>Office GPS coordinates, geofence radius, shift policies, and branding.</p>
+          </div>
+          <button type="button" class="mockup-btn-primary">💾 Save Settings</button>
+        </div>
+        <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 6px;">
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 8px;">
+            <div style="font-size: 7px; font-weight: 800; color: #0284c7; margin-bottom: 3px;">OFFICE GEOFENCE RADAR</div>
+            <div style="display: flex; gap: 4px; font-size: 7px; margin-bottom: 3px;">
+              <span>Lat: <b>11.029800</b></span>
+              <span>Lng: <b>76.974000</b></span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px; font-size: 7px;">
+              <span>Radius:</span>
+              <span style="background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-weight: 700;">200 Meters</span>
+              <span style="color: #16a34a; font-weight: 700;">● Geofence Active</span>
+            </div>
+          </div>
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 8px;">
+            <div style="font-size: 7px; font-weight: 800; color: #475569; margin-bottom: 3px;">SHIFT TIMINGS</div>
+            <div style="font-size: 7px; padding: 1px 0;">Shift Hours: <b>08:30 AM - 05:30 PM</b></div>
+            <div style="font-size: 7px; padding: 1px 0;">Auto-Checkout: <b>08:00 PM (Active)</b></div>
+            <div style="font-size: 7px; padding: 1px 0;">Daily Reports: <b style="color: #16a34a;">07:00 AM (Email)</b></div>
+          </div>
+        </div>
+      `;
+    } else {
+      // 4. Support & Help Mockup
+      moduleBodyHtml = `
+        <div class="mockup-header-row">
+          <div class="mockup-header-text">
+            <h4>Help &amp; Support Ticket System</h4>
+            <p>Direct communication hub, priority tickets, and system documentation.</p>
+          </div>
+          <button type="button" class="mockup-btn-primary">+ Raise New Ticket</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 6px;">
+          <div style="background: #eff6ff; padding: 3px 5px; border-radius: 3px; border: 1px solid #bfdbfe;">
+            <div style="font-size: 6px; color: #1e40af;">All Tickets</div>
+            <div style="font-size: 9px; font-weight: 800; color: #1e3a8a;">12</div>
+          </div>
+          <div style="background: #fef2f2; padding: 3px 5px; border-radius: 3px; border: 1px solid #fecaca;">
+            <div style="font-size: 6px; color: #991b1b;">Open</div>
+            <div style="font-size: 9px; font-weight: 800; color: #dc2626;">1</div>
+          </div>
+          <div style="background: #fffbeb; padding: 3px 5px; border-radius: 3px; border: 1px solid #fde68a;">
+            <div style="font-size: 6px; color: #92400e;">In Progress</div>
+            <div style="font-size: 9px; font-weight: 800; color: #d97706;">2</div>
+          </div>
+          <div style="background: #f0fdf4; padding: 3px 5px; border-radius: 3px; border: 1px solid #bbf7d0;">
+            <div style="font-size: 6px; color: #166534;">Resolved</div>
+            <div style="font-size: 9px; font-weight: 800; color: #16a34a;">9</div>
           </div>
         </div>
         <div class="mockup-table-box">
           <table class="mockup-table">
             <thead>
               <tr>
-                <th>Punch Time</th>
-                <th>Employee Name</th>
-                <th>Department</th>
+                <th>Ticket ID</th>
+                <th>Subject</th>
+                <th>Priority</th>
                 <th>Status</th>
-                <th>Device</th>
-                <th>Match</th>
+                <th>Date</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td style="font-weight: 700;">09:02:14 AM</td>
-                <td style="font-weight: 600;">John Smith</td>
-                <td>Admin</td>
-                <td><span class="mockup-pill-green">PUNCH IN</span></td>
-                <td>Gate Cam 01</td>
-                <td style="color: #16a34a; font-weight: 700;">99.4%</td>
+                <td style="font-weight: 700; color: #0284c7;">SUP-000101</td>
+                <td>Branch camera geofence calibration request</td>
+                <td><span style="background: #fef3c7; color: #92400e; font-size: 6.5px; font-weight: 700; padding: 1px 4px; border-radius: 2px;">Medium</span></td>
+                <td><span class="mockup-pill-green">Open</span></td>
+                <td>Today</td>
               </tr>
             </tbody>
           </table>
-        </div>
-      `;
-    } else {
-      moduleBodyHtml = `
-        <div class="mockup-header-row">
-          <div class="mockup-header-text">
-            <h4>Attendance Operations &amp; Intelligence</h4>
-            <p>Comprehensive attendance reports, shifts, payroll calculations and company policies.</p>
-          </div>
-          <button type="button" class="mockup-btn-primary">📊 View Reports</button>
-        </div>
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px; font-size: 8px;">
-          <div style="font-weight: 700; color: #0284c7; margin-bottom: 4px;">Argus Attendance Intelligence Platform</div>
-          <p style="color: #475569; margin: 0;">Automated AI gate camera attendance, monthly payroll salary generation, leave policies, and system administration.</p>
         </div>
       `;
     }

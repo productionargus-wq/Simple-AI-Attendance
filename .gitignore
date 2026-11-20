@@ -21,5 +21,6 @@ build/
 *.aab
 *.zip
 *.mp4
+!static/videos/*.mp4
 static/cache/
 

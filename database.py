@@ -9499,147 +9499,85 @@ def edit_employee_leave_request(request_id, emp_id, updated_fields):
 DEFAULT_DEMO_VIDEOS = [
     {
         'chapter': 1,
-        'title': '1. Employee Details',
-        'duration': '08:24',
-        'duration_seconds': 504,
-        'subtitle': 'Learn how to add, edit and manage employee records.',
-        'description': 'In this video, you will learn how to manage employee details in Argus Attendance Intelligence. This includes adding new employees, editing existing records, setting designations, updating phone numbers, activating or deactivating employees, and more.',
+        'title': '1. Manual Entry',
+        'duration': '01:18',
+        'duration_seconds': 78,
+        'subtitle': 'Learn how to add, adjust, and audit manual attendance records.',
+        'description': 'In this video, you will learn how to create and manage manual attendance entries in Argus Attendance Intelligence. This includes recording forgotten punches, adjusting on-duty hours, calculating pro-rated salary, providing mandatory audit remarks, and reviewing past manual entries.',
         'what_you_will_learn': [
-            'Add a new employee',
-            'Edit employee details',
-            'Set designation and department',
-            'Update phone number and join date',
-            'Activate or deactivate employee',
-            'Manage employee records efficiently'
+            'Create manual check-in and check-out records',
+            'Select entry mode: Add Hours or Deduct Hours',
+            'Auto-calculate pro-rated daily or hourly salary impact',
+            'Provide mandatory audit reasons and management remarks',
+            'Filter, search, and audit past manual attendance submissions'
         ],
-        'video_url': '/static/videos/demo_employee_details.mp4',
-        'poster_url': '/static/images/demo_thumb_1.jpg'
+        'video_url': '/static/videos/Manual_Entry.mp4',
+        'poster_url': '/static/images/argus_icon.png'
     },
     {
         'chapter': 2,
-        'title': '2. Live Report',
-        'duration': '06:15',
-        'duration_seconds': 375,
-        'subtitle': 'View and understand live attendance data.',
-        'description': 'In this video, you will learn how to monitor real-time facial check-ins, detect improper geofence punches, verify on-duty staffing levels, and review live entry and exit records as they happen throughout the work shift.',
+        'title': '2. Payslip Preview',
+        'duration': '01:20',
+        'duration_seconds': 81,
+        'subtitle': 'Preview, customize, and export professional employee payslips.',
+        'description': 'A complete walkthrough of the payslip preview engine. Learn how working days, overtime, allowances, advance loan deductions, and net pay are dynamically calculated, previewed across 8 professional templates, and exported to PDF.',
         'what_you_will_learn': [
-            'Monitor live attendance feeds in real time',
-            'Filter attendance by department and shifts',
-            'Detect and audit improper or remote location punches',
-            'Verify check-in timestamps and facial match logs',
-            'Track on-duty staffing numbers across branches'
+            'Preview dynamic employee payslips in real time',
+            'Switch across 8 executive payslip PDF templates and themes',
+            'Inspect full earnings: basic pay, overtime, and allowances',
+            'Verify automated deductions: advance repayments and unpaid leaves',
+            'Preview and export pixel-perfect weekly and monthly payslips'
         ],
-        'video_url': '/static/videos/demo_live_report.mp4',
-        'poster_url': '/static/images/demo_thumb_2.jpg'
+        'video_url': '/static/videos/Payslip_Preview.mp4',
+        'poster_url': '/static/images/argus_icon.png'
     },
     {
         'chapter': 3,
-        'title': '3. Attendance Report',
-        'duration': '07:30',
-        'duration_seconds': 450,
-        'subtitle': 'Generate and export attendance reports.',
-        'description': 'Master the comprehensive attendance reporting suite. Learn how to filter punch histories by custom date ranges, audit daily presence vs absences, review shift variances, and export reports in PDF and Excel formats.',
+        'title': '3. Company Profile',
+        'duration': '01:16',
+        'duration_seconds': 77,
+        'subtitle': 'Configure corporate profile, GPS geofencing, and policies.',
+        'description': 'Configure company profile essentials: upload corporate branding logo, setup GPS office geofence coordinates and radius, define official work shifts and checkout limits, and configure automated report emails.',
         'what_you_will_learn': [
-            'Generate custom date range attendance reports',
-            'Analyze punch variance, late arrivals, and early departures',
-            'Audit working hours and shift compliance',
-            'Export formatted attendance registers to Excel and PDF',
-            'Review organization-wide attendance trends'
+            'Upload and manage official company branding and logo',
+            'Configure GPS office geofencing coordinates and radius',
+            'Setup shift timings, automatic checkout limits, and company status',
+            'Manage corporate email, phone, and GSTIN registration',
+            'Configure automated daily and monthly email reporting policies'
         ],
-        'video_url': '/static/videos/demo_attendance_report.mp4',
-        'poster_url': '/static/images/demo_thumb_3.jpg'
+        'video_url': '/static/videos/Company_Profile.mp4',
+        'poster_url': '/static/images/argus_icon.png'
     },
     {
         'chapter': 4,
-        'title': '4. Manual Entry',
-        'duration': '05:48',
-        'duration_seconds': 348,
-        'subtitle': 'Add or update attendance manually.',
-        'description': 'Discover when and how to record manual attendance entries for forgotten punches, off-site client visits, hardware maintenance, or special time adjustments while maintaining audit integrity and manager accountability.',
+        'title': '4. Support & Help',
+        'duration': '01:30',
+        'duration_seconds': 91,
+        'subtitle': 'Raise support tickets, track resolutions, and watch tutorials.',
+        'description': 'Master the complete Support & Help center. Learn how to raise priority support tickets with file attachments, track ticket resolution status, communicate via real-time discussion threads with system admins, and access official video tutorials.',
         'what_you_will_learn': [
-            'Create manual check-in and check-out records',
-            'Configure Add or Deduct entry types',
-            'Calculate manual working hours and pro-rated salary',
-            'Provide mandatory audit reasons and remarks',
-            'Track and audit all manual entry submissions'
+            'Raise new support tickets with subjects and detailed descriptions',
+            'Attach documents, screenshots, and logs to tickets',
+            'Track live ticket status: Open, In Progress, Resolved, Closed',
+            'Exchange messages and updates in interactive discussion threads',
+            'Access on-demand feature tutorial videos and learning resources'
         ],
-        'video_url': '/static/videos/demo_manual_entry.mp4',
-        'poster_url': '/static/images/demo_thumb_4.jpg'
-    },
-    {
-        'chapter': 5,
-        'title': '5. Payment Entry',
-        'duration': '08:10',
-        'duration_seconds': 490,
-        'subtitle': 'Record and manage payment entries.',
-        'description': 'Understand how to record employee salary advances, manage emergency loans, log installment repayments, and maintain real-time employee advance balance tracking integrated with monthly payroll.',
-        'what_you_will_learn': [
-            'Record salary advance disbursements',
-            'Log repayment installments and adjustments',
-            'Track live outstanding advance balances per employee',
-            'Verify automatic payslip deduction linking',
-            'Download transaction receipts and payment histories'
-        ],
-        'video_url': '/static/videos/demo_payment_entry.mp4',
-        'poster_url': '/static/images/demo_thumb_5.jpg'
-    },
-    {
-        'chapter': 6,
-        'title': '6. Payslip Preview',
-        'duration': '06:52',
-        'duration_seconds': 412,
-        'subtitle': 'View and preview employee payslips.',
-        'description': 'A complete walkthrough of the payslip preview engine. Learn how working days, paid leaves, statutory deductions, incentives, advance repayments, and net pay are calculated and previewed before final payroll closure.',
-        'what_you_will_learn': [
-            'Preview individual monthly payslips',
-            'Inspect earnings breakdown: basic, allowances, incentives',
-            'Verify advance deduction and leave deductions',
-            'Review net pay calculations and numbers in words',
-            'Generate and download pixel-perfect payslip PDFs'
-        ],
-        'video_url': '/static/videos/demo_payslip_preview.mp4',
-        'poster_url': '/static/images/demo_thumb_6.jpg'
-    },
-    {
-        'chapter': 7,
-        'title': '7. Salary Report',
-        'duration': '07:18',
-        'duration_seconds': 438,
-        'subtitle': 'Generate salary reports for your organization.',
-        'description': 'Learn how to generate organization-wide monthly payroll summaries, audit departmental wage expenditures, review bank payment sheets, and lock finalized payroll batches for executive sign-off.',
-        'what_you_will_learn': [
-            'Compile organization-wide monthly payroll sheets',
-            'Review total payouts, deductions, and advance summaries',
-            'Filter payroll reports by department and designation',
-            'Export comprehensive payroll sheets to Excel and PDF',
-            'Finalize and lock monthly payroll reports'
-        ],
-        'video_url': '/static/videos/demo_salary_report.mp4',
-        'poster_url': '/static/images/demo_thumb_7.jpg'
-    },
-    {
-        'chapter': 8,
-        'title': '8. Company Profile',
-        'duration': '04:36',
-        'duration_seconds': 276,
-        'subtitle': 'Manage your company information and settings.',
-        'description': 'Configure company profile essentials: upload company branding logo, setup GPS office geofence coordinates and radius, define official work shifts and grace limits, and configure automated report emails.',
-        'what_you_will_learn': [
-            'Upload and update company logo branding',
-            'Configure office GPS geofence latitude, longitude, and radius',
-            'Setup standard work shifts and grace periods',
-            'Manage contact credentials and company GST details',
-            'Enable or customize automated daily and monthly report emails'
-        ],
-        'video_url': '/static/videos/demo_company_profile.mp4',
-        'poster_url': '/static/images/demo_thumb_8.jpg'
+        'video_url': '/static/videos/Support_&_Help.mp4',
+        'poster_url': '/static/images/argus_icon.png'
     }
 ]
 
-def seed_demo_videos_if_needed():
-    """Seeds the 8 demo video chapters into db.demo_videos if empty."""
+def seed_demo_videos_if_needed(force=False):
+    """Seeds the 4 active demo video chapters into db.demo_videos if empty or outdated."""
     db = get_db()
-    if db.demo_videos.count_documents({}) == 0:
+    needs_refresh = force or (db.demo_videos.count_documents({}) != len(DEFAULT_DEMO_VIDEOS))
+    if not needs_refresh:
+        has_old = db.demo_videos.find_one({'video_url': {'$regex': r'/static/videos/demo_'}})
+        if has_old:
+            needs_refresh = True
+
+    if needs_refresh:
+        db.demo_videos.delete_many({})
         for v in DEFAULT_DEMO_VIDEOS:
             doc = dict(v)
             doc['created_at'] = get_ist_now().isoformat()
