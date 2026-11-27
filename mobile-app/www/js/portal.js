@@ -250,6 +250,10 @@
         credBadge.textContent = emp.has_password ? '✓ Password Configured' : 'Not Set';
         credBadge.style.color = emp.has_password ? '#16a34a' : '#b45309';
       }
+      var curPwdGrp = document.getElementById('employeeCurrentPasswordGroup');
+      if (curPwdGrp) {
+        curPwdGrp.style.display = emp.has_password ? '' : 'none';
+      }
 
       if (pHist) this.loadAttendanceHistory();
       if (pLeave) {
@@ -589,12 +593,20 @@
 
     async submitCredentials(e) {
       e.preventDefault();
+      var curInp = document.getElementById('employeeCurrentPassword');
+      var curGrp = document.getElementById('employeeCurrentPasswordGroup');
       var pwdInp = document.getElementById('employeeNewPassword');
       var alertEl = document.getElementById('credentialsAlert');
       var btn = document.getElementById('btnSaveCredentials');
+      var curPwd = (curInp && curInp.value || '').trim();
       var pwd = (pwdInp && pwdInp.value || '').trim();
-      if (!pwd) {
-        if (alertEl) { alertEl.className = 'alert-banner error'; alertEl.textContent = 'Please enter a password.'; }
+      var needsCurrent = curGrp && curGrp.style.display !== 'none';
+      if (needsCurrent && !curPwd) {
+        if (alertEl) { alertEl.className = 'alert-banner error'; alertEl.textContent = 'Please enter your current password.'; }
+        return;
+      }
+      if (!pwd || pwd.length < 8) {
+        if (alertEl) { alertEl.className = 'alert-banner error'; alertEl.textContent = 'Password must be at least 8 characters long.'; }
         return;
       }
       if (btn) btn.disabled = true;
@@ -602,11 +614,14 @@
         var res = await window.ArgusConfig.apiFetch('/api/mobile/employee/credentials', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ new_password: pwd })
+          body: JSON.stringify({ current_password: curPwd, new_password: pwd })
         });
         var data = await res.json();
         if (data.success) {
           if (alertEl) { alertEl.className = 'alert-banner success'; alertEl.textContent = data.message || 'Password updated!'; }
+          if (curInp) curInp.value = '';
+          if (pwdInp) pwdInp.value = '';
+          if (curGrp) curGrp.style.display = '';
           var badge = document.getElementById('empPassStatusBadge');
           if (badge) { badge.textContent = '✓ Password Configured'; badge.style.color = '#16a34a'; }
         } else {

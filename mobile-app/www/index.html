@@ -219,7 +219,6 @@
           <span>🌐</span>
           <span class="lang-label">தமிழ்</span>
         </button>
-        <button type="button" class="portal-btn-nav" id="btnPortalToKiosk">Kiosk</button>
         <button type="button" class="portal-btn-nav" id="btnPortalLogout" style="background:rgba(220,38,38,0.28);border-color:rgba(254,202,202,0.5);">Logout</button>
         <img id="portalCompanyLogoImg" src="images/default_profile.svg" alt="Company" style="width:28px;height:28px;border-radius:50%;background:#fff;object-fit:cover;border:1.5px solid #fff;">
       </div>
@@ -435,9 +434,15 @@
         </div>
         <div id="credentialsAlert" class="alert-banner"></div>
         <form id="employeeCredentialsForm" style="max-width:460px;">
-          <label class="form-label-sm" for="employeeNewPassword">New / Updated Password</label>
+          <div id="employeeCurrentPasswordGroup" style="display:none;margin-bottom:10px;">
+            <label class="form-label-sm" for="employeeCurrentPassword">Current Password</label>
+            <div class="input-field-group">
+              <input type="password" id="employeeCurrentPassword" placeholder="Enter current password" autocomplete="current-password" style="padding-left:12px;">
+            </div>
+          </div>
+          <label class="form-label-sm" for="employeeNewPassword">New / Updated Password (min 8 chars)</label>
           <div class="input-field-group" style="margin-bottom:10px;">
-            <input type="password" id="employeeNewPassword" placeholder="Enter new password" style="padding-left:12px;">
+            <input type="password" id="employeeNewPassword" minlength="8" placeholder="Enter new password (min 8 characters)" autocomplete="new-password" style="padding-left:12px;">
             <button type="button" class="btn-toggle-eye" id="toggleEmpPassBtn">👁</button>
           </div>
           <button type="submit" id="btnSaveCredentials" class="btn-portal-primary" style="background:#1b4975;padding:9px 16px;">Save Password</button>

@@ -275,7 +275,7 @@ class PersistentSessionInterface(SecureCookieSessionInterface):
             return
 
         is_auth = bool(session.get('admin_logged_in') or session.get('employee_logged_in') or session.permanent)
-        expires = (datetime.now(timezone.utc) + timedelta(days=365)) if is_auth else self.get_expiration_time(app, session)
+        expires = (datetime.now(timezone.utc) + app.permanent_session_lifetime) if is_auth else self.get_expiration_time(app, session)
         max_age = int(app.permanent_session_lifetime.total_seconds()) if is_auth else None
         val = self.get_signing_serializer(app).dumps(dict(session))
 
@@ -346,9 +346,9 @@ _allowed_origins = [
     "https://localhost",
     "http://localhost",
     "capacitor://localhost",
-    "http://localhost:5000",
-    "http://127.0.0.1:5000"
 ]
+if is_desktop_mode() or os.environ.get('FLASK_ENV') == 'development' or os.environ.get('ALLOW_DEV_CORS') == '1':
+    _allowed_origins.extend(["http://localhost:5000", "http://127.0.0.1:5000"])
 _render_url = (os.environ.get('RENDER_EXTERNAL_URL') or '').strip().rstrip('/')
 if _render_url and _render_url not in _allowed_origins:
     _allowed_origins.append(_render_url)
@@ -886,12 +886,21 @@ def mobile_bearer_employee_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def _is_safe_subpath(base_dir, target_path):
+    """Returns True only when target_path resolves strictly inside base_dir."""
+    try:
+        base_real = os.path.realpath(base_dir)
+        target_real = os.path.realpath(target_path)
+        return os.path.commonpath([base_real, target_real]) == base_real and target_real != base_real
+    except (ValueError, TypeError):
+        return False
+
 @app.route('/uploads/employee_documents/<path:filename>')
 @login_required
 def uploaded_employee_document(filename):
     safe_name = os.path.basename(filename)
     full_path = os.path.realpath(os.path.join(DOCUMENTS_FOLDER, safe_name))
-    if not full_path.startswith(os.path.realpath(DOCUMENTS_FOLDER)):
+    if not _is_safe_subpath(DOCUMENTS_FOLDER, full_path):
         return jsonify({'error': 'Forbidden'}), 403
     if session.get('role') != 'super_admin':
         comp_id = str(get_current_company_id() or '')
@@ -1163,6 +1172,20 @@ def add_performance_headers(response):
     response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
     response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
     response.headers.setdefault('Permissions-Policy', 'camera=self, microphone=self, geolocation=self')
+    response.headers.setdefault(
+        'Content-Security-Policy',
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' data: https://fonts.gstatic.com; "
+        "img-src 'self' data: blob: https://*.tile.openstreetmap.org; "
+        "media-src 'self' data: blob:; "
+        "connect-src 'self' https://ipwho.is https://cdn.jsdelivr.net; "
+        "worker-src 'self' blob:; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'self'"
+    )
     if not is_desktop_mode():
         response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
 
@@ -1867,7 +1890,15 @@ def google_callback():
                 })
                 if not m_token:
                     return render_oauth_error("Unable to create mobile session. Please try again.")
-                dl_ok = 'com.argus.attendance://auth/callback?token=' + urllib.parse.quote(m_token)
+                one_time_code = secrets.token_urlsafe(32)
+                _save_desktop_auth_session(f"mc_{one_time_code}", {
+                    'status': 'ready',
+                    'mode': 'mobile_code',
+                    'token': m_token,
+                    'employee_id': str(employee.get('id', employee.get('_id', ''))),
+                    'created_at': time.time()
+                })
+                dl_ok = 'com.argus.attendance://auth/callback?code=' + urllib.parse.quote(one_time_code)
                 return redirect(dl_ok, code=302)
             return _do_employee_login(employee)
 
@@ -1896,6 +1927,7 @@ def google_callback():
     return redirect(url_for('login'))
 
 @app.route('/auth/google/desktop-check')
+@limiter.limit("60/minute")
 def google_desktop_check():
     """Polls status of a pending desktop OAuth session."""
     auth_id = request.args.get('auth_id', '').strip()
@@ -1914,6 +1946,7 @@ def google_desktop_check():
     })
 
 @app.route('/auth/google/desktop-claim')
+@limiter.limit("15/minute")
 def google_desktop_claim():
     """Finalizes session in the desktop app window once external browser auth succeeds."""
     auth_id = request.args.get('auth_id', '').strip()
@@ -2103,6 +2136,7 @@ def logout():
 
 @app.route('/api/auth/restore-session', methods=['POST'])
 @csrf.exempt
+@limiter.limit("30/minute")
 def api_restore_session():
     """Client-side fallback: Re-hydrates an authenticated session from localStorage remember token."""
     data = request.get_json(silent=True) or {}
@@ -2154,14 +2188,15 @@ def api_restore_session():
         target = url_for('dashboard')
 
     resp = jsonify({'success': True, 'role': role, 'redirect': target, 'redirect_url': target})
-    exp = datetime.now(timezone.utc) + timedelta(days=365)
+    exp = datetime.now(timezone.utc) + timedelta(days=30)
     resp.set_cookie(
         'argus_remember_token',
         token,
-        max_age=31536000,
+        max_age=2592000,
         expires=exp,
         path='/',
-        httponly=False,
+        httponly=True,
+        secure=not is_desktop_mode(),
         samesite='Lax'
     )
     return resp
@@ -3078,6 +3113,7 @@ def api_employee_my_payslip():
 
 @app.route('/api/employee/credentials', methods=['POST'])
 @employee_required
+@limiter.limit("10/minute")
 def api_employee_set_credentials():
     """Allows authenticated employee to create or update their portal password."""
     emp_id = session.get('employee_id')
@@ -3090,7 +3126,15 @@ def api_employee_set_credentials():
     new_password = str(raw_pwd).strip()
     if not new_password:
         return jsonify({'success': False, 'error': 'Please enter a password.'}), 400
-    
+    if len(new_password) < 8:
+        return jsonify({'success': False, 'error': 'Password must be at least 8 characters long.'}), 400
+
+    existing_stored = (curr_emp.get('password') or curr_emp.get('password_hash')) if curr_emp else None
+    if existing_stored:
+        current_pwd = str(data.get('current_password') or '').strip()
+        if not current_pwd or not database.verify_user_password(existing_stored, current_pwd):
+            return jsonify({'success': False, 'error': 'Please enter your valid current password to change it.'}), 403
+
     success = database.set_employee_password(emp_id, new_password, company_id=session.get('company_id'))
     if success:
         return jsonify({
@@ -3178,8 +3222,38 @@ def api_mobile_employee_login():
     return jsonify({'success': False, 'error': err_code, 'message': msg}), status_code
 
 
+@app.route('/api/mobile/auth/exchange-code', methods=['POST'])
+@csrf.exempt
+@limiter.limit("15/minute")
+def api_mobile_exchange_code():
+    """Exchanges a short-lived one-time mobile OAuth deep-link code for a Bearer session token."""
+    data = request.get_json(silent=True) or {}
+    code = (data.get('code') or '').strip()
+    if not code:
+        return jsonify({'success': False, 'error': 'CODE_REQUIRED', 'message': 'Missing authorization code.'}), 400
+    cleanup_desktop_auth_sessions()
+    sess = _pop_desktop_auth_session(f"mc_{code}")
+    if not sess or sess.get('mode') != 'mobile_code' or sess.get('status') != 'ready':
+        return jsonify({'success': False, 'error': 'INVALID_CODE', 'message': 'Authorization code is invalid or expired.'}), 401
+    if time.time() - float(sess.get('created_at', 0)) > 120:
+        return jsonify({'success': False, 'error': 'EXPIRED_CODE', 'message': 'Authorization code expired. Please sign in again.'}), 401
+    token = (sess.get('token') or '').strip()
+    _, emp_doc, err_resp = _resolve_mobile_employee_from_token(token)
+    if err_resp:
+        return err_resp
+    safe_emp, safe_comp = _build_mobile_employee_payload(emp_doc)
+    return jsonify({
+        'success': True,
+        'token': token,
+        'role': 'employee',
+        'employee': safe_emp,
+        'company': safe_comp
+    })
+
+
 @app.route('/api/mobile/auth/restore-session', methods=['GET', 'POST'])
 @csrf.exempt
+@limiter.limit("30/minute")
 def api_mobile_restore_session():
     """Restores and verifies a mobile employee session strictly for role == 'employee'."""
     data = request.get_json(silent=True) or {}
@@ -3297,7 +3371,7 @@ def serve_leave_attachment(filename):
         return jsonify({'error': 'Authentication required'}), 401
     safe_name = os.path.basename(filename)
     full_path = os.path.realpath(os.path.join(LEAVES_FOLDER, safe_name))
-    if not full_path.startswith(os.path.realpath(LEAVES_FOLDER)):
+    if not _is_safe_subpath(LEAVES_FOLDER, full_path):
         return jsonify({'error': 'Forbidden'}), 403
     if session.get('role') != 'super_admin':
         q = {'attachments.filename': safe_name}
@@ -4384,7 +4458,7 @@ def uploaded_file(filename):
 
     upload_folder = app.config['UPLOAD_FOLDER']
     file_path = os.path.realpath(os.path.join(upload_folder, safe_name))
-    if not file_path.startswith(os.path.realpath(upload_folder)):
+    if not _is_safe_subpath(upload_folder, file_path):
         return jsonify({'error': 'Forbidden'}), 403
 
     # Tenant check for non-super_admin employee photo requests
@@ -4453,11 +4527,10 @@ def uploaded_file(filename):
             return Response(img_bytes, mimetype=mime)
 
         # Check company_admin for company logos
-        comp = db.company_admin.find_one({'logo': filename})
+        comp = db.company_admin.find_one({'logo': safe_name})
         if not comp:
-            clean_name = os.path.basename(filename)
             import re
-            comp = db.company_admin.find_one({'logo': {'$regex': re.escape(clean_name)}})
+            comp = db.company_admin.find_one({'logo': {'$regex': re.escape(safe_name)}})
         if comp and comp.get('logo_data'):
             raw_data = str(comp['logo_data'])
             if ',' in raw_data:
@@ -4856,17 +4929,29 @@ def api_face_recognize():
     Marks attendance & creates live entry with company-specific geofencing.
     """
     try:
+        # Resolve mobile Bearer token if supplied (enforces active employee/company & tenant scope)
+        bearer_tok = _extract_mobile_bearer_token()
+        if bearer_tok:
+            _, _, err_resp = _resolve_mobile_employee_from_token(bearer_tok)
+            if err_resp:
+                return err_resp
+
+        max_payload_bytes = 10 * 1024 * 1024
         file_bytes = None
         if 'photo' in request.files:
             file = request.files['photo']
             if file and file.filename:
-                file_bytes = file.read()
+                file_bytes = file.read(max_payload_bytes + 1)
+                if len(file_bytes) > max_payload_bytes:
+                    return jsonify({'matched': False, 'message': 'Camera image exceeds maximum allowed size.'}), 413
 
         burst_file_bytes = None
         data_dict = {}
         if not file_bytes:
             data_dict = request.get_json(silent=True) or request.form.to_dict()
             photo_data = data_dict.get('photo_data') or data_dict.get('photo') or data_dict.get('image') or ''
+            if photo_data and len(str(photo_data)) > 14 * 1024 * 1024:
+                return jsonify({'matched': False, 'message': 'Camera image exceeds maximum allowed size.'}), 413
             if photo_data and 'base64,' in str(photo_data):
                 try:
                     _, b64_str = str(photo_data).split('base64,', 1)
@@ -4883,12 +4968,14 @@ def api_face_recognize():
         if 'burst_photo' in request.files:
             b_file = request.files['burst_photo']
             if b_file and b_file.filename:
-                burst_file_bytes = b_file.read()
+                burst_file_bytes = b_file.read(max_payload_bytes + 1)
+                if len(burst_file_bytes) > max_payload_bytes:
+                    burst_file_bytes = None
         if not burst_file_bytes:
             if not data_dict:
                 data_dict = request.get_json(silent=True) or request.form.to_dict()
             burst_data = data_dict.get('burst_photo') or data_dict.get('burst_data') or ''
-            if burst_data and 'base64,' in str(burst_data):
+            if burst_data and len(str(burst_data)) <= 14 * 1024 * 1024 and 'base64,' in str(burst_data):
                 try:
                     _, b64_b = str(burst_data).split('base64,', 1)
                     burst_file_bytes = base64.b64decode(b64_b)
@@ -4958,17 +5045,20 @@ def api_face_recognize():
                 'message': 'No face detected in camera frame. Please face the camera directly in good lighting.'
             }), 200
 
-        # Scope recognition to explicit company_id (kiosk/field-worker/admin) or logged-in employee/company_admin session
-        portal_company_id = (
-            request.form.get('company_id')
-            or data_dict.get('company_id')
-            or request.args.get('company_id')
-            or ''
-        ).strip()
-        if portal_company_id in ('ALL', 'None', 'null', ''):
-            portal_company_id = None
-        if not portal_company_id and (session.get('employee_logged_in') or session.get('role') == 'company_admin'):
+        # Scope recognition strictly to authenticated tenant for non-super-admins, or explicit kiosk company_id
+        if session.get('employee_logged_in') or session.get('role') == 'company_admin':
             portal_company_id = session.get('company_id')
+            if portal_company_id in ('ALL', 'None', 'null', ''):
+                portal_company_id = None
+        else:
+            portal_company_id = (
+                request.form.get('company_id')
+                or data_dict.get('company_id')
+                or request.args.get('company_id')
+                or ''
+            ).strip()
+            if portal_company_id in ('ALL', 'None', 'null', ''):
+                portal_company_id = None
 
         try:
             result = engine.recognize_face(query_embedding, company_id=portal_company_id)
@@ -5044,8 +5134,9 @@ def api_face_recognize():
                 result['department'] = 'General'
                 result['company_name'] = 'ARGUS CNC™'
 
-            # Mark Attendance Punch In / Punch Out Lifecycle & Live Entry (Company-aware, 12-hour format)
+            # Mark Attendance Punch In / Punch Out Lifecycle & Live Entry (authoritative server IST timestamp)
             req_branch_id = (request.form.get('branch_id') or data_dict.get('branch_id') or request.args.get('branch_id') or '').strip() or None
+            server_punch_time = database.get_ist_now().strftime('%d %b %Y, %I:%M:%S %p')
             try:
                 punch_res = database.record_face_attendance(
                     employee_id=emp_id,
@@ -5053,7 +5144,7 @@ def api_face_recognize():
                     user_lat=user_lat,
                     user_lng=user_lng,
                     company_id=portal_company_id,
-                    client_time=client_time,
+                    client_time=None,
                     live_address=live_address,
                     branch_id=req_branch_id
                 )
@@ -5072,7 +5163,7 @@ def api_face_recognize():
                 result['is_improper'] = (result['entry_type'] == 'improper')
                 result['geofence_enabled'] = bool(punch_res.get('geofence_enabled', False))
                 result['gps_verified'] = bool(punch_res.get('gps_verified', True))
-                result['punch_time'] = client_time or datetime.now().strftime('%d %b %Y, %I:%M:%S %p')
+                result['punch_time'] = server_punch_time
                 if punch_res.get('working_hours'):
                     result['working_hours'] = str(punch_res.get('working_hours'))
 
@@ -5102,7 +5193,7 @@ def api_face_recognize():
                 result['formatted_distance'] = ''
                 result['live_location'] = 'Company Office'
                 result['entry_location'] = 'Company Office'
-                result['punch_time'] = client_time or datetime.now().strftime('%d %b %Y, %I:%M:%S %p')
+                result['punch_time'] = server_punch_time
             
         clean_result = database.clean_doc(result)
         return jsonify(clean_result)
@@ -5115,6 +5206,7 @@ def api_face_recognize():
         }), 200
 
 @app.route('/api/kiosk/config', methods=['GET'])
+@limiter.limit("60/minute")
 def api_kiosk_config():
     """Returns dynamic attendance terminal configuration & authorized face recognition modules for a company."""
     cid = (request.args.get('company_id') or session.get('company_id') or '').strip()

@@ -1,6 +1,12 @@
 name: Build Mobile Apps (Android AAB/APK & iOS IPA)
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'mobile-app/**'
+      - '.github/workflows/build-mobile.yml'
   workflow_dispatch:
     inputs:
       platform:

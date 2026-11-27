@@ -14,18 +14,35 @@
     return String(url || '').trim().replace(/\/+$/, '');
   }
 
+  function isAllowedApiBase(url) {
+    try {
+      var parsed = new URL(sanitizeBase(url));
+      var host = (parsed.hostname || '').toLowerCase();
+      if (parsed.protocol === 'https:' && (host === 'argussoftwares.com' || host.endsWith('.argussoftwares.com'))) {
+        return true;
+      }
+      if (parsed.protocol === 'http:' && (host === 'localhost' || host === '127.0.0.1')) {
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
   function getApiBase() {
     try {
       var params = new URLSearchParams(window.location.search || '');
       var qBase = params.get('api_base');
-      if (qBase && /^https?:\/\//i.test(qBase)) {
+      if (qBase && isAllowedApiBase(qBase)) {
         var cleanQ = sanitizeBase(qBase);
         localStorage.setItem(API_BASE_KEY, cleanQ);
         return cleanQ;
       }
       var stored = localStorage.getItem(API_BASE_KEY);
-      if (stored && /^https?:\/\//i.test(stored)) {
+      if (stored && isAllowedApiBase(stored)) {
         return sanitizeBase(stored);
+      }
+      if (stored) {
+        localStorage.removeItem(API_BASE_KEY);
       }
     } catch (e) {}
     return DEFAULT_API_BASE;

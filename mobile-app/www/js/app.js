@@ -167,10 +167,31 @@
       if (qIdx === -1) return;
       var params = new URLSearchParams(url.slice(qIdx + 1));
       var err = params.get('error');
+      var code = params.get('code');
       var tok = params.get('token');
       if (err) {
         showView('login');
         setLoginError(err);
+        return;
+      }
+      if (code) {
+        var exRes = await window.ArgusConfig.apiFetch('/api/mobile/auth/exchange-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: code })
+        });
+        var exData = await exRes.json().catch(function () { return {}; });
+        if (exRes.ok && exData && exData.success && exData.token) {
+          window.ArgusConfig.setToken(exData.token);
+          if (exData.employee) {
+            enterPortal(exData.employee, exData.company);
+            return;
+          }
+          var okEx = await restoreEmployeeSession();
+          if (okEx) return;
+        }
+        showView('login');
+        setLoginError((exData && exData.message) || 'Authorization code expired. Please sign in again.');
         return;
       }
       if (tok) {
@@ -263,14 +284,12 @@
     var btnHeaderLogin = document.getElementById('btnHeaderEmployeeLogin');
     var btnHeaderMyPortal = document.getElementById('btnHeaderMyPortal');
     var btnBackKiosk = document.getElementById('btnBackToKiosk');
-    var btnPortalKiosk = document.getElementById('btnPortalToKiosk');
     var btnLogout = document.getElementById('btnPortalLogout');
     var btnGoogle = document.getElementById('btnEmployeeGoogleLogin');
 
     if (btnHeaderLogin) btnHeaderLogin.addEventListener('click', function () { setLoginError(''); showView('login'); });
     if (btnHeaderMyPortal) btnHeaderMyPortal.addEventListener('click', function () { showView('portal'); });
     if (btnBackKiosk) btnBackKiosk.addEventListener('click', function () { showView('kiosk'); });
-    if (btnPortalKiosk) btnPortalKiosk.addEventListener('click', function () { showView('kiosk'); });
     if (btnLogout) btnLogout.addEventListener('click', handleLogout);
     if (btnGoogle) btnGoogle.addEventListener('click', handleGoogleLogin);
 

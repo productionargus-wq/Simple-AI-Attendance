@@ -1605,15 +1605,24 @@
             <div style="font-size: 11px; color: #64748b; margin-top: 4px;">This is your verified corporate email address registered in the system.</div>
           </div>
 
+          {% set has_emp_pwd = (employee and (employee.password_raw or employee.password or employee.password_hash)) %}
+          <div id="employeeCurrentPasswordGroup" style="margin-bottom: 14px; {{ '' if has_emp_pwd else 'display: none;' }}">
+            <label for="employeeCurrentPassword" style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px;">
+              Current Password
+            </label>
+            <input type="password" id="employeeCurrentPassword" placeholder="Enter your current password" autocomplete="current-password"
+                   style="width: 100%; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box;">
+          </div>
+
           <div style="margin-bottom: 20px;">
             <label style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px;">
-              <span>Password</span>
-              <span id="empPassStatusBadge" style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; {{ 'color: #16a34a; background: #dcfce7;' if (employee and (employee.password_raw or employee.password or employee.password_hash)) else 'color: #ea580c; background: #ffedd5;' }}">
-                {{ '✓ Password Configured' if (employee and (employee.password_raw or employee.password or employee.password_hash)) else '⚠️ Password Not Set' }}
+              <span>New Password</span>
+              <span id="empPassStatusBadge" style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; {{ 'color: #16a34a; background: #dcfce7;' if has_emp_pwd else 'color: #ea580c; background: #ffedd5;' }}">
+                {{ '✓ Password Configured' if has_emp_pwd else '⚠️ Password Not Set' }}
               </span>
             </label>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="text" id="employeeNewPassword" value="{{ employee.password_raw or '' }}" placeholder="Enter any password" required
+              <input type="password" id="employeeNewPassword" value="" minlength="8" placeholder="Enter new password (min 8 characters)" autocomplete="new-password" required
                      style="width: 100%; padding: 9px 40px 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box;">
               <button type="button" id="toggleEmpPassBtn" style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: #64748b; padding: 4px; display: flex; align-items: center;" title="Show/Hide password">
                 <svg id="empEyeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3633,6 +3642,8 @@
 
     // ===== MY CREDENTIALS PASSWORD HANDLER =====
     const empCredForm = document.getElementById('employeeCredentialsForm');
+    const empCurPassGroup = document.getElementById('employeeCurrentPasswordGroup');
+    const empCurPassInput = document.getElementById('employeeCurrentPassword');
     const empPassInput = document.getElementById('employeeNewPassword');
     const empPassStatusBadge = document.getElementById('empPassStatusBadge');
     const toggleEmpPassBtn = document.getElementById('toggleEmpPassBtn');
@@ -3663,9 +3674,15 @@
         e.preventDefault();
         if (empCredForm._isSubmitting) return false;
 
+        const curPwd = empCurPassInput ? empCurPassInput.value.trim() : '';
+        const needsCurPwd = empCurPassGroup && empCurPassGroup.style.display !== 'none';
+        if (needsCurPwd && !curPwd) {
+          showCredAlert('Please enter your current password.', 'danger');
+          return;
+        }
         const pwd = empPassInput.value.trim();
-        if (!pwd) {
-          showCredAlert('Please enter a password.', 'danger');
+        if (!pwd || pwd.length < 8) {
+          showCredAlert('Password must be at least 8 characters long.', 'danger');
           return;
         }
 
@@ -3685,14 +3702,16 @@
           const res = await fetch('/api/employee/credentials', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ new_password: pwd })
+            body: JSON.stringify({ current_password: curPwd, new_password: pwd })
           });
           const data = await res.json();
           if (window.hideSavingPopup) window.hideSavingPopup();
           if (data.success) {
             showCredAlert(data.message || 'Password updated successfully!', 'success');
-            empPassInput.value = data.saved_password || pwd;
-            empPassInput.type = 'text';
+            if (empCurPassInput) empCurPassInput.value = '';
+            empPassInput.value = '';
+            empPassInput.type = 'password';
+            if (empCurPassGroup) empCurPassGroup.style.display = '';
             if (empPassStatusBadge) {
               empPassStatusBadge.textContent = '✓ Password Configured';
               empPassStatusBadge.style.color = '#16a34a';

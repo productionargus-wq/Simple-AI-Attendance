@@ -38,6 +38,22 @@ def verify_user_password(stored_password, provided_password):
         return check_password_hash(stored, provided)
     return hmac.compare_digest(stored.encode('utf-8'), provided.encode('utf-8'))
 
+def _upgrade_legacy_password_hash(collection, doc_id, stored_password, plain_password):
+    """Upgrades a legacy plaintext password in MongoDB to a PBKDF2 hash upon successful login."""
+    if not stored_password or not plain_password or not doc_id:
+        return
+    stored = str(stored_password).strip()
+    if stored.startswith('pbkdf2:') or stored.startswith('scrypt:'):
+        return
+    try:
+        hashed = hash_user_password(plain_password)
+        collection.update_one(
+            {'_id': doc_id},
+            {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}, '$unset': {'password_raw': ''}}
+        )
+    except Exception:
+        pass
+
 # Indian Standard Time (IST, UTC+5:30)
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -1291,6 +1307,7 @@ def validate_company_login(email, password=None):
     if not stored:
         return {'success': False, 'error': 'PASSWORD_NOT_SET', 'company': company}
     if verify_user_password(stored, password):
+        _upgrade_legacy_password_hash(db.company_admin, doc.get('_id'), stored, password)
         return {'success': True, 'company': company}
     return {'success': False, 'error': 'INVALID_PASSWORD', 'company': company}
 
@@ -1362,6 +1379,7 @@ def validate_employee_login(email, password=None):
     if not stored:
         return {'success': False, 'error': 'PASSWORD_NOT_SET', 'employee': emp}
     if verify_user_password(stored, password):
+        _upgrade_legacy_password_hash(db.employees, doc.get('_id'), stored, password)
         return {'success': True, 'employee': emp}
     return {'success': False, 'error': 'INVALID_PASSWORD', 'employee': emp}
 
@@ -7752,6 +7770,7 @@ def validate_admin_login(email_or_username, password=None):
     if not stored:
         return {'success': False, 'error': 'PASSWORD_NOT_SET', 'admin': admin_user}
     if verify_user_password(stored, password):
+        _upgrade_legacy_password_hash(db.admin_users, doc.get('_id'), stored, password)
         return {'success': True, 'admin': admin_user}
     return {'success': False, 'error': 'INVALID_PASSWORD', 'admin': admin_user}
 
