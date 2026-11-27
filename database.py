@@ -3,6 +3,7 @@ import shutil
 import time
 import json
 import re
+import hmac
 import calendar
 import secrets
 import sys
@@ -35,7 +36,7 @@ def verify_user_password(stored_password, provided_password):
     provided = str(provided_password).strip()
     if stored.startswith('pbkdf2:') or stored.startswith('scrypt:'):
         return check_password_hash(stored, provided)
-    return stored == provided
+    return hmac.compare_digest(stored.encode('utf-8'), provided.encode('utf-8'))
 
 # Indian Standard Time (IST, UTC+5:30)
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -75,10 +76,9 @@ def get_default_two_month_range():
     return start_date_str, end_date_str, start_month_str, end_month_str
 
 
-MONGODB_URI = os.environ.get(
-    "MONGODB_URI",
-    "mongodb+srv://philipmatthew26_db_user:7hTlWrbaxxMOBKCn@cluster0.895ioy2.mongodb.net/?retryWrites=true&w=majority"
-)
+MONGODB_URI = os.environ.get("MONGODB_URI", "").strip()
+if not MONGODB_URI:
+    raise RuntimeError("MONGODB_URI must be set in environment variables")
 DB_NAME = "argus_attendance"
 
 _client = None
@@ -247,13 +247,15 @@ def init_db():
 
     if has_admin is None:
         try:
+            from werkzeug.security import generate_password_hash as _gph
             db.admin_users.insert_one({
                 'username': 'Admin',
                 'email': 'technologiesargus@gmail.com',
-                'password': '76543',
+                'password': _gph('changeme_on_first_login'),
+                'password_hash': _gph('changeme_on_first_login'),
                 'role': 'super_admin',
                 'company_id': 'ARGUS_MASTER',
-                'company_name': 'ARGUS CNC™'
+                'company_name': 'ARGUS CNC\u2122'
             })
         except Exception:
             pass
@@ -274,9 +276,10 @@ def init_db():
                     'company_name': 'ARGUS CNC™'
                 }}
             )
+            # Remove any plaintext password_raw fields that may still exist
             db.admin_users.update_many(
-                {'password_raw': {'$exists': False}},
-                {'$set': {'password_raw': '76543'}}
+                {'password_raw': {'$exists': True}},
+                {'$unset': {'password_raw': ''}}
             )
         except Exception as e:
             print(f"Admin bootstrap notice: {e}")
@@ -1292,7 +1295,7 @@ def validate_company_login(email, password=None):
     return {'success': False, 'error': 'INVALID_PASSWORD', 'company': company}
 
 def set_company_password(company_id_or_email, plain_password):
-    """Sets a new hashed password for a company administrator and persists password_raw."""
+    """Sets a new hashed password for a company administrator."""
     db = get_db()
     if not company_id_or_email or not plain_password:
         return False
@@ -1300,7 +1303,7 @@ def set_company_password(company_id_or_email, plain_password):
     hashed = hash_user_password(raw)
     res = db.company_admin.update_one(
         {'$or': [{'id': str(company_id_or_email)}, {'email': str(company_id_or_email)}]},
-        {'$set': {'password': hashed, 'password_hash': hashed, 'password_raw': raw, 'password_updated_at': datetime.now()}}
+        {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}, '$unset': {'password_raw': ''}}
     )
     return res.modified_count > 0 or res.matched_count > 0
 
@@ -1362,16 +1365,19 @@ def validate_employee_login(email, password=None):
         return {'success': True, 'employee': emp}
     return {'success': False, 'error': 'INVALID_PASSWORD', 'employee': emp}
 
-def set_employee_password(emp_id_or_email, plain_password):
-    """Sets a new hashed password for an employee and persists password_raw."""
+def set_employee_password(emp_id_or_email, plain_password, company_id=None):
+    """Sets a new hashed password for an employee."""
     db = get_db()
     if not emp_id_or_email or not plain_password:
         return False
     raw = str(plain_password).strip()
     hashed = hash_user_password(raw)
+    q = {'$or': [build_id_filter(emp_id_or_email), {'email_id': str(emp_id_or_email)}]}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        q = {'$and': [q, {'company_id': str(company_id)}]}
     res = db.employees.update_one(
-        {'$or': [build_id_filter(emp_id_or_email), {'email_id': str(emp_id_or_email)}]},
-        {'$set': {'password': hashed, 'password_hash': hashed, 'password_raw': raw, 'password_updated_at': datetime.now()}}
+        q,
+        {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}, '$unset': {'password_raw': ''}}
     )
     return res.modified_count > 0 or res.matched_count > 0
 
@@ -2749,12 +2755,15 @@ def get_all_face_embeddings(company_id=None):
         _face_embeddings_cache[key] = (now_ts, results)
     return results
 
-def save_face_embedding(emp_id, embedding):
+def save_face_embedding(emp_id, embedding, company_id=None):
     db = get_db()
     embedding_str = json.dumps(embedding) if isinstance(embedding, list) else embedding
-    db.employees.update_one(build_id_filter(emp_id), {'$set': {'face_embedding': embedding_str, 'updated_at': datetime.now()}})
+    f = build_id_filter(emp_id)
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    res = db.employees.update_one(f, {'$set': {'face_embedding': embedding_str, 'updated_at': datetime.now()}})
     invalidate_face_embeddings_cache()
-    return True
+    return res.matched_count > 0
 
 # ----------------- DYNAMIC DASHBOARD STATS ----------------- #
 
@@ -5731,10 +5740,13 @@ def create_manual_entry(data, company_id=None):
     invalidate_dashboard_cache(doc.get('company_id'))
     return entry_id
 
-def update_manual_entry(entry_id, data):
+def update_manual_entry(entry_id, data, company_id=None):
     db = get_db()
     emp_name = data.get('employee_name', '')
-    emp = db.employees.find_one({'employee_name': emp_name})
+    emp_q = {'employee_name': emp_name}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        emp_q['company_id'] = str(company_id)
+    emp = db.employees.find_one(emp_q)
     is_no_shift = is_no_shift_employee(emp)
     hourly_rate = safe_float(emp.get('hourly_salary'), 0.0) if emp else 1.0
     day_rate = 0.0 if is_no_shift else safe_float(emp.get('day_salary'), 0.0)
@@ -5775,13 +5787,19 @@ def update_manual_entry(entry_id, data):
     }
     if 'recorded_by' in data:
         upd['recorded_by'] = str(data.get('recorded_by') or '').strip()
-    db.manual_entries.update_one(build_id_filter(entry_id), {'$set': upd})
-    return True
+    f = build_id_filter(entry_id)
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    res = db.manual_entries.update_one(f, {'$set': upd})
+    return res.matched_count > 0
 
-def delete_manual_entry(entry_id):
+def delete_manual_entry(entry_id, company_id=None):
     db = get_db()
-    db.manual_entries.delete_one(build_id_filter(entry_id))
-    return True
+    f = build_id_filter(entry_id)
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    res = db.manual_entries.delete_one(f)
+    return res.deleted_count > 0
 
 def bulk_delete_manual_entries(entry_ids, company_id=None):
     """Bulk deletes manual entries by ID and cleans corresponding reports."""
@@ -6132,7 +6150,7 @@ def create_payment(data, company_id=None):
     res = db.payments.insert_one(doc)
     return str(doc['id'])
 
-def update_payment(payment_id, data):
+def update_payment(payment_id, data, company_id=None):
     db = get_db()
     emp_name = data.get('employee_name', '')
     status = data.get('status')
@@ -6156,13 +6174,19 @@ def update_payment(payment_id, data):
     if 'receipt_filename' in data and data['receipt_filename'] is not None:
         upd['receipt_filename'] = data['receipt_filename']
         
-    db.payments.update_one(build_id_filter(payment_id), {'$set': upd})
-    return True
+    f = build_id_filter(payment_id)
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    res = db.payments.update_one(f, {'$set': upd})
+    return res.matched_count > 0
 
-def delete_payment(payment_id):
+def delete_payment(payment_id, company_id=None):
     db = get_db()
-    db.payments.delete_one(build_id_filter(payment_id))
-    return True
+    f = build_id_filter(payment_id)
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    res = db.payments.delete_one(f)
+    return res.deleted_count > 0
 
 def bulk_delete_payments(payment_ids, company_id=None):
     """Bulk deletes payments by ID."""
@@ -6305,20 +6329,26 @@ def create_advance(data, company_id=None):
     db.advances.insert_one(doc)
     return str(doc['id'])
 
-def update_advance(advance_id, data):
+def update_advance(advance_id, data, company_id=None):
     db = get_db()
     upd = {
         'employee_name': data.get('employee_name', ''),
         'advance_date': data.get('advance_date'),
         'amount': float(data.get('amount') or 0.0)
     }
-    db.advances.update_one(build_id_filter(advance_id), {'$set': upd})
-    return True
+    f = build_id_filter(advance_id)
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    res = db.advances.update_one(f, {'$set': upd})
+    return res.matched_count > 0
 
-def delete_advance(advance_id):
+def delete_advance(advance_id, company_id=None):
     db = get_db()
-    db.advances.delete_one(build_id_filter(advance_id))
-    return True
+    f = build_id_filter(advance_id)
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        f = {'$and': [f, {'company_id': str(company_id)}]}
+    res = db.advances.delete_one(f)
+    return res.deleted_count > 0
 
 def bulk_delete_advances(advance_ids, company_id=None):
     """Bulk deletes advance entries by ID."""
@@ -7706,23 +7736,8 @@ def validate_admin_login(email_or_username, password=None):
         ]
     })
     if not doc and clean in ['technologiesargus@gmail.com', 'productionargus@gmail.com', 'admin']:
-        # Ensure Super Admin doc exists in MongoDB
-        target_email = clean if '@' in clean else 'technologiesargus@gmail.com'
-        db.admin_users.update_one(
-            {'email': target_email},
-            {'$set': {
-                'email': target_email,
-                'username': 'Admin' if target_email == 'technologiesargus@gmail.com' else 'Argus Admin',
-                'password': 'scrypt:32768:8:1$QxyLtGr6uxVY074M$7d6c233d713711c9a2c1f470668c0951cf5b743bfb8f08276e0110ac6d8d44650ae4ab1fa120eaac27164317ee39494029048ae0251f71cd7255181c4062ba08',
-                'password_hash': 'scrypt:32768:8:1$QxyLtGr6uxVY074M$7d6c233d713711c9a2c1f470668c0951cf5b743bfb8f08276e0110ac6d8d44650ae4ab1fa120eaac27164317ee39494029048ae0251f71cd7255181c4062ba08',
-                'password_raw': '76543',
-                'role': 'super_admin',
-                'company_id': 'ARGUS_MASTER',
-                'company_name': 'ARGUS CNC™'
-            }},
-            upsert=True
-        )
-        doc = db.admin_users.find_one({'email': target_email})
+        # Do not recreate default credentials automatically if missing; require explicit setup or OAuth
+        return None if password is None else {'success': False, 'error': 'NOT_REGISTERED'}
 
     if not doc:
         return None if password is None else {'success': False, 'error': 'NOT_REGISTERED'}
@@ -7741,7 +7756,7 @@ def validate_admin_login(email_or_username, password=None):
     return {'success': False, 'error': 'INVALID_PASSWORD', 'admin': admin_user}
 
 def set_admin_password(plain_password):
-    """Sets a new hashed password for the Super Admin system administrator and persists password_raw."""
+    """Sets a new hashed password for the Super Admin system administrator."""
     db = get_db()
     if not plain_password:
         return False
@@ -7749,11 +7764,11 @@ def set_admin_password(plain_password):
     hashed = hash_user_password(raw)
     db.admin_users.update_many(
         {'role': 'super_admin'},
-        {'$set': {'password': hashed, 'password_hash': hashed, 'password_raw': raw, 'password_updated_at': datetime.now()}}
+        {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}, '$unset': {'password_raw': ''}}
     )
     db.company_admin.update_one(
         {'id': 'ARGUS_MASTER'},
-        {'$set': {'password': hashed, 'password_hash': hashed, 'password_raw': raw, 'password_updated_at': datetime.now()}}
+        {'$set': {'password': hashed, 'password_hash': hashed, 'password_updated_at': datetime.now()}, '$unset': {'password_raw': ''}}
     )
     return True
 
@@ -7846,18 +7861,19 @@ def get_payslip_data(employee_name, month_year=None, company_id=None, branch_id=
     else:
         resolved_branch_name = 'HOME'
 
+    safe_month_year = re.escape(str(month_year or ''))
     att_query = {
         'employee_name': query_emp_name,
         'entry_type': {'$ne': 'improper'},
         '$or': [
-            {'date': {'$regex': f'^{month_year}'}},
-            {'entry_time': {'$regex': f'^{month_year}'}},
-            {'created_at': {'$regex': f'^{month_year}'}}
+            {'date': {'$regex': f'^{safe_month_year}'}},
+            {'entry_time': {'$regex': f'^{safe_month_year}'}},
+            {'created_at': {'$regex': f'^{safe_month_year}'}}
         ]
     }
     try:
-        parts = month_year.split('-')
-        m_slash = f"/{parts[1]}/{parts[0]}"
+        parts = str(month_year).split('-')
+        m_slash = re.escape(f"/{parts[1]}/{parts[0]}")
         att_query['$or'].append({'entry_time': {'$regex': m_slash}})
         att_query['$or'].append({'created_at': {'$regex': m_slash}})
     except Exception:
@@ -7867,13 +7883,13 @@ def get_payslip_data(employee_name, month_year=None, company_id=None, branch_id=
     manual_query = {
         'employee_name': query_emp_name,
         '$or': [
-            {'entry_date': {'$regex': f'^{month_year}'}},
-            {'submitted_at': {'$regex': f'^{month_year}'}}
+            {'entry_date': {'$regex': f'^{safe_month_year}'}},
+            {'submitted_at': {'$regex': f'^{safe_month_year}'}}
         ]
     }
     try:
-        parts = month_year.split('-')
-        manual_query['$or'].append({'submitted_at': {'$regex': f"-{parts[1]}-{parts[0]}"}})
+        parts = str(month_year).split('-')
+        manual_query['$or'].append({'submitted_at': {'$regex': re.escape(f"-{parts[1]}-{parts[0]}")}})
     except Exception:
         pass
     manual_entries = list(db.manual_entries.find(manual_query))
@@ -9310,7 +9326,7 @@ def get_leave_requests(company_id=None, employee_id=None, status=None, limit=50,
         'status_counts': status_counts
     }
 
-def get_leave_request_by_id(request_id):
+def get_leave_request_by_id(request_id, company_id=None):
     """Retrieves single leave request by request_id, id or _id."""
     db = get_db()
     q = {'$or': [
@@ -9319,10 +9335,12 @@ def get_leave_request_by_id(request_id):
         {'id': str(request_id)},
         build_id_filter(request_id)
     ]}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        q = {'$and': [q, {'company_id': str(company_id)}]}
     doc = db.leave_requests.find_one(q)
     return clean_doc(doc) if doc else None
 
-def update_leave_request_status(request_id, new_status, admin_remark=None, reviewer=None):
+def update_leave_request_status(request_id, new_status, admin_remark=None, reviewer=None, company_id=None):
     """
     Approves or Rejects a leave request and updates employee leave balance.
     """
@@ -9333,6 +9351,8 @@ def update_leave_request_status(request_id, new_status, admin_remark=None, revie
         {'id': str(request_id)},
         build_id_filter(request_id)
     ]}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        q = {'$and': [q, {'company_id': str(company_id)}]}
     req = db.leave_requests.find_one(q)
     if not req:
         return {'success': False, 'error': 'Leave request not found'}
@@ -9669,7 +9689,7 @@ def get_pending_field_worker_leave_requests_count(company_id=None):
         query['company_id'] = str(company_id)
     return db.leave_requests.count_documents(query)
 
-def delete_employee_leave_request(request_id, emp_id=None):
+def delete_employee_leave_request(request_id, emp_id=None, company_id=None):
     """
     Deletes a leave or permission request submitted by an employee.
     Enforces that status must be 'Pending'. If Approved or Rejected, deletion is blocked.
@@ -9681,6 +9701,8 @@ def delete_employee_leave_request(request_id, emp_id=None):
         {'id': str(request_id)},
         build_id_filter(request_id)
     ]}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        q = {'$and': [q, {'company_id': str(company_id)}]}
     req = db.leave_requests.find_one(q)
     if not req:
         return {'success': False, 'error': 'Request not found'}
@@ -9754,8 +9776,11 @@ def edit_employee_leave_request(request_id, emp_id, updated_fields):
     if st != 'pending':
         return {'success': False, 'error': f'Cannot edit request that has already been {req.get("status")}'}
 
-    updated_fields['updated_at'] = get_ist_now()
-    db.leave_requests.update_one({'_id': req['_id']}, {'$set': updated_fields})
+    # Allowlist modifiable fields to prevent mass assignment (e.g. status/approved_by tampering)
+    allowed_fields = {'reason', 'from_date', 'to_date', 'leave_type', 'start_time', 'end_time', 'half_day', 'attachment_filename', 'attachment_path'}
+    safe_updates = {k: v for k, v in (updated_fields or {}).items() if k in allowed_fields}
+    safe_updates['updated_at'] = get_ist_now()
+    db.leave_requests.update_one({'_id': req['_id']}, {'$set': safe_updates})
     updated_doc = db.leave_requests.find_one({'_id': req['_id']})
     return {'success': True, 'message': 'Request updated successfully', 'request': clean_doc(updated_doc)}
 
@@ -10362,7 +10387,7 @@ def search_field_destinations(query, company_id=None):
     # 1. Local Search: Customer Visits & Sales Leads
     try:
         visit_q = {
-            'customer_name': {'$regex': clean_q, '$options': 'i'},
+            'customer_name': {'$regex': re.escape(clean_q), '$options': 'i'},
             'latitude': {'$exists': True, '$ne': None},
             'longitude': {'$exists': True, '$ne': None}
         }
@@ -13183,6 +13208,16 @@ def sync_warehouse_products_from_sheet(sheet_url=None, company_id=None):
         csv_fetch_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv"
     elif 'pubhtml' in target_url:
         csv_fetch_url = target_url.replace('pubhtml', 'pub?output=csv')
+
+    # SSRF Protection: only allow Google Sheets HTTPS URLs
+    from urllib.parse import urlparse as _urlparse
+    _parsed = _urlparse(csv_fetch_url)
+    if _parsed.scheme != 'https' or _parsed.hostname not in ('docs.google.com', 'sheets.googleapis.com'):
+        return {
+            'success': False,
+            'error': 'Invalid URL: Only HTTPS Google Sheets URLs (docs.google.com / sheets.googleapis.com) are permitted.',
+            'products': get_warehouse_products(company_id)
+        }
 
     parsed_products = []
     error_msg = None

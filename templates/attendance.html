@@ -1598,6 +1598,13 @@
       min-height: 100dvh;
     }
 
+    /* Mobile App Only (?app=1): Show ONLY Employee Login button */
+    body.mobile-app-only #btnCompanyAccess,
+    body.mobile-app-only #btnNavFieldWorkerLogin,
+    body.mobile-app-only .footer-admin-tooltip-wrapper {
+      display: none !important;
+    }
+
     /* Web Kiosk & App Mode styling (Navbar & Footer remain visible on desktop) */
     body.app-mode .main-content {
       padding: 8px 16px 12px;
@@ -1874,6 +1881,9 @@
 
     if (isAppMode) {
       document.body.classList.add('app-mode');
+      if (urlParams.has('app') || window.isCapacitorApp) {
+        document.body.classList.add('mobile-app-only');
+      }
       if (isDedicatedApp) {
         document.body.classList.add('hide-chrome');
         if (splashScreen) {

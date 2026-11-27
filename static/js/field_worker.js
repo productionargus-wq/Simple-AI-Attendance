@@ -2242,8 +2242,10 @@
           : prevEn;
       }
 
-      // Fetch dynamic detailed transcript with cache-buster
-      fetch(`/api/field-worker/visits/${encodeURIComponent(visitId)}/transcript?_t=${Date.now()}`)
+      // Fetch dynamic detailed transcript (POST triggers server-side audio transcription if missing)
+      fetch(`/api/field-worker/visits/${encodeURIComponent(visitId)}/transcript?_t=${Date.now()}`, {
+        method: isErrPlaceholder ? 'POST' : 'GET'
+      })
         .then(r => r.json())
         .then(data => {
           if (!data || !data.success) return;

@@ -1,5 +1,6 @@
 import io
 import os
+import html
 import base64
 from datetime import datetime
 from reportlab.lib.pagesizes import letter, A4, landscape
@@ -9,14 +10,18 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.graphics.shapes import Drawing, Rect, Path
 
+def _rl_escape(val):
+    """Escapes user-controlled strings for ReportLab Paragraph XML markup."""
+    return html.escape(str(val) if val is not None else '', quote=False)
+
 def build_pdf_header(elements, company_info=None, title=None, subtitle=None):
     """Renders standardized dynamic company header across all generated PDF reports."""
     comp_info = company_info or {}
-    comp_name = comp_info.get('company_name') or "ARGUS CNC™"
-    comp_addr = comp_info.get('company_address') or comp_info.get('address') or ""
-    email = comp_info.get('email') or comp_info.get('company_email') or ""
-    phone = comp_info.get('phone') or comp_info.get('company_phone') or ""
-    gstin = comp_info.get('gstin') or comp_info.get('company_gstin') or ""
+    comp_name = _rl_escape(comp_info.get('company_name') or "ARGUS CNC™")
+    comp_addr = _rl_escape(comp_info.get('company_address') or comp_info.get('address') or "")
+    email = _rl_escape(comp_info.get('email') or comp_info.get('company_email') or "")
+    phone = _rl_escape(comp_info.get('phone') or comp_info.get('company_phone') or "")
+    gstin = _rl_escape(comp_info.get('gstin') or comp_info.get('company_gstin') or "")
 
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
@@ -66,10 +71,10 @@ def build_pdf_header(elements, company_info=None, title=None, subtitle=None):
 
     if title:
         elements.append(Spacer(1, 6))
-        elements.append(Paragraph(title.upper(), report_title_style))
+        elements.append(Paragraph(_rl_escape(title).upper(), report_title_style))
     if subtitle:
         elements.append(Spacer(1, 2))
-        elements.append(Paragraph(subtitle, addr_style))
+        elements.append(Paragraph(_rl_escape(subtitle), addr_style))
 
     elements.append(Spacer(1, 10))
 
@@ -149,15 +154,15 @@ def generate_employee_pdf(emp):
             photo_widget = None
 
     if not photo_widget and photo_name:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        possible_paths = [
-            os.path.join(base_dir, 'static', 'uploads', str(photo_name)),
-            os.path.join(base_dir, 'uploads', str(photo_name)),
-            os.path.join('static', 'uploads', str(photo_name)),
-            os.path.join('uploads', str(photo_name))
+        base_dir = os.path.realpath(os.path.dirname(os.path.abspath(__file__)))
+        safe_photo = os.path.basename(str(photo_name))
+        allowed_roots = [
+            os.path.realpath(os.path.join(base_dir, 'static', 'uploads')),
+            os.path.realpath(os.path.join(base_dir, 'uploads')),
         ]
-        for p_path in possible_paths:
-            if os.path.exists(p_path):
+        for root_dir in allowed_roots:
+            p_path = os.path.realpath(os.path.join(root_dir, safe_photo))
+            if p_path.startswith(root_dir) and os.path.isfile(p_path):
                 try:
                     photo_widget = RLImage(p_path, width=70, height=70)
                     break
@@ -165,7 +170,7 @@ def generate_employee_pdf(emp):
                     photo_widget = None
 
     # Header logo or company text
-    comp_name = emp.get('company_name') or "ARGUS CNC™"
+    comp_name = _rl_escape(emp.get('company_name') or "ARGUS CNC™")
     if photo_widget:
         hdr_text = [
             Paragraph(comp_name, title_style),
@@ -233,24 +238,24 @@ def generate_employee_pdf(emp):
         ("SKILLSET", skills_disp),
         ("RESPONSIBILITIES", resp_disp),
         ("SALARY BASIS", xml_escape(str(emp.get('salary_type', 'hourly')).replace('_', '-').title() + "-Based")),
-        ("HOURLY SALARY", str(emp.get('hourly_salary', '0'))),
-        ("DAY SALARY", str(emp.get('day_salary', '0'))),
-        ("HALF DAY SALARY", str(emp.get('half_day_salary', '0'))),
-        ("MOBILE NUMBER", str(emp.get('mobile_number', ''))),
-        ("EMAIL ID", str(emp.get('email_id', ''))),
-        ("AADHAR NUMBER", str(emp.get('aadhar_number', ''))),
-        ("EMERGENCY CONTACT", str(emp.get('emergency_contact', ''))),
-        ("DATE OF BIRTH", str(emp.get('date_of_birth') or emp.get('dob') or '-')),
-        ("JOINING DATE", str(emp.get('joining_date', ''))),
-        ("ACCOUNT HOLDER NAME", str(emp.get('account_holder_name', ''))),
-        ("UPI NUMBER", str(emp.get('upi_number', ''))),
-        ("BANK NAME", str(emp.get('bank_name', ''))),
-        ("ACCOUNT NUMBER", str(emp.get('account_number', ''))),
-        ("IFSC CODE", str(emp.get('ifsc_code', ''))),
-        ("SHIFT HOURS", shift_hrs_disp),
-        ("SHIFT START", shift_start_disp),
-        ("SHIFT END", shift_end_disp),
-        ("RECORD CREATED AT", created_str)
+        ("HOURLY SALARY", _rl_escape(emp.get('hourly_salary', '0'))),
+        ("DAY SALARY", _rl_escape(emp.get('day_salary', '0'))),
+        ("HALF DAY SALARY", _rl_escape(emp.get('half_day_salary', '0'))),
+        ("MOBILE NUMBER", _rl_escape(emp.get('mobile_number', ''))),
+        ("EMAIL ID", _rl_escape(emp.get('email_id', ''))),
+        ("AADHAR NUMBER", _rl_escape(emp.get('aadhar_number', ''))),
+        ("EMERGENCY CONTACT", _rl_escape(emp.get('emergency_contact', ''))),
+        ("DATE OF BIRTH", _rl_escape(emp.get('date_of_birth') or emp.get('dob') or '-')),
+        ("JOINING DATE", _rl_escape(emp.get('joining_date', ''))),
+        ("ACCOUNT HOLDER NAME", _rl_escape(emp.get('account_holder_name', ''))),
+        ("UPI NUMBER", _rl_escape(emp.get('upi_number', ''))),
+        ("BANK NAME", _rl_escape(emp.get('bank_name', ''))),
+        ("ACCOUNT NUMBER", _rl_escape(emp.get('account_number', ''))),
+        ("IFSC CODE", _rl_escape(emp.get('ifsc_code', ''))),
+        ("SHIFT HOURS", _rl_escape(shift_hrs_disp)),
+        ("SHIFT START", _rl_escape(shift_start_disp)),
+        ("SHIFT END", _rl_escape(shift_end_disp)),
+        ("RECORD CREATED AT", _rl_escape(created_str))
     ]
     
     table_data = [
@@ -335,16 +340,16 @@ def generate_employees_pdf(employees, company_info=None):
             is_ns = bool(emp.get('no_shift')) or str(emp.get('shift_hours') or '').strip() == '-'
             shift_disp = "-" if is_ns else str(emp.get('shift_hours', '08:00') or '08:00')
             table_data.append([
-                Paragraph(str(idx), cell_style),
-                Paragraph(str(emp.get('id', '')), cell_style),
-                Paragraph(str(emp.get('employee_name', '')), cell_style),
-                Paragraph(emp_status, cell_style),
-                Paragraph(st_label, cell_style),
-                Paragraph(str(emp.get('mobile_number', '') or '-'), cell_style),
-                Paragraph(shift_disp, cell_style),
-                Paragraph(str(emp.get('bank_name', '') or '-'), cell_style),
-                Paragraph(str(emp.get('account_number', '') or '-'), cell_style),
-                Paragraph(str(emp.get('joining_date', '') or emp.get('date_of_joining', '') or '-'), cell_style)
+                Paragraph(_rl_escape(idx), cell_style),
+                Paragraph(_rl_escape(emp.get('id', '')), cell_style),
+                Paragraph(_rl_escape(emp.get('employee_name', '')), cell_style),
+                Paragraph(_rl_escape(emp_status), cell_style),
+                Paragraph(_rl_escape(st_label), cell_style),
+                Paragraph(_rl_escape(emp.get('mobile_number', '') or '-'), cell_style),
+                Paragraph(_rl_escape(shift_disp), cell_style),
+                Paragraph(_rl_escape(emp.get('bank_name', '') or '-'), cell_style),
+                Paragraph(_rl_escape(emp.get('account_number', '') or '-'), cell_style),
+                Paragraph(_rl_escape(emp.get('joining_date', '') or emp.get('date_of_joining', '') or '-'), cell_style)
             ])
             
     col_widths = [38, 55, 105, 55, 75, 80, 65, 85, 95, 75]
@@ -411,15 +416,15 @@ def generate_companies_pdf(companies, company_info=None):
     else:
         for idx, c in enumerate(companies, 1):
             table_data.append([
-                Paragraph(str(idx), cell_style),
-                Paragraph(str(c.get('company_name', '')), cell_style),
-                Paragraph(str(c.get('days_active_label', f"{c.get('days_active', 0)} Days")), cell_style),
-                Paragraph(str(c.get('gstin', '')), cell_style),
-                Paragraph(str(c.get('email', '')), cell_style),
-                Paragraph(str(c.get('phone', '')), cell_style),
-                Paragraph(str(c.get('shift_hours', '08:00')), cell_style),
-                Paragraph(f"{c.get('employee_count', 0)} / {c.get('employee_limit', 50)}", cell_style),
-                Paragraph(str(c.get('status', 'Active')), cell_style)
+                Paragraph(_rl_escape(idx), cell_style),
+                Paragraph(_rl_escape(c.get('company_name', '')), cell_style),
+                Paragraph(_rl_escape(c.get('days_active_label', f"{c.get('days_active', 0)} Days")), cell_style),
+                Paragraph(_rl_escape(c.get('gstin', '')), cell_style),
+                Paragraph(_rl_escape(c.get('email', '')), cell_style),
+                Paragraph(_rl_escape(c.get('phone', '')), cell_style),
+                Paragraph(_rl_escape(c.get('shift_hours', '08:00')), cell_style),
+                Paragraph(_rl_escape(f"{c.get('employee_count', 0)} / {c.get('employee_limit', 50)}"), cell_style),
+                Paragraph(_rl_escape(c.get('status', 'Active')), cell_style)
             ])
             
     col_widths = [35, 125, 70, 85, 130, 85, 65, 75, 55]
@@ -491,14 +496,14 @@ def generate_support_tickets_pdf(tickets, company_info=None):
         for idx, t in enumerate(tickets, 1):
             att_count = len(t.get('attachments', []))
             table_data.append([
-                Paragraph(str(idx), cell_style),
-                Paragraph(str(t.get('ticket_id', '')), cell_style),
-                Paragraph(str(t.get('date_time_str', '')), cell_style),
-                Paragraph(str(t.get('company_name', '')), cell_style),
-                Paragraph(str(t.get('raised_by', '')), cell_style),
-                Paragraph(str(t.get('subject', '')), cell_style),
-                Paragraph(str(t.get('status', 'Open')), cell_style),
-                Paragraph(str(att_count), cell_style)
+                Paragraph(_rl_escape(idx), cell_style),
+                Paragraph(_rl_escape(t.get('ticket_id', '')), cell_style),
+                Paragraph(_rl_escape(t.get('date_time_str', '')), cell_style),
+                Paragraph(_rl_escape(t.get('company_name', '')), cell_style),
+                Paragraph(_rl_escape(t.get('raised_by', '')), cell_style),
+                Paragraph(_rl_escape(t.get('subject', '')), cell_style),
+                Paragraph(_rl_escape(t.get('status', 'Open')), cell_style),
+                Paragraph(_rl_escape(att_count), cell_style)
             ])
             
     col_widths = [35, 75, 100, 110, 85, 215, 65, 57]
@@ -579,11 +584,11 @@ def generate_live_report_pdf(title, entries, company_info=None):
         d_val = row.get('exit_distance') if is_timeout_pdf and row.get('exit_distance') and row.get('exit_distance') != '----' else (row.get('formatted_distance') or ed_fallback)
         s_val = (row.get('exit_status') if is_timeout_pdf else row.get('entry_status')) or '-'
         table_data.append([
-            Paragraph(str(row.get('employee_name', '')), cell_style),
-            Paragraph(str(t_val), cell_style),
-            Paragraph(str(l_val), cell_style),
-            Paragraph(str(d_val), cell_style),
-            Paragraph(str(s_val), cell_style)
+            Paragraph(_rl_escape(row.get('employee_name', '')), cell_style),
+            Paragraph(_rl_escape(t_val), cell_style),
+            Paragraph(_rl_escape(l_val), cell_style),
+            Paragraph(_rl_escape(d_val), cell_style),
+            Paragraph(_rl_escape(s_val), cell_style)
         ])
         
     if len(table_data) == 1:
@@ -680,18 +685,18 @@ def generate_attendance_report_pdf(title, entries, is_simple=False, totals=None,
         
         for r in entries:
             table_data.append([
-                Paragraph(str(r.get('employee_name', '')), cell_style),
-                Paragraph(str(r.get('entry_time', '')), cell_style),
-                Paragraph(str(r.get('entry_distance', '')), cell_style),
-                Paragraph(str(r.get('entry_location', '')), cell_style),
-                Paragraph(str(r.get('entry_status', '-')), cell_style),
-                Paragraph(str(r.get('exit_time', '')), cell_style),
-                Paragraph(str(r.get('exit_distance', '')), cell_style),
-                Paragraph(str(r.get('exit_location', '')), cell_style),
-                Paragraph(str(r.get('exit_status', '-')), cell_style),
-                Paragraph(str(r.get('working_hours', '')), cell_style),
-                Paragraph(str(r.get('shift_variance', '')), cell_style),
-                Paragraph(str(r.get('working_salary', '0')), cell_style)
+                Paragraph(_rl_escape(r.get('employee_name', '')), cell_style),
+                Paragraph(_rl_escape(r.get('entry_time', '')), cell_style),
+                Paragraph(_rl_escape(r.get('entry_distance', '')), cell_style),
+                Paragraph(_rl_escape(r.get('entry_location', '')), cell_style),
+                Paragraph(_rl_escape(r.get('entry_status', '-')), cell_style),
+                Paragraph(_rl_escape(r.get('exit_time', '')), cell_style),
+                Paragraph(_rl_escape(r.get('exit_distance', '')), cell_style),
+                Paragraph(_rl_escape(r.get('exit_location', '')), cell_style),
+                Paragraph(_rl_escape(r.get('exit_status', '-')), cell_style),
+                Paragraph(_rl_escape(r.get('working_hours', '')), cell_style),
+                Paragraph(_rl_escape(r.get('shift_variance', '')), cell_style),
+                Paragraph(_rl_escape(r.get('working_salary', '0')), cell_style)
             ])
             
         col_widths = [65, 60, 50, 110, 55, 60, 50, 110, 55, 45, 45, 47]
@@ -723,13 +728,13 @@ def generate_attendance_report_pdf(title, entries, is_simple=False, totals=None,
         
         for r in entries:
             table_data.append([
-                Paragraph(str(r.get('employee_name', '')), cell_style),
-                Paragraph(str(r.get('entry_time', '')), cell_style),
-                Paragraph(str(r.get('exit_time', '')), cell_style),
-                Paragraph(str(r.get('working_hours', '')), cell_style),
-                Paragraph(str(r.get('shift_variance', '')), cell_style),
-                Paragraph(str(r.get('working_salary', '0')), cell_style),
-                Paragraph(str(r.get('status', 'Manual')), cell_style)
+                Paragraph(_rl_escape(r.get('employee_name', '')), cell_style),
+                Paragraph(_rl_escape(r.get('entry_time', '')), cell_style),
+                Paragraph(_rl_escape(r.get('exit_time', '')), cell_style),
+                Paragraph(_rl_escape(r.get('working_hours', '')), cell_style),
+                Paragraph(_rl_escape(r.get('shift_variance', '')), cell_style),
+                Paragraph(_rl_escape(r.get('working_salary', '0')), cell_style),
+                Paragraph(_rl_escape(r.get('status', 'Manual')), cell_style)
             ])
             
         if totals:
@@ -827,15 +832,15 @@ def generate_manual_entries_pdf(entries, company_info=None):
         rs_val = str(r.get('reason', '') or '').strip()
         status_display = f"{st_val} ({rs_val})" if rs_val else st_val
         table_data.append([
-            Paragraph(str(r.get('employee_name', '')), cell_style),
-            Paragraph(str(r.get('entry_date', '')), cell_style),
-            Paragraph(str(r.get('hours', '')), cell_style),
-            Paragraph(status_display, cell_style),
-            Paragraph(str(r.get('submitted_at', '')), cell_style),
+            Paragraph(_rl_escape(r.get('employee_name', '')), cell_style),
+            Paragraph(_rl_escape(r.get('entry_date', '')), cell_style),
+            Paragraph(_rl_escape(r.get('hours', '')), cell_style),
+            Paragraph(_rl_escape(status_display), cell_style),
+            Paragraph(_rl_escape(r.get('submitted_at', '')), cell_style),
             Paragraph(str(int(float(r.get('hourly_rate', 0)))), cell_style),
             Paragraph(str(int(float(r.get('day_rate', 0)))), cell_style),
             Paragraph(str(int(float(r.get('half_rate', 0)))), cell_style),
-            Paragraph(sal, salary_style)
+            Paragraph(_rl_escape(sal), salary_style)
         ])
         
     col_widths = [90, 80, 50, 75, 120, 50, 45, 45, 90]
@@ -931,13 +936,13 @@ def generate_payments_pdf(payments, company_info=None):
             rs = r.get('reason') if r.get('status') else ''
             disp_st = f"{st} - {rs}" if rs else st
             table_data.append([
-                Paragraph(str(r.get('timestamp', '')), cell_style),
-                Paragraph(str(r.get('employee_name', '')), cell_style),
-                Paragraph(str(r.get('payment_date', '')), cell_style),
+                Paragraph(_rl_escape(r.get('timestamp', '')), cell_style),
+                Paragraph(_rl_escape(r.get('employee_name', '')), cell_style),
+                Paragraph(_rl_escape(r.get('payment_date', '')), cell_style),
                 Paragraph(f"{float(r.get('amount', 0)):.2f}", amount_style),
-                Paragraph(str(r.get('bank', '') or '-'), cell_style),
-                Paragraph(str(r.get('payment_type', '')), cell_style),
-                Paragraph(str(disp_st), cell_style)
+                Paragraph(_rl_escape(r.get('bank', '') or '-'), cell_style),
+                Paragraph(_rl_escape(r.get('payment_type', '')), cell_style),
+                Paragraph(_rl_escape(disp_st), cell_style)
             ])
             
     col_widths = [100, 85, 65, 60, 70, 75, 85]
@@ -1023,9 +1028,9 @@ def generate_advances_pdf(advances, company_info=None):
     else:
         for r in advances:
             table_data.append([
-                Paragraph(str(r.get('timestamp', '')), cell_style),
-                Paragraph(str(r.get('employee_name', '')), cell_style),
-                Paragraph(str(r.get('advance_date', '')), cell_style),
+                Paragraph(_rl_escape(r.get('timestamp', '')), cell_style),
+                Paragraph(_rl_escape(r.get('employee_name', '')), cell_style),
+                Paragraph(_rl_escape(r.get('advance_date', '')), cell_style),
                 Paragraph(f"{float(r.get('amount', 0)):.2f}", amount_style)
             ])
             
@@ -1108,9 +1113,9 @@ def generate_balance_report_pdf(data, totals=None, company_info=None):
         for r in data:
             pay_amt = r.get('payment_amount', r.get('advance_repayment_amount', 0))
             table_data.append([
-                Paragraph(str(r.get('timestamp', '')), cell_style),
-                Paragraph(str(r.get('name', '')), cell_style),
-                Paragraph(str(r.get('date', '')), cell_style),
+                Paragraph(_rl_escape(r.get('timestamp', '')), cell_style),
+                Paragraph(_rl_escape(r.get('name', '')), cell_style),
+                Paragraph(_rl_escape(r.get('date', '')), cell_style),
                 Paragraph(f"{float(r.get('advance_amount', 0)):.2f}", cell_style),
                 Paragraph(f"{float(pay_amt):.2f}", cell_style),
                 Paragraph(f"{float(r.get('balance_amount', 0)):.2f}", cell_style)
@@ -1158,22 +1163,35 @@ def get_rl_image(img_ref, max_width=120, max_height=50):
             img_io = io.BytesIO(raw)
             img = RLImage(img_io)
         elif os.path.isabs(raw_str) and os.path.isfile(raw_str):
-            img = RLImage(raw_str)
+            base_dir = os.path.realpath(os.path.dirname(os.path.abspath(__file__)))
+            real_abs = os.path.realpath(raw_str)
+            allowed_roots = (
+                os.path.realpath(os.path.join(base_dir, 'static')),
+                os.path.realpath(os.path.join(base_dir, 'uploads')),
+            )
+            if not any(real_abs.startswith(r) for r in allowed_roots):
+                return None
+            img = RLImage(real_abs)
         else:
-            base_dir = os.path.abspath(os.path.dirname(__file__))
-            candidates = [
-                os.path.join(base_dir, 'static', 'uploads', raw_str),
-                os.path.join(base_dir, 'static', raw_str.lstrip('/\\')),
-                os.path.join(base_dir, 'static', 'images', raw_str),
-                os.path.join(base_dir, raw_str.lstrip('/\\'))
-            ]
+            base_dir = os.path.realpath(os.path.dirname(os.path.abspath(__file__)))
+            allowed_roots = (
+                os.path.realpath(os.path.join(base_dir, 'static')),
+                os.path.realpath(os.path.join(base_dir, 'uploads')),
+            )
             clean_name = os.path.basename(raw_str)
-            candidates.append(os.path.join(base_dir, 'static', 'uploads', clean_name))
+            rel_clean = raw_str.lstrip('/\\')
+            candidates = [
+                os.path.join(base_dir, 'static', 'uploads', clean_name),
+                os.path.join(base_dir, 'static', rel_clean),
+                os.path.join(base_dir, 'static', 'images', clean_name),
+                os.path.join(base_dir, rel_clean)
+            ]
 
             found = None
             for path in candidates:
-                if os.path.isfile(path):
-                    found = path
+                real_p = os.path.realpath(path)
+                if any(real_p.startswith(r) for r in allowed_roots) and os.path.isfile(real_p):
+                    found = real_p
                     break
             if not found:
                 return None
@@ -1327,53 +1345,53 @@ def _extract_payslip_fields(p):
 
     return {
         'is_weekly': is_weekly,
-        'payslip_type_upper': payslip_type_upper,
-        'payslip_type_title': payslip_type_title,
-        'comp_name': comp_name,
-        'comp_addr': comp_addr,
-        'contact_str': contact_str,
-        'month_badge_val': month_badge_val,
+        'payslip_type_upper': _rl_escape(payslip_type_upper),
+        'payslip_type_title': _rl_escape(payslip_type_title),
+        'comp_name': _rl_escape(comp_name),
+        'comp_addr': _rl_escape(comp_addr),
+        'contact_str': _rl_escape(contact_str),
+        'month_badge_val': _rl_escape(month_badge_val),
         'logo_ref': logo_ref,
         'photo_ref': photo_ref,
-        'emp_name': emp_name,
-        'emp_id': emp_id,
-        'desig': desig,
-        'dept': dept,
-        'email': email,
-        'phone': phone,
-        'basis_lbl': basis_lbl,
-        'rate_lbl': rate_lbl,
-        'rate_val': rate_val,
-        'shift_h': shift_h,
-        'working_days': working_days,
-        'tot_work_h': tot_work_h,
-        'tot_days': tot_days,
+        'emp_name': _rl_escape(emp_name),
+        'emp_id': _rl_escape(emp_id),
+        'desig': _rl_escape(desig),
+        'dept': _rl_escape(dept),
+        'email': _rl_escape(email),
+        'phone': _rl_escape(phone),
+        'basis_lbl': _rl_escape(basis_lbl),
+        'rate_lbl': _rl_escape(rate_lbl),
+        'rate_val': _rl_escape(rate_val),
+        'shift_h': _rl_escape(shift_h),
+        'working_days': _rl_escape(working_days),
+        'tot_work_h': _rl_escape(tot_work_h),
+        'tot_days': _rl_escape(tot_days),
         'leave_days': leave_days,
-        'leave_label': leave_label,
-        'bank_display': bank_display,
-        'bank_name': bank_name,
-        'basic_sal': basic_sal,
-        'ot_pay': ot_pay,
-        'ot_disp': ot_disp,
-        'ot_hrs': ot_hrs,
-        'ot_lbl': ot_lbl,
-        'allowance': allowance,
-        'incentive': incentive,
+        'leave_label': _rl_escape(leave_label),
+        'bank_display': _rl_escape(bank_display),
+        'bank_name': _rl_escape(bank_name),
+        'basic_sal': _rl_escape(basic_sal),
+        'ot_pay': _rl_escape(ot_pay),
+        'ot_disp': _rl_escape(ot_disp),
+        'ot_hrs': _rl_escape(ot_hrs),
+        'ot_lbl': _rl_escape(ot_lbl),
+        'allowance': _rl_escape(allowance),
+        'incentive': _rl_escape(incentive),
         'verified_visits': verified_visits,
         'verified_visits_inc_val': verified_visits_inc_val,
-        'verified_visits_inc': verified_visits_inc,
-        'other_earn': other_earn,
-        'tot_earn': tot_earn,
-        'paid_sal': paid_sal,
-        'adv_repay': adv_repay,
-        'other_ded': other_ded,
-        'petrol_ded': petrol_ded,
+        'verified_visits_inc': _rl_escape(verified_visits_inc),
+        'other_earn': _rl_escape(other_earn),
+        'tot_earn': _rl_escape(tot_earn),
+        'paid_sal': _rl_escape(paid_sal),
+        'adv_repay': _rl_escape(adv_repay),
+        'other_ded': _rl_escape(other_ded),
+        'petrol_ded': _rl_escape(petrol_ded),
         'petrol_ded_val': petrol_ded_val,
-        'petrol_earn': petrol_earn,
+        'petrol_earn': _rl_escape(petrol_earn),
         'petrol_earn_val': petrol_earn_val,
-        'tot_ded': tot_ded,
-        'net_pay_val': net_pay_val,
-        'net_words_val': net_words_val
+        'tot_ded': _rl_escape(tot_ded),
+        'net_pay_val': _rl_escape(net_pay_val),
+        'net_words_val': _rl_escape(net_words_val)
     }
 
 def _build_payslip_modern_executive(p, template_id, palette):
@@ -3063,12 +3081,12 @@ def generate_salary_report_pdf(data, company_info=None):
             ot_hrs = str(r.get('overtime_hours') or '00:00')
             ot_pay_txt = f"Rs. {int(round(float(r.get('overtime_pay', 0))))}"
             if ot_mins > 0:
-                ot_pay_txt = f"{ot_pay_txt}<br/><font size='5.5' color='#2563eb'>({ot_hrs} hrs)</font>"
+                ot_pay_txt = f"{ot_pay_txt}<br/><font size='5.5' color='#2563eb'>({_rl_escape(ot_hrs)} hrs)</font>"
         table_data.append([
-            Paragraph(str(r.get('employee_name', '')), cell_style),
-            Paragraph(str(r.get('pay_period', '')), cell_style),
-            Paragraph(str(r.get('working_days', '')), cell_style),
-            Paragraph(str(r.get('working_hours', '')), cell_style),
+            Paragraph(_rl_escape(r.get('employee_name', '')), cell_style),
+            Paragraph(_rl_escape(r.get('pay_period', '')), cell_style),
+            Paragraph(_rl_escape(r.get('working_days', '')), cell_style),
+            Paragraph(_rl_escape(r.get('working_hours', '')), cell_style),
             Paragraph(ot_pay_txt, cell_style),
             Paragraph(f"Rs. {int(float(r.get('allowance', 0)))}", cell_style),
             Paragraph(f"Rs. {int(float(r.get('incentive', 0)))}", cell_style),
@@ -3316,16 +3334,16 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
 
     # ==================== PAGE 1 ====================
     # 1. Header
-    elements.append(Paragraph(comp_name.upper(), title_style))
+    elements.append(Paragraph(_rl_escape(comp_name.upper()), title_style))
     elements.append(Spacer(1, 2))
     if comp_loc:
-        elements.append(Paragraph(comp_loc.upper(), subtitle_style))
+        elements.append(Paragraph(_rl_escape(comp_loc.upper()), subtitle_style))
         elements.append(Spacer(1, 1))
     elements.append(Paragraph("ARGUS ATTENDANCE INTELLIGENCE - VERSION 2.0.0", subtitle_style))
     elements.append(Spacer(1, 3))
     elements.append(Paragraph("YESTERDAY'S ACTIVITY REPORT", doc_title_style))
     elements.append(Spacer(1, 3))
-    meta_text = f"Activity Date: {act_date_str} | Generated On: {gen_date_str}"
+    meta_text = f"Activity Date: {_rl_escape(act_date_str)} | Generated On: {_rl_escape(gen_date_str)}"
     elements.append(Paragraph(meta_text, meta_date_style))
     elements.append(Spacer(1, 9))
 
@@ -3437,7 +3455,7 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
                         st = td_left_style
                     else:
                         st = td_center_style
-                    row_cells.append(Paragraph(str(val), st))
+                    row_cells.append(Paragraph(_rl_escape(val), st))
                 t_rows.append(row_cells)
         else:
             empty_row = [Paragraph("-", td_center_style), Paragraph(empty_msg, td_empty_style)]
@@ -3507,7 +3525,7 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
     # Page 2 Header
     elements.append(Paragraph("YESTERDAY'S ACTIVITY REPORT - Continued", doc_cont_title_style))
     elements.append(Spacer(1, 2))
-    elements.append(Paragraph(f"Activity Date: {act_date_str}", meta_date_style))
+    elements.append(Paragraph(_rl_escape(f"Activity Date: {act_date_str}"), meta_date_style))
     elements.append(Spacer(1, 7))
 
     # 5. Section 3: Timeout Entries
@@ -3571,7 +3589,7 @@ def generate_yesterdays_activity_report_pdf(activity_data, company_info=None):
     # Page 3 Header
     elements.append(Paragraph("YESTERDAY'S ACTIVITY REPORT - Continued", doc_cont_title_style))
     elements.append(Spacer(1, 2))
-    elements.append(Paragraph(f"Activity Date: {act_date_str}", meta_date_style))
+    elements.append(Paragraph(_rl_escape(f"Activity Date: {act_date_str}"), meta_date_style))
     elements.append(Spacer(1, 7))
 
     # 8. Section 6: Absent Report (NEW)
@@ -3679,20 +3697,20 @@ def generate_field_worker_payslip_pdf(data, company_info=None):
     # Employee & Field Profile Table
     info_rows = [
         [
-            Paragraph("Employee Name:", lbl_style), Paragraph(str(data.get('employee_name', '-')), val_style),
-            Paragraph("Territory / Zone:", lbl_style), Paragraph(str(data.get('territory_zone', 'General Zone')), val_style)
+            Paragraph("Employee Name:", lbl_style), Paragraph(_rl_escape(data.get('employee_name', '-')), val_style),
+            Paragraph("Territory / Zone:", lbl_style), Paragraph(_rl_escape(data.get('territory_zone', 'General Zone')), val_style)
         ],
         [
-            Paragraph("Department:", lbl_style), Paragraph(str(data.get('department', 'Field Sales')), val_style),
-            Paragraph("Designation:", lbl_style), Paragraph(str(data.get('designation', 'Field Executive')), val_style)
+            Paragraph("Department:", lbl_style), Paragraph(_rl_escape(data.get('department', 'Field Sales')), val_style),
+            Paragraph("Designation:", lbl_style), Paragraph(_rl_escape(data.get('designation', 'Field Executive')), val_style)
         ],
         [
-            Paragraph("Salary Type / Shift:", lbl_style), Paragraph(f"{str(data.get('salary_type', 'daily')).upper()} ({fw_shift_disp})", val_style),
-            Paragraph("Working Days / Hours:", lbl_style), Paragraph(f"{data.get('working_days', 0)} Days ({data.get('total_hours', '00:00')} hrs)", val_style)
+            Paragraph("Salary Type / Shift:", lbl_style), Paragraph(_rl_escape(f"{str(data.get('salary_type', 'daily')).upper()} ({fw_shift_disp})"), val_style),
+            Paragraph("Working Days / Hours:", lbl_style), Paragraph(_rl_escape(f"{data.get('working_days', 0)} Days ({data.get('total_hours', '00:00')} hrs)"), val_style)
         ],
         [
-            Paragraph("Bank / Account:", lbl_style), Paragraph(f"{data.get('bank_name') or '-'} / {data.get('account_number') or '-'}", val_style),
-            Paragraph("IFSC Code:", lbl_style), Paragraph(str(data.get('ifsc_code') or '-'), val_style)
+            Paragraph("Bank / Account:", lbl_style), Paragraph(_rl_escape(f"{data.get('bank_name') or '-'} / {data.get('account_number') or '-'}"), val_style),
+            Paragraph("IFSC Code:", lbl_style), Paragraph(_rl_escape(data.get('ifsc_code') or '-'), val_style)
         ]
     ]
     t_info = Table(info_rows, colWidths=[115, 155, 115, 155])
@@ -3795,7 +3813,7 @@ def generate_field_worker_payslip_pdf(data, company_info=None):
         ],
         [
             Paragraph("NET PAYABLE FIELD SALARY", sec_hdr),
-            Paragraph(str(data.get('net_pay_in_words', '')), ParagraphStyle('FWWords', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, textColor=colors.white)),
+            Paragraph(_rl_escape(data.get('net_pay_in_words', '')), ParagraphStyle('FWWords', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, textColor=colors.white)),
             Paragraph(f"Rs. {float(data.get('net_field_payable', 0)):,.2f}", ParagraphStyle('FWNet', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10.5, alignment=TA_RIGHT, textColor=colors.white))
         ]
     ])
@@ -3838,13 +3856,13 @@ def generate_field_worker_report_pdf(headers, rows, title="FIELD WORKER MODULE R
     hdr_style = ParagraphStyle('FWHdrCell', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.white)
     cell_style = ParagraphStyle('FWBodyCell', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9.5, textColor=colors.HexColor('#1E293B'))
 
-    table_data = [[Paragraph(str(h), hdr_style) for h in headers]]
+    table_data = [[Paragraph(_rl_escape(h), hdr_style) for h in headers]]
     if not rows:
         empty_row = [Paragraph("No records found for selected filters", cell_style)] + [Paragraph("", cell_style) for _ in range(max(0, len(headers) - 1))]
         table_data.append(empty_row)
     else:
         for r in rows:
-            table_data.append([Paragraph(str(c if c is not None else ''), cell_style) for c in r])
+            table_data.append([Paragraph(_rl_escape(c), cell_style) for c in r])
 
     avail_w = 736.0
     col_w = avail_w / max(1, len(headers))

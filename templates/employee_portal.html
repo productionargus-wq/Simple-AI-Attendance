@@ -3,6 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <script>
+    (function() {
+      var origFetch = window.fetch;
+      if (!origFetch) return;
+      window.fetch = function(input, init) {
+        init = init ? Object.assign({}, init) : {};
+        var method = String(init.method || (input && input.method) || 'GET').toUpperCase();
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].indexOf(method) !== -1) {
+          var meta = document.querySelector('meta[name="csrf-token"]');
+          var token = meta ? meta.getAttribute('content') : '';
+          if (token) {
+            var hdrs = new Headers(init.headers || (input && input.headers) || {});
+            if (!hdrs.has('X-CSRFToken')) hdrs.set('X-CSRFToken', token);
+            init.headers = hdrs;
+          }
+        }
+        return origFetch.call(this, input, init);
+      };
+    })();
+  </script>
   <title>{{ company.company_name if company and company.company_name else session.get('company_name') or 'ARGUS' }} - Employee Portal | {{ employee.employee_name if employee else 'Employee' }}</title>
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261007_white">
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon.png') }}?v=20261007_white">

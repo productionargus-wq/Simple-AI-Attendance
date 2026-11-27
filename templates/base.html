@@ -8,6 +8,29 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+
+  <script data-layout-script="true">
+    (function() {
+      var origFetch = window.fetch;
+      if (!origFetch) return;
+      window.fetch = function(input, init) {
+        init = init ? Object.assign({}, init) : {};
+        var method = String(init.method || (input && input.method) || 'GET').toUpperCase();
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].indexOf(method) !== -1) {
+          var meta = document.querySelector('meta[name="csrf-token"]');
+          var token = meta ? meta.getAttribute('content') : '';
+          if (token) {
+            var hdrs = new Headers(init.headers || (input && input.headers) || {});
+            if (!hdrs.has('X-CSRFToken')) hdrs.set('X-CSRFToken', token);
+            init.headers = hdrs;
+          }
+        }
+        return origFetch.call(this, input, init);
+      };
+    })();
+  </script>
+
   <title>{{ session.get('company_name') or 'Argus CNC™' }} - Argus Attendance Intelligence v2.0.0</title>
 
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=20261120_ico2">
@@ -26,7 +49,7 @@
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/advisor_ai.css') }}?v=20261112_br_v1">
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer data-layout-script="true"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous" defer data-layout-script="true"></script>
 
   <script data-layout-script="true">
 

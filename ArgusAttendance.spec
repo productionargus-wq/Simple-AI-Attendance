@@ -14,8 +14,11 @@ datas = [
     ('models', 'models'),
 ]
 
-if os.path.exists('.env'):
-    datas.append(('.env', '.'))
+# SECURITY: .env must NOT be bundled into the executable.
+# Desktop offline mode loads .env from the exe directory at runtime (see app.py lines 29-35).
+# Place a minimal .env beside the installed .exe with only offline-mode settings (no DB credentials).
+# if os.path.exists('.env'):
+#     datas.append(('.env', '.'))
 
 # Hidden imports required for dynamic dependencies
 hidden_imports = [

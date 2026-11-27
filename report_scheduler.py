@@ -1,4 +1,5 @@
 import os
+import re
 import socket
 import time
 import threading
@@ -45,14 +46,16 @@ def build_daily_activity_report(company_id, target_date=None):
     d_alt = f"{date_parts[2]}-{date_parts[1]}-{date_parts[0]}" if len(date_parts) == 3 else target_date
 
     # 1. Face Attendance Punches for yesterday
+    re_tdate = re.escape(str(target_date))
+    re_dalt = re.escape(str(d_alt))
     punch_query = {
         'company_id': comp_id_str,
         '$or': [
             {'date': target_date},
             {'date': d_alt},
-            {'entry_time': {'$regex': f"^{target_date}"}},
-            {'entry_time': {'$regex': f"^{d_alt}"}},
-            {'created_at': {'$regex': f"^{target_date}"}}
+            {'entry_time': {'$regex': f"^{re_tdate}"}},
+            {'entry_time': {'$regex': f"^{re_dalt}"}},
+            {'created_at': {'$regex': f"^{re_tdate}"}}
         ]
     }
     punches_cursor = db.attendance_reports.find(punch_query)
@@ -99,8 +102,8 @@ def build_daily_activity_report(company_id, target_date=None):
         '$or': [
             {'entry_date': target_date},
             {'entry_date': d_alt},
-            {'submitted_at': {'$regex': f"^{target_date}"}},
-            {'submitted_at': {'$regex': f"^{d_alt}"}}
+            {'submitted_at': {'$regex': f"^{re_tdate}"}},
+            {'submitted_at': {'$regex': f"^{re_dalt}"}}
         ]
     }
     manual_entries = list(db.manual_entries.find(manual_query))
@@ -129,8 +132,8 @@ def build_daily_activity_report(company_id, target_date=None):
         '$or': [
             {'payment_date': target_date},
             {'payment_date': d_alt},
-            {'timestamp': {'$regex': f"^{target_date}"}},
-            {'timestamp': {'$regex': f"^{d_alt}"}}
+            {'timestamp': {'$regex': f"^{re_tdate}"}},
+            {'timestamp': {'$regex': f"^{re_dalt}"}}
         ]
     }
     payments = list(db.payments.find(payment_query))
@@ -325,15 +328,18 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
         return metrics['total_salary']
 
     # 1. Attendance punches (Proper & Improper)
+    re_dslash = re.escape(str(d_slash))
+    re_dalt = re.escape(str(d_alt))
+    re_tdate = re.escape(str(target_date))
     punch_query = {
         'company_id': comp_id_str,
         '$or': [
             {'date': {'$in': date_variants}},
-            {'entry_time': {'$regex': f"^{d_slash}"}},
-            {'entry_time': {'$regex': f"^{d_alt}"}},
-            {'entry_time': {'$regex': f"^{target_date}"}},
-            {'created_at': {'$regex': f"^{target_date}"}},
-            {'created_at': {'$regex': f"^{d_alt}"}}
+            {'entry_time': {'$regex': f"^{re_dslash}"}},
+            {'entry_time': {'$regex': f"^{re_dalt}"}},
+            {'entry_time': {'$regex': f"^{re_tdate}"}},
+            {'created_at': {'$regex': f"^{re_tdate}"}},
+            {'created_at': {'$regex': f"^{re_dalt}"}}
         ]
     }
     if branch_cond:
@@ -432,11 +438,11 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
         'company_id': comp_id_str,
         '$or': [
             {'date': {'$in': date_variants}},
-            {'entry_time': {'$regex': f"^{d_slash}"}},
-            {'entry_time': {'$regex': f"^{d_alt}"}},
-            {'entry_time': {'$regex': f"^{target_date}"}},
-            {'created_at': {'$regex': f"^{target_date}"}},
-            {'created_at': {'$regex': f"^{d_alt}"}}
+            {'entry_time': {'$regex': f"^{re_dslash}"}},
+            {'entry_time': {'$regex': f"^{re_dalt}"}},
+            {'entry_time': {'$regex': f"^{re_tdate}"}},
+            {'created_at': {'$regex': f"^{re_tdate}"}},
+            {'created_at': {'$regex': f"^{re_dalt}"}}
         ]
     }
     if branch_cond:
@@ -448,8 +454,8 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
             'is_timeout': {'$in': [1, '1', True]},
             '$or': [
                 {'date': {'$in': date_variants}},
-                {'entry_time': {'$regex': f"^{d_slash}"}},
-                {'created_at': {'$regex': f"^{target_date}"}}
+                {'entry_time': {'$regex': f"^{re_dslash}"}},
+                {'created_at': {'$regex': f"^{re_tdate}"}}
             ]
         }))
 
@@ -482,10 +488,10 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
         'company_id': comp_id_str,
         '$or': [
             {'entry_date': {'$in': date_variants}},
-            {'submitted_at': {'$regex': f"^{d_slash}"}},
-            {'submitted_at': {'$regex': f"^{d_alt}"}},
-            {'submitted_at': {'$regex': f"^{target_date}"}},
-            {'created_at': {'$regex': f"^{target_date}"}}
+            {'submitted_at': {'$regex': f"^{re_dslash}"}},
+            {'submitted_at': {'$regex': f"^{re_dalt}"}},
+            {'submitted_at': {'$regex': f"^{re_tdate}"}},
+            {'created_at': {'$regex': f"^{re_tdate}"}}
         ]
     }
     if branch_cond:
@@ -647,10 +653,10 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
         'company_id': comp_id_str,
         '$or': [
             {'payment_date': {'$in': date_variants}},
-            {'timestamp': {'$regex': f"^{d_slash}"}},
-            {'timestamp': {'$regex': f"^{d_alt}"}},
-            {'timestamp': {'$regex': f"^{target_date}"}},
-            {'created_at': {'$regex': f"^{target_date}"}}
+            {'timestamp': {'$regex': f"^{re_dslash}"}},
+            {'timestamp': {'$regex': f"^{re_dalt}"}},
+            {'timestamp': {'$regex': f"^{re_tdate}"}},
+            {'created_at': {'$regex': f"^{re_tdate}"}}
         ]
     }
     if branch_cond:
@@ -660,10 +666,10 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
         'company_id': comp_id_str,
         '$or': [
             {'advance_date': {'$in': date_variants}},
-            {'timestamp': {'$regex': f"^{d_slash}"}},
-            {'timestamp': {'$regex': f"^{d_alt}"}},
-            {'timestamp': {'$regex': f"^{target_date}"}},
-            {'created_at': {'$regex': f"^{target_date}"}}
+            {'timestamp': {'$regex': f"^{re_dslash}"}},
+            {'timestamp': {'$regex': f"^{re_dalt}"}},
+            {'timestamp': {'$regex': f"^{re_tdate}"}},
+            {'created_at': {'$regex': f"^{re_tdate}"}}
         ]
     }
     if branch_cond:
@@ -701,10 +707,10 @@ def build_yesterdays_activity_full_data(company_id, target_date=None, branch_id=
     emp_query = {
         'company_id': comp_id_str,
         '$or': [
-            {'updated_at': {'$regex': f"^{target_date}"}},
-            {'updated_at': {'$regex': f"^{d_alt}"}},
-            {'created_at': {'$regex': f"^{target_date}"}},
-            {'created_at': {'$regex': f"^{d_alt}"}}
+            {'updated_at': {'$regex': f"^{re_tdate}"}},
+            {'updated_at': {'$regex': f"^{re_dalt}"}},
+            {'created_at': {'$regex': f"^{re_tdate}"}},
+            {'created_at': {'$regex': f"^{re_dalt}"}}
         ]
     }
     if b_id:
@@ -832,7 +838,7 @@ def send_daily_activity_email(company_id, target_date=None, force=False):
         already_sent = db.email_logs.find_one({
             'company_id': comp_id_str,
             'report_type': 'daily_activity',
-            'subject': {'$regex': target_date},
+            'subject': {'$regex': re.escape(str(target_date))},
             'status': {'$in': ['SENT', 'SENT_SANDBOX_PREVIEW']}
         })
         if already_sent:
@@ -891,7 +897,7 @@ def send_monthly_salary_email(company_id, target_month=None, force=False):
         already_sent = db.email_logs.find_one({
             'company_id': comp_id_str,
             'report_type': 'monthly_salary',
-            'subject': {'$regex': target_month},
+            'subject': {'$regex': re.escape(str(target_month))},
             'status': {'$in': ['SENT', 'SENT_SANDBOX_PREVIEW']}
         })
         if already_sent:

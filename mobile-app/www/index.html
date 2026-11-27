@@ -3,135 +3,589 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Argus Attendance Intelligence Terminal version 2.0.0</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      width: 100%; height: 100%;
-      background: radial-gradient(circle at 50% 30%, #1a3a60 0%, #152e4d 45%, #0d1e34 100%);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-    .splash-container {
-      text-align: center;
-      padding: 24px;
-      max-width: 360px;
-    }
-    .logo-glow {
-      position: relative;
-      width: 110px;
-      height: 110px;
-      margin: 0 auto 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .logo-glow::before {
-      content: '';
-      position: absolute;
-      width: 135px;
-      height: 135px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(56, 189, 248, 0) 70%);
-      animation: pulse 2s infinite ease-in-out;
-    }
-    .logo-img {
-      width: 95px;
-      height: 95px;
-      border-radius: 50%;
-      background: #ffffff;
-      border: 3px solid rgba(255, 255, 255, 0.95);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-      object-fit: cover;
-      animation: float 3s infinite ease-in-out;
-    }
-    h1 {
-      font-size: 21px;
-      font-weight: 800;
-      letter-spacing: 1.5px;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-    }
-    p {
-      color: #94a3b8;
-      font-size: 13px;
-      margin-bottom: 24px;
-    }
-    .loader-bar {
-      width: 180px;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: 4px;
-      margin: 0 auto 14px;
-      overflow: hidden;
-      position: relative;
-    }
-    .loader-progress {
-      position: absolute;
-      top: 0; left: 0;
-      height: 100%; width: 50%;
-      background: linear-gradient(90deg, #38bdf8, #22c55e);
-      border-radius: 4px;
-      animation: indeterminate 1.6s infinite ease-in-out;
-    }
-    .status-text {
-      color: #cbd5e1;
-      font-size: 11.5px;
-    }
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); opacity: 0.5; }
-      50% { transform: scale(1.15); opacity: 0.95; }
-    }
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-5px); }
-    }
-    @keyframes indeterminate {
-      0% { left: -50%; width: 50%; }
-      50% { left: 25%; width: 65%; }
-      100% { left: 100%; width: 50%; }
-    }
-  </style>
+  <title>Argus Attendance Intelligence v2.0.0</title>
+  <link rel="stylesheet" href="css/mobile.css">
+  <script src="vendor/mediapipe/face_mesh.js" defer></script>
+  <script src="config.js"></script>
+  <script src="js/voice_assistant.js"></script>
+  <script src="js/kiosk.js" defer></script>
+  <script src="js/portal.js" defer></script>
+  <script src="js/app.js" defer></script>
 </head>
 <body>
-  <div class="splash-container">
-    <div class="logo-glow">
-      <img src="logo.png" alt="Argus Attendance" class="logo-img">
+
+  <!-- Animated Mobile App Splash Screen (2nd Uploaded Lockup) -->
+  <div id="appSplashScreen" class="app-splash-screen">
+    <div class="splash-card">
+      <div class="splash-aura"></div>
+      <div class="splash-lockup-wrap">
+        <img src="images/splash_lockup.png" alt="Argus Attendance Intelligence" class="splash-lockup-img">
+      </div>
+      <div class="splash-tagline">AI Biometric Attendance Terminal</div>
+      <div class="splash-version-pill">v2.0.0 • MOBILE EDITION</div>
+      <div class="splash-loader-bar">
+        <div class="splash-loader-progress"></div>
+      </div>
+      <div class="splash-status" id="splashStatusText">Starting AI Camera Terminal...</div>
     </div>
-    <h1>ARGUS ATTENDANCE INTELLIGENCE</h1>
-    <p>AI Biometric Attendance Terminal</p>
-    <div class="loader-bar">
-      <div class="loader-progress"></div>
-    </div>
-    <div class="status-text" id="statusMsg">Connecting to Live Terminal...</div>
   </div>
 
-  <script>
-    // Live Server Connection with Fallback
-    const LIVE_URL = "https://argusattendance.argussoftwares.com/?app=1";
-    const FALLBACK_URL = "https://simple-ai-attendance.onrender.com/?app=1";
+  <!-- ================= VIEW 1: KIOSK TERMINAL ================= -->
+  <section id="kioskView" class="view-panel active">
+    <header class="navbar">
+      <div class="nav-brand">
+        <img src="images/app_icon.png" alt="Argus" class="brand-icon-badge">
+        <div class="brand-vertical-divider"></div>
+        <div class="brand-text-stack">
+          <span class="brand-text-top">ATTENDANCE</span>
+          <span class="brand-text-bottom">INTELLIGENCE</span>
+        </div>
+        <span class="nav-company-pill" id="kioskCompanyBadge" style="display: none;"></span>
+      </div>
 
-    async function connectToTerminal() {
-      const statusEl = document.getElementById('statusMsg');
-      try {
-        statusEl.textContent = 'Connecting to Argus Attendance Intelligence Cloud...';
-        const res = await fetch(LIVE_URL, { method: 'HEAD', mode: 'no-cors' });
-        window.location.replace(LIVE_URL);
-      } catch (err) {
-        statusEl.textContent = 'Connecting to fallback cloud...';
-        try {
-          await fetch(FALLBACK_URL, { method: 'HEAD', mode: 'no-cors' });
-          window.location.replace(FALLBACK_URL);
-        } catch (e) {
-          window.location.replace(LIVE_URL);
-        }
-      }
-    }
-    setTimeout(connectToTerminal, 600);
-  </script>
+      <!-- ONLY ONE LOGIN BUTTON: Employee Login -->
+      <div class="nav-actions">
+        <button type="button" id="btnHeaderEmployeeLogin" class="btn-employee-login-nav">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span>Employee Login</span>
+        </button>
+        <button type="button" id="btnHeaderMyPortal" class="btn-employee-login-nav" style="display: none;">
+          <span>My Portal</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="kiosk-main">
+      <div class="datetime-header">
+        <div class="header-date" id="liveDate">--</div>
+        <div class="header-time" id="liveTime">--:--:-- --</div>
+      </div>
+
+      <div class="attendance-card">
+        <div class="camera-screen" id="cameraScreen">
+          <video id="cameraFeed" class="camera-video" autoplay playsinline muted></video>
+          <canvas id="captureCanvas" style="display: none;"></canvas>
+
+          <div class="face-reticle" id="faceReticle">
+            <div class="scanner-line"></div>
+          </div>
+
+          <div class="blink-hud-overlay" id="blinkHudOverlay">
+            <div class="blink-hud-pill" id="blinkHudPill">
+              <span id="blinkHudIcon">👁️</span>
+              <span class="blink-hud-text" id="blinkHudText">Blink 2 times to punch hands-free</span>
+              <div class="blink-hud-dots" id="blinkHudDots">
+                <span class="blink-hud-dot" id="blinkDot1"></span>
+                <span class="blink-hud-dot" id="blinkDot2"></span>
+              </div>
+              <span class="blink-eye-state" id="blinkEyeState">Tracking...</span>
+            </div>
+          </div>
+
+          <div class="camera-overlay" id="cameraOverlay">
+            <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            <div class="camera-off-title">Camera is turned off</div>
+            <div class="camera-off-subtitle">Tap &ldquo;Turn On Camera&rdquo; to enable.</div>
+          </div>
+        </div>
+
+        <div class="controls-row">
+          <button type="button" class="btn-camera-toggle" id="btnToggleCamera">
+            <span id="btnToggleCameraText">Turn On Camera</span>
+          </button>
+          <button type="button" class="btn-mark-attendance" id="btnMarkAttendance">
+            <span id="btnMarkAttendanceText">Proceed to Next Person</span>
+          </button>
+        </div>
+
+        <div class="handsfree-mode-bar">
+          <button type="button" class="btn-pill-toggle active" id="btnToggleHandsFree">
+            <span class="handsfree-dot"></span>
+            <span id="handsfreeToggleLabel">Hands-Free: Active (Blink 2x)</span>
+          </button>
+          <button type="button" class="btn-pill-toggle" id="btnToggleSensitivity">
+            <span>⚙️</span>
+            <strong id="sensitivityLabel">Normal</strong>
+          </button>
+          <button type="button" class="btn-pill-toggle active" id="btnToggleVoice">
+            <span id="voiceToggleIcon">🔊</span>
+            <span id="voiceToggleLabel">Audio: On</span>
+          </button>
+          <button type="button" class="btn-pill-toggle" id="btnTerminalLangToggle">
+            <span>🌐</span>
+            <span class="lang-label" id="terminalLangLabel">தமிழ்</span>
+          </button>
+        </div>
+
+        <div class="punch-detail-container" id="punchDetailContainer"></div>
+      </div>
+    </main>
+
+    <footer class="portal-footer">
+      <div>&copy; 2026 Argus Attendance Intelligence v2.0.0</div>
+      <div style="display:inline-flex;align-items:center;gap:6px;">
+        <span>Powered by</span>
+        <img src="images/argus_cnc_footer_logo.png" alt="Argus CNC" style="height:18px;width:auto;object-fit:contain;">
+      </div>
+    </footer>
+  </section>
+
+  <!-- ================= VIEW 2: EMPLOYEE LOGIN ================= -->
+  <section id="loginView" class="view-panel login-shell">
+    <div class="login-card">
+      <div class="login-brand-row">
+        <img src="images/app_icon.png" alt="Argus" class="login-brand-icon">
+        <div class="login-brand-divider"></div>
+        <span class="login-brand-text">ATTENDANCE INTELLIGENCE</span>
+      </div>
+      <div class="login-accent-bar"></div>
+      <div class="login-role-title">EMPLOYEE PORTAL</div>
+
+      <div id="loginErrorBox" class="login-error-box"></div>
+
+      <form id="employeeLoginForm">
+        <label class="field-label" for="loginEmail">Authorized Email</label>
+        <div class="input-field-group">
+          <span class="input-icon-left">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+          </span>
+          <input type="email" id="loginEmail" required placeholder="Enter your registered employee email" autocomplete="username">
+        </div>
+
+        <label class="field-label" for="loginPassword">Password</label>
+        <div class="input-field-group">
+          <span class="input-icon-left">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </span>
+          <input type="password" id="loginPassword" required placeholder="Enter your password" autocomplete="current-password">
+          <button type="button" class="btn-toggle-eye" id="toggleLoginPassBtn" title="Show/Hide Password">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+
+        <button type="submit" id="btnEmployeeSignIn" class="btn-signin">SIGN IN</button>
+      </form>
+
+      <div class="login-or-divider"><div></div><span>OR</span><div></div></div>
+
+      <div class="google-info-box">
+        <div style="font-size:11.5px;color:#334155;line-height:1.4;">
+          <strong style="color:#0d3257;">First-time access?</strong> Continue with Google to verify your registered employee account, then set your password in <strong>My Credentials</strong>.
+        </div>
+      </div>
+
+      <button type="button" id="btnEmployeeGoogleLogin" class="btn-google">
+        <svg width="18" height="18" viewBox="0 0 18 18">
+          <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+          <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.347 2.825.957 4.039l3.007-2.332z"/>
+          <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+        </svg>
+        <span>Continue with Google</span>
+      </button>
+
+      <button type="button" id="btnBackToKiosk" class="btn-back-kiosk">← Back to Attendance Kiosk</button>
+    </div>
+  </section>
+
+  <!-- ================= VIEW 3: EMPLOYEE SELF-SERVICE UI ================= -->
+  <section id="portalView" class="view-panel">
+    <header class="portal-nav">
+      <div class="nav-brand">
+        <img src="images/app_icon.png" alt="Argus" class="brand-icon-badge">
+        <div class="brand-text-stack">
+          <span class="brand-text-top" id="portalCompanyTitle">EMPLOYEE PORTAL</span>
+          <span class="brand-text-bottom">SELF-SERVICE</span>
+        </div>
+      </div>
+
+      <div class="portal-nav-right">
+        <button type="button" class="portal-btn-nav" id="mobileGlobalLangBtn">
+          <span>🌐</span>
+          <span class="lang-label">தமிழ்</span>
+        </button>
+        <button type="button" class="portal-btn-nav" id="btnPortalToKiosk">Kiosk</button>
+        <button type="button" class="portal-btn-nav" id="btnPortalLogout" style="background:rgba(220,38,38,0.28);border-color:rgba(254,202,202,0.5);">Logout</button>
+        <img id="portalCompanyLogoImg" src="images/default_profile.svg" alt="Company" style="width:28px;height:28px;border-radius:50%;background:#fff;object-fit:cover;border:1.5px solid #fff;">
+      </div>
+    </header>
+
+    <div class="portal-clock-wrap">
+      <div id="portalLiveClock" class="portal-live-clock">--/--/---- --:--:--</div>
+    </div>
+
+    <main class="portal-container">
+      <!-- Profile Overview -->
+      <div class="emp-profile-pill">
+        <div class="emp-profile-summary-row">
+          <div class="emp-profile-primary">
+            <div><strong>Name:</strong> <span id="portalEmpName">-</span></div>
+            <div><strong>Email:</strong> <span id="portalEmpEmail">-</span></div>
+          </div>
+          <button type="button" id="btnToggleMoreEmpDetails" class="btn-show-more-details">Show More Details ▾</button>
+        </div>
+        <div id="empExtraDetails" class="emp-extra-details"></div>
+      </div>
+
+      <!-- Restricted Fallback -->
+      <div id="portalRestrictedCard" class="portal-card" style="display:none;text-align:center;padding:36px 18px;">
+        <div style="font-size:34px;margin-bottom:8px;">🔒</div>
+        <h3 style="font-size:16px;margin-bottom:6px;">Portal Access Restricted</h3>
+        <p style="font-size:12.5px;color:#64748b;">No active portal sections are enabled for your account. Please contact your administrator.</p>
+      </div>
+
+      <!-- Section 1: Employee Self-Punch Camera -->
+      <div class="portal-card" id="portalAttendanceCard">
+        <div class="portal-card-header">
+          <span>📸 Punch Attendance (AI Face Recognition)</span>
+          <span style="font-size:11px;font-weight:700;color:#198754;">✓ Geofencing Active</span>
+        </div>
+
+        <div class="camera-screen" id="portalCameraScreen">
+          <video id="portalCameraFeed" class="camera-video" autoplay playsinline muted></video>
+          <canvas id="portalCanvas" style="display:none;"></canvas>
+
+          <div class="face-reticle" id="portalFaceReticle">
+            <div class="scanner-line"></div>
+          </div>
+
+          <div class="blink-hud-overlay" id="portalBlinkHudOverlay">
+            <div class="blink-hud-pill" id="portalBlinkHudPill">
+              <span id="portalBlinkHudIcon">👁️</span>
+              <span class="blink-hud-text" id="portalBlinkHudText">Blink 2 times to punch hands-free</span>
+              <div class="blink-hud-dots" id="portalBlinkHudDots">
+                <span class="blink-hud-dot" id="portalBlinkDot1"></span>
+                <span class="blink-hud-dot" id="portalBlinkDot2"></span>
+              </div>
+              <span class="blink-eye-state" id="portalBlinkEyeState">Tracking...</span>
+            </div>
+          </div>
+
+          <div class="camera-overlay" id="portalCameraOverlay">
+            <svg class="camera-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            <div class="camera-off-title">Camera is turned off</div>
+            <div class="camera-off-subtitle">Tap &ldquo;Turn On Camera&rdquo; to punch.</div>
+          </div>
+        </div>
+
+        <div class="controls-row">
+          <button type="button" class="btn-camera-toggle" id="btnPortalToggleCam">
+            <span id="btnPortalToggleCamText">Turn On Camera</span>
+          </button>
+          <button type="button" class="btn-mark-attendance" id="btnPortalPunch">
+            <span id="btnPortalPunchText">Mark My Attendance</span>
+          </button>
+        </div>
+
+        <div class="handsfree-mode-bar">
+          <button type="button" class="btn-pill-toggle active" id="btnPortalToggleHandsFree">
+            <span class="handsfree-dot"></span>
+            <span id="portalHandsfreeToggleLabel">Hands-Free: Active (Blink 2x)</span>
+          </button>
+          <button type="button" class="btn-pill-toggle" id="btnPortalToggleSensitivity">
+            <span>⚙️</span>
+            <strong id="portalSensitivityLabel">Normal</strong>
+          </button>
+          <button type="button" class="btn-pill-toggle active" id="btnPortalToggleVoice">
+            <span id="portalVoiceToggleIcon">🔊</span>
+            <span id="portalVoiceToggleLabel">Audio: On</span>
+          </button>
+        </div>
+
+        <div class="punch-detail-container" id="portalPunchResult"></div>
+      </div>
+
+      <!-- Section 2: Attendance History -->
+      <div class="portal-card" id="portalHistoryCard">
+        <div class="portal-card-header">
+          <span>📋 My Attendance History</span>
+          <div class="attendance-filter-bar">
+            <div class="filter-group">
+              <label for="historyFromDate">From:</label>
+              <input type="date" id="historyFromDate">
+            </div>
+            <div class="filter-group">
+              <label for="historyToDate">To:</label>
+              <input type="date" id="historyToDate">
+            </div>
+            <button type="button" id="btnFilterHistory" class="btn-portal-primary">Filter</button>
+            <button type="button" id="btnClearHistoryFilter" class="btn-portal-clear">Clear</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="employee-table" style="min-width:640px;">
+            <thead>
+              <tr>
+                <th>ENTRY TIME</th>
+                <th>ENTRY SITE</th>
+                <th>ENTRY STATUS</th>
+                <th>EXIT TIME</th>
+                <th>EXIT STATUS</th>
+                <th>HOURS</th>
+                <th style="text-align:center;">STATUS</th>
+              </tr>
+            </thead>
+            <tbody id="portalHistoryBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section 3: Leave & Permission -->
+      <div class="portal-card" id="leavePermissionSection">
+        <div class="portal-card-header">
+          <span>📅 Leave &amp; Permission</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button type="button" id="btnHeaderApplyLeave" class="btn-portal-primary" style="background:#0284c7;">Apply Leave</button>
+            <button type="button" id="btnHeaderApplyPerm" class="btn-portal-primary" style="background:#10b981;">Apply Permission</button>
+          </div>
+        </div>
+
+        <div class="leave-dual-section">
+          <div class="leave-requests-box">
+            <div class="leave-sub-header">
+              <strong style="font-size:13px;">📄 My Requests</strong>
+            </div>
+            <div class="table-responsive">
+              <table class="employee-table" style="min-width:480px;">
+                <thead>
+                  <tr>
+                    <th>TYPE</th>
+                    <th>FROM</th>
+                    <th>TO</th>
+                    <th>UNITS</th>
+                    <th>STATUS</th>
+                    <th>ACTION</th>
+                  </tr>
+                </thead>
+                <tbody id="empRequestsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="leave-balance-box">
+            <div class="leave-sub-header">
+              <strong style="font-size:13px;">🥧 My Leave Balance</strong>
+            </div>
+            <div id="empLeaveBarsContainer"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Monthly Payslip -->
+      <div class="portal-card" id="portalPayslipCard">
+        <div class="portal-card-header">
+          <span>💰 My Monthly Payslip</span>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <input type="month" id="payslipMonth" class="form-control" style="width:auto;padding:4px 8px;font-size:12px;">
+            <button type="button" id="btnLoadPayslip" class="btn-portal-primary" style="background:#3d6078;">View Payslip</button>
+            <button type="button" id="btnDownloadPayslip" class="btn-portal-primary" style="background:#ffd166;color:#111;">Download PDF</button>
+          </div>
+        </div>
+        <div id="payslipErrorBanner" class="alert-banner"></div>
+        <div class="payslip-grid">
+          <div class="payslip-box">
+            <div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:6px;">EARNINGS</div>
+            <div style="display:flex;justify-content:space-between;"><span>Basic Salary:</span><strong id="psBasic">₹0</strong></div>
+            <div style="display:flex;justify-content:space-between;"><span>Overtime:</span><strong id="psOvertime">₹0</strong></div>
+            <div style="display:flex;justify-content:space-between;"><span>Allowances:</span><strong id="psAllowance">₹0</strong></div>
+            <div style="display:flex;justify-content:space-between;"><span>Incentives:</span><strong id="psIncentive">₹0</strong></div>
+            <div style="display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;margin-top:5px;padding-top:4px;color:#198754;font-weight:800;">
+              <span>Total Earnings:</span><span id="psTotalEarnings">₹0</span>
+            </div>
+          </div>
+          <div class="payslip-box">
+            <div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:6px;">DEDUCTIONS</div>
+            <div style="display:flex;justify-content:space-between;"><span>Advance Repayment:</span><strong id="psAdvanceRepay">₹0</strong></div>
+            <div style="display:flex;justify-content:space-between;"><span>Other Deductions:</span><strong id="psOtherDeduct">₹0</strong></div>
+            <div style="display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;margin-top:5px;padding-top:4px;color:#dc2626;font-weight:800;">
+              <span>Total Deductions:</span><span id="psTotalDeduct">₹0</span>
+            </div>
+          </div>
+          <div class="payslip-net-box">
+            <div style="font-size:11px;font-weight:700;opacity:0.9;">NET TAKE-HOME SALARY</div>
+            <div id="psNetSalary" style="font-size:26px;font-weight:900;margin-top:4px;">₹0</div>
+            <div id="psWorkingDays" style="font-size:11px;opacity:0.88;margin-top:4px;">Working Days: 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 5: My Credentials -->
+      <div class="portal-card" id="portalCredentialsCard">
+        <div class="portal-card-header">
+          <span>🔑 My Credentials</span>
+          <span id="empPassStatusBadge" style="font-size:11.5px;font-weight:700;">-</span>
+        </div>
+        <div id="credentialsAlert" class="alert-banner"></div>
+        <form id="employeeCredentialsForm" style="max-width:460px;">
+          <label class="form-label-sm" for="employeeNewPassword">New / Updated Password</label>
+          <div class="input-field-group" style="margin-bottom:10px;">
+            <input type="password" id="employeeNewPassword" placeholder="Enter new password" style="padding-left:12px;">
+            <button type="button" class="btn-toggle-eye" id="toggleEmpPassBtn">👁</button>
+          </div>
+          <button type="submit" id="btnSaveCredentials" class="btn-portal-primary" style="background:#1b4975;padding:9px 16px;">Save Password</button>
+        </form>
+      </div>
+    </main>
+
+    <footer class="portal-footer">
+      <div>&copy; 2026 Argus Attendance Intelligence v2.0.0</div>
+      <div style="display:inline-flex;align-items:center;gap:6px;">
+        <span>Powered by</span>
+        <img src="images/argus_cnc_footer_logo.png" alt="Argus CNC" style="height:18px;width:auto;object-fit:contain;">
+      </div>
+    </footer>
+  </section>
+
+  <!-- ================= MODALS ================= -->
+  <div class="modal-overlay" id="modalApplyLeave">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>Apply for Leave</span>
+        <button type="button" class="modal-close-btn" id="closeLeaveModal">&times;</button>
+      </div>
+      <form id="formApplyLeave" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+        <div class="modal-body">
+          <div id="leaveAlert" class="alert-banner"></div>
+          <div style="margin-bottom:10px;">
+            <label class="form-label-sm" for="leaveInputType">Leave Type *</label>
+            <select class="form-control" id="leaveInputType" name="leave_type" required></select>
+          </div>
+          <div class="form-grid-2">
+            <div>
+              <label class="form-label-sm" for="leaveFromDate">From Date *</label>
+              <input type="date" class="form-control" id="leaveFromDate" name="from_date" required>
+            </div>
+            <div>
+              <label class="form-label-sm" for="leaveToDate">To Date *</label>
+              <input type="date" class="form-control" id="leaveToDate" name="to_date" required>
+            </div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <label class="form-label-sm" for="leaveSessionSelect">Session</label>
+            <select class="form-control" id="leaveSessionSelect" name="session">
+              <option value="Full Day">Full Day</option>
+              <option value="Half Day">Half Day</option>
+            </select>
+          </div>
+          <div style="margin-bottom:10px;">
+            <label class="form-label-sm" for="leaveReason">Reason *</label>
+            <textarea class="form-control" id="leaveReason" name="reason" rows="2" required placeholder="Enter reason..."></textarea>
+          </div>
+          <div>
+            <label class="form-label-sm" for="leaveAttachment">Attachment (Optional)</label>
+            <input type="file" class="form-control" id="leaveAttachment" name="attachment" accept=".pdf,.jpg,.jpeg,.png">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-portal-clear" id="btnCancelLeave">Cancel</button>
+          <button type="submit" class="btn-portal-primary" id="btnSubmitLeave">Submit Leave Request</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalApplyPermission">
+    <div class="modal-box">
+      <div class="modal-header perm">
+        <span>Apply for Permission</span>
+        <button type="button" class="modal-close-btn" id="closePermModal">&times;</button>
+      </div>
+      <form id="formApplyPermission" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+        <div class="modal-body">
+          <div id="permAlert" class="alert-banner"></div>
+          <div class="form-grid-2">
+            <div>
+              <label class="form-label-sm" for="permInputType">Permission Type *</label>
+              <select class="form-control" id="permInputType" name="permission_type" required>
+                <option value="Short Leave">Short Leave</option>
+                <option value="Personal Work">Personal Work</option>
+                <option value="Official Work">Official Work</option>
+                <option value="Medical">Medical</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label-sm" for="permDate">Date *</label>
+              <input type="date" class="form-control" id="permDate" name="date" required>
+            </div>
+          </div>
+          <div class="form-grid-2">
+            <div>
+              <label class="form-label-sm" for="permFromTime">From Time *</label>
+              <input type="time" class="form-control" id="permFromTime" name="from_time" value="10:00" required>
+            </div>
+            <div>
+              <label class="form-label-sm" for="permToTime">To Time *</label>
+              <input type="time" class="form-control" id="permToTime" name="to_time" value="12:00" required>
+            </div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <label class="form-label-sm" for="permDuration">Duration</label>
+            <input type="text" class="form-control" id="permDuration" name="duration" value="02:00" readonly>
+          </div>
+          <div style="margin-bottom:10px;">
+            <label class="form-label-sm" for="permReason">Reason *</label>
+            <textarea class="form-control" id="permReason" name="reason" rows="2" required placeholder="Enter reason..."></textarea>
+          </div>
+          <div>
+            <label class="form-label-sm" for="permAttachment">Attachment (Optional)</label>
+            <input type="file" class="form-control" id="permAttachment" name="attachment" accept=".pdf,.jpg,.jpeg,.png">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-portal-clear" id="btnCancelPerm">Cancel</button>
+          <button type="submit" class="btn-portal-primary" id="btnSubmitPerm" style="background:#0d9488;">Submit Permission</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalViewEmpRequest">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>Request Details</span>
+        <button type="button" class="modal-close-btn" id="closeViewReqModal">&times;</button>
+      </div>
+      <div class="modal-body" id="viewReqModalBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn-portal-clear" id="btnCloseViewReqModalBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalPortalPayslipPreview">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <div>Monthly Payslip</div>
+          <div id="psModalPeriod" style="font-size:11px;font-weight:500;opacity:0.9;">Pay Period: --</div>
+        </div>
+        <button type="button" class="modal-close-btn" id="closePortalPayslipModalBtn">&times;</button>
+      </div>
+      <div class="modal-body" id="psModalBody" style="display:flex;flex-direction:column;gap:10px;"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn-portal-primary" id="btnModalDownloadPayslipPdf" style="background:#ffd166;color:#111;">Download PDF</button>
+        <button type="button" class="btn-portal-clear" id="donePortalPayslipModalBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

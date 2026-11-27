@@ -15,6 +15,7 @@ import gzip
 import secrets
 import base64
 import hashlib
+import ipaddress
 import threading
 import urllib.parse
 import requests
@@ -38,6 +39,9 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 from flask.sessions import SecureCookieSessionInterface
 from functools import wraps
 from flask_cors import CORS
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import database
 
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
@@ -317,10 +321,11 @@ def finalize_login_session(resp, role, user_info=None):
         resp.set_cookie(
             'argus_remember_token',
             token,
-            max_age=31536000,
-            expires=exp,
+            max_age=2592000,                      # 30 days (was 365)
+            expires=datetime.now(timezone.utc) + timedelta(days=30),
             path='/',
-            httponly=False,
+            httponly=True,                        # was False — prevents JS access
+            secure=not is_desktop_mode(),         # HTTPS-only in cloud
             samesite='Lax'
         )
     return resp
@@ -335,16 +340,92 @@ app = Flask(
     template_folder=_resolve_bundle_path('templates'),
     static_folder=_resolve_bundle_path('static')
 )
-CORS(app)
-app.secret_key = 'argus-tech-secret-key-2026'
+_allowed_origins = [
+    "https://argusattendanceintelligence.argussoftwares.com",
+    "https://argusattendance.argussoftwares.com",
+    "https://localhost",
+    "http://localhost",
+    "capacitor://localhost",
+    "http://localhost:5000",
+    "http://127.0.0.1:5000"
+]
+_render_url = (os.environ.get('RENDER_EXTERNAL_URL') or '').strip().rstrip('/')
+if _render_url and _render_url not in _allowed_origins:
+    _allowed_origins.append(_render_url)
+CORS(
+    app,
+    resources={r"/api/*": {"origins": _allowed_origins}},
+    supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization", "X-CSRFToken"]
+)
+
+if not is_desktop_mode():
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+# SECURITY: SECRET_KEY must be set as an environment variable — never hardcoded.
+_flask_sk = os.environ.get('FLASK_SECRET_KEY', '').strip()
+if not _flask_sk or len(_flask_sk) < 32:
+    raise RuntimeError(
+        "FLASK_SECRET_KEY must be set in the environment (minimum 32 chars). "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+    )
+app.secret_key = _flask_sk
 
 # Session persistence: keep user logged in until explicit logout (365 days)
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)   # was 365 — reduced idle window
 app.config['SESSION_COOKIE_NAME'] = 'argus_session'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SECURE'] = not is_desktop_mode()     # HTTPS-only in cloud
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_REFRESH_EACH_REQUEST'] = False
+app.config['WTF_CSRF_TIME_LIMIT'] = None  # Valid for full session in long-lived SPA tabs
 app.session_interface = PersistentSessionInterface()
+
+csrf = CSRFProtect(app)
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=[],
+    storage_uri="memory://"
+)
+
+def safe_save_file(file_storage, dest_folder, allowed_exts, prefix=''):
+    """Validates filename, extension, and basic magic bytes before saving an uploaded file."""
+    if not file_storage or not getattr(file_storage, 'filename', None):
+        raise ValueError("No file provided")
+    orig_name = werkzeug.utils.secure_filename(file_storage.filename)
+    if not orig_name or '.' not in orig_name:
+        raise ValueError("Invalid filename or missing file extension")
+    base_name, ext_with_dot = os.path.splitext(orig_name)
+    ext = ext_with_dot.lstrip('.').lower()
+    if ext not in allowed_exts:
+        raise ValueError(f"Unsupported file type .{ext}. Allowed: {', '.join(sorted(allowed_exts))}")
+
+    head = file_storage.stream.read(32)
+    file_storage.stream.seek(0)
+    if not head:
+        raise ValueError("Uploaded file is empty")
+
+    # Basic magic-byte checks for common image/document formats
+    if ext == 'pdf' and not head.startswith(b'%PDF'):
+        raise ValueError("File content does not match PDF signature")
+    elif ext == 'png' and not head.startswith(b'\x89PNG\r\n\x1a\n'):
+        raise ValueError("File content does not match PNG signature")
+    elif ext in ('jpg', 'jpeg') and not head.startswith(b'\xff\xd8\xff'):
+        raise ValueError("File content does not match JPEG signature")
+    elif ext == 'gif' and not head.startswith((b'GIF87a', b'GIF89a')):
+        raise ValueError("File content does not match GIF signature")
+    elif ext == 'webp' and not (head.startswith(b'RIFF') and head[8:12] == b'WEBP'):
+        raise ValueError("File content does not match WEBP signature")
+
+    os.makedirs(dest_folder, exist_ok=True)
+    unique_fname = f"{prefix}{base_name}_{int(time.time() * 1000)}.{ext}"
+    dest_path = os.path.join(dest_folder, unique_fname)
+    if not os.path.realpath(dest_path).startswith(os.path.realpath(dest_folder)):
+        raise ValueError("Invalid destination path")
+    file_storage.save(dest_path)
+    return unique_fname, orig_name, dest_path
 
 @app.route('/health')
 @app.route('/ping')
@@ -516,9 +597,23 @@ def process_uploaded_employee_documents(req_form, req_files, emp_id_prefix='doc'
 
     return documents
 
-@app.route('/uploads/employee_documents/<path:filename>')
-def uploaded_employee_document(filename):
-    return send_from_directory(DOCUMENTS_FOLDER, filename)
+def _is_authenticated_any():
+    """Returns True if session holds a valid admin or employee login."""
+    if session.get('admin_logged_in') and session.get('role') in ['super_admin', 'company_admin']:
+        return True
+    if session.get('employee_logged_in') and session.get('role') == 'employee':
+        return True
+    return False
+
+def _check_record_company_access(record):
+    """Verifies tenant ownership of a DB record for non-super_admin users."""
+    if session.get('role') == 'super_admin':
+        return True
+    if not record:
+        return False
+    rec_cid = str(record.get('company_id') or '').strip()
+    sess_cid = str(get_current_company_id() or '').strip()
+    return bool(rec_cid and sess_cid and rec_cid == sess_cid)
 
 # ----------------- MULTI-TENANT RBAC HELPERS & DECORATORS ----------------- #
 
@@ -539,7 +634,7 @@ def get_current_company_id():
     if role == 'company_admin':
         if comp_id and comp_id != 'ARGUS_MASTER' and database.get_company_by_id(comp_id):
             return comp_id
-        # Self-heal from email
+        # Self-heal from verified session email only (never fall back to another tenant)
         c_email = session.get('company_email') or session.get('admin_email')
         if c_email:
             comp_rec = database.get_company_by_email(c_email)
@@ -548,14 +643,7 @@ def get_current_company_id():
                 session['company_name'] = comp_rec.get('company_name', session.get('company_name', ''))
                 session.modified = True
                 return comp_rec['id']
-        # Fallback to first active company
-        db = database.get_db()
-        first_c = db.company_admin.find_one({'id': {'$nin': ['ALL', 'ARGUS_MASTER']}, 'status': {'$nin': ['Deactive', 'Inactive']}})
-        if first_c:
-            session['company_id'] = first_c['id']
-            session['company_name'] = first_c.get('company_name', '')
-            session.modified = True
-            return first_c['id']
+        return comp_id or ''
 
     return comp_id or 'ARGUS_MASTER'
 
@@ -642,16 +730,178 @@ def super_admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def _is_field_worker_employee(emp):
+    """Returns True when an employee record belongs to the Field Worker module."""
+    if not emp or not isinstance(emp, dict):
+        return False
+    return bool(
+        emp.get('is_field_worker') is True
+        or str(emp.get('employee_type') or '').strip().lower() in ['field_worker', 'field', 'fw']
+    )
+
+def _extract_mobile_bearer_token():
+    """Extracts Bearer token from Authorization header or query param (for PDF downloads)."""
+    auth_hdr = (request.headers.get('Authorization') or '').strip()
+    if auth_hdr.lower().startswith('bearer '):
+        tok = auth_hdr[7:].strip()
+        if tok:
+            return tok
+    if request.method == 'GET':
+        q_tok = (request.args.get('auth_token') or '').strip()
+        if q_tok:
+            return q_tok
+    return ''
+
+def _resolve_mobile_employee_from_token(token):
+    """Validates a mobile session token and strictly enforces regular Employee-only access."""
+    if not token:
+        return None, None, (jsonify({'success': False, 'error': 'Employee authentication required.'}), 401)
+    s_doc = database.get_user_session_by_token(token) if database.is_user_session_active(token) else None
+    if not s_doc:
+        return None, None, (jsonify({'success': False, 'error': 'INVALID_TOKEN', 'message': 'Your session has expired. Please sign in again.'}), 401)
+
+    role = str(s_doc.get('role') or '').strip().lower()
+    if role != 'employee':
+        return None, None, (jsonify({
+            'success': False,
+            'error': 'EMPLOYEE_ONLY_APP',
+            'message': 'Access Denied: Only employees can sign in to the Argus Mobile App.'
+        }), 403)
+
+    emp_id = s_doc.get('employee_id')
+    emp_doc = database.get_employee_by_id(emp_id) if emp_id else None
+    if not emp_doc:
+        return None, None, (jsonify({'success': False, 'error': 'NOT_REGISTERED', 'message': 'Employee profile not found.'}), 403)
+    if str(emp_doc.get('status', 'Active')).strip().capitalize() == 'Inactive':
+        return None, None, (jsonify({
+            'success': False,
+            'error': 'EMPLOYEE_INACTIVE',
+            'message': 'Access Denied: Your employee account is currently set to Inactive. Please contact your company administrator.'
+        }), 403)
+    if _is_field_worker_employee(emp_doc):
+        return None, None, (jsonify({
+            'success': False,
+            'error': 'FIELD_WORKER_RESTRICTED',
+            'message': 'Access Denied: Field Worker accounts cannot sign in to the Employee Mobile App.'
+        }), 403)
+
+    comp_id = emp_doc.get('company_id') or s_doc.get('company_id') or 'ARGUS_MASTER'
+    if comp_id and str(comp_id).strip() not in ['ALL', 'ARGUS_MASTER']:
+        if not database.is_company_active(comp_id):
+            return None, None, (jsonify({
+                'success': False,
+                'error': 'COMPANY_DEACTIVATED',
+                'message': 'Access Denied: Your company account has been deactivated. Please contact System Administrator.'
+            }), 403)
+
+    session['employee_logged_in'] = True
+    session['role'] = 'employee'
+    session['employee_id'] = str(emp_doc.get('id', emp_doc.get('_id', emp_id or '')))
+    session['employee_name'] = emp_doc.get('employee_name', s_doc.get('employee_name', ''))
+    session['employee_email'] = emp_doc.get('email_id', s_doc.get('email', ''))
+    session['company_id'] = comp_id
+    session['company_name'] = s_doc.get('company_name', '')
+    session['remember_token'] = token
+    g._mobile_bearer_auth = True
+    return s_doc, emp_doc, None
+
+def _build_mobile_employee_payload(emp_doc):
+    """Serializes sanitized employee and company metadata for the mobile Employee UI."""
+    comp_id = emp_doc.get('company_id') or 'ARGUS_MASTER'
+    comp = database.get_company_by_id(comp_id, include_counts=False) if comp_id != 'ARGUS_MASTER' else None
+    mods = database.get_company_modules(comp_id) if comp_id != 'ARGUS_MASTER' else {
+        'single_company': True, 'branch_company': True, 'field_worker': True, 'face_blink': True, 'face_button': True
+    }
+    logo_url = None
+    if comp:
+        if comp.get('logo_data'):
+            logo_url = comp['logo_data']
+        elif comp.get('logo'):
+            logo_url = f"/uploads/{comp['logo']}"
+
+    safe_emp = {
+        'id': str(emp_doc.get('id') or emp_doc.get('_id') or ''),
+        'employee_id': emp_doc.get('employee_id') or emp_doc.get('emp_id') or str(emp_doc.get('id') or ''),
+        'employee_name': emp_doc.get('employee_name', ''),
+        'email_id': emp_doc.get('email_id', ''),
+        'mobile_number': emp_doc.get('mobile_number', ''),
+        'department': emp_doc.get('department', 'General'),
+        'designation': emp_doc.get('designation', 'Staff'),
+        'status': emp_doc.get('status', 'Active'),
+        'salary_type': emp_doc.get('salary_type', 'hourly'),
+        'hourly_salary': emp_doc.get('hourly_salary', 0),
+        'day_salary': emp_doc.get('day_salary', 0),
+        'half_day_salary': emp_doc.get('half_day_salary', 0),
+        'shift_hours': '-' if emp_doc.get('no_shift') else (emp_doc.get('shift_hours', '09:00') or '09:00'),
+        'no_shift': bool(emp_doc.get('no_shift')),
+        'permissions': emp_doc.get('permissions') or {
+            'punch_attendance': True,
+            'attendance_history': True,
+            'monthly_payslip': True,
+            'employee_credentials': True,
+            'leave_permission': True
+        },
+        'reports_to_details': emp_doc.get('reports_to_details') or [],
+        'skills': emp_doc.get('skills') or [],
+        'responsibilities_points': emp_doc.get('responsibilities_points') or [],
+        'has_password': bool(emp_doc.get('password') or emp_doc.get('password_hash')),
+        'company_id': comp_id,
+        'company_name': (comp.get('company_name') if comp else None) or emp_doc.get('company_name') or 'ARGUS CNC™'
+    }
+    safe_comp = {
+        'company_id': comp_id,
+        'company_name': safe_emp['company_name'],
+        'logo_url': logo_url,
+        'modules': mods
+    }
+    return safe_emp, safe_comp
+
 def employee_required(f):
-    """Requires Employee self-service session."""
+    """Requires Employee self-service session (cookie session or mobile Bearer token)."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        bearer_tok = _extract_mobile_bearer_token()
+        if bearer_tok:
+            _, _, err_resp = _resolve_mobile_employee_from_token(bearer_tok)
+            if err_resp:
+                return err_resp
+            return f(*args, **kwargs)
         if not session.get('employee_logged_in') or session.get('role') != 'employee':
             if request.path.startswith('/api/'):
                 return jsonify({'error': 'Employee authentication required.'}), 401
             return redirect(url_for('employee_login'))
         return f(*args, **kwargs)
     return decorated_function
+
+def mobile_bearer_employee_required(f):
+    """Strictly requires a valid Employee Bearer token for CSRF-exempt mobile API mutations."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        bearer_tok = _extract_mobile_bearer_token()
+        if not bearer_tok:
+            return jsonify({'success': False, 'error': 'Bearer token authentication required.'}), 401
+        _, _, err_resp = _resolve_mobile_employee_from_token(bearer_tok)
+        if err_resp:
+            return err_resp
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/uploads/employee_documents/<path:filename>')
+@login_required
+def uploaded_employee_document(filename):
+    safe_name = os.path.basename(filename)
+    full_path = os.path.realpath(os.path.join(DOCUMENTS_FOLDER, safe_name))
+    if not full_path.startswith(os.path.realpath(DOCUMENTS_FOLDER)):
+        return jsonify({'error': 'Forbidden'}), 403
+    if session.get('role') != 'super_admin':
+        comp_id = str(get_current_company_id() or '')
+        emp = database.get_db().employees.find_one({
+            'company_id': comp_id,
+            'documents.filename': safe_name
+        }, {'_id': 1})
+        if not emp:
+            return jsonify({'error': 'Unauthorized or document not found'}), 403
+    return send_from_directory(DOCUMENTS_FOLDER, safe_name)
 
 def check_user_can_delete_attendance_entries():
     """Checks whether the currently logged-in user can delete attendance report entries (scoped strictly to Attendance Reports)."""
@@ -842,7 +1092,7 @@ def favicon():
 @app.errorhandler(500)
 def handle_500(e):
     err = traceback.format_exc()
-    print("500 Internal Error:", err)
+    print("500 Internal Error:", err)   # logged server-side only
     req_path = getattr(request, 'path', '') or ''
     if req_path.startswith('/api/face/recognize') or getattr(request, 'endpoint', None) == 'api_face_recognize':
         return jsonify({
@@ -851,12 +1101,14 @@ def handle_500(e):
             'message': 'Face recognition processing temporarily busy. Please wait a moment and try again.'
         }), 200
     if req_path.startswith('/api/'):
+        # SECURITY: never expose internal exception details to clients
         return jsonify({
             'error': 'Internal server error',
-            'message': 'A temporary server processing error occurred. Please try again.',
-            'details': str(e)
+            'message': 'A temporary server processing error occurred. Please try again.'
         }), 500
-    return f"<h1>Internal Server Error (500)</h1><pre>{err}</pre>", 500
+    # SECURITY: never send raw traceback to browsers
+    return render_template('placeholder.html',
+                           message='Internal Server Error (500) — please try again.'), 500
 
 @app.errorhandler(Exception)
 def handle_exception(e):
@@ -872,14 +1124,16 @@ def handle_exception(e):
             return jsonify({'error': e.description, 'message': e.description}), e.code
         return e
     err = traceback.format_exc()
-    print("Unhandled Exception:", err)
+    print("Unhandled Exception:", err)  # logged server-side only
     if req_path.startswith('/api/'):
+        # SECURITY: never expose internal exception details to clients
         return jsonify({
             'error': 'Server error',
-            'message': 'A temporary server processing error occurred. Please try again.',
-            'details': str(e)
+            'message': 'A temporary server processing error occurred. Please try again.'
         }), 500
-    return f"<h1>Server Error</h1><pre>{err}</pre>", 500
+    # SECURITY: never send raw traceback to browsers
+    return render_template('placeholder.html',
+                           message='An unexpected error occurred — please try again.'), 500
 
 _COMPRESSIBLE_MIMETYPES = {
     'text/html', 'text/css', 'text/plain', 'text/javascript',
@@ -903,6 +1157,14 @@ def add_performance_headers(response):
         _set_no_store_headers(response)
     elif response.status_code == 200 and request.method == 'GET' and not request.path.startswith('/api/'):
         _set_no_store_headers(response)
+
+    # SECURITY: Mandatory HTTP security headers on every response
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.headers.setdefault('Permissions-Policy', 'camera=self, microphone=self, geolocation=self')
+    if not is_desktop_mode():
+        response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
 
     accept_encoding = request.headers.get('Accept-Encoding', '')
     is_vendor_bundle = request.path.startswith('/static/vendor/') and request.path.endswith(('.wasm', '.data', '.binarypb', '.tflite'))
@@ -981,17 +1243,12 @@ def ensure_persistent_session():
 
         role = session.get('role')
 
-        # Self-healing company_id for company_admin
+        # Self-healing company_id for company_admin from verified email only
         if role == 'company_admin':
             comp_id = session.get('company_id')
             if not comp_id or not database.get_company_by_id(comp_id):
                 c_email = session.get('company_email') or session.get('admin_email')
                 comp_rec = database.get_company_by_email(c_email) if c_email else None
-                if not comp_rec:
-                    db = database.get_db()
-                    raw_c = db.company_admin.find_one({'id': {'$nin': ['ALL', 'ARGUS_MASTER']}, 'status': {'$nin': ['Deactive', 'Inactive']}})
-                    if raw_c:
-                        comp_rec = database.clean_doc(raw_c)
                 if comp_rec and comp_rec.get('id'):
                     session['company_id'] = comp_rec['id']
                     session['company_name'] = comp_rec.get('company_name', session.get('company_name', ''))
@@ -1047,6 +1304,9 @@ def format_export_cell(val):
             return dt.strftime('%d/%m/%Y')
         except Exception:
             return val_str
+    # CSV/Excel Formula Injection Prevention
+    if val_str and val_str[0] in ('=', '+', '-', '@', '\t', '\r') and not re.match(r'^-\d+(\.\d+)?$', val_str):
+        return f"'{val_str}"
     return val_str
 
 def export_table_data(headers, rows, filename_base, export_format='excel', sheet_name='Data'):
@@ -1220,6 +1480,7 @@ def kiosk():
     )
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10/minute", methods=["POST"])
 def login():
     """Super Admin Login (Registered Email: technologiesargus@gmail.com)."""
     if request.method == 'GET' and session.get('admin_logged_in'):
@@ -1263,7 +1524,8 @@ def login():
 @app.route('/auth/google/login')
 def google_login():
     """Initiates Google OAuth 2.0 Authorization Flow."""
-    login_type = request.args.get('type', 'admin').strip().lower()
+    is_mobile = request.args.get('mobile') == '1'
+    login_type = 'employee' if is_mobile else request.args.get('type', 'admin').strip().lower()
     if login_type not in ['admin', 'company', 'employee']:
         login_type = 'admin'
 
@@ -1283,12 +1545,25 @@ def google_login():
 
     session['oauth_redirect_uri'] = redirect_uri
 
-    # Check if request is initiated within the native desktop app
-    is_desktop = is_desktop_mode() or request.args.get('desktop') == '1'
+    # Check if request is initiated within the native mobile app or desktop app
+    is_desktop = (not is_mobile) and (is_desktop_mode() or request.args.get('desktop') == '1')
     desktop_auth_id = None
+    mobile_auth_id = None
     state_param = raw_state
 
-    if is_desktop:
+    if is_mobile:
+        mobile_auth_id = secrets.token_urlsafe(24)
+        state_param = f"{raw_state}__m_{mobile_auth_id}"
+        cleanup_desktop_auth_sessions()
+        _save_desktop_auth_session(mobile_auth_id, {
+            'status': 'pending',
+            'mode': 'mobile',
+            'created_at': time.time(),
+            'login_type': 'employee',
+            'raw_state': raw_state,
+            'redirect_uri': redirect_uri
+        })
+    elif is_desktop:
         desktop_auth_id = secrets.token_urlsafe(32)
         state_param = f"{raw_state}__d_{desktop_auth_id}"
         cleanup_desktop_auth_sessions()
@@ -1344,12 +1619,25 @@ def google_callback():
     code = request.args.get('code')
     state = request.args.get('state')
 
-    # Detect if this callback originated from a desktop OAuth flow
+    # Detect if this callback originated from a desktop or mobile deep-link OAuth flow
     desktop_auth_id = None
+    mobile_auth_id = None
     expected_state = session.get('oauth_state')
     desktop_sess = None
+    mobile_sess = None
 
-    if state and '__d_' in state:
+    if state and '__m_' in state:
+        parts = state.split('__m_', 1)
+        raw_state_received = parts[0]
+        mobile_auth_id = parts[1] if len(parts) > 1 else None
+        if mobile_auth_id:
+            cleanup_desktop_auth_sessions()
+            mobile_sess = _pop_desktop_auth_session(mobile_auth_id)
+            if mobile_sess and mobile_sess.get('mode') == 'mobile':
+                login_type = 'employee'
+                expected_state = mobile_sess.get('raw_state')
+                state = raw_state_received
+    elif state and '__d_' in state:
         parts = state.split('__d_', 1)
         raw_state_received = parts[0]
         desktop_auth_id = parts[1] if len(parts) > 1 else None
@@ -1365,6 +1653,9 @@ def google_callback():
                 state = raw_state_received
 
     def render_oauth_error(msg):
+        if mobile_auth_id:
+            dl_err = 'com.argus.attendance://auth/callback?error=' + urllib.parse.quote(msg)
+            return redirect(dl_err, code=302)
         if desktop_auth_id:
             _save_desktop_auth_session(desktop_auth_id, {
                 'status': 'error',
@@ -1387,6 +1678,7 @@ def google_callback():
         return render_oauth_error("Invalid or expired OAuth state. Please try logging in again.")
 
     redirect_uri = (
+        (mobile_sess.get('redirect_uri') if mobile_sess else None) or
         (desktop_sess.get('redirect_uri') if desktop_sess else None) or
         session.get('oauth_redirect_uri') or
         url_for('google_callback', _external=True)
@@ -1418,8 +1710,8 @@ def google_callback():
         )
         user_info = userinfo_resp.json()
         google_email = (user_info.get('email') or '').strip().lower()
-        if not google_email:
-            return render_oauth_error("Unable to obtain verified email address from Google.")
+        if not google_email or not user_info.get('email_verified'):
+            return render_oauth_error("Unable to obtain a verified email address from Google.")
     except Exception as exc:
         return render_oauth_error(f"Communication error with Google services: {str(exc)}")
 
@@ -1556,7 +1848,34 @@ def google_callback():
         elif isinstance(employee, dict) and employee.get('error') == 'EMPLOYEE_INACTIVE':
             return render_oauth_error("Access Denied: Your employee account is currently set to Inactive. Please contact your company administrator.")
         elif employee and isinstance(employee, dict) and (employee.get('id') or employee.get('_id')):
+            if mobile_auth_id:
+                if _is_field_worker_employee(employee):
+                    return render_oauth_error("Access Denied: Field Worker accounts cannot sign in to the Employee Mobile App.")
+                c_id = employee.get('company_id', 'ARGUS_MASTER')
+                c_rec = database.get_company_by_id(c_id) if c_id != 'ARGUS_MASTER' else None
+                c_name = c_rec.get('company_name', 'ARGUS CNC™') if c_rec else 'ARGUS CNC™'
+                m_token = database.create_user_session({
+                    'role': 'employee',
+                    'company_id': c_id,
+                    'company_name': c_name,
+                    'username': employee.get('employee_name', ''),
+                    'email': employee.get('email_id', google_email),
+                    'employee_id': str(employee.get('id', employee.get('_id', ''))),
+                    'employee_name': employee.get('employee_name', ''),
+                    'redirect_target': '/employee/portal',
+                    'source': 'mobile_app'
+                })
+                if not m_token:
+                    return render_oauth_error("Unable to create mobile session. Please try again.")
+                dl_ok = 'com.argus.attendance://auth/callback?token=' + urllib.parse.quote(m_token)
+                return redirect(dl_ok, code=302)
             return _do_employee_login(employee)
+
+        if mobile_auth_id:
+            # Strict employee-only policy on mobile app: never fall back to admin/company accounts
+            return render_oauth_error(
+                f"Access Denied: '{google_email}' is not registered as an Employee. Only employees can sign in to the mobile app."
+            )
 
         # Fallback 1: Check if registered as Company Administrator
         company = database.validate_company_login(google_email)
@@ -1654,6 +1973,7 @@ def google_desktop_claim():
     return redirect(url_for('dashboard'))
 
 @app.route('/company-login', methods=['GET', 'POST'])
+@limiter.limit("10/minute", methods=["POST"])
 def company_login():
     """Dedicated Company Admin Portal Login via Registered Corporate Email."""
     if request.method == 'GET' and session.get('admin_logged_in'):
@@ -1697,6 +2017,7 @@ def company_login():
     return render_template('company_login.html')
 
 @app.route('/employee-login', methods=['GET', 'POST'])
+@limiter.limit("10/minute", methods=["POST"])
 def employee_login():
     """Dedicated Employee Portal Login via Registered Employee Email."""
     if request.method == 'GET' and session.get('employee_logged_in'):
@@ -1781,6 +2102,7 @@ def logout():
     return resp
 
 @app.route('/api/auth/restore-session', methods=['POST'])
+@csrf.exempt
 def api_restore_session():
     """Client-side fallback: Re-hydrates an authenticated session from localStorage remember token."""
     data = request.get_json(silent=True) or {}
@@ -1867,7 +2189,8 @@ def leave_permission():
 @app.route('/leave-permission/review/<request_id>')
 @login_required
 def leave_permission_review(request_id):
-    req = database.get_leave_request_by_id(request_id)
+    comp_scope = None if session.get('role') == 'super_admin' else get_current_company_id()
+    req = database.get_leave_request_by_id(request_id, company_id=comp_scope)
     if not req:
         flash('Leave request not found', 'danger')
         return redirect(url_for('leave_permission'))
@@ -2257,8 +2580,13 @@ def api_detect_ip_location():
         client_ip = forwarded.split(',')[0].strip() if forwarded else (request.remote_addr or '')
 
         url = 'https://ipwho.is/'
-        if client_ip and not client_ip.startswith(('127.', '192.168.', '10.', '172.', '::1', 'localhost')):
-            url = f'https://ipwho.is/{client_ip}'
+        if client_ip:
+            try:
+                ip_obj = ipaddress.ip_address(client_ip)
+                if ip_obj.is_global:
+                    url = f'https://ipwho.is/{str(ip_obj)}'
+            except ValueError:
+                pass
 
         resp = requests.get(url, timeout=4, headers={'User-Agent': 'ArgusAttendance/2.0'})
         if resp.status_code == 200:
@@ -2395,24 +2723,14 @@ def api_get_company_profile():
                 is_locked = bool(lat is not None and lng is not None and str(lat).strip() != '' and str(lng).strip() != '')
             company['coordinates_locked'] = bool(is_locked)
 
-            raw_pass = company.get('password_raw') or ''
-            if not raw_pass and is_master:
-                db = database.get_db()
-                adm = db.admin_users.find_one({'role': 'super_admin'}) or db.admin_users.find_one({'username': 'Admin'})
-                if adm:
-                    raw_pass = adm.get('password_raw') or adm.get('password', '')
-                    if raw_pass and (raw_pass.startswith('pbkdf2:') or raw_pass.startswith('scrypt:')):
-                        raw_pass = ''
-            elif not raw_pass:
-                p = company.get('password', '')
-                if p and not p.startswith('pbkdf2:') and not p.startswith('scrypt:'):
-                    raw_pass = p
-            company['saved_password'] = raw_pass
-            company['has_password'] = bool(raw_pass or company.get('password') or company.get('password_hash'))
+            # SECURITY: never expose password_raw / plaintext passwords in API responses
+            company['saved_password'] = ''
+            company['has_password'] = bool(company.get('password') or company.get('password_hash'))
             company['logo'] = company.get('logo') or ''
             company['logo_url'] = company.get('logo_data') or (f"/uploads/{company['logo']}" if company.get('logo') else '')
             company.pop('password', None)
             company.pop('password_hash', None)
+            company.pop('password_raw', None)
 
         return jsonify({
             'success': True,
@@ -2425,9 +2743,9 @@ def api_get_company_profile():
         comp_id = session.get('company_id')
         company = database.get_company_by_id(comp_id) if comp_id else None
 
-        # Multi-tier self-healing company lookup
+        # Multi-tier self-healing company lookup (strictly scoped to verified session identity)
         if not company:
-            # Tier 1: Look up by company_email or admin_email in session
+            # Look up by verified company_email or admin_email in session only
             c_email = session.get('company_email') or session.get('admin_email')
             if c_email:
                 comp_rec = database.get_company_by_email(c_email)
@@ -2438,64 +2756,8 @@ def api_get_company_profile():
                     session.modified = True
                     company = database.get_company_by_id(comp_id)
 
-            # Tier 2: Check query parameter ?company_id=
-            if not company and request.args.get('company_id'):
-                arg_id = request.args.get('company_id').strip()
-                comp_arg = database.get_company_by_id(arg_id)
-                if comp_arg:
-                    comp_id = comp_arg['id']
-                    session['company_id'] = comp_id
-                    session['company_name'] = comp_arg.get('company_name', session.get('company_name', ''))
-                    session.modified = True
-                    company = comp_arg
-
-            # Tier 3: Super Admin fallback to ARGUS_MASTER
-            if not company and (c_email in ['technologiesargus@gmail.com', 'productionargus@gmail.com'] or comp_id == 'ARGUS_MASTER'):
-                company = database.get_company_by_id('ARGUS_MASTER')
-                if company:
-                    comp_id = 'ARGUS_MASTER'
-                    session['company_id'] = comp_id
-                    session['role'] = 'super_admin'
-                    session.modified = True
-
-            # Tier 4: Fallback to first active company in database
             if not company:
-                db = database.get_db()
-                first_comp = db.company_admin.find_one({'id': {'$nin': ['ALL', 'ARGUS_MASTER']}, 'status': {'$nin': ['Deactive', 'Inactive']}})
-                if first_comp:
-                    first_id = first_comp.get('id')
-                    company = database.get_company_by_id(first_id)
-                    if company:
-                        session['company_id'] = first_id
-                        session['company_name'] = company.get('company_name', '')
-                        session.modified = True
-
-            # Tier 5: Fallback to ARGUS_MASTER
-            if not company:
-                company = database.get_company_by_id('ARGUS_MASTER')
-                if company:
-                    session['company_id'] = 'ARGUS_MASTER'
-                    session.modified = True
-
-            # Tier 6: Safe company dictionary fallback if none found in DB
-            if not company:
-                company = {
-                    'id': comp_id or 'ARGUS_MASTER',
-                    'company_name': session.get('company_name') or 'ARGUS CNC™',
-                    'email': c_email or 'technologiesargus@gmail.com',
-                    'phone': '',
-                    'address': '',
-                    'latitude': None,
-                    'longitude': None,
-                    'radius_meters': 150,
-                    'coordinates_locked': False,
-                    'status': 'Active',
-                    'shift_hours': '08:00',
-                    'employee_limit': 50,
-                    'employee_count': 0
-                }
-                session['company_id'] = company['id']
-                session.modified = True
+                return jsonify({'success': False, 'error': 'Company profile not found or unauthorized'}), 403
 
         is_locked = company.get('coordinates_locked')
         if is_locked is None:
@@ -2504,17 +2766,14 @@ def api_get_company_profile():
             is_locked = bool(lat is not None and lng is not None and str(lat).strip() != '' and str(lng).strip() != '')
         company['coordinates_locked'] = bool(is_locked)
 
-        raw_pass = company.get('password_raw') or ''
-        if not raw_pass:
-            p = company.get('password', '')
-            if p and not p.startswith('pbkdf2:') and not p.startswith('scrypt:'):
-                raw_pass = p
+        raw_pass = ''   # SECURITY: never expose password_raw in API responses
         company['saved_password'] = raw_pass
-        company['has_password'] = bool(raw_pass or company.get('password') or company.get('password_hash'))
+        company['has_password'] = bool(company.get('password') or company.get('password_hash'))
         company['logo'] = company.get('logo') or ''
         company['logo_url'] = company.get('logo_data') or (f"/uploads/{company['logo']}" if company.get('logo') else '')
         company.pop('password', None)
         company.pop('password_hash', None)
+        company.pop('password_raw', None)
         return jsonify({
             'success': True,
             'role': 'company_admin',
@@ -2674,7 +2933,8 @@ def api_upload_company_logo():
     if not file or not file.filename:
         return jsonify({'success': False, 'error': 'No file selected'}), 400
 
-    allowed_exts = {'png', 'jpg', 'jpeg', 'webp', 'svg'}
+    # SECURITY: Remove SVG — it allows stored XSS when served from /uploads/
+    allowed_exts = {'png', 'jpg', 'jpeg', 'webp'}
     ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
     if ext not in allowed_exts:
         return jsonify({'success': False, 'error': f'Unsupported format .{ext}. Please upload PNG, JPG, JPEG, or WEBP.'}), 400
@@ -2717,8 +2977,7 @@ def api_upload_company_logo():
         f.write(file_bytes)
 
     # Generate base64 data URI for database storage and recovery
-    mime = f"image/{'svg+xml' if ext == 'svg' else ext}"
-    if ext == 'jpg': mime = 'image/jpeg'
+    mime = 'image/jpeg' if ext == 'jpg' else f"image/{ext}"
     b64_str = base64.b64encode(file_bytes).decode('utf-8')
     logo_data = f"data:{mime};base64,{b64_str}"
 
@@ -2832,14 +3091,197 @@ def api_employee_set_credentials():
     if not new_password:
         return jsonify({'success': False, 'error': 'Please enter a password.'}), 400
     
-    success = database.set_employee_password(emp_id, new_password)
+    success = database.set_employee_password(emp_id, new_password, company_id=session.get('company_id'))
     if success:
         return jsonify({
             'success': True,
-            'saved_password': new_password,
             'message': 'Your password has been saved successfully! You can now sign in using your email and password.'
         })
     return jsonify({'success': False, 'error': 'Failed to save password. Please try again.'}), 500
+
+
+# ----------------- MOBILE APP EMPLOYEE-ONLY API ROUTES ----------------- #
+
+@app.route('/api/mobile/employee/login', methods=['POST'])
+@csrf.exempt
+@limiter.limit("10/minute")
+def api_mobile_employee_login():
+    """Dedicated mobile app login endpoint. Strictly allows regular Employees only."""
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    email = (data.get('email') or '').strip()
+    password = (data.get('password') or '').strip()
+
+    if not email:
+        return jsonify({'success': False, 'error': 'EMAIL_REQUIRED', 'message': 'Please enter your registered employee email.'}), 400
+    if not password:
+        return jsonify({
+            'success': False,
+            'error': 'PASSWORD_REQUIRED',
+            'message': 'Password is required. First time signing in? Please use Continue with Google below.'
+        }), 400
+
+    result = database.validate_employee_login(email, password=password)
+    if isinstance(result, dict) and result.get('success'):
+        employee = result['employee']
+        if _is_field_worker_employee(employee):
+            return jsonify({
+                'success': False,
+                'error': 'FIELD_WORKER_RESTRICTED',
+                'message': 'Access Denied: Field Worker accounts cannot sign in to the Employee Mobile App.'
+            }), 403
+
+        emp_id = str(employee.get('id', employee.get('_id', '')))
+        emp_doc = database.get_employee_by_id(emp_id) or employee
+        comp_id = emp_doc.get('company_id', 'ARGUS_MASTER')
+        comp_rec = database.get_company_by_id(comp_id, include_counts=False) if comp_id != 'ARGUS_MASTER' else None
+        comp_name = (comp_rec.get('company_name') if comp_rec else None) or emp_doc.get('company_name') or 'ARGUS CNC™'
+
+        token = database.create_user_session({
+            'role': 'employee',
+            'company_id': comp_id,
+            'company_name': comp_name,
+            'username': emp_doc.get('employee_name', ''),
+            'email': emp_doc.get('email_id', email),
+            'employee_id': emp_id,
+            'employee_name': emp_doc.get('employee_name', ''),
+            'redirect_target': '/employee/portal',
+            'source': 'mobile_app'
+        })
+        if not token:
+            return jsonify({'success': False, 'error': 'SESSION_ERROR', 'message': 'Unable to create session. Please try again.'}), 500
+
+        safe_emp, safe_comp = _build_mobile_employee_payload(emp_doc)
+        return jsonify({
+            'success': True,
+            'token': token,
+            'role': 'employee',
+            'employee': safe_emp,
+            'company': safe_comp
+        })
+
+    err_code = result.get('error') if isinstance(result, dict) else 'AUTH_FAILED'
+    if err_code == 'COMPANY_DEACTIVATED':
+        msg = result.get('message') or 'Access Denied: Your company account has been deactivated.'
+        status_code = 403
+    elif err_code == 'EMPLOYEE_INACTIVE':
+        msg = result.get('message') or 'Access Denied: Your employee account is currently Inactive.'
+        status_code = 403
+    elif err_code == 'PASSWORD_NOT_SET':
+        msg = "Password has not been set yet. First-time access? Please tap 'Continue with Google' below to verify your account and set your password."
+        status_code = 401
+    elif err_code == 'NOT_REGISTERED':
+        msg = 'Access Denied: Only registered employees can sign in to this mobile app.'
+        status_code = 403
+    else:
+        msg = 'Invalid password. Please check your credentials or continue with Google.'
+        status_code = 401
+    return jsonify({'success': False, 'error': err_code, 'message': msg}), status_code
+
+
+@app.route('/api/mobile/auth/restore-session', methods=['GET', 'POST'])
+@csrf.exempt
+def api_mobile_restore_session():
+    """Restores and verifies a mobile employee session strictly for role == 'employee'."""
+    data = request.get_json(silent=True) or {}
+    token = _extract_mobile_bearer_token() or (data.get('token') or '').strip()
+    _, emp_doc, err_resp = _resolve_mobile_employee_from_token(token)
+    if err_resp:
+        return err_resp
+    safe_emp, safe_comp = _build_mobile_employee_payload(emp_doc)
+    return jsonify({
+        'success': True,
+        'role': 'employee',
+        'employee': safe_emp,
+        'company': safe_comp
+    })
+
+
+@app.route('/api/mobile/logout', methods=['POST'])
+@csrf.exempt
+def api_mobile_logout():
+    """Revokes the mobile Bearer token and clears any active session."""
+    data = request.get_json(silent=True) or {}
+    token = _extract_mobile_bearer_token() or (data.get('token') or '').strip()
+    if token:
+        database.delete_user_session(token)
+    session.clear()
+    return jsonify({'success': True})
+
+
+@app.route('/api/mobile/employee/profile', methods=['GET'])
+@employee_required
+def api_mobile_employee_profile():
+    emp_id = session.get('employee_id')
+    emp_doc = database.get_employee_by_id(emp_id)
+    if not emp_doc or _is_field_worker_employee(emp_doc):
+        return jsonify({'success': False, 'error': 'Employee access only.'}), 403
+    safe_emp, safe_comp = _build_mobile_employee_payload(emp_doc)
+    return jsonify({'success': True, 'employee': safe_emp, 'company': safe_comp})
+
+
+@app.route('/api/mobile/employee/my-attendance', methods=['GET'])
+@employee_required
+def api_mobile_employee_attendance():
+    return api_employee_my_attendance()
+
+
+@app.route('/api/mobile/employee/my-payslip', methods=['GET'])
+@employee_required
+def api_mobile_employee_payslip():
+    return api_employee_my_payslip()
+
+
+@app.route('/api/mobile/employee/payslip-pdf', methods=['GET'])
+@employee_required
+def api_mobile_employee_payslip_pdf():
+    return api_export_payslip_pdf()
+
+
+@app.route('/api/mobile/employee/credentials', methods=['POST'])
+@csrf.exempt
+@mobile_bearer_employee_required
+def api_mobile_employee_credentials():
+    return api_employee_set_credentials()
+
+
+@app.route('/api/mobile/employee/leave-balance', methods=['GET'])
+@employee_required
+def api_mobile_employee_leave_balance():
+    return api_employee_leave_balance()
+
+
+@app.route('/api/mobile/employee/leave-requests', methods=['GET'])
+@employee_required
+def api_mobile_employee_leave_requests():
+    return api_employee_leave_requests()
+
+
+@app.route('/api/mobile/employee/leave-requests/apply', methods=['POST'])
+@csrf.exempt
+@mobile_bearer_employee_required
+def api_mobile_employee_apply_leave():
+    return api_employee_apply_leave()
+
+
+@app.route('/api/mobile/employee/permission-requests/apply', methods=['POST'])
+@csrf.exempt
+@mobile_bearer_employee_required
+def api_mobile_employee_apply_permission():
+    return api_employee_apply_permission()
+
+
+@app.route('/api/mobile/employee/leave-requests/<request_id>', methods=['DELETE'])
+@csrf.exempt
+@mobile_bearer_employee_required
+def api_mobile_employee_delete_leave(request_id):
+    return api_employee_delete_leave_request(request_id)
+
+
+@app.route('/api/mobile/employee/leave-requests/<request_id>/edit', methods=['POST'])
+@csrf.exempt
+@mobile_bearer_employee_required
+def api_mobile_employee_edit_leave(request_id):
+    return api_employee_edit_leave_request(request_id)
 
 # ----------------- LEAVE & PERMISSION API ROUTES ----------------- #
 
@@ -2851,7 +3293,21 @@ except Exception:
 
 @app.route('/uploads/leaves/<path:filename>')
 def serve_leave_attachment(filename):
-    return send_from_directory(LEAVES_FOLDER, filename)
+    if not _is_authenticated_any():
+        return jsonify({'error': 'Authentication required'}), 401
+    safe_name = os.path.basename(filename)
+    full_path = os.path.realpath(os.path.join(LEAVES_FOLDER, safe_name))
+    if not full_path.startswith(os.path.realpath(LEAVES_FOLDER)):
+        return jsonify({'error': 'Forbidden'}), 403
+    if session.get('role') != 'super_admin':
+        q = {'attachments.filename': safe_name}
+        if session.get('role') == 'employee':
+            q['employee_id'] = str(session.get('employee_id') or '')
+        else:
+            q['company_id'] = str(get_current_company_id() or '')
+        if not database.get_db().leave_requests.find_one(q, {'_id': 1}):
+            return jsonify({'error': 'Unauthorized'}), 403
+    return send_from_directory(LEAVES_FOLDER, safe_name)
 
 @app.route('/api/employee/leave-balance', methods=['GET'])
 @employee_required
@@ -2893,12 +3349,10 @@ def api_employee_apply_leave():
     if 'attachment' in request.files:
         file = request.files['attachment']
         if file and file.filename:
-            fname = werkzeug.utils.secure_filename(file.filename) or 'leave_doc'
-            base_name, ext = os.path.splitext(fname)
-            unique_fname = f"{base_name}_{int(time.time())}{ext}"
-            os.makedirs(LEAVES_FOLDER, exist_ok=True)
-            dest_path = os.path.join(LEAVES_FOLDER, unique_fname)
-            file.save(dest_path)
+            try:
+                unique_fname, fname, dest_path = safe_save_file(file, LEAVES_FOLDER, {'png', 'jpg', 'jpeg', 'webp', 'pdf'})
+            except ValueError as ve:
+                return jsonify({'success': False, 'error': str(ve)}), 400
             size_kb = round(os.path.getsize(dest_path) / 1024, 1)
             attachments.append({
                 'filename': unique_fname,
@@ -2963,12 +3417,10 @@ def api_employee_apply_permission():
     if 'attachment' in request.files:
         file = request.files['attachment']
         if file and file.filename:
-            fname = werkzeug.utils.secure_filename(file.filename) or 'perm_doc'
-            base_name, ext = os.path.splitext(fname)
-            unique_fname = f"{base_name}_{int(time.time())}{ext}"
-            os.makedirs(LEAVES_FOLDER, exist_ok=True)
-            dest_path = os.path.join(LEAVES_FOLDER, unique_fname)
-            file.save(dest_path)
+            try:
+                unique_fname, fname, dest_path = safe_save_file(file, LEAVES_FOLDER, {'png', 'jpg', 'jpeg', 'webp', 'pdf'})
+            except ValueError as ve:
+                return jsonify({'success': False, 'error': str(ve)}), 400
             size_kb = round(os.path.getsize(dest_path) / 1024, 1)
             attachments.append({
                 'filename': unique_fname,
@@ -3006,7 +3458,7 @@ def api_employee_apply_permission():
 @employee_required
 def api_employee_delete_leave_request(request_id):
     emp_id = session.get('employee_id')
-    res = database.delete_employee_leave_request(request_id, emp_id=emp_id)
+    res = database.delete_employee_leave_request(request_id, emp_id=emp_id, company_id=session.get('company_id'))
     if not res.get('success'):
         return jsonify(res), 400
     return jsonify(res)
@@ -3017,9 +3469,11 @@ def api_employee_edit_leave_request(request_id):
     emp_id = session.get('employee_id')
     data = request.form.to_dict()
     
-    req = database.get_leave_request_by_id(request_id)
+    req = database.get_leave_request_by_id(request_id, company_id=session.get('company_id'))
     if not req:
         return jsonify({'success': False, 'error': 'Request not found'}), 404
+    if str(emp_id) not in [str(req.get('employee_id', '')), str(req.get('employee_code', ''))]:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
     if str(req.get('status', 'Pending')).strip().lower() != 'pending':
         return jsonify({'success': False, 'error': f"Cannot edit request that has already been {req.get('status')}"}), 400
@@ -3102,12 +3556,10 @@ def api_employee_edit_leave_request(request_id):
     if 'attachment' in request.files:
         file = request.files['attachment']
         if file and file.filename:
-            fname = werkzeug.utils.secure_filename(file.filename) or 'doc'
-            base_name, ext = os.path.splitext(fname)
-            unique_fname = f"{base_name}_{int(time.time())}{ext}"
-            os.makedirs(LEAVES_FOLDER, exist_ok=True)
-            dest_path = os.path.join(LEAVES_FOLDER, unique_fname)
-            file.save(dest_path)
+            try:
+                unique_fname, fname, dest_path = safe_save_file(file, LEAVES_FOLDER, {'png', 'jpg', 'jpeg', 'webp', 'pdf'})
+            except ValueError as ve:
+                return jsonify({'success': False, 'error': str(ve)}), 400
             size_kb = round(os.path.getsize(dest_path) / 1024, 1)
             updated_fields['attachments'] = [{
                 'filename': unique_fname,
@@ -3291,7 +3743,8 @@ def api_admin_leave_requests():
 @app.route('/api/admin/leave-permission/requests/<request_id>', methods=['GET'])
 @login_required
 def api_admin_leave_request_detail(request_id):
-    req = database.get_leave_request_by_id(request_id)
+    comp_scope = None if session.get('role') == 'super_admin' else get_current_company_id()
+    req = database.get_leave_request_by_id(request_id, company_id=comp_scope)
     if not req:
         return jsonify({'success': False, 'error': 'Leave request not found'}), 404
     emp_id = req.get('employee_id')
@@ -3318,7 +3771,8 @@ def api_admin_leave_request_action(request_id):
         return jsonify({'success': False, 'error': "Action must be 'Approved' or 'Rejected'"}), 400
     remark = data.get('admin_remark', '').strip()
     reviewer = session.get('user') or 'Administrator'
-    res = database.update_leave_request_status(request_id, action, admin_remark=remark, reviewer=reviewer)
+    comp_scope = None if session.get('role') == 'super_admin' else get_current_company_id()
+    res = database.update_leave_request_status(request_id, action, admin_remark=remark, reviewer=reviewer, company_id=comp_scope)
     return jsonify(res)
 
 @app.route('/api/admin/leave-permission/requests/<request_id>', methods=['DELETE'])
@@ -3656,6 +4110,8 @@ def api_update_employee(emp_id):
         emp = database.get_employee_by_id(emp_id)
         if not emp:
             return jsonify({'error': 'Employee not found'}), 404
+        if not _check_record_company_access(emp):
+            return jsonify({'error': 'Unauthorized access to employee record'}), 403
             
         data = {}
         if request.is_json:
@@ -3842,6 +4298,8 @@ def api_employee_pdf(emp_id):
     emp = database.get_employee_by_id(emp_id)
     if not emp:
         return jsonify({'error': 'Employee not found'}), 404
+    if not _check_record_company_access(emp):
+        return jsonify({'error': 'Unauthorized access to employee record'}), 403
         
     if emp.get('company_id') and emp.get('company_id') != 'ARGUS_MASTER':
         comp = database.get_company_by_id(emp['company_id'])
@@ -3919,32 +4377,60 @@ def api_employees_export_pdf():
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
+    safe_name = os.path.basename(filename)
+    # Allow public kiosk branding logos (company_logo_*) only; require auth for all employee photos/files
+    if not safe_name.startswith('company_logo_') and not _is_authenticated_any():
+        return jsonify({'error': 'Authentication required'}), 401
+
     upload_folder = app.config['UPLOAD_FOLDER']
-    file_path = os.path.join(upload_folder, filename)
+    file_path = os.path.realpath(os.path.join(upload_folder, safe_name))
+    if not file_path.startswith(os.path.realpath(upload_folder)):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    # Tenant check for non-super_admin employee photo requests
+    comp_filter = {}
+    if not safe_name.startswith('company_logo_') and session.get('role') != 'super_admin':
+        if session.get('role') == 'employee':
+            emp_self = database.get_employee_by_id(session.get('employee_id'))
+            if not emp_self or safe_name not in (emp_self.get('photo', ''), emp_self.get('photo_filename', '')):
+                return jsonify({'error': 'Unauthorized'}), 403
+        else:
+            comp_filter['company_id'] = str(get_current_company_id() or '')
+            owner_check = database.get_db().employees.find_one({
+                **comp_filter,
+                '$or': [{'photo': safe_name}, {'photo_filename': safe_name}]
+            }, {'_id': 1})
+            if not owner_check:
+                return jsonify({'error': 'Unauthorized'}), 403
 
     # 1. If file exists on disk, serve it directly
     if os.path.isfile(file_path):
-        return send_from_directory(upload_folder, filename)
+        return send_from_directory(upload_folder, safe_name)
 
     # 2. If file missing from disk (e.g. server restart, ephemeral container, hard refresh),
     # recover it permanently from MongoDB Atlas!
     try:
         db = database.get_db()
-        emp = db.employees.find_one({
+        q = {
             '$or': [
-                {'photo': filename},
-                {'photo_filename': filename}
+                {'photo': safe_name},
+                {'photo_filename': safe_name}
             ]
-        })
+        }
+        if comp_filter:
+            q = {'$and': [q, comp_filter]}
+        emp = db.employees.find_one(q)
         if not emp:
-            clean_name = os.path.basename(filename)
             import re
-            emp = db.employees.find_one({
+            q_re = {
                 '$or': [
-                    {'photo': {'$regex': re.escape(clean_name)}},
-                    {'photo_filename': {'$regex': re.escape(clean_name)}}
+                    {'photo': {'$regex': re.escape(safe_name)}},
+                    {'photo_filename': {'$regex': re.escape(safe_name)}}
                 ]
-            })
+            }
+            if comp_filter:
+                q_re = {'$and': [q_re, comp_filter]}
+            emp = db.employees.find_one(q_re)
 
         if emp and emp.get('photo_data'):
             raw_data = str(emp['photo_data'])
@@ -4148,17 +4634,23 @@ def api_export_pdf():
 
 # ----------------- UNIVERSAL TAMIL TTS VOICE API ----------------- #
 
+import tempfile
+
 TTS_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'cache', 'tts')
-os.makedirs(TTS_CACHE_DIR, exist_ok=True)
+try:
+    os.makedirs(TTS_CACHE_DIR, exist_ok=True)
+except Exception:
+    TTS_CACHE_DIR = os.path.join(tempfile.gettempdir(), 'argus_tts_cache')
+    os.makedirs(TTS_CACHE_DIR, exist_ok=True)
 
 @app.route('/api/voice/tamil-tts', methods=['GET'])
 @app.route('/api/ai/speak', methods=['GET'])
 @app.route('/api/voice/speak', methods=['GET'])
+@limiter.limit("60/minute")
 def api_voice_tamil_tts():
     """
     Synthesizes and streams authentic voice audio (MP3) using gTTS for English and Tamil.
-    Implements persistent disk caching so repeated voice messages return in < 10ms.
-    Used for Advisor, Teacher, and Co-Worker audio responses.
+    Uses persistent disk cache when writable, with automatic temp/in-memory BytesIO fallback.
     """
     text = (request.args.get('text') or '').strip()
     default_lang = 'ta' if request.path.endswith('tamil-tts') else 'en'
@@ -4173,34 +4665,47 @@ def api_voice_tamil_tts():
     cache_hash = hashlib.md5(f"{text}_{clean_lang}".encode('utf-8')).hexdigest()
     cache_path = os.path.join(TTS_CACHE_DIR, f"{cache_hash}.mp3")
 
-    if not os.path.exists(cache_path):
-        synth_err = [None]
-        def _do_synth():
+    if os.path.exists(cache_path):
+        return send_file(
+            cache_path,
+            mimetype='audio/mpeg',
+            as_attachment=False,
+            max_age=86400 * 7
+        )
+
+    synth_err = [None]
+    audio_buf = [None]
+
+    def _do_synth():
+        try:
+            from gtts import gTTS
+            tts = gTTS(text=text, lang=clean_lang, slow=False)
+            mem = io.BytesIO()
+            tts.write_to_fp(mem)
+            mem.seek(0)
+            audio_buf[0] = mem.getvalue()
             try:
-                from gtts import gTTS
-                tts = gTTS(text=text, lang=clean_lang, slow=False)
-                tts.save(cache_path)
-            except Exception as e:
-                synth_err[0] = e
+                os.makedirs(TTS_CACHE_DIR, exist_ok=True)
+                with open(cache_path, 'wb') as f_out:
+                    f_out.write(audio_buf[0])
+            except Exception:
+                pass
+        except Exception as e:
+            synth_err[0] = e
 
-        synth_thread = threading.Thread(target=_do_synth, daemon=True)
-        synth_thread.start()
-        synth_thread.join(timeout=10.0)
+    synth_thread = threading.Thread(target=_do_synth, daemon=True)
+    synth_thread.start()
+    synth_thread.join(timeout=10.0)
 
-        if synth_thread.is_alive():
-            if os.path.exists(cache_path):
-                try:
-                    os.remove(cache_path)
-                except Exception:
-                    pass
-            return jsonify({'error': 'TTS synthesis timed out after 10 seconds'}), 503
+    if synth_thread.is_alive():
+        return jsonify({'error': 'TTS synthesis timed out after 10 seconds'}), 503
 
-        if synth_err[0] is not None:
-            print("gTTS generation error:", synth_err[0])
-            return jsonify({'error': 'TTS synthesis failed', 'details': str(synth_err[0])}), 500
+    if synth_err[0] is not None or not audio_buf[0]:
+        print("gTTS generation error:", synth_err[0])
+        return jsonify({'error': 'TTS synthesis failed'}), 500
 
     return send_file(
-        cache_path,
+        io.BytesIO(audio_buf[0]),
         mimetype='audio/mpeg',
         as_attachment=False,
         max_age=86400 * 7
@@ -4317,6 +4822,9 @@ def api_face_enroll():
     emp_id = request.form.get('employee_id')
     if not emp_id:
         return jsonify({'error': 'Employee ID is required'}), 400
+    emp = database.get_employee_by_id(emp_id)
+    if not emp or not _check_record_company_access(emp):
+        return jsonify({'error': 'Employee not found or unauthorized'}), 403
         
     if 'photo' not in request.files:
         return jsonify({'error': 'Face photo frame is required'}), 400
@@ -4328,7 +4836,8 @@ def api_face_enroll():
     if not embedding:
         return jsonify({'error': 'No face detected in photo. Please ensure your face is clearly visible in good lighting.'}), 400
 
-    database.save_face_embedding(emp_id, embedding)
+    comp_scope = None if session.get('role') == 'super_admin' else get_current_company_id()
+    database.save_face_embedding(emp_id, embedding, company_id=comp_scope)
     
     return jsonify({
         'success': True,
@@ -4338,6 +4847,8 @@ def api_face_enroll():
 
 @app.route('/api/face/recognize', methods=['POST'])
 @app.route('/api/recognize_face', methods=['POST'])
+@csrf.exempt
+@limiter.limit("120/minute")
 def api_face_recognize():
     """
     Recognizes employee face from live camera frame:
@@ -4876,9 +5387,12 @@ def api_update_manual_entry(entry_id):
     entry = database.get_manual_entry_by_id(entry_id)
     if not entry:
         return jsonify({'error': 'Manual entry not found'}), 404
+    if not _check_record_company_access(entry):
+        return jsonify({'error': 'Unauthorized access to manual entry'}), 403
         
     data = request.get_json() if request.is_json else request.form.to_dict()
-    database.update_manual_entry(entry_id, data)
+    comp_scope = None if session.get('role') == 'super_admin' else get_current_company_id()
+    database.update_manual_entry(entry_id, data, company_id=comp_scope)
     return jsonify({'success': True, 'message': 'Manual entry updated successfully'})
 
 @app.route('/api/manual-entries/<entry_id>', methods=['DELETE'])
@@ -4889,8 +5403,11 @@ def api_delete_manual_entry(entry_id):
     entry = database.get_manual_entry_by_id(entry_id)
     if not entry:
         return jsonify({'error': 'Manual entry not found'}), 404
+    if not _check_record_company_access(entry):
+        return jsonify({'error': 'Unauthorized access to manual entry'}), 403
         
-    database.delete_manual_entry(entry_id)
+    comp_scope = None if session.get('role') == 'super_admin' else get_current_company_id()
+    database.delete_manual_entry(entry_id, company_id=comp_scope)
     return jsonify({'success': True, 'message': 'Manual entry deleted successfully'})
 
 @app.route('/api/manual-entries/bulk-delete', methods=['POST'])
@@ -5041,6 +5558,8 @@ def api_get_payment(payment_id):
     p = database.get_payment_by_id(payment_id)
     if not p:
         return jsonify({'error': 'Payment not found'}), 404
+    if not _check_record_company_access(p):
+        return jsonify({'error': 'Unauthorized access to payment'}), 403
     return jsonify(p)
 
 @app.route('/api/payments', methods=['POST'])
@@ -5055,10 +5574,11 @@ def api_create_payment():
     if 'receipt' in request.files:
         file = request.files['receipt']
         if file and file.filename:
-            fname = werkzeug.utils.secure_filename(file.filename)
-            uniq = f"{int(database.time.time())}_{fname}"
-            file.save(os.path.join(RECEIPTS_FOLDER, uniq))
-            data['receipt_filename'] = uniq
+            try:
+                uniq, _, _ = safe_save_file(file, RECEIPTS_FOLDER, {'png', 'jpg', 'jpeg', 'webp', 'pdf'})
+                data['receipt_filename'] = uniq
+            except ValueError as ve:
+                return jsonify({'error': str(ve)}), 400
             
     if not data.get('employee_name'):
         return jsonify({'error': 'Employee name is required'}), 400
@@ -5076,6 +5596,8 @@ def api_update_payment(payment_id):
     p = database.get_payment_by_id(payment_id)
     if not p:
         return jsonify({'error': 'Payment not found'}), 404
+    if not _check_record_company_access(p):
+        return jsonify({'error': 'Unauthorized access to payment'}), 403
         
     data = {}
     if request.is_json:
@@ -5086,12 +5608,14 @@ def api_update_payment(payment_id):
     if 'receipt' in request.files:
         file = request.files['receipt']
         if file and file.filename:
-            fname = werkzeug.utils.secure_filename(file.filename)
-            uniq = f"{int(database.time.time())}_{fname}"
-            file.save(os.path.join(RECEIPTS_FOLDER, uniq))
-            data['receipt_filename'] = uniq
+            try:
+                uniq, _, _ = safe_save_file(file, RECEIPTS_FOLDER, {'png', 'jpg', 'jpeg', 'webp', 'pdf'})
+                data['receipt_filename'] = uniq
+            except ValueError as ve:
+                return jsonify({'error': str(ve)}), 400
             
-    database.update_payment(payment_id, data)
+    comp_scope = None if session.get('role') == 'super_admin' else get_current_company_id()
+    database.update_payment(payment_id, data, company_id=comp_scope)
     return jsonify({'success': True, 'message': 'Payment updated successfully'})
 
 @app.route('/api/payments/<payment_id>', methods=['DELETE'])
@@ -5102,8 +5626,11 @@ def api_delete_payment(payment_id):
     p = database.get_payment_by_id(payment_id)
     if not p:
         return jsonify({'error': 'Payment not found'}), 404
+    if not _check_record_company_access(p):
+        return jsonify({'error': 'Unauthorized access to payment'}), 403
         
-    database.delete_payment(payment_id)
+    comp_scope = None if session.get('role') == 'super_admin' else get_current_company_id()
+    database.delete_payment(payment_id, company_id=comp_scope)
     return jsonify({'success': True, 'message': 'Payment deleted successfully'})
 
 @app.route('/api/payments/bulk-delete', methods=['POST'])
@@ -5277,9 +5804,12 @@ def api_update_advance(advance_id):
     a = database.get_advance_by_id(advance_id)
     if not a:
         return jsonify({'error': 'Advance not found'}), 404
+    if not _check_record_company_access(a):
+        return jsonify({'error': 'Unauthorized access to advance record'}), 403
         
     data = request.get_json() if request.is_json else request.form.to_dict()
-    database.update_advance(advance_id, data)
+    comp_scope = None if session.get('role') == 'super_admin' else get_current_company_id()
+    database.update_advance(advance_id, data, company_id=comp_scope)
     return jsonify({'success': True, 'message': 'Advance updated successfully'})
 
 @app.route('/api/advances/<advance_id>', methods=['DELETE'])
@@ -5290,8 +5820,11 @@ def api_delete_advance(advance_id):
     a = database.get_advance_by_id(advance_id)
     if not a:
         return jsonify({'error': 'Advance not found'}), 404
+    if not _check_record_company_access(a):
+        return jsonify({'error': 'Unauthorized access to advance record'}), 403
         
-    database.delete_advance(advance_id)
+    comp_scope = None if session.get('role') == 'super_admin' else get_current_company_id()
+    database.delete_advance(advance_id, company_id=comp_scope)
     return jsonify({'success': True, 'message': 'Advance deleted successfully'})
 
 @app.route('/api/advances/bulk-delete', methods=['POST'])
@@ -5432,18 +5965,13 @@ def api_balance_report_export_pdf():
 
 # ----------------- MONTHLY PAYSLIP API ROUTES ----------------- #
 
-@app.route('/api/payslip/generate', methods=['GET', 'POST'])
+@app.route('/api/payslip/generate', methods=['POST'])
 @login_required
 def api_generate_payslip():
-    if request.method == 'POST':
-        data = request.get_json() if request.is_json else request.form.to_dict()
-        employee = (data.get('employee_name') or data.get('employee') or '').strip()
-        month = data.get('month', '').strip()
-        branch_id = data.get('branch_id') or request.args.get('branch_id') or get_current_branch_id()
-    else:
-        employee = (request.args.get('employee_name') or request.args.get('employee') or '').strip()
-        month = request.args.get('month', '').strip()
-        branch_id = request.args.get('branch_id') or get_current_branch_id()
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    employee = (data.get('employee_name') or data.get('employee') or request.args.get('employee_name') or request.args.get('employee') or '').strip()
+    month = (data.get('month') or request.args.get('month') or '').strip()
+    branch_id = data.get('branch_id') or request.args.get('branch_id') or get_current_branch_id()
         
     if not employee:
         return jsonify({'error': 'Employee name is required'}), 400
@@ -5460,6 +5988,16 @@ def api_generate_payslip():
 @app.route('/api/payslip/export/pdf', methods=['GET'])
 def api_export_payslip_pdf():
     """Generates and downloads or views payslip PDF. Available to Admins and Employees."""
+    bearer_tok = _extract_mobile_bearer_token()
+    if bearer_tok:
+        _, _, err_resp = _resolve_mobile_employee_from_token(bearer_tok)
+        if err_resp:
+            return err_resp
+    elif not ((session.get('admin_logged_in') and session.get('role') in ['super_admin', 'company_admin']) or (session.get('employee_logged_in') and session.get('role') == 'employee')):
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Authentication required. Your session may have expired. Please refresh and log in again.'}), 401
+        return redirect(url_for('login'))
+
     employee = (request.args.get('employee_name') or request.args.get('employee') or '').strip()
     month = request.args.get('month', '').strip()
     branch_id = request.args.get('branch_id') or get_current_branch_id()
@@ -6137,12 +6675,15 @@ def api_download_all_attachments(ticket_id):
     folder = os.path.join(SUPPORT_UPLOADS_FOLDER, str(target_comp_id))
 
     zip_buffer = io.BytesIO()
+    real_folder = os.path.realpath(folder)
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         for att in attachments:
-            fname = att.get('filename')
-            orig_name = att.get('original_name', fname)
-            fpath = os.path.join(folder, fname) if fname else None
-            if fpath and os.path.exists(fpath):
+            fname = os.path.basename(str(att.get('filename') or ''))
+            if not fname:
+                continue
+            orig_name = werkzeug.utils.secure_filename(att.get('original_name') or fname) or fname
+            fpath = os.path.realpath(os.path.join(folder, fname))
+            if fpath.startswith(real_folder) and os.path.isfile(fpath):
                 zip_file.write(fpath, arcname=orig_name)
 
     zip_buffer.seek(0)
@@ -6160,8 +6701,24 @@ def api_download_all_attachments(ticket_id):
 # ==============================================================================
 
 def _is_field_authenticated():
-    """Checks if the current session is authenticated as Admin, Company Admin, or Field Worker."""
-    return bool(session.get('admin_logged_in') or session.get('employee_logged_in'))
+    """Checks if the current session is authenticated as Admin, Company Admin, or verified Field Worker employee."""
+    if session.get('admin_logged_in') and session.get('role') in ['super_admin', 'company_admin']:
+        return True
+    if session.get('employee_logged_in') and session.get('role') == 'employee':
+        # Employees must have the is_field_worker flag set to access field worker routes
+        emp_id = session.get('employee_id')
+        if not emp_id:
+            return False
+        try:
+            emp = database.get_employee_by_id(emp_id)
+            if emp and (
+                emp.get('is_field_worker') is True
+                or str(emp.get('employee_type') or '').lower() in ['field_worker', 'field', 'fw']
+            ):
+                return True
+        except Exception:
+            pass
+    return False
 
 
 def _resolve_field_company_id(req_company_id=None):
@@ -6182,6 +6739,7 @@ def _resolve_field_company_id(req_company_id=None):
 
 
 @app.route('/field-worker/login', methods=['GET', 'POST'])
+@limiter.limit("10/minute", methods=["POST"])
 def field_worker_login():
     """
     Dedicated Multi-Tenant Login Gate for the Field Worker Module.
@@ -6734,7 +7292,10 @@ def api_field_worker_visits():
         if audio_file and getattr(audio_file, 'filename', None):
             clean_fname = werkzeug.utils.secure_filename(audio_file.filename) or 'recording.m4a'
             ext = os.path.splitext(clean_fname)[1].lower() or '.m4a'
-            upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'visit_recordings', cid or 'ARGUS_MASTER')
+            if ext not in {'.webm', '.ogg', '.mp4', '.wav', '.m4a'}:
+                return jsonify({'success': False, 'error': f'Unsupported audio format {ext}'}), 400
+            cid_safe = werkzeug.utils.secure_filename(str(cid or 'ARGUS_MASTER')) or 'ARGUS_MASTER'
+            upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'visit_recordings', cid_safe)
             os.makedirs(upload_dir, exist_ok=True)
             saved_name = f"visit_audio_{int(time.time() * 1000)}{ext}"
             saved_path = os.path.join(upload_dir, saved_name)
@@ -6843,9 +7404,13 @@ def api_field_worker_visit_audio(visit_id):
         except Exception as e:
             print("GridFS Audio Stream Error:", e)
 
-    # 2. Local or dynamic filesystem path
+    # 2. Local or dynamic filesystem path — SECURITY: enforce containment within visit_recordings/
     audio_path = str(visit.get('audio_file_path') or '').strip()
     if audio_path:
+        # Allowed base directory for audio files
+        _allowed_audio_base = os.path.realpath(
+            os.path.join(app.root_path, 'static', 'uploads', 'visit_recordings')
+        )
         norm_path = audio_path.replace('\\', '/')
         if 'static/uploads/visit_recordings/' in norm_path:
             rel_sub = norm_path.split('static/uploads/visit_recordings/', 1)[1]
@@ -6856,8 +7421,13 @@ def api_field_worker_visit_audio(visit_id):
         if not os.path.isabs(audio_path):
             audio_path = os.path.join(app.root_path, audio_path)
 
-        if os.path.exists(audio_path):
-            return send_file(audio_path, mimetype=mime, conditional=True)
+        # SECURITY: reject any path outside the allowed recordings directory
+        real_audio = os.path.realpath(audio_path)
+        if not real_audio.startswith(_allowed_audio_base + os.sep):
+            return jsonify({'success': False, 'error': 'Audio recording not found.'}), 404
+
+        if os.path.exists(real_audio):
+            return send_file(real_audio, mimetype=mime, conditional=True)
 
     return jsonify({
         'success': False,
@@ -6865,7 +7435,7 @@ def api_field_worker_visit_audio(visit_id):
     }), 404
 
 
-@app.route('/api/field-worker/visits/<visit_id>/transcript', methods=['GET'])
+@app.route('/api/field-worker/visits/<visit_id>/transcript', methods=['GET', 'POST'])
 def api_field_worker_visit_transcript(visit_id):
     """Returns the Tamil verbatim transcript, English translation, and AI insights for a visit."""
     if not _is_field_authenticated():
@@ -6879,14 +7449,14 @@ def api_field_worker_visit_transcript(visit_id):
     if not visit:
         return jsonify({'success': False, 'error': 'Customer visit not found.'}), 404
 
-    # Auto-reprocess on the fly if audio recording exists but transcript is missing or contains an error string
+    # Only trigger reprocessing mutation on POST (never mutate state on GET)
     t_en = str(visit.get('conversation_transcript_english') or '').strip()
     is_err_placeholder = (
         not t_en or
         any(k in t_en.lower() for k in ['error', 'no module', 'fail', 'fallback', 'required'])
     )
 
-    if visit.get('has_audio_recording') and is_err_placeholder:
+    if request.method == 'POST' and visit.get('has_audio_recording') and is_err_placeholder:
         audio_path = str(visit.get('audio_file_path') or '').strip()
         grid_id = visit.get('audio_gridfs_id')
         temp_gridfs_file = None
@@ -7153,10 +7723,9 @@ def api_field_worker_visit_transcript_docx(visit_id):
 
 
 @app.route('/api/system/gemini-key', methods=['GET', 'POST'])
+@super_admin_required
 def api_system_gemini_key():
-    '''Allows admin to view/set the Google Gemini API Key for Indian Tamil audio transcription.'''
-    if not _is_field_authenticated():
-        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    '''Allows Super Admin to view/set the Google Gemini API Key. Restricted to Super Admin only.'''
 
     db = database.get_db()
     if request.method == 'GET':
@@ -7191,6 +7760,8 @@ def api_system_gemini_key():
     })
 
 @app.route('/api/ai/teacher/explain', methods=['POST'])
+@login_required
+@limiter.limit("20/minute")
 def api_teacher_ai_explain():
     """Contextual explanation endpoint for Teacher powered by Google Gemini (with instant offline fallback)."""
     try:
@@ -7272,6 +7843,8 @@ def api_teacher_ai_explain():
 # ARGUS CO-WORKER AI (AGENT 2) - AUTONOMOUS EXECUTIVE ASSISTANT
 # =========================================================================
 @app.route('/api/ai/coworker/transcribe', methods=['POST'])
+@login_required
+@limiter.limit("20/minute")
 def api_coworker_ai_transcribe():
     """Transcribes natural human voice notes using Google Gemini Multimodal Audio."""
     try:
@@ -7334,8 +7907,8 @@ def api_coworker_ai_transcribe():
 
 
 @app.route('/api/ai/coworker/chat', methods=['POST'])
-# -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
+@login_required
+@limiter.limit("20/minute")
 def api_coworker_ai_chat():
     """Autonomous executive assistant endpoint supporting all Argus operations with multi-turn conversational memory & task execution."""
     try:
@@ -7377,8 +7950,11 @@ def api_coworker_ai_chat():
         employees = list(emp_cursor)
         emp_names = [e.get('employee_name') for e in employees if e.get('employee_name')]
 
-        # Load registered client companies for system admin operations
-        companies = list(db.company_admin.find({}, {'company_name': 1, 'id': 1, 'email': 1, 'employee_limit': 1, 'branch_limit': 1}))
+        # Load registered client companies only for super_admin; scope to current company otherwise
+        if is_super:
+            companies = list(db.company_admin.find({}, {'company_name': 1, 'id': 1, 'email': 1, 'employee_limit': 1, 'branch_limit': 1}))
+        else:
+            companies = list(db.company_admin.find({'id': cid}, {'company_name': 1, 'id': 1, 'email': 1, 'employee_limit': 1, 'branch_limit': 1}))
         comp_names = [c.get('company_name') for c in companies if c.get('company_name')]
 
         def resolve_employee(name):
@@ -9819,12 +10395,10 @@ def api_field_worker_apply_leave():
     if 'attachment' in request.files:
         file = request.files['attachment']
         if file and file.filename:
-            fname = werkzeug.utils.secure_filename(file.filename) or 'fw_leave_doc'
-            base_name, ext = os.path.splitext(fname)
-            unique_fname = f"fw_{base_name}_{int(time.time())}{ext}"
-            os.makedirs(LEAVES_FOLDER, exist_ok=True)
-            dest_path = os.path.join(LEAVES_FOLDER, unique_fname)
-            file.save(dest_path)
+            try:
+                unique_fname, fname, dest_path = safe_save_file(file, LEAVES_FOLDER, {'png', 'jpg', 'jpeg', 'webp', 'pdf'}, prefix='fw_')
+            except ValueError as ve:
+                return jsonify({'success': False, 'error': str(ve)}), 400
             size_kb = round(os.path.getsize(dest_path) / 1024, 1)
             attachments.append({
                 'filename': unique_fname,
@@ -9947,7 +10521,8 @@ def api_field_worker_leave_request_action(request_id):
 
     remark = data.get('admin_remark', '').strip()
     reviewer = session.get('user') or session.get('admin_username') or 'Field Operations Admin'
-    res = database.update_leave_request_status(request_id, action, admin_remark=remark, reviewer=reviewer)
+    cid = _resolve_field_company_id(data.get('company_id'))
+    res = database.update_leave_request_status(request_id, action, admin_remark=remark, reviewer=reviewer, company_id=cid)
     return jsonify(res)
 
 
@@ -10114,10 +10689,11 @@ def api_field_worker_create_payment():
     if 'receipt' in request.files:
         file = request.files['receipt']
         if file and file.filename:
-            fname = werkzeug.utils.secure_filename(file.filename)
-            uniq = f"{int(database.time.time())}_{fname}"
-            file.save(os.path.join(RECEIPTS_FOLDER, uniq))
-            data['receipt_filename'] = uniq
+            try:
+                uniq, _, _ = safe_save_file(file, RECEIPTS_FOLDER, {'png', 'jpg', 'jpeg', 'webp', 'pdf'})
+                data['receipt_filename'] = uniq
+            except ValueError as ve:
+                return jsonify({'success': False, 'error': str(ve)}), 400
 
     cid = _resolve_field_company_id(data.get('company_id'))
     try:

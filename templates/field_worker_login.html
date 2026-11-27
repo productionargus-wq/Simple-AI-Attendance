@@ -337,6 +337,7 @@
 
 
     <form method="POST" action="/field-worker/login">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       <input type="hidden" name="login_role" id="loginRoleInput" value="field_worker">
 

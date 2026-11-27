@@ -24,6 +24,7 @@ import os
 import math
 import sys
 import json
+import hashlib
 import threading
 import contextlib
 import urllib.request
@@ -71,6 +72,8 @@ SFACE_PATH = os.path.join(MODELS_DIR, 'face_recognition_sface_2021dec.onnx')
 
 YUNET_URL = "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
 SFACE_URL = "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx"
+YUNET_SHA256 = "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4"
+SFACE_SHA256 = "0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79"
 
 _detector = None
 _recognizer = None
@@ -100,17 +103,31 @@ def _get_haar_cascade():
     return _haar_cascade
 
 
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB limit against decompression/memory exhaustion
+MAX_IMAGE_DIM = 4096
+
+
 def _decode_image(image_bytes_or_path):
     """Decodes an image from file path, ndarray, or raw image bytes into BGR ndarray."""
     if cv2 is None or np is None or image_bytes_or_path is None:
         return None
     try:
         if isinstance(image_bytes_or_path, str):
-            return cv2.imread(image_bytes_or_path)
-        if isinstance(image_bytes_or_path, np.ndarray) and image_bytes_or_path.ndim >= 2:
-            return image_bytes_or_path
-        nparr = image_bytes_or_path if isinstance(image_bytes_or_path, np.ndarray) else np.frombuffer(image_bytes_or_path, np.uint8)
-        return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if os.path.exists(image_bytes_or_path) and os.path.getsize(image_bytes_or_path) > MAX_IMAGE_BYTES:
+                return None
+            img = cv2.imread(image_bytes_or_path)
+        elif isinstance(image_bytes_or_path, np.ndarray) and image_bytes_or_path.ndim >= 2:
+            img = image_bytes_or_path
+        else:
+            if isinstance(image_bytes_or_path, (bytes, bytearray)) and len(image_bytes_or_path) > MAX_IMAGE_BYTES:
+                return None
+            nparr = image_bytes_or_path if isinstance(image_bytes_or_path, np.ndarray) else np.frombuffer(image_bytes_or_path, np.uint8)
+            if nparr.nbytes > MAX_IMAGE_BYTES:
+                return None
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is not None and (img.shape[0] > MAX_IMAGE_DIM or img.shape[1] > MAX_IMAGE_DIM):
+            return None
+        return img
     except Exception:
         return None
 
@@ -129,26 +146,34 @@ def _downscale_image(img, max_dim=640):
     return img
 
 
+def _download_verified_model(url, dest_path, expected_sha256, timeout):
+    """Downloads a model file and verifies its SHA-256 digest before saving."""
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        data = resp.read()
+    digest = hashlib.sha256(data).hexdigest().lower()
+    if digest != expected_sha256.lower():
+        raise ValueError(f"Checksum mismatch for {dest_path}: expected {expected_sha256}, got {digest}")
+    with open(dest_path, 'wb') as out_f:
+        out_f.write(data)
+
+
 def ensure_models_available():
     """Ensures YuNet and SFace ONNX models exist locally; downloads if missing or truncated."""
     os.makedirs(MODELS_DIR, exist_ok=True)
     if not os.path.exists(YUNET_PATH) or os.path.getsize(YUNET_PATH) < 100000:
         print(f"Downloading YuNet model to {YUNET_PATH}...")
         try:
-            req = urllib.request.Request(YUNET_URL, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=10) as resp, open(YUNET_PATH, 'wb') as out_f:
-                out_f.write(resp.read())
-            print("YuNet model downloaded successfully.")
+            _download_verified_model(YUNET_URL, YUNET_PATH, YUNET_SHA256, timeout=10)
+            print("YuNet model downloaded and verified successfully.")
         except Exception as e:
             print(f"Error downloading YuNet: {e}")
 
     if not os.path.exists(SFACE_PATH) or os.path.getsize(SFACE_PATH) < 10000000:
         print(f"Downloading SFace model to {SFACE_PATH}...")
         try:
-            req = urllib.request.Request(SFACE_URL, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=15) as resp, open(SFACE_PATH, 'wb') as out_f:
-                out_f.write(resp.read())
-            print("SFace model downloaded successfully.")
+            _download_verified_model(SFACE_URL, SFACE_PATH, SFACE_SHA256, timeout=15)
+            print("SFace model downloaded and verified successfully.")
         except Exception as e:
             print(f"Error downloading SFace: {e}")
 
@@ -793,14 +818,14 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
         tuple: (is_live: bool, confidence: float, reason: str)
     """
     if img is None:
-        return True, 1.0, "OK"
+        return False, 0.0, "Missing image for liveness check"
 
     if isinstance(img, (bytes, bytearray)):
         if np is None or cv2 is None:
-            return True, 1.0, "OK"
+            return False, 0.0, "Biometric dependencies unavailable"
         img = _decode_image(img)
         if img is None:
-            return True, 0.5, "Bypass on decode error"
+            return False, 0.0, "Failed to decode image for liveness verification"
 
     if isinstance(burst_img, (bytes, bytearray)):
         if np is not None and cv2 is not None:
@@ -809,7 +834,7 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
             burst_img = None
 
     if img is None or cv2 is None or np is None:
-        return True, 1.0, "OK"
+        return False, 0.0, "Biometric verification unavailable"
 
     try:
         if face is None:
@@ -931,7 +956,7 @@ def verify_liveness_anti_spoofing(img, face=None, burst_img=None):
 
     except Exception as e:
         print(f"Anti-spoofing verification error: {e}")
-        return True, 0.5, "Bypass on error"
+        return False, 0.0, "Liveness verification error"
 
 
 def analyze_face_and_liveness(file_bytes, burst_bytes=None):
@@ -940,7 +965,7 @@ def analyze_face_and_liveness(file_bytes, burst_bytes=None):
     verifies anti-spoofing liveness, and extracts SFace 128-d embedding reusing the same detection.
     """
     if cv2 is None or np is None:
-        return {'face_detected': False, 'is_live': True, 'confidence': 1.0, 'reason': 'OK', 'embedding': None}
+        return {'face_detected': False, 'is_live': False, 'confidence': 0.0, 'reason': 'Biometric dependencies unavailable', 'embedding': None}
 
     img = _decode_image(file_bytes)
     if img is None:
@@ -974,7 +999,7 @@ def analyze_face_and_liveness(file_bytes, burst_bytes=None):
     embedding = _extract_embedding_from_img_and_face(img, face)
     return {
         'face_detected': bool(embedding is not None),
-        'is_live': bool(is_live) if is_live is not None else True,
+        'is_live': bool(is_live) if is_live is not None else False,
         'confidence': float(confidence),
         'reason': str(reason),
         'embedding': embedding

@@ -15,8 +15,7 @@ on:
         required: false
         default: 'Argus Attendance Intelligence v2.0.0 Release'
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
   # =========================================================================
@@ -27,23 +26,13 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
-
-      - name: Create Production Environment
-        env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-        run: |
-          $envContent = "FLASK_ENV=production`nPORT=5000"
-          if ($env:GOOGLE_CLIENT_ID) { $envContent += "`nGOOGLE_CLIENT_ID=$($env:GOOGLE_CLIENT_ID)" }
-          if ($env:GOOGLE_CLIENT_SECRET) { $envContent += "`nGOOGLE_CLIENT_SECRET=$($env:GOOGLE_CLIENT_SECRET)" }
-          Set-Content -Path .env -Value $envContent -Force
 
       - name: Install Inno Setup
         run: |
@@ -101,23 +90,13 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
-
-      - name: Create Production Environment
-        env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-        run: |
-          echo "FLASK_ENV=production" > .env
-          echo "PORT=5000" >> .env
-          if [ -n "$GOOGLE_CLIENT_ID" ]; then echo "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" >> .env; fi
-          if [ -n "$GOOGLE_CLIENT_SECRET" ]; then echo "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" >> .env; fi
 
       - name: Install Python Dependencies
         run: |
@@ -154,7 +133,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Set up Java JDK 21
         uses: actions/setup-java@v4
@@ -179,7 +158,7 @@ jobs:
         working-directory: mobile-app/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
 
       - name: Stage Android APKs
         run: |
@@ -189,11 +168,6 @@ jobs:
             cp mobile-app/android/app/build/outputs/apk/release/app-release-unsigned.apk staged-android/Argus-Attendance-Intelligence-Android.apk
           elif [ -f mobile-app/android/app/build/outputs/apk/release/app-release.apk ]; then
             cp mobile-app/android/app/build/outputs/apk/release/app-release.apk staged-android/Argus-Attendance-Intelligence-Android.apk
-          fi
-          
-          # Also stage debug APK for immediate phone testing
-          if [ -f mobile-app/android/app/build/outputs/apk/debug/app-debug.apk ]; then
-            cp mobile-app/android/app/build/outputs/apk/debug/app-debug.apk staged-android/Argus-Attendance-Intelligence-Android-Debug.apk
           fi
 
       - name: Upload Android Staging Artifact
@@ -211,7 +185,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
@@ -269,6 +243,8 @@ jobs:
   # =========================================================================
   publish-release:
     name: Publish All Packages to GitHub Release
+    permissions:
+      contents: write
     needs: [build-windows, build-macos, build-android, build-ios]
     runs-on: ubuntu-latest
     steps:

@@ -44,7 +44,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "static\favicon.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: ".env"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+; SECURITY: .env is NOT distributed with the installer.
+; Customers must create their own .env beside the .exe with FLASK_SECRET_KEY and optional offline settings.
+; Database credentials must NEVER be shipped inside a client-distributed binary.
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\favicon.ico"

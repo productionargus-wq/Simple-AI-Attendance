@@ -3322,7 +3322,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const activeBid = (new URL(window.location.href)).searchParams.get('branch_id') || '{{ active_branch_id or "" }}';
-    fetch(`/api/payslip/generate?employee_name=${encodeURIComponent(employee)}&month=${encodeURIComponent(month)}&branch_id=${encodeURIComponent(activeBid)}`)
+    fetch('/api/payslip/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_name: employee, month: month, branch_id: activeBid })
+    })
       .then(res => res.json())
       .then(p => {
         lastPayslipData = p;
