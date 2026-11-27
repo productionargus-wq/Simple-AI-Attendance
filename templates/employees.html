@@ -194,6 +194,10 @@
 
           <th data-col="designation">DESIGNATION <span class="sort-icon">⇅</span></th>
 
+          <th>REPORTS TO</th>
+
+          <th>SKILLSET</th>
+
           <th data-col="status">STATUS <span class="sort-icon">⇅</span></th>
 
           <th data-col="salary_type">SALARY BASIS <span class="sort-icon">⇅</span></th>
@@ -1187,6 +1191,324 @@
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(37, 99, 235, 0.35);
   }
+
+  /* ================= SECTION 03: ROLE PROFILE (REPORTS TO, SKILLSET, RESPONSIBILITIES) ================= */
+  .emp-textarea {
+    width: 100%;
+    min-height: 76px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #0f172a;
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    resize: vertical;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .emp-textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    outline: none;
+  }
+  .emp-textarea:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+  }
+  .skill-badges-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    min-height: 36px;
+    padding: 8px 10px;
+    margin-top: 8px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+  }
+  .skill-badges-empty {
+    font-size: 11.5px;
+    color: #94a3b8;
+    font-style: italic;
+  }
+  .skill-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1.3;
+    border: 1px solid transparent;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    animation: skillPop 0.15s ease;
+  }
+  @keyframes skillPop {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .skill-badge-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.12);
+    color: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .skill-badge-remove:hover {
+    background: rgba(15, 23, 42, 0.25);
+  }
+  .skill-badge-c0 { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .skill-badge-c1 { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+  .skill-badge-c2 { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+  .skill-badge-c3 { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+  .skill-badge-c4 { background: #fff1f2; color: #be123c; border-color: #fecdd3; }
+  .skill-badge-c5 { background: #ecfeff; color: #0e7490; border-color: #a5f3fc; }
+  .skill-badge-c6 { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
+  .skill-badge-c7 { background: #f0fdfa; color: #0f766e; border-color: #99f6e4; }
+
+  .resp-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .btn-add-resp-point {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #1d4ed8;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-add-resp-point:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+  }
+
+  .reports-to-field-wrap {
+    position: relative;
+  }
+  .reports-to-input-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 0 12px;
+    height: 40px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .reports-to-input-box.is-open,
+  .reports-to-input-box:focus-within {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+  .reports-to-search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 13px;
+    color: #0f172a;
+    height: 100%;
+    min-width: 0;
+  }
+  .reports-to-dropdown-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 1.5px solid #93c5fd;
+    border-radius: 10px;
+    box-shadow: 0 14px 32px -4px rgba(15, 23, 42, 0.2), 0 4px 10px -2px rgba(15, 23, 42, 0.08);
+    z-index: 1060;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .reports-to-dropdown-panel.show {
+    display: flex;
+    animation: smartDropdownPop 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reports-to-dropdown-panel.flip-up {
+    top: auto;
+    bottom: calc(100% + 6px);
+  }
+  .reports-to-options-list {
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .reports-to-option-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .reports-to-option-item:last-child {
+    border-bottom: none;
+  }
+  .reports-to-option-item:hover,
+  .reports-to-option-item.highlighted {
+    background: #f1f5f9;
+  }
+  .reports-to-option-item.selected {
+    background: #eff6ff;
+  }
+  .reports-to-option-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .reports-to-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1e3a8a, #0284c7);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .reports-to-option-meta {
+    min-width: 0;
+  }
+  .reports-to-option-name {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .reports-to-option-sub {
+    font-size: 11px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .reports-to-selected-box {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .reports-to-selected-box.has-selection {
+    background: #f0f7ff;
+    border-color: #bfdbfe;
+  }
+  .reports-to-selected-heading {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .reports-to-selected-box.has-selection .reports-to-selected-heading {
+    color: #1d4ed8;
+  }
+  .reports-to-chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .reports-to-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px 5px 6px;
+    background: #ffffff;
+    border: 1px solid #93c5fd;
+    border-radius: 9999px;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+  }
+  .reports-to-chip-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #0284c7);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .reports-to-chip-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+  }
+  .reports-to-chip-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .reports-to-chip-role {
+    font-size: 10px;
+    color: #64748b;
+    font-weight: 600;
+  }
+  .reports-to-chip-remove {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: none;
+    background: #fee2e2;
+    color: #dc2626;
+    font-size: 12px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: background 0.15s ease;
+  }
+  .reports-to-chip-remove:hover {
+    background: #fecaca;
+  }
 </style>
 
 <div class="modal-overlay" id="entryModal">
@@ -1420,11 +1742,113 @@
           </div>
         </div>
 
-        <!-- SECTION 03: Salary & Payroll -->
-        <div class="emp-section-card">
+        <!-- SECTION 03: Role Profile -->
+        <div class="emp-section-card" id="sectionRoleProfile">
           <div class="emp-section-header">
             <div class="emp-section-header-left">
               <span class="emp-section-num">03</span>
+              <div>
+                <div class="emp-section-title">Role Profile</div>
+                <div class="emp-section-subtitle">Reporting hierarchy, skillset badges, and key responsibilities</div>
+              </div>
+            </div>
+            <div class="emp-section-header-right">
+              <span class="emp-pill emp-pill-gray">OPTIONAL</span>
+            </div>
+          </div>
+
+          <div class="emp-section-stack">
+            <!-- Reports To -->
+            <div class="form-group reports-to-field-wrap" id="groupReportsTo">
+              <label class="form-label" for="reportsToSearchInput">Reports To</label>
+              <input type="hidden" id="inputReportsTo" name="reports_to" value="[]">
+              <div class="reports-to-input-box" id="reportsToInputBox">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <input
+                  type="text"
+                  id="reportsToSearchInput"
+                  class="reports-to-search-input"
+                  placeholder="Click or type employee name, role, or department..."
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  role="combobox"
+                  aria-expanded="false"
+                  aria-controls="reportsToDropdownPanel"
+                  aria-autocomplete="list"
+                  aria-describedby="reportsToHelperText"
+                >
+                <span class="smart-select-arrow" id="reportsToToggleArrow" style="cursor: pointer;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div class="form-helper-text" id="reportsToHelperText">Click to view all employees in this company and select one or more reporting managers.</div>
+
+              <div class="reports-to-dropdown-panel" id="reportsToDropdownPanel" role="listbox" aria-multiselectable="true">
+                <div class="smart-panel-heading" id="reportsToPanelHeading">COMPANY EMPLOYEES</div>
+                <div class="reports-to-options-list" id="reportsToOptionsList"></div>
+              </div>
+
+              <div class="reports-to-selected-box" id="reportsToSelectedDisplay" aria-live="polite">
+                <div class="reports-to-selected-heading">
+                  <span>Reporting To</span>
+                  <span id="reportsToCountLabel" style="font-weight: 600; text-transform: none; letter-spacing: 0;">None selected</span>
+                </div>
+                <div class="reports-to-chips-row" id="reportsToChipsRow">
+                  <span class="skill-badges-empty">No reporting managers selected yet.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Skillset -->
+            <div class="form-group">
+              <label class="form-label" for="inputSkills">Skillset</label>
+              <textarea
+                class="emp-textarea"
+                id="inputSkills"
+                name="skills"
+                rows="2"
+                placeholder="Type skills separated by commas or new lines (e.g. CNC Machine Operating, Python, Digital Marketing)"
+                aria-describedby="skillsHelperText"
+              ></textarea>
+              <div class="form-helper-text" id="skillsHelperText">Separate multiple skills with commas or new lines. Each skill appears below as a colorful badge.</div>
+              <div class="skill-badges-container" id="skillsBadgePreview" aria-live="polite">
+                <span class="skill-badges-empty">Colorful skill badges will appear here as you type...</span>
+              </div>
+            </div>
+
+            <!-- Responsibilities -->
+            <div class="form-group">
+              <div class="resp-label-row">
+                <label class="form-label" for="inputResponsibilities" style="margin: 0;">Responsibilities</label>
+                <button type="button" class="btn-add-resp-point" id="btnAddRespPoint">+ Add Point</button>
+              </div>
+              <textarea
+                class="emp-textarea"
+                id="inputResponsibilities"
+                name="responsibilities"
+                rows="4"
+                placeholder="• Operate and calibrate CNC machinery&#10;• Inspect finished components for tolerance compliance&#10;• Maintain daily shift production logs"
+                aria-describedby="respHelperText"
+              ></textarea>
+              <div class="form-helper-text" id="respHelperText">Enter employee responsibilities in points (one point per line).</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 04: Salary & Payroll -->
+        <div class="emp-section-card">
+          <div class="emp-section-header">
+            <div class="emp-section-header-left">
+              <span class="emp-section-num">04</span>
               <div>
                 <div class="emp-section-title">Salary &amp; Payroll</div>
                 <div class="emp-section-subtitle">Configure salary calculation and payroll rates</div>
@@ -1461,11 +1885,11 @@
           </div>
         </div>
 
-        <!-- SECTION 04: Shift & Overtime -->
+        <!-- SECTION 05: Shift & Overtime -->
         <div class="emp-section-card">
           <div class="emp-section-header">
             <div class="emp-section-header-left">
-              <span class="emp-section-num">04</span>
+              <span class="emp-section-num">05</span>
               <div>
                 <div class="emp-section-title">Shift &amp; Overtime</div>
                 <div class="emp-section-subtitle">Control working schedule and overtime calculations</div>
@@ -1533,11 +1957,11 @@
           </div>
         </div>
 
-        <!-- SECTION 05: Bank Details -->
+        <!-- SECTION 06: Bank Details -->
         <div class="emp-section-card">
           <div class="emp-section-header">
             <div class="emp-section-header-left">
-              <span class="emp-section-num">05</span>
+              <span class="emp-section-num">06</span>
               <div>
                 <div class="emp-section-title">Bank Details</div>
                 <div class="emp-section-subtitle">Salary payment and bank transfer information</div>
@@ -1571,11 +1995,11 @@
           </div>
         </div>
 
-        <!-- SECTION 06: Photo & Documents -->
+        <!-- SECTION 07: Photo & Documents -->
         <div class="emp-section-card">
           <div class="emp-section-header">
             <div class="emp-section-header-left">
-              <span class="emp-section-num">06</span>
+              <span class="emp-section-num">07</span>
               <div>
                 <div class="emp-section-title">Photo &amp; Documents</div>
                 <div class="emp-section-subtitle">Register employee face and attach identity or employment proofs</div>
@@ -1633,11 +2057,11 @@
           </div>
         </div>
 
-        <!-- SECTION 07: Attendance & Geofencing -->
+        <!-- SECTION 08: Attendance & Geofencing -->
         <div class="emp-section-card" id="sectionAttendanceGeofencingCriteria">
           <div class="emp-section-header">
             <div class="emp-section-header-left">
-              <span class="emp-section-num">07</span>
+              <span class="emp-section-num">08</span>
               <div>
                 <div class="emp-section-title">Attendance &amp; Geofencing</div>
                 <div class="emp-section-subtitle">Set the location validation rule for this employee</div>
@@ -1663,11 +2087,11 @@
           </div>
         </div>
 
-        <!-- SECTION 08: Employee Portal Permissions -->
+        <!-- SECTION 09: Employee Portal Permissions -->
         <div class="emp-section-card">
           <div class="emp-section-header">
             <div class="emp-section-header-left">
-              <span class="emp-section-num">08</span>
+              <span class="emp-section-num">09</span>
               <div>
                 <div class="emp-section-title">Employee Portal Permissions</div>
                 <div class="emp-section-subtitle">Choose which modules this employee can access</div>
@@ -2062,7 +2486,7 @@
 
 </script>
 
-<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261112_geofence_v1"></script>
+<script src="{{ url_for('static', filename='js/employees.js') }}?v=20261127_role_profile_v1"></script>
 
 {% endblock %}
 

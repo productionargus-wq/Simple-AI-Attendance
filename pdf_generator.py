@@ -204,12 +204,35 @@ def generate_employee_pdf(emp):
     shift_start_disp = "-" if is_no_shift else str(emp.get('shift_start') or '09:00 AM')
     shift_end_disp = "-" if is_no_shift else str(emp.get('shift_end') or '06:00 PM')
 
+    from xml.sax.saxutils import escape as xml_escape
+
+    reports_list = emp.get('reports_to_details') or []
+    if reports_list:
+        reports_disp = xml_escape(', '.join([
+            f"{m.get('employee_name', '')}" + (f" ({m.get('designation')})" if m.get('designation') else '')
+            for m in reports_list if m.get('employee_name')
+        ]))
+    else:
+        reports_disp = "-"
+
+    skills_list = emp.get('skills') or []
+    skills_disp = xml_escape(', '.join([str(s) for s in skills_list if str(s).strip()])) if skills_list else "-"
+
+    resp_points = emp.get('responsibilities_points') or []
+    if not resp_points and emp.get('responsibilities'):
+        resp_points = [ln.strip() for ln in str(emp.get('responsibilities')).splitlines() if ln.strip()]
+    resp_disp = '<br/>'.join([f"&bull; {xml_escape(str(pt))}" for pt in resp_points]) if resp_points else "-"
+
     # Fields table
     fields = [
-        ("ID", str(emp.get('id', ''))),
-        ("EMPLOYEE NAME", str(emp.get('employee_name', ''))),
-        ("DESIGNATION", str(emp.get('designation', ''))),
-        ("SALARY BASIS", str(emp.get('salary_type', 'hourly')).replace('_', '-').title() + "-Based"),
+        ("ID", xml_escape(str(emp.get('id', '')))),
+        ("EMPLOYEE NAME", xml_escape(str(emp.get('employee_name', '')))),
+        ("DEPARTMENT", xml_escape(str(emp.get('department', '') or '-'))),
+        ("DESIGNATION", xml_escape(str(emp.get('designation', '')))),
+        ("REPORTS TO", reports_disp),
+        ("SKILLSET", skills_disp),
+        ("RESPONSIBILITIES", resp_disp),
+        ("SALARY BASIS", xml_escape(str(emp.get('salary_type', 'hourly')).replace('_', '-').title() + "-Based")),
         ("HOURLY SALARY", str(emp.get('hourly_salary', '0'))),
         ("DAY SALARY", str(emp.get('day_salary', '0'))),
         ("HALF DAY SALARY", str(emp.get('half_day_salary', '0'))),

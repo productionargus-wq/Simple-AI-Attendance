@@ -1540,6 +1540,8 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc'
             '$or': [
                 {'employee_name': reg},
                 {'designation': reg},
+                {'department': reg},
+                {'skills': reg},
                 {'mobile_number': reg},
                 {'email_id': reg},
                 {'id': reg}
@@ -1597,6 +1599,8 @@ def get_all_employees(company_id=None, search='', sort_col='id', sort_dir='desc'
             c['shift_start'] = '-'
             c['shift_end'] = '-'
         employees.append(c)
+
+    _hydrate_reports_to_details(db, employees)
 
     # Compute company active quota summary stats via single aggregation
     base_comp_query = get_branch_employee_query(branch_id, company_id, exclude_field_workers=exclude_field_workers)
@@ -1686,6 +1690,7 @@ def get_employee_by_id(emp_id, company_id=None):
                 cleaned['company_calculate_proper_entries'] = True
         else:
             cleaned['company_calculate_proper_entries'] = True
+        _hydrate_reports_to_details(db, [cleaned])
     return cleaned
 
 def safe_float(val, default=0.0):
@@ -1748,6 +1753,176 @@ def is_no_shift_employee(emp):
         return True
     sh = str(emp.get('shift_hours') or '').strip().lower()
     return sh in ['-', '--', '----', 'n/a', 'na']
+
+def parse_skills_input(raw_skills):
+    """Parse comma/newline/JSON skills input into a deduplicated list of clean skill strings."""
+    if raw_skills is None:
+        return []
+    items = []
+    if isinstance(raw_skills, list):
+        items = raw_skills
+    else:
+        s = str(raw_skills).strip()
+        if not s:
+            return []
+        if s.startswith('['):
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    items = parsed
+                else:
+                    items = re.split(r'[,\n\r]+', s)
+            except Exception:
+                items = re.split(r'[,\n\r]+', s)
+        else:
+            items = re.split(r'[,\n\r]+', s)
+
+    seen = set()
+    result = []
+    for item in items:
+        clean = str(item or '').strip()
+        if not clean:
+            continue
+        low = clean.lower()
+        if low not in seen:
+            seen.add(low)
+            result.append(clean)
+    return result
+
+def parse_responsibilities_points(raw_resp):
+    """Split multiline responsibilities text into clean bullet point strings."""
+    if not raw_resp:
+        return []
+    if isinstance(raw_resp, list):
+        lines = [str(x or '').strip() for x in raw_resp]
+    else:
+        lines = str(raw_resp).splitlines()
+    points = []
+    for line in lines:
+        cleaned = re.sub(r'^\s*(?:[•\-\*]|\d+[.)])\s*', '', line).strip()
+        if cleaned:
+            points.append(cleaned)
+    return points
+
+def normalize_reports_to_ids(raw_reports_to, exclude_emp_id=None):
+    """Normalize reports_to payload (list, JSON string, or CSV) into unique employee ID strings."""
+    if raw_reports_to is None:
+        return []
+    items = []
+    if isinstance(raw_reports_to, list):
+        items = raw_reports_to
+    else:
+        s = str(raw_reports_to).strip()
+        if not s:
+            return []
+        if s.startswith('['):
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    items = parsed
+                else:
+                    items = re.split(r'[,\n\r]+', s)
+            except Exception:
+                items = re.split(r'[,\n\r]+', s)
+        else:
+            items = re.split(r'[,\n\r]+', s)
+
+    exclude_str = str(exclude_emp_id).strip() if exclude_emp_id else None
+    seen = set()
+    ids = []
+    for item in items:
+        if isinstance(item, dict):
+            val = str(item.get('id') or '').strip()
+        else:
+            val = str(item or '').strip()
+        if not val or (exclude_str and val == exclude_str) or val in seen:
+            continue
+        seen.add(val)
+        ids.append(val)
+    return ids
+
+def _validate_company_reports_to_ids(db, raw_reports_to, company_id=None, exclude_emp_id=None):
+    """Filter normalized reports_to IDs to employees belonging to the same company."""
+    candidate_ids = normalize_reports_to_ids(raw_reports_to, exclude_emp_id=exclude_emp_id)
+    if not candidate_ids:
+        return []
+    q = {'id': {'$in': candidate_ids}}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        q['company_id'] = str(company_id)
+    valid_docs = list(db.employees.find(q, {'id': 1}))
+    valid_set = {str(d.get('id')) for d in valid_docs if d.get('id')}
+    return [rid for rid in candidate_ids if rid in valid_set]
+
+def _hydrate_reports_to_details(db, employees_list):
+    """Batch-resolve reports_to manager details and normalize skills/responsibilities for display."""
+    if not employees_list:
+        return
+    all_manager_ids = []
+    seen_ids = set()
+    for emp in employees_list:
+        if not isinstance(emp, dict):
+            continue
+        emp['skills'] = parse_skills_input(emp.get('skills'))
+        emp['responsibilities'] = str(emp.get('responsibilities') or '').strip()
+        emp['responsibilities_points'] = parse_responsibilities_points(emp.get('responsibilities'))
+        r_ids = normalize_reports_to_ids(emp.get('reports_to'), exclude_emp_id=emp.get('id'))
+        emp['reports_to'] = r_ids
+        for rid in r_ids:
+            if rid not in seen_ids:
+                seen_ids.add(rid)
+                all_manager_ids.append(rid)
+
+    mgr_map = {}
+    if all_manager_ids:
+        cursor = db.employees.find(
+            {'id': {'$in': all_manager_ids}},
+            {'id': 1, 'employee_name': 1, 'designation': 1, 'department': 1, 'status': 1, 'branch_name': 1}
+        )
+        for m in cursor:
+            mid = str(m.get('id') or '').strip()
+            if mid:
+                mgr_map[mid] = {
+                    'id': mid,
+                    'employee_name': m.get('employee_name', ''),
+                    'designation': m.get('designation', ''),
+                    'department': m.get('department', ''),
+                    'branch_name': m.get('branch_name', ''),
+                    'status': 'Inactive' if str(m.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
+                }
+
+    for emp in employees_list:
+        if not isinstance(emp, dict):
+            continue
+        valid_ids = [rid for rid in emp.get('reports_to', []) if rid in mgr_map]
+        emp['reports_to'] = valid_ids
+        emp['reports_to_details'] = [mgr_map[rid] for rid in valid_ids]
+
+def get_company_employee_directory(company_id=None):
+    """Return all employees across the company (including all branches & field workers) for dropdown selection."""
+    db = get_db()
+    q = {}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        q['company_id'] = str(company_id)
+    cursor = db.employees.find(
+        q,
+        {'id': 1, 'employee_name': 1, 'designation': 1, 'department': 1, 'branch_name': 1, 'status': 1, 'is_field_worker': 1}
+    ).sort('employee_name', ASCENDING)
+    employees = []
+    for doc in cursor:
+        emp_id = str(doc.get('id') or '').strip()
+        name = str(doc.get('employee_name') or '').strip()
+        if not emp_id or not name:
+            continue
+        employees.append({
+            'id': emp_id,
+            'employee_name': name,
+            'designation': str(doc.get('designation') or '').strip(),
+            'department': str(doc.get('department') or '').strip(),
+            'branch_name': str(doc.get('branch_name') or '').strip(),
+            'status': 'Inactive' if str(doc.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active',
+            'is_field_worker': bool(doc.get('is_field_worker'))
+        })
+    return employees
 
 def parse_shift_hours_to_minutes(shift_str, default_minutes=480):
     """
@@ -1968,6 +2143,9 @@ def create_employee(data, company_id=None):
         'status': emp_status,
         'department': (data.get('department') or data.get('designation') or 'General').strip(),
         'designation': data.get('designation', '').strip(),
+        'skills': parse_skills_input(data.get('skills')),
+        'responsibilities': str(data.get('responsibilities') or '').strip(),
+        'reports_to': _validate_company_reports_to_ids(db, data.get('reports_to'), assigned_company_id, exclude_emp_id=emp_id),
         'salary_type': salary_type,
         'mobile_number': data.get('mobile_number', '').strip(),
         'hourly_salary': h_sal,
@@ -2172,6 +2350,13 @@ def update_employee(emp_id, data, company_id=None):
         upd['allowed_tabs'] = list(data['allowed_tabs']) if isinstance(data['allowed_tabs'], list) else []
     if 'documents' in data and isinstance(data['documents'], list):
         upd['documents'] = data['documents']
+    if 'skills' in data:
+        upd['skills'] = parse_skills_input(data.get('skills'))
+    if 'responsibilities' in data:
+        upd['responsibilities'] = str(data.get('responsibilities') or '').strip()
+    if 'reports_to' in data:
+        target_cid = (existing_emp.get('company_id') if existing_emp else None) or company_id
+        upd['reports_to'] = _validate_company_reports_to_ids(db, data.get('reports_to'), target_cid, exclude_emp_id=emp_id)
     if 'company_id' in data and data['company_id']:
         upd['company_id'] = str(data['company_id'])
 
@@ -2247,6 +2432,11 @@ def delete_employee(emp_id, company_id=None):
     if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
         f = {'$and': [f, {'company_id': str(company_id)}]}
     db.employees.delete_one(f)
+    # Clean up stale references to the deleted employee in other employees' reports_to lists
+    pull_q = {'reports_to': str(emp_id)}
+    if company_id and str(company_id) not in ['ALL', 'ARGUS_MASTER']:
+        pull_q['company_id'] = str(company_id)
+    db.employees.update_many(pull_q, {'$pull': {'reports_to': str(emp_id)}})
     invalidate_dashboard_cache(company_id)
     invalidate_branch_emp_cache(company_id)
     invalidate_face_embeddings_cache(company_id)

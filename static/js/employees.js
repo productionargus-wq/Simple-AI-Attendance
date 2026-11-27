@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Fetch and render data
   async function loadEmployees() {
     if (window.renderTableLoading && tableBody) {
-      window.renderTableLoading(tableBody, "Loading employee directory...", 13);
+      window.renderTableLoading(tableBody, "Loading employee directory...", 15);
     }
     if (window.renderGridLoading && employeeGridSection && employeeGridSection.style.display !== "none") {
       window.renderGridLoading(employeeGridSection, "Loading employee directory...");
@@ -951,12 +951,457 @@ document.addEventListener('DOMContentLoaded', function () {
   departmentCombobox = smartDeptDesigSystem.dept;
   designationCombobox = smartDeptDesigSystem.desig;
 
+  // =========================================================================
+  // Role Profile System: Skillset Badges, Responsibilities & Reports To
+  // =========================================================================
+  function getSkillBadgeClass(skillName) {
+    const str = String(skillName || '').trim().toLowerCase();
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return `skill-badge-c${Math.abs(hash) % 8}`;
+  }
+
+  function parseSkillsList(raw) {
+    if (!raw) return [];
+    const arr = Array.isArray(raw) ? raw : String(raw).split(/[,\n\r]+/);
+    const seen = new Set();
+    const out = [];
+    arr.forEach(item => {
+      const clean = String(item || '').trim();
+      if (!clean) return;
+      const low = clean.toLowerCase();
+      if (!seen.has(low)) {
+        seen.add(low);
+        out.push(clean);
+      }
+    });
+    return out;
+  }
+
+  function renderSkillBadgesHtml(skills, opts = {}) {
+    const list = parseSkillsList(skills);
+    if (list.length === 0) return '';
+    const maxDisplay = opts.maxDisplay || 0;
+    const removable = Boolean(opts.removable);
+    const compact = Boolean(opts.compact);
+    const visible = (maxDisplay > 0 && list.length > maxDisplay) ? list.slice(0, maxDisplay) : list;
+    const extraCount = (maxDisplay > 0 && list.length > maxDisplay) ? (list.length - maxDisplay) : 0;
+
+    const badges = visible.map(skill => {
+      const colorCls = getSkillBadgeClass(skill);
+      const sizeStyle = compact ? 'padding: 2px 7px; font-size: 10px;' : '';
+      const removeBtn = removable
+        ? `<button type="button" class="skill-badge-remove" data-skill="${escapeHtml(skill)}" title="Remove ${escapeHtml(skill)}" aria-label="Remove ${escapeHtml(skill)}">&times;</button>`
+        : '';
+      return `<span class="skill-badge ${colorCls}" style="${sizeStyle}">${escapeHtml(skill)}${removeBtn}</span>`;
+    }).join('');
+
+    const moreBadge = extraCount > 0
+      ? `<span class="skill-badge" style="background: #f1f5f9; color: #475569; border-color: #cbd5e1; ${compact ? 'padding: 2px 7px; font-size: 10px;' : ''}">+${extraCount} more</span>`
+      : '';
+    return badges + moreBadge;
+  }
+
+  function parseResponsibilitiesPoints(raw) {
+    if (!raw) return [];
+    const lines = Array.isArray(raw) ? raw.map(x => String(x || '')) : String(raw).split(/\r?\n/);
+    const pts = [];
+    lines.forEach(line => {
+      const cleaned = line.replace(/^\s*(?:[•\-\*]|\d+[.)])\s*/, '').trim();
+      if (cleaned) pts.push(cleaned);
+    });
+    return pts;
+  }
+
+  function initRoleProfileController() {
+    const inSkills = document.getElementById('inputSkills');
+    const skillsPreview = document.getElementById('skillsBadgePreview');
+    const inResp = document.getElementById('inputResponsibilities');
+    const btnAddRespPoint = document.getElementById('btnAddRespPoint');
+
+    const inReportsTo = document.getElementById('inputReportsTo');
+    const reportsToInputBox = document.getElementById('reportsToInputBox');
+    const reportsToSearch = document.getElementById('reportsToSearchInput');
+    const reportsToToggleArrow = document.getElementById('reportsToToggleArrow');
+    const reportsToPanel = document.getElementById('reportsToDropdownPanel');
+    const reportsToPanelHeading = document.getElementById('reportsToPanelHeading');
+    const reportsToOptionsList = document.getElementById('reportsToOptionsList');
+    const reportsToSelectedBox = document.getElementById('reportsToSelectedDisplay');
+    const reportsToCountLabel = document.getElementById('reportsToCountLabel');
+    const reportsToChipsRow = document.getElementById('reportsToChipsRow');
+
+    let companyDirectory = [];
+    let directoryLoaded = false;
+    let directoryLoading = false;
+    let selectedIds = [];
+    let fallbackDetailsMap = {};
+    let highlightedIndex = -1;
+
+    function renderSkillsPreview() {
+      if (!skillsPreview || !inSkills) return;
+      const skills = parseSkillsList(inSkills.value);
+      if (skills.length === 0) {
+        skillsPreview.innerHTML = '<span class="skill-badges-empty">Colorful skill badges will appear here as you type...</span>';
+        return;
+      }
+      skillsPreview.innerHTML = renderSkillBadgesHtml(skills, { removable: true });
+      skillsPreview.querySelectorAll('.skill-badge-remove').forEach(btn => {
+        btn.addEventListener('click', function () {
+          const targetSkill = this.getAttribute('data-skill') || '';
+          const nextSkills = parseSkillsList(inSkills.value).filter(
+            s => s.toLowerCase() !== targetSkill.toLowerCase()
+          );
+          inSkills.value = nextSkills.join(', ');
+          renderSkillsPreview();
+        });
+      });
+    }
+
+    if (inSkills) {
+      inSkills.addEventListener('input', renderSkillsPreview);
+    }
+
+    if (btnAddRespPoint && inResp) {
+      btnAddRespPoint.addEventListener('click', function () {
+        const cur = inResp.value;
+        const needsNewline = cur.length > 0 && !cur.endsWith('\n');
+        inResp.value = cur + (needsNewline ? '\n• ' : (cur.endsWith('• ') ? '' : '• '));
+        inResp.focus();
+        inResp.setSelectionRange(inResp.value.length, inResp.value.length);
+      });
+    }
+
+    if (inResp) {
+      inResp.addEventListener('keydown', function (e) {
+        if (e.isComposing || e.key !== 'Enter') return;
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        if (start !== end) return;
+        const textBefore = this.value.substring(0, start);
+        const lastNewline = textBefore.lastIndexOf('\n');
+        const currentLine = textBefore.substring(lastNewline + 1);
+        const bulletMatch = currentLine.match(/^(\s*(?:•|-|\*)\s+)/);
+        if (!bulletMatch) return;
+        e.preventDefault();
+        // If line only has the empty bullet, exit bullet mode cleanly
+        if (currentLine.trim().length <= 1) {
+          this.value = this.value.substring(0, lastNewline + 1) + this.value.substring(end);
+          this.setSelectionRange(lastNewline + 1, lastNewline + 1);
+        } else {
+          const insertion = '\n' + bulletMatch[1];
+          this.value = textBefore + insertion + this.value.substring(end);
+          const pos = start + insertion.length;
+          this.setSelectionRange(pos, pos);
+        }
+      });
+    }
+
+    async function ensureDirectoryLoaded(force = false) {
+      if (directoryLoading) return;
+      if (directoryLoaded && !force) return;
+      directoryLoading = true;
+      if (reportsToOptionsList && reportsToPanel && reportsToPanel.classList.contains('show')) {
+        reportsToOptionsList.innerHTML = '<div style="padding: 14px; text-align: center; color: #64748b; font-size: 12px;">Loading company employees...</div>';
+      }
+      try {
+        const res = await fetch('/api/employees/company-directory');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.employees)) {
+            companyDirectory = data.employees;
+            directoryLoaded = true;
+            companyDirectory.forEach(emp => {
+              fallbackDetailsMap[String(emp.id)] = emp;
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load company employee directory:', err);
+      } finally {
+        directoryLoading = false;
+        if (reportsToPanel && reportsToPanel.classList.contains('show')) {
+          renderReportsToOptions(reportsToSearch ? reportsToSearch.value : '');
+        }
+        renderReportsToSelected();
+      }
+    }
+
+    function getCurrentEditingEmpId() {
+      const formIdEl = document.getElementById('formEmployeeId');
+      return formIdEl ? String(formIdEl.value || '').trim() : '';
+    }
+
+    function getFilteredDirectory(query = '') {
+      const editingId = getCurrentEditingEmpId();
+      const q = String(query || '').trim().toLowerCase();
+      return companyDirectory.filter(emp => {
+        if (editingId && String(emp.id) === editingId) return false;
+        if (!q) return true;
+        return (
+          (emp.employee_name || '').toLowerCase().includes(q) ||
+          (emp.designation || '').toLowerCase().includes(q) ||
+          (emp.department || '').toLowerCase().includes(q) ||
+          String(emp.id || '').toLowerCase().includes(q)
+        );
+      });
+    }
+
+    function positionReportsToDropdown() {
+      if (!reportsToPanel || !reportsToInputBox) return;
+      const rect = reportsToInputBox.getBoundingClientRect();
+      const modalBody = reportsToInputBox.closest('.emp-modal-body');
+      const containerBottom = modalBody ? modalBody.getBoundingClientRect().bottom : window.innerHeight;
+      const containerTop = modalBody ? modalBody.getBoundingClientRect().top : 0;
+      const spaceBelow = containerBottom - rect.bottom;
+      const spaceAbove = rect.top - containerTop;
+      if (spaceBelow < 240 && spaceAbove > spaceBelow) {
+        reportsToPanel.classList.add('flip-up');
+      } else {
+        reportsToPanel.classList.remove('flip-up');
+      }
+    }
+
+    function openReportsToDropdown() {
+      if (!reportsToPanel) return;
+      positionReportsToDropdown();
+      reportsToPanel.classList.add('show');
+      if (reportsToInputBox) reportsToInputBox.classList.add('is-open');
+      if (reportsToSearch) reportsToSearch.setAttribute('aria-expanded', 'true');
+      highlightedIndex = -1;
+      if (!directoryLoaded) {
+        ensureDirectoryLoaded(false);
+      }
+      renderReportsToOptions(reportsToSearch ? reportsToSearch.value : '');
+    }
+
+    function closeReportsToDropdown() {
+      if (!reportsToPanel) return;
+      reportsToPanel.classList.remove('show');
+      if (reportsToInputBox) reportsToInputBox.classList.remove('is-open');
+      if (reportsToSearch) reportsToSearch.setAttribute('aria-expanded', 'false');
+      highlightedIndex = -1;
+    }
+
+    function toggleManagerSelection(empObjOrId) {
+      const id = typeof empObjOrId === 'object' ? String(empObjOrId.id) : String(empObjOrId);
+      if (!id) return;
+      if (typeof empObjOrId === 'object') {
+        fallbackDetailsMap[id] = empObjOrId;
+      }
+      const idx = selectedIds.indexOf(id);
+      if (idx >= 0) {
+        selectedIds.splice(idx, 1);
+      } else {
+        selectedIds.push(id);
+      }
+      renderReportsToSelected();
+      renderReportsToOptions(reportsToSearch ? reportsToSearch.value : '');
+    }
+
+    function renderReportsToOptions(filterText = '') {
+      if (!reportsToOptionsList) return;
+      if (directoryLoading && !directoryLoaded) {
+        reportsToOptionsList.innerHTML = '<div style="padding: 14px; text-align: center; color: #64748b; font-size: 12px;">Loading company employees...</div>';
+        return;
+      }
+      const filtered = getFilteredDirectory(filterText);
+      if (reportsToPanelHeading) {
+        reportsToPanelHeading.textContent = `COMPANY EMPLOYEES (${filtered.length})`;
+      }
+      if (filtered.length === 0) {
+        reportsToOptionsList.innerHTML = '<div style="padding: 14px; text-align: center; color: #94a3b8; font-size: 12px;">No matching employees found in this company.</div>';
+        return;
+      }
+
+      reportsToOptionsList.innerHTML = '';
+      filtered.forEach((emp, i) => {
+        const empId = String(emp.id);
+        const isSelected = selectedIds.includes(empId);
+        const initials = (emp.employee_name || 'E').trim().substring(0, 2).toUpperCase();
+        const roleSub = [emp.designation, emp.department, emp.branch_name].filter(Boolean).join(' · ') || `ID: ${empId}`;
+        const statusTag = emp.status === 'Inactive'
+          ? '<span style="font-size: 10px; background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; padding: 1px 6px; border-radius: 9999px; font-weight: 700;">Inactive</span>'
+          : '';
+
+        const item = document.createElement('div');
+        item.className = 'reports-to-option-item' + (isSelected ? ' selected' : '') + (i === highlightedIndex ? ' highlighted' : '');
+        item.setAttribute('role', 'option');
+        item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+        item.innerHTML = `
+          <div class="reports-to-option-left">
+            <span class="reports-to-avatar">${escapeHtml(initials)}</span>
+            <div class="reports-to-option-meta">
+              <div class="reports-to-option-name">${escapeHtml(emp.employee_name)}</div>
+              <div class="reports-to-option-sub">${escapeHtml(roleSub)}</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+            ${statusTag}
+            <span style="font-size: 13px; font-weight: 800; color: ${isSelected ? '#1d4ed8' : '#cbd5e1'};">${isSelected ? '✓' : '+'}</span>
+          </div>
+        `;
+        item.addEventListener('mousedown', (e) => {
+          // Keep input focus so multi-selecting feels seamless
+          e.preventDefault();
+          toggleManagerSelection(emp);
+        });
+        reportsToOptionsList.appendChild(item);
+      });
+    }
+
+    function renderReportsToSelected() {
+      if (inReportsTo) {
+        inReportsTo.value = JSON.stringify(selectedIds);
+      }
+      if (reportsToCountLabel) {
+        reportsToCountLabel.textContent = selectedIds.length === 0
+          ? 'None selected'
+          : `${selectedIds.length} manager${selectedIds.length === 1 ? '' : 's'} selected`;
+      }
+      if (reportsToSelectedBox) {
+        reportsToSelectedBox.classList.toggle('has-selection', selectedIds.length > 0);
+      }
+      if (!reportsToChipsRow) return;
+
+      if (selectedIds.length === 0) {
+        reportsToChipsRow.innerHTML = '<span class="skill-badges-empty">No reporting managers selected yet.</span>';
+        return;
+      }
+
+      reportsToChipsRow.innerHTML = '';
+      selectedIds.forEach(id => {
+        const emp = companyDirectory.find(e => String(e.id) === String(id)) || fallbackDetailsMap[String(id)] || {
+          id,
+          employee_name: `Employee #${id}`,
+          designation: ''
+        };
+        const initials = (emp.employee_name || 'M').trim().substring(0, 2).toUpperCase();
+        const roleTxt = [emp.designation, emp.department].filter(Boolean).join(' · ') || `ID: ${emp.id}`;
+        const chip = document.createElement('div');
+        chip.className = 'reports-to-chip';
+        chip.innerHTML = `
+          <span class="reports-to-chip-avatar">${escapeHtml(initials)}</span>
+          <div class="reports-to-chip-info">
+            <span class="reports-to-chip-name">${escapeHtml(emp.employee_name)}</span>
+            <span class="reports-to-chip-role">${escapeHtml(roleTxt)}</span>
+          </div>
+          <button type="button" class="reports-to-chip-remove" title="Remove ${escapeHtml(emp.employee_name)}" aria-label="Remove ${escapeHtml(emp.employee_name)}">&times;</button>
+        `;
+        chip.querySelector('.reports-to-chip-remove').addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleManagerSelection(id);
+        });
+        reportsToChipsRow.appendChild(chip);
+      });
+    }
+
+    if (reportsToSearch) {
+      reportsToSearch.addEventListener('focus', openReportsToDropdown);
+      reportsToSearch.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openReportsToDropdown();
+      });
+      reportsToSearch.addEventListener('input', (e) => {
+        if (!reportsToPanel || !reportsToPanel.classList.contains('show')) {
+          openReportsToDropdown();
+        }
+        highlightedIndex = -1;
+        renderReportsToOptions(e.target.value);
+      });
+      reportsToSearch.addEventListener('keydown', (e) => {
+        if (e.isComposing) return;
+        const items = reportsToOptionsList ? reportsToOptionsList.querySelectorAll('.reports-to-option-item') : [];
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (!reportsToPanel.classList.contains('show')) openReportsToDropdown();
+          if (items.length > 0) {
+            highlightedIndex = (highlightedIndex + 1) % items.length;
+            items.forEach((el, idx) => el.classList.toggle('highlighted', idx === highlightedIndex));
+            items[highlightedIndex].scrollIntoView({ block: 'nearest' });
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (items.length > 0) {
+            highlightedIndex = highlightedIndex <= 0 ? items.length - 1 : highlightedIndex - 1;
+            items.forEach((el, idx) => el.classList.toggle('highlighted', idx === highlightedIndex));
+            items[highlightedIndex].scrollIntoView({ block: 'nearest' });
+          }
+        } else if (e.key === 'Enter') {
+          if (reportsToPanel && reportsToPanel.classList.contains('show')) {
+            e.preventDefault();
+            const filtered = getFilteredDirectory(reportsToSearch.value);
+            const target = (highlightedIndex >= 0 && filtered[highlightedIndex]) ? filtered[highlightedIndex] : filtered[0];
+            if (target) toggleManagerSelection(target);
+          }
+        } else if (e.key === 'Escape') {
+          closeReportsToDropdown();
+        }
+      });
+    }
+
+    if (reportsToToggleArrow) {
+      reportsToToggleArrow.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (reportsToPanel && reportsToPanel.classList.contains('show')) {
+          closeReportsToDropdown();
+        } else {
+          openReportsToDropdown();
+          if (reportsToSearch) reportsToSearch.focus();
+        }
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      const wrap = document.getElementById('groupReportsTo');
+      if (wrap && !wrap.contains(e.target)) {
+        closeReportsToDropdown();
+      }
+    });
+
+    return {
+      ensureDirectoryLoaded,
+      renderSkillsPreview,
+      closeDropdown: closeReportsToDropdown,
+      getSelectedIds: () => [...selectedIds],
+      setSelection: (items) => {
+        selectedIds = [];
+        if (Array.isArray(items)) {
+          items.forEach(item => {
+            if (item && typeof item === 'object' && item.id) {
+              const sid = String(item.id);
+              fallbackDetailsMap[sid] = item;
+              if (!selectedIds.includes(sid)) selectedIds.push(sid);
+            } else if (item) {
+              const sid = String(item);
+              if (!selectedIds.includes(sid)) selectedIds.push(sid);
+            }
+          });
+        }
+        renderReportsToSelected();
+      },
+      reset: () => {
+        selectedIds = [];
+        if (reportsToSearch) reportsToSearch.value = '';
+        if (inSkills) inSkills.value = '';
+        if (inResp) inResp.value = '';
+        closeReportsToDropdown();
+        renderReportsToSelected();
+        renderSkillsPreview();
+      }
+    };
+  }
+
+  const roleProfileController = initRoleProfileController();
+
   function renderTableRows(employees) {
     if (!tableBody) return;
     tableBody.innerHTML = '';
 
     const canDelete = Boolean(window.CAN_DELETE_ENTRIES || window.IS_SYSTEM_ADMIN);
-    const colCount = canDelete ? 14 : 13;
+    const colCount = canDelete ? 16 : 15;
 
     if (!employees || employees.length === 0) {
       tableBody.innerHTML = `<tr><td colspan="${colCount}" style="text-align: center; padding: 24px; color: #64748b;">No matching records found</td></tr>`;
@@ -1013,12 +1458,23 @@ document.addEventListener('DOMContentLoaded', function () {
           </button>`
         : '';
 
+      const reportsDetails = Array.isArray(emp.reports_to_details) ? emp.reports_to_details : [];
+      const reportsHtml = reportsDetails.length > 0
+        ? `<div style="display: flex; flex-wrap: wrap; gap: 4px;">${reportsDetails.map(m => `<span class="emp-dir-report-pill" title="${escapeHtml(m.designation || m.department || '')}">${escapeHtml(m.employee_name)}</span>`).join('')}</div>`
+        : '<span style="color: #94a3b8;">-</span>';
+
+      const skillsHtml = (Array.isArray(emp.skills) && emp.skills.length > 0)
+        ? `<div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 220px;">${renderSkillBadgesHtml(emp.skills, { maxDisplay: 3, compact: true })}</div>`
+        : '<span style="color: #94a3b8;">-</span>';
+
       tr.innerHTML = `
         ${chkCol}
         <td style="font-weight: 700; color: #0f172a; white-space: nowrap;">${escapeHtml(emp.id)}</td>
         <td style="text-align: center; vertical-align: middle;">${photoHtml}</td>
         <td class="col-wrap sticky-col-emp" style="max-width: 180px; white-space: normal !important; word-break: break-word !important;"><strong style="color: #0f172a;">${escapeHtml(emp.employee_name)}</strong>${fwBadge}</td>
         <td class="col-wrap" style="color: #475569; max-width: 160px; white-space: normal !important; word-break: break-word !important;">${escapeHtml(emp.designation || '')}</td>
+        <td class="col-wrap" style="max-width: 180px; white-space: normal !important;">${reportsHtml}</td>
+        <td class="col-wrap" style="max-width: 220px; white-space: normal !important;">${skillsHtml}</td>
         <td style="white-space: nowrap;">${statusBadgeHtml}</td>
         <td style="white-space: nowrap;">${badgeHtml}</td>
         <td style="font-weight: 600; white-space: nowrap;">₹${Number(emp.hourly_salary || 0).toFixed(2)}</td>
@@ -1158,6 +1614,13 @@ document.addEventListener('DOMContentLoaded', function () {
             <svg class="emp-grid-contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
             <span class="emp-grid-contact-text" title="${escapeHtml(emp.email_id || '-')}">${escapeHtml(emp.email_id || '-')}</span>
           </div>
+          ${(Array.isArray(emp.reports_to_details) && emp.reports_to_details.length > 0) ? `
+          <div class="emp-grid-contact-row" style="align-items: flex-start;">
+            <svg class="emp-grid-contact-icon" style="margin-top: 2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <span class="emp-grid-contact-text" style="white-space: normal; line-height: 1.35;" title="Reports To">${emp.reports_to_details.map(m => `<span class="emp-dir-report-pill">${escapeHtml(m.employee_name)}</span>`).join(' ')}</span>
+          </div>` : ''}
+          ${(Array.isArray(emp.skills) && emp.skills.length > 0) ? `
+          <div class="emp-grid-skills-row">${renderSkillBadgesHtml(emp.skills, { maxDisplay: 3, compact: true })}</div>` : ''}
         </div>
         <div class="emp-grid-actions">
           <button class="btn-action btn-action-view" onclick="viewEmployee('${emp.id}')" title="View Details">
@@ -1231,6 +1694,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (res.ok && d.success) {
           alert(d.message || `Deleted ${d.deleted_count} employee(s) successfully.`);
           clearSelection();
+          if (roleProfileController) roleProfileController.ensureDirectoryLoaded(true);
           loadEmployees();
         } else {
           alert(d.error || 'Failed to delete selected employees.');
@@ -2070,6 +2534,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // Reset Employee Documents to 1 empty row
     renderEmployeeDocuments([]);
 
+    // Reset Role Profile (Reports To, Skillset, Responsibilities) & prefetch company directory
+    if (roleProfileController) {
+      roleProfileController.reset();
+      roleProfileController.ensureDirectoryLoaded(false);
+    }
+
     if (window.ArgusVoice) {
       window.ArgusVoice.resetFormGuidance('#entryModal');
     }
@@ -2200,6 +2670,21 @@ document.addEventListener('DOMContentLoaded', function () {
       // Render Employee Documents
       renderEmployeeDocuments(emp.documents || []);
 
+      // Populate Role Profile (Reports To, Skillset, Responsibilities)
+      const inSkillsEl = document.getElementById('inputSkills');
+      if (inSkillsEl) {
+        inSkillsEl.value = Array.isArray(emp.skills) ? emp.skills.join(', ') : (emp.skills || '');
+      }
+      const inRespEl = document.getElementById('inputResponsibilities');
+      if (inRespEl) {
+        inRespEl.value = emp.responsibilities || '';
+      }
+      if (roleProfileController) {
+        roleProfileController.renderSkillsPreview();
+        roleProfileController.setSelection(emp.reports_to_details || emp.reports_to || []);
+        roleProfileController.ensureDirectoryLoaded(true);
+      }
+
       if (window.ArgusVoice) {
         window.ArgusVoice.resetFormGuidance('#entryModal');
       }
@@ -2213,6 +2698,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (closeEntryModalBtn) {
     closeEntryModalBtn.addEventListener('click', function () {
       entryModal.classList.remove('active');
+      if (roleProfileController) roleProfileController.closeDropdown();
       stopFaceCamera();
     });
   }
@@ -2221,6 +2707,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnCancelEntryModal) {
     btnCancelEntryModal.addEventListener('click', function () {
       entryModal.classList.remove('active');
+      if (roleProfileController) roleProfileController.closeDropdown();
       stopFaceCamera();
     });
   }
@@ -2267,6 +2754,9 @@ document.addEventListener('DOMContentLoaded', function () {
       updateShiftTypeBadge(false);
       updateGeofenceStatusBadge(true);
       renderEmployeeDocuments([]);
+      if (roleProfileController) {
+        roleProfileController.reset();
+      }
     });
   }
 
@@ -2587,6 +3077,13 @@ document.addEventListener('DOMContentLoaded', function () {
       formData.set('perm_employee_credentials', permCred ? (permCred.checked ? 'true' : 'false') : 'true');
       formData.set('perm_leave_permission', permLeave ? (permLeave.checked ? 'true' : 'false') : 'true');
 
+      // Explicitly serialize Role Profile (Skillset, Responsibilities, Reports To)
+      const inSkillsSubmit = document.getElementById('inputSkills');
+      const inRespSubmit = document.getElementById('inputResponsibilities');
+      formData.set('skills', JSON.stringify(parseSkillsList(inSkillsSubmit ? inSkillsSubmit.value : '')));
+      formData.set('responsibilities', inRespSubmit ? inRespSubmit.value.trim() : '');
+      formData.set('reports_to', JSON.stringify(roleProfileController ? roleProfileController.getSelectedIds() : []));
+
       // Explicitly serialize employee documents
       if (employeeDocsContainer) {
         // 1. Retained existing documents
@@ -2682,6 +3179,7 @@ document.addEventListener('DOMContentLoaded', function () {
           if (submittedDept && departmentCombobox) departmentCombobox.addItems([submittedDept]);
           if (submittedDesig && designationCombobox) designationCombobox.addItems([submittedDesig]);
           alert(msg);
+          if (roleProfileController) roleProfileController.ensureDirectoryLoaded(true);
           loadEmployees();
         } else {
           if (window.hideSavingPopup) window.hideSavingPopup();
@@ -2747,12 +3245,34 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const stLabels = { hourly: 'Hourly-Based', daily: 'Day-Based', half_day: 'Half-Day-Based' };
+      const reportsDetails = Array.isArray(emp.reports_to_details) ? emp.reports_to_details : [];
+      const reportsViewHtml = reportsDetails.length > 0
+        ? `<div style="display: flex; flex-wrap: wrap; gap: 6px;">${reportsDetails.map(m => {
+            const mRole = [m.designation, m.department].filter(Boolean).join(' · ');
+            return `<span class="emp-dir-report-pill" style="padding: 4px 10px; font-size: 12px;">${escapeHtml(m.employee_name)}${mRole ? ` <span style="color:#64748b; font-weight:500;">(${escapeHtml(mRole)})</span>` : ''}</span>`;
+          }).join('')}</div>`
+        : '<span style="color: #94a3b8;">-</span>';
+
+      const skillsViewHtml = (Array.isArray(emp.skills) && emp.skills.length > 0)
+        ? `<div style="display: flex; flex-wrap: wrap; gap: 6px;">${renderSkillBadgesHtml(emp.skills)}</div>`
+        : '<span style="color: #94a3b8;">-</span>';
+
+      const respPoints = Array.isArray(emp.responsibilities_points) && emp.responsibilities_points.length > 0
+        ? emp.responsibilities_points
+        : parseResponsibilitiesPoints(emp.responsibilities || '');
+      const respViewHtml = respPoints.length > 0
+        ? `<ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; color: #1e293b;">${respPoints.map(pt => `<li>${escapeHtml(pt)}</li>`).join('')}</ul>`
+        : '<span style="color: #94a3b8;">-</span>';
+
       const fields = [
         ['ID', emp.id],
         ['PHOTO', photoFile ? `<a href="/uploads/${escapeHtml(photoFile)}" target="_blank" style="color: #0d6efd; font-weight: 700; text-decoration: underline;">View Uploaded Photo</a>` : 'No photo registered'],
         ['EMPLOYEE NAME', emp.employee_name],
         ['DEPARTMENT', emp.department || emp.designation || '-'],
         ['DESIGNATION', emp.designation],
+        ['REPORTS TO', reportsViewHtml],
+        ['SKILLSET', skillsViewHtml],
+        ['RESPONSIBILITIES', respViewHtml],
         ['STATUS', (emp.status === 'Inactive') ? '<span class="status-pill status-inactive">Inactive</span>' : '<span class="status-pill status-active">Active</span>'],
         ...(emp.company_calculate_proper_entries === false ? [
           ['GEOFENCE VALIDATION', '<span class="status-pill" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;">🏢 Company Disabled – Allow All Locations</span>']
@@ -2810,7 +3330,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       fields.push(['EMPLOYEE DOCUMENTS', docsHtml]);
 
-      const htmlLabels = new Set(['PHOTO', 'STATUS', 'EMPLOYEE TYPE', 'EMPLOYEE DOCUMENTS']);
+      const htmlLabels = new Set(['PHOTO', 'STATUS', 'EMPLOYEE TYPE', 'EMPLOYEE DOCUMENTS', 'REPORTS TO', 'SKILLSET', 'RESPONSIBILITIES']);
 
       fields.forEach(([label, val]) => {
         const tr = document.createElement('tr');
@@ -2902,6 +3422,7 @@ document.addEventListener('DOMContentLoaded', function () {
           if (window.ArgusVoice) {
             ArgusVoice.announceSuccess('ஊழியர் விவரம் நீக்கப்பட்டது.', 'Employee record deleted successfully.');
           }
+          if (roleProfileController) roleProfileController.ensureDirectoryLoaded(true);
           loadEmployees();
         } else {
           alert(data.error || 'Failed to delete employee');
@@ -3628,6 +4149,18 @@ document.addEventListener('DOMContentLoaded', function () {
       '#inputGracePeriod': {
         english: 'Enter grace period minutes allowed for late punch in.',
         tamil: 'தாமத வருகைக்கு அனுமதிக்கப்பட்ட சலுகை நிமிடங்களை உள்ளிடவும்.'
+      },
+      '#reportsToSearchInput': {
+        english: 'Select the managers or supervisors this employee reports to.',
+        tamil: 'இந்த ஊழியர் யாருக்கு கீழ் பணிபுரிகிறார் என்பதைத் தேர்ந்தெடுக்கவும்.'
+      },
+      '#inputSkills': {
+        english: 'Enter employee skills separated by commas, such as Python or CNC machine operating.',
+        tamil: 'ஊழியரின் திறன்களை காற்புள்ளியால் பிரித்து உள்ளிடவும்.'
+      },
+      '#inputResponsibilities': {
+        english: 'Enter the key job responsibilities for this employee in points.',
+        tamil: 'ஊழியரின் முக்கியப் பொறுப்புகளைப் புள்ளிகளாக உள்ளிடவும்.'
       }
     });
   }

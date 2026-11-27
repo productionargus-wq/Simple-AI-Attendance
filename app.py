@@ -3370,6 +3370,17 @@ def api_get_employee_names():
         'total': len(names)
     })
 
+@app.route('/api/employees/company-directory', methods=['GET'])
+@login_required
+def api_get_company_employee_directory():
+    comp_id = get_current_company_id()
+    employees = database.get_company_employee_directory(company_id=comp_id)
+    return jsonify({
+        'success': True,
+        'employees': employees,
+        'total': len(employees)
+    })
+
 @app.route('/api/employees', methods=['GET'])
 @login_required
 def api_get_employees():
@@ -3855,17 +3866,26 @@ def api_employees_export_excel():
     branch_id = request.args.get('branch_id') or get_current_branch_id()
     result = database.get_all_employees(search=search, limit=10000, company_id=comp_id, status=status, branch_id=branch_id, include_photo_data=False)
     
-    headers = ['SL NO', 'EMPLOYEE ID', 'EMPLOYEE NAME', 'STATUS', 'SALARY BASIS', 'HOURLY SALARY', 'DAY SALARY', 'HALF DAY SALARY', 'MOBILE NUMBER', 'SHIFT HOURS', 'BANK NAME', 'ACCOUNT NUMBER', 'DATE OF JOINING']
+    headers = ['SL NO', 'EMPLOYEE ID', 'EMPLOYEE NAME', 'STATUS', 'REPORTS TO', 'SKILLSET', 'RESPONSIBILITIES', 'SALARY BASIS', 'HOURLY SALARY', 'DAY SALARY', 'HALF DAY SALARY', 'MOBILE NUMBER', 'SHIFT HOURS', 'BANK NAME', 'ACCOUNT NUMBER', 'DATE OF JOINING']
     rows = []
     for idx, emp in enumerate(result['data'], 1):
         st = str(emp.get('salary_type', 'hourly')).lower()
         st_label = 'Hourly' if st == 'hourly' else ('Day-Based' if st == 'daily' else 'Half-Day')
         emp_status = 'Inactive' if str(emp.get('status', 'Active')).strip().capitalize() == 'Inactive' else 'Active'
+        reports_to_str = ', '.join([
+            f"{m.get('employee_name', '')} ({m.get('designation') or m.get('department') or 'Staff'})"
+            for m in (emp.get('reports_to_details') or []) if m.get('employee_name')
+        ])
+        skills_str = ', '.join(emp.get('skills') or [])
+        resp_str = str(emp.get('responsibilities') or '').replace('\r\n', '\n').strip()
         rows.append([
             idx,
             emp.get('id', ''),
             emp.get('employee_name', ''),
             emp_status,
+            reports_to_str,
+            skills_str,
+            resp_str,
             st_label,
             emp.get('hourly_salary', 0),
             emp.get('day_salary', 0),

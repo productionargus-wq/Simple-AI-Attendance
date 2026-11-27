@@ -249,6 +249,42 @@
     .emp-profile-pill strong {
       color: #0f172a;
     }
+    .portal-role-block {
+      flex-basis: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-top: 4px;
+    }
+    .portal-report-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 9999px;
+      padding: 2px 9px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .portal-skill-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 9px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+    .portal-skill-c0 { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+    .portal-skill-c1 { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+    .portal-skill-c2 { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+    .portal-skill-c3 { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+    .portal-skill-c4 { background: #fff1f2; color: #be123c; border-color: #fecdd3; }
+    .portal-skill-c5 { background: #ecfeff; color: #0e7490; border-color: #a5f3fc; }
+    .portal-skill-c6 { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
+    .portal-skill-c7 { background: #f0fdfa; color: #0f766e; border-color: #99f6e4; }
     .btn-portal-primary {
       background-color: #198754;
       color: #ffffff;
@@ -1148,6 +1184,36 @@
         <div><strong>Mobile:</strong> {{ employee.mobile_number if employee else '-' }}</div>
         <div><strong>Shift Hours:</strong> {{ '-' if (employee and (employee.no_shift or employee.shift_hours == '-')) else (employee.shift_hours if employee else '09:00') }}</div>
         <div><strong>Company:</strong> {{ company.company_name if company else 'Argus CNC™' }}</div>
+        {% if employee and employee.reports_to_details %}
+        <div class="portal-role-block">
+          <strong>Reports To:</strong>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            {% for mgr in employee.reports_to_details %}
+            <span class="portal-report-chip">{{ mgr.employee_name }}{% if mgr.designation %} ({{ mgr.designation }}){% endif %}</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% if employee and employee.skills %}
+        <div class="portal-role-block">
+          <strong>Skillset:</strong>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            {% for sk in employee.skills %}
+            <span class="portal-skill-badge portal-skill-c{{ loop.index0 % 8 }}">{{ sk }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% if employee and employee.responsibilities_points %}
+        <div class="portal-role-block">
+          <strong>Responsibilities:</strong>
+          <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px;">
+            {% for pt in employee.responsibilities_points %}
+            <li>{{ pt }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
       </div>
     </div>
 
