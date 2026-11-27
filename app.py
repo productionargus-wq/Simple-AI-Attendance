@@ -11245,6 +11245,7 @@ def api_set_active_branch():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    _debug = os.environ.get('FLASK_DEBUG', '').strip().lower() in ('1', 'true', 'yes')
+    app.run(host='127.0.0.1' if not _debug else '0.0.0.0', port=5000, debug=_debug)
 
 

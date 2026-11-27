@@ -7916,13 +7916,13 @@ def get_payslip_data(employee_name, month_year=None, company_id=None, branch_id=
     payment_query = {
         'employee_name': query_emp_name,
         '$or': [
-            {'payment_date': {'$regex': f'^{month_year}'}},
-            {'timestamp': {'$regex': f'^{month_year}'}}
+            {'payment_date': {'$regex': f'^{safe_month_year}'}},
+            {'timestamp': {'$regex': f'^{safe_month_year}'}}
         ]
     }
     try:
-        parts = month_year.split('-')
-        payment_query['$or'].append({'timestamp': {'$regex': f"-{parts[1]}-{parts[0]}"}})
+        parts = str(month_year).split('-')
+        payment_query['$or'].append({'timestamp': {'$regex': re.escape(f"-{parts[1]}-{parts[0]}")}})
     except Exception:
         pass
     payments = list(db.payments.find(payment_query))
@@ -7932,7 +7932,7 @@ def get_payslip_data(employee_name, month_year=None, company_id=None, branch_id=
     petrol_cfg = None
     visits = []
     try:
-        log_q = {'employee_name': query_emp_name, 'date': {'$regex': f'^{re.escape(month_year)}'}}
+        log_q = {'employee_name': query_emp_name, 'date': {'$regex': f'^{safe_month_year}'}}
         if assigned_company_id and assigned_company_id not in ['ALL', 'ARGUS_MASTER']:
             log_q['company_id'] = str(assigned_company_id)
         travel_logs = list(db.field_location_logs.find(log_q))
@@ -7942,7 +7942,7 @@ def get_payslip_data(employee_name, month_year=None, company_id=None, branch_id=
         travel_logs = []
 
     try:
-        visit_q = {'employee_name': query_emp_name, 'visit_date': {'$regex': f'^{re.escape(month_year)}'}}
+        visit_q = {'employee_name': query_emp_name, 'visit_date': {'$regex': f'^{safe_month_year}'}}
         if assigned_company_id and assigned_company_id not in ['ALL', 'ARGUS_MASTER']:
             visit_q['company_id'] = str(assigned_company_id)
         visits = list(db.field_customer_visits.find(visit_q))
@@ -7954,8 +7954,8 @@ def get_payslip_data(employee_name, month_year=None, company_id=None, branch_id=
         'request_type': 'Leave',
         'status': 'Approved',
         '$or': [
-            {'from_date': {'$regex': f'^{month_year}'}},
-            {'to_date': {'$regex': f'^{month_year}'}}
+            {'from_date': {'$regex': f'^{safe_month_year}'}},
+            {'to_date': {'$regex': f'^{safe_month_year}'}}
         ]
     }
     approved_perm_query = {
@@ -7963,8 +7963,8 @@ def get_payslip_data(employee_name, month_year=None, company_id=None, branch_id=
         'request_type': 'Permission',
         'status': 'Approved',
         '$or': [
-            {'from_date': {'$regex': f'^{month_year}'}},
-            {'date': {'$regex': f'^{month_year}'}}
+            {'from_date': {'$regex': f'^{safe_month_year}'}},
+            {'date': {'$regex': f'^{safe_month_year}'}}
         ]
     }
     if assigned_company_id and assigned_company_id not in ['ALL', 'ARGUS_MASTER']:
@@ -10437,7 +10437,7 @@ def search_field_destinations(query, company_id=None):
     # 2. Local Search: Previous Field Assignments
     try:
         asgn_q = {
-            'target_name': {'$regex': clean_q, '$options': 'i'},
+            'target_name': {'$regex': re.escape(clean_q), '$options': 'i'},
             'target_lat': {'$exists': True, '$ne': None},
             'target_lng': {'$exists': True, '$ne': None}
         }
@@ -10467,7 +10467,7 @@ def search_field_destinations(query, company_id=None):
 
     # 3. Local Search: Company Branches
     try:
-        branch_q = {'branch_name': {'$regex': clean_q, '$options': 'i'}}
+        branch_q = {'branch_name': {'$regex': re.escape(clean_q), '$options': 'i'}}
         if company_id and company_id != 'ALL':
             branch_q['company_id'] = str(company_id)
         for b in db.company_branches.find(branch_q).limit(3):
