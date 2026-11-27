@@ -184,7 +184,7 @@
         if (exRes.ok && exData && exData.success && exData.token) {
           window.ArgusConfig.setToken(exData.token);
           if (exData.employee) {
-            enterPortal(exData.employee, exData.company);
+            applyAuthenticatedEmployee(exData.employee, exData.company);
             return;
           }
           var okEx = await restoreEmployeeSession();
